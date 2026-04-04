@@ -378,7 +378,7 @@ local function run()
     defaultMachines = compute_default_machines(machines, category_map),
   }
 
-  local json = game.table_to_json(output)
+  local json = helpers.table_to_json(output)
   game.write_file(OUTPUT_FILE, json)
 
   local function count(t)
