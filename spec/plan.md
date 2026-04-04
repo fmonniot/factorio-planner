@@ -156,8 +156,12 @@ Before writing a line of application code, establish what the real data looks li
   name, power, plus labeled outputs and inputs with rates. Resolves machine from planNode or
   gameData defaultMachines. Formatting helpers for rate (adaptive decimals) and power (kW/MW).
 
-- [ ] **4.5 Tree view (layout)**
-  Arrange recipe cards in a top-down dependency tree. Handle shared nodes (one card, multiple incoming edges). Scrollable canvas.
+- [x] **4.5 Tree view (layout)**
+  `src/components/TreeView.tsx` — horizontally scrollable column layout. `buildColumns` assigns
+  each node a depth via BFS from goal producers (re-visits to maximise depth, pushing raw
+  inputs right). Goal-producing nodes are column 0; orphaned nodes (no path from any goal) get
+  a trailing column. Each column renders RecipeCards stacked vertically. Handles idle/pending/
+  error/empty states with informative messages. App.tsx main slot updated to TreeView.
 
 - [ ] **4.6 Summary bar**
   Total machines, total power, raw resource list. Connected to `SolverResult`.
