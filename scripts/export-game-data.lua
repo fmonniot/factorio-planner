@@ -379,7 +379,7 @@ local function run()
   }
 
   local json = helpers.table_to_json(output)
-  game.write_file(OUTPUT_FILE, json)
+  helpers.write_file(OUTPUT_FILE, json)
 
   local function count(t)
     local n = 0
