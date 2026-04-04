@@ -169,13 +169,13 @@ local function export_machines()
         id                = proto.name,
         name              = proto.name,
         type              = proto.type,
-        -- In Factorio 2.0 the property proto.crafting_speed was replaced by the
-        -- method proto:get_crafting_speed(quality?). Call it via pcall so the
-        -- script does not crash on prototypes that lack the method, falling back
-        -- to 1 (base speed) only as a last resort.
+        -- Use dot notation: proto.get_crafting_speed() passes no implicit self.
+        -- Colon notation (proto:method()) would pass proto as the quality arg.
         craftingSpeed     = (function()
-          local ok, v = pcall(function() return proto:get_crafting_speed() end)
-          return (ok and type(v) == "number" and v) or 1
+          local ok, v = pcall(function() return proto.get_crafting_speed() end)
+          if ok and type(v) == "number" then return v end
+          log("[factorio-planner] get_crafting_speed failed for " .. proto.name .. ": " .. tostring(v))
+          return 1
         end)(),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
