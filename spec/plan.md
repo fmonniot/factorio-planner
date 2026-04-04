@@ -151,8 +151,10 @@ Before writing a line of application code, establish what the real data looks li
   remove button. "+ Add" opens ItemPicker; item names resolved from gameData (falls back to
   itemId). App.tsx sidebar slot updated to render GoalsPanel.
 
-- [ ] **4.4 Recipe card (read-only)**
-  Display a `SolvedNode` as a card: recipe name, rate, machine count, power, input rates. No editing yet.
+- [x] **4.4 Recipe card (read-only)**
+  `src/components/RecipeCard.tsx` — card showing recipe name, throughput, machine count and
+  name, power, plus labeled outputs and inputs with rates. Resolves machine from planNode or
+  gameData defaultMachines. Formatting helpers for rate (adaptive decimals) and power (kW/MW).
 
 - [ ] **4.5 Tree view (layout)**
   Arrange recipe cards in a top-down dependency tree. Handle shared nodes (one card, multiple incoming edges). Scrollable canvas.
