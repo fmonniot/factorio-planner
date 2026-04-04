@@ -101,21 +101,35 @@ Before writing a line of application code, establish what the real data looks li
   `src/solver/index.ts` — solve(plan, gameData) orchestrates all steps and returns SolverResult.
   End-to-end tests: all 6 corpus cases, warnings (no-recipe, productivity-not-allowed).
 
+> **TODO (integration):** Add a `src/solver/index.integration.test.ts` that runs the full solver
+> against the real Nullius `data/samples/nullius/game-data.json` export (gate with `skipIf(!sampleExists)`).
+> Exercise corpus-like goals on real recipe/machine data to catch regressions that synthetic unit
+> tests cannot: missing machine for a category, unexpected item classifications, real craftingSpeed
+> values affecting machine counts.
+
 ---
 
 ## Phase 3 — State and Data Loading
 
-- [ ] **3.1 Plan store**
-  `src/store/planStore.ts` — Zustand store for `Plan` state. Actions: add/remove goal, update goal rate, add/remove node, update node config. Undo/redo via command stack.
+- [x] **3.1 Plan store**
+  `src/store/planStore.ts` — Zustand store for `Plan` state. Actions: add/remove goal, update
+  goal rate, add/remove node, update node machine/modules/beacon/pinnedRate/byproductPolicy.
+  Undo/redo via command pattern (apply+undo pairs on a stack). setPlan() for full replacement.
 
-- [ ] **3.2 Game data store**
-  `src/store/gameDataStore.ts` — loads and holds the active `GameData`. Initially loads bundled vanilla JSON on startup. Exposes an `importGameData(file)` action.
+- [x] **3.2 Game data store**
+  `src/store/gameDataStore.ts` — holds active GameData with status: empty/loading/loaded/error.
+  importGameData(json), importGameDataFile(file), clearGameData(). selectGameData() helper.
+  No bundled file; starts empty. UI will offer file import (Phase 6).
 
-- [ ] **3.3 Solver integration**
-  Wire the solver to the plan store: re-run solver on every plan state change (debounced). Store `SolverResult` as derived state alongside the plan.
+- [x] **3.3 Solver integration**
+  `src/store/solverStore.ts` — holds SolverStatus (idle/pending/solved/error) as derived state.
+  wireSolver() subscribes to planStore + gameDataStore, debounces 150ms, calls solve().
+  Short-circuits to empty result when no gameData or no goals/nodes.
 
-- [ ] **3.4 Plan persistence**
-  Serialize/deserialize `Plan` to/from localStorage. Auto-save on change. Load on startup. Handle missing or malformed stored data gracefully.
+- [x] **3.4 Plan persistence**
+  `src/store/persistence.ts` — savePlan() / loadPersistedPlan() / initPlanPersistence().
+  Auto-saves on every plan reference change via store subscription. Loads on startup with
+  structured error return (ok / missing / error). Silently ignores write failures.
 
 ---
 
