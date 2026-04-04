@@ -18,6 +18,42 @@ function fmtPower(kw: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Alternate recipe selector (5.2)
+// ---------------------------------------------------------------------------
+
+interface AlternateRecipeSelectorProps {
+  nodeId: string
+  currentRecipeId: string
+  primaryItemId: string | undefined
+  gameData: GameData
+}
+
+function AlternateRecipeSelector({ nodeId, currentRecipeId, primaryItemId, gameData }: AlternateRecipeSelectorProps) {
+  const updateNodeRecipe = usePlanStore(s => s.updateNodeRecipe)
+
+  if (!primaryItemId) return null
+
+  // All recipes that produce the primary item.
+  const candidates = Object.values(gameData.recipes).filter(r =>
+    r.products.some(p => p.itemId === primaryItemId)
+  )
+  if (candidates.length < 2) return null
+
+  return (
+    <select
+      value={currentRecipeId}
+      onChange={e => updateNodeRecipe(nodeId, e.target.value)}
+      className="w-full bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none focus:ring-1 focus:ring-blue-500 mb-1"
+      title="Alternate recipe"
+    >
+      {candidates.map(r => (
+        <option key={r.id} value={r.id}>{r.name}</option>
+      ))}
+    </select>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Machine selector (5.1)
 // ---------------------------------------------------------------------------
 
@@ -68,11 +104,22 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
   const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
 
+  // Primary item: explicit mainProduct, or the first product's itemId.
+  const primaryItemId = recipe.mainProduct ?? recipe.products[0]?.itemId
+
   const inputEntries = Object.entries(node.inputRates)
   const outputEntries = Object.entries(node.outputRates)
 
   return (
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 w-72">
+      {/* Alternate recipe selector (only rendered when ≥2 recipes produce primaryItem) */}
+      <AlternateRecipeSelector
+        nodeId={node.recipeNodeId}
+        currentRecipeId={planNode.recipeId}
+        primaryItemId={primaryItemId}
+        gameData={gameData}
+      />
+
       {/* Recipe name */}
       <div className="font-medium text-sm text-gray-100 mb-2 truncate" title={recipe.name}>
         {recipe.name}

@@ -177,8 +177,11 @@ Before writing a line of application code, establish what the real data looks li
   includes the recipe's category, sorted alphabetically. "Default" option maps to undefined
   machineId. Selection calls `updateNodeMachine`; solverStore re-solves via subscription.
 
-- [ ] **5.2 Alternate recipe selector**
-  Dropdown on recipe cards where multiple recipes produce the same item. Triggers re-solve.
+- [x] **5.2 Alternate recipe selector**
+  `<AlternateRecipeSelector>` in RecipeCard: shown only when ≥2 recipes produce the node's
+  primary item (`mainProduct` if set, otherwise first product). Selecting swaps the recipeId
+  and resets machine/modules/beacon/pinnedRate/byproductPolicy via `updateNodeRecipe` (new
+  planStore action, fully undoable).
 
 - [ ] **5.3 Module configuration**
   Per-node module slot editor. Enforces slot count. Triggers re-solve.
