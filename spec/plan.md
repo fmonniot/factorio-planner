@@ -172,26 +172,45 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 5 — UI: Editing
 
-- [ ] **5.1 Machine selector**
-  Dropdown on each recipe card to change the machine type. Filtered to machines supporting the recipe's category. Triggers re-solve.
+- [x] **5.1 Machine selector**
+  `<MachineSelector>` in RecipeCard: `<select>` filtered to machines whose `craftingCategories`
+  includes the recipe's category, sorted alphabetically. "Default" option maps to undefined
+  machineId. Selection calls `updateNodeMachine`; solverStore re-solves via subscription.
 
-- [ ] **5.2 Alternate recipe selector**
-  Dropdown on recipe cards where multiple recipes produce the same item. Triggers re-solve.
+- [x] **5.2 Alternate recipe selector**
+  `<AlternateRecipeSelector>` in RecipeCard: shown only when ≥2 recipes produce the node's
+  primary item (`mainProduct` if set, otherwise first product). Selecting swaps the recipeId
+  and resets machine/modules/beacon/pinnedRate/byproductPolicy via `updateNodeRecipe` (new
+  planStore action, fully undoable).
 
-- [ ] **5.3 Module configuration**
-  Per-node module slot editor. Enforces slot count. Triggers re-solve.
+- [x] **5.3 Module configuration**
+  `<ModuleEditor>` collapsible section in RecipeCard: shows slot usage (used/total), −/+ per
+  module type, and an "add module" selector filtered to modules whose effects are all in
+  `machine.allowedEffects` and whose limitation/limitationBlacklist permit the recipe. Hidden
+  when machine has 0 module slots.
 
-- [ ] **5.4 Beacon configuration**
-  Per-node beacon popover. Triggers re-solve.
+- [x] **5.4 Beacon configuration**
+  `<BeaconEditor>` collapsible section: clicking "▸ Beacon" when no beacon is configured
+  creates a default one (first available module, 4 beacons, 2 modules each, 50% efficiency).
+  Form exposes module selector, beacon count, modules-per-beacon, and distribution efficiency.
+  "×" button removes the beacon config. All changes call `updateNodeBeacon`.
 
-- [ ] **5.5 Rate pinning**
-  Pin/unpin toggle on recipe card rate field. Pinned nodes are passed to solver as fixed variables.
+- [x] **5.5 Rate pinning**
+  `<ThroughputRow>` in RecipeCard: pin icon toggles `pinnedRate`. When unpinned shows computed
+  throughput (read-only, gray); when pinned shows an editable yellow input initialised at the
+  current throughput. Calls `updateNodePinnedRate`; the solver's pin step uses the stored
+  value as a fixed constraint on the next re-solve.
 
-- [ ] **5.6 Byproduct policy editor**
-  Per-product discard/feed-back toggle, accessible from the recipe card inputs/outputs section.
+- [x] **5.6 Byproduct policy editor**
+  Toggle button on each output row when the recipe has >1 product: ↩ = feed-back (default),
+  ✕ = discard. Calls `updateNodeByproductPolicy`. Solver updated in `index.ts` step 3b: before
+  reduction, discarded products have their S matrix entry zeroed so the solver ignores them.
 
-- [ ] **5.7 Table view**
-  Flat sortable table of all nodes. Same inline-edit affordances as tree cards. Toggle between tree and table view.
+- [x] **5.7 Table view**
+  `src/components/TableView.tsx` — sortable table (recipe name, rate, machines, power, machine
+  name) with click-to-expand rows that embed a full RecipeCard for inline editing. Sort by any
+  column with asc/desc toggle. App.tsx `<MainArea>` wraps TreeView/TableView with a Tree/Table
+  toggle button pair; selected view state is local to the session.
 
 ---
 

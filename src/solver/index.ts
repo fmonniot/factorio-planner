@@ -44,6 +44,22 @@ export function solve(plan: Plan, gameData: GameData): SolverResult {
   const recipeIds = plan.nodes.map(n => n.recipeId)
   const matrix = buildStoichiometryMatrix(gameData, recipeIds, productivityMap)
 
+  // ── 3b. Apply byproductPolicy: zero out discarded products ───────────────
+  // A product marked 'discard' is removed from the matrix so the solver
+  // treats it as if that recipe does not produce that item.
+  for (const planNode of plan.nodes) {
+    const j = matrix.recipeIndex.get(planNode.recipeId)
+    if (j === undefined) continue
+    for (const [itemId, policy] of Object.entries(planNode.byproductPolicy)) {
+      if (policy === 'discard') {
+        const i = matrix.itemIndex.get(itemId)
+        if (i !== undefined && matrix.S[i][j] > 0) {
+          matrix.S[i][j] = 0
+        }
+      }
+    }
+  }
+
   // ── 4. Check for goals with no producer in the active recipe set ─────────
   const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
   for (const [itemId] of goalsMap) {

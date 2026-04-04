@@ -32,6 +32,11 @@ export interface PlanStoreState {
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
+  /**
+   * Swap the recipe on a node. Resets machine, modules, beacon, pinnedRate,
+   * and byproductPolicy since they are all recipe-specific. Fully undoable.
+   */
+  updateNodeRecipe: (nodeId: string, recipeId: string) => void
 
   // Undo/redo
   undo: () => void
@@ -234,6 +239,27 @@ export const usePlanStore = create<PlanStoreState>((set) => ({
           nodes: p.nodes.map(n =>
             n.id === nodeId ? { ...n, byproductPolicy: old.byproductPolicy } : n,
           ),
+        }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  updateNodeRecipe: (nodeId, recipeId) =>
+    set((state) => {
+      const old = state.plan.nodes.find(n => n.id === nodeId)
+      if (!old) return state
+      const cmd: Command = {
+        apply: (p) => ({
+          ...p,
+          nodes: p.nodes.map(n =>
+            n.id === nodeId
+              ? { ...n, recipeId, machineId: undefined, modules: [], beaconConfig: undefined, pinnedRate: undefined, byproductPolicy: {} }
+              : n,
+          ),
+        }),
+        undo: (p) => ({
+          ...p,
+          nodes: p.nodes.map(n => n.id === nodeId ? old : n),
         }),
       }
       return applyCommand(state, cmd)
