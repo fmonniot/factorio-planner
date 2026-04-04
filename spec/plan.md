@@ -146,8 +146,10 @@ Before writing a line of application code, establish what the real data looks li
   item name and id. Auto-focuses input, closes on Escape or backdrop click. Graceful empty
   state when no game data is loaded. Used by GoalsPanel (4.3) and any future item-selection UI.
 
-- [ ] **4.3 Goals panel**
-  Add/remove goals. Edit rate inline. Connects to plan store. Shows item names (no icons yet).
+- [x] **4.3 Goals panel**
+  `src/components/GoalsPanel.tsx` — list of goals from planStore with inline rate editing and
+  remove button. "+ Add" opens ItemPicker; item names resolved from gameData (falls back to
+  itemId). App.tsx sidebar slot updated to render GoalsPanel.
 
 - [ ] **4.4 Recipe card (read-only)**
   Display a `SolvedNode` as a card: recipe name, rate, machine count, power, input rates. No editing yet.

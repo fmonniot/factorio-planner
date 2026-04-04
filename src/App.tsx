@@ -1,11 +1,10 @@
 import { AppShell } from './components/AppShell'
+import { GoalsPanel } from './components/GoalsPanel'
 
 function App() {
   return (
     <AppShell
-      sidebar={
-        <div className="p-4 text-gray-500 text-sm">Goals panel coming soon</div>
-      }
+      sidebar={<GoalsPanel />}
       main={
         <div className="text-gray-500 text-sm">Tree view coming soon</div>
       }
