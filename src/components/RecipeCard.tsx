@@ -214,6 +214,61 @@ function ModuleEditor({ nodeId, modules, machineSlots, allowedMachineEffects, re
 }
 
 // ---------------------------------------------------------------------------
+// Throughput row with pin toggle (5.5)
+// ---------------------------------------------------------------------------
+
+interface ThroughputRowProps {
+  nodeId: string
+  throughput: number
+  pinnedRate: number | undefined
+}
+
+function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
+  const updateNodePinnedRate = usePlanStore(s => s.updateNodePinnedRate)
+  const isPinned = pinnedRate !== undefined
+
+  function togglePin() {
+    if (isPinned) {
+      updateNodePinnedRate(nodeId, undefined)
+    } else {
+      // Pin at the current computed throughput.
+      updateNodePinnedRate(nodeId, throughput)
+    }
+  }
+
+  function handleRateChange(raw: string) {
+    const v = parseFloat(raw)
+    if (isFinite(v) && v > 0) updateNodePinnedRate(nodeId, v)
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs mb-1">
+      <button
+        onClick={togglePin}
+        title={isPinned ? 'Unpin rate' : 'Pin rate'}
+        className={`text-sm leading-none ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+      >
+        {isPinned ? '📌' : '📍'}
+      </button>
+      {isPinned ? (
+        <input
+          type="number"
+          min="0.001"
+          step="any"
+          value={pinnedRate}
+          onChange={e => handleRateChange(e.target.value)}
+          className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
+          aria-label="Pinned rate"
+        />
+      ) : (
+        <span className="text-gray-400">{fmtRate(throughput)}</span>
+      )}
+      <span className="text-gray-500">/min</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Beacon editor (5.4)
 // ---------------------------------------------------------------------------
 
@@ -385,10 +440,12 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         {recipe.name}
       </div>
 
-      {/* Throughput */}
-      <div className="text-xs text-gray-400 mb-1">
-        {fmtRate(node.throughput)}/min
-      </div>
+      {/* Throughput + pin (5.5) */}
+      <ThroughputRow
+        nodeId={node.recipeNodeId}
+        throughput={node.throughput}
+        pinnedRate={planNode.pinnedRate}
+      />
 
       {/* Machine row */}
       <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">

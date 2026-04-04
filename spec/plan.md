@@ -195,8 +195,11 @@ Before writing a line of application code, establish what the real data looks li
   Form exposes module selector, beacon count, modules-per-beacon, and distribution efficiency.
   "×" button removes the beacon config. All changes call `updateNodeBeacon`.
 
-- [ ] **5.5 Rate pinning**
-  Pin/unpin toggle on recipe card rate field. Pinned nodes are passed to solver as fixed variables.
+- [x] **5.5 Rate pinning**
+  `<ThroughputRow>` in RecipeCard: pin icon toggles `pinnedRate`. When unpinned shows computed
+  throughput (read-only, gray); when pinned shows an editable yellow input initialised at the
+  current throughput. Calls `updateNodePinnedRate`; the solver's pin step uses the stored
+  value as a fixed constraint on the next re-solve.
 
 - [ ] **5.6 Byproduct policy editor**
   Per-product discard/feed-back toggle, accessible from the recipe card inputs/outputs section.
