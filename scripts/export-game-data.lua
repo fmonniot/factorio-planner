@@ -1,12 +1,12 @@
 -- export-game-data.lua
 --
--- Exports Factorio prototype data (items, fluids, recipes, machines, modules)
--- to a JSON file for use by the factorio-planner web app.
+-- Exports Factorio prototype data to a GameData JSON bundle for use by the
+-- factorio-planner web app. The output matches the GameData TypeScript interface
+-- in src/data/types.ts and passes the Zod schema in src/data/schema.ts.
 --
 -- DELIVERY:
 --   Option A — In-game console:
 --     Open the console with ~ and paste this entire script after /c
---     e.g.  /c <paste>
 --
 --   Option B — Simple mod:
 --     Create a folder in your mods directory called "factorio-planner-export_1.0.0"
@@ -23,10 +23,6 @@
 --   Windows: %APPDATA%\Factorio\script-output\
 --   Linux:   ~/.factorio/script-output/
 --   macOS:   ~/Library/Application Support/factorio/script-output/
---
--- NOTE: This is a Phase 0.1 raw dump. Fields are extracted as-is from the
--- runtime prototype API. The goal is to see real data shapes, not to match
--- the final GameData schema yet.
 
 local OUTPUT_FILE = "factorio-planner-export.json"
 
@@ -40,8 +36,25 @@ local function field(proto, key)
   if ok then return val else return nil end
 end
 
--- Convert a dictionary-style table (keys are the values) to an array of strings.
--- Used for crafting_categories which is { ["crafting"] = true, ... }
+-- Parse an energy string like "75kW", "9.75MW", "180W" to kilowatts.
+-- If the value is already a number (watts from some API versions) convert it.
+local function parse_energy_kw(s)
+  if s == nil then return 0 end
+  if type(s) == "number" then return s / 1000 end
+  if type(s) ~= "string" or s == "" then return 0 end
+  local num, unit = s:match("^([%d%.]+)%s*([kKmMgGtT]?[wW])")
+  if not num then return 0 end
+  num = tonumber(num) or 0
+  local u = unit:upper()
+  if u == "KW" then return num
+  elseif u == "MW" then return num * 1000
+  elseif u == "GW" then return num * 1000000
+  elseif u == "TW" then return num * 1000000000
+  else return num / 1000  -- plain "W"
+  end
+end
+
+-- Convert a boolean-dict table ({ key = true, ... }) to a sorted array of keys.
 local function dict_keys(t)
   if not t then return {} end
   local result = {}
@@ -52,116 +65,52 @@ local function dict_keys(t)
   return result
 end
 
+-- Return the energy type string for an entity prototype.
+local function get_energy_type(proto)
+  if field(proto, "electric_energy_source_prototype") ~= nil then return "electric" end
+  if field(proto, "burner_prototype")                 ~= nil then return "burner"   end
+  if field(proto, "heat_energy_source_prototype")     ~= nil then return "heat"     end
+  return "void"
+end
+
 -- ---------------------------------------------------------------------------
--- Items
+-- Items (items + fluids unified under type "item" | "fluid")
 -- ---------------------------------------------------------------------------
 
 local function export_items()
   local items = {}
+
+  -- All item subtypes (tool, ammo, armor, module, etc.) are normalised to "item".
+  -- Note: proto.name is the internal name (e.g. "iron-plate"). Localised display
+  -- names require a locale lookup that is not easily available in a console script;
+  -- the app falls back to the internal name for display until a richer export is available.
   for name, proto in pairs(game.item_prototypes) do
     items[name] = {
-      name       = proto.name,
-      type       = proto.type,       -- e.g. "item", "module", "tool", "armor", ...
-      stack_size = proto.stack_size,
+      id        = proto.name,
+      name      = proto.name,
+      type      = "item",
+      iconPath  = "",   -- icons are handled separately (see spec/plan.md phase 7)
+      stackSize = proto.stack_size,
     }
   end
+
+  -- Fluids are stored in the same table with type = "fluid".
+  for name, proto in pairs(game.fluid_prototypes) do
+    items[name] = {
+      id       = proto.name,
+      name     = proto.name,
+      type     = "fluid",
+      iconPath = "",
+    }
+  end
+
   return items
 end
 
 -- ---------------------------------------------------------------------------
--- Fluids
+-- Machines (assembling-machine, furnace, rocket-silo)
 -- ---------------------------------------------------------------------------
 
-local function export_fluids()
-  local fluids = {}
-  for name, proto in pairs(game.fluid_prototypes) do
-    fluids[name] = {
-      name                = proto.name,
-      type                = "fluid",
-      default_temperature = field(proto, "default_temperature"),
-      max_temperature     = field(proto, "max_temperature"),
-    }
-  end
-  return fluids
-end
-
--- ---------------------------------------------------------------------------
--- Recipes
--- ---------------------------------------------------------------------------
-
-local function export_ingredient(ing)
-  return {
-    name   = ing.name,
-    type   = ing.type,    -- "item" or "fluid"
-    amount = ing.amount,
-    -- Fluid-specific temperature constraints (may be nil for items)
-    minimum_temperature = field(ing, "minimum_temperature"),
-    maximum_temperature = field(ing, "maximum_temperature"),
-  }
-end
-
-local function export_product(prod)
-  return {
-    name        = prod.name,
-    type        = prod.type,    -- "item" or "fluid"
-    amount      = prod.amount,
-    -- Probabilistic products: probability < 1 means the product may not appear.
-    probability = field(prod, "probability"),
-    -- Variable-yield range (rare; solver uses average when present).
-    amount_min  = field(prod, "amount_min"),
-    amount_max  = field(prod, "amount_max"),
-    -- Productivity exclusion: units below this threshold do not scale with productivity.
-    -- Used by Kovarex enrichment. nil means the full amount benefits from productivity.
-    ignored_by_productivity = field(prod, "ignored_by_productivity"),
-  }
-end
-
-local function export_recipes()
-  local recipes = {}
-  for name, proto in pairs(game.recipe_prototypes) do
-    -- Skip blueprint parameter placeholder recipes — they have no real products.
-    if proto.parameter then goto continue end
-
-    local ingredients = {}
-    for _, ing in pairs(proto.ingredients) do
-      table.insert(ingredients, export_ingredient(ing))
-    end
-
-    local products = {}
-    for _, prod in pairs(proto.products) do
-      table.insert(products, export_product(prod))
-    end
-
-    recipes[name] = {
-      name               = proto.name,
-      -- category absent in data.raw defaults to "crafting"
-      category           = proto.category,
-      -- energy is crafting time in SECONDS at crafting_speed=1.
-      -- In data.raw this field is called energy_required; the runtime API exposes it as energy.
-      energy             = proto.energy,
-      ingredients        = ingredients,
-      products           = products,
-      enabled            = proto.enabled,
-      hidden             = proto.hidden,
-      -- Whether productivity modules may be applied to this recipe.
-      -- Only 1220/2405 recipes in the sample allow it — check before applying.
-      allow_productivity = proto.allow_productivity,
-      -- main_product: name of the primary output for UI purposes.
-      -- "" means explicitly no primary (multi-output). nil means single-product.
-      main_product = field(proto, "main_product") and field(proto, "main_product").name or nil,
-    }
-
-    ::continue::
-  end
-  return recipes
-end
-
--- ---------------------------------------------------------------------------
--- Machines
--- ---------------------------------------------------------------------------
-
--- Entity types that can execute recipes. We cast a wide net here and will
--- filter/classify in the data analysis step.
 local CRAFTING_ENTITY_TYPES = {
   ["assembling-machine"] = true,
   ["furnace"]            = true,
@@ -170,81 +119,228 @@ local CRAFTING_ENTITY_TYPES = {
 
 local function export_machines()
   local machines = {}
+
   for name, proto in pairs(game.entity_prototypes) do
     if CRAFTING_ENTITY_TYPES[proto.type] then
-      -- energy_usage is in watts (as a plain number, e.g. 150000 = 150kW).
-      -- energy_drain is the idle drain for electric machines.
       local energy_source = field(proto, "electric_energy_source_prototype")
-      local drain = energy_source and field(energy_source, "drain") or nil
+      local drain_raw     = energy_source and field(energy_source, "drain") or nil
+
+      -- allowed_effects may be a bool-dict or nil; normalise to array of strings.
+      local raw_effects = field(proto, "allowed_effects")
+      local effects = {}
+      if type(raw_effects) == "table" then
+        for effect_name, _ in pairs(raw_effects) do
+          table.insert(effects, effect_name)
+        end
+        table.sort(effects)
+      end
+
+      -- crafting_categories is also a bool-dict on entity prototypes.
+      local raw_cats = field(proto, "crafting_categories")
+      local cats = {}
+      if type(raw_cats) == "table" then
+        for cat_name, _ in pairs(raw_cats) do
+          table.insert(cats, cat_name)
+        end
+        table.sort(cats)
+      end
 
       machines[name] = {
-        name               = proto.name,
-        type               = proto.type,
-        crafting_speed     = proto.crafting_speed,
-        -- energy_usage is a formatted string in data.raw: "75kW", "9.75MW", etc.
-        -- The importer (Zod layer) is responsible for parsing this to a number in kW.
-        energy_usage       = field(proto, "energy_usage"),
-        -- drain is also a string ("6kW") and only present on electric machines.
-        energy_drain       = drain,
-        -- crafting_categories is an array of strings in data.raw.
-        crafting_categories = field(proto, "crafting_categories") or {},
-        -- module_slots absent in data.raw means 0 slots.
-        module_slots       = field(proto, "module_slots") or 0,
-        -- allowed_effects: array of effect names ("speed", "productivity", "consumption",
-        -- "pollution", "quality"). Absent means no modules allowed.
-        allowed_effects    = field(proto, "allowed_effects") or {},
+        id                = proto.name,
+        name              = proto.name,
+        type              = proto.type,
+        craftingSpeed     = proto.crafting_speed,
+        energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
+        energyType        = get_energy_type(proto),
+        drainKw           = parse_energy_kw(drain_raw),
+        moduleSlots       = field(proto, "module_slots") or 0,
+        allowedEffects    = effects,
+        craftingCategories = cats,
+        iconPath          = "",
       }
     end
   end
+
   return machines
+end
+
+-- ---------------------------------------------------------------------------
+-- Recipes
+-- ---------------------------------------------------------------------------
+
+local function export_ingredient(ing)
+  return {
+    itemId  = ing.name,
+    type    = ing.type,   -- "item" or "fluid"
+    amount  = ing.amount,
+    minimumTemperature = field(ing, "minimum_temperature"),
+    maximumTemperature = field(ing, "maximum_temperature"),
+  }
+end
+
+local function export_product(prod)
+  return {
+    itemId                = prod.name,
+    type                  = prod.type,
+    amount                = prod.amount,
+    probability           = field(prod, "probability"),
+    amountMin             = field(prod, "amount_min"),
+    amountMax             = field(prod, "amount_max"),
+    ignoredByProductivity = field(prod, "ignored_by_productivity"),
+  }
+end
+
+-- Build a reverse map: category -> array of machine ids.
+local function build_category_map(machines)
+  local map = {}
+  for machine_id, machine_data in pairs(machines) do
+    for _, cat in ipairs(machine_data.craftingCategories) do
+      if not map[cat] then map[cat] = {} end
+      table.insert(map[cat], machine_id)
+    end
+  end
+  return map
+end
+
+local function export_recipes(category_map)
+  local recipes = {}
+
+  for name, proto in pairs(game.recipe_prototypes) do
+    -- Skip blueprint parameter placeholder recipes (no real products).
+    if proto.parameter then goto continue end
+
+    local ingredients = {}
+    for _, ing in ipairs(proto.ingredients) do
+      table.insert(ingredients, export_ingredient(ing))
+    end
+
+    local products = {}
+    for _, prod in ipairs(proto.products) do
+      table.insert(products, export_product(prod))
+    end
+
+    -- main_product in the runtime API is either:
+    --   nil            → single-product recipe (or absent) — omit the field
+    --   a prototype    → the primary product; use its .name
+    --   "" (string)    → explicitly multi-output with no primary → emit JSON null
+    -- game.table_to_json serialises Lua nil fields as absent, not "null".
+    -- We use the sentinel string "__null__" for the multi-output case and
+    -- post-process at import, OR we emit 0 products case below.
+    -- Simplest approach: use JSON-serialisable false to mean "null" is not
+    -- workable since Zod expects string|null|undefined.
+    -- Instead: we store the field only when meaningful.
+    -- "" is an empty string in Lua when main_product is explicitly "".
+    local mp_val = field(proto, "main_product")
+    local main_product
+    if mp_val == nil then
+      main_product = nil        -- absent: field will be omitted by table_to_json
+    elseif type(mp_val) == "string" and mp_val == "" then
+      -- Explicit multi-output, no primary.
+      -- We store the empty string; the loader normalises "" → null.
+      main_product = ""
+    elseif type(mp_val) == "table" and mp_val.name then
+      main_product = mp_val.name
+    else
+      main_product = nil
+    end
+
+    -- madeIn: machine ids that can execute this recipe's category.
+    local cat = proto.category or "crafting"
+    local made_in = {}
+    if category_map[cat] then
+      for _, mid in ipairs(category_map[cat]) do
+        table.insert(made_in, mid)
+      end
+      table.sort(made_in)
+    end
+
+    recipes[name] = {
+      id               = proto.name,
+      name             = proto.name,
+      category         = cat,
+      craftingTime     = proto.energy,
+      ingredients      = ingredients,
+      products         = products,
+      madeIn           = made_in,
+      allowProductivity = proto.allow_productivity or false,
+      mainProduct      = main_product,
+    }
+
+    ::continue::
+  end
+
+  return recipes
 end
 
 -- ---------------------------------------------------------------------------
 -- Modules
 -- ---------------------------------------------------------------------------
 
--- Modules are a subtype of item. We filter item_prototypes by type == "module".
 local function export_modules()
   local modules = {}
+
   for name, proto in pairs(game.item_prototypes) do
     if proto.type == "module" then
-      local effects = field(proto, "module_effects")
       local parsed_effects = {}
-      if effects then
-        -- Each effect is { bonus = number }. We record the bonus directly.
-        for effect_name, effect_data in pairs(effects) do
+      local raw_effects = field(proto, "module_effects")
+      if raw_effects then
+        for effect_name, effect_data in pairs(raw_effects) do
           parsed_effects[effect_name] = effect_data.bonus
         end
       end
 
-      -- limitation is an array of recipe names this module is restricted to.
-      -- Empty array means unrestricted.
       local limitation = {}
-      local raw_limitation = field(proto, "limitation")
-      if raw_limitation then
-        for _, recipe_name in pairs(raw_limitation) do
+      local raw_lim = field(proto, "limitation")
+      if raw_lim then
+        for _, recipe_name in ipairs(raw_lim) do
           table.insert(limitation, recipe_name)
         end
       end
 
       local limitation_blacklist = {}
-      local raw_blacklist = field(proto, "limitation_blacklist")
-      if raw_blacklist then
-        for _, recipe_name in pairs(raw_blacklist) do
+      local raw_bl = field(proto, "limitation_blacklist")
+      if raw_bl then
+        for _, recipe_name in ipairs(raw_bl) do
           table.insert(limitation_blacklist, recipe_name)
         end
       end
 
       modules[name] = {
+        id                   = proto.name,
         name                 = proto.name,
-        tier                 = field(proto, "tier"),
+        category             = field(proto, "category") or "unknown",
+        tier                 = field(proto, "tier") or 0,
         effects              = parsed_effects,
         limitation           = limitation,
-        limitation_blacklist = limitation_blacklist,
+        limitationBlacklist  = limitation_blacklist,
       }
     end
   end
+
   return modules
+end
+
+-- ---------------------------------------------------------------------------
+-- Default machines: best (highest craftingSpeed) machine per category
+-- ---------------------------------------------------------------------------
+
+local function compute_default_machines(machines, category_map)
+  local defaults = {}
+  for cat, machine_ids in pairs(category_map) do
+    local best_id    = nil
+    local best_speed = -1
+    for _, mid in ipairs(machine_ids) do
+      local speed = machines[mid] and machines[mid].craftingSpeed or 0
+      if speed > best_speed then
+        best_speed = speed
+        best_id    = mid
+      end
+    end
+    if best_id then
+      defaults[cat] = best_id
+    end
+  end
+  return defaults
 end
 
 -- ---------------------------------------------------------------------------
@@ -254,32 +350,36 @@ end
 local function run()
   log("[factorio-planner] Starting export...")
 
+  local machines     = export_machines()
+  local category_map = build_category_map(machines)
+  local recipes      = export_recipes(category_map)
+
   local output = {
-    -- game.active_mods is a dict { mod_name = version_string }
-    active_mods = game.active_mods,
-    items       = export_items(),
-    fluids      = export_fluids(),
-    recipes     = export_recipes(),
-    machines    = export_machines(),
-    modules     = export_modules(),
+    factorioVersion = game.version,
+    modSet          = game.active_mods,
+    items           = export_items(),
+    recipes         = recipes,
+    machines        = machines,
+    modules         = export_modules(),
+    defaultMachines = compute_default_machines(machines, category_map),
   }
 
   local json = game.table_to_json(output)
   game.write_file(OUTPUT_FILE, json)
 
-  local counts = {
-    "items="    .. tostring(#(function() local n=0 for _ in pairs(output.items)    do n=n+1 end return n end)()),
-    "fluids="   .. tostring(#(function() local n=0 for _ in pairs(output.fluids)   do n=n+1 end return n end)()),
-    "recipes="  .. tostring(#(function() local n=0 for _ in pairs(output.recipes)  do n=n+1 end return n end)()),
-    "machines=" .. tostring(#(function() local n=0 for _ in pairs(output.machines) do n=n+1 end return n end)()),
-    "modules="  .. tostring(#(function() local n=0 for _ in pairs(output.modules)  do n=n+1 end return n end)()),
-  }
-  -- # operator doesn't work on dict-style tables; use a helper
-  local function count(t) local n = 0 for _ in pairs(t) do n = n + 1 end return n end
+  local function count(t)
+    local n = 0
+    for _ in pairs(t) do n = n + 1 end
+    return n
+  end
+
   local summary = string.format(
-    "[factorio-planner] Export complete. items=%d fluids=%d recipes=%d machines=%d modules=%d",
-    count(output.items), count(output.fluids), count(output.recipes),
-    count(output.machines), count(output.modules)
+    "[factorio-planner] Export complete — factorioVersion=%s items=%d recipes=%d machines=%d modules=%d",
+    output.factorioVersion,
+    count(output.items),
+    count(output.recipes),
+    count(output.machines),
+    count(output.modules)
   )
 
   log(summary)
@@ -288,10 +388,9 @@ local function run()
 end
 
 -- When used as a mod, run on_tick once then deregister.
--- When pasted as a console command, script.on_event is available but
--- we can call run() directly since we're already in a valid game state.
+-- When pasted as a console command, call run() directly.
 if script then
-  script.on_event(defines.events.on_tick, function(event)
+  script.on_event(defines.events.on_tick, function(_event)
     script.on_event(defines.events.on_tick, nil)  -- run once
     run()
   end)

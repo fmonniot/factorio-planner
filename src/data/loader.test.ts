@@ -176,6 +176,14 @@ describe('parseGameData', () => {
     expect(data.recipes['oil-processing'].mainProduct).toBeNull()
   })
 
+  it('normalises mainProduct="" (Lua export sentinel) to null', () => {
+    // The Lua exporter emits "" when main_product is explicitly empty (multi-output).
+    const gd = minimalGameData()
+    ;(gd.recipes['iron-plate-recipe'] as Record<string, unknown>).mainProduct = ''
+    const data = parseGameData(gd)
+    expect(data.recipes['iron-plate-recipe'].mainProduct).toBeNull()
+  })
+
   it('accepts an empty defaultMachines record', () => {
     const gd = minimalGameData()
     gd.defaultMachines = {}

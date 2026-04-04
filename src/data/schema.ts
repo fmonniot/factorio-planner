@@ -39,8 +39,13 @@ export const RecipeSchema = z.object({
   products: z.array(ProductSchema),
   madeIn: z.array(z.string()),
   allowProductivity: z.boolean(),
-  // null = explicitly multi-output with no primary
-  mainProduct: z.string().nullable().optional(),
+  // null = explicitly multi-output with no primary (main_product = "" in Lua export)
+  // The Lua exporter emits "" for the multi-output case; we normalise to null here.
+  mainProduct: z
+    .string()
+    .nullable()
+    .optional()
+    .transform(v => (v === '' ? null : v)),
 })
 
 export const EffectNameSchema = z.enum([
