@@ -201,8 +201,10 @@ Before writing a line of application code, establish what the real data looks li
   current throughput. Calls `updateNodePinnedRate`; the solver's pin step uses the stored
   value as a fixed constraint on the next re-solve.
 
-- [ ] **5.6 Byproduct policy editor**
-  Per-product discard/feed-back toggle, accessible from the recipe card inputs/outputs section.
+- [x] **5.6 Byproduct policy editor**
+  Toggle button on each output row when the recipe has >1 product: ↩ = feed-back (default),
+  ✕ = discard. Calls `updateNodeByproductPolicy`. Solver updated in `index.ts` step 3b: before
+  reduction, discarded products have their S matrix entry zeroed so the solver ignores them.
 
 - [ ] **5.7 Table view**
   Flat sortable table of all nodes. Same inline-edit affordances as tree cards. Toggle between tree and table view.

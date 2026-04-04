@@ -411,6 +411,8 @@ interface RecipeCardProps {
 }
 
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
+  const updateNodeByproductPolicy = usePlanStore(s => s.updateNodeByproductPolicy)
+
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
   const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
 
@@ -461,16 +463,39 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         )}
       </div>
 
-      {/* Outputs */}
+      {/* Outputs (with byproduct policy toggles for multi-product recipes, 5.6) */}
       {outputEntries.length > 0 && (
         <section className="mb-2">
           <div className="text-xs font-medium text-gray-500 mb-0.5">Outputs</div>
-          {outputEntries.map(([itemId, rate]) => (
-            <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
-              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
-              <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
-            </div>
-          ))}
+          {outputEntries.map(([itemId, rate]) => {
+            const isMultiProduct = recipe.products.length > 1
+            const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
+            return (
+              <div key={itemId} className="flex items-center text-xs text-gray-300 gap-1 mb-0.5">
+                <span className="flex-1 truncate">{gameData.items[itemId]?.name ?? itemId}</span>
+                <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
+                {isMultiProduct && (
+                  <button
+                    onClick={() => {
+                      const next = policy === 'feed-back' ? 'discard' : 'feed-back'
+                      updateNodeByproductPolicy(node.recipeNodeId, {
+                        ...planNode.byproductPolicy,
+                        [itemId]: next,
+                      })
+                    }}
+                    title={policy === 'feed-back' ? 'Feed back (click to discard)' : 'Discarded (click to feed back)'}
+                    className={`shrink-0 text-xs px-1 py-0.5 rounded leading-none ${
+                      policy === 'feed-back'
+                        ? 'bg-blue-900 text-blue-300'
+                        : 'bg-gray-700 text-gray-500'
+                    }`}
+                  >
+                    {policy === 'feed-back' ? '↩' : '✕'}
+                  </button>
+                )}
+              </div>
+            )
+          })}
         </section>
       )}
 
