@@ -133,8 +133,32 @@ export const PlanSchema = z.object({
 })
 
 // ---------------------------------------------------------------------------
-// Inferred types (match src/data/types.ts — used in tests)
+// Canonical types — derived from the schema, not written by hand.
+//
+// These are the single source of truth for the shape of parsed game data and
+// plans. Downstream code (types.ts, loader.ts, solver, UI) must import from
+// here rather than maintaining parallel handwritten interfaces.
+//
+// z.output<T> reflects post-transform values (e.g. mainProduct "" → null).
+// z.input<T>  reflects what the schema accepts before transforms (used in tests
+//             to construct valid raw objects).
 // ---------------------------------------------------------------------------
 
+export type Item = z.output<typeof ItemSchema>
+export type Ingredient = z.output<typeof IngredientSchema>
+export type Product = z.output<typeof ProductSchema>
+export type Recipe = z.output<typeof RecipeSchema>
+export type EffectName = z.output<typeof EffectNameSchema>
+export type Machine = z.output<typeof MachineSchema>
+export type Module = z.output<typeof ModuleSchema>
+export type GameData = z.output<typeof GameDataSchema>
+
+export type ProductionGoal = z.output<typeof ProductionGoalSchema>
+export type ModuleConfig = z.output<typeof ModuleConfigSchema>
+export type BeaconConfig = z.output<typeof BeaconConfigSchema>
+export type RecipeNode = z.output<typeof RecipeNodeSchema>
+export type Plan = z.output<typeof PlanSchema>
+
+// Input types — what the schema accepts before transforms (useful in tests).
 export type GameDataInput = z.input<typeof GameDataSchema>
 export type PlanInput = z.input<typeof PlanSchema>

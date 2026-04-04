@@ -38,6 +38,20 @@ end
 
 -- Parse an energy string like "75kW", "9.75MW", "180W" to kilowatts.
 -- If the value is already a number (watts from some API versions) convert it.
+--
+-- MANUAL TEST CHECKLIST (Lua has no unit-test runner; verify in the console):
+--   parse_energy_kw(nil)        → 0
+--   parse_energy_kw(0)          → 0        (number passthrough: 0W)
+--   parse_energy_kw(150000)     → 150      (number passthrough: 150kW)
+--   parse_energy_kw("")         → 0
+--   parse_energy_kw("180W")     → 0.18
+--   parse_energy_kw("75kW")     → 75
+--   parse_energy_kw("150kW")    → 150
+--   parse_energy_kw("9.75MW")   → 9750
+--   parse_energy_kw("1GW")      → 1000000
+--   parse_energy_kw("500KW")    → 500      (case-insensitive)
+--   parse_energy_kw("bogus")    → 0
+-- To run in-game: /c game.print(parse_energy_kw("9.75MW"))  -- expects 9750
 local function parse_energy_kw(s)
   if s == nil then return 0 end
   if type(s) == "number" then return s / 1000 end

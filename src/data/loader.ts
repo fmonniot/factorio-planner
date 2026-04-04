@@ -1,5 +1,5 @@
-import type { GameData, Plan } from './types'
 import { GameDataSchema, PlanSchema } from './schema'
+import type { GameData, Plan } from './schema'
 
 export class GameDataLoadError extends Error {
   readonly issues: { path: string; message: string }[]
@@ -47,7 +47,7 @@ export function parseGameData(raw: unknown): GameData {
   if (!result.success) {
     throw new GameDataLoadError(formatZodError(result.error))
   }
-  return result.data as GameData
+  return result.data
 }
 
 /**
@@ -69,7 +69,7 @@ export function parsePlan(raw: unknown): Plan {
   if (!result.success) {
     throw new PlanLoadError(formatZodError(result.error))
   }
-  return result.data as Plan
+  return result.data
 }
 
 /**
