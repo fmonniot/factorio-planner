@@ -206,8 +206,11 @@ Before writing a line of application code, establish what the real data looks li
   ✕ = discard. Calls `updateNodeByproductPolicy`. Solver updated in `index.ts` step 3b: before
   reduction, discarded products have their S matrix entry zeroed so the solver ignores them.
 
-- [ ] **5.7 Table view**
-  Flat sortable table of all nodes. Same inline-edit affordances as tree cards. Toggle between tree and table view.
+- [x] **5.7 Table view**
+  `src/components/TableView.tsx` — sortable table (recipe name, rate, machines, power, machine
+  name) with click-to-expand rows that embed a full RecipeCard for inline editing. Sort by any
+  column with asc/desc toggle. App.tsx `<MainArea>` wraps TreeView/TableView with a Tree/Table
+  toggle button pair; selected view state is local to the session.
 
 ---
 
