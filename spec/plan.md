@@ -101,6 +101,12 @@ Before writing a line of application code, establish what the real data looks li
   `src/solver/index.ts` — solve(plan, gameData) orchestrates all steps and returns SolverResult.
   End-to-end tests: all 6 corpus cases, warnings (no-recipe, productivity-not-allowed).
 
+> **TODO (integration):** Add a `src/solver/index.integration.test.ts` that runs the full solver
+> against the real Nullius `data/samples/nullius/game-data.json` export (gate with `skipIf(!sampleExists)`).
+> Exercise corpus-like goals on real recipe/machine data to catch regressions that synthetic unit
+> tests cannot: missing machine for a category, unexpected item classifications, real craftingSpeed
+> values affecting machine counts.
+
 ---
 
 ## Phase 3 — State and Data Loading
@@ -109,7 +115,7 @@ Before writing a line of application code, establish what the real data looks li
   `src/store/planStore.ts` — Zustand store for `Plan` state. Actions: add/remove goal, update goal rate, add/remove node, update node config. Undo/redo via command stack.
 
 - [ ] **3.2 Game data store**
-  `src/store/gameDataStore.ts` — loads and holds the active `GameData`. Initially loads bundled vanilla JSON on startup. Exposes an `importGameData(file)` action.
+  `src/store/gameDataStore.ts` — loads and holds the active `GameData`. Initially loads bundled nullius JSON on startup. Exposes an `importGameData(file)` action.
 
 - [ ] **3.3 Solver integration**
   Wire the solver to the plan store: re-run solver on every plan state change (debounced). Store `SolverResult` as derived state alongside the plan.
