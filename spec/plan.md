@@ -52,17 +52,26 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 1 — Project Scaffold
 
-- [ ] **1.1 Initialise the repo**
-  `npm create vite` with React + TypeScript template. Add Tailwind, Vitest, `ml-matrix`, Zod. Commit baseline config.
+- [x] **1.1 Initialise the repo**
+  Vite 8 + React 19 + TypeScript. Tailwind CSS v4 via @tailwindcss/vite. Vitest 3,
+  ml-matrix, Zod, Zustand added. Minimal App.tsx placeholder; src/ structure created.
 
-- [ ] **1.2 Define the TypeScript types**
-  Translate the finalised `spec/data-model.md` into `src/data/types.ts`. No logic yet, just types. These are the contract everything else is built against.
+- [x] **1.2 Define the TypeScript types**
+  `src/data/types.ts` — all types from `spec/data-model.md`: Item, Ingredient, Product,
+  Recipe, Machine, Module, GameData, Plan, SolvedNode, SolverResult, etc.
 
-- [ ] **1.3 Write the Zod schema and loader**
-  `src/data/schema.ts` — Zod schema mirroring the TypeScript types. `src/data/loader.ts` — validates and parses a `GameData` JSON file. Include a test that validates the vanilla sample against the schema.
+- [x] **1.3 Write the Zod schema and loader**
+  `src/data/schema.ts` — full Zod schemas with "" → null transform for mainProduct.
+  `src/data/loader.ts` — parseGameData / loadGameDataFromJson / parsePlan /
+  loadPlanFromJson with structured error types (GameDataLoadError, PlanLoadError).
+  29 unit tests in `src/data/loader.test.ts` covering happy path and error cases.
+  Note: CI validation against a committed sample deferred — sample is git-ignored (size).
 
-- [ ] **1.4 Finalise and refine the Lua export script**
-  Revise the script from Phase 0 to emit JSON that passes the Zod schema from 1.3. This is the contract between the game and the app. Add a CI check that the committed vanilla sample passes validation.
+- [x] **1.4 Finalise and refine the Lua export script**
+  `scripts/export-game-data.lua` rewritten to emit GameData-shaped JSON:
+  camelCase field names, items+fluids unified, energy strings parsed to kW,
+  madeIn computed from category_map, defaultMachines populated, mainProduct ""
+  for multi-output (normalised to null by the Zod schema transform).
 
 ---
 
