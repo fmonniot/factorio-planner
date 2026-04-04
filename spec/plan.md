@@ -35,19 +35,18 @@ Before writing a line of application code, establish what the real data looks li
   ignored_by_productivity matters for Kovarex, allow_productivity is per-recipe, parameter
   recipes must be filtered. amount_min/max not observed in the wild.
 
-- [~] **0.4 Run the export with Space Age active**
+- [x] **0.4 Run the export with Space Age active**
   Nullius runs on Factorio 2.0 with Space Age, so the sample data already includes Space
   Age entities. A separate vanilla+Space Age export is deferred with vanilla support.
 
-- [ ] **0.5 Identify a representative test corpus**
-  Pick 5–8 recipe chains of increasing complexity to use as solver test cases throughout development:
-  - Simple linear chain (iron ore → plate → gear)
-  - Chain with a shared intermediate (circuits used in multiple recipes)
-  - Multi-output recipe (basic/advanced oil processing)
-  - Cycle (Kovarex enrichment)
-  - Recipe with probability outputs (if any in vanilla 2.0)
-  - A Space Age chain if structurally different
-  Document these in `spec/test-corpus.md` with expected input/output rates.
+- [x] **0.5 Identify a representative test corpus**
+  Six cases documented in `spec/test-corpus.md` with full derivations:
+  1. Simple linear chain (iron-ore → iron-plate → iron-gear-wheel)
+  2. Shared intermediate (electronic-circuit, copper-cable used once)
+  3. Multi-output recipe (advanced-oil-processing, 3 products, byproduct feed-back)
+  4. Cycle (Kovarex enrichment — U-235 is both input and output)
+  5. Probability outputs (uranium-processing, p=0.007 for U-235)
+  6. Productivity + ignored_by_productivity (Kovarex with prod-module-3)
 
 ---
 
