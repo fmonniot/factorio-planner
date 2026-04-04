@@ -98,7 +98,7 @@ local function export_items()
   -- Note: proto.name is the internal name (e.g. "iron-plate"). Localised display
   -- names require a locale lookup that is not easily available in a console script;
   -- the app falls back to the internal name for display until a richer export is available.
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     items[name] = {
       id        = proto.name,
       name      = proto.name,
@@ -109,7 +109,7 @@ local function export_items()
   end
 
   -- Fluids are stored in the same table with type = "fluid".
-  for name, proto in pairs(game.fluid_prototypes) do
+  for name, proto in pairs(prototypes.fluid) do
     items[name] = {
       id       = proto.name,
       name     = proto.name,
@@ -134,7 +134,7 @@ local CRAFTING_ENTITY_TYPES = {
 local function export_machines()
   local machines = {}
 
-  for name, proto in pairs(game.entity_prototypes) do
+  for name, proto in pairs(prototypes.entity) do
     if CRAFTING_ENTITY_TYPES[proto.type] then
       local energy_source = field(proto, "electric_energy_source_prototype")
       local drain_raw     = energy_source and field(energy_source, "drain") or nil
@@ -219,7 +219,7 @@ end
 local function export_recipes(category_map)
   local recipes = {}
 
-  for name, proto in pairs(game.recipe_prototypes) do
+  for name, proto in pairs(prototypes.recipe) do
     -- Skip blueprint parameter placeholder recipes (no real products).
     if proto.parameter then goto continue end
 
@@ -293,7 +293,7 @@ end
 local function export_modules()
   local modules = {}
 
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     if proto.type == "module" then
       local parsed_effects = {}
       local raw_effects = field(proto, "module_effects")
