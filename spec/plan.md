@@ -172,8 +172,10 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 5 — UI: Editing
 
-- [ ] **5.1 Machine selector**
-  Dropdown on each recipe card to change the machine type. Filtered to machines supporting the recipe's category. Triggers re-solve.
+- [x] **5.1 Machine selector**
+  `<MachineSelector>` in RecipeCard: `<select>` filtered to machines whose `craftingCategories`
+  includes the recipe's category, sorted alphabetically. "Default" option maps to undefined
+  machineId. Selection calls `updateNodeMachine`; solverStore re-solves via subscription.
 
 - [ ] **5.2 Alternate recipe selector**
   Dropdown on recipe cards where multiple recipes produce the same item. Triggers re-solve.

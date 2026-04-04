@@ -1,4 +1,6 @@
-import type { SolvedNode, Plan, GameData } from '../data/types'
+import { useState } from 'react'
+import type { SolvedNode, Plan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
+import { usePlanStore } from '../store/planStore'
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -16,6 +18,38 @@ function fmtPower(kw: number): string {
 }
 
 // ---------------------------------------------------------------------------
+// Machine selector (5.1)
+// ---------------------------------------------------------------------------
+
+interface MachineSelectorProps {
+  nodeId: string
+  recipeCategory: string
+  currentMachineId: string | undefined
+  gameData: GameData
+}
+
+function MachineSelector({ nodeId, recipeCategory, currentMachineId, gameData }: MachineSelectorProps) {
+  const updateNodeMachine = usePlanStore(s => s.updateNodeMachine)
+
+  const machines = Object.values(gameData.machines)
+    .filter(m => m.craftingCategories.includes(recipeCategory))
+    .sort((a, b) => a.name.localeCompare(b.name))
+
+  return (
+    <select
+      value={currentMachineId ?? ''}
+      onChange={e => updateNodeMachine(nodeId, e.target.value || undefined)}
+      className="bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none focus:ring-1 focus:ring-blue-500 max-w-full"
+    >
+      <option value="">Default</option>
+      {machines.map(m => (
+        <option key={m.id} value={m.id}>{m.name}</option>
+      ))}
+    </select>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -29,36 +63,43 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
   const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
 
-  if (!recipe) return null
+  if (!recipe || !planNode) return null
 
-  const machineId =
-    planNode?.machineId ?? gameData.defaultMachines[recipe.category]
-  const machine = machineId ? gameData.machines[machineId] : undefined
+  const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
+  const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
 
   const inputEntries = Object.entries(node.inputRates)
   const outputEntries = Object.entries(node.outputRates)
 
   return (
-    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 min-w-52 max-w-72">
+    <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 w-72">
       {/* Recipe name */}
-      <div className="font-medium text-sm text-gray-100 mb-1 truncate" title={recipe.name}>
+      <div className="font-medium text-sm text-gray-100 mb-2 truncate" title={recipe.name}>
         {recipe.name}
       </div>
 
-      {/* Key metrics */}
-      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-gray-400 mb-2">
-        <span>{fmtRate(node.throughput)}/min</span>
-        {machine && (
-          <span>× {node.machineCountCeil} {machine.name}</span>
-        )}
+      {/* Throughput */}
+      <div className="text-xs text-gray-400 mb-1">
+        {fmtRate(node.throughput)}/min
+      </div>
+
+      {/* Machine row */}
+      <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
+        {machine && <span className="shrink-0">× {node.machineCountCeil}</span>}
+        <MachineSelector
+          nodeId={node.recipeNodeId}
+          recipeCategory={recipe.category}
+          currentMachineId={planNode.machineId}
+          gameData={gameData}
+        />
         {node.powerKw > 0 && (
-          <span>{fmtPower(node.powerKw)}</span>
+          <span className="shrink-0 text-gray-500">{fmtPower(node.powerKw)}</span>
         )}
       </div>
 
       {/* Outputs */}
       {outputEntries.length > 0 && (
-        <section className="mb-1">
+        <section className="mb-2">
           <div className="text-xs font-medium text-gray-500 mb-0.5">Outputs</div>
           {outputEntries.map(([itemId, rate]) => (
             <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
