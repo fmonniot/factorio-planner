@@ -23,6 +23,12 @@
 --   Windows: %APPDATA%\Factorio\script-output\
 --   Linux:   ~/.factorio/script-output/
 --   macOS:   ~/Library/Application Support/factorio/script-output/
+--
+-- IMPORT
+--   You can easily import the generated json into this project with a command like the
+--   following:
+--   cp ~/Library/Application\ Support/factorio/script-output/factorio-planner-export.json \
+--      data/samples/nullius/game-data.json
 
 local OUTPUT_FILE = "factorio-planner-export.json"
 
@@ -169,12 +175,12 @@ local function export_machines()
         -- to 1 (base speed) only as a last resort.
         craftingSpeed     = (function()
           local ok, v = pcall(function() return proto:get_crafting_speed() end)
-          return (ok and v) or field(proto, "crafting_speed") or 1
+          return (ok and type(v) == "number" and v) or 1
         end)(),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
         drainKw           = parse_energy_kw(drain_raw),
-        moduleSlots       = field(proto, "module_slots") or 0,
+        moduleSlots       = field(proto, "module_inventory_size") or 0,
         allowedEffects    = effects,
         craftingCategories = cats,
         iconPath          = "",
@@ -283,7 +289,13 @@ local function export_recipes(category_map)
       ingredients      = ingredients,
       products         = products,
       madeIn           = made_in,
-      allowProductivity = field(proto, "allow_productivity") or false,
+      -- allow_productivity was removed in Factorio 2.0. Productivity support is
+      -- now expressed via allowed_effects on LuaRecipePrototype: the dict includes
+      -- "productivity" as a key when the recipe allows productivity modules.
+      allowProductivity = (function()
+        local effects = field(proto, "allowed_effects")
+        return type(effects) == "table" and effects["productivity"] == true or false
+      end)(),
       mainProduct      = main_product,
     }
 
@@ -310,21 +322,12 @@ local function export_modules()
         end
       end
 
+      -- limitation and limitation_blacklist were removed from LuaItemPrototype in
+      -- Factorio 2.0. Recipe-level module restrictions are now expressed via
+      -- allowed_effects and allowed_module_categories on LuaRecipePrototype.
+      -- These fields are kept as empty arrays for schema compatibility.
       local limitation = {}
-      local raw_lim = field(proto, "limitation")
-      if raw_lim then
-        for _, recipe_name in ipairs(raw_lim) do
-          table.insert(limitation, recipe_name)
-        end
-      end
-
       local limitation_blacklist = {}
-      local raw_bl = field(proto, "limitation_blacklist")
-      if raw_bl then
-        for _, recipe_name in ipairs(raw_bl) do
-          table.insert(limitation_blacklist, recipe_name)
-        end
-      end
 
       modules[name] = {
         id                   = proto.name,
