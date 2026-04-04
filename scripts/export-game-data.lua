@@ -276,7 +276,7 @@ local function export_recipes(category_map)
       ingredients      = ingredients,
       products         = products,
       madeIn           = made_in,
-      allowProductivity = proto.allow_productivity or false,
+      allowProductivity = field(proto, "allow_productivity") or false,
       mainProduct      = main_product,
     }
 
