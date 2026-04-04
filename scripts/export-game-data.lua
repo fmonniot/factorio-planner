@@ -163,10 +163,14 @@ local function export_machines()
         id                = proto.name,
         name              = proto.name,
         type              = proto.type,
-        -- crafting_speed returns nil via the runtime API on some Factorio 2.0
-        -- entity prototypes. Default to 1 (base speed) so the field is always
-        -- present and the schema does not need a special-case.
-        craftingSpeed     = field(proto, "crafting_speed") or 1,
+        -- In Factorio 2.0 the property proto.crafting_speed was replaced by the
+        -- method proto:get_crafting_speed(quality?). Call it via pcall so the
+        -- script does not crash on prototypes that lack the method, falling back
+        -- to 1 (base speed) only as a last resort.
+        craftingSpeed     = (function()
+          local ok, v = pcall(function() return proto:get_crafting_speed() end)
+          return (ok and v) or field(proto, "crafting_speed") or 1
+        end)(),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
         drainKw           = parse_energy_kw(drain_raw),

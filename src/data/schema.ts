@@ -82,8 +82,8 @@ export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.enum(['assembling-machine', 'furnace', 'rocket-silo']),
-  // crafting_speed is nil on some Factorio 2.0 entity prototypes via the
-  // runtime API (proto.crafting_speed returns nil). Default to 1 (base speed).
+  // Older exports (produced before the Lua script used get_crafting_speed())
+  // omit this field. Default to 1 so they still load; re-export to get real values.
   craftingSpeed: z.number().positive().default(1),
   energyUsageKw: z.number().nonnegative(),
   energyType: z.enum(['electric', 'burner', 'heat', 'void']),
