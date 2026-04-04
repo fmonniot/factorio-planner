@@ -1,6 +1,28 @@
 import { z } from 'zod'
 
 // ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Lua's game.table_to_json serialises empty Lua tables as {} (object) rather
+ * than [] (array). This preprocessor normalises empty objects to empty arrays
+ * before Zod validates the array schema, so the rest of the schema stays clean.
+ */
+function luaArray<T extends z.ZodTypeAny>(itemSchema: T) {
+  return z.preprocess(
+    v =>
+      v != null &&
+      typeof v === 'object' &&
+      !Array.isArray(v) &&
+      Object.keys(v as object).length === 0
+        ? []
+        : v,
+    z.array(itemSchema),
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Game Data schemas
 // ---------------------------------------------------------------------------
 
@@ -35,9 +57,9 @@ export const RecipeSchema = z.object({
   name: z.string(),
   category: z.string(),
   craftingTime: z.number().positive(),
-  ingredients: z.array(IngredientSchema),
-  products: z.array(ProductSchema),
-  madeIn: z.array(z.string()),
+  ingredients: luaArray(IngredientSchema),
+  products: luaArray(ProductSchema),
+  madeIn: luaArray(z.string()),
   allowProductivity: z.boolean(),
   // null = explicitly multi-output with no primary (main_product = "" in Lua export)
   // The Lua exporter emits "" for the multi-output case; we normalise to null here.
@@ -60,7 +82,9 @@ export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.enum(['assembling-machine', 'furnace', 'rocket-silo']),
-  craftingSpeed: z.number().positive(),
+  // crafting_speed is nil on some Factorio 2.0 entity prototypes via the
+  // runtime API (proto.crafting_speed returns nil). Default to 1 (base speed).
+  craftingSpeed: z.number().positive().default(1),
   energyUsageKw: z.number().nonnegative(),
   energyType: z.enum(['electric', 'burner', 'heat', 'void']),
   drainKw: z.number().nonnegative(),
@@ -76,8 +100,8 @@ export const ModuleSchema = z.object({
   category: z.string(),
   tier: z.number().int().nonnegative(),
   effects: z.record(EffectNameSchema, z.number()),
-  limitation: z.array(z.string()),
-  limitationBlacklist: z.array(z.string()),
+  limitation: luaArray(z.string()),
+  limitationBlacklist: luaArray(z.string()),
 })
 
 export const GameDataSchema = z.object({

@@ -51,10 +51,10 @@ describe('Nullius game-data.json integration', () => {
       const json = readFileSync(SAMPLE_PATH, 'utf-8')
       const data = loadGameDataFromJson(json)
 
-      // Corpus case 1 & 2
-      expect(data.recipes['nullius-iron-ingot-1']).toBeDefined()
-      expect(data.recipes['nullius-iron-plate-1']).toBeDefined()
-      expect(data.recipes['nullius-iron-rod-1']).toBeDefined()
+      // Corpus case 1 & 2 (Nullius dropped the -1 suffix from basic recipes)
+      expect(data.recipes['nullius-iron-ingot']).toBeDefined()
+      expect(data.recipes['nullius-iron-plate']).toBeDefined()
+      expect(data.recipes['nullius-iron-rod']).toBeDefined()
       expect(data.recipes['nullius-iron-gear']).toBeDefined()
 
       // Corpus case 3
