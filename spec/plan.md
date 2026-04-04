@@ -135,23 +135,38 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 4 — UI: Core
 
-- [ ] **4.1 App shell**
-  Header, goals panel sidebar, main area, summary bar. No real content yet — just layout with placeholder components.
+- [x] **4.1 App shell**
+  `src/components/AppShell.tsx` — full-screen layout: header (with game data status badge and
+  minimal file-import button), left sidebar (w-80), scrollable main area, fixed summary bar.
+  `src/main.tsx` wired: loadPersistedPlan + initPlanPersistence + wireSolver at startup with
+  HMR dispose. App.tsx renders AppShell with placeholder sidebar/main/summary content.
 
-- [ ] **4.2 Item picker**
-  Modal with fuzzy search over items from the active `GameData`. Used everywhere an item needs to be selected.
+- [x] **4.2 Item picker**
+  `src/components/ItemPicker.tsx` — backdrop modal with case-insensitive substring search over
+  item name and id. Auto-focuses input, closes on Escape or backdrop click. Graceful empty
+  state when no game data is loaded. Used by GoalsPanel (4.3) and any future item-selection UI.
 
-- [ ] **4.3 Goals panel**
-  Add/remove goals. Edit rate inline. Connects to plan store. Shows item names (no icons yet).
+- [x] **4.3 Goals panel**
+  `src/components/GoalsPanel.tsx` — list of goals from planStore with inline rate editing and
+  remove button. "+ Add" opens ItemPicker; item names resolved from gameData (falls back to
+  itemId). App.tsx sidebar slot updated to render GoalsPanel.
 
-- [ ] **4.4 Recipe card (read-only)**
-  Display a `SolvedNode` as a card: recipe name, rate, machine count, power, input rates. No editing yet.
+- [x] **4.4 Recipe card (read-only)**
+  `src/components/RecipeCard.tsx` — card showing recipe name, throughput, machine count and
+  name, power, plus labeled outputs and inputs with rates. Resolves machine from planNode or
+  gameData defaultMachines. Formatting helpers for rate (adaptive decimals) and power (kW/MW).
 
-- [ ] **4.5 Tree view (layout)**
-  Arrange recipe cards in a top-down dependency tree. Handle shared nodes (one card, multiple incoming edges). Scrollable canvas.
+- [x] **4.5 Tree view (layout)**
+  `src/components/TreeView.tsx` — horizontally scrollable column layout. `buildColumns` assigns
+  each node a depth via BFS from goal producers (re-visits to maximise depth, pushing raw
+  inputs right). Goal-producing nodes are column 0; orphaned nodes (no path from any goal) get
+  a trailing column. Each column renders RecipeCards stacked vertically. Handles idle/pending/
+  error/empty states with informative messages. App.tsx main slot updated to TreeView.
 
-- [ ] **4.6 Summary bar**
-  Total machines, total power, raw resource list. Connected to `SolverResult`.
+- [x] **4.6 Summary bar**
+  `src/components/SummaryBar.tsx` — total machine count, total power draw (kW/MW), raw-input
+  chips from SolverResult.unsatisfied with item names, and a yellow warnings badge when solver
+  warnings exist. App.tsx now uses all four real components; no more placeholders.
 
 ---
 
