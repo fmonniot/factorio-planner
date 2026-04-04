@@ -77,23 +77,29 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 2 — Solver
 
-- [ ] **2.1 Stoichiometry matrix builder**
-  `src/solver/build.ts` — given a `GameData` and a set of active recipe ids, build the stoichiometry matrix `S` and index maps (item→row, recipe→col). Unit tests against the test corpus from 0.5.
+- [x] **2.1 Stoichiometry matrix builder**
+  `src/solver/build.ts` — net S matrix (items × recipes), `effectiveProductAmount` handles
+  probability and ignoredByProductivity. Unit tests: corpus cases 1, 4, 5.
 
-- [ ] **2.2 System reduction**
-  Partition items into goals / intermediates / raw resources / byproducts. Apply reduction rules (remove raw-resource rows, handle discard policy). Tests: verify the reduced system dimensions are correct for each corpus case.
+- [x] **2.2 System reduction**
+  `src/solver/reduce.ts` — classifies items (goal/intermediate/raw/byproduct), builds the
+  reduced S and demand vector d. Tests: corpus cases 1–4 and case 3b (two goals).
 
-- [ ] **2.3 Core solve**
-  `src/solver/solve.ts` — LU decompose the reduced system via `ml-matrix`, solve for `x`. Handle rank-deficient case (least-squares fallback + warning). Tests: verify throughput vectors for each corpus case.
+- [x] **2.3 Core solve**
+  `src/solver/solve.ts` — LU decomposition via ml-matrix; pseudo-inverse fallback for
+  rank-deficient/non-square systems with 'underdetermined' warning. Tests: all 5 cases.
 
-- [ ] **2.4 Pinned rates**
-  Support user-pinned recipe rates as fixed variables. Substitute, reduce, solve remaining unknowns. Tests: pin one node in a chain and verify downstream rates adjust correctly.
+- [x] **2.4 Pinned rates**
+  `src/solver/pin.ts` — substitutes pinned throughputs into d before solving; mergeThroughput
+  reconstitutes the full vector. Tests: pin upstream and downstream nodes.
 
-- [ ] **2.5 Module and beacon effects**
-  Apply module effects (speed, productivity, consumption) to per-node machine counts and power. Productivity adjusts the stoichiometry matrix before solving. Tests: verify productivity reduces upstream demand correctly.
+- [x] **2.5 Module and beacon effects**
+  `src/solver/effects.ts` — computeNodeEffects (speed/productivity/consumption from modules
+  and beacons), computeMachineMetrics (machine count and power). Tests: corpus case 6.
 
-- [ ] **2.6 Solver entry point**
-  `src/solver/index.ts` — assembles the full `SolverResult` from a `Plan` + `GameData`. This is the single function the UI calls. End-to-end tests covering the full corpus.
+- [x] **2.6 Solver entry point**
+  `src/solver/index.ts` — solve(plan, gameData) orchestrates all steps and returns SolverResult.
+  End-to-end tests: all 6 corpus cases, warnings (no-recipe, productivity-not-allowed).
 
 ---
 
