@@ -3,3 +3,14 @@
 # Not committing samples as it's pretty big and I don't
 # know what the licensing terms are.
 data/samples/
+
+# Dependencies and build artifacts
+node_modules/
+dist/
+.vite/
+
+# TypeScript build info
+*.tsbuildinfo
+
+# OS
+.DS_Store
