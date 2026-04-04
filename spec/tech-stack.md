@@ -69,6 +69,8 @@ Game data is not bundled in source. A Lua export script run inside Factorio (via
 
 **Export script** (`scripts/export-game-data.lua`): run in Factorio's script console or packaged as a mod. Outputs a JSON file the user then imports into the planner.
 
+**Bundled data:** The Nullius export (`data/samples/nullius/data-raw-dump.json`) is the default dataset shipped with the app. It loads on startup with no user action required.
+
 **Schema validation:** The JSON bundle is validated at load time against the `GameData` TypeScript interface (using Zod). Invalid bundles are rejected with a user-visible error.
 
 **Versioning:** The bundle includes a `version` string and a `modSet` list. Plans record the version they were created with. On load, if the plan's version differs from the loaded bundle, a warning is shown but the plan is still opened (best-effort).
@@ -95,7 +97,7 @@ factorio-planner/
 ├── src/
 │   ├── data/
 │   │   ├── schema.ts       # Zod schema for GameData
-│   │   └── vanilla/        # Bundled vanilla game data JSON
+│   │   └── nullius/        # Bundled Nullius game data JSON (processed from samples/)
 │   ├── solver/
 │   │   ├── matrix.ts       # LU decomposition, linear algebra utilities
 │   │   ├── build.ts        # Stoichiometry matrix construction

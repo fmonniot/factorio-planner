@@ -10,13 +10,16 @@ Status markers: `[ ]` not started · `[~]` in progress · `[x]` done
 
 Before writing a line of application code, establish what the real data looks like. The data model in `data-model.md` is a sketch based on documentation and prior knowledge — it will be wrong in places.
 
-- [ ] **0.1 Write the Lua export script (minimal version)**
-  Write a first-pass `scripts/export-game-data.lua` that extracts raw `data.raw` tables for items, fluids, recipes, and machines and dumps them as JSON. Don't try to match the final `GameData` schema yet — just get the raw data out.
+- [x] **0.1 Write the Lua export script (minimal version)**
+  Written at `scripts/export-game-data.lua`. Corrected after analysis (0.3): energy_usage
+  kept as raw string, parameter recipes filtered, allow_productivity and
+  ignored_by_productivity added, crafting_categories kept as array.
 
-- [ ] **0.2 Run the export against vanilla 2.0**
-  Run the script in Factorio (no mods) and capture the output. Commit the output file under `data/samples/vanilla-2.0-raw.json` for reference. This file is the ground truth for all subsequent modelling work.
+- [x] **0.2 Run the export and capture sample data**
+  Nullius export captured at `data/samples/nullius/` (git-ignored due to size). Used as
+  ground truth for all data modelling. Vanilla export deferred — not in scope for v1.
 
-- [ ] **0.3 Analyze the raw data and revise the data model**
+- [x] **0.3 Analyze the raw data and revise the data model**
   Go through the raw export and answer:
   - What fields are actually present vs. absent on recipe/item/machine prototypes?
   - What are the real category strings in use?
@@ -27,10 +30,14 @@ Before writing a line of application code, establish what the real data looks li
   - Are there recipe categories with no natural machine (hand-crafting)?
   - How is `energy_usage` actually encoded (string with unit? number?)?
   - What does the quality prototype structure look like, even if we ignore it for v1?
-  Update `spec/data-model.md` with findings. Mark any v1 simplifications explicitly.
+  Analysis in `spec/data-analysis.md`. Data model updated. Key findings: energy_usage is a
+  string ("150kW"), crafting_categories is an array, module effects include "quality",
+  ignored_by_productivity matters for Kovarex, allow_productivity is per-recipe, parameter
+  recipes must be filtered. amount_min/max not observed in the wild.
 
-- [ ] **0.4 Run the export with Space Age active**
-  Repeat 0.2 with Space Age enabled. Note what changes: new categories, new machine types, new recipe fields (spoilage? planet constraints?). Commit as `data/samples/space-age-2.0-raw.json`. Update the data model if necessary.
+- [~] **0.4 Run the export with Space Age active**
+  Nullius runs on Factorio 2.0 with Space Age, so the sample data already includes Space
+  Age entities. A separate vanilla+Space Age export is deferred with vanilla support.
 
 - [ ] **0.5 Identify a representative test corpus**
   Pick 5–8 recipe chains of increasing complexity to use as solver test cases throughout development:

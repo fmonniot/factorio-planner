@@ -105,17 +105,23 @@ local function export_product(prod)
     name        = prod.name,
     type        = prod.type,    -- "item" or "fluid"
     amount      = prod.amount,
-    -- Probabilistic products: amount_min/amount_max define the range;
-    -- when set, amount holds the average. probability < 1 means it may not appear.
+    -- Probabilistic products: probability < 1 means the product may not appear.
+    probability = field(prod, "probability"),
+    -- Variable-yield range (rare; solver uses average when present).
     amount_min  = field(prod, "amount_min"),
     amount_max  = field(prod, "amount_max"),
-    probability = field(prod, "probability"),
+    -- Productivity exclusion: units below this threshold do not scale with productivity.
+    -- Used by Kovarex enrichment. nil means the full amount benefits from productivity.
+    ignored_by_productivity = field(prod, "ignored_by_productivity"),
   }
 end
 
 local function export_recipes()
   local recipes = {}
   for name, proto in pairs(game.recipe_prototypes) do
+    -- Skip blueprint parameter placeholder recipes — they have no real products.
+    if proto.parameter then goto continue end
+
     local ingredients = {}
     for _, ing in pairs(proto.ingredients) do
       table.insert(ingredients, export_ingredient(ing))
@@ -127,19 +133,25 @@ local function export_recipes()
     end
 
     recipes[name] = {
-      name        = proto.name,
-      category    = proto.category,
-      -- energy is crafting time in SECONDS (at crafting_speed = 1).
-      -- Not to be confused with MJ — this is purely a time duration.
-      energy      = proto.energy,
-      ingredients = ingredients,
-      products    = products,
-      enabled     = proto.enabled,
-      hidden      = proto.hidden,
-      -- main_product is the "primary" output item name when there are multiple
-      -- products. nil if the recipe has a single product or no clear main.
+      name               = proto.name,
+      -- category absent in data.raw defaults to "crafting"
+      category           = proto.category,
+      -- energy is crafting time in SECONDS at crafting_speed=1.
+      -- In data.raw this field is called energy_required; the runtime API exposes it as energy.
+      energy             = proto.energy,
+      ingredients        = ingredients,
+      products           = products,
+      enabled            = proto.enabled,
+      hidden             = proto.hidden,
+      -- Whether productivity modules may be applied to this recipe.
+      -- Only 1220/2405 recipes in the sample allow it — check before applying.
+      allow_productivity = proto.allow_productivity,
+      -- main_product: name of the primary output for UI purposes.
+      -- "" means explicitly no primary (multi-output). nil means single-product.
       main_product = field(proto, "main_product") and field(proto, "main_product").name or nil,
     }
+
+    ::continue::
   end
   return recipes
 end
@@ -169,13 +181,18 @@ local function export_machines()
         name               = proto.name,
         type               = proto.type,
         crafting_speed     = proto.crafting_speed,
-        energy_usage       = field(proto, "energy_usage"),   -- watts
-        energy_drain       = drain,                          -- watts idle, nil for non-electric
-        crafting_categories = dict_keys(field(proto, "crafting_categories")),
+        -- energy_usage is a formatted string in data.raw: "75kW", "9.75MW", etc.
+        -- The importer (Zod layer) is responsible for parsing this to a number in kW.
+        energy_usage       = field(proto, "energy_usage"),
+        -- drain is also a string ("6kW") and only present on electric machines.
+        energy_drain       = drain,
+        -- crafting_categories is an array of strings in data.raw.
+        crafting_categories = field(proto, "crafting_categories") or {},
+        -- module_slots absent in data.raw means 0 slots.
         module_slots       = field(proto, "module_slots") or 0,
-        -- allowed_effects is a set of effect names this machine accepts from modules.
-        -- e.g. { "speed" = true, "productivity" = true, ... }
-        allowed_effects    = dict_keys(field(proto, "allowed_effects")),
+        -- allowed_effects: array of effect names ("speed", "productivity", "consumption",
+        -- "pollution", "quality"). Absent means no modules allowed.
+        allowed_effects    = field(proto, "allowed_effects") or {},
       }
     end
   end

@@ -38,8 +38,8 @@ These features must work before the project is considered usable.
 - [ ] Item picker (search by name)
 - [ ] Solver warnings displayed on affected nodes
 - [ ] Settings panel: default machine per category, rate unit
-- [ ] Load vanilla game data bundle on startup
-- [ ] Import custom game data JSON (mod support)
+- [ ] Load Nullius game data bundle on startup (bundled with app)
+- [ ] Import custom game data JSON (other mod sets, future use)
 
 ---
 
@@ -61,8 +61,9 @@ These are desirable but explicitly deferred.
 - Dark mode
 
 ### Data
+- Vanilla Factorio support
+- Additional mod support (tested and bundled datasets)
 - In-app Lua script runner to export data directly from a game installation
-- Integration with Factorio mod portal to fetch recipe data for specific mod sets
 - Diff view: compare two versions of a plan
 
 ### Sharing / Collaboration
