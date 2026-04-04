@@ -189,8 +189,11 @@ Before writing a line of application code, establish what the real data looks li
   `machine.allowedEffects` and whose limitation/limitationBlacklist permit the recipe. Hidden
   when machine has 0 module slots.
 
-- [ ] **5.4 Beacon configuration**
-  Per-node beacon popover. Triggers re-solve.
+- [x] **5.4 Beacon configuration**
+  `<BeaconEditor>` collapsible section: clicking "▸ Beacon" when no beacon is configured
+  creates a default one (first available module, 4 beacons, 2 modules each, 50% efficiency).
+  Form exposes module selector, beacon count, modules-per-beacon, and distribution efficiency.
+  "×" button removes the beacon config. All changes call `updateNodeBeacon`.
 
 - [ ] **5.5 Rate pinning**
   Pin/unpin toggle on recipe card rate field. Pinned nodes are passed to solver as fixed variables.

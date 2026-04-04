@@ -214,6 +214,138 @@ function ModuleEditor({ nodeId, modules, machineSlots, allowedMachineEffects, re
 }
 
 // ---------------------------------------------------------------------------
+// Beacon editor (5.4)
+// ---------------------------------------------------------------------------
+
+interface BeaconEditorProps {
+  nodeId: string
+  beacon: BeaconConfig | undefined
+  gameData: GameData
+}
+
+function BeaconEditor({ nodeId, beacon, gameData }: BeaconEditorProps) {
+  const updateNodeBeacon = usePlanStore(s => s.updateNodeBeacon)
+  const [open, setOpen] = useState(false)
+
+  const modules = Object.values(gameData.modules).sort((a, b) => a.name.localeCompare(b.name))
+
+  function update(patch: Partial<BeaconConfig>) {
+    if (!beacon) return
+    updateNodeBeacon(nodeId, { ...beacon, ...patch })
+  }
+
+  function enable() {
+    const firstModule = modules[0]
+    if (!firstModule) return
+    updateNodeBeacon(nodeId, {
+      moduleId: firstModule.id,
+      beaconCount: 4,
+      modulesPerBeacon: 2,
+      distributionEfficiency: 0.5,
+    })
+    setOpen(true)
+  }
+
+  function disable() {
+    updateNodeBeacon(nodeId, undefined)
+    setOpen(false)
+  }
+
+  return (
+    <section className="mt-2 border-t border-gray-700 pt-2">
+      <div className="flex items-center gap-2">
+        <button
+          className="flex items-center gap-1 text-xs text-gray-400 hover:text-gray-200 flex-1 text-left"
+          onClick={() => beacon ? setOpen(o => !o) : enable()}
+        >
+          <span>{open && beacon ? '▾' : '▸'}</span>
+          <span>Beacon</span>
+          {beacon && (
+            <span className="text-gray-600 ml-1">
+              ×{beacon.beaconCount} ({beacon.modulesPerBeacon} mod)
+            </span>
+          )}
+        </button>
+        {beacon && (
+          <button
+            onClick={disable}
+            className="text-xs text-gray-600 hover:text-red-400"
+            aria-label="Remove beacon"
+          >×</button>
+        )}
+      </div>
+
+      {open && beacon && (
+        <div className="mt-1.5 space-y-1.5">
+          {/* Module */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 w-16 shrink-0">Module</span>
+            <select
+              value={beacon.moduleId}
+              onChange={e => update({ moduleId: e.target.value })}
+              className="flex-1 bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none"
+            >
+              {modules.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Beacon count */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 w-16 shrink-0">Count</span>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={beacon.beaconCount}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                if (isFinite(v) && v >= 0) update({ beaconCount: v })
+              }}
+              className="w-16 bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none text-right"
+            />
+          </div>
+
+          {/* Modules per beacon */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 w-16 shrink-0">Per beacon</span>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              value={beacon.modulesPerBeacon}
+              onChange={e => {
+                const v = parseInt(e.target.value, 10)
+                if (isFinite(v) && v >= 1) update({ modulesPerBeacon: v })
+              }}
+              className="w-16 bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none text-right"
+            />
+          </div>
+
+          {/* Distribution efficiency */}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-gray-500 w-16 shrink-0">Efficiency</span>
+            <input
+              type="number"
+              min={0}
+              max={1}
+              step={0.05}
+              value={beacon.distributionEfficiency}
+              onChange={e => {
+                const v = parseFloat(e.target.value)
+                if (isFinite(v) && v >= 0 && v <= 1) update({ distributionEfficiency: v })
+              }}
+              className="w-16 bg-gray-700 text-gray-200 text-xs rounded px-1 py-0.5 border border-gray-600 outline-none text-right"
+            />
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
@@ -305,6 +437,13 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         machineSlots={machine?.moduleSlots ?? 0}
         allowedMachineEffects={machine?.allowedEffects ?? []}
         recipeId={planNode.recipeId}
+        gameData={gameData}
+      />
+
+      {/* Beacon editor */}
+      <BeaconEditor
+        nodeId={node.recipeNodeId}
+        beacon={planNode.beaconConfig}
         gameData={gameData}
       />
     </div>
