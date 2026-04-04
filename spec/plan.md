@@ -163,8 +163,10 @@ Before writing a line of application code, establish what the real data looks li
   a trailing column. Each column renders RecipeCards stacked vertically. Handles idle/pending/
   error/empty states with informative messages. App.tsx main slot updated to TreeView.
 
-- [ ] **4.6 Summary bar**
-  Total machines, total power, raw resource list. Connected to `SolverResult`.
+- [x] **4.6 Summary bar**
+  `src/components/SummaryBar.tsx` — total machine count, total power draw (kW/MW), raw-input
+  chips from SolverResult.unsatisfied with item names, and a yellow warnings badge when solver
+  warnings exist. App.tsx now uses all four real components; no more placeholders.
 
 ---
 
