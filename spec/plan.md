@@ -135,8 +135,11 @@ Before writing a line of application code, establish what the real data looks li
 
 ## Phase 4 — UI: Core
 
-- [ ] **4.1 App shell**
-  Header, goals panel sidebar, main area, summary bar. No real content yet — just layout with placeholder components.
+- [x] **4.1 App shell**
+  `src/components/AppShell.tsx` — full-screen layout: header (with game data status badge and
+  minimal file-import button), left sidebar (w-80), scrollable main area, fixed summary bar.
+  `src/main.tsx` wired: loadPersistedPlan + initPlanPersistence + wireSolver at startup with
+  HMR dispose. App.tsx renders AppShell with placeholder sidebar/main/summary content.
 
 - [ ] **4.2 Item picker**
   Modal with fuzzy search over items from the active `GameData`. Used everywhere an item needs to be selected.

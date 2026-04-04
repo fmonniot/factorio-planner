@@ -1,8 +1,18 @@
+import { AppShell } from './components/AppShell'
+
 function App() {
   return (
-    <div className="min-h-screen bg-gray-950 text-gray-100 flex items-center justify-center">
-      <h1 className="text-2xl font-semibold">Factorio Planner</h1>
-    </div>
+    <AppShell
+      sidebar={
+        <div className="p-4 text-gray-500 text-sm">Goals panel coming soon</div>
+      }
+      main={
+        <div className="text-gray-500 text-sm">Tree view coming soon</div>
+      }
+      summary={
+        <div className="p-4 text-gray-500 text-sm">Summary bar coming soon</div>
+      }
+    />
   )
 }
 
