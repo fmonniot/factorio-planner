@@ -299,7 +299,7 @@ local function export_modules()
       local raw_effects = field(proto, "module_effects")
       if raw_effects then
         for effect_name, effect_data in pairs(raw_effects) do
-          parsed_effects[effect_name] = effect_data.bonus
+          parsed_effects[effect_name] = type(effect_data) == "table" and effect_data.bonus or effect_data
         end
       end
 
