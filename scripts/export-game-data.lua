@@ -163,7 +163,7 @@ local function export_machines()
         id                = proto.name,
         name              = proto.name,
         type              = proto.type,
-        craftingSpeed     = proto.crafting_speed,
+        craftingSpeed     = field(proto, "crafting_speed"),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
         drainKw           = parse_energy_kw(drain_raw),
