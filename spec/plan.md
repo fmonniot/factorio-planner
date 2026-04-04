@@ -183,8 +183,11 @@ Before writing a line of application code, establish what the real data looks li
   and resets machine/modules/beacon/pinnedRate/byproductPolicy via `updateNodeRecipe` (new
   planStore action, fully undoable).
 
-- [ ] **5.3 Module configuration**
-  Per-node module slot editor. Enforces slot count. Triggers re-solve.
+- [x] **5.3 Module configuration**
+  `<ModuleEditor>` collapsible section in RecipeCard: shows slot usage (used/total), −/+ per
+  module type, and an "add module" selector filtered to modules whose effects are all in
+  `machine.allowedEffects` and whose limitation/limitationBlacklist permit the recipe. Hidden
+  when machine has 0 module slots.
 
 - [ ] **5.4 Beacon configuration**
   Per-node beacon popover. Triggers re-solve.
