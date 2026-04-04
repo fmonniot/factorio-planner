@@ -369,8 +369,8 @@ local function run()
   local recipes      = export_recipes(category_map)
 
   local output = {
-    factorioVersion = game.active_mods["base"],
-    modSet          = game.active_mods,
+    factorioVersion = script.active_mods["base"],
+    modSet          = script.active_mods,
     items           = export_items(),
     recipes         = recipes,
     machines        = machines,
