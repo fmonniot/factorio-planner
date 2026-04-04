@@ -23,6 +23,12 @@
 --   Windows: %APPDATA%\Factorio\script-output\
 --   Linux:   ~/.factorio/script-output/
 --   macOS:   ~/Library/Application Support/factorio/script-output/
+--
+-- IMPORT
+--   You can easily import the generated json into this project with a command like the
+--   following:
+--   cp ~/Library/Application\ Support/factorio/script-output/factorio-planner-export.json \
+--      data/samples/nullius/game-data.json
 
 local OUTPUT_FILE = "factorio-planner-export.json"
 
@@ -98,7 +104,7 @@ local function export_items()
   -- Note: proto.name is the internal name (e.g. "iron-plate"). Localised display
   -- names require a locale lookup that is not easily available in a console script;
   -- the app falls back to the internal name for display until a richer export is available.
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     items[name] = {
       id        = proto.name,
       name      = proto.name,
@@ -109,7 +115,7 @@ local function export_items()
   end
 
   -- Fluids are stored in the same table with type = "fluid".
-  for name, proto in pairs(game.fluid_prototypes) do
+  for name, proto in pairs(prototypes.fluid) do
     items[name] = {
       id       = proto.name,
       name     = proto.name,
@@ -134,7 +140,7 @@ local CRAFTING_ENTITY_TYPES = {
 local function export_machines()
   local machines = {}
 
-  for name, proto in pairs(game.entity_prototypes) do
+  for name, proto in pairs(prototypes.entity) do
     if CRAFTING_ENTITY_TYPES[proto.type] then
       local energy_source = field(proto, "electric_energy_source_prototype")
       local drain_raw     = energy_source and field(energy_source, "drain") or nil
@@ -163,11 +169,18 @@ local function export_machines()
         id                = proto.name,
         name              = proto.name,
         type              = proto.type,
-        craftingSpeed     = proto.crafting_speed,
+        -- Use dot notation: proto.get_crafting_speed() passes no implicit self.
+        -- Colon notation (proto:method()) would pass proto as the quality arg.
+        craftingSpeed     = (function()
+          local ok, v = pcall(function() return proto.get_crafting_speed() end)
+          if ok and type(v) == "number" then return v end
+          log("[factorio-planner] get_crafting_speed failed for " .. proto.name .. ": " .. tostring(v))
+          return 1
+        end)(),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
         drainKw           = parse_energy_kw(drain_raw),
-        moduleSlots       = field(proto, "module_slots") or 0,
+        moduleSlots       = field(proto, "module_inventory_size") or 0,
         allowedEffects    = effects,
         craftingCategories = cats,
         iconPath          = "",
@@ -219,7 +232,7 @@ end
 local function export_recipes(category_map)
   local recipes = {}
 
-  for name, proto in pairs(game.recipe_prototypes) do
+  for name, proto in pairs(prototypes.recipe) do
     -- Skip blueprint parameter placeholder recipes (no real products).
     if proto.parameter then goto continue end
 
@@ -276,7 +289,13 @@ local function export_recipes(category_map)
       ingredients      = ingredients,
       products         = products,
       madeIn           = made_in,
-      allowProductivity = proto.allow_productivity or false,
+      -- allow_productivity was removed in Factorio 2.0. Productivity support is
+      -- now expressed via allowed_effects on LuaRecipePrototype: the dict includes
+      -- "productivity" as a key when the recipe allows productivity modules.
+      allowProductivity = (function()
+        local effects = field(proto, "allowed_effects")
+        return type(effects) == "table" and effects["productivity"] == true or false
+      end)(),
       mainProduct      = main_product,
     }
 
@@ -293,31 +312,22 @@ end
 local function export_modules()
   local modules = {}
 
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     if proto.type == "module" then
       local parsed_effects = {}
       local raw_effects = field(proto, "module_effects")
       if raw_effects then
         for effect_name, effect_data in pairs(raw_effects) do
-          parsed_effects[effect_name] = effect_data.bonus
+          parsed_effects[effect_name] = type(effect_data) == "table" and effect_data.bonus or effect_data
         end
       end
 
+      -- limitation and limitation_blacklist were removed from LuaItemPrototype in
+      -- Factorio 2.0. Recipe-level module restrictions are now expressed via
+      -- allowed_effects and allowed_module_categories on LuaRecipePrototype.
+      -- These fields are kept as empty arrays for schema compatibility.
       local limitation = {}
-      local raw_lim = field(proto, "limitation")
-      if raw_lim then
-        for _, recipe_name in ipairs(raw_lim) do
-          table.insert(limitation, recipe_name)
-        end
-      end
-
       local limitation_blacklist = {}
-      local raw_bl = field(proto, "limitation_blacklist")
-      if raw_bl then
-        for _, recipe_name in ipairs(raw_bl) do
-          table.insert(limitation_blacklist, recipe_name)
-        end
-      end
 
       modules[name] = {
         id                   = proto.name,
@@ -369,8 +379,8 @@ local function run()
   local recipes      = export_recipes(category_map)
 
   local output = {
-    factorioVersion = game.version,
-    modSet          = game.active_mods,
+    factorioVersion = script.active_mods["base"],
+    modSet          = script.active_mods,
     items           = export_items(),
     recipes         = recipes,
     machines        = machines,
@@ -378,8 +388,8 @@ local function run()
     defaultMachines = compute_default_machines(machines, category_map),
   }
 
-  local json = game.table_to_json(output)
-  game.write_file(OUTPUT_FILE, json)
+  local json = helpers.table_to_json(output)
+  helpers.write_file(OUTPUT_FILE, json)
 
   local function count(t)
     local n = 0
