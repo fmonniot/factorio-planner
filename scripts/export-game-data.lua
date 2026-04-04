@@ -98,7 +98,7 @@ local function export_items()
   -- Note: proto.name is the internal name (e.g. "iron-plate"). Localised display
   -- names require a locale lookup that is not easily available in a console script;
   -- the app falls back to the internal name for display until a richer export is available.
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     items[name] = {
       id        = proto.name,
       name      = proto.name,
@@ -109,7 +109,7 @@ local function export_items()
   end
 
   -- Fluids are stored in the same table with type = "fluid".
-  for name, proto in pairs(game.fluid_prototypes) do
+  for name, proto in pairs(prototypes.fluid) do
     items[name] = {
       id       = proto.name,
       name     = proto.name,
@@ -134,7 +134,7 @@ local CRAFTING_ENTITY_TYPES = {
 local function export_machines()
   local machines = {}
 
-  for name, proto in pairs(game.entity_prototypes) do
+  for name, proto in pairs(prototypes.entity) do
     if CRAFTING_ENTITY_TYPES[proto.type] then
       local energy_source = field(proto, "electric_energy_source_prototype")
       local drain_raw     = energy_source and field(energy_source, "drain") or nil
@@ -163,7 +163,7 @@ local function export_machines()
         id                = proto.name,
         name              = proto.name,
         type              = proto.type,
-        craftingSpeed     = proto.crafting_speed,
+        craftingSpeed     = field(proto, "crafting_speed"),
         energyUsageKw     = parse_energy_kw(field(proto, "energy_usage")),
         energyType        = get_energy_type(proto),
         drainKw           = parse_energy_kw(drain_raw),
@@ -219,7 +219,7 @@ end
 local function export_recipes(category_map)
   local recipes = {}
 
-  for name, proto in pairs(game.recipe_prototypes) do
+  for name, proto in pairs(prototypes.recipe) do
     -- Skip blueprint parameter placeholder recipes (no real products).
     if proto.parameter then goto continue end
 
@@ -276,7 +276,7 @@ local function export_recipes(category_map)
       ingredients      = ingredients,
       products         = products,
       madeIn           = made_in,
-      allowProductivity = proto.allow_productivity or false,
+      allowProductivity = field(proto, "allow_productivity") or false,
       mainProduct      = main_product,
     }
 
@@ -293,13 +293,13 @@ end
 local function export_modules()
   local modules = {}
 
-  for name, proto in pairs(game.item_prototypes) do
+  for name, proto in pairs(prototypes.item) do
     if proto.type == "module" then
       local parsed_effects = {}
       local raw_effects = field(proto, "module_effects")
       if raw_effects then
         for effect_name, effect_data in pairs(raw_effects) do
-          parsed_effects[effect_name] = effect_data.bonus
+          parsed_effects[effect_name] = type(effect_data) == "table" and effect_data.bonus or effect_data
         end
       end
 
@@ -369,8 +369,8 @@ local function run()
   local recipes      = export_recipes(category_map)
 
   local output = {
-    factorioVersion = game.version,
-    modSet          = game.active_mods,
+    factorioVersion = script.active_mods["base"],
+    modSet          = script.active_mods,
     items           = export_items(),
     recipes         = recipes,
     machines        = machines,
@@ -378,8 +378,8 @@ local function run()
     defaultMachines = compute_default_machines(machines, category_map),
   }
 
-  local json = game.table_to_json(output)
-  game.write_file(OUTPUT_FILE, json)
+  local json = helpers.table_to_json(output)
+  helpers.write_file(OUTPUT_FILE, json)
 
   local function count(t)
     local n = 0
