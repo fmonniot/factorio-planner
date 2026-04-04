@@ -141,8 +141,10 @@ Before writing a line of application code, establish what the real data looks li
   `src/main.tsx` wired: loadPersistedPlan + initPlanPersistence + wireSolver at startup with
   HMR dispose. App.tsx renders AppShell with placeholder sidebar/main/summary content.
 
-- [ ] **4.2 Item picker**
-  Modal with fuzzy search over items from the active `GameData`. Used everywhere an item needs to be selected.
+- [x] **4.2 Item picker**
+  `src/components/ItemPicker.tsx` — backdrop modal with case-insensitive substring search over
+  item name and id. Auto-focuses input, closes on Escape or backdrop click. Graceful empty
+  state when no game data is loaded. Used by GoalsPanel (4.3) and any future item-selection UI.
 
 - [ ] **4.3 Goals panel**
   Add/remove goals. Edit rate inline. Connects to plan store. Shows item names (no icons yet).
