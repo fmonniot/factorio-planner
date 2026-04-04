@@ -1,1 +1,5 @@
 .claude/settings.local.json
+
+# Not committing samples as it's pretty big and I don't
+# know what the licensing terms are.
+data/samples/
