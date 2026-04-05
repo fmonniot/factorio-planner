@@ -8,21 +8,24 @@
  * Usage:
  *   node scripts/build-game-data.js \
  *     --dump      ~/...factorio/script-output/data-raw-dump.json \
- *     --factorio-dir /Applications/factorio.app/Contents/MacOS \
+ *     --factorio-dir /Applications/factorio.app/Contents \
  *     --mods-dir  ~/...factorio/mods \
  *     --icons-out public/data/nullius/icons \
  *     --output    data/samples/nullius/game-data.json
  *
  * macOS defaults (omit flags and the defaults are used):
  *   --dump        ~/Library/Application Support/factorio/script-output/data-raw-dump.json
- *   --factorio-dir /Applications/factorio.app/Contents/MacOS
+ *   --factorio-dir /Applications/factorio.app/Contents
  *   --mods-dir    ~/Library/Application Support/factorio/mods
  *   --icons-out   public/data/nullius/icons
  *   --output      data/samples/nullius/game-data.json
+ * 
+ * For a Steam installation, the following command dump the data
+ * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs'
-import { readdirSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
@@ -40,7 +43,7 @@ const FACTORIO_DATA_DIR = `${HOME}/Library/Application Support/factorio/script-o
 
 const DEFAULTS = {
   dump:         join(FACTORIO_DATA_DIR, 'data-raw-dump.json'),
-  factorioDir:  '/Applications/factorio.app/Contents/MacOS',
+  factorioDir:  '/Applications/factorio.app/Contents',
   modsDir:      `${HOME}/Library/Application Support/factorio/mods`,
   iconsOut:     'public/data/nullius/icons',
   output:       'data/samples/nullius/game-data.json',
@@ -144,15 +147,30 @@ function buildResolverMap(factorioDir, modsDir) {
     process.stderr.write(`[warn] Factorio built-in data dir not found: ${builtinDataDir}\n`)
   }
 
-  // User mods — first pass: directories (take priority).
+  // User mods
   if (existsSync(modsDir)) {
+    // first pass: directories (take priority).
+    // Work with symlink (often used during mod development and/or not released mods)
     for (const entry of readdirSync(modsDir, { withFileTypes: true })) {
-      if (entry.isDirectory()) {
+      let isDirectory = false;
+      if (entry.isSymbolicLink()) {
+        const stat = statSync(join(modsDir, entry.name));
+
+        if (stat.isDirectory()) {
+          isDirectory = true
+        }
+
+      } else if (entry.isDirectory()) {
+        isDirectory = true
+      }
+
+      if (isDirectory) {
         // Strip version suffix to get mod name: "nullius_0.9.6" -> "nullius"
         const modName = entry.name.replace(/_\d+\.\d+\.\d+$/, '')
         map[modName] = dirResolver(join(modsDir, entry.name))
-      }
+      } 
     }
+
     // Second pass: zip files (only add if not already covered by a directory).
     for (const entry of readdirSync(modsDir, { withFileTypes: true })) {
       if (!entry.isDirectory() && entry.name.endsWith('.zip')) {
