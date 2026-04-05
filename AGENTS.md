@@ -49,7 +49,9 @@ spec/                  Design documents (read before changing behaviour)
   solver.md            Solver algorithm and formulation
   data-model.md        Full data model reference
 scripts/
-  export-game-data.lua Lua script run inside Factorio to produce game-data.json
+  build-game-data.js             Node.js pipeline: --dump-data JSON → game-data.json
+  verify-game-data.js            Report-only diff of new vs backup game-data.json
+  trace-recipe-chain.js          Trace recipe dependency chain; emits solver fixtures
 data/samples/          Git-ignored — real Nullius export goes here locally
 src/
   data/
@@ -65,9 +67,20 @@ src/
     pin.ts             applyPinnedRates + mergeThroughput
     effects.ts         computeNodeEffects + computeMachineMetrics
     index.ts           solve(plan, gameData) — the single entry point the UI calls
-  store/               Zustand stores (Phase 3, not yet implemented)
-  components/          React components (Phase 4+, not yet implemented)
-  views/               React views (Phase 4+, not yet implemented)
+  store/
+    gameDataStore.ts   Active GameData (empty/loading/loaded/error); handles file import
+    planStore.ts       Plan state with undo/redo via command pattern
+    solverStore.ts     Auto-solves on plan/data change (150 ms debounce)
+    persistence.ts     localStorage auto-save and restore on startup
+  components/
+    AppShell.tsx       Full-screen layout: header, sidebar, main area, summary bar
+    GoalsPanel.tsx     Sidebar panel for production goals (add/remove/edit rate)
+    NodesPanel.tsx     Sidebar panel for recipe nodes (add/remove)
+    ItemPicker.tsx     Modal search for items or recipes
+    RecipeCard.tsx     Card showing recipe details, machine count, power, I/O rates
+    TreeView.tsx       Horizontal column layout of the production chain
+    TableView.tsx      Sortable table view of nodes with inline editing
+    SummaryBar.tsx     Footer: total machines, power, unsatisfied inputs, warnings
 ```
 
 ---
@@ -130,19 +143,29 @@ Tests live beside the source files as `*.test.ts`. Integration tests use `.integ
 
 ## Game data export
 
-The Lua script at `scripts/export-game-data.lua` is run inside Factorio to produce the game data JSON. Two delivery modes:
+The primary pipeline uses `factorio --dump-data` and a Node.js script — no Factorio GUI needed.
 
-1. **Console paste:** open `~`, run `/c <paste script>`
-2. **Mod:** place as `control.lua` alongside `info.json` in the mods directory
+```sh
+# 1. Dump data (with target mods active, e.g. Nullius)
+factorio --dump-data
+# macOS Steam install:
+# ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
 
-Output lands at:
-- Windows: `%APPDATA%\Factorio\script-output\factorio-planner-export.json`
-- Linux: `~/.factorio/script-output/`
-- macOS: `~/Library/Application Support/factorio/script-output/`
+# 2. Build game-data.json + extract icons (macOS defaults apply when flags are omitted)
+node scripts/build-game-data.js \
+  --dump      ~/Library/Application\ Support/factorio/script-output/data-raw-dump.json \
+  --factorio-dir /Applications/factorio.app/Contents \
+  --mods-dir  ~/Library/Application\ Support/factorio/mods \
+  --icons-out public/data/nullius/icons \
+  --output    data/samples/nullius/game-data.json
 
-Copy the output to `data/samples/nullius/game-data.json` (git-ignored) to run integration tests locally.
+# 3. Optional: diff against a reference backup
+node scripts/verify-game-data.js \
+  --reference data/samples/nullius/game-data.json.backup \
+  --actual    data/samples/nullius/game-data.json
+```
 
-The script has a `parse_energy_kw` helper with a manual test checklist in the comments — verify those cases if modifying energy parsing.
+**Legacy Lua mod** (fallback): `scripts/factorio-planner-export_1.0.0/` — symlink into the Factorio mods directory, load a save, wait one tick. Output lands at `script-output/factorio-planner-export.json`.
 
 ---
 
@@ -163,9 +186,6 @@ Read these before making decisions that affect core behaviour:
 
 ## What is not yet implemented
 
-Phases 3–7 are pending (see `spec/plan.md`):
-- **Phase 3** — Zustand stores, solver wiring, plan persistence
-- **Phase 4** — UI shell, item picker, goals panel, recipe cards, tree view
-- **Phase 5** — Editing (machine selector, modules, beacons, rate pinning, byproduct policy)
-- **Phase 6** — Import/export, URL sharing
-- **Phase 7** — Icons, warnings in UI, polish
+Phases 6–7 are pending (see `spec/plan.md`):
+- **Phase 6** — Import/export, URL sharing (6.1–6.5)
+- **Phase 7** — Icons and polish (7.1–7.5)
