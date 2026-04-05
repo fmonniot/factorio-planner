@@ -15,3 +15,7 @@ test-results/
 
 # OS
 .DS_Store
+
+
+# Temporary ignore.
+public/data/nullius/icons/
