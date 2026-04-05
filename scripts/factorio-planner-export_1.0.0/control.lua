@@ -1,32 +1,35 @@
--- export-game-data.lua
+-- control.lua — factorio-planner-export mod
 --
 -- Exports Factorio prototype data to a GameData JSON bundle for use by the
 -- factorio-planner web app. The output matches the GameData TypeScript interface
 -- in src/data/types.ts and passes the Zod schema in src/data/schema.ts.
 --
--- DELIVERY:
---   Option A — In-game console:
---     Open the console with ~ and paste this entire script after /c
+-- INSTALLATION:
+--   Symlink (or copy) the mod folder into your Factorio mods directory:
 --
---   Option B — Simple mod:
---     Create a folder in your mods directory called "factorio-planner-export_1.0.0"
---     Place this file as control.lua inside it, alongside the info.json below.
+--   macOS:
+--     ln -s ~/Projects/.../scripts/factorio-planner-export_1.0.0 \
+--           ~/Library/Application\ Support/factorio/mods/
 --
---   info.json contents:
---     { "name": "factorio-planner-export", "version": "1.0.0",
---       "title": "Factorio Planner Export", "author": "you",
---       "factorio_version": "2.0", "dependencies": [] }
+--   Linux:
+--     ln -s ~/projects/.../scripts/factorio-planner-export_1.0.0 \
+--           ~/.factorio/mods/
+--
+--   Windows:
+--     mklink /D "%APPDATA%\Factorio\mods\factorio-planner-export_1.0.0" \
+--            "C:\path\to\scripts\factorio-planner-export_1.0.0"
+--
+--   Then start Factorio, load a save with the desired mods active, and wait
+--   one tick. The export runs automatically on the first tick.
 --
 -- OUTPUT:
 --   script-output/factorio-planner-export.json
 --
---   Windows: %APPDATA%\Factorio\script-output\
---   Linux:   ~/.factorio/script-output/
 --   macOS:   ~/Library/Application Support/factorio/script-output/
+--   Linux:   ~/.factorio/script-output/
+--   Windows: %APPDATA%\Factorio\script-output\
 --
--- IMPORT
---   You can easily import the generated json into this project with a command like the
---   following:
+-- IMPORT:
 --   cp ~/Library/Application\ Support/factorio/script-output/factorio-planner-export.json \
 --      data/samples/nullius/game-data.json
 
