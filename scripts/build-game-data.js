@@ -361,9 +361,10 @@ function parseEnergyKw(s) {
 // ---------------------------------------------------------------------------
 
 function inferEnergyType(proto) {
-  if (proto.electric_energy_source) return 'electric'
-  if (proto.burner)                 return 'burner'
-  if (proto.heat_energy_source)     return 'heat'
+  const t = proto.energy_source?.type
+  if (t === 'electric') return 'electric'
+  if (t === 'burner')   return 'burner'
+  if (t === 'heat')     return 'heat'
   return 'void'
 }
 
@@ -427,12 +428,13 @@ function extractProducts(proto) {
 // main_product resolution
 // ---------------------------------------------------------------------------
 
-function resolveMainProduct(proto) {
+function resolveMainProduct(proto, products) {
   const mp = proto.main_product
-  if (mp == null) return undefined   // omit field
-  if (mp === '')  return ''          // explicit multi-output → loader normalises to null
-  if (typeof mp === 'string') return mp
-  return undefined
+  if (mp === '') return ''          // explicit multi-output → loader normalises to null
+  if (typeof mp === 'string' && mp !== '') return mp
+  // main_product absent: infer from products (matches runtime Lua behaviour)
+  if (mp == null && products.length === 1) return products[0].itemId
+  return undefined   // omit field for true multi-output with no declared primary
 }
 
 // ---------------------------------------------------------------------------
@@ -492,11 +494,11 @@ function exportMachines(raw, localeMap, resolveIcon) {
     const table = raw[machineType]
     if (!table) continue
     for (const proto of Object.values(table)) {
-      const elec  = proto.electric_energy_source
-      const drain = elec?.drain
+      const drain = proto.energy_source?.drain
 
-      const allowedEffects = Object.keys(proto.allowed_effects ?? {}).sort()
-      const craftingCategories = Object.keys(proto.crafting_categories ?? {}).sort()
+      // In data.raw, allowed_effects and crafting_categories are plain arrays.
+      const allowedEffects     = (proto.allowed_effects ?? []).slice().sort()
+      const craftingCategories = (proto.crafting_categories ?? []).slice().sort()
 
       machines[proto.name] = {
         id:                proto.name,
@@ -506,7 +508,7 @@ function exportMachines(raw, localeMap, resolveIcon) {
         energyUsageKw:     parseEnergyKw(proto.energy_usage),
         energyType:        inferEnergyType(proto),
         drainKw:           parseEnergyKw(drain),
-        moduleSlots:       proto.module_specification?.module_slots ?? 0,
+        moduleSlots:       proto.module_slots ?? 0,
         allowedEffects,
         craftingCategories,
         iconPath:          resolveIcon(proto, proto.name),
@@ -548,9 +550,10 @@ function exportRecipes(raw, localeMap, categoryMap) {
     const category    = proto.category ?? 'crafting'
     const madeIn      = (categoryMap[category] ?? []).slice().sort()
 
-    const allowProductivity = !!(proto.allowed_effects?.productivity)
+    // In data.raw, allow_productivity is a direct boolean on the recipe.
+    const allowProductivity = proto.allow_productivity ?? false
 
-    const mainProduct = resolveMainProduct(proto)
+    const mainProduct = resolveMainProduct(proto, products)
 
     const entry = {
       id:               proto.name,
