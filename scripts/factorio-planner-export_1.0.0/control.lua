@@ -1,5 +1,10 @@
 -- control.lua — factorio-planner-export mod
 --
+-- NOTE: This mod is superseded by scripts/build-game-data.js, which uses
+-- `factorio --dump-data` to extract all data (including icon paths and English
+-- names) without opening the Factorio GUI.  This mod is kept for reference and
+-- as a fallback when the Node.js pipeline is unavailable.
+--
 -- Exports Factorio prototype data to a GameData JSON bundle for use by the
 -- factorio-planner web app. The output matches the GameData TypeScript interface
 -- in src/data/types.ts and passes the Zod schema in src/data/schema.ts.
