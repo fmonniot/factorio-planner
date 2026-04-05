@@ -110,8 +110,11 @@ function compareSection(sectionName, refSection, actSection, improvedFields = ['
     const a = actSection[id]
 
     for (const key of new Set([...Object.keys(r), ...Object.keys(a)])) {
-      const rv = JSON.stringify(r[key] ?? null)
-      const av = JSON.stringify(a[key] ?? null)
+      const rk = r[key] ?? null
+      const ak = a[key] ?? null
+
+      const rv = JSON.stringify(rk, (rk) ? Object.keys(r[key]).sort() : undefined)
+      const av = JSON.stringify(ak, (ak) ? Object.keys(r[key]).sort() : undefined)
       if (rv === av) continue
 
       if (improvedFields.includes(key)) {
