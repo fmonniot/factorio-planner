@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { GoalsPanel } from './components/GoalsPanel'
+import { NodesPanel } from './components/NodesPanel'
 import { TreeView } from './components/TreeView'
 import { TableView } from './components/TableView'
 import { SummaryBar } from './components/SummaryBar'
@@ -47,7 +48,13 @@ function MainArea() {
 function App() {
   return (
     <AppShell
-      sidebar={<GoalsPanel />}
+      sidebar={
+        <div className="flex flex-col h-full overflow-y-auto">
+          <GoalsPanel />
+          <div className="border-t border-gray-700" />
+          <NodesPanel />
+        </div>
+      }
       main={<MainArea />}
       summary={<SummaryBar />}
     />

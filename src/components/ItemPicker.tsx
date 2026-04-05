@@ -1,15 +1,21 @@
 import { useState, useEffect, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import type { Item } from '../data/types'
+import type { Item, Recipe } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Fuzzy matching — case-insensitive substring on name or id
 // ---------------------------------------------------------------------------
 
-function matches(query: string, item: Item): boolean {
+function matchesItem(query: string, item: Item): boolean {
   if (!query) return true
   const q = query.toLowerCase()
   return item.name.toLowerCase().includes(q) || item.id.toLowerCase().includes(q)
+}
+
+function matchesRecipe(query: string, recipe: Recipe): boolean {
+  if (!query) return true
+  const q = query.toLowerCase()
+  return recipe.name.toLowerCase().includes(q) || recipe.id.toLowerCase().includes(q)
 }
 
 // ---------------------------------------------------------------------------
@@ -17,11 +23,13 @@ function matches(query: string, item: Item): boolean {
 // ---------------------------------------------------------------------------
 
 interface ItemPickerProps {
-  onSelect: (itemId: string) => void
+  onSelect: (id: string) => void
   onClose: () => void
+  /** Whether to search items (default) or recipes. */
+  source?: 'items' | 'recipes'
 }
 
-export function ItemPicker({ onSelect, onClose }: ItemPickerProps) {
+export function ItemPicker({ onSelect, onClose, source = 'items' }: ItemPickerProps) {
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
   const gameData = useGameDataStore(selectGameData)
@@ -40,9 +48,21 @@ export function ItemPicker({ onSelect, onClose }: ItemPickerProps) {
     return () => window.removeEventListener('keydown', onKey)
   }, [onClose])
 
-  const items = gameData
-    ? Object.values(gameData.items).filter(item => matches(query, item))
+  const results: { id: string; name: string }[] = gameData
+    ? source === 'recipes'
+      ? Object.values(gameData.recipes)
+          .filter(r => matchesRecipe(query, r))
+          .map(r => ({ id: r.id, name: r.name }))
+      : Object.values(gameData.items)
+          .filter(item => matchesItem(query, item))
+          .map(item => ({ id: item.id, name: item.name }))
     : []
+
+  const placeholder = gameData
+    ? source === 'recipes' ? 'Search recipes…' : 'Search items…'
+    : 'No game data loaded'
+
+  const emptyLabel = source === 'recipes' ? 'No recipes match' : 'No items match'
 
   return (
     <div
@@ -55,7 +75,7 @@ export function ItemPicker({ onSelect, onClose }: ItemPickerProps) {
           <input
             ref={inputRef}
             type="text"
-            placeholder={gameData ? 'Search items…' : 'No game data loaded'}
+            placeholder={placeholder}
             disabled={!gameData}
             value={query}
             onChange={e => setQuery(e.target.value)}
@@ -70,17 +90,17 @@ export function ItemPicker({ onSelect, onClose }: ItemPickerProps) {
               Load game data first (header → Load game data)
             </li>
           )}
-          {gameData && items.length === 0 && (
-            <li className="px-4 py-3 text-gray-500 text-sm">No items match</li>
+          {gameData && results.length === 0 && (
+            <li className="px-4 py-3 text-gray-500 text-sm">{emptyLabel}</li>
           )}
-          {items.map(item => (
-            <li key={item.id}>
+          {results.map(entry => (
+            <li key={entry.id}>
               <button
                 className="w-full text-left px-4 py-2 text-sm text-gray-200 hover:bg-gray-800 focus:bg-gray-800 outline-none"
-                onClick={() => { onSelect(item.id); onClose() }}
+                onClick={() => { onSelect(entry.id); onClose() }}
               >
-                <span className="font-medium">{item.name}</span>
-                <span className="text-gray-500 ml-2 text-xs">{item.id}</span>
+                <span className="font-medium">{entry.name}</span>
+                <span className="text-gray-500 ml-2 text-xs">{entry.id}</span>
               </button>
             </li>
           ))}
