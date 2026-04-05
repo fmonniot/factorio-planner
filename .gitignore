@@ -8,6 +8,7 @@ data/samples/
 node_modules/
 dist/
 .vite/
+test-results/
 
 # TypeScript build info
 *.tsbuildinfo
