@@ -1,0 +1,90 @@
+{
+  "description": "60/min chemical-science-pack",
+  "goals": [
+    {
+      "id": "goal-1",
+      "itemId": "chemical-science-pack",
+      "rate": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-1",
+      "recipeId": "chemical-science-pack",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-2",
+      "recipeId": "sulfur",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-3",
+      "recipeId": "advanced-circuit",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-4",
+      "recipeId": "engine-unit",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-5",
+      "recipeId": "basic-oil-processing",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-6",
+      "recipeId": "plastic-bar",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-7",
+      "recipeId": "electronic-circuit",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-8",
+      "recipeId": "pipe",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-9",
+      "recipeId": "iron-gear-wheel",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-10",
+      "recipeId": "steel-plate",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-11",
+      "recipeId": "iron-plate",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-12",
+      "recipeId": "nullius-iron-rod",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-13",
+      "recipeId": "nullius-iron-ingot",
+      "modules": [],
+      "byproductPolicy": {}
+    }
+  ]
+}

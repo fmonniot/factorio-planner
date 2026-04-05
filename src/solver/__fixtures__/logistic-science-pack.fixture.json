@@ -1,0 +1,72 @@
+{
+  "description": "60/min logistic-science-pack",
+  "goals": [
+    {
+      "id": "goal-1",
+      "itemId": "logistic-science-pack",
+      "rate": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-1",
+      "recipeId": "logistic-science-pack",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-2",
+      "recipeId": "inserter",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-3",
+      "recipeId": "transport-belt",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-4",
+      "recipeId": "nullius-motor-1",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-5",
+      "recipeId": "nullius-iron-rod",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-6",
+      "recipeId": "nullius-iron-gear",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-7",
+      "recipeId": "nullius-iron-sheet",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-8",
+      "recipeId": "nullius-iron-plate",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-9",
+      "recipeId": "nullius-iron-wire",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-10",
+      "recipeId": "nullius-iron-ingot",
+      "modules": [],
+      "byproductPolicy": {}
+    }
+  ]
+}

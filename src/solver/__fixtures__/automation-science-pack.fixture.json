@@ -1,0 +1,36 @@
+{
+  "description": "60/min automation-science-pack",
+  "goals": [
+    {
+      "id": "goal-1",
+      "itemId": "automation-science-pack",
+      "rate": 60
+    }
+  ],
+  "nodes": [
+    {
+      "id": "node-1",
+      "recipeId": "automation-science-pack",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-2",
+      "recipeId": "iron-gear-wheel",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-3",
+      "recipeId": "copper-plate",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "node-4",
+      "recipeId": "iron-plate",
+      "modules": [],
+      "byproductPolicy": {}
+    }
+  ]
+}
