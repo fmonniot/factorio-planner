@@ -16,13 +16,22 @@ export type SolverStatus =
 
 export interface SolverStoreState {
   status: SolverStatus
+  /** The most recent successful solve result; persists while re-solving so views don't flash. */
+  lastResult: SolverResult | undefined
   /** Internal — set by the subscription wiring; not for direct use. */
   _setStatus: (status: SolverStatus) => void
 }
 
 export const useSolverStore = create<SolverStoreState>((set) => ({
   status: { type: 'idle' },
-  _setStatus: (status) => set({ status }),
+  lastResult: undefined,
+  _setStatus: (status) => {
+    if (status.type === 'solved') {
+      set({ status, lastResult: status.result })
+    } else {
+      set({ status })
+    }
+  },
 }))
 
 // ---------------------------------------------------------------------------
@@ -87,7 +96,8 @@ export function wireSolver(): () => void {
 // Selector helpers
 // ---------------------------------------------------------------------------
 
-/** Returns the latest SolverResult, or undefined if not yet solved. */
+/** Returns the latest SolverResult, or undefined if no solve has completed yet.
+ *  Remains defined during re-solves so views don't unmount mid-interaction. */
 export function selectSolverResult(state: SolverStoreState): SolverResult | undefined {
-  return state.status.type === 'solved' ? state.status.result : undefined
+  return state.lastResult
 }

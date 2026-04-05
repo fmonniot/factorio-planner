@@ -66,7 +66,7 @@ export function TableView() {
     )
   }
 
-  if (status.type === 'pending') {
+  if (status.type === 'pending' && !result) {
     return (
       <div className="flex items-center justify-center h-full text-gray-500 text-sm">
         Solving…

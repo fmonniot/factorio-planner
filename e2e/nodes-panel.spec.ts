@@ -49,4 +49,39 @@ test.describe('Nodes panel', () => {
     // 8. Hint message returns
     await expect(page.getByText('Add recipe nodes to the plan')).toBeVisible()
   })
+
+  test('module section stays open after adding a module', async ({ page }) => {
+    const pickerOverlay = page.locator('.fixed.inset-0')
+
+    // Set up: goal + recipe node for nullius-chemical-pack.
+    // nullius-chemical-plant-3 (the default machine) has 3 module slots.
+    await page.getByRole('button', { name: '+ Add' }).first().click()
+    await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
+    await pickerOverlay.getByRole('button', { name: /nullius-chemical-pack/ }).first().click()
+
+    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    await page.getByPlaceholder('Search recipes…').fill('nullius-chemical-pack')
+    await pickerOverlay.getByRole('button', { name: /nullius-chemical-pack/ }).first().click()
+
+    // Wait for the recipe card to appear in the main area.
+    // Scope to the card that shows this recipe's name.
+    const card = page.locator('main').locator('.bg-gray-800').filter({ hasText: 'nullius-chemical-pack' }).first()
+    await expect(card).toBeVisible()
+
+    // Expand the Modules section.
+    const moduleSection = card.locator('section').filter({ hasText: 'Modules' })
+    await moduleSection.getByRole('button', { name: /Modules/ }).click()
+    // The add-module combobox is visible when the section is open.
+    await expect(moduleSection.getByRole('combobox')).toBeVisible()
+
+    // Add a module.
+    await moduleSection.getByRole('combobox').selectOption({ label: 'nullius-haste-module-1' })
+    await moduleSection.getByRole('button', { name: 'Add' }).click()
+
+    // The section must still be open: the added module is listed and the
+    // combobox for the next module is still visible — proving the card was NOT
+    // unmounted and remounted during the re-solve triggered by the mutation.
+    await expect(moduleSection.getByText('nullius-haste-module-1')).toBeVisible()
+    await expect(moduleSection.getByRole('combobox')).toBeVisible()
+  })
 })
