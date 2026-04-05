@@ -93,6 +93,17 @@ local function get_energy_type(proto)
   return "void"
 end
 
+-- Resolve a prototype's localised_name to an English string using
+-- helpers.localise_string (available in Factorio 2.0 runtime).
+-- Falls back to proto.name if resolution fails or returns empty.
+local function localised_name(proto)
+  local ok, result = pcall(function()
+    return helpers.localise_string(proto.localised_name)
+  end)
+  if ok and type(result) == "string" and result ~= "" then return result end
+  return proto.name
+end
+
 -- ---------------------------------------------------------------------------
 -- Items (items + fluids unified under type "item" | "fluid")
 -- ---------------------------------------------------------------------------
@@ -101,15 +112,13 @@ local function export_items()
   local items = {}
 
   -- All item subtypes (tool, ammo, armor, module, etc.) are normalised to "item".
-  -- Note: proto.name is the internal name (e.g. "iron-plate"). Localised display
-  -- names require a locale lookup that is not easily available in a console script;
-  -- the app falls back to the internal name for display until a richer export is available.
   for name, proto in pairs(prototypes.item) do
     items[name] = {
       id        = proto.name,
-      name      = proto.name,
+      name      = localised_name(proto),
       type      = "item",
-      iconPath  = "",   -- icons are handled separately (see spec/plan.md phase 7)
+      iconPath  = field(proto, "icon") or "",
+      hidden    = field(proto, "hidden") or false,
       stackSize = proto.stack_size,
     }
   end
@@ -118,9 +127,10 @@ local function export_items()
   for name, proto in pairs(prototypes.fluid) do
     items[name] = {
       id       = proto.name,
-      name     = proto.name,
+      name     = localised_name(proto),
       type     = "fluid",
-      iconPath = "",
+      iconPath = field(proto, "icon") or "",
+      hidden   = field(proto, "hidden") or false,
     }
   end
 
@@ -167,7 +177,7 @@ local function export_machines()
 
       machines[name] = {
         id                = proto.name,
-        name              = proto.name,
+        name              = localised_name(proto),
         type              = proto.type,
         -- Use dot notation: proto.get_crafting_speed() passes no implicit self.
         -- Colon notation (proto:method()) would pass proto as the quality arg.
@@ -183,7 +193,8 @@ local function export_machines()
         moduleSlots       = field(proto, "module_inventory_size") or 0,
         allowedEffects    = effects,
         craftingCategories = cats,
-        iconPath          = "",
+        iconPath          = field(proto, "icon") or "",
+        hidden            = field(proto, "hidden") or false,
       }
     end
   end
@@ -283,7 +294,7 @@ local function export_recipes(category_map)
 
     recipes[name] = {
       id               = proto.name,
-      name             = proto.name,
+      name             = localised_name(proto),
       category         = cat,
       craftingTime     = proto.energy,
       ingredients      = ingredients,
@@ -297,6 +308,7 @@ local function export_recipes(category_map)
         return type(effects) == "table" and effects["productivity"] == true or false
       end)(),
       mainProduct      = main_product,
+      hidden           = field(proto, "hidden") or false,
     }
 
     ::continue::
@@ -331,12 +343,13 @@ local function export_modules()
 
       modules[name] = {
         id                   = proto.name,
-        name                 = proto.name,
+        name                 = localised_name(proto),
         category             = field(proto, "category") or "unknown",
         tier                 = field(proto, "tier") or 0,
         effects              = parsed_effects,
         limitation           = limitation,
         limitationBlacklist  = limitation_blacklist,
+        iconPath             = field(proto, "icon") or "",
       }
     end
   end

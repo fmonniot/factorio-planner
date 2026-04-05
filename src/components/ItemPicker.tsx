@@ -51,10 +51,10 @@ export function ItemPicker({ onSelect, onClose, source = 'items' }: ItemPickerPr
   const results: { id: string; name: string }[] = gameData
     ? source === 'recipes'
       ? Object.values(gameData.recipes)
-          .filter(r => matchesRecipe(query, r))
+          .filter(r => !r.hidden && matchesRecipe(query, r))
           .map(r => ({ id: r.id, name: r.name }))
       : Object.values(gameData.items)
-          .filter(item => matchesItem(query, item))
+          .filter(item => !item.hidden && matchesItem(query, item))
           .map(item => ({ id: item.id, name: item.name }))
     : []
 

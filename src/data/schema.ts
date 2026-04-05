@@ -31,6 +31,7 @@ export const ItemSchema = z.object({
   name: z.string(),
   type: z.enum(['item', 'fluid']),
   iconPath: z.string(),
+  hidden: z.boolean().default(false),
   stackSize: z.number().int().positive().optional(),
 })
 
@@ -61,6 +62,7 @@ export const RecipeSchema = z.object({
   products: luaArray(ProductSchema),
   madeIn: luaArray(z.string()),
   allowProductivity: z.boolean(),
+  hidden: z.boolean().default(false),
   // null = explicitly multi-output with no primary (main_product = "" in Lua export)
   // The Lua exporter emits "" for the multi-output case; we normalise to null here.
   mainProduct: z
@@ -92,6 +94,7 @@ export const MachineSchema = z.object({
   allowedEffects: z.array(EffectNameSchema),
   craftingCategories: z.array(z.string()),
   iconPath: z.string(),
+  hidden: z.boolean().default(false),
 })
 
 export const ModuleSchema = z.object({
@@ -102,6 +105,7 @@ export const ModuleSchema = z.object({
   effects: z.record(EffectNameSchema, z.number()),
   limitation: luaArray(z.string()),
   limitationBlacklist: luaArray(z.string()),
+  iconPath: z.string().default(''),
 })
 
 export const GameDataSchema = z.object({
