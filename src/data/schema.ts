@@ -150,14 +150,40 @@ export const RecipeNodeSchema = z.object({
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
 })
 
-export const PlanSchema = z.object({
+// SubPlan is recursive, so the TypeScript type is defined manually first, then
+// the Zod schema is annotated with it so z.lazy() can reference it correctly.
+type SubPlanType = {
+  id: string
+  name: string
+  goals: z.output<typeof ProductionGoalSchema>[]
+  nodes: z.output<typeof RecipeNodeSchema>[]
+  subPlans: SubPlanType[]
+  createdAt: string
+  updatedAt: string
+}
+
+export const SubPlanSchema: z.ZodType<SubPlanType> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    goals: z.array(ProductionGoalSchema),
+    nodes: z.array(RecipeNodeSchema),
+    subPlans: z.array(SubPlanSchema),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  }),
+)
+
+export const BlockSchema = z.object({
   id: z.string(),
   name: z.string(),
   gameDataVersion: z.string(),
-  goals: z.array(ProductionGoalSchema),
-  nodes: z.array(RecipeNodeSchema),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  rootPlan: SubPlanSchema,
+})
+
+export const AppStateSchema = z.object({
+  blocks: z.array(BlockSchema),
+  activeBlockId: z.string(),
 })
 
 // ---------------------------------------------------------------------------
@@ -185,8 +211,9 @@ export type ProductionGoal = z.output<typeof ProductionGoalSchema>
 export type ModuleConfig = z.output<typeof ModuleConfigSchema>
 export type BeaconConfig = z.output<typeof BeaconConfigSchema>
 export type RecipeNode = z.output<typeof RecipeNodeSchema>
-export type Plan = z.output<typeof PlanSchema>
+export type SubPlan = SubPlanType
+export type Block = z.output<typeof BlockSchema>
+export type AppState = z.output<typeof AppStateSchema>
 
 // Input types — what the schema accepts before transforms (useful in tests).
 export type GameDataInput = z.input<typeof GameDataSchema>
-export type PlanInput = z.input<typeof PlanSchema>

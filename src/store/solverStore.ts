@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { SolverResult } from '../data/types'
 import { solve } from '../solver/index'
-import { usePlanStore } from './planStore'
+import { useBlockStore, selectActiveSubPlan } from './blockStore'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 
 // ---------------------------------------------------------------------------
@@ -37,8 +37,8 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 // ---------------------------------------------------------------------------
 // Subscription wiring
 //
-// Called once at app startup (e.g. from main.tsx or App.tsx).
-// Subscribes to plan + gameData changes, debounces, then re-solves.
+// Called once at app startup (e.g. from main.tsx).
+// Subscribes to active subplan + gameData changes, debounces, then re-solves.
 // Returns an unsubscribe function for cleanup.
 // ---------------------------------------------------------------------------
 
@@ -52,7 +52,7 @@ export function wireSolver(): () => void {
 
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
-      const plan = usePlanStore.getState().plan
+      const subPlan = selectActiveSubPlan(useBlockStore.getState())
       const gameData = selectGameData(useGameDataStore.getState())
 
       if (!gameData) {
@@ -60,9 +60,7 @@ export function wireSolver(): () => void {
         return
       }
 
-      // Plans with no goals or no nodes produce a trivially empty result rather
-      // than running the full solver.
-      if (plan.goals.length === 0 || plan.nodes.length === 0) {
+      if (!subPlan || subPlan.goals.length === 0 || subPlan.nodes.length === 0) {
         useSolverStore.getState()._setStatus({
           type: 'solved',
           result: { nodes: [], unsatisfied: [], warnings: [] },
@@ -71,7 +69,7 @@ export function wireSolver(): () => void {
       }
 
       try {
-        const result = solve(plan, gameData)
+        const result = solve(subPlan, gameData)
         useSolverStore.getState()._setStatus({ type: 'solved', result })
       } catch (err) {
         useSolverStore.getState()._setStatus({
@@ -82,12 +80,12 @@ export function wireSolver(): () => void {
     }, DEBOUNCE_MS)
   }
 
-  const unsubPlan = usePlanStore.subscribe(schedule)
+  const unsubBlocks = useBlockStore.subscribe(schedule)
   const unsubGameData = useGameDataStore.subscribe(schedule)
 
   return () => {
     if (timer !== undefined) clearTimeout(timer)
-    unsubPlan()
+    unsubBlocks()
     unsubGameData()
   }
 }

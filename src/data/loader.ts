@@ -1,5 +1,5 @@
-import { GameDataSchema, PlanSchema } from './schema'
-import type { GameData, Plan } from './schema'
+import { GameDataSchema, AppStateSchema } from './schema'
+import type { GameData, AppState } from './schema'
 
 export class GameDataLoadError extends Error {
   readonly issues: { path: string; message: string }[]
@@ -15,7 +15,7 @@ export class GameDataLoadError extends Error {
   }
 }
 
-export class PlanLoadError extends Error {
+export class AppStateLoadError extends Error {
   readonly issues: { path: string; message: string }[]
 
   constructor(issues: { path: string; message: string }[]) {
@@ -23,8 +23,8 @@ export class PlanLoadError extends Error {
       .slice(0, 5)
       .map(i => `${i.path}: ${i.message}`)
       .join('\n')
-    super(`Invalid plan data:\n${summary}${issues.length > 5 ? `\n…and ${issues.length - 5} more` : ''}`)
-    this.name = 'PlanLoadError'
+    super(`Invalid app state data:\n${summary}${issues.length > 5 ? `\n…and ${issues.length - 5} more` : ''}`)
+    this.name = 'AppStateLoadError'
     this.issues = issues
   }
 }
@@ -61,23 +61,23 @@ export function loadGameDataFromJson(json: string): GameData {
 }
 
 /**
- * Parse and validate a raw JSON value as Plan.
- * Throws PlanLoadError if validation fails.
+ * Parse and validate a raw JSON value as AppState.
+ * Throws AppStateLoadError if validation fails.
  */
-export function parsePlan(raw: unknown): Plan {
-  const result = PlanSchema.safeParse(raw)
+export function parseAppState(raw: unknown): AppState {
+  const result = AppStateSchema.safeParse(raw)
   if (!result.success) {
-    throw new PlanLoadError(formatZodError(result.error))
+    throw new AppStateLoadError(formatZodError(result.error))
   }
   return result.data
 }
 
 /**
- * Parse a JSON string, then validate as Plan.
+ * Parse a JSON string, then validate as AppState.
  * Throws SyntaxError if the string is not valid JSON.
- * Throws PlanLoadError if validation fails.
+ * Throws AppStateLoadError if validation fails.
  */
-export function loadPlanFromJson(json: string): Plan {
+export function loadAppStateFromJson(json: string): AppState {
   const raw: unknown = JSON.parse(json)
-  return parsePlan(raw)
+  return parseAppState(raw)
 }

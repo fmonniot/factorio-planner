@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import type { SolvedNode, Plan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
-import { usePlanStore } from '../store/planStore'
+import type { SolvedNode, SubPlan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
+import { useBlockStore } from '../store/blockStore'
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -29,7 +29,7 @@ interface AlternateRecipeSelectorProps {
 }
 
 function AlternateRecipeSelector({ nodeId, currentRecipeId, primaryItemId, gameData }: AlternateRecipeSelectorProps) {
-  const updateNodeRecipe = usePlanStore(s => s.updateNodeRecipe)
+  const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
 
   if (!primaryItemId) return null
 
@@ -65,7 +65,7 @@ interface MachineSelectorProps {
 }
 
 function MachineSelector({ nodeId, recipeCategory, currentMachineId, gameData }: MachineSelectorProps) {
-  const updateNodeMachine = usePlanStore(s => s.updateNodeMachine)
+  const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
 
   const machines = Object.values(gameData.machines)
     .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory))
@@ -115,7 +115,7 @@ interface ModuleEditorProps {
 }
 
 function ModuleEditor({ nodeId, modules, machineSlots, allowedMachineEffects, recipeId, gameData }: ModuleEditorProps) {
-  const updateNodeModules = usePlanStore(s => s.updateNodeModules)
+  const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const [open, setOpen] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
 
@@ -224,7 +224,7 @@ interface ThroughputRowProps {
 }
 
 function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
-  const updateNodePinnedRate = usePlanStore(s => s.updateNodePinnedRate)
+  const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const isPinned = pinnedRate !== undefined
 
   function togglePin() {
@@ -279,7 +279,7 @@ interface BeaconEditorProps {
 }
 
 function BeaconEditor({ nodeId, beacon, gameData }: BeaconEditorProps) {
-  const updateNodeBeacon = usePlanStore(s => s.updateNodeBeacon)
+  const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
   const [open, setOpen] = useState(false)
 
   const modules = Object.values(gameData.modules).sort((a, b) => a.name.localeCompare(b.name))
@@ -406,12 +406,12 @@ function BeaconEditor({ nodeId, beacon, gameData }: BeaconEditorProps) {
 
 interface RecipeCardProps {
   node: SolvedNode
-  plan: Plan
+  plan: SubPlan
   gameData: GameData
 }
 
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
-  const updateNodeByproductPolicy = usePlanStore(s => s.updateNodeByproductPolicy)
+  const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
 
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
   const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined

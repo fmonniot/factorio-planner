@@ -1,15 +1,17 @@
 import { useState } from 'react'
-import { usePlanStore } from '../store/planStore'
+import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { ItemPicker } from './ItemPicker'
 
 export function GoalsPanel() {
-  const goals = usePlanStore(s => s.plan.goals)
-  const addGoal = usePlanStore(s => s.addGoal)
-  const removeGoal = usePlanStore(s => s.removeGoal)
-  const updateGoalRate = usePlanStore(s => s.updateGoalRate)
+  const subPlan = useBlockStore(selectActiveSubPlan)
+  const addGoal = useBlockStore(s => s.addGoal)
+  const removeGoal = useBlockStore(s => s.removeGoal)
+  const updateGoalRate = useBlockStore(s => s.updateGoalRate)
   const gameData = useGameDataStore(selectGameData)
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  const goals = subPlan?.goals ?? []
 
   function handleSelectItem(itemId: string) {
     addGoal({

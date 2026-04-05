@@ -1,8 +1,8 @@
-import { usePlanStore } from '../store/planStore'
+import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { RecipeCard } from './RecipeCard'
-import type { SolvedNode, Plan, GameData } from '../data/types'
+import type { SolvedNode, SubPlan, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Depth assignment
@@ -15,7 +15,7 @@ import type { SolvedNode, Plan, GameData } from '../data/types'
 
 function buildColumns(
   nodes: SolvedNode[],
-  plan: Plan,
+  subPlan: SubPlan,
 ): string[][] {
   // itemId → recipeNodeId that produces it
   const producerOf = new Map<string, string>()
@@ -40,7 +40,7 @@ function buildColumns(
     }
   }
 
-  for (const goal of plan.goals) {
+  for (const goal of subPlan.goals) {
     const pid = producerOf.get(goal.itemId)
     if (pid) descend(pid, 0)
   }
@@ -69,11 +69,29 @@ function buildColumns(
 }
 
 // ---------------------------------------------------------------------------
+// SubPlan card — collapsed summary shown in parent plan's tree view
+// ---------------------------------------------------------------------------
+
+interface SubPlanCardProps {
+  subPlanName: string
+}
+
+function SubPlanCard({ subPlanName }: SubPlanCardProps) {
+  return (
+    <div className="bg-gray-800 border border-blue-800 rounded-lg p-3 w-72 flex items-center gap-2">
+      <span className="text-blue-400 text-sm font-bold leading-none">⊞</span>
+      <span className="text-sm text-blue-200 truncate flex-1">{subPlanName}</span>
+      <span className="text-xs text-gray-500">sub-plan</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Component
 // ---------------------------------------------------------------------------
 
 export function TreeView() {
-  const plan = usePlanStore(s => s.plan)
+  const subPlan = useBlockStore(selectActiveSubPlan)
   const status = useSolverStore(s => s.status)
   const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
@@ -104,11 +122,14 @@ export function TreeView() {
     )
   }
 
-  if (!result || result.nodes.length === 0) {
+  const hasSubPlans = (subPlan?.subPlans.length ?? 0) > 0
+  const hasNodes = (result?.nodes.length ?? 0) > 0
+
+  if (!hasNodes && !hasSubPlans) {
     const hint =
-      plan.goals.length === 0
+      !subPlan || subPlan.goals.length === 0
         ? 'Add a goal in the sidebar to start planning'
-        : plan.nodes.length === 0
+        : subPlan.nodes.length === 0
           ? 'Add recipe nodes to the plan'
           : 'No nodes to display'
     return (
@@ -120,16 +141,26 @@ export function TreeView() {
 
   // ── Tree layout ───────────────────────────────────────────────────────────
 
-  const columns = buildColumns(result.nodes, plan)
+  const columns = subPlan && result ? buildColumns(result.nodes, subPlan) : []
 
   function renderNode(nodeId: string, gd: GameData) {
     const sn = result!.nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return null
-    return <RecipeCard key={nodeId} node={sn} plan={plan} gameData={gd} />
+    return <RecipeCard key={nodeId} node={sn} plan={subPlan!} gameData={gd} />
   }
 
   return (
     <div className="flex gap-6 min-h-full overflow-x-auto pb-4">
+      {/* SubPlan nodes as collapsed cards in a leading column */}
+      {hasSubPlans && subPlan && (
+        <div className="flex flex-col gap-3 shrink-0">
+          {subPlan.subPlans.map(sp => (
+            <SubPlanCard key={sp.id} subPlanName={sp.name} />
+          ))}
+        </div>
+      )}
+
+      {/* Recipe node columns */}
       {columns.map((nodeIds, colIdx) => (
         <div key={colIdx} className="flex flex-col gap-3 shrink-0">
           {nodeIds.map(nodeId => renderNode(nodeId, gameData))}

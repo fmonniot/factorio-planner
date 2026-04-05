@@ -1,14 +1,19 @@
 import { useState } from 'react'
-import { usePlanStore } from '../store/planStore'
+import { useBlockStore, selectActiveSubPlan, selectActiveBlock } from '../store/blockStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { ItemPicker } from './ItemPicker'
 
 export function NodesPanel() {
-  const nodes = usePlanStore(s => s.plan.nodes)
-  const addNode = usePlanStore(s => s.addNode)
-  const removeNode = usePlanStore(s => s.removeNode)
+  const subPlan = useBlockStore(selectActiveSubPlan)
+  const activeBlock = useBlockStore(selectActiveBlock)
+  const addNode = useBlockStore(s => s.addNode)
+  const removeNode = useBlockStore(s => s.removeNode)
+  const setActiveSubPlan = useBlockStore(s => s.setActiveSubPlan)
   const gameData = useGameDataStore(selectGameData)
   const [pickerOpen, setPickerOpen] = useState(false)
+
+  const nodes = subPlan?.nodes ?? []
+  const subPlans = subPlan?.subPlans ?? []
 
   function handleSelectRecipe(recipeId: string) {
     addNode({
@@ -34,11 +39,32 @@ export function NodesPanel() {
 
       {/* Node list */}
       <ul>
-        {nodes.length === 0 && (
+        {nodes.length === 0 && subPlans.length === 0 && (
           <li className="px-4 py-3 text-gray-500 text-sm">
             No nodes yet — click <strong>+ Add</strong>
           </li>
         )}
+
+        {/* Auto-wired subplan nodes (read-only) */}
+        {subPlans.map(sp => (
+          <li
+            key={sp.id}
+            className="flex items-center gap-2 px-4 py-2 border-b border-gray-800"
+          >
+            {/* Subplan icon */}
+            <span className="shrink-0 text-blue-400 text-xs font-bold leading-none w-4 text-center">⊞</span>
+            <button
+              className="flex-1 text-sm text-blue-300 hover:text-blue-100 truncate text-left"
+              title={`Navigate to sub-plan: ${sp.name}`}
+              onClick={() => setActiveSubPlan(sp.id)}
+            >
+              {sp.name}
+            </button>
+            <span className="text-xs text-gray-600 shrink-0">sub-plan</span>
+          </li>
+        ))}
+
+        {/* Regular recipe nodes */}
         {nodes.map(node => {
           const name = gameData?.recipes[node.recipeId]?.name ?? node.recipeId
           return (

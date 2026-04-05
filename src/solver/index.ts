@@ -1,4 +1,4 @@
-import type { GameData, Plan, SolverResult, SolvedNode, UnsatisfiedItem, SolverWarning } from '../data/types'
+import type { GameData, SubPlan, SolverResult, SolvedNode, UnsatisfiedItem, SolverWarning } from '../data/types'
 import { buildStoichiometryMatrix, effectiveProductAmount } from './build'
 import { reduceSystem } from './reduce'
 import { applyPinnedRates, mergeThroughput } from './pin'
@@ -20,7 +20,7 @@ import { computeNodeEffects, computeMachineMetrics } from './effects'
  * @param plan     - the user's production plan
  * @param gameData - validated game data
  */
-export function solve(plan: Plan, gameData: GameData): SolverResult {
+export function solve(plan: Pick<SubPlan, 'goals' | 'nodes'>, gameData: GameData): SolverResult {
   const warnings: SolverWarning[] = []
 
   // ── 1. Compute module effects per node ──────────────────────────────────
