@@ -28,6 +28,12 @@ export interface GameDataStoreState {
   importGameDataFile: (file: File) => Promise<void>
 
   /**
+   * Import game data by fetching a URL (e.g. a server-bundled dataset).
+   * Returns a promise that resolves when the data has been fetched and parsed.
+   */
+  importGameDataUrl: (url: string) => Promise<void>
+
+  /**
    * Clear the currently loaded game data.
    */
   clearGameData: () => void
@@ -59,6 +65,23 @@ export const useGameDataStore = create<GameDataStoreState>((set) => ({
     set({ status: { type: 'loading' } })
     try {
       const json = await file.text()
+      const gameData = loadGameDataFromJson(json)
+      set({ status: { type: 'loaded', gameData } })
+    } catch (err) {
+      if (err instanceof GameDataLoadError) {
+        set({ status: { type: 'error', message: err.message } })
+      } else if (err instanceof SyntaxError) {
+        set({ status: { type: 'error', message: `Invalid JSON: ${err.message}` } })
+      } else {
+        set({ status: { type: 'error', message: String(err) } })
+      }
+    }
+  },
+
+  importGameDataUrl: async (url) => {
+    set({ status: { type: 'loading' } })
+    try {
+      const json = await fetch(url).then(r => r.text())
       const gameData = loadGameDataFromJson(json)
       set({ status: { type: 'loaded', gameData } })
     } catch (err) {

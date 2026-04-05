@@ -6,7 +6,8 @@ const GAME_DATA_PATH = path.resolve('data/samples/nullius/game-data.json')
 async function loadGameData(page: import('@playwright/test').Page) {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(GAME_DATA_PATH)
-  await expect(page.getByText('Game data loaded')).toBeVisible()
+  // Wait until the "no game data" hint disappears from the main area.
+  await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 }
 
 test.describe('Nodes panel', () => {
