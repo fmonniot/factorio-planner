@@ -33,9 +33,9 @@ function AlternateRecipeSelector({ nodeId, currentRecipeId, primaryItemId, gameD
 
   if (!primaryItemId) return null
 
-  // All recipes that produce the primary item.
+  // All non-hidden recipes that produce the primary item.
   const candidates = Object.values(gameData.recipes).filter(r =>
-    r.products.some(p => p.itemId === primaryItemId)
+    !r.hidden && r.products.some(p => p.itemId === primaryItemId)
   )
   if (candidates.length < 2) return null
 
@@ -68,7 +68,7 @@ function MachineSelector({ nodeId, recipeCategory, currentMachineId, gameData }:
   const updateNodeMachine = usePlanStore(s => s.updateNodeMachine)
 
   const machines = Object.values(gameData.machines)
-    .filter(m => m.craftingCategories.includes(recipeCategory))
+    .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   return (
