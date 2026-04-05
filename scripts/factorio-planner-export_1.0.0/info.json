@@ -1,7 +1,7 @@
 {
   "name": "factorio-planner-export",
   "version": "1.0.0",
-  "title": "Factorio Planner Export",
+  "title": "- Factorio Planner Export",
   "author": "fmonniot",
   "description": "Exports prototype data (items, recipes, machines, modules) to a JSON bundle for use with the factorio-planner web app.",
   "factorio_version": "2.0",
