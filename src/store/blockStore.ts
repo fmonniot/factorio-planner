@@ -20,7 +20,7 @@ interface BlockHistory {
 // SubPlan tree helpers
 // ---------------------------------------------------------------------------
 
-function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
+export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
   if (plan.id === id) return plan
   for (const sp of plan.subPlans) {
     const found = findSubPlan(sp, id)
