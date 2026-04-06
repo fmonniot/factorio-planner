@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { SolvedNode, SubPlan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
 import { useBlockStore } from '../store/blockStore'
+import { ItemPicker } from './ItemPicker'
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
@@ -412,6 +413,8 @@ interface RecipeCardProps {
 
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
+  const addNode = useBlockStore(s => s.addNode)
+  const [inputPickerItemId, setInputPickerItemId] = useState<string | null>(null)
 
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
 
@@ -508,7 +511,13 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
           <div className="text-xs font-medium text-gray-500 mb-0.5">Inputs</div>
           {inputEntries.map(([itemId, rate]) => (
             <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
-              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
+              <button
+                className="truncate text-left hover:text-blue-300 hover:underline"
+                title={`Add recipe producing ${gameData.items[itemId]?.name ?? itemId}`}
+                onClick={() => setInputPickerItemId(itemId)}
+              >
+                {gameData.items[itemId]?.name ?? itemId}
+              </button>
               <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
             </div>
           ))}
@@ -532,5 +541,23 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         gameData={gameData}
       />
     </div>
+
+    {inputPickerItemId && (
+      <ItemPicker
+        source="recipes"
+        filterByItemId={inputPickerItemId}
+        initialQuery={gameData.items[inputPickerItemId]?.name ?? ''}
+        onSelect={recipeId => {
+          addNode({
+            kind: 'game-recipe',
+            id: crypto.randomUUID(),
+            recipeId,
+            modules: [],
+            byproductPolicy: {},
+          })
+        }}
+        onClose={() => setInputPickerItemId(null)}
+      />
+    )}
   )
 }

@@ -27,10 +27,14 @@ interface ItemPickerProps {
   onClose: () => void
   /** Whether to search items (default) or recipes. */
   source?: 'items' | 'recipes'
+  /** When set with source="recipes", only show recipes that produce this item. */
+  filterByItemId?: string
+  /** Pre-populate the search box. */
+  initialQuery?: string
 }
 
-export function ItemPicker({ onSelect, onClose, source = 'items' }: ItemPickerProps) {
-  const [query, setQuery] = useState('')
+export function ItemPicker({ onSelect, onClose, source = 'items', filterByItemId, initialQuery }: ItemPickerProps) {
+  const [query, setQuery] = useState(initialQuery ?? '')
   const inputRef = useRef<HTMLInputElement>(null)
   const gameData = useGameDataStore(selectGameData)
 
@@ -51,7 +55,9 @@ export function ItemPicker({ onSelect, onClose, source = 'items' }: ItemPickerPr
   const results: { id: string; name: string }[] = gameData
     ? source === 'recipes'
       ? Object.values(gameData.recipes)
-          .filter(r => !r.hidden && matchesRecipe(query, r))
+          .filter(r => !r.hidden)
+          .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
+          .filter(r => matchesRecipe(query, r))
           .map(r => ({ id: r.id, name: r.name }))
       : Object.values(gameData.items)
           .filter(item => !item.hidden && matchesItem(query, item))
@@ -59,7 +65,9 @@ export function ItemPicker({ onSelect, onClose, source = 'items' }: ItemPickerPr
     : []
 
   const placeholder = gameData
-    ? source === 'recipes' ? 'Search recipes…' : 'Search items…'
+    ? filterByItemId
+      ? `Recipes producing ${gameData.items[filterByItemId]?.name ?? filterByItemId}…`
+      : source === 'recipes' ? 'Search recipes…' : 'Search items…'
     : 'No game data loaded'
 
   const emptyLabel = source === 'recipes' ? 'No recipes match' : 'No items match'
