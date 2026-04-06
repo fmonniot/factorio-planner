@@ -253,7 +253,26 @@ function buildLocaleMap(resolvers) {
  * to the prototype's internal name.
  */
 function resolveLocale(localised, fallback, localeMap) {
-  if (!localised) return fallback
+  if (!localised) {
+    // TODO There is probably a better way. Should lookup how factorio itself do it.
+    const itemName = localeMap["item-name." + fallback]
+    if (itemName) {
+      return itemName
+    }
+
+    const entityName = localeMap["entity-name." + fallback]
+    if (entityName) {
+      return entityName
+    }
+
+    const fluidName = localeMap["fluid-name." + fallback]
+    if (fluidName) {
+      return fluidName
+    }
+
+    console.log("item '", fallback, "' doesn't have a localised key nor a scope key")
+    return fallback
+  }
   if (typeof localised === 'string') return localised || fallback
 
   if (Array.isArray(localised)) {
