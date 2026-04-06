@@ -25,7 +25,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { loadGameDataFromJson } from '../data/loader'
 import { solve } from './index'
-import type { GameData, Plan, RecipeNode, SolverResult } from '../data/types'
+import type { GameData, RecipeNode, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Game data loading (shared across all chains in this file)
@@ -65,17 +65,12 @@ function loadFixture(name: string): SolverChainFixture {
 // Helpers
 // ---------------------------------------------------------------------------
 
-/** Build a minimal Plan from a fixture and loaded game data. */
-function buildPlan(fixture: SolverChainFixture, gd: GameData): Plan {
+/** Build a minimal plan from a fixture and loaded game data. */
+function buildPlan(fixture: SolverChainFixture, _gd: GameData): { goals: SolverChainFixture['goals']; nodes: RecipeNode[] } {
   return {
-    id: 'integration-test',
-    name: fixture.description,
-    gameDataVersion: gd.factorioVersion,
     goals: fixture.goals,
-    // Fixture nodes satisfy the RecipeNode shape (optional fields absent = undefined).
-    nodes: fixture.nodes as unknown as RecipeNode[],
-    createdAt: '2024-01-01T00:00:00.000Z',
-    updatedAt: '2024-01-01T00:00:00.000Z',
+    // Fixture JSON pre-dates the discriminated union; inject kind at runtime.
+    nodes: fixture.nodes.map(n => ({ kind: 'game-recipe' as const, ...n })) as RecipeNode[],
   }
 }
 

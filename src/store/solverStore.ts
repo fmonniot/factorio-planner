@@ -1,7 +1,9 @@
 import { create } from 'zustand'
-import type { SolverResult } from '../data/types'
+import type { SubPlan, SolverResult, GameData } from '../data/types'
+import type { SyntheticRecipe } from '../solver/subplan'
+import { deriveSyntheticRecipe } from '../solver/subplan'
 import { solve } from '../solver/index'
-import { usePlanStore } from './planStore'
+import { useBlockStore, selectActiveSubPlan, findSubPlan } from './blockStore'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 
 // ---------------------------------------------------------------------------
@@ -18,16 +20,23 @@ export interface SolverStoreState {
   status: SolverStatus
   /** The most recent successful solve result; persists while re-solving so views don't flash. */
   lastResult: SolverResult | undefined
+  /**
+   * Solve results for every subplan in the active block, keyed by subplan id.
+   * Populated by solveBottomUp on each solve cycle. Useful for showing
+   * throughput summaries for non-active subplans.
+   */
+  subPlanResults: Map<string, SolverResult>
   /** Internal — set by the subscription wiring; not for direct use. */
-  _setStatus: (status: SolverStatus) => void
+  _setStatus: (status: SolverStatus, subPlanResults?: Map<string, SolverResult>) => void
 }
 
 export const useSolverStore = create<SolverStoreState>((set) => ({
   status: { type: 'idle' },
   lastResult: undefined,
-  _setStatus: (status) => {
+  subPlanResults: new Map(),
+  _setStatus: (status, subPlanResults) => {
     if (status.type === 'solved') {
-      set({ status, lastResult: status.result })
+      set({ status, lastResult: status.result, subPlanResults: subPlanResults ?? new Map() })
     } else {
       set({ status })
     }
@@ -35,10 +44,44 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 }))
 
 // ---------------------------------------------------------------------------
+// Bottom-up solver
+//
+// Solves every subplan in the tree in post-order (children before parents).
+// Child solve results are used to derive synthetic recipes that let the parent
+// treat each child subplan as an opaque black-box recipe.
+// ---------------------------------------------------------------------------
+
+function solveBottomUp(rootPlan: SubPlan, gameData: GameData): Map<string, SolverResult> {
+  const results = new Map<string, SolverResult>()
+
+  function visit(subPlan: SubPlan): void {
+    // Post-order: solve children first
+    for (const child of subPlan.subPlans) visit(child)
+
+    // Build synthetic recipes for all direct child subplans (implicit wiring).
+    // Every child that has a solve result participates automatically.
+    const syntheticRecipes = new Map<string, SyntheticRecipe>()
+    for (const child of subPlan.subPlans) {
+      const childResult = results.get(child.id)
+      if (childResult) {
+        const synthetic = deriveSyntheticRecipe(child, childResult)
+        if (synthetic) syntheticRecipes.set(synthetic.id, synthetic)
+      }
+    }
+
+    const result = solve(subPlan, gameData, syntheticRecipes)
+    results.set(subPlan.id, result)
+  }
+
+  visit(rootPlan)
+  return results
+}
+
+// ---------------------------------------------------------------------------
 // Subscription wiring
 //
-// Called once at app startup (e.g. from main.tsx or App.tsx).
-// Subscribes to plan + gameData changes, debounces, then re-solves.
+// Called once at app startup (e.g. from main.tsx).
+// Subscribes to active subplan + gameData changes, debounces, then re-solves.
 // Returns an unsubscribe function for cleanup.
 // ---------------------------------------------------------------------------
 
@@ -52,7 +95,8 @@ export function wireSolver(): () => void {
 
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
-      const plan = usePlanStore.getState().plan
+      const blockState = useBlockStore.getState()
+      const subPlan = selectActiveSubPlan(blockState)
       const gameData = selectGameData(useGameDataStore.getState())
 
       if (!gameData) {
@@ -60,9 +104,7 @@ export function wireSolver(): () => void {
         return
       }
 
-      // Plans with no goals or no nodes produce a trivially empty result rather
-      // than running the full solver.
-      if (plan.goals.length === 0 || plan.nodes.length === 0) {
+      if (!subPlan || subPlan.goals.length === 0 || subPlan.nodes.length === 0) {
         useSolverStore.getState()._setStatus({
           type: 'solved',
           result: { nodes: [], unsatisfied: [], warnings: [] },
@@ -71,8 +113,19 @@ export function wireSolver(): () => void {
       }
 
       try {
-        const result = solve(plan, gameData)
-        useSolverStore.getState()._setStatus({ type: 'solved', result })
+        // Find the root plan for the active block so we can run the full
+        // bottom-up solve (required to populate synthetic recipes for child
+        // subplans referenced as nodes in the active subplan).
+        const activeBlock = blockState.blocks.find(b => b.id === blockState.activeBlockId)
+        const rootPlan = activeBlock?.rootPlan ?? subPlan
+
+        const allResults = solveBottomUp(rootPlan, gameData)
+        const activeResult = allResults.get(subPlan.id) ?? { nodes: [], unsatisfied: [], warnings: [] }
+
+        useSolverStore.getState()._setStatus(
+          { type: 'solved', result: activeResult },
+          allResults,
+        )
       } catch (err) {
         useSolverStore.getState()._setStatus({
           type: 'error',
@@ -82,12 +135,12 @@ export function wireSolver(): () => void {
     }, DEBOUNCE_MS)
   }
 
-  const unsubPlan = usePlanStore.subscribe(schedule)
+  const unsubBlocks = useBlockStore.subscribe(schedule)
   const unsubGameData = useGameDataStore.subscribe(schedule)
 
   return () => {
     if (timer !== undefined) clearTimeout(timer)
-    unsubPlan()
+    unsubBlocks()
     unsubGameData()
   }
 }

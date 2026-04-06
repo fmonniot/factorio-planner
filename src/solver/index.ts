@@ -1,4 +1,5 @@
-import type { GameData, Plan, SolverResult, SolvedNode, UnsatisfiedItem, SolverWarning } from '../data/types'
+import type { GameData, SubPlan, SolverResult, SolvedNode, UnsatisfiedItem, SolverWarning } from '../data/types'
+import type { SyntheticRecipe } from './subplan'
 import { buildStoichiometryMatrix, effectiveProductAmount } from './build'
 import { reduceSystem } from './reduce'
 import { applyPinnedRates, mergeThroughput } from './pin'
@@ -12,25 +13,37 @@ import { computeNodeEffects, computeMachineMetrics } from './effects'
 //   build → reduce → pin → solve → effects → metrics
 //
 // Warnings are collected and surfaced in the result; they never throw.
+//
+// The optional syntheticRecipes map allows subplan nodes to be treated as
+// opaque recipes whose stoichiometry is derived from a child plan's solve
+// result. Each entry is keyed by its sentinel id ('__subplan__:<subPlanId>').
 // ---------------------------------------------------------------------------
 
 /**
  * Solve a plan against the given game data and return the full solver result.
  *
- * @param plan     - the user's production plan
- * @param gameData - validated game data
+ * @param plan             - the user's production plan
+ * @param gameData         - validated game data
+ * @param syntheticRecipes - optional map of synthetic recipes for subplan nodes
  */
-export function solve(plan: Plan, gameData: GameData): SolverResult {
+export function solve(
+  plan: Pick<SubPlan, 'goals' | 'nodes'>,
+  gameData: GameData,
+  syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
+): SolverResult {
   const warnings: SolverWarning[] = []
 
-  // ── 1. Compute module effects per node ──────────────────────────────────
+  // ── 1. Compute module effects per node (game-recipe nodes only) ──────────
   const nodeEffectsMap = new Map(
-    plan.nodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+    plan.nodes
+      .filter(n => n.kind === 'game-recipe')
+      .map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
   )
 
   // ── 2. Productivity map (skip recipes that disallow it) ─────────────────
   const productivityMap = new Map<string, number>()
   for (const n of plan.nodes) {
+    if (n.kind !== 'game-recipe') continue
     const recipe = gameData.recipes[n.recipeId]
     const effects = nodeEffectsMap.get(n.recipeId)!
     if (recipe && !recipe.allowProductivity && effects.productivityBonus > 0) {
@@ -41,13 +54,18 @@ export function solve(plan: Plan, gameData: GameData): SolverResult {
   }
 
   // ── 3. Build stoichiometry matrix ────────────────────────────────────────
-  const recipeIds = plan.nodes.map(n => n.recipeId)
-  const matrix = buildStoichiometryMatrix(gameData, recipeIds, productivityMap)
+  // Game-recipe nodes come from the plan; child subplans are implicit — every
+  // synthetic recipe passed in participates automatically (no explicit wiring).
+  const recipeIds: string[] = [
+    ...plan.nodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
+    ...syntheticRecipes.keys(),
+  ]
+  const matrix = buildStoichiometryMatrix(gameData, recipeIds, productivityMap, syntheticRecipes)
 
   // ── 3b. Apply byproductPolicy: zero out discarded products ───────────────
-  // A product marked 'discard' is removed from the matrix so the solver
-  // treats it as if that recipe does not produce that item.
+  // Only game-recipe nodes carry a byproduct policy.
   for (const planNode of plan.nodes) {
+    if (planNode.kind !== 'game-recipe') continue
     const j = matrix.recipeIndex.get(planNode.recipeId)
     if (j === undefined) continue
     for (const [itemId, policy] of Object.entries(planNode.byproductPolicy)) {
@@ -77,7 +95,7 @@ export function solve(plan: Plan, gameData: GameData): SolverResult {
   // ── 6. Apply pinned rates ────────────────────────────────────────────────
   const pinnedRates = new Map<string, number>()
   for (const n of plan.nodes) {
-    if (n.pinnedRate !== undefined) {
+    if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
       pinnedRates.set(n.recipeId, n.pinnedRate)
     }
   }
@@ -98,9 +116,12 @@ export function solve(plan: Plan, gameData: GameData): SolverResult {
     matrix.recipes.map((id, j) => [id, fullThroughput[j]]),
   )
 
-  // ── 9. Build SolvedNode per plan node ───────────────────────────────────
+  // ── 9. Build SolvedNode per plan node and per implicit subplan ──────────
   const nodes: SolvedNode[] = []
+
+  // Game-recipe nodes
   for (const planNode of plan.nodes) {
+    if (planNode.kind !== 'game-recipe') continue
     const recipe = gameData.recipes[planNode.recipeId]
     if (!recipe) continue
 
@@ -149,6 +170,32 @@ export function solve(plan: Plan, gameData: GameData): SolverResult {
       machineCountExact,
       machineCountCeil,
       powerKw,
+    })
+  }
+
+  // Implicit subplan nodes — one SolvedNode per synthetic recipe.
+  // recipeNodeId is the subPlanId so TreeView can match it to subPlan.subPlans.
+  for (const [syntheticId, synthetic] of syntheticRecipes) {
+    const throughput = throughputMap.get(syntheticId) ?? 0
+
+    const inputRates: Record<string, number> = {}
+    for (const ing of synthetic.ingredients) {
+      inputRates[ing.itemId] = ing.amount * throughput
+    }
+
+    const outputRates: Record<string, number> = {}
+    for (const prod of synthetic.products) {
+      outputRates[prod.itemId] = prod.amount * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: synthetic.subPlanId,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact: 0,
+      machineCountCeil: 0,
+      powerKw: 0,
     })
   }
 

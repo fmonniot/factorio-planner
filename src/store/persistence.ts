@@ -1,25 +1,25 @@
-import { usePlanStore } from './planStore'
-import { parsePlan } from '../data/loader'
-import { PlanLoadError } from '../data/loader'
+import { useBlockStore } from './blockStore'
+import { parseAppState } from '../data/loader'
+import { AppStateLoadError } from '../data/loader'
 
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
-export const PLAN_STORAGE_KEY = 'factorio-planner:plan'
+export const APP_STATE_STORAGE_KEY = 'factorio-planner:app-state'
 
 // ---------------------------------------------------------------------------
 // Save
 // ---------------------------------------------------------------------------
 
 /**
- * Serialize the current plan to localStorage.
+ * Serialize the current app state to localStorage.
  * Silently ignores QuotaExceededError and other write failures.
  */
-export function savePlan(): void {
+export function saveAppState(): void {
   try {
-    const plan = usePlanStore.getState().plan
-    localStorage.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan))
+    const { blocks, activeBlockId } = useBlockStore.getState()
+    localStorage.setItem(APP_STATE_STORAGE_KEY, JSON.stringify({ blocks, activeBlockId }))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
   }
@@ -29,21 +29,21 @@ export function savePlan(): void {
 // Load
 // ---------------------------------------------------------------------------
 
-export type LoadPlanResult =
+export type LoadAppStateResult =
   | { type: 'ok' }
   | { type: 'missing' }
   | { type: 'error'; message: string }
 
 /**
- * Read the persisted plan from localStorage and call setPlan() on the plan store.
- * Returns a result object describing what happened.
+ * Read the persisted app state from localStorage and call setAppState() on the
+ * block store. Returns a result object describing what happened.
  *
- * On any failure the plan store is left unchanged (uses its default empty plan).
+ * On any failure the store is left unchanged (uses its default initial state).
  */
-export function loadPersistedPlan(): LoadPlanResult {
+export function loadPersistedAppState(): LoadAppStateResult {
   let raw: string | null
   try {
-    raw = localStorage.getItem(PLAN_STORAGE_KEY)
+    raw = localStorage.getItem(APP_STATE_STORAGE_KEY)
   } catch {
     return { type: 'error', message: 'localStorage unavailable' }
   }
@@ -52,11 +52,11 @@ export function loadPersistedPlan(): LoadPlanResult {
 
   try {
     const parsed = JSON.parse(raw) as unknown
-    const plan = parsePlan(parsed)
-    usePlanStore.getState().setPlan(plan)
+    const appState = parseAppState(parsed)
+    useBlockStore.getState().setAppState(appState)
     return { type: 'ok' }
   } catch (err) {
-    if (err instanceof PlanLoadError) {
+    if (err instanceof AppStateLoadError) {
       return { type: 'error', message: err.message }
     } else if (err instanceof SyntaxError) {
       return { type: 'error', message: `Malformed JSON in localStorage: ${err.message}` }
@@ -70,16 +70,15 @@ export function loadPersistedPlan(): LoadPlanResult {
 // ---------------------------------------------------------------------------
 
 /**
- * Subscribe to plan store changes and auto-save to localStorage on each change.
+ * Subscribe to block store changes and auto-save to localStorage on each change.
  * Returns an unsubscribe function for cleanup.
  *
- * Call this once at app startup after loadPersistedPlan().
+ * Call this once at app startup after loadPersistedAppState().
  */
-export function initPlanPersistence(): () => void {
-  return usePlanStore.subscribe((state, prevState) => {
-    // Only save when the plan itself changed (not just undo/redo stacks).
-    if (state.plan !== prevState.plan) {
-      savePlan()
+export function initAppStatePersistence(): () => void {
+  return useBlockStore.subscribe((state, prevState) => {
+    if (state.blocks !== prevState.blocks) {
+      saveAppState()
     }
   })
 }

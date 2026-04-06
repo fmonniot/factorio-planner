@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
+import { BlockTabs } from './BlockTabs'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -185,6 +186,9 @@ export function AppShell({ sidebar, main, summary }: AppShellProps) {
         <span className="flex-1" />
         <GameDataHeader />
       </header>
+
+      {/* Block tabs */}
+      <BlockTabs />
 
       {/* Sidebar + main content */}
       <div className="flex flex-1 overflow-hidden">

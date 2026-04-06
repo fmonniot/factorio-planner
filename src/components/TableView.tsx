@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { usePlanStore } from '../store/planStore'
+import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { RecipeCard } from './RecipeCard'
@@ -50,7 +50,7 @@ function fmtPower(kw: number): string {
 }
 
 export function TableView() {
-  const plan = usePlanStore(s => s.plan)
+  const subPlan = useBlockStore(selectActiveSubPlan)
   const status = useSolverStore(s => s.status)
   const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
@@ -84,9 +84,9 @@ export function TableView() {
 
   if (!result || result.nodes.length === 0) {
     const hint =
-      plan.goals.length === 0
+      !subPlan || subPlan.goals.length === 0
         ? 'Add a goal in the sidebar to start planning'
-        : plan.nodes.length === 0
+        : subPlan.nodes.length === 0
           ? 'Add recipe nodes to the plan'
           : 'No nodes to display'
     return (
@@ -96,11 +96,13 @@ export function TableView() {
     )
   }
 
+  if (!subPlan) return null
+
   // Build a recipe-name lookup for sorting.
   const recipeNames = new Map<string, string>()
   for (const sn of result.nodes) {
-    const planNode = plan.nodes.find(n => n.id === sn.recipeNodeId)
-    const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
+    const subPlanNode = subPlan.nodes.find(n => n.id === sn.recipeNodeId)
+    const recipe = subPlanNode ? gameData.recipes[subPlanNode.recipeId] : undefined
     recipeNames.set(sn.recipeNodeId, recipe?.name ?? sn.recipeNodeId)
   }
 
@@ -144,9 +146,9 @@ export function TableView() {
         </thead>
         <tbody>
           {sorted.map(sn => {
-            const planNode = plan.nodes.find(n => n.id === sn.recipeNodeId)
-            const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
-            const machineId = planNode?.machineId ?? (recipe ? gameData.defaultMachines[recipe.category] : undefined)
+            const subPlanNode = subPlan.nodes.find(n => n.id === sn.recipeNodeId)
+            const recipe = subPlanNode ? gameData.recipes[subPlanNode.recipeId] : undefined
+            const machineId = subPlanNode?.machineId ?? (recipe ? gameData.defaultMachines[recipe.category] : undefined)
             const machine = machineId ? gameData.machines[machineId] : undefined
             const isExpanded = expandedId === sn.recipeNodeId
 
@@ -162,7 +164,7 @@ export function TableView() {
                 </td>
                 <td className="px-3 py-2 text-gray-400 tabular-nums">
                   {fmtRate(sn.throughput)}/min
-                  {planNode?.pinnedRate !== undefined && (
+                  {subPlanNode?.pinnedRate !== undefined && (
                     <span className="ml-1 text-yellow-400 text-xs">📌</span>
                   )}
                 </td>
@@ -184,7 +186,7 @@ export function TableView() {
               isExpanded && (
                 <tr key={`${sn.recipeNodeId}-detail`} className="bg-gray-900/50">
                   <td colSpan={6} className="px-3 py-3">
-                    <RecipeCard node={sn} plan={plan} gameData={gameData} />
+                    <RecipeCard node={sn} plan={subPlan} gameData={gameData} />
                   </td>
                 </tr>
               ),

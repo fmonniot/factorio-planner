@@ -16,7 +16,11 @@ export type {
   ModuleConfig,
   BeaconConfig,
   RecipeNode,
-  Plan,
+  GameRecipeNode,
+  SubPlanNode,
+  SubPlan,
+  Block,
+  AppState,
 } from './schema'
 
 // ---------------------------------------------------------------------------

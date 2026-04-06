@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { AppShell } from './components/AppShell'
+import { PlansTree } from './components/PlansTree'
 import { GoalsPanel } from './components/GoalsPanel'
 import { NodesPanel } from './components/NodesPanel'
 import { TreeView } from './components/TreeView'
@@ -50,6 +51,8 @@ function App() {
     <AppShell
       sidebar={
         <div className="flex flex-col h-full overflow-y-auto">
+          <PlansTree />
+          <div className="border-t border-gray-700" />
           <GoalsPanel />
           <div className="border-t border-gray-700" />
           <NodesPanel />

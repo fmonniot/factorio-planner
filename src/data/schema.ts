@@ -140,7 +140,8 @@ export const BeaconConfigSchema = z.object({
   distributionEfficiency: z.number().min(0).max(1),
 })
 
-export const RecipeNodeSchema = z.object({
+export const GameRecipeNodeSchema = z.object({
+  kind: z.literal('game-recipe'),
   id: z.string(),
   recipeId: z.string(),
   machineId: z.string().optional(),
@@ -150,14 +151,58 @@ export const RecipeNodeSchema = z.object({
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
 })
 
-export const PlanSchema = z.object({
+export const SubPlanNodeSchema = z.object({
+  kind: z.literal('subplan'),
+  id: z.string(),
+  subPlanId: z.string(),
+  pinnedRate: z.number().positive().optional(),
+})
+
+// Preprocess injects kind: 'game-recipe' on legacy data that lacks the field,
+// enabling backwards-compatible loading of persisted plans.
+export const RecipeNodeSchema = z.preprocess(
+  data => {
+    if (typeof data === 'object' && data !== null && !('kind' in data))
+      return { kind: 'game-recipe', ...data }
+    return data
+  },
+  z.discriminatedUnion('kind', [GameRecipeNodeSchema, SubPlanNodeSchema]),
+)
+
+// SubPlan is recursive, so the TypeScript type is defined manually first, then
+// the Zod schema is annotated with it so z.lazy() can reference it correctly.
+type SubPlanType = {
+  id: string
+  name: string
+  goals: z.output<typeof ProductionGoalSchema>[]
+  nodes: z.output<typeof RecipeNodeSchema>[]
+  subPlans: SubPlanType[]
+  createdAt: string
+  updatedAt: string
+}
+
+export const SubPlanSchema: z.ZodType<SubPlanType, z.ZodTypeDef, unknown> = z.lazy(() =>
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    goals: z.array(ProductionGoalSchema),
+    nodes: z.array(RecipeNodeSchema),
+    subPlans: z.array(SubPlanSchema),
+    createdAt: z.string().datetime(),
+    updatedAt: z.string().datetime(),
+  }),
+)
+
+export const BlockSchema = z.object({
   id: z.string(),
   name: z.string(),
   gameDataVersion: z.string(),
-  goals: z.array(ProductionGoalSchema),
-  nodes: z.array(RecipeNodeSchema),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+  rootPlan: SubPlanSchema,
+})
+
+export const AppStateSchema = z.object({
+  blocks: z.array(BlockSchema),
+  activeBlockId: z.string(),
 })
 
 // ---------------------------------------------------------------------------
@@ -185,8 +230,11 @@ export type ProductionGoal = z.output<typeof ProductionGoalSchema>
 export type ModuleConfig = z.output<typeof ModuleConfigSchema>
 export type BeaconConfig = z.output<typeof BeaconConfigSchema>
 export type RecipeNode = z.output<typeof RecipeNodeSchema>
-export type Plan = z.output<typeof PlanSchema>
+export type GameRecipeNode = z.output<typeof GameRecipeNodeSchema>
+export type SubPlanNode = z.output<typeof SubPlanNodeSchema>
+export type SubPlan = SubPlanType
+export type Block = z.output<typeof BlockSchema>
+export type AppState = z.output<typeof AppStateSchema>
 
 // Input types — what the schema accepts before transforms (useful in tests).
 export type GameDataInput = z.input<typeof GameDataSchema>
-export type PlanInput = z.input<typeof PlanSchema>

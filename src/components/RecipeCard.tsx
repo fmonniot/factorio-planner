@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import type { SolvedNode, Plan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
-import { usePlanStore } from '../store/planStore'
+import type { SolvedNode, SubPlan, GameData, ModuleConfig, BeaconConfig } from '../data/types'
+import { useBlockStore } from '../store/blockStore'
 
 // ---------------------------------------------------------------------------
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-function fmtRate(rate: number): string {
+export function fmtRate(rate: number): string {
   if (rate >= 100) return rate.toFixed(0)
   if (rate >= 10) return rate.toFixed(1)
   return rate.toFixed(2)
@@ -29,7 +29,7 @@ interface AlternateRecipeSelectorProps {
 }
 
 function AlternateRecipeSelector({ nodeId, currentRecipeId, primaryItemId, gameData }: AlternateRecipeSelectorProps) {
-  const updateNodeRecipe = usePlanStore(s => s.updateNodeRecipe)
+  const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
 
   if (!primaryItemId) return null
 
@@ -65,7 +65,7 @@ interface MachineSelectorProps {
 }
 
 function MachineSelector({ nodeId, recipeCategory, currentMachineId, gameData }: MachineSelectorProps) {
-  const updateNodeMachine = usePlanStore(s => s.updateNodeMachine)
+  const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
 
   const machines = Object.values(gameData.machines)
     .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory))
@@ -115,7 +115,7 @@ interface ModuleEditorProps {
 }
 
 function ModuleEditor({ nodeId, modules, machineSlots, allowedMachineEffects, recipeId, gameData }: ModuleEditorProps) {
-  const updateNodeModules = usePlanStore(s => s.updateNodeModules)
+  const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const [open, setOpen] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
 
@@ -223,8 +223,8 @@ interface ThroughputRowProps {
   pinnedRate: number | undefined
 }
 
-function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
-  const updateNodePinnedRate = usePlanStore(s => s.updateNodePinnedRate)
+export function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
+  const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const isPinned = pinnedRate !== undefined
 
   function togglePin() {
@@ -279,7 +279,7 @@ interface BeaconEditorProps {
 }
 
 function BeaconEditor({ nodeId, beacon, gameData }: BeaconEditorProps) {
-  const updateNodeBeacon = usePlanStore(s => s.updateNodeBeacon)
+  const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
   const [open, setOpen] = useState(false)
 
   const modules = Object.values(gameData.modules).sort((a, b) => a.name.localeCompare(b.name))
@@ -406,17 +406,20 @@ function BeaconEditor({ nodeId, beacon, gameData }: BeaconEditorProps) {
 
 interface RecipeCardProps {
   node: SolvedNode
-  plan: Plan
+  plan: SubPlan
   gameData: GameData
 }
 
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
-  const updateNodeByproductPolicy = usePlanStore(s => s.updateNodeByproductPolicy)
+  const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
 
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
-  const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
 
-  if (!recipe || !planNode) return null
+  // Only game-recipe nodes are handled here; subplan nodes use SubPlanSolvedCard.
+  if (!planNode || planNode.kind !== 'game-recipe') return null
+
+  const recipe = gameData.recipes[planNode.recipeId]
+  if (!recipe) return null
 
   const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
   const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
