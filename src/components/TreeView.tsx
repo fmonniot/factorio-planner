@@ -252,28 +252,28 @@ export function TreeView() {
 
   const columns = subPlan && result ? buildColumns(result.nodes, subPlan) : []
 
-  // IDs of subplan children that are wired as solver nodes (shown in columns)
-  const wiredSubPlanIds = new Set(
-    subPlan?.nodes.filter(n => n.kind === 'subplan').map(n => n.subPlanId) ?? [],
+  // Child subplans that appear in the solver result (have SolvedNodes via implicit wiring)
+  const solvedSubPlanIds = new Set(
+    result?.nodes
+      .filter(sn => subPlan?.subPlans.some(sp => sp.id === sn.recipeNodeId))
+      .map(sn => sn.recipeNodeId) ?? [],
   )
-  // Child subplans NOT wired as nodes get a standalone collapsed card
-  const unwiredSubPlans = subPlan?.subPlans.filter(sp => !wiredSubPlanIds.has(sp.id)) ?? []
+  // Child subplans without solve results (no goals yet) get a standalone collapsed card
+  const unsolvedSubPlans = subPlan?.subPlans.filter(sp => !solvedSubPlanIds.has(sp.id)) ?? []
 
   function renderNode(nodeId: string, gd: GameData) {
     const sn = result!.nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return null
 
-    const planNode = subPlan!.nodes.find(n => n.id === nodeId)
-    if (!planNode) return null
-
-    if (planNode.kind === 'subplan') {
-      const childSubPlan = subPlan!.subPlans.find(sp => sp.id === planNode.subPlanId)
+    // Check if this is an implicit subplan node (recipeNodeId = subPlanId)
+    const childSubPlan = subPlan!.subPlans.find(sp => sp.id === nodeId)
+    if (childSubPlan) {
       return (
         <SubPlanSolvedCard
           key={nodeId}
           node={sn}
-          subPlanName={childSubPlan?.name ?? planNode.subPlanId}
-          pinnedRate={planNode.pinnedRate}
+          subPlanName={childSubPlan.name}
+          pinnedRate={undefined}
           gameData={gd}
         />
       )
@@ -284,10 +284,10 @@ export function TreeView() {
 
   return (
     <div className="flex gap-6 min-h-full overflow-x-auto pb-4">
-      {/* Unwired child subplans as collapsed cards in a leading column */}
-      {unwiredSubPlans.length > 0 && (
+      {/* Child subplans without goals yet — shown as collapsed cards in a leading column */}
+      {unsolvedSubPlans.length > 0 && (
         <div className="flex flex-col gap-3 shrink-0">
-          {unwiredSubPlans.map(sp => {
+          {unsolvedSubPlans.map(sp => {
             const spResult = subPlanResults.get(sp.id)
             const synthetic = spResult ? deriveSyntheticRecipe(sp, spResult) : null
             return (

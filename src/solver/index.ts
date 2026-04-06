@@ -54,20 +54,12 @@ export function solve(
   }
 
   // ── 3. Build stoichiometry matrix ────────────────────────────────────────
-  const recipeIds: string[] = []
-  for (const n of plan.nodes) {
-    if (n.kind === 'game-recipe') {
-      recipeIds.push(n.recipeId)
-    } else {
-      // subplan node: look up its synthetic recipe
-      const syntheticId = `__subplan__:${n.subPlanId}`
-      if (syntheticRecipes.has(syntheticId)) {
-        recipeIds.push(syntheticId)
-      } else {
-        warnings.push({ type: 'subplan-not-solved', subPlanId: n.subPlanId })
-      }
-    }
-  }
+  // Game-recipe nodes come from the plan; child subplans are implicit — every
+  // synthetic recipe passed in participates automatically (no explicit wiring).
+  const recipeIds: string[] = [
+    ...plan.nodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
+    ...syntheticRecipes.keys(),
+  ]
   const matrix = buildStoichiometryMatrix(gameData, recipeIds, productivityMap, syntheticRecipes)
 
   // ── 3b. Apply byproductPolicy: zero out discarded products ───────────────
@@ -103,9 +95,8 @@ export function solve(
   // ── 6. Apply pinned rates ────────────────────────────────────────────────
   const pinnedRates = new Map<string, number>()
   for (const n of plan.nodes) {
-    if (n.pinnedRate !== undefined) {
-      const recipeId = n.kind === 'game-recipe' ? n.recipeId : `__subplan__:${n.subPlanId}`
-      pinnedRates.set(recipeId, n.pinnedRate)
+    if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
+      pinnedRates.set(n.recipeId, n.pinnedRate)
     }
   }
   const pinned = applyPinnedRates(system.S, system.d, matrix.recipes, pinnedRates)
@@ -125,87 +116,87 @@ export function solve(
     matrix.recipes.map((id, j) => [id, fullThroughput[j]]),
   )
 
-  // ── 9. Build SolvedNode per plan node ───────────────────────────────────
+  // ── 9. Build SolvedNode per plan node and per implicit subplan ──────────
   const nodes: SolvedNode[] = []
+
+  // Game-recipe nodes
   for (const planNode of plan.nodes) {
-    if (planNode.kind === 'game-recipe') {
-      const recipe = gameData.recipes[planNode.recipeId]
-      if (!recipe) continue
+    if (planNode.kind !== 'game-recipe') continue
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
 
-      const throughput = throughputMap.get(planNode.recipeId) ?? 0
-      const effects = nodeEffectsMap.get(planNode.recipeId)!
-      const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
+    const throughput = throughputMap.get(planNode.recipeId) ?? 0
+    const effects = nodeEffectsMap.get(planNode.recipeId)!
+    const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
 
-      // Machine metrics (use node's machineId or the default for this category).
-      const machineId =
-        planNode.machineId ?? gameData.defaultMachines[recipe.category]
-      const machine = machineId ? gameData.machines[machineId] : undefined
+    // Machine metrics (use node's machineId or the default for this category).
+    const machineId =
+      planNode.machineId ?? gameData.defaultMachines[recipe.category]
+    const machine = machineId ? gameData.machines[machineId] : undefined
 
-      let machineCountExact = 0
-      let machineCountCeil = 0
-      let powerKw = 0
-      if (machine) {
-        const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
-        machineCountExact = m.machineCountExact
-        machineCountCeil = m.machineCountCeil
-        powerKw = m.powerKw
-      }
-
-      // Input rates: raw ingredients consumed per minute.
-      const inputRates: Record<string, number> = {}
-      for (const ing of recipe.ingredients) {
-        inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
-      }
-
-      // Output rates: effective production per minute (accounting for productivity).
-      const outputRates: Record<string, number> = {}
-      for (const prod of recipe.products) {
-        const effective = effectiveProductAmount(
-          prod.amount ?? 0,
-          prod.probability ?? 1,
-          prod.ignoredByProductivity ?? 0,
-          prodBonus,
-        )
-        outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
-      }
-
-      nodes.push({
-        recipeNodeId: planNode.id,
-        inputRates,
-        outputRates,
-        throughput,
-        machineCountExact,
-        machineCountCeil,
-        powerKw,
-      })
-    } else {
-      // Subplan node: derive rates from the synthetic recipe.
-      const syntheticId = `__subplan__:${planNode.subPlanId}`
-      const synthetic = syntheticRecipes.get(syntheticId)
-      if (!synthetic) continue
-
-      const throughput = throughputMap.get(syntheticId) ?? 0
-
-      const inputRates: Record<string, number> = {}
-      for (const ing of synthetic.ingredients) {
-        inputRates[ing.itemId] = ing.amount * throughput
-      }
-
-      const outputRates: Record<string, number> = {}
-      for (const prod of synthetic.products) {
-        outputRates[prod.itemId] = prod.amount * throughput
-      }
-
-      nodes.push({
-        recipeNodeId: planNode.id,
-        inputRates,
-        outputRates,
-        throughput,
-        machineCountExact: 0,
-        machineCountCeil: 0,
-        powerKw: 0,
-      })
+    let machineCountExact = 0
+    let machineCountCeil = 0
+    let powerKw = 0
+    if (machine) {
+      const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
+      machineCountExact = m.machineCountExact
+      machineCountCeil = m.machineCountCeil
+      powerKw = m.powerKw
     }
+
+    // Input rates: raw ingredients consumed per minute.
+    const inputRates: Record<string, number> = {}
+    for (const ing of recipe.ingredients) {
+      inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
+    }
+
+    // Output rates: effective production per minute (accounting for productivity).
+    const outputRates: Record<string, number> = {}
+    for (const prod of recipe.products) {
+      const effective = effectiveProductAmount(
+        prod.amount ?? 0,
+        prod.probability ?? 1,
+        prod.ignoredByProductivity ?? 0,
+        prodBonus,
+      )
+      outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: planNode.id,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact,
+      machineCountCeil,
+      powerKw,
+    })
+  }
+
+  // Implicit subplan nodes — one SolvedNode per synthetic recipe.
+  // recipeNodeId is the subPlanId so TreeView can match it to subPlan.subPlans.
+  for (const [syntheticId, synthetic] of syntheticRecipes) {
+    const throughput = throughputMap.get(syntheticId) ?? 0
+
+    const inputRates: Record<string, number> = {}
+    for (const ing of synthetic.ingredients) {
+      inputRates[ing.itemId] = ing.amount * throughput
+    }
+
+    const outputRates: Record<string, number> = {}
+    for (const prod of synthetic.products) {
+      outputRates[prod.itemId] = prod.amount * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: synthetic.subPlanId,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact: 0,
+      machineCountCeil: 0,
+      powerKw: 0,
+    })
   }
 
   // ── 10. Unsatisfied items (raw resources consumed by the plan) ──────────

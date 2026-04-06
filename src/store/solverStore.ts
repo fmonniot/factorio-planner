@@ -58,14 +58,13 @@ function solveBottomUp(rootPlan: SubPlan, gameData: GameData): Map<string, Solve
     // Post-order: solve children first
     for (const child of subPlan.subPlans) visit(child)
 
-    // Collect synthetic recipes for subplan nodes in this subplan
+    // Build synthetic recipes for all direct child subplans (implicit wiring).
+    // Every child that has a solve result participates automatically.
     const syntheticRecipes = new Map<string, SyntheticRecipe>()
-    for (const node of subPlan.nodes) {
-      if (node.kind !== 'subplan') continue
-      const childPlan = findSubPlan(rootPlan, node.subPlanId)
-      const childResult = results.get(node.subPlanId)
-      if (childPlan && childResult) {
-        const synthetic = deriveSyntheticRecipe(childPlan, childResult)
+    for (const child of subPlan.subPlans) {
+      const childResult = results.get(child.id)
+      if (childResult) {
+        const synthetic = deriveSyntheticRecipe(child, childResult)
         if (synthetic) syntheticRecipes.set(synthetic.id, synthetic)
       }
     }
