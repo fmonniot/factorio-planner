@@ -434,6 +434,7 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const outputEntries = Object.entries(node.outputRates)
 
   return (
+    <>
     <div className="bg-gray-800 border border-gray-700 rounded-lg p-3 w-72">
       {/* Alternate recipe selector (only rendered when ≥2 recipes produce primaryItem) */}
       <AlternateRecipeSelector
@@ -559,5 +560,6 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         onClose={() => setInputPickerItemId(null)}
       />
     )}
+    </>
   )
 }
