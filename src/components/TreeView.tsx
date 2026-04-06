@@ -1,7 +1,7 @@
 import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { RecipeCard } from './RecipeCard'
+import { RecipeCard, ThroughputRow, fmtRate } from './RecipeCard'
 import type { SolvedNode, SubPlan, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -70,6 +70,7 @@ function buildColumns(
 
 // ---------------------------------------------------------------------------
 // SubPlan card — collapsed summary shown in parent plan's tree view
+// (for child subplans that are NOT wired as solver nodes)
 // ---------------------------------------------------------------------------
 
 interface SubPlanCardProps {
@@ -82,6 +83,70 @@ function SubPlanCard({ subPlanName }: SubPlanCardProps) {
       <span className="text-blue-400 text-sm font-bold leading-none">⊞</span>
       <span className="text-sm text-blue-200 truncate flex-1">{subPlanName}</span>
       <span className="text-xs text-gray-500">sub-plan</span>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// SubPlanSolvedCard — shown in tree view for subplan nodes wired into the solver
+// ---------------------------------------------------------------------------
+
+interface SubPlanSolvedCardProps {
+  node: SolvedNode
+  subPlanName: string
+  pinnedRate: number | undefined
+  gameData: GameData
+}
+
+function SubPlanSolvedCard({ node, subPlanName, pinnedRate, gameData }: SubPlanSolvedCardProps) {
+  const inputEntries = Object.entries(node.inputRates)
+  const outputEntries = Object.entries(node.outputRates)
+
+  return (
+    <div className="bg-gray-800 border border-blue-800 rounded-lg p-3 w-72">
+      {/* Header */}
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-blue-400 text-sm font-bold leading-none shrink-0">⊞</span>
+        <span className="font-medium text-sm text-blue-200 truncate flex-1" title={subPlanName}>
+          {subPlanName}
+        </span>
+      </div>
+
+      {/* Scale factor with pin (throughput = scale factor, e.g. 2.0 = 200 % capacity) */}
+      <div className="mb-1">
+        <ThroughputRow
+          nodeId={node.recipeNodeId}
+          throughput={node.throughput}
+          pinnedRate={pinnedRate}
+        />
+        <div className="text-xs text-gray-600">scale factor</div>
+      </div>
+
+      {/* Outputs */}
+      {outputEntries.length > 0 && (
+        <section className="mb-2">
+          <div className="text-xs font-medium text-gray-500 mb-0.5">Outputs</div>
+          {outputEntries.map(([itemId, rate]) => (
+            <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
+              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
+              <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
+            </div>
+          ))}
+        </section>
+      )}
+
+      {/* Inputs */}
+      {inputEntries.length > 0 && (
+        <section>
+          <div className="text-xs font-medium text-gray-500 mb-0.5">Inputs</div>
+          {inputEntries.map(([itemId, rate]) => (
+            <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
+              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
+              <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
+            </div>
+          ))}
+        </section>
+      )}
     </div>
   )
 }
@@ -143,24 +208,48 @@ export function TreeView() {
 
   const columns = subPlan && result ? buildColumns(result.nodes, subPlan) : []
 
+  // IDs of subplan children that are wired as solver nodes (shown in columns)
+  const wiredSubPlanIds = new Set(
+    subPlan?.nodes.filter(n => n.kind === 'subplan').map(n => n.subPlanId) ?? [],
+  )
+  // Child subplans NOT wired as nodes get a standalone collapsed card
+  const unwiredSubPlans = subPlan?.subPlans.filter(sp => !wiredSubPlanIds.has(sp.id)) ?? []
+
   function renderNode(nodeId: string, gd: GameData) {
     const sn = result!.nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return null
+
+    const planNode = subPlan!.nodes.find(n => n.id === nodeId)
+    if (!planNode) return null
+
+    if (planNode.kind === 'subplan') {
+      const childSubPlan = subPlan!.subPlans.find(sp => sp.id === planNode.subPlanId)
+      return (
+        <SubPlanSolvedCard
+          key={nodeId}
+          node={sn}
+          subPlanName={childSubPlan?.name ?? planNode.subPlanId}
+          pinnedRate={planNode.pinnedRate}
+          gameData={gd}
+        />
+      )
+    }
+
     return <RecipeCard key={nodeId} node={sn} plan={subPlan!} gameData={gd} />
   }
 
   return (
     <div className="flex gap-6 min-h-full overflow-x-auto pb-4">
-      {/* SubPlan nodes as collapsed cards in a leading column */}
-      {hasSubPlans && subPlan && (
+      {/* Unwired child subplans as collapsed cards in a leading column */}
+      {unwiredSubPlans.length > 0 && (
         <div className="flex flex-col gap-3 shrink-0">
-          {subPlan.subPlans.map(sp => (
+          {unwiredSubPlans.map(sp => (
             <SubPlanCard key={sp.id} subPlanName={sp.name} />
           ))}
         </div>
       )}
 
-      {/* Recipe node columns */}
+      {/* Recipe / subplan node columns */}
       {columns.map((nodeIds, colIdx) => (
         <div key={colIdx} className="flex flex-col gap-3 shrink-0">
           {nodeIds.map(nodeId => renderNode(nodeId, gameData))}

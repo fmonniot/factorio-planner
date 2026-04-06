@@ -6,7 +6,7 @@ import { useBlockStore } from '../store/blockStore'
 // Formatting helpers
 // ---------------------------------------------------------------------------
 
-function fmtRate(rate: number): string {
+export function fmtRate(rate: number): string {
   if (rate >= 100) return rate.toFixed(0)
   if (rate >= 10) return rate.toFixed(1)
   return rate.toFixed(2)
@@ -223,7 +223,7 @@ interface ThroughputRowProps {
   pinnedRate: number | undefined
 }
 
-function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
+export function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const isPinned = pinnedRate !== undefined
 
@@ -414,9 +414,12 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
 
   const planNode = plan.nodes.find(n => n.id === node.recipeNodeId)
-  const recipe = planNode ? gameData.recipes[planNode.recipeId] : undefined
 
-  if (!recipe || !planNode) return null
+  // Only game-recipe nodes are handled here; subplan nodes use SubPlanSolvedCard.
+  if (!planNode || planNode.kind !== 'game-recipe') return null
+
+  const recipe = gameData.recipes[planNode.recipeId]
+  if (!recipe) return null
 
   const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
   const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
