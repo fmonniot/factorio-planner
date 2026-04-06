@@ -16,6 +16,8 @@ export type {
   ModuleConfig,
   BeaconConfig,
   RecipeNode,
+  GameRecipeNode,
+  SubPlanNode,
   SubPlan,
   Block,
   AppState,
@@ -46,6 +48,7 @@ export type SolverWarning =
   | { type: 'underdetermined'; freeVariables: string[] }
   | { type: 'no-recipe'; itemId: string }
   | { type: 'productivity-not-allowed'; recipeId: string }
+  | { type: 'subplan-not-solved'; subPlanId: string }
 
 export interface SolverResult {
   nodes: SolvedNode[]
