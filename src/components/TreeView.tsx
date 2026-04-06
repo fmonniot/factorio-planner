@@ -1,7 +1,7 @@
 import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { RecipeCard, ThroughputRow, fmtRate } from './RecipeCard'
+import { RecipeCard, fmtRate } from './RecipeCard'
 import { deriveSyntheticRecipe } from '../solver/subplan'
 import type { SolvedNode, SubPlan, GameData } from '../data/types'
 
@@ -137,11 +137,10 @@ function SubPlanCard({ subPlanName, outputs, inputs, gameData }: SubPlanCardProp
 interface SubPlanSolvedCardProps {
   node: SolvedNode
   subPlanName: string
-  pinnedRate: number | undefined
   gameData: GameData
 }
 
-function SubPlanSolvedCard({ node, subPlanName, pinnedRate, gameData }: SubPlanSolvedCardProps) {
+function SubPlanSolvedCard({ node, subPlanName, gameData }: SubPlanSolvedCardProps) {
   const inputEntries = Object.entries(node.inputRates)
   const outputEntries = Object.entries(node.outputRates)
 
@@ -155,14 +154,10 @@ function SubPlanSolvedCard({ node, subPlanName, pinnedRate, gameData }: SubPlanS
         </span>
       </div>
 
-      {/* Scale factor with pin (throughput = scale factor, e.g. 2.0 = 200 % capacity) */}
-      <div className="mb-1">
-        <ThroughputRow
-          nodeId={node.recipeNodeId}
-          throughput={node.throughput}
-          pinnedRate={pinnedRate}
-        />
-        <div className="text-xs text-gray-600">scale factor</div>
+      {/* Scale factor (throughput = dimensionless multiplier, 1.0 = 100% capacity) */}
+      <div className="flex items-center gap-2 mb-2 text-xs">
+        <span className="text-gray-400">Scale</span>
+        <span className="text-gray-200 font-mono">{node.throughput.toFixed(2)}×</span>
       </div>
 
       {/* Outputs */}
@@ -273,7 +268,6 @@ export function TreeView() {
           key={nodeId}
           node={sn}
           subPlanName={childSubPlan.name}
-          pinnedRate={undefined}
           gameData={gd}
         />
       )
