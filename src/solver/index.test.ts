@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
-import type { GameData, Plan } from '../data/types'
+import type { GameData, SubPlan, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Shared helpers
@@ -22,18 +22,10 @@ function makeGameData(
 }
 
 function makePlan(
-  goals: Plan['goals'],
-  nodes: Plan['nodes'],
-): Plan {
-  return {
-    id: 'test-plan',
-    name: 'Test Plan',
-    gameDataVersion: '2.0.0',
-    goals,
-    nodes,
-    createdAt: '2024-01-01T00:00:00Z',
-    updatedAt: '2024-01-01T00:00:00Z',
-  }
+  goals: SubPlan['goals'],
+  nodes: SubPlan['nodes'],
+): Pick<SubPlan, 'goals' | 'nodes'> {
+  return { goals, nodes }
 }
 
 function item(itemId: string, amount: number) {
@@ -77,11 +69,12 @@ function planNode(
   recipeId: string,
   opts: {
     machineId?: string
-    modules?: Plan['nodes'][number]['modules']
+    modules?: GameRecipeNode['modules']
     pinnedRate?: number
   } = {},
-): Plan['nodes'][number] {
+): GameRecipeNode {
   return {
+    kind: 'game-recipe',
     id,
     recipeId,
     byproductPolicy: {},

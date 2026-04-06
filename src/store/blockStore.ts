@@ -543,5 +543,3 @@ export function selectActiveSubPlan(state: BlockStoreState): SubPlan | undefined
   if (!block) return undefined
   return findSubPlan(block.rootPlan, state.activeSubPlanId)
 }
-
-export { findSubPlan }
