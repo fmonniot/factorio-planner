@@ -59,6 +59,15 @@ function removeSubPlanFromTree(plan: SubPlan, targetId: string): SubPlan {
   }
 }
 
+// Remove any SubPlanNode referencing removedId from every node list in the tree.
+function removeSubPlanNodeReferences(plan: SubPlan, removedId: string): SubPlan {
+  return {
+    ...plan,
+    nodes: plan.nodes.filter(n => !(n.kind === 'subplan' && n.subPlanId === removedId)),
+    subPlans: plan.subPlans.map(sp => removeSubPlanNodeReferences(sp, removedId)),
+  }
+}
+
 function withUpdatedAt(plan: SubPlan): SubPlan {
   return { ...plan, updatedAt: new Date().toISOString() }
 }
@@ -118,6 +127,7 @@ export interface BlockStoreState {
 
   // Node actions (on active subplan)
   addNode: (node: RecipeNode) => void
+  addSubPlanNode: (childSubPlanId: string) => void
   removeNode: (nodeId: string) => void
   updateNodeMachine: (nodeId: string, machineId: string | undefined) => void
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
@@ -246,7 +256,9 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const newRootPlan = removeSubPlanFromTree(block.rootPlan, subPlanId)
+      // Remove the subplan from the tree, then clean up any node references to it.
+      let newRootPlan = removeSubPlanFromTree(block.rootPlan, subPlanId)
+      newRootPlan = removeSubPlanNodeReferences(newRootPlan, subPlanId)
       const newBlocks = state.blocks.map(b =>
         b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
       )
@@ -322,6 +334,24 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
 
   addNode: (node) =>
     set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => ({ ...p, nodes: [...p.nodes, node] }),
+        undo: p => ({ ...p, nodes: p.nodes.filter(n => n.id !== node.id) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  addSubPlanNode: (childSubPlanId) =>
+    set(state => {
+      // Only allow direct children of the active subplan to be referenced.
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const activeSubPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!activeSubPlan) return state
+      const isDirectChild = activeSubPlan.subPlans.some(sp => sp.id === childSubPlanId)
+      if (!isDirectChild) return state
+
+      const node: RecipeNode = { kind: 'subplan', id: crypto.randomUUID(), subPlanId: childSubPlanId }
       const cmd: Command = {
         subPlanId: state.activeSubPlanId,
         apply: p => ({ ...p, nodes: [...p.nodes, node] }),
