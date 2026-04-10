@@ -1,6 +1,7 @@
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
+import { iconUrl } from '../utils/iconUrl'
 
 function fmtPower(kw: number): string {
   if (kw >= 1000) return `${(kw / 1000).toFixed(2)} MW`
@@ -50,21 +51,33 @@ export function FlowRow() {
   return (
     <div className="flex items-center gap-1.5 flex-wrap text-xs min-w-0">
       {/* Main products — teal */}
-      {mainProducts.map(({ id, rate }) => (
-        <span key={id} className="flex items-center gap-1 bg-teal-950 text-teal-300 px-2 py-0.5 rounded shrink-0">
-          <span>{gameData.items[id]?.name ?? id}</span>
-          <span className="text-teal-500">{fmtRate(rate)}/min</span>
-        </span>
-      ))}
+      {mainProducts.map(({ id, rate }) => {
+        const item = gameData.items[id]
+        return (
+          <span key={id} className="flex items-center gap-1 bg-teal-950 text-teal-300 px-1.5 py-0.5 rounded shrink-0">
+            {item?.iconPath
+              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain" />
+              : <span title={item?.name ?? id}>{item?.name ?? id}</span>
+            }
+            <span className="text-teal-400">{fmtRate(rate)}/min</span>
+          </span>
+        )
+      })}
 
       {/* Byproducts — dimmer with marker */}
-      {byproducts.map(({ id, rate }) => (
-        <span key={id} className="flex items-center gap-1 bg-gray-800 text-gray-400 px-2 py-0.5 rounded shrink-0">
-          <span className="text-gray-600 text-[10px]">↩</span>
-          <span>{gameData.items[id]?.name ?? id}</span>
-          <span className="text-gray-500">{fmtRate(rate)}/min</span>
-        </span>
-      ))}
+      {byproducts.map(({ id, rate }) => {
+        const item = gameData.items[id]
+        return (
+          <span key={id} className="flex items-center gap-1 bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded shrink-0">
+            <span className="text-gray-600 text-[10px]">↩</span>
+            {item?.iconPath
+              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain opacity-60" />
+              : <span title={item?.name ?? id}>{item?.name ?? id}</span>
+            }
+            <span className="text-gray-500">{fmtRate(rate)}/min</span>
+          </span>
+        )
+      })}
 
       {/* Divider */}
       {rawInputs.length > 0 && (
@@ -73,12 +86,18 @@ export function FlowRow() {
 
           {/* Raw inputs — amber, pushed right */}
           <div className="ml-auto flex items-center gap-1.5 flex-wrap">
-            {rawInputs.map(({ itemId, rate }) => (
-              <span key={itemId} className="flex items-center gap-1 bg-amber-950 text-amber-300 px-2 py-0.5 rounded shrink-0">
-                <span>{gameData.items[itemId]?.name ?? itemId}</span>
-                <span className="text-amber-500">{fmtRate(rate)}/min</span>
-              </span>
-            ))}
+            {rawInputs.map(({ itemId, rate }) => {
+              const item = gameData.items[itemId]
+              return (
+                <span key={itemId} className="flex items-center gap-1 bg-amber-950 text-amber-300 px-1.5 py-0.5 rounded shrink-0">
+                  {item?.iconPath
+                    ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain" />
+                    : <span title={item?.name ?? itemId}>{item?.name ?? itemId}</span>
+                  }
+                  <span className="text-amber-400">{fmtRate(rate)}/min</span>
+                </span>
+              )
+            })}
           </div>
         </>
       )}
