@@ -56,7 +56,7 @@ export function FlowRow() {
         return (
           <span key={id} className="flex items-center gap-1 bg-teal-950 text-teal-300 px-1.5 py-0.5 rounded shrink-0">
             {item?.iconPath
-              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain" />
+              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-5 h-5 object-contain" />
               : <span title={item?.name ?? id}>{item?.name ?? id}</span>
             }
             <span className="text-teal-400">{fmtRate(rate)}/min</span>
@@ -71,7 +71,7 @@ export function FlowRow() {
           <span key={id} className="flex items-center gap-1 bg-gray-800 text-gray-400 px-1.5 py-0.5 rounded shrink-0">
             <span className="text-gray-600 text-[10px]">↩</span>
             {item?.iconPath
-              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain opacity-60" />
+              ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-5 h-5 object-contain opacity-60" />
               : <span title={item?.name ?? id}>{item?.name ?? id}</span>
             }
             <span className="text-gray-500">{fmtRate(rate)}/min</span>
@@ -91,7 +91,7 @@ export function FlowRow() {
               return (
                 <span key={itemId} className="flex items-center gap-1 bg-amber-950 text-amber-300 px-1.5 py-0.5 rounded shrink-0">
                   {item?.iconPath
-                    ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain" />
+                    ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-5 h-5 object-contain" />
                     : <span title={item?.name ?? itemId}>{item?.name ?? itemId}</span>
                   }
                   <span className="text-amber-400">{fmtRate(rate)}/min</span>
