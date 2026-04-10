@@ -5,7 +5,7 @@ import { GoalsPanel } from './components/GoalsPanel'
 import { NodesPanel } from './components/NodesPanel'
 import { TreeView } from './components/TreeView'
 import { TableView } from './components/TableView'
-import { SummaryBar } from './components/SummaryBar'
+import { SummaryBar, FlowRow } from './components/SummaryBar'
 
 type ViewMode = 'tree' | 'table'
 
@@ -14,8 +14,8 @@ function MainArea() {
 
   return (
     <div className="flex flex-col h-full">
-      {/* View toggle */}
-      <div className="flex gap-1 mb-3 shrink-0">
+      {/* View toggle + flow row */}
+      <div className="flex items-center gap-3 mb-3 shrink-0 min-w-0">
         <button
           className={`text-xs px-3 py-1 rounded ${
             mode === 'tree'
@@ -36,6 +36,9 @@ function MainArea() {
         >
           Table
         </button>
+        <div className="flex-1 min-w-0">
+          <FlowRow />
+        </div>
       </div>
 
       {/* View content */}
