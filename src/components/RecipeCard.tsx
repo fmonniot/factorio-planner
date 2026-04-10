@@ -517,7 +517,6 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
       <ItemPicker
         source="recipes"
         filterByItemId={inputPickerItemId}
-        initialQuery={gameData.items[inputPickerItemId]?.name ?? ''}
         onSelect={recipeId => {
           addNode({
             kind: 'game-recipe',
