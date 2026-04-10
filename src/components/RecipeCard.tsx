@@ -215,60 +215,6 @@ function ModuleEditor({ nodeId, modules, machineSlots, allowedMachineEffects, re
 }
 
 // ---------------------------------------------------------------------------
-// Throughput row with pin toggle (5.5)
-// ---------------------------------------------------------------------------
-
-interface ThroughputRowProps {
-  nodeId: string
-  throughput: number
-  pinnedRate: number | undefined
-}
-
-export function ThroughputRow({ nodeId, throughput, pinnedRate }: ThroughputRowProps) {
-  const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
-  const isPinned = pinnedRate !== undefined
-
-  function togglePin() {
-    if (isPinned) {
-      updateNodePinnedRate(nodeId, undefined)
-    } else {
-      // Pin at the current computed throughput.
-      updateNodePinnedRate(nodeId, throughput)
-    }
-  }
-
-  function handleRateChange(raw: string) {
-    const v = parseFloat(raw)
-    if (isFinite(v) && v > 0) updateNodePinnedRate(nodeId, v)
-  }
-
-  return (
-    <div className="flex items-center gap-1.5 text-xs mb-1">
-      <button
-        onClick={togglePin}
-        title={isPinned ? 'Unpin rate' : 'Pin rate'}
-        className={`text-sm leading-none ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
-      >
-        {isPinned ? '📌' : '📍'}
-      </button>
-      {isPinned ? (
-        <input
-          type="number"
-          min="0.001"
-          step="any"
-          value={pinnedRate}
-          onChange={e => handleRateChange(e.target.value)}
-          className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
-          aria-label="Pinned rate"
-        />
-      ) : (
-        <span className="text-gray-400">{fmtRate(throughput)}</span>
-      )}
-      <span className="text-gray-500">/min</span>
-    </div>
-  )
-}
-
 // ---------------------------------------------------------------------------
 // Beacon editor (5.4)
 // ---------------------------------------------------------------------------
@@ -413,6 +359,7 @@ interface RecipeCardProps {
 
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
+  const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const addNode = useBlockStore(s => s.addNode)
   const [inputPickerItemId, setInputPickerItemId] = useState<string | null>(null)
 
@@ -449,13 +396,6 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         {recipe.name}
       </div>
 
-      {/* Throughput + pin (5.5) */}
-      <ThroughputRow
-        nodeId={node.recipeNodeId}
-        throughput={node.throughput}
-        pinnedRate={planNode.pinnedRate}
-      />
-
       {/* Machine row */}
       <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
         {machine && <span className="shrink-0">× {node.machineCountCeil}</span>}
@@ -470,17 +410,49 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
         )}
       </div>
 
-      {/* Outputs (with byproduct policy toggles for multi-product recipes, 5.6) */}
+      {/* Outputs */}
       {outputEntries.length > 0 && (
         <section className="mb-2">
           <div className="text-xs font-medium text-gray-500 mb-0.5">Outputs</div>
           {outputEntries.map(([itemId, rate]) => {
+            const isPrimary = itemId === primaryItemId
             const isMultiProduct = recipe.products.length > 1
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
+            const isPinned = planNode.pinnedRate !== undefined
+            const effectivePerExec = node.throughput > 0 ? rate / node.throughput : 0
+
             return (
               <div key={itemId} className="flex items-center text-xs text-gray-300 gap-1 mb-0.5">
                 <span className="flex-1 truncate">{gameData.items[itemId]?.name ?? itemId}</span>
-                <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
+
+                {isPrimary && isPinned ? (
+                  <input
+                    type="number"
+                    min="0.001"
+                    step="any"
+                    value={(planNode.pinnedRate! * effectivePerExec).toFixed(2)}
+                    onChange={e => {
+                      const v = parseFloat(e.target.value)
+                      if (isFinite(v) && v > 0 && effectivePerExec > 0)
+                        updateNodePinnedRate(node.recipeNodeId, v / effectivePerExec)
+                    }}
+                    className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
+                    aria-label="Pinned item rate"
+                  />
+                ) : (
+                  <span className="text-gray-400 shrink-0">{fmtRate(rate)}/min</span>
+                )}
+
+                {isPrimary && (
+                  <button
+                    onClick={() => updateNodePinnedRate(node.recipeNodeId, isPinned ? undefined : node.throughput)}
+                    title={isPinned ? 'Unpin rate' : 'Pin rate'}
+                    className={`text-sm leading-none shrink-0 ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+                  >
+                    {isPinned ? '📌' : '📍'}
+                  </button>
+                )}
+
                 {isMultiProduct && (
                   <button
                     onClick={() => {
@@ -492,9 +464,7 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
                     }}
                     title={policy === 'feed-back' ? 'Feed back (click to discard)' : 'Discarded (click to feed back)'}
                     className={`shrink-0 text-xs px-1 py-0.5 rounded leading-none ${
-                      policy === 'feed-back'
-                        ? 'bg-blue-900 text-blue-300'
-                        : 'bg-gray-700 text-gray-500'
+                      policy === 'feed-back' ? 'bg-blue-900 text-blue-300' : 'bg-gray-700 text-gray-500'
                     }`}
                   >
                     {policy === 'feed-back' ? '↩' : '✕'}
