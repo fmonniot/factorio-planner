@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
+import { useBlockStore } from '../store/blockStore'
 import { BlockTabs } from './BlockTabs'
 
 // ---------------------------------------------------------------------------
@@ -168,6 +169,34 @@ function GameDataHeader() {
 }
 
 // ---------------------------------------------------------------------------
+// Export plan button
+// ---------------------------------------------------------------------------
+
+function ExportPlanButton() {
+  function handleExport() {
+    const { blocks, activeBlockId } = useBlockStore.getState()
+    const json = JSON.stringify({ blocks, activeBlockId }, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `factorio-plan-${new Date().toISOString().slice(0, 10)}.json`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <button
+      onClick={handleExport}
+      className="text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1"
+      title="Export plan as JSON"
+    >
+      Export plan
+    </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
 // Shell layout
 // ---------------------------------------------------------------------------
 
@@ -184,6 +213,7 @@ export function AppShell({ sidebar, main, summary }: AppShellProps) {
       <header className="h-12 bg-gray-900 border-b border-gray-700 flex items-center px-4 shrink-0 gap-4">
         <span className="font-semibold text-gray-100">Factorio Planner</span>
         <span className="flex-1" />
+        <ExportPlanButton />
         <GameDataHeader />
       </header>
 
