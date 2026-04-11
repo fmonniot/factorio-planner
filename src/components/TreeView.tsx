@@ -73,17 +73,24 @@ function buildColumns(
 // ---------------------------------------------------------------------------
 
 interface SubPlanSolvedCardProps {
-  node: SolvedNode
+  node: SolvedNode | undefined
   planNode: SubPlanNode
+  childSubPlan: SubPlan
   subPlanName: string
   gameData: GameData
 }
 
-function SubPlanSolvedCard({ node, planNode, subPlanName, gameData }: SubPlanSolvedCardProps) {
+function SubPlanSolvedCard({ node, planNode, childSubPlan, subPlanName, gameData }: SubPlanSolvedCardProps) {
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const isPinned = planNode.pinnedRate !== undefined
-  const inputEntries = Object.entries(node.inputRates)
-  const outputEntries = Object.entries(node.outputRates)
+  const inputEntries = node ? Object.entries(node.inputRates) : []
+  const outputEntries = node ? Object.entries(node.outputRates) : []
+
+  const emptyWarning = node === undefined
+    ? childSubPlan.goals.length === 0
+      ? 'No goals — open this sub-plan to add a production goal'
+      : 'No recipe nodes — open this sub-plan to add recipes'
+    : undefined
 
   return (
     <div className="bg-gray-800 border border-blue-800 rounded-lg p-3 w-72">
@@ -95,33 +102,40 @@ function SubPlanSolvedCard({ node, planNode, subPlanName, gameData }: SubPlanSol
         </span>
       </div>
 
-      {/* Scale factor (throughput = dimensionless multiplier, 1.0 = 100% capacity) */}
-      <div className="flex items-center gap-2 mb-2 text-xs">
-        <span className="text-gray-400">Scale</span>
-        {isPinned ? (
-          <input
-            type="number"
-            min="0.001"
-            step="any"
-            value={planNode.pinnedRate!.toFixed(2)}
-            onChange={e => {
-              const v = parseFloat(e.target.value)
-              if (isFinite(v) && v > 0) updateNodePinnedRate(planNode.id, v)
-            }}
-            className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
-            aria-label="Pinned scale"
-          />
-        ) : (
-          <span className="text-gray-200 font-mono">{node.throughput.toFixed(2)}×</span>
-        )}
-        <button
-          onClick={() => updateNodePinnedRate(planNode.id, isPinned ? undefined : Math.max(node.throughput, 1))}
-          title={isPinned ? 'Unpin scale' : 'Pin scale'}
-          className={`text-sm leading-none shrink-0 ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
-        >
-          {isPinned ? '📌' : '📍'}
-        </button>
-      </div>
+      {/* Empty-state warning */}
+      {emptyWarning && (
+        <p className="text-xs text-yellow-600 italic mb-2">{emptyWarning}</p>
+      )}
+
+      {/* Scale factor — only shown when the solver has produced a result */}
+      {node !== undefined && (
+        <div className="flex items-center gap-2 mb-2 text-xs">
+          <span className="text-gray-400">Scale</span>
+          {isPinned ? (
+            <input
+              type="number"
+              min="0.001"
+              step="any"
+              value={planNode.pinnedRate!.toFixed(2)}
+              onChange={e => {
+                const v = parseFloat(e.target.value)
+                if (isFinite(v) && v > 0) updateNodePinnedRate(planNode.id, v)
+              }}
+              className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
+              aria-label="Pinned scale"
+            />
+          ) : (
+            <span className="text-gray-200 font-mono">{node.throughput.toFixed(2)}×</span>
+          )}
+          <button
+            onClick={() => updateNodePinnedRate(planNode.id, isPinned ? undefined : Math.max(node.throughput, 1))}
+            title={isPinned ? 'Unpin scale' : 'Pin scale'}
+            className={`text-sm leading-none shrink-0 ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+          >
+            {isPinned ? '📌' : '📍'}
+          </button>
+        </div>
+      )}
 
       {/* Outputs */}
       {outputEntries.length > 0 && (
@@ -209,6 +223,11 @@ export function TreeView() {
 
   const columns = subPlan && result ? buildColumns(result.nodes, subPlan) : []
 
+  // Wired subplans that produced no SolvedNode (no goals or no recipe nodes yet).
+  const solvedSubPlanIds = new Set(result?.nodes.map(n => n.recipeNodeId) ?? [])
+  const emptySubPlanNodes = (subPlan?.nodes ?? [])
+    .filter((n): n is SubPlanNode => n.kind === 'subplan' && !solvedSubPlanIds.has(n.subPlanId))
+
   function renderNode(nodeId: string, gd: GameData) {
     const sn = result!.nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return null
@@ -224,6 +243,7 @@ export function TreeView() {
           key={nodeId}
           node={sn}
           planNode={childSubPlanPlanNode}
+          childSubPlan={childSubPlan}
           subPlanName={childSubPlan.name}
           gameData={gd}
         />
@@ -235,6 +255,25 @@ export function TreeView() {
 
   return (
     <div className="flex gap-6 min-h-full overflow-x-auto pb-4">
+      {/* Empty subplan cards — wired but solver produced no result yet */}
+      {emptySubPlanNodes.length > 0 && (
+        <div className="flex flex-col gap-3 shrink-0">
+          {emptySubPlanNodes.map(planNode => {
+            const childSubPlan = subPlan!.subPlans.find(sp => sp.id === planNode.subPlanId)!
+            return (
+              <SubPlanSolvedCard
+                key={planNode.id}
+                node={undefined}
+                planNode={planNode}
+                childSubPlan={childSubPlan}
+                subPlanName={childSubPlan.name}
+                gameData={gameData}
+              />
+            )
+          })}
+        </div>
+      )}
+
       {/* Recipe / subplan node columns */}
       {columns.map((nodeIds, colIdx) => (
         <div key={colIdx} className="flex flex-col gap-3 shrink-0">
