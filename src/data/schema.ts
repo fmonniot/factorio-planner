@@ -158,7 +158,8 @@ export const SubPlanNodeSchema = z.object({
   kind: z.literal('subplan'),
   id: z.string(),
   subPlanId: z.string(),
-  pinnedRate: z.number().positive().optional(),
+  // Coerce 0 → undefined so a plan saved with pinnedRate=0 still loads correctly.
+  pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
 })
 
 // Preprocess injects kind: 'game-recipe' on legacy data that lacks the field,

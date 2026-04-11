@@ -3,7 +3,7 @@ import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { RecipeCard, fmtRate } from './RecipeCard'
 import { deriveSyntheticRecipe } from '../solver/subplan'
-import type { SolvedNode, SubPlan, GameData } from '../data/types'
+import type { SolvedNode, SubPlan, SubPlanNode, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Depth assignment
@@ -136,11 +136,14 @@ function SubPlanCard({ subPlanName, outputs, inputs, gameData }: SubPlanCardProp
 
 interface SubPlanSolvedCardProps {
   node: SolvedNode
+  planNode: SubPlanNode
   subPlanName: string
   gameData: GameData
 }
 
-function SubPlanSolvedCard({ node, subPlanName, gameData }: SubPlanSolvedCardProps) {
+function SubPlanSolvedCard({ node, planNode, subPlanName, gameData }: SubPlanSolvedCardProps) {
+  const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
+  const isPinned = planNode.pinnedRate !== undefined
   const inputEntries = Object.entries(node.inputRates)
   const outputEntries = Object.entries(node.outputRates)
 
@@ -157,7 +160,29 @@ function SubPlanSolvedCard({ node, subPlanName, gameData }: SubPlanSolvedCardPro
       {/* Scale factor (throughput = dimensionless multiplier, 1.0 = 100% capacity) */}
       <div className="flex items-center gap-2 mb-2 text-xs">
         <span className="text-gray-400">Scale</span>
-        <span className="text-gray-200 font-mono">{node.throughput.toFixed(2)}×</span>
+        {isPinned ? (
+          <input
+            type="number"
+            min="0.001"
+            step="any"
+            value={planNode.pinnedRate!.toFixed(2)}
+            onChange={e => {
+              const v = parseFloat(e.target.value)
+              if (isFinite(v) && v > 0) updateNodePinnedRate(planNode.id, v)
+            }}
+            className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right"
+            aria-label="Pinned scale"
+          />
+        ) : (
+          <span className="text-gray-200 font-mono">{node.throughput.toFixed(2)}×</span>
+        )}
+        <button
+          onClick={() => updateNodePinnedRate(planNode.id, isPinned ? undefined : Math.max(node.throughput, 1))}
+          title={isPinned ? 'Unpin scale' : 'Pin scale'}
+          className={`text-sm leading-none shrink-0 ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
+        >
+          {isPinned ? '📌' : '📍'}
+        </button>
       </div>
 
       {/* Outputs */}
@@ -262,11 +287,15 @@ export function TreeView() {
 
     // Check if this is an implicit subplan node (recipeNodeId = subPlanId)
     const childSubPlan = subPlan!.subPlans.find(sp => sp.id === nodeId)
-    if (childSubPlan) {
+    const childSubPlanPlanNode = subPlan!.nodes.find(
+      n => n.kind === 'subplan' && n.subPlanId === nodeId,
+    ) as SubPlanNode | undefined
+    if (childSubPlan && childSubPlanPlanNode) {
       return (
         <SubPlanSolvedCard
           key={nodeId}
           node={sn}
+          planNode={childSubPlanPlanNode}
           subPlanName={childSubPlan.name}
           gameData={gd}
         />

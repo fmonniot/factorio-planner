@@ -110,6 +110,9 @@ export function solve(
     if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
       pinnedRates.set(n.recipeId, n.pinnedRate)
     }
+    if (n.kind === 'subplan' && n.pinnedRate !== undefined) {
+      pinnedRates.set(`__subplan__:${n.subPlanId}`, n.pinnedRate)
+    }
   }
   const pinned = applyPinnedRates(system.S, system.d, matrix.recipes, pinnedRates)
 
