@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { AppState, Block, SubPlan, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import type { AppState, Block, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on a SubPlan, tagged with which subplan it affects
@@ -241,9 +241,15 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
       const newSubPlan = makeEmptySubPlan(name)
+      const newSubPlanNode: SubPlanNode = {
+        kind: 'subplan',
+        id: crypto.randomUUID(),
+        subPlanId: newSubPlan.id,
+      }
       const newRootPlan = updateSubPlanInTree(block.rootPlan, parentSubPlanId, p => ({
         ...p,
         subPlans: [...p.subPlans, newSubPlan],
+        nodes: [...p.nodes, newSubPlanNode],
       }))
       return {
         blocks: state.blocks.map(b =>

@@ -54,14 +54,14 @@
             "id": "cddda279-c572-4931-87ae-3c39f0ee6702",
             "recipeId": "nullius-saline-electrolysis",
             "modules": [],
+            "pinnedRate": 120,
             "byproductPolicy": {},
-            "primaryProduct": "nullius-sodium-hydroxide",
-            "pinnedRate": 0
+            "primaryProduct": "nullius-sodium-hydroxide"
           },
           {
             "kind": "subplan",
-            "id": "a1b2c3d4-0000-0000-0000-000000000002",
-            "subPlanId": "b7cdc059-541e-48aa-8529-34f75b9da5d3"
+            "id": "a1b2c3d4-0000-0000-0000-000000000001",
+            "subPlanId": "9b81a73c-910f-4da8-b402-a482cbd12264"
           }
         ],
         "subPlans": [
@@ -96,87 +96,38 @@
             "updatedAt": "2026-04-06T03:36:45.628Z"
           },
           {
-            "id": "b7cdc059-541e-48aa-8529-34f75b9da5d3",
+            "id": "9b81a73c-910f-4da8-b402-a482cbd12264",
             "name": "Lubricant",
             "goals": [
               {
-                "id": "b9a508ee-4d96-4e4b-9683-fad6e5416587",
+                "id": "b9bc5a21-d1b0-4f7c-b3e2-21143712d588",
                 "itemId": "nullius-lubricant",
-                "rate": 240
+                "rate": 60
               }
             ],
             "nodes": [
               {
                 "kind": "game-recipe",
-                "id": "61b0f9c3-f799-42ba-8823-7818e7572b88",
+                "id": "7aca9676-2c88-41e3-9b0b-fbdbb93d66e3",
                 "recipeId": "nullius-lubricant",
                 "modules": [],
                 "byproductPolicy": {}
               },
               {
                 "kind": "game-recipe",
-                "id": "b84e91dc-5935-4733-a07f-3bfaca38d06b",
+                "id": "a1920a4e-c07a-42de-bee0-9da2e95b8711",
                 "recipeId": "nullius-silicon-ingot-2",
-                "modules": [],
-                "byproductPolicy": {}
-              },
-              {
-                "kind": "game-recipe",
-                "id": "7fd757c3-0927-4117-9660-9e69b360f4b9",
-                "recipeId": "nullius-methanol",
                 "modules": [],
                 "byproductPolicy": {}
               }
             ],
             "subPlans": [],
-            "createdAt": "2026-04-06T14:35:18.620Z",
-            "updatedAt": "2026-04-10T23:35:37.174Z"
+            "createdAt": "2026-04-11T14:35:07.126Z",
+            "updatedAt": "2026-04-11T14:35:35.961Z"
           }
         ],
         "createdAt": "2026-04-05T19:40:52.228Z",
-        "updatedAt": "2026-04-11T04:50:03.115Z"
-      }
-    },
-    {
-      "id": "f6ea3975-f44a-45dd-b417-590fb2be476d",
-      "name": "Block 2",
-      "gameDataVersion": "",
-      "rootPlan": {
-        "id": "86fcc2c7-9db5-470c-b2f9-fc367ce28280",
-        "name": "Main",
-        "goals": [
-          {
-            "id": "d473738f-741b-4954-869f-de0254faa9e1",
-            "itemId": "nullius-iron-ingot",
-            "rate": 60
-          }
-        ],
-        "nodes": [
-          {
-            "kind": "game-recipe",
-            "id": "875d2818-49fb-48fc-8856-d81e87d7eecb",
-            "recipeId": "nullius-iron-ingot-3",
-            "modules": [],
-            "byproductPolicy": {}
-          },
-          {
-            "kind": "game-recipe",
-            "id": "9e98a39d-de4d-4c4e-a782-f2fd00a89816",
-            "recipeId": "nullius-iron-oxidation",
-            "modules": [],
-            "byproductPolicy": {}
-          },
-          {
-            "kind": "game-recipe",
-            "id": "6024efda-d425-4db5-9de5-560efa456342",
-            "recipeId": "nullius-iron-oxide",
-            "modules": [],
-            "byproductPolicy": {}
-          }
-        ],
-        "subPlans": [],
-        "createdAt": "2026-04-06T03:38:30.746Z",
-        "updatedAt": "2026-04-06T03:39:31.980Z"
+        "updatedAt": "2026-04-11T14:34:20.577Z"
       }
     }
   ],

@@ -2,7 +2,6 @@ import { useBlockStore, selectActiveSubPlan } from '../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../store/solverStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { RecipeCard, fmtRate } from './RecipeCard'
-import { deriveSyntheticRecipe } from '../solver/subplan'
 import type { SolvedNode, SubPlan, SubPlanNode, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -67,67 +66,6 @@ function buildColumns(
   if (orphans.length > 0) columns.push(orphans)
 
   return columns
-}
-
-// ---------------------------------------------------------------------------
-// SubPlan card — collapsed summary shown in parent plan's tree view
-// (for child subplans that are NOT wired as solver nodes)
-// ---------------------------------------------------------------------------
-
-interface FlowItem {
-  itemId: string
-  amount: number
-}
-
-interface SubPlanCardProps {
-  subPlanName: string
-  outputs: FlowItem[]
-  inputs: FlowItem[]
-  gameData: GameData
-}
-
-function SubPlanCard({ subPlanName, outputs, inputs, gameData }: SubPlanCardProps) {
-  const hasFlows = outputs.length > 0 || inputs.length > 0
-  return (
-    <div className="bg-gray-800 border border-blue-800 rounded-lg p-3 w-72">
-      {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
-        <span className="text-blue-400 text-sm font-bold leading-none shrink-0">⊞</span>
-        <span className="text-sm text-blue-200 truncate flex-1" title={subPlanName}>{subPlanName}</span>
-        <span className="text-xs text-gray-500 shrink-0">sub-plan</span>
-      </div>
-
-      {!hasFlows && (
-        <div className="text-xs text-gray-600 italic">No goals yet</div>
-      )}
-
-      {/* Outputs */}
-      {outputs.length > 0 && (
-        <section className="mb-2">
-          <div className="text-xs font-medium text-gray-500 mb-0.5">Outputs</div>
-          {outputs.map(({ itemId, amount }) => (
-            <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
-              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
-              <span className="text-gray-400 shrink-0">{fmtRate(amount)}/min</span>
-            </div>
-          ))}
-        </section>
-      )}
-
-      {/* Inputs */}
-      {inputs.length > 0 && (
-        <section>
-          <div className="text-xs font-medium text-gray-500 mb-0.5">Inputs</div>
-          {inputs.map(({ itemId, amount }) => (
-            <div key={itemId} className="flex justify-between text-xs text-gray-300 gap-2">
-              <span className="truncate">{gameData.items[itemId]?.name ?? itemId}</span>
-              <span className="text-gray-400 shrink-0">{fmtRate(amount)}/min</span>
-            </div>
-          ))}
-        </section>
-      )}
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -222,7 +160,6 @@ export function TreeView() {
   const subPlan = useBlockStore(selectActiveSubPlan)
   const status = useSolverStore(s => s.status)
   const result = useSolverStore(selectSolverResult)
-  const subPlanResults = useSolverStore(s => s.subPlanResults)
   const gameData = useGameDataStore(selectGameData)
 
   // ── Loading / empty states ────────────────────────────────────────────────
@@ -272,15 +209,6 @@ export function TreeView() {
 
   const columns = subPlan && result ? buildColumns(result.nodes, subPlan) : []
 
-  // Child subplans that appear in the solver result (have SolvedNodes via implicit wiring)
-  const solvedSubPlanIds = new Set(
-    result?.nodes
-      .filter(sn => subPlan?.subPlans.some(sp => sp.id === sn.recipeNodeId))
-      .map(sn => sn.recipeNodeId) ?? [],
-  )
-  // Child subplans without solve results (no goals yet) get a standalone collapsed card
-  const unsolvedSubPlans = subPlan?.subPlans.filter(sp => !solvedSubPlanIds.has(sp.id)) ?? []
-
   function renderNode(nodeId: string, gd: GameData) {
     const sn = result!.nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return null
@@ -307,25 +235,6 @@ export function TreeView() {
 
   return (
     <div className="flex gap-6 min-h-full overflow-x-auto pb-4">
-      {/* Child subplans without goals yet — shown as collapsed cards in a leading column */}
-      {unsolvedSubPlans.length > 0 && (
-        <div className="flex flex-col gap-3 shrink-0">
-          {unsolvedSubPlans.map(sp => {
-            const spResult = subPlanResults.get(sp.id)
-            const synthetic = spResult ? deriveSyntheticRecipe(sp, spResult) : null
-            return (
-              <SubPlanCard
-                key={sp.id}
-                subPlanName={sp.name}
-                outputs={synthetic?.products ?? []}
-                inputs={synthetic?.ingredients ?? []}
-                gameData={gameData}
-              />
-            )
-          })}
-        </div>
-      )}
-
       {/* Recipe / subplan node columns */}
       {columns.map((nodeIds, colIdx) => (
         <div key={colIdx} className="flex flex-col gap-3 shrink-0">
