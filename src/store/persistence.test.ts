@@ -1,12 +1,11 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import {
-  PLAN_STORAGE_KEY,
-  savePlan,
-  loadPersistedPlan,
-  initPlanPersistence,
+  APP_STATE_STORAGE_KEY,
+  saveAppState,
+  loadPersistedAppState,
+  initAppStatePersistence,
 } from './persistence'
-import { usePlanStore, makeEmptyPlan } from './planStore'
-import type { Plan } from '../data/types'
+import { useBlockStore, makeEmptyBlock } from './blockStore'
 
 // ---------------------------------------------------------------------------
 // localStorage mock
@@ -25,27 +24,18 @@ Object.defineProperty(globalThis, 'localStorage', {
 })
 
 // ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function makePlan(overrides: Partial<Plan> = {}): Plan {
-  return {
-    ...makeEmptyPlan('p1', 'Test Plan', '2.0.0'),
-    ...overrides,
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Setup
 // ---------------------------------------------------------------------------
 
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  usePlanStore.setState({
-    plan: makeEmptyPlan('default', 'Default', '2.0.0'),
-    undoStack: [],
-    redoStack: [],
+  const block = makeEmptyBlock('Default')
+  useBlockStore.setState({
+    blocks: [block],
+    activeBlockId: block.id,
+    activeSubPlanId: block.rootPlan.id,
+    history: {},
   })
 })
 
@@ -54,46 +44,48 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// savePlan
+// saveAppState
 // ---------------------------------------------------------------------------
 
-describe('savePlan', () => {
-  it('writes the current plan to localStorage', () => {
-    usePlanStore.setState({ plan: makePlan({ name: 'Iron Setup' }) })
-    savePlan()
+describe('saveAppState', () => {
+  it('writes the current app state to localStorage', () => {
+    const block = makeEmptyBlock('Iron Setup')
+    useBlockStore.setState({ blocks: [block], activeBlockId: block.id, activeSubPlanId: block.rootPlan.id, history: {} })
+    saveAppState()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      PLAN_STORAGE_KEY,
+      APP_STATE_STORAGE_KEY,
       expect.stringContaining('"Iron Setup"'),
     )
   })
 
   it('does not throw when localStorage.setItem throws', () => {
     localStorageMock.setItem.mockImplementationOnce(() => { throw new Error('QuotaExceededError') })
-    expect(() => savePlan()).not.toThrow()
+    expect(() => saveAppState()).not.toThrow()
   })
 })
 
 // ---------------------------------------------------------------------------
-// loadPersistedPlan
+// loadPersistedAppState
 // ---------------------------------------------------------------------------
 
-describe('loadPersistedPlan', () => {
+describe('loadPersistedAppState', () => {
   it('returns missing when nothing is stored', () => {
-    const result = loadPersistedPlan()
+    const result = loadPersistedAppState()
     expect(result).toEqual({ type: 'missing' })
   })
 
-  it('returns ok and restores the plan on valid data', () => {
-    const plan = makePlan({ id: 'saved', name: 'Saved Plan' })
-    localStorageMock.setItem(PLAN_STORAGE_KEY, JSON.stringify(plan))
-    const result = loadPersistedPlan()
+  it('returns ok and restores the app state on valid data', () => {
+    const block = makeEmptyBlock('Saved Plan')
+    const appState = { blocks: [block], activeBlockId: block.id }
+    localStorageMock.setItem(APP_STATE_STORAGE_KEY, JSON.stringify(appState))
+    const result = loadPersistedAppState()
     expect(result).toEqual({ type: 'ok' })
-    expect(usePlanStore.getState().plan.name).toBe('Saved Plan')
+    expect(useBlockStore.getState().blocks[0].name).toBe('Saved Plan')
   })
 
   it('returns error on malformed JSON', () => {
-    localStorageMock.setItem(PLAN_STORAGE_KEY, 'not json')
-    const result = loadPersistedPlan()
+    localStorageMock.setItem(APP_STATE_STORAGE_KEY, 'not json')
+    const result = loadPersistedAppState()
     expect(result.type).toBe('error')
     if (result.type === 'error') {
       expect(result.message).toMatch(/malformed json/i)
@@ -101,53 +93,53 @@ describe('loadPersistedPlan', () => {
   })
 
   it('returns error on schema validation failure', () => {
-    localStorageMock.setItem(PLAN_STORAGE_KEY, JSON.stringify({ id: 123 }))
-    const result = loadPersistedPlan()
+    localStorageMock.setItem(APP_STATE_STORAGE_KEY, JSON.stringify({ id: 123 }))
+    const result = loadPersistedAppState()
     expect(result.type).toBe('error')
   })
 
-  it('leaves the plan store unchanged on error', () => {
-    const original = usePlanStore.getState().plan
-    localStorageMock.setItem(PLAN_STORAGE_KEY, 'bad json')
-    loadPersistedPlan()
-    expect(usePlanStore.getState().plan).toBe(original)
+  it('leaves the block store unchanged on error', () => {
+    const original = useBlockStore.getState().blocks
+    localStorageMock.setItem(APP_STATE_STORAGE_KEY, 'bad json')
+    loadPersistedAppState()
+    expect(useBlockStore.getState().blocks).toBe(original)
   })
 
   it('returns error when localStorage.getItem throws', () => {
     localStorageMock.getItem.mockImplementationOnce(() => { throw new Error('SecurityError') })
-    const result = loadPersistedPlan()
+    const result = loadPersistedAppState()
     expect(result.type).toBe('error')
   })
 })
 
 // ---------------------------------------------------------------------------
-// initPlanPersistence
+// initAppStatePersistence
 // ---------------------------------------------------------------------------
 
-describe('initPlanPersistence', () => {
-  it('auto-saves when the plan changes', () => {
-    const unsub = initPlanPersistence()
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+describe('initAppStatePersistence', () => {
+  it('auto-saves when the blocks change', () => {
+    const unsub = initAppStatePersistence()
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     unsub()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      PLAN_STORAGE_KEY,
+      APP_STATE_STORAGE_KEY,
       expect.stringContaining('iron-plate'),
     )
   })
 
-  it('does not save when only stacks change (not plan)', () => {
-    const unsub = initPlanPersistence()
-    // Manually change only undoStack without touching the plan reference.
-    usePlanStore.setState({ undoStack: [] })
+  it('does not save when only non-block state changes', () => {
+    const unsub = initAppStatePersistence()
+    // Change activeSubPlanId (not blocks) — should not trigger a save.
+    useBlockStore.setState({ activeSubPlanId: 'some-other-id' })
     unsub()
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 
   it('stops auto-saving after unsubscribe', () => {
-    const unsub = initPlanPersistence()
+    const unsub = initAppStatePersistence()
     unsub()
     vi.clearAllMocks()
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 })

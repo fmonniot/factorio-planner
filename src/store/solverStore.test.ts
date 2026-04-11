@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { useSolverStore, wireSolver, selectSolverResult } from './solverStore'
-import { usePlanStore, makeEmptyPlan } from './planStore'
+import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import type { GameData } from '../data/types'
 
@@ -36,13 +36,15 @@ function loadGameData(overrides: Partial<GameData> = {}) {
 let unwire: (() => void) | undefined
 
 beforeEach(() => {
-  usePlanStore.setState({
-    plan: makeEmptyPlan('test', 'Test', '2.0.0'),
-    undoStack: [],
-    redoStack: [],
+  const block = makeEmptyBlock('Test')
+  useBlockStore.setState({
+    blocks: [block],
+    activeBlockId: block.id,
+    activeSubPlanId: block.rootPlan.id,
+    history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map() })
   unwire = wireSolver()
 })
 
@@ -57,7 +59,7 @@ afterEach(() => {
 
 describe('wireSolver', () => {
   it('stays idle when no game data is loaded', () => {
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     vi.runAllTimers()
     expect(useSolverStore.getState().status.type).toBe('idle')
   })
@@ -74,7 +76,7 @@ describe('wireSolver', () => {
 
   it('transitions to pending while debounce is active', () => {
     loadGameData()
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     // debounce has not fired yet
     expect(useSolverStore.getState().status.type).toBe('pending')
   })
@@ -85,7 +87,7 @@ describe('wireSolver', () => {
     expect(useSolverStore.getState().status.type).toBe('solved')
 
     // Mutate plan
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     expect(useSolverStore.getState().status.type).toBe('pending')
     vi.runAllTimers()
     expect(useSolverStore.getState().status.type).toBe('solved')
@@ -105,9 +107,9 @@ describe('wireSolver', () => {
     vi.runAllTimers()
 
     // Make three rapid changes without advancing timers.
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 10 })
-    usePlanStore.getState().updateGoalRate('g1', 20)
-    usePlanStore.getState().updateGoalRate('g1', 30)
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 10 })
+    useBlockStore.getState().updateGoalRate('g1', 20)
+    useBlockStore.getState().updateGoalRate('g1', 30)
 
     // Only pending before timer fires — not yet solved multiple times.
     expect(useSolverStore.getState().status.type).toBe('pending')
@@ -123,8 +125,8 @@ describe('wireSolver', () => {
     unwire!()
     unwire = undefined
 
-    useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map() })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     vi.runAllTimers()
     // Store should remain idle after unwire
     expect(useSolverStore.getState().status.type).toBe('idle')
@@ -132,7 +134,7 @@ describe('wireSolver', () => {
 
   it('returns empty result (not error) for plan with goals but no nodes', () => {
     loadGameData()
-    usePlanStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     vi.runAllTimers()
     const { status } = useSolverStore.getState()
     expect(status.type).toBe('solved')

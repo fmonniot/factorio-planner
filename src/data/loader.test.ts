@@ -2,12 +2,25 @@ import { describe, it, expect } from 'vitest'
 import {
   parseGameData,
   loadGameDataFromJson,
-  parsePlan,
-  loadPlanFromJson,
   GameDataLoadError,
-  PlanLoadError,
 } from './loader'
-import type { GameData, Plan } from './types'
+import { SubPlanSchema } from './schema'
+import { ZodError } from 'zod'
+import type { GameData, SubPlan, GameRecipeNode } from './types'
+
+// ---------------------------------------------------------------------------
+// Local helpers that mirror the old parsePlan / loadPlanFromJson API
+// ---------------------------------------------------------------------------
+
+function parsePlan(raw: unknown): SubPlan {
+  const result = SubPlanSchema.safeParse(raw)
+  if (!result.success) throw result.error
+  return result.data
+}
+
+function loadPlanFromJson(json: string): SubPlan {
+  return parsePlan(JSON.parse(json))
+}
 
 // ---------------------------------------------------------------------------
 // Minimal valid fixtures
@@ -75,23 +88,24 @@ function minimalGameData(): GameData {
   }) as GameData
 }
 
-function minimalPlan(): Plan {
+function minimalPlan(): SubPlan {
   return structuredClone({
     id: 'plan-1',
     name: 'Test Plan',
-    gameDataVersion: '2.0.28',
     goals: [{ id: 'goal-1', itemId: 'iron-plate', rate: 60 }],
     nodes: [
       {
+        kind: 'game-recipe' as const,
         id: 'node-1',
         recipeId: 'iron-plate-recipe',
         modules: [{ moduleId: 'productivity-module-3', count: 2 }],
         byproductPolicy: {},
       },
     ],
+    subPlans: [],
     createdAt: '2024-01-01T00:00:00.000Z',
     updatedAt: '2024-01-01T00:00:00.000Z',
-  }) as Plan
+  }) as SubPlan
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +284,7 @@ describe('loadGameDataFromJson', () => {
 })
 
 // ---------------------------------------------------------------------------
-// Plan — happy path
+// Plan (SubPlan) — happy path
 // ---------------------------------------------------------------------------
 
 describe('parsePlan', () => {
@@ -290,7 +304,7 @@ describe('parsePlan', () => {
 
   it('accepts a node with optional beacon config', () => {
     const plan = minimalPlan()
-    plan.nodes[0].beaconConfig = {
+    ;(plan.nodes[0] as GameRecipeNode).beaconConfig = {
       moduleId: 'speed-module-3',
       beaconCount: 8,
       modulesPerBeacon: 2,
@@ -307,37 +321,37 @@ describe('parsePlan', () => {
 
   it('accepts byproduct policy entries', () => {
     const plan = minimalPlan()
-    plan.nodes[0].byproductPolicy = { 'heavy-oil': 'discard', 'light-oil': 'feed-back' }
+    ;(plan.nodes[0] as GameRecipeNode).byproductPolicy = { 'heavy-oil': 'discard', 'light-oil': 'feed-back' }
     const result = parsePlan(plan)
-    expect(result.nodes[0].byproductPolicy['heavy-oil']).toBe('discard')
+    expect((result.nodes[0] as GameRecipeNode).byproductPolicy['heavy-oil']).toBe('discard')
   })
 })
 
 // ---------------------------------------------------------------------------
-// Plan — validation errors
+// Plan (SubPlan) — validation errors
 // ---------------------------------------------------------------------------
 
 describe('parsePlan — validation errors', () => {
-  it('throws PlanLoadError for non-object input', () => {
-    expect(() => parsePlan(null)).toThrow(PlanLoadError)
+  it('throws ZodError for non-object input', () => {
+    expect(() => parsePlan(null)).toThrow(ZodError)
   })
 
-  it('throws PlanLoadError when goal rate is not positive', () => {
+  it('throws ZodError when goal rate is not positive', () => {
     const plan = minimalPlan()
     plan.goals[0].rate = 0
-    expect(() => parsePlan(plan)).toThrow(PlanLoadError)
+    expect(() => parsePlan(plan)).toThrow(ZodError)
   })
 
-  it('throws PlanLoadError when createdAt is not an ISO datetime', () => {
+  it('throws ZodError when createdAt is not an ISO datetime', () => {
     const plan = minimalPlan() as Record<string, unknown>
     plan.createdAt = '2024-01-01'
-    expect(() => parsePlan(plan)).toThrow(PlanLoadError)
+    expect(() => parsePlan(plan)).toThrow(ZodError)
   })
 
-  it('throws PlanLoadError when byproductPolicy value is invalid', () => {
+  it('throws ZodError when byproductPolicy value is invalid', () => {
     const plan = minimalPlan()
-    ;(plan.nodes[0].byproductPolicy as Record<string, unknown>)['iron-plate'] = 'ignore'
-    expect(() => parsePlan(plan)).toThrow(PlanLoadError)
+    ;((plan.nodes[0] as GameRecipeNode).byproductPolicy as Record<string, unknown>)['iron-plate'] = 'ignore'
+    expect(() => parsePlan(plan)).toThrow(ZodError)
   })
 })
 
@@ -356,7 +370,7 @@ describe('loadPlanFromJson', () => {
     expect(() => loadPlanFromJson('{{ invalid')).toThrow(SyntaxError)
   })
 
-  it('throws PlanLoadError for valid JSON that fails schema', () => {
-    expect(() => loadPlanFromJson('[]')).toThrow(PlanLoadError)
+  it('throws ZodError for valid JSON that fails schema', () => {
+    expect(() => loadPlanFromJson('[]')).toThrow(ZodError)
   })
 })
