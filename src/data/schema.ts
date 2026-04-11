@@ -147,7 +147,9 @@ export const GameRecipeNodeSchema = z.object({
   machineId: z.string().optional(),
   modules: z.array(ModuleConfigSchema),
   beaconConfig: BeaconConfigSchema.optional(),
-  pinnedRate: z.number().positive().optional(),
+  // Coerce 0 → undefined so a plan saved with pinnedRate=0 (produced by
+  // clicking pin while throughput is 0) still loads correctly.
+  pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
 })

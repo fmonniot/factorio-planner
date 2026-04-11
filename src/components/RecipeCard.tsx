@@ -456,7 +456,7 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
 
                 {isPrimary && (
                   <button
-                    onClick={() => updateNodePinnedRate(node.recipeNodeId, isPinned ? undefined : node.throughput)}
+                    onClick={() => updateNodePinnedRate(node.recipeNodeId, isPinned ? undefined : Math.max(node.throughput, 1))}
                     title={isPinned ? 'Unpin rate' : 'Pin rate'}
                     className={`text-sm leading-none shrink-0 ${isPinned ? 'text-yellow-400 hover:text-yellow-300' : 'text-gray-600 hover:text-gray-400'}`}
                   >
