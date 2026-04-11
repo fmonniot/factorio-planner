@@ -133,6 +133,7 @@ export interface BlockStoreState {
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
+  updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
 
   // Undo/redo (per active block)
@@ -421,6 +422,20 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         subPlanId: state.activeSubPlanId,
         apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductPolicy } : n) }),
         undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductPolicy: old.byproductPolicy } : n) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  updateNodePrimaryProduct: (nodeId, primaryProduct) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old) return state
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, primaryProduct } : n) }),
+        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, primaryProduct: (old as { primaryProduct?: string }).primaryProduct } : n) }),
       }
       return applyCommand(state, cmd)
     }),

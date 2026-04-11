@@ -360,6 +360,7 @@ interface RecipeCardProps {
 export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
+  const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
   const addNode = useBlockStore(s => s.addNode)
   const [inputPickerItemId, setInputPickerItemId] = useState<string | null>(null)
 
@@ -374,8 +375,8 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
   const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
   const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
 
-  // Primary item: explicit mainProduct, or the first product's itemId.
-  const primaryItemId = recipe.mainProduct ?? recipe.products[0]?.itemId
+  // Primary item: per-node override, then recipe mainProduct, then first product.
+  const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
 
   const inputEntries = Object.entries(node.inputRates)
   const outputEntries = Object.entries(node.outputRates)
@@ -423,6 +424,16 @@ export function RecipeCard({ node, plan, gameData }: RecipeCardProps) {
 
             return (
               <div key={itemId} className="flex items-center text-xs text-gray-300 gap-1 mb-0.5">
+                {isMultiProduct && (
+                  <button
+                    onClick={() => { if (!isPrimary) updateNodePrimaryProduct(node.recipeNodeId, itemId) }}
+                    title={isPrimary ? 'Primary product' : 'Set as primary'}
+                    disabled={isPrimary}
+                    className={`shrink-0 leading-none text-[10px] ${isPrimary ? 'text-teal-400 cursor-default' : 'text-gray-600 hover:text-teal-400'}`}
+                  >
+                    {isPrimary ? '●' : '○'}
+                  </button>
+                )}
                 <span className="flex-1 truncate">{gameData.items[itemId]?.name ?? itemId}</span>
 
                 {isPrimary && isPinned ? (

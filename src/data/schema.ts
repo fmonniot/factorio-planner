@@ -149,6 +149,7 @@ export const GameRecipeNodeSchema = z.object({
   beaconConfig: BeaconConfigSchema.optional(),
   pinnedRate: z.number().positive().optional(),
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
+  primaryProduct: z.string().optional(),
 })
 
 export const SubPlanNodeSchema = z.object({
