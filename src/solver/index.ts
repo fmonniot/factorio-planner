@@ -56,10 +56,22 @@ export function solve(
   // ── 3. Build stoichiometry matrix ────────────────────────────────────────
   // Game-recipe nodes come from the plan; child subplans are implicit — every
   // synthetic recipe passed in participates automatically (no explicit wiring).
-  const recipeIds: string[] = [
+  // Deduplicate recipe IDs: two nodes with the same recipe produce identical
+  // matrix columns, making the system rank-deficient and causing the SVD-based
+  // pseudo-inverse to return astronomically large throughput values.
+  const rawRecipeIds = [
     ...plan.nodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
     ...syntheticRecipes.keys(),
   ]
+  const recipeIds = [...new Set(rawRecipeIds)]
+
+  // Warn for any recipe that appears on more than one node.
+  const recipeIdCounts = new Map<string, number>()
+  for (const id of rawRecipeIds) recipeIdCounts.set(id, (recipeIdCounts.get(id) ?? 0) + 1)
+  for (const [recipeId, count] of recipeIdCounts) {
+    if (count > 1) warnings.push({ type: 'duplicate-recipe', recipeId, count })
+  }
+
   const matrix = buildStoichiometryMatrix(gameData, recipeIds, productivityMap, syntheticRecipes)
 
   // ── 3b. Apply byproductPolicy: zero out discarded products ───────────────

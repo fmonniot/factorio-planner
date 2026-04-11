@@ -1,0 +1,182 @@
+{
+  "blocks": [
+    {
+      "id": "098837ad-a157-4bb1-85f3-3519c17780c1",
+      "name": "Chemical Science",
+      "gameDataVersion": "",
+      "rootPlan": {
+        "id": "89a3c51d-adb1-4e72-b668-16c742ba421a",
+        "name": "Main",
+        "goals": [
+          {
+            "id": "71d0ff8c-e882-4eb9-9c40-979ad8004fd1",
+            "itemId": "nullius-chemical-pack",
+            "rate": 60
+          }
+        ],
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "5ad1b1aa-abdb-48bc-b788-59f97c564c2c",
+            "recipeId": "nullius-chemical-pack",
+            "modules": [],
+            "pinnedRate": 60,
+            "byproductPolicy": {},
+            "machineId": "nullius-chemical-plant-3"
+          },
+          {
+            "kind": "subplan",
+            "id": "bdebf05e-7685-47ce-9873-8a8a0ee09e95",
+            "subPlanId": "2e56fbd7-b922-4ff0-a767-997d204d0cc3"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "59487aec-80dc-48bf-8b1e-aff3bb61d01d",
+            "recipeId": "nullius-hydrogen-chloride",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "36ed2f8e-3467-4ae5-bfbf-f8e9e6cf511f",
+            "recipeId": "nullius-ammonia-barrel",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "b0ba6589-1915-4972-94f3-aba2d8aa8298",
+            "recipeId": "nullius-brine-electrolysis",
+            "modules": [],
+            "byproductPolicy": {
+              "nullius-hydrogen": "feed-back",
+              "nullius-sodium-hydroxide": "feed-back"
+            },
+            "primaryProduct": "nullius-sodium-hydroxide"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "1ed35c4f-6155-4b77-81a5-0504bad12474",
+            "recipeId": "nullius-ammonia-barrel",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "2e56fbd7-b922-4ff0-a767-997d204d0cc3",
+            "name": "Sulfuric Acid",
+            "goals": [
+              {
+                "id": "bd8ecd6c-3d99-4198-a64c-e8e3f30335d7",
+                "itemId": "nullius-acid-sulfuric",
+                "rate": 1200
+              }
+            ],
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "b05c07f0-6148-4724-be5e-76df6b95179b",
+                "recipeId": "nullius-acid-sulfuric",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "f9dd2fb7-34e9-4b2d-b06a-1944dea5571b",
+                "recipeId": "nullius-volcanic-separation-1",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-04-05T19:49:23.909Z",
+            "updatedAt": "2026-04-06T03:36:45.628Z"
+          },
+          {
+            "id": "b7cdc059-541e-48aa-8529-34f75b9da5d3",
+            "name": "Lubricant",
+            "goals": [
+              {
+                "id": "b9a508ee-4d96-4e4b-9683-fad6e5416587",
+                "itemId": "nullius-lubricant",
+                "rate": 240
+              }
+            ],
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "61b0f9c3-f799-42ba-8823-7818e7572b88",
+                "recipeId": "nullius-lubricant",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b84e91dc-5935-4733-a07f-3bfaca38d06b",
+                "recipeId": "nullius-silicon-ingot-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "7fd757c3-0927-4117-9660-9e69b360f4b9",
+                "recipeId": "nullius-methanol",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-04-06T14:35:18.620Z",
+            "updatedAt": "2026-04-10T23:35:37.174Z"
+          }
+        ],
+        "createdAt": "2026-04-05T19:40:52.228Z",
+        "updatedAt": "2026-04-11T04:12:56.459Z"
+      }
+    },
+    {
+      "id": "f6ea3975-f44a-45dd-b417-590fb2be476d",
+      "name": "Block 2",
+      "gameDataVersion": "",
+      "rootPlan": {
+        "id": "86fcc2c7-9db5-470c-b2f9-fc367ce28280",
+        "name": "Main",
+        "goals": [
+          {
+            "id": "d473738f-741b-4954-869f-de0254faa9e1",
+            "itemId": "nullius-iron-ingot",
+            "rate": 60
+          }
+        ],
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "875d2818-49fb-48fc-8856-d81e87d7eecb",
+            "recipeId": "nullius-iron-ingot-3",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "9e98a39d-de4d-4c4e-a782-f2fd00a89816",
+            "recipeId": "nullius-iron-oxidation",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "6024efda-d425-4db5-9de5-560efa456342",
+            "recipeId": "nullius-iron-oxide",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-06T03:38:30.746Z",
+        "updatedAt": "2026-04-06T03:39:31.980Z"
+      }
+    }
+  ],
+  "activeBlockId": "098837ad-a157-4bb1-85f3-3519c17780c1"
+}

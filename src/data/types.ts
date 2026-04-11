@@ -48,6 +48,7 @@ export type SolverWarning =
   | { type: 'underdetermined'; freeVariables: string[] }
   | { type: 'no-recipe'; itemId: string }
   | { type: 'productivity-not-allowed'; recipeId: string }
+  | { type: 'duplicate-recipe'; recipeId: string; count: number }
 
 export interface SolverResult {
   nodes: SolvedNode[]
