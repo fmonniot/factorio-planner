@@ -18,7 +18,8 @@ test('can pin and unpin the scale of a subplan', async ({ page }) => {
   await expect(page.locator('main').getByText('Solving…')).not.toBeVisible({ timeout: 10000 })
 
   // The Sulfuric Acid subplan card must be present.
-  const card = page.locator('main .bg-gray-800').filter({ hasText: 'Sulfuric Acid' }).first()
+  // Subplan cards have border-blue-800; recipe cards have border-gray-700.
+  const card = page.locator('main .bg-gray-800.border-blue-800').filter({ hasText: 'Sulfuric Acid' }).first()
   await expect(card).toBeVisible({ timeout: 5000 })
 
   // Pin button (📍) should be visible — the card is not yet pinned.

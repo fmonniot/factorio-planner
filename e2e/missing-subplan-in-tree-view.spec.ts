@@ -27,12 +27,14 @@ test.describe('missing-subplan-in-tree-view', () => {
   })
 
   test('Sulfuric Acid subplan card is visible (sanity check)', async ({ page }) => {
-    const card = page.locator('main .bg-gray-800').filter({ hasText: 'Sulfuric Acid' }).first()
+    // Subplan cards have border-blue-800; recipe cards have border-gray-700.
+    const card = page.locator('main .bg-gray-800.border-blue-800').filter({ hasText: 'Sulfuric Acid' }).first()
     await expect(card).toBeVisible({ timeout: 5000 })
   })
 
   test('Lubricant subplan card is visible with a pin button', async ({ page }) => {
-    const card = page.locator('main .bg-gray-800').filter({ hasText: 'Lubricant' }).first()
+    // Subplan cards have border-blue-800; recipe cards have border-gray-700.
+    const card = page.locator('main .bg-gray-800.border-blue-800').filter({ hasText: 'Lubricant' }).first()
     await expect(card).toBeVisible({ timeout: 5000 })
     // Rendered as SubPlanSolvedCard — pin button must be present
     await expect(card.getByTitle('Pin scale')).toBeVisible()
@@ -40,13 +42,13 @@ test.describe('missing-subplan-in-tree-view', () => {
 
   test('lubricant appears in the subplan card outputs, not in recipe card outputs', async ({ page }) => {
     // The Lubricant subplan card shows lubricant as an output.
-    const lubCard = page.locator('main .bg-gray-800').filter({ hasText: 'Lubricant' }).first()
+    const lubCard = page.locator('main .bg-gray-800.border-blue-800').filter({ hasText: 'Lubricant' }).first()
     await expect(lubCard.locator('section').filter({ hasText: 'Outputs' }).getByText('Lubricant')).toBeVisible()
 
     // Lubricant must NOT appear as an output row inside a non-subplan recipe card.
+    // Recipe cards have border-gray-700; subplan cards have border-blue-800.
     // Before the fix it appeared there because the subplan was rendered as RecipeCards.
-    const nonSubplanOutputLubricant = page.locator('main .bg-gray-800')
-      .filter({ hasNotText: 'sub-plan' })
+    const nonSubplanOutputLubricant = page.locator('main .bg-gray-800.border-gray-700')
       .locator('section')
       .filter({ hasText: 'Outputs' })
       .getByText('Lubricant')

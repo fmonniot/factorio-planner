@@ -28,9 +28,10 @@ test('empty subplan shows warnings that clear as goals and nodes are added', asy
 
   // ── 0. Add a lubricant goal to the parent plan ────────────────────────────
   // This gives the solver real work so the subplan ends up with a non-zero scale.
+  // Use exact match to select "Lubricant" (not "Lubricant barrel" or other variants).
   await page.getByRole('button', { name: '+ Add' }).first().click()
   await page.getByPlaceholder('Search items…').fill('lubricant')
-  await pickerOverlay.getByRole('button', { name: /Lubricant/ }).first().click()
+  await pickerOverlay.getByRole('button', { name: /^Lubricant(?! barrel)/ }).first().click()
 
   // ── 1. Create the sub-plan ────────────────────────────────────────────────
   page.once('dialog', dialog => dialog.accept('My Subplan'))
@@ -62,15 +63,16 @@ test('empty subplan shows warnings that clear as goals and nodes are added', asy
 
   await page.getByRole('button', { name: '+ Add' }).nth(1).click()
   await page.getByPlaceholder('Search recipes…').fill('lubricant')
-  await pickerOverlay.getByRole('button', { name: /Lubricant/ }).first().click()
+  // Use /^Lubricant/ to match the lubricant-producing recipe, not "Fill lubricant barrel".
+  await pickerOverlay.getByRole('button', { name: /^Lubricant/ }).first().click()
 
   // ── 5. Navigate back to the parent ───────────────────────────────────────
   await sidebar.getByText('Main').first().click()
 
+  // Wait for the solver to finish — pin button appearing proves the subplan is fully solved.
+  await expect(card.getByTitle('Pin scale')).toBeVisible({ timeout: 10000 })
+
   // All warnings gone — the solver now produces a result for this subplan.
   await expect(card.getByText(/No goals/)).not.toBeVisible()
   await expect(card.getByText(/No recipe nodes/)).not.toBeVisible()
-
-  // The card shows a scale factor and a pin button, proving it is fully solved.
-  await expect(card.getByTitle('Pin scale')).toBeVisible({ timeout: 5000 })
 })
