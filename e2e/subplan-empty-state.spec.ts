@@ -46,10 +46,13 @@ test('empty subplan shows warnings that clear as goals and nodes are added', asy
 
   // ── 2. Navigate into the subplan and add a goal ───────────────────────────
   await sidebar.getByText('My Subplan').first().click()
+  // Confirm navigation: My Subplan has no goals yet (Main's goals panel doesn't show this)
+  await expect(sidebar.getByText(/No goals yet/)).toBeVisible({ timeout: 3000 })
 
   await page.getByRole('button', { name: '+ Add' }).first().click()
   await page.getByPlaceholder('Search items…').fill('lubricant')
-  await pickerOverlay.getByRole('button', { name: /Lubricant/ }).first().click()
+  // Same pattern as step 0: skip "Lubricant barrel", pick the lubricant fluid item.
+  await pickerOverlay.getByRole('button', { name: /^Lubricant(?! barrel)/ }).first().click()
 
   // ── 3. Navigate back to the parent ───────────────────────────────────────
   await sidebar.getByText('Main').first().click()
@@ -60,6 +63,8 @@ test('empty subplan shows warnings that clear as goals and nodes are added', asy
 
   // ── 4. Navigate into the subplan and add a recipe node ────────────────────
   await sidebar.getByText('My Subplan').first().click()
+  // Confirm navigation: My Subplan has no recipe nodes yet (Main's nodes panel shows subplan link, not this)
+  await expect(sidebar.getByText(/No nodes yet/)).toBeVisible({ timeout: 3000 })
 
   await page.getByRole('button', { name: '+ Add' }).nth(1).click()
   await page.getByPlaceholder('Search recipes…').fill('lubricant')
