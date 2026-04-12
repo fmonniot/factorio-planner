@@ -29,6 +29,7 @@ import { readdirSync, statSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
+import { execSync } from 'node:child_process'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -683,11 +684,51 @@ const modules = exportModules(raw, localeMap, resolveIcon)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
-// modSet: use the mod_list table from the dump if present, otherwise reconstruct.
-const modSet = dump.mod_list ?? Object.fromEntries(
-  Object.keys(resolvers).map(name => [name, '?'])
-)
-const factorioVersion = modSet['base'] ?? '?'
+// Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
+// The base game version is not present in mod-list.json, so we fetch it by running the binary.
+
+// 1. Read the list of enabled mods from mod-list.json.
+const modListPath = join(modsDir, 'mod-list.json')
+let enabledModNames = null
+if (existsSync(modListPath)) {
+  try {
+    const modList = JSON.parse(readFileSync(modListPath, 'utf8'))
+    enabledModNames = new Set(
+      (modList.mods ?? []).filter(m => m.enabled !== false).map(m => m.name)
+    )
+  } catch {
+    process.stderr.write(`[warn] Could not parse mod-list.json — including all mods\n`)
+  }
+}
+
+// 2. For each (enabled) mod, read its version from info.json via the resolver.
+const modSet = {}
+for (const [modName, resolver] of Object.entries(resolvers)) {
+  if (enabledModNames && !enabledModNames.has(modName)) continue
+  const buf = resolver.readFile('info.json')
+  if (!buf) continue
+  try {
+    const info = JSON.parse(buf.toString('utf8'))
+    if (typeof info.version === 'string') modSet[modName] = info.version
+  } catch {}
+}
+
+// 3. Get the base game version from the factorio binary (most reliable source).
+//    mod-list.json doesn't list base, and built-in mods are not in modsDir.
+let factorioVersion = modSet['base'] ?? '?'
+const factorioBin = join(factorioDir, 'MacOS', 'factorio')
+if (existsSync(factorioBin)) {
+  try {
+    const versionOutput = execSync(`"${factorioBin}" --version 2>&1`, { encoding: 'utf8', timeout: 10000 })
+    const match = versionOutput.match(/Version:\s*(\d+\.\d+\.\d+)/)
+    if (match) {
+      factorioVersion = match[1]
+      modSet['base'] = factorioVersion
+    }
+  } catch {
+    process.stderr.write(`[warn] Could not run factorio binary to determine version; using info.json value\n`)
+  }
+}
 
 const output = {
   factorioVersion,
