@@ -23,6 +23,15 @@ export default defineConfig({
           setupFiles: ['src/test-setup.ts'],
         },
       },
+      {
+        // Build-script tests (icon compositing, etc.) — plain Node, no DOM.
+        test: {
+          name: 'scripts',
+          include: ['scripts/__tests__/**/*.test.{js,ts}'],
+          environment: 'node',
+          globals: true,
+        },
+      },
     ],
   },
 })

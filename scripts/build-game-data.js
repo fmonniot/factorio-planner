@@ -30,6 +30,7 @@ import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
+import { compositeIconLayers, readIconBuffer } from './icon-compositor.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -301,9 +302,14 @@ function resolveLocale(localised, fallback, localeMap) {
 // Icon resolution
 // ---------------------------------------------------------------------------
 
+const MOD_PATH_RE = /^__([^_]+(?:_[^_]+)*)__\/(.+)$/
+
 /**
- * Resolve an icon virtual path like "__base__/graphics/icons/iron-plate.png"
- * to a public URL, copying the PNG to iconsOut.
+ * Build an async icon resolver function.
+ *
+ * For prototypes with a proto.icons[] array, all layers are composited into a
+ * single PNG using compositeIconLayers().  For proto.icon (single path), the
+ * source file is copied as-is (fast path, no sharp involved).
  *
  * Returns the public URL string (e.g. "/data/nullius/icons/iron-plate.png")
  * or "" if the icon cannot be found.
@@ -314,45 +320,41 @@ function makeIconResolver(resolvers, iconsOut) {
   // Map from output filename -> already written (deduplicate).
   const written = new Set()
 
-  return function resolveIcon(proto, id) {
-    // Prefer proto.icon; fall back to proto.icons[0].icon (layered icons).
-    let iconPath = proto.icon
-    if (!iconPath && Array.isArray(proto.icons) && proto.icons.length > 0) {
-      iconPath = proto.icons[0]?.icon
+  const publicUrl = '/' + iconsOut.replace(/^public\//, '')
+
+  return async function resolveIcon(proto, id) {
+    // --- Multi-layer path ---
+    if (Array.isArray(proto.icons) && proto.icons.length > 0) {
+      const outName = id + '.png'
+      const outPath = join(iconsOut, outName)
+      if (!written.has(outName)) {
+        const outputSize = proto.icon_size ?? 64
+        const buf = await compositeIconLayers(proto.icons, resolvers, outputSize)
+        if (!buf) return ''
+        writeFileSync(outPath, buf)
+        written.add(outName)
+      }
+      return `${publicUrl}/${outName}`
     }
+
+    // --- Single-icon fast path ---
+    const iconPath = proto.icon
     if (!iconPath) return ''
 
-    // Parse __modname__/path/to/file.png
-    const m = iconPath.match(/^__([^_]+(?:_[^_]+)*)__\/(.+)$/)
-    if (!m) {
-      process.stderr.write(`[warn] Cannot parse icon path: ${iconPath}\n`)
-      return ''
-    }
-    const [, modName, relPath] = m
+    const buf = readIconBuffer(iconPath, resolvers)
+    if (!buf) return ''
 
-    const resolver = resolvers[modName]
-    if (!resolver) {
-      process.stderr.write(`[warn] No resolver for mod "${modName}" (icon: ${iconPath})\n`)
-      return ''
-    }
-
-    const ext      = relPath.split('.').pop() ?? 'png'
-    const outName  = id + '.' + ext
-    const outPath  = join(iconsOut, outName)
+    const m       = iconPath.match(MOD_PATH_RE)
+    const relPath = m[2]
+    const ext     = relPath.split('.').pop() ?? 'png'
+    const outName = id + '.' + ext
+    const outPath = join(iconsOut, outName)
 
     if (!written.has(outName)) {
-      const buf = resolver.readFile(relPath)
-      if (!buf) {
-        process.stderr.write(`[warn] Icon not found: ${iconPath}\n`)
-        return ''
-      }
       writeFileSync(outPath, buf)
       written.add(outName)
     }
 
-    // Return a root-relative URL based on the iconsOut path.
-    // e.g. "public/data/nullius/icons" → "/data/nullius/icons"
-    const publicUrl = '/' + iconsOut.replace(/^public\//, '')
     return `${publicUrl}/${outName}`
   }
 }
@@ -470,7 +472,7 @@ const ITEM_SUBTYPES = [
   'spidertron-remote',
 ]
 
-function exportItems(raw, localeMap, resolveIcon) {
+async function exportItems(raw, localeMap, resolveIcon) {
   const items = {}
 
   for (const subtype of ITEM_SUBTYPES) {
@@ -481,7 +483,7 @@ function exportItems(raw, localeMap, resolveIcon) {
         id:        proto.name,
         name:      resolveLocale(proto.localised_name, proto.name, localeMap),
         type:      'item',
-        iconPath:  resolveIcon(proto, proto.name),
+        iconPath:  await resolveIcon(proto, proto.name),
         hidden:    proto.hidden ?? false,
         stackSize: proto.stack_size,
       }
@@ -493,7 +495,7 @@ function exportItems(raw, localeMap, resolveIcon) {
       id:       proto.name,
       name:     resolveLocale(proto.localised_name, proto.name, localeMap),
       type:     'fluid',
-      iconPath: resolveIcon(proto, proto.name),
+      iconPath: await resolveIcon(proto, proto.name),
       hidden:   proto.hidden ?? false,
     }
   }
@@ -507,7 +509,7 @@ function exportItems(raw, localeMap, resolveIcon) {
 
 const MACHINE_TYPES = ['assembling-machine', 'furnace', 'rocket-silo']
 
-function exportMachines(raw, localeMap, resolveIcon) {
+async function exportMachines(raw, localeMap, resolveIcon) {
   const machines = {}
 
   for (const machineType of MACHINE_TYPES) {
@@ -531,7 +533,7 @@ function exportMachines(raw, localeMap, resolveIcon) {
         moduleSlots:       proto.module_slots ?? 0,
         allowedEffects,
         craftingCategories,
-        iconPath:          resolveIcon(proto, proto.name),
+        iconPath:          await resolveIcon(proto, proto.name),
         hidden:            proto.hidden ?? false,
       }
     }
@@ -598,7 +600,7 @@ function exportRecipes(raw, localeMap, categoryMap) {
 // Modules
 // ---------------------------------------------------------------------------
 
-function exportModules(raw, localeMap, resolveIcon) {
+async function exportModules(raw, localeMap, resolveIcon) {
   const modules = {}
 
   for (const proto of Object.values(raw.module ?? {})) {
@@ -616,7 +618,7 @@ function exportModules(raw, localeMap, resolveIcon) {
       effects,
       limitation:          [],
       limitationBlacklist: [],
-      iconPath:            resolveIcon(proto, proto.name),
+      iconPath:            await resolveIcon(proto, proto.name),
     }
   }
 
@@ -669,18 +671,18 @@ process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap)
 const resolveIcon = makeIconResolver(resolvers, iconsOut)
 
 process.stderr.write(`[build-game-data] Exporting machines...\n`)
-const machines = exportMachines(raw, localeMap, resolveIcon)
+const machines = await exportMachines(raw, localeMap, resolveIcon)
 
 const categoryMap = buildCategoryMap(machines)
 
 process.stderr.write(`[build-game-data] Exporting items...\n`)
-const items = exportItems(raw, localeMap, resolveIcon)
+const items = await exportItems(raw, localeMap, resolveIcon)
 
 process.stderr.write(`[build-game-data] Exporting recipes...\n`)
 const recipes = exportRecipes(raw, localeMap, categoryMap)
 
 process.stderr.write(`[build-game-data] Exporting modules...\n`)
-const modules = exportModules(raw, localeMap, resolveIcon)
+const modules = await exportModules(raw, localeMap, resolveIcon)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
