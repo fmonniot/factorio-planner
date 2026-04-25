@@ -32,27 +32,24 @@ test.describe('Primary product override', () => {
     const row = page.locator('main table tbody tr').filter({ hasText: 'nullius-brine-electrolysis' }).first()
     await expect(row).toBeVisible()
 
-    // By default Hydrogen is primary — its tile has a ● badge with title "Primary product".
-    await expect(row.getByTitle('Primary product')).toBeVisible()
-
-    // Exactly one "Primary product" indicator, one or more "Set as primary" tiles.
-    await expect(row.getByTitle('Primary product')).toHaveCount(1)
+    // By default Hydrogen is primary — it appears in the Products column.
+    // Non-primary outputs (Oxygen, Sodium hydroxide) appear in Byproducts with
+    // title="Set as primary". No ● badge — the column position is the feedback.
     await expect(row.getByTitle(/Set as primary/).first()).toBeVisible()
 
     // The pin button should be present on the row (not yet pinned).
     await expect(row.getByTitle('Pin rate')).toBeVisible()
 
-    // Click "Set as primary" on Sodium hydroxide.
-    const saPrimary = row.getByTitle(/Set as primary.*Sodium hydroxide|Sodium hydroxide.*Set as primary/)
-    if (await saPrimary.count() > 0) {
-      await saPrimary.first().click()
-    } else {
-      // Fall back: click any "Set as primary" tile (there are only 2 non-primary outputs here).
-      await row.getByTitle(/Set as primary/).first().click()
-    }
+    // Count the "Set as primary" tiles before switching.
+    const beforeCount = await row.getByTitle(/Set as primary/).count()
+    expect(beforeCount).toBeGreaterThan(0)
 
-    // After the switch: still exactly 1 ● indicator.
-    await expect(row.getByTitle('Primary product')).toHaveCount(1)
+    // Click the first "Set as primary" tile to switch the primary product.
+    await row.getByTitle(/Set as primary/).first().click()
+
+    // After the switch: the same number of "Set as primary" tiles (the old primary
+    // moved to Byproducts, the clicked one moved to Products).
+    await expect(row.getByTitle(/Set as primary/)).toHaveCount(beforeCount)
   })
 
   test('single-output recipe shows no ● badge and no "Set as primary" elements', async ({ page }) => {
@@ -71,8 +68,7 @@ test.describe('Primary product override', () => {
     const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
     await expect(row).toBeVisible()
 
-    // No primary-product badge or "Set as primary" tiles.
-    await expect(row.getByTitle('Primary product')).not.toBeVisible()
+    // Single-output: no "Set as primary" tiles (nothing to switch to).
     await expect(row.getByTitle(/Set as primary/)).not.toBeVisible()
 
     // Pin button is still present.

@@ -262,19 +262,21 @@ describe('RecipeRow', () => {
 // ---------------------------------------------------------------------------
 
 describe('T11 — Primary product selection', () => {
-  it('single-output: no ● badge and no "Set as primary" elements', () => {
+  it('single-output: no "Set as primary" elements', () => {
     renderRow({ planNode: ironPlateRecipeNode, solvedNode })
-    expect(screen.queryByTitle('Primary product')).not.toBeInTheDocument()
     expect(screen.queryByTitle(/Set as primary/)).not.toBeInTheDocument()
   })
 
-  it('multi-output: primary tile has ● badge', () => {
+  it('multi-output: primary tile appears in Products column (no badge needed)', () => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    // Hydrogen is primary (recipe.mainProduct = 'hydrogen'); its tile shows ●
-    expect(screen.getByTitle('Primary product')).toBeInTheDocument()
+    // The Products cell renders a tile for Hydrogen (the primary).
+    // The Byproducts cell renders a tile for Oxygen with "Set as primary".
+    // No ● badge — the column position is the feedback.
+    expect(screen.queryByTitle('Primary product')).not.toBeInTheDocument()
+    expect(screen.getByTitle(/Set as primary/)).toBeInTheDocument()
   })
 
   it('multi-output: non-primary tiles have title "Set as primary"', () => {

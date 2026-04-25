@@ -182,9 +182,6 @@ export function RecipeRow({
               // Replace the static tile with an editable input.
               return (
                 <div key={itemId} className="flex items-center gap-1">
-                  {isMultiOutput && (
-                    <span className="text-yellow-400 text-[10px]" title="Primary product">●</span>
-                  )}
                   <input
                     type="number"
                     min="0.001"
@@ -200,21 +197,12 @@ export function RecipeRow({
               )
             }
             return (
-              <div key={itemId} className="relative">
-                {isMultiOutput && (
-                  <span
-                    className="absolute -top-1 -left-1 text-teal-400 text-[8px] leading-none z-10"
-                    title="Primary product"
-                  >
-                    ●
-                  </span>
-                )}
-                <ItemTile
-                  item={gameData.items[itemId]}
-                  ratePerSec={ratePerMin / 60}
-                  variant="product"
-                />
-              </div>
+              <ItemTile
+                key={itemId}
+                item={gameData.items[itemId]}
+                ratePerSec={ratePerMin / 60}
+                variant="product"
+              />
             )
           })}
         </div>
