@@ -18,8 +18,8 @@ test.describe('Recipe picker detail panel', () => {
   test('hovering a recipe row shows machine, crafting time, ingredients and products', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    // Open the recipe picker via the Nodes panel "+ Add" button.
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    // Open the recipe picker via the ProductionTable "+ Add recipe" button.
+    await page.getByText('+ Add recipe').click()
     await expect(page.getByPlaceholder('Search recipes…')).toBeVisible()
 
     // Search for "Chemistry research 1" so it's the only result.
@@ -67,7 +67,7 @@ test.describe('Recipe picker detail panel', () => {
   test('detail panel updates when hovering a different recipe', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    await page.getByText('+ Add recipe').click()
 
     // Search for something that yields multiple results.
     await page.getByPlaceholder('Search recipes…').fill('Chemistry research')
@@ -92,8 +92,8 @@ test.describe('Recipe picker detail panel', () => {
   test('detail panel does not appear in item-mode picker', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    // Open the item/goal picker (first "+ Add" button).
-    await page.getByRole('button', { name: '+ Add' }).first().click()
+    // Open the item/goal picker via FactorySummary [+].
+    await page.getByTitle('Add goal').click()
     await expect(page.getByPlaceholder('Search items…')).toBeVisible()
 
     await page.getByPlaceholder('Search items…').fill('Chemistry research')

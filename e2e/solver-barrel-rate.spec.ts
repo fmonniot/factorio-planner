@@ -16,25 +16,22 @@ test('solver does not produce astronomical rates when the same recipe appears tw
   // Wait for game data to load.
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
-  // Wait for the solver to finish — "Solving…" disappears once a result is ready.
-  await expect(page.locator('main').getByText('Solving…')).not.toBeVisible({ timeout: 10000 })
+  // Wait for at least one recipe row to appear in the production table.
+  await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 5000 })
 
-  // Wait for at least one recipe card to be rendered ("Fill Ammonia barrel" is one of the duplicate nodes).
-  await expect(page.locator('main').getByText('Fill Ammonia barrel').first()).toBeVisible({ timeout: 5000 })
-
-  // Collect all "/min" rate texts rendered in recipe card output sections.
-  const rateLocator = page.locator('main').getByText(/\/min/)
+  // Collect all rate texts rendered in the table (/m = /min or /sec suffix).
+  const rateLocator = page.locator('main table').getByText(/\/m/)
   const count = await rateLocator.count()
   expect(count).toBeGreaterThan(0)
 
   for (let i = 0; i < count; i++) {
     const text = (await rateLocator.nth(i).textContent()) ?? ''
-    const match = text.match(/([\d.]+)\/min/)
+    const match = text.match(/([\d.]+)\/m/)
     if (!match) continue
     const rate = parseFloat(match[1])
     expect(
       rate,
-      `Recipe card shows rate "${text}" which exceeds sane threshold — duplicate recipe node bug?`,
+      `Table shows rate "${text}" which exceeds sane threshold — duplicate recipe node bug?`,
     ).toBeLessThan(1e9)
   }
 })

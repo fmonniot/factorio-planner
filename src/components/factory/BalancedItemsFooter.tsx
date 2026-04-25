@@ -1,6 +1,7 @@
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useActiveSubPlanFromFloor } from '../../store/blockStore'
+import { WarningsPopover } from './WarningsPopover'
 
 // ---------------------------------------------------------------------------
 // BalancedItemsFooter
@@ -16,7 +17,7 @@ export function BalancedItemsFooter() {
   const gameData = useGameDataStore(selectGameData)
   const subPlan = useActiveSubPlanFromFloor()
 
-  if (!result || result.nodes.length === 0) return null
+  if (!result) return null
 
   // Compute net balance per item
   const net = new Map<string, number>()
@@ -38,19 +39,24 @@ export function BalancedItemsFooter() {
     )
     .map(([id]) => id)
 
-  if (balanced.length === 0) return null
-
   return (
     <div className="shrink-0 border-t border-gray-800 px-3 py-1 flex items-center gap-1.5 flex-wrap text-[10px] text-gray-600">
-      <span>Balanced:</span>
-      {balanced.map(id => {
-        const item = gameData?.items[id]
-        return (
-          <span key={id} className="text-gray-500" title={item?.name ?? id}>
-            {item?.name ?? id}
-          </span>
-        )
-      })}
+      {balanced.length > 0 && (
+        <>
+          <span>Balanced:</span>
+          {balanced.map(id => {
+            const item = gameData?.items[id]
+            return (
+              <span key={id} className="text-gray-500" title={item?.name ?? id}>
+                {item?.name ?? id}
+              </span>
+            )
+          })}
+        </>
+      )}
+      <div className="ml-auto">
+        <WarningsPopover />
+      </div>
     </div>
   )
 }

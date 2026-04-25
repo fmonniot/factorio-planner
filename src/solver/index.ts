@@ -189,7 +189,7 @@ export function solve(
   }
 
   // Implicit subplan nodes — one SolvedNode per synthetic recipe.
-  // recipeNodeId is the subPlanId so TreeView can match it to subPlan.subPlans.
+  // recipeNodeId is the subPlanId so the UI can match it to subPlan.subPlans.
   for (const [syntheticId, synthetic] of syntheticRecipes) {
     const throughput = throughputMap.get(syntheticId) ?? 0
 

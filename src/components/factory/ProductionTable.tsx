@@ -41,7 +41,12 @@ export function ProductionTable() {
 
       {/* Scrollable table body */}
       <div className="flex-1 overflow-auto">
-        {nodes.length === 0 && !showRecipePicker ? (
+        {!gameData ? (
+          <div className="flex flex-col items-center justify-center h-full gap-2 text-gray-600">
+            <span className="text-sm">Load game data to begin</span>
+            <span className="text-xs text-gray-700">Use the selector in the top bar</span>
+          </div>
+        ) : nodes.length === 0 && !showRecipePicker ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
             <span className="text-sm">No recipes yet</span>
             <button

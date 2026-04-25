@@ -11,7 +11,8 @@ test.describe('Warnings popover', () => {
   test.beforeEach(async ({ page }) => {
     await loadPlanFixture(page, path.resolve('e2e/fixtures/barrel-rate-regression.json'))
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-    await expect(page.locator('main').getByText('Solving…')).not.toBeVisible({ timeout: 10000 })
+    // Wait for rows to appear (solver has run)
+    await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   })
 
   test('warning badge is visible and shows the count', async ({ page }) => {

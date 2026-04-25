@@ -30,3 +30,75 @@ Isn't a tree, it's just a list of card. Is that the UI you intended or you forgo
 - Redo the UI using helmod/factory planner as a reference
     - https://mods.factorio.com/mod/helmod
     - https://mods.factorio.com/mod/factoryplanner
+
+
+- Icon export:
+    - Needs to understand what multiple icon mean (stack? Alternatives).
+    - For sure needs to handle the RBG tint.
+
+    "name": "nullius-hydrogen-chloride",
+      "icons": 
+      [
+        {
+          "icon": "__angelsrefininggraphics__/graphics/icons/angels-gas/gas-item-base.png",
+          "icon_size": 596,
+          "scale": 0.0536912751677852373433097454835660755634307861328125,
+          "tint": 
+          {
+            "r": 0.25,
+            "g": 0.25,
+            "b": 0.25,
+            "a": 0.7
+          }
+        },
+        
+        {
+          "icon": "__angelsrefininggraphics__/graphics/icons/angels-gas/gas-item-top.png",
+          "icon_size": 596,
+          "scale": 0.0536912751677852373433097454835660755634307861328125,
+          "tint": 
+          {
+            "r": 0.125490196078431370807493294705636799335479736328125,
+            "g": 0.8784313725490196844702950329519808292388916015625,
+            "b": 0.125490196078431370807493294705636799335479736328125,
+            "a": 1
+          }
+        },
+        
+        {
+          "icon": "__angelsrefininggraphics__/graphics/icons/angels-gas/gas-item-mid.png",
+          "icon_size": 596,
+          "scale": 0.0536912751677852373433097454835660755634307861328125,
+          "tint": 
+          {
+            "r": 0.125490196078431370807493294705636799335479736328125,
+            "g": 0.8784313725490196844702950329519808292388916015625,
+            "b": 0.125490196078431370807493294705636799335479736328125,
+            "a": 1
+          }
+        },
+        
+        {
+          "icon": "__angelsrefininggraphics__/graphics/icons/angels-gas/gas-item-bot.png",
+          "icon_size": 596,
+          "scale": 0.0536912751677852373433097454835660755634307861328125,
+          "tint": 
+          {
+            "r": 0.94117647058823532546512069529853761196136474609375,
+            "g": 0.94117647058823532546512069529853761196136474609375,
+            "b": 0.94117647058823532546512069529853761196136474609375,
+            "a": 1
+          }
+        },
+        
+        {
+          "icon": "__angelspetrochemgraphics__/graphics/icons/molecules/hydrogen-chloride.png",
+          "icon_size": 72,
+          "shift": 
+          [
+            -10,
+            -10
+          ],
+          "scale": 0.15
+        }
+      ]

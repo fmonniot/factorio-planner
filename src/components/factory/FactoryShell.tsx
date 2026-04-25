@@ -16,11 +16,11 @@ export function FactoryShell() {
         <SubfactorySidebar />
 
         {/* Right: summary header + production table + footer */}
-        <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
+        <main className="flex flex-col flex-1 min-w-0 overflow-hidden">
           <FactorySummary />
           <ProductionTable />
           <BalancedItemsFooter />
-        </div>
+        </main>
       </div>
     </div>
   )

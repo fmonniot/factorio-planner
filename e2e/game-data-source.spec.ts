@@ -67,7 +67,7 @@ const gameDataSelect = (page: Page) =>
   page.getByRole('combobox', { name: 'Game data source' })
 
 const mainHint = (page: Page, text: string) =>
-  page.locator('main').getByText(text)
+  page.getByText(text)
 
 // ---------------------------------------------------------------------------
 // Tests
