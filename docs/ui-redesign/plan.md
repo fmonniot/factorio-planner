@@ -279,31 +279,86 @@ Pure, no breaking changes to existing API.
 ---
 
 ## T11 — Primary product selection in RecipeRow
-**Prerequisites:** T10.
-**Scope:** Port the primary-product UI from the deleted RecipeCard into the new dense row.
-In RecipeCard, each output row had a `●` (current primary) / `○` (set as primary) toggle button.
-In the new layout, primary product selection should appear as a compact popover on the Products cell:
-- Clicking the Products cell (or a dedicated button within it) opens a popover listing all recipe outputs.
-- The current primary is marked; clicking another selects it via existing `updateNodePrimaryProduct`.
-- The popover also exposes `updateNodePinnedRate` / `updateNodeByproductPolicy` for multi-output recipes.
-**Files:** `src/components/factory/RecipeRow.tsx`, new `src/components/factory/OutputsPopover.tsx`.
-**Success criteria:**
-- Restore and pass `e2e/primary-product-override.spec.ts` (remove the `test.skip`).
-- Unit test: popover renders correct primary indicator and fires `updateNodePrimaryProduct` on click.
-- `npm run test:unit` passes.
+**Prerequisites:** T10 (done).
+
+### Context
+`updateNodePrimaryProduct(nodeId, itemId)` already exists in `blockStore`. `RecipeRow` already reads
+`planNode.primaryProduct` to decide which output tile goes in the Products column vs the Byproducts
+column. But there is no UI to *change* the primary product — the old `RecipeCard`'s `●/○` buttons
+were deleted and never ported.
+
+### Behaviour to implement
+- **Single-output recipes**: no change — no primary-product UI needed.
+- **Multi-output recipes**: each tile in the Products and Byproducts columns gets a thin visual
+  indicator. The *current primary* tile shows a small `●` badge (or a bright ring). Every
+  *non-primary* tile is clickable and calls `updateNodePrimaryProduct(nodeId, itemId)` on click.
+  The click must also clear `planNode.byproductPolicy` for the newly-primary item (it should be fed
+  back, not discarded, once it becomes primary).
+- **No new popover required** — this is inline on the existing tiles, not a separate panel.
+
+### Implementation detail
+In `RecipeRow.tsx`:
+- Determine `isMultiOutput = recipe.products.length > 1`.
+- For each tile in both Products and Byproducts cells, if `isMultiOutput`:
+  - If `itemId === primaryItemId`: render with a `●` badge (`title="Primary product"`).
+  - Otherwise: render the tile with an `onClick` that calls `updateNodePrimaryProduct(nodeId, itemId)`,
+    and `title="Set as primary"` so e2e tests can find it.
+
+**Files:** `src/components/factory/RecipeRow.tsx` only (no new file needed).
+
+### Success criteria
+1. **Single-output**: rendering `RecipeRow` for a single-output recipe shows no `●` badge and no
+   `title="Set as primary"` elements.
+2. **Multi-output — primary indicator**: rendering a row with `brine-electrolysis` (3 outputs) shows
+   exactly one `●` badge (`title="Primary product"`) and two tiles with `title="Set as primary"`.
+3. **Multi-output — switch primary**: clicking `title="Set as primary"` on Sodium Hydroxide calls
+   `updateNodePrimaryProduct` with the sodium hydroxide item id.
+4. **E2e**: `e2e/primary-product-override.spec.ts` passes with the `test.skip` removed. Update the
+   locators in that spec to match the new tile-based UI (the `●/○` inline buttons are replaced by
+   tile titles; the card selector `.bg-gray-800` is replaced by a table row).
+5. `npm run test:unit` passes (add unit tests covering criteria 1–3 in `RecipeRow.test.tsx`).
 
 ## T12 — Pin rate UI in RecipeRow
 **Prerequisites:** T11.
-**Scope:** Port the pin-rate UI from RecipeCard into RecipeRow.
-- A `📍/📌` toggle button on the recipe name cell (or Products cell) pins/unpins the recipe's throughput.
-- When pinned, the primary product tile becomes an editable number input showing items/min (or /sec per unit toggle).
-- Logic: `updateNodePinnedRate(nodeId, rate)` / `updateNodePinnedRate(nodeId, undefined)`.
-- Edge case: `throughput === 0` when pinning → seed with a non-zero default (e.g. `Math.max(1, throughput)`).
-**Files:** `src/components/factory/RecipeRow.tsx`.
-**Success criteria:**
-- Restore and pass `e2e/pin-zero-throughput.spec.ts` (full interaction test, not just data-layer check).
-- Unit test covers pinning / unpinning / typing a new rate.
-- `npm run test:unit` passes.
+
+### Context
+`updateNodePinnedRate(nodeId, rate | undefined)` already exists in `blockStore` and is schema-backed.
+`planNode.pinnedRate` (a `number | undefined`) and `solvedNode.throughput` are already available in
+`RecipeRow`. There is no UI to pin or unpin — the old `RecipeCard`'s `📍/📌` toggle was deleted and
+never ported.
+
+### Behaviour to implement
+- A **pin button** (`📍` unpinned / `📌` pinned) appears at the right edge of the Recipe name cell
+  (visible on row hover, always visible when pinned).
+- **Clicking 📍 (unpinned → pinned):**
+  - Seed rate = `Math.max(solvedNode?.throughput ?? 0, 1)` items/min (prevents seed of 0).
+  - Calls `updateNodePinnedRate(nodeId, seedRate)`.
+- **Clicking 📌 (pinned → unpinned):**
+  - Calls `updateNodePinnedRate(nodeId, undefined)`.
+- **Pinned display**: the primary product `ItemTile` is replaced by a compact `<input type="number">`
+  showing the pinned rate expressed in the current `rateUnit` (`/min` or `/sec`). The input has
+  `aria-label="Pinned rate"`. On change, the value is converted back to items/min and passed to
+  `updateNodePinnedRate`.
+- **Unit conversion**: displayed value = `pinnedRate * (rateUnit === 'min' ? 60 : 1)`.
+  Stored value on change = `parseFloat(input) / (rateUnit === 'min' ? 60 : 1)`.
+- **Guard**: only parse and save if `isFinite(v) && v > 0`.
+
+**Files:** `src/components/factory/RecipeRow.tsx` only.
+
+### Success criteria
+1. **Pin button unpinned**: a row with `pinnedRate === undefined` shows a `📍` button
+   (`title="Pin rate"`).
+2. **Pin button pinned**: a row with `pinnedRate = 2` shows a `📌` button (`title="Unpin rate"`)
+   and the `<input aria-label="Pinned rate">` in the Products cell instead of the static tile.
+3. **Clicking 📍**: calls `updateNodePinnedRate` with a value `> 0` even when `throughput === 0`.
+4. **Clicking 📌**: calls `updateNodePinnedRate(nodeId, undefined)`.
+5. **Typing in the pinned input**: changing the input to `120` (in `/min` mode) calls
+   `updateNodePinnedRate` with `2` (120 / 60).
+6. **E2e**: `e2e/pin-zero-throughput.spec.ts` is restored to the full interaction test (not just
+   the data-layer check). Update locators: the old `.bg-gray-800` card becomes a `table tbody tr`,
+   pin/unpin are `title="Pin rate"` / `title="Unpin rate"`, the pinned input is
+   `aria-label="Pinned rate"`.
+7. `npm run test:unit` passes (add unit tests covering criteria 1–5 in `RecipeRow.test.tsx`).
 
 ## T13 — Inline subplan table + remove sidebar
 **Prerequisites:** T10.
