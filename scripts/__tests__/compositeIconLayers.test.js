@@ -1,6 +1,11 @@
 import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 import { compositeIconLayers, normalizeColor } from '../icon-compositor.js'
+
+const __dirname = dirname(fileURLToPath(import.meta.url))
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -180,5 +185,66 @@ describe('compositeIconLayers', () => {
     expect(out).toBeInstanceOf(Buffer)
     const p = await pixel(out)
     expect(p.g).toBeGreaterThan(150)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Golden image tests
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a resolver from a fixture directory.
+ * layers.json references icons as `__fixture__/layer-N.png`; this resolver
+ * reads them from the same directory on disk.
+ */
+function fixtureResolver(fixtureDir) {
+  return {
+    fixture: {
+      readFile: (path) => {
+        try { return readFileSync(join(fixtureDir, path)) } catch { return null }
+      },
+    },
+  }
+}
+
+/**
+ * Max absolute per-channel difference between two same-size RGBA PNG buffers.
+ * Returns 0 when the images are pixel-identical.
+ */
+async function maxPixelDiff(bufA, bufB) {
+  const [a, b] = await Promise.all([
+    sharp(bufA).raw().toBuffer({ resolveWithObject: true }),
+    sharp(bufB).raw().toBuffer({ resolveWithObject: true }),
+  ])
+  let max = 0
+  for (let i = 0; i < a.data.length; i++) {
+    max = Math.max(max, Math.abs(a.data[i] - b.data[i]))
+  }
+  return max
+}
+
+describe('golden images', () => {
+  it('nullius-ethylene matches expected', async () => {
+    const dir = join(__dirname, 'golden/nullius-ethylene')
+    const layers = JSON.parse(readFileSync(join(dir, 'layers.json'), 'utf8'))
+    const expected = readFileSync(join(dir, 'expected.png'))
+
+    const out = await compositeIconLayers(layers, fixtureResolver(dir), 64)
+    expect(out).toBeInstanceOf(Buffer)
+
+    const diff = await maxPixelDiff(out, expected)
+    expect(diff).toBeLessThanOrEqual(2)
+  })
+
+  it('nullius-box-chemical-pack matches expected', async () => {
+    const dir = join(__dirname, 'golden/nullius-box-chemical-pack')
+    const layers = JSON.parse(readFileSync(join(dir, 'layers.json'), 'utf8'))
+    const expected = readFileSync(join(dir, 'expected.png'))
+
+    const out = await compositeIconLayers(layers, fixtureResolver(dir), 64)
+    expect(out).toBeInstanceOf(Buffer)
+
+    const diff = await maxPixelDiff(out, expected)
+    expect(diff).toBeLessThanOrEqual(2)
   })
 })

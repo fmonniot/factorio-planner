@@ -1,0 +1,11 @@
+[
+  {
+    "icon": "__fixture__/layer-0.png",
+    "icon_size": 64
+  },
+  {
+    "icon": "__fixture__/layer-1.png",
+    "icon_size": 64,
+    "scale": 0.45
+  }
+]
