@@ -129,6 +129,8 @@ export interface BlockStoreState {
   // Node actions (on active subplan)
   addNode: (node: RecipeNode) => void
   removeNode: (nodeId: string) => void
+  moveNodeUp: (nodeId: string) => void
+  moveNodeDown: (nodeId: string) => void
   updateNodeMachine: (nodeId: string, machineId: string | undefined) => void
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
@@ -345,6 +347,50 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         subPlanId: state.activeSubPlanId,
         apply: p => ({ ...p, nodes: [...p.nodes, node] }),
         undo: p => ({ ...p, nodes: p.nodes.filter(n => n.id !== node.id) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  moveNodeUp: (nodeId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx <= 0) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+          return { ...p, nodes }
+        },
+        undo: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx < 0 || idx >= p.nodes.length - 1) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+          return { ...p, nodes }
+        },
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  moveNodeDown: (nodeId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx < 0 || idx >= p.nodes.length - 1) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+          return { ...p, nodes }
+        },
+        undo: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx <= 0) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+          return { ...p, nodes }
+        },
       }
       return applyCommand(state, cmd)
     }),
