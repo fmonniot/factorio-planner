@@ -25,6 +25,7 @@ export function RecipeRow({ solvedNode, planNode, isFirst, isLast, gameData }: R
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
+  const setActiveSubPlan = useBlockStore(s => s.setActiveSubPlan)
   const pushFloor = useUiStore(s => s.pushFloor)
 
   // ── Resolve recipe & machine ───────────────────────────────────────────────
@@ -41,7 +42,10 @@ export function RecipeRow({ solvedNode, planNode, isFirst, isLast, gameData }: R
         <td className="px-2 py-1" colSpan={7}>
           <button
             type="button"
-            onClick={() => pushFloor(planNode.subPlanId)}
+            onClick={() => {
+              pushFloor(planNode.subPlanId)
+              setActiveSubPlan(planNode.subPlanId)
+            }}
             className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
             title="Drill into subplan"
           >
