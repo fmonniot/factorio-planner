@@ -275,3 +275,86 @@ Pure, no breaking changes to existing API.
 - `npx tsc --noEmit` is clean.
 - `npm run build` is clean.
 - Manual smoke test of the same flows as T08 still works.
+
+---
+
+## T11 — Primary product selection in RecipeRow
+**Prerequisites:** T10.
+**Scope:** Port the primary-product UI from the deleted RecipeCard into the new dense row.
+In RecipeCard, each output row had a `●` (current primary) / `○` (set as primary) toggle button.
+In the new layout, primary product selection should appear as a compact popover on the Products cell:
+- Clicking the Products cell (or a dedicated button within it) opens a popover listing all recipe outputs.
+- The current primary is marked; clicking another selects it via existing `updateNodePrimaryProduct`.
+- The popover also exposes `updateNodePinnedRate` / `updateNodeByproductPolicy` for multi-output recipes.
+**Files:** `src/components/factory/RecipeRow.tsx`, new `src/components/factory/OutputsPopover.tsx`.
+**Success criteria:**
+- Restore and pass `e2e/primary-product-override.spec.ts` (remove the `test.skip`).
+- Unit test: popover renders correct primary indicator and fires `updateNodePrimaryProduct` on click.
+- `npm run test:unit` passes.
+
+## T12 — Pin rate UI in RecipeRow
+**Prerequisites:** T11.
+**Scope:** Port the pin-rate UI from RecipeCard into RecipeRow.
+- A `📍/📌` toggle button on the recipe name cell (or Products cell) pins/unpins the recipe's throughput.
+- When pinned, the primary product tile becomes an editable number input showing items/min (or /sec per unit toggle).
+- Logic: `updateNodePinnedRate(nodeId, rate)` / `updateNodePinnedRate(nodeId, undefined)`.
+- Edge case: `throughput === 0` when pinning → seed with a non-zero default (e.g. `Math.max(1, throughput)`).
+**Files:** `src/components/factory/RecipeRow.tsx`.
+**Success criteria:**
+- Restore and pass `e2e/pin-zero-throughput.spec.ts` (full interaction test, not just data-layer check).
+- Unit test covers pinning / unpinning / typing a new rate.
+- `npm run test:unit` passes.
+
+## T13 — Inline subplan table + remove sidebar
+**Prerequisites:** T10.
+
+This is a significant layout change requested after T10:
+
+### Decisions
+- **Remove** the enable ☐ checkbox column from `RecipeRow` — it never had a data backing and served no purpose.
+- **Remove** `SubfactorySidebar` entirely.
+- **Replace** the sidebar + floor drill-in model with a **single flat table** that shows all recipes across all subplan levels, using **indentation** to express nesting depth.
+- **Add** a "wrap in subfactory" action on each recipe row (right-click or a row-level button) to group a recipe (and optionally its dependents) into a new child SubPlan.
+
+### How the table should work
+
+```
+Depth 0 (root plan)
+  Recipe A                     [machine] [beacon] [products] [byproducts] [ingredients] [power]
+  ▶ Subplan: Iron Smelting     (collapsed — click ▶ to expand)
+  ▼ Subplan: Oil Processing    (expanded)
+      Recipe B                 [machine] …
+      Recipe C                 [machine] …
+  Recipe D                     [machine] …
+[+ Add recipe]
+```
+
+- SubPlanNode rows render an expand/collapse toggle (▶/▼) instead of a drill-in button.
+- Expanding a SubPlanNode inline-renders its child subplan's nodes, indented by one level.
+- Indentation is expressed via `paddingLeft` on the row cells.
+- The "wrap in subfactory" action creates a new child SubPlan, moves the target node into it, and inserts a SubPlanNode in its place.
+- `uiStore.activeFloorPath`, `FloorBreadcrumb`, and `SubfactorySidebar` can all be removed once this is done.
+
+### Files
+- `src/components/factory/RecipeRow.tsx` — remove checkbox, add expand/collapse for SubPlanNode rows.
+- `src/components/factory/ProductionTable.tsx` — recursive row rendering with depth tracking.
+- `src/components/factory/SubfactorySidebar.tsx` — **delete**.
+- `src/components/factory/FloorBreadcrumb.tsx` — **delete**.
+- `src/components/factory/FactoryShell.tsx` — remove sidebar from layout.
+- `src/store/uiStore.ts` — remove `activeFloorPath` and floor navigation actions; keep `rateUnit`.
+- `src/store/blockStore.ts` — add `wrapNodeInSubPlan(nodeId, name)` action.
+
+### Success criteria
+- Production table shows all nested nodes in a single scrollable view, indented by depth.
+- Expand/collapse toggles on SubPlanNode rows work correctly.
+- Checkbox column is gone from all rows.
+- Sidebar is gone; `FactoryShell` is a single two-zone layout (top: summary header, below: table + footer).
+- `wrapNodeInSubPlan` creates a child SubPlan and inserts a SubPlanNode; existing tests for addSubPlan/removeSubPlan still pass.
+- `npm run test:unit` passes.
+- `npm run dev` manual smoke test: nested plan looks correct, expand/collapse works, wrapping a node works.
+
+## T14 — Restore e2e tests for T13 changes
+**Prerequisites:** T13.
+**Scope:** Update any e2e specs that reference the sidebar or floor breadcrumb. Restore
+`subplan-empty-state.spec.ts` with a new flow that matches the inline-expand model.
+**Success criteria:** `npm run test:e2e` green (no skipped tests from sidebar/floor navigation).
