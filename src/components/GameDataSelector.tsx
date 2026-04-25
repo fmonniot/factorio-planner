@@ -1,7 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
-import { BlockTabs } from './BlockTabs'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -63,23 +62,20 @@ async function clearCustomData(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Game data source selector
+// GameDataSelector
 // ---------------------------------------------------------------------------
 
-function GameDataHeader() {
+export function GameDataSelector() {
   const status = useGameDataStore(s => s.status)
   const importFile = useGameDataStore(s => s.importGameDataFile)
   const importJson = useGameDataStore(s => s.importGameData)
   const importUrl = useGameDataStore(s => s.importGameDataUrl)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
-  // selectedValue holds the current <select> value:
-  //   '' = placeholder, 'nullius' = server dataset, 'custom:<filename>' = uploaded file
   const [selectedValue, setSelectedValue] = useState<string>(() => {
     return localStorage.getItem(STORAGE_KEY) ?? ''
   })
 
-  // Auto-load on mount from persisted state.
   useEffect(() => {
     const persisted = localStorage.getItem(STORAGE_KEY)
     if (persisted) {
@@ -89,7 +85,6 @@ function GameDataHeader() {
         return
       }
     }
-    // No server selection — check IndexedDB for a custom file.
     loadCustomData().then(entry => {
       if (entry) {
         importJson(entry.json)
@@ -102,7 +97,6 @@ function GameDataHeader() {
   async function handleChange(e: React.ChangeEvent<HTMLSelectElement>) {
     const value = e.target.value
     if (value === 'upload') {
-      // Revert select immediately; it will update after file is chosen.
       e.target.value = selectedValue
       fileInputRef.current?.click()
       return
@@ -169,10 +163,10 @@ function GameDataHeader() {
 }
 
 // ---------------------------------------------------------------------------
-// Export plan button
+// ExportPlanButton
 // ---------------------------------------------------------------------------
 
-function ExportPlanButton() {
+export function ExportPlanButton() {
   function handleExport() {
     const { blocks, activeBlockId } = useBlockStore.getState()
     const json = JSON.stringify({ blocks, activeBlockId }, null, 2)
@@ -193,47 +187,5 @@ function ExportPlanButton() {
     >
       Export plan
     </button>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Shell layout
-// ---------------------------------------------------------------------------
-
-interface AppShellProps {
-  sidebar: React.ReactNode
-  main: React.ReactNode
-  summary: React.ReactNode
-}
-
-export function AppShell({ sidebar, main, summary }: AppShellProps) {
-  return (
-    <div className="h-screen flex flex-col bg-gray-950 text-gray-100 overflow-hidden">
-      {/* Header */}
-      <header className="h-12 bg-gray-900 border-b border-gray-700 flex items-center px-4 shrink-0 gap-4">
-        <span className="font-semibold text-gray-100">Factorio Planner</span>
-        <span className="flex-1" />
-        <ExportPlanButton />
-        <GameDataHeader />
-      </header>
-
-      {/* Block tabs */}
-      <BlockTabs />
-
-      {/* Sidebar + main content */}
-      <div className="flex flex-1 overflow-hidden">
-        <aside className="w-80 bg-gray-900 border-r border-gray-700 flex flex-col overflow-hidden shrink-0">
-          {sidebar}
-        </aside>
-        <main className="flex-1 overflow-auto p-4">
-          {main}
-        </main>
-      </div>
-
-      {/* Summary bar */}
-      <div className="shrink-0 bg-gray-900 border-t border-gray-700">
-        {summary}
-      </div>
-    </div>
   )
 }

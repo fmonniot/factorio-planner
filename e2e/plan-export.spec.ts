@@ -15,18 +15,21 @@ test.describe('Plan export', () => {
     await page.goto('/')
     await loadGameData(page)
 
-    // Add a goal and recipe node so the exported state is non-trivial.
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByRole('button', { name: '+ Add' }).first().click()
+
+    // Add a goal via FactorySummary [+]
+    await page.getByTitle('Add goal').click()
     await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
     await overlay.getByRole('button', { name: /Chemistry research/ }).first().click()
 
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    // Add a recipe via ProductionTable
+    await page.getByText('+ Add recipe').click()
     await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
     await overlay.getByRole('button', { name: 'Chemistry research 1' }).first().click()
 
-    // Wait for the recipe card to appear so state is fully settled.
-    await expect(page.locator('main').locator('.bg-gray-800').filter({ hasText: 'Chemistry research 1' }).first()).toBeVisible()
+    // Wait for the recipe row to appear.
+    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    await expect(row).toBeVisible()
 
     // Trigger the download and capture it.
     const [download] = await Promise.all([
@@ -43,28 +46,20 @@ test.describe('Plan export', () => {
     const content = readFileSync(filePath!, 'utf8')
     const parsed = JSON.parse(content)
 
-    // Must contain the required AppState fields.
     expect(parsed).toHaveProperty('blocks')
     expect(parsed).toHaveProperty('activeBlockId')
     expect(Array.isArray(parsed.blocks)).toBe(true)
     expect(parsed.blocks.length).toBeGreaterThan(0)
 
-    // The exported block should contain the goal we added.
     const rootPlan = parsed.blocks[0].rootPlan
     expect(rootPlan.goals.length).toBeGreaterThan(0)
     expect(rootPlan.goals[0].itemId).toBe('nullius-chemical-pack')
-
-    // And the recipe node.
     expect(rootPlan.nodes.length).toBeGreaterThan(0)
     expect(rootPlan.nodes[0].recipeId).toBe('nullius-chemical-pack')
   })
 
   test('loadPlanFixture round-trip: exported fixture restores the plan on reload', async ({ page }) => {
-    // This test uses the pre-built sample fixture (a simple Chemistry research 1 plan).
-    // To create: export from the app and save to e2e/fixtures/chemistry-research-1.json.
     const fixturePath = path.resolve('e2e/fixtures/chemistry-research-1.json')
-
-    // Skip if the fixture doesn't exist yet — it must be created by the user via the export button.
     const { existsSync } = await import('fs')
     if (!existsSync(fixturePath)) {
       test.skip(true, 'Fixture e2e/fixtures/chemistry-research-1.json not yet created — export it from the app first')
@@ -72,13 +67,11 @@ test.describe('Plan export', () => {
     }
 
     await loadPlanFixture(page, fixturePath)
-
-    // After reload, game data loads (nullius is auto-selected) and the plan is restored.
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
-    // The recipe card should appear without any UI interaction.
+    // The recipe row should appear after reload without UI interaction.
     await expect(
-      page.locator('main').locator('.bg-gray-800').filter({ hasText: 'Chemistry research 1' }).first()
+      page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
     ).toBeVisible()
   })
 })

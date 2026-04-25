@@ -128,6 +128,8 @@ export interface BlockStoreState {
   // Node actions (on active subplan)
   addNode: (node: RecipeNode) => void
   removeNode: (nodeId: string) => void
+  moveNodeUp: (nodeId: string) => void
+  moveNodeDown: (nodeId: string) => void
   updateNodeMachine: (nodeId: string, machineId: string | undefined) => void
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
@@ -135,6 +137,7 @@ export interface BlockStoreState {
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
+  wrapNodeInSubPlan: (nodeId: string, name: string) => void
 
   // Undo/redo (per active block)
   undo: () => void
@@ -348,6 +351,50 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
+  moveNodeUp: (nodeId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx <= 0) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+          return { ...p, nodes }
+        },
+        undo: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx < 0 || idx >= p.nodes.length - 1) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+          return { ...p, nodes }
+        },
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  moveNodeDown: (nodeId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx < 0 || idx >= p.nodes.length - 1) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+          return { ...p, nodes }
+        },
+        undo: p => {
+          const idx = p.nodes.findIndex(n => n.id === nodeId)
+          if (idx <= 0) return p
+          const nodes = [...p.nodes]
+          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+          return { ...p, nodes }
+        },
+      }
+      return applyCommand(state, cmd)
+    }),
+
   removeNode: (nodeId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
@@ -467,6 +514,43 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
+  wrapNodeInSubPlan: (nodeId, name) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlan(block.rootPlan, state.activeSubPlanId)
+      if (!subPlan) return state
+      const node = subPlan.nodes.find(n => n.id === nodeId)
+      if (!node || node.kind !== 'game-recipe') return state
+
+      const now = new Date().toISOString()
+      const newSubPlan: SubPlan = {
+        id: crypto.randomUUID(),
+        name,
+        goals: [],
+        nodes: [node],
+        subPlans: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      const newSubPlanNode: SubPlanNode = {
+        kind: 'subplan',
+        id: crypto.randomUUID(),
+        subPlanId: newSubPlan.id,
+      }
+      const newRootPlan = updateSubPlanInTree(block.rootPlan, state.activeSubPlanId, p => ({
+        ...p,
+        nodes: p.nodes.map(n => (n.id === nodeId ? newSubPlanNode : n)),
+        subPlans: [...p.subPlans, newSubPlan],
+        updatedAt: now,
+      }))
+      return {
+        blocks: state.blocks.map(b =>
+          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
+        ),
+      }
+    }),
+
   // ── Undo / Redo ──────────────────────────────────────────────────────────
 
   undo: () =>
@@ -545,3 +629,4 @@ export function selectActiveSubPlan(state: BlockStoreState): SubPlan | undefined
   if (!block) return undefined
   return findSubPlan(block.rootPlan, state.activeSubPlanId)
 }
+

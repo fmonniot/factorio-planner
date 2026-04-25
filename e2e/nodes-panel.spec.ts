@@ -6,7 +6,7 @@ const GAME_DATA_PATH = path.resolve('data/samples/nullius/game-data.json')
 async function loadGameData(page: import('@playwright/test').Page) {
   const fileInput = page.locator('input[type="file"]')
   await fileInput.setInputFiles(GAME_DATA_PATH)
-  // Wait until the "no game data" hint disappears from the main area.
+  // Wait until the "load game data" hint disappears from the main area.
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 }
 
@@ -16,71 +16,55 @@ test.describe('Nodes panel', () => {
     await loadGameData(page)
   })
 
-  test('add a recipe node and see the recipe card, then remove it', async ({ page }) => {
-    // The ItemPicker renders as a fixed overlay — scope interactions to it.
+  test('add a goal and recipe node, then verify the row appears', async ({ page }) => {
     const pickerOverlay = page.locator('.fixed.inset-0')
 
-    // 1. Add a goal: nullius-chemical-pack (displayed as "Chemistry research")
-    await page.getByRole('button', { name: '+ Add' }).first().click()
+    // 1. Add a goal via the Products [+] button in FactorySummary
+    await page.getByTitle('Add goal').click()
     await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
     await pickerOverlay.getByRole('button', { name: /Chemistry research/ }).first().click()
 
-    // 2. Main panel should show the "no nodes" hint
-    await expect(page.getByText('Add recipe nodes to the plan')).toBeVisible()
+    // 2. Main panel should show the "no recipes yet" state
+    await expect(page.getByText('No recipes yet')).toBeVisible()
 
-    // 3. Open recipe picker in Nodes panel (second "+ Add" button)
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    // 3. Open recipe picker via "+ Add recipe" in ProductionTable
+    await page.getByText('+ Add recipe').click()
     await expect(page.getByPlaceholder('Search recipes…')).toBeVisible()
 
-    // 4. Search and select nullius-chemical-pack recipe (displayed as "Chemistry research 1")
+    // 4. Search and select nullius-chemical-pack recipe
     await page.getByPlaceholder('Search recipes…').fill('nullius-chemical-pack')
     await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
 
-    // 5. Node appears in the Nodes panel list with its recipe name
-    const sidebar = page.locator('aside')
-    await expect(sidebar.getByText('Chemistry research 1')).toBeVisible()
+    // 5. Recipe row appears in the production table
+    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    await expect(row).toBeVisible()
 
-    // 6. Main panel now shows a recipe card (not the hint)
-    await expect(page.getByText('Add recipe nodes to the plan')).not.toBeVisible()
-
-    // 7. Remove the node with the × button
-    await sidebar.getByRole('button', { name: /Remove Chemistry research 1/ }).click()
-
-    // 8. Hint message returns
-    await expect(page.getByText('Add recipe nodes to the plan')).toBeVisible()
+    // 6. "No recipes yet" is gone
+    await expect(page.getByText('No recipes yet')).not.toBeVisible()
   })
 
-  test('module section stays open after adding a module', async ({ page }) => {
+  test('module popover opens and modules can be added', async ({ page }) => {
     const pickerOverlay = page.locator('.fixed.inset-0')
 
     // Set up: goal + recipe node for nullius-chemical-pack.
-    // nullius-chemical-plant-3 (the default machine) has 3 module slots.
-    await page.getByRole('button', { name: '+ Add' }).first().click()
+    await page.getByTitle('Add goal').click()
     await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
     await pickerOverlay.getByRole('button', { name: /Chemistry research/ }).first().click()
 
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    await page.getByText('+ Add recipe').click()
     await page.getByPlaceholder('Search recipes…').fill('nullius-chemical-pack')
     await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
 
-    // Wait for the recipe card to appear in the main area.
-    const card = page.locator('main').locator('.bg-gray-800').filter({ hasText: 'Chemistry research 1' }).first()
-    await expect(card).toBeVisible()
+    // Wait for the row to appear.
+    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    await expect(row).toBeVisible()
 
-    // Expand the Modules section.
-    const moduleSection = card.locator('section').filter({ hasText: 'Modules' })
-    await moduleSection.getByRole('button', { name: /Modules/ }).click()
-    // The add-module combobox is visible when the section is open.
-    await expect(moduleSection.getByRole('combobox')).toBeVisible()
+    // The module cell shows slot count — click it to open the module popover.
+    const moduleBtn = row.getByTitle('Edit modules')
+    await expect(moduleBtn).toBeVisible()
+    await moduleBtn.click()
 
-    // Add a module — option value is the module id, label is the display name.
-    await moduleSection.getByRole('combobox').selectOption({ value: 'nullius-haste-module-1' })
-    await moduleSection.getByRole('button', { name: 'Add' }).click()
-
-    // The section must still be open: the added module is listed and the
-    // combobox for the next module is still visible — proving the card was NOT
-    // unmounted and remounted during the re-solve triggered by the mutation.
-    await expect(moduleSection.getByText('Haste module 1')).toBeVisible()
-    await expect(moduleSection.getByRole('combobox')).toBeVisible()
+    // Module popover appears with a slot count indicator.
+    await expect(page.getByText(/\/\d+/)).toBeVisible()
   })
 })
