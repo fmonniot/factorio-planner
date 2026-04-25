@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { AppState, Block, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import { useUiStore } from './uiStore'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on a SubPlan, tagged with which subplan it affects
@@ -544,4 +545,28 @@ export function selectActiveSubPlan(state: BlockStoreState): SubPlan | undefined
   const block = selectActiveBlock(state)
   if (!block) return undefined
   return findSubPlan(block.rootPlan, state.activeSubPlanId)
+}
+
+/**
+ * Resolve the active subplan using a floor path (from uiStore).
+ * The last entry in floorPath is the current floor's subplan id.
+ * Falls back to activeSubPlanId when floorPath is empty.
+ */
+export function getActiveSubPlanFromFloor(
+  state: BlockStoreState,
+  floorPath: string[],
+): SubPlan | undefined {
+  const block = selectActiveBlock(state)
+  if (!block) return undefined
+  const id = floorPath.length > 0 ? floorPath[floorPath.length - 1] : state.activeSubPlanId
+  return findSubPlan(block.rootPlan, id)
+}
+
+/**
+ * React hook that returns the active subplan based on the current floor path.
+ * Subscribes to both blockStore and uiStore so it re-renders on either change.
+ */
+export function useActiveSubPlanFromFloor(): SubPlan | undefined {
+  const floorPath = useUiStore(s => s.activeFloorPath)
+  return useBlockStore(s => getActiveSubPlanFromFloor(s, floorPath))
 }
