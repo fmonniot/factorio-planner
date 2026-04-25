@@ -1,0 +1,60 @@
+{
+    "blocks": [
+        {
+            "id": "367a4d13-b5d6-4666-b3b2-d67fd4b1e08d",
+            "name": "Block 1",
+            "gameDataVersion": "",
+            "rootPlan": {
+                "id": "72083687-6a0e-4308-b014-91f8818d6660",
+                "name": "Main",
+                "goals": [
+                    {
+                        "id": "0244b7c9-a4b6-4b44-8c64-afe24674fdbc",
+                        "itemId": "nullius-ethylene",
+                        "rate": 60
+                    },
+                    {
+                        "id": "3cad1b4d-5d18-42bb-94e7-526a09874f21",
+                        "itemId": "nullius-methane",
+                        "rate": 60
+                    }
+                ],
+                "nodes": [
+                    {
+                        "kind": "game-recipe",
+                        "id": "f948339d-80a3-4acc-9323-53e45837027a",
+                        "recipeId": "nullius-propene-pyrolysis",
+                        "modules": [],
+                        "byproductPolicy": {}
+                    },
+                    {
+                        "kind": "game-recipe",
+                        "id": "ecc1285d-f051-45dc-89f2-a67c48fbce9f",
+                        "recipeId": "nullius-carbon-monoxide-to-alkenes",
+                        "modules": [],
+                        "byproductPolicy": {},
+                        "primaryProduct": "nullius-ethylene"
+                    },
+                    {
+                        "kind": "game-recipe",
+                        "id": "2ac02185-1d8e-47c3-b744-f67ab0c11078",
+                        "recipeId": "nullius-benzene-combustion",
+                        "modules": [],
+                        "byproductPolicy": {}
+                    },
+                    {
+                        "kind": "game-recipe",
+                        "id": "50448dde-dad7-4895-b26a-d607aaeec7ba",
+                        "recipeId": "nullius-steam-electrolysis",
+                        "modules": [],
+                        "byproductPolicy": {}
+                    }
+                ],
+                "subPlans": [],
+                "createdAt": "2026-04-25T03:23:21.658Z",
+                "updatedAt": "2026-04-25T03:26:53.007Z"
+            }
+        }
+    ],
+    "activeBlockId": "367a4d13-b5d6-4666-b3b2-d67fd4b1e08d"
+}

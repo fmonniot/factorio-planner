@@ -28,21 +28,27 @@ function buildColumns(
   // Depth map: recipeNodeId → column index (0 = closest to goal)
   const depthOf = new Map<string, number>()
 
-  function descend(nodeId: string, depth: number) {
+  function descend(nodeId: string, depth: number, visiting: Set<string>) {
+    // Break cycles: if this node is already on the current DFS path, skip it.
+    // Without this guard, a cycle A→B→A causes depth to grow by 2 each round
+    // trip, so the depth-based check never terminates.
+    if (visiting.has(nodeId)) return
     // Only proceed if this gives a deeper (further-right) assignment.
     if ((depthOf.get(nodeId) ?? -1) >= depth) return
     depthOf.set(nodeId, depth)
     const sn = nodes.find(n => n.recipeNodeId === nodeId)
     if (!sn) return
+    visiting.add(nodeId)
     for (const itemId of Object.keys(sn.inputRates)) {
       const producerId = producerOf.get(itemId)
-      if (producerId) descend(producerId, depth + 1)
+      if (producerId) descend(producerId, depth + 1, visiting)
     }
+    visiting.delete(nodeId)
   }
 
   for (const goal of subPlan.goals) {
     const pid = producerOf.get(goal.itemId)
-    if (pid) descend(pid, 0)
+    if (pid) descend(pid, 0, new Set())
   }
 
   // Group by depth into columns.
