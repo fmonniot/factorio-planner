@@ -2,10 +2,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
+import { useUiStore } from '../../store/uiStore'
 import type { GameData, SolvedNode, RecipeNode, SubPlanNode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
-// Fixtures
+// Fixtures — single-output
 // ---------------------------------------------------------------------------
 
 const ironPlateRecipeNode: RecipeNode = {
@@ -26,12 +27,42 @@ const solvedNode: SolvedNode = {
   powerKw: 180,
 }
 
+// ---------------------------------------------------------------------------
+// Fixtures — multi-output (electrolysis: hydrogen + oxygen + heavy-water)
+// ---------------------------------------------------------------------------
+
+const electrolysisPlanNode: RecipeNode = {
+  kind: 'game-recipe',
+  id: 'node-elec',
+  recipeId: 'electrolysis',
+  modules: [],
+  byproductPolicy: {},
+  // primaryProduct not set → defaults to recipe.mainProduct = 'hydrogen'
+}
+
+const electrolysisSolved: SolvedNode = {
+  recipeNodeId: 'node-elec',
+  inputRates: { 'water': 100 },
+  outputRates: { 'hydrogen': 60, 'oxygen': 30 },
+  throughput: 10,
+  machineCountExact: 1,
+  machineCountCeil: 1,
+  powerKw: 50,
+}
+
+// ---------------------------------------------------------------------------
+// Shared game data (covers both single and multi-output recipes)
+// ---------------------------------------------------------------------------
+
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
   modSet: {},
   items: {
     'iron-plate': { id: 'iron-plate', name: 'Iron Plate', type: 'item', iconPath: '', hidden: false },
     'iron-ore': { id: 'iron-ore', name: 'Iron Ore', type: 'item', iconPath: '', hidden: false },
+    'hydrogen': { id: 'hydrogen', name: 'Hydrogen', type: 'fluid', iconPath: '', hidden: false },
+    'oxygen': { id: 'oxygen', name: 'Oxygen', type: 'fluid', iconPath: '', hidden: false },
+    'water': { id: 'water', name: 'Water', type: 'fluid', iconPath: '', hidden: false },
   },
   recipes: {
     'iron-plate': {
@@ -45,6 +76,21 @@ const mockGameData: GameData = {
       allowProductivity: true,
       hidden: false,
       mainProduct: 'iron-plate',
+    },
+    'electrolysis': {
+      id: 'electrolysis',
+      name: 'Electrolysis',
+      category: 'chemistry',
+      craftingTime: 2,
+      ingredients: [{ itemId: 'water', type: 'fluid', amount: 100 }],
+      products: [
+        { itemId: 'hydrogen', type: 'fluid', amount: 6 },
+        { itemId: 'oxygen', type: 'fluid', amount: 3 },
+      ],
+      madeIn: ['chemical-plant'],
+      allowProductivity: false,
+      hidden: false,
+      mainProduct: 'hydrogen',
     },
   },
   machines: {
@@ -206,9 +252,127 @@ describe('RecipeRow', () => {
   it('subplan node shows expanded indicator when isExpanded=true', () => {
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: true, onToggleExpand: () => {} })
-    // The expand toggle shows ▼ — but reorder also has ▼; check there are multiple ▼s (one per control)
     const chevrons = screen.getAllByText('▼')
-    // At least one comes from the expand indicator (the colSpan button)
     expect(chevrons.length).toBeGreaterThan(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T11 — Primary product selection
+// ---------------------------------------------------------------------------
+
+describe('T11 — Primary product selection', () => {
+  it('single-output: no ● badge and no "Set as primary" elements', () => {
+    renderRow({ planNode: ironPlateRecipeNode, solvedNode })
+    expect(screen.queryByTitle('Primary product')).not.toBeInTheDocument()
+    expect(screen.queryByTitle(/Set as primary/)).not.toBeInTheDocument()
+  })
+
+  it('multi-output: primary tile has ● badge', () => {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    // Hydrogen is primary (recipe.mainProduct = 'hydrogen'); its tile shows ●
+    expect(screen.getByTitle('Primary product')).toBeInTheDocument()
+  })
+
+  it('multi-output: non-primary tiles have title "Set as primary"', () => {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    // Oxygen is non-primary → its tile has title "Set as primary"
+    expect(screen.getByTitle(/Set as primary/)).toBeInTheDocument()
+  })
+
+  it('clicking "Set as primary" calls updateNodePrimaryProduct', () => {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+
+    const setAsPrimaryBtn = screen.getByTitle(/Set as primary/)
+    fireEvent.click(setAsPrimaryBtn)
+
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    if (updated.kind === 'game-recipe') {
+      expect(updated.primaryProduct).toBe('oxygen')
+    }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// T12 — Pin rate UI
+// ---------------------------------------------------------------------------
+
+describe('T12 — Pin rate UI', () => {
+  function setupElectrolysis(pinnedRate?: number) {
+    const node: RecipeNode = { ...electrolysisPlanNode, pinnedRate }
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [node] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    return node
+  }
+
+  it('unpinned row shows 📍 with title "Pin rate"', () => {
+    setupElectrolysis(undefined)
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    expect(screen.getByTitle('Pin rate')).toBeInTheDocument()
+    expect(screen.queryByTitle('Unpin rate')).not.toBeInTheDocument()
+  })
+
+  it('pinned row shows 📌 with title "Unpin rate" and a pinned input', () => {
+    const pinned = setupElectrolysis(2)
+    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    expect(screen.getByTitle('Unpin rate')).toBeInTheDocument()
+    expect(screen.queryByTitle('Pin rate')).not.toBeInTheDocument()
+    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+  })
+
+  it('clicking 📍 calls updateNodePinnedRate with value > 0 even when throughput is 0', () => {
+    setupElectrolysis(undefined)
+    const zeroThroughput: SolvedNode = { ...electrolysisSolved, throughput: 0 }
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: zeroThroughput })
+    fireEvent.click(screen.getByTitle('Pin rate'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    if (updated.kind === 'game-recipe') {
+      expect(updated.pinnedRate).toBeDefined()
+      expect(updated.pinnedRate!).toBeGreaterThan(0)
+    }
+  })
+
+  it('clicking 📌 calls updateNodePinnedRate with undefined', () => {
+    const pinned = setupElectrolysis(2)
+    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    fireEvent.click(screen.getByTitle('Unpin rate'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    if (updated.kind === 'game-recipe') {
+      expect(updated.pinnedRate).toBeUndefined()
+    }
+  })
+
+  it('changing pinned input in /min mode stores rate / 60 in blockStore', () => {
+    useUiStore.setState({ rateUnit: 'min' })
+    const pinned = setupElectrolysis(1)
+    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    const input = screen.getByLabelText('Pinned rate')
+    fireEvent.change(input, { target: { value: '120' } })
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    if (updated.kind === 'game-recipe') {
+      expect(updated.pinnedRate).toBeCloseTo(2) // 120 / 60 = 2
+    }
+  })
+
+  it('changing pinned input in /sec mode stores the value directly', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    const pinned = setupElectrolysis(1)
+    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    const input = screen.getByLabelText('Pinned rate')
+    fireEvent.change(input, { target: { value: '5' } })
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    if (updated.kind === 'game-recipe') {
+      expect(updated.pinnedRate).toBeCloseTo(5)
+    }
   })
 })
