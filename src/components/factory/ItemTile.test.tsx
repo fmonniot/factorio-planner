@@ -34,7 +34,7 @@ const mockItem: Item = {
 }
 
 beforeEach(() => {
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
+  useUiStore.setState({ rateUnit: 'min' })
 })
 
 describe('ItemTile', () => {

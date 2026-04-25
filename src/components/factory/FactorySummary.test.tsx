@@ -48,7 +48,7 @@ function setupStore(goals: ProductionGoal[] = [ironGoal]) {
     activeSubPlanId: rootPlan.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
+  useUiStore.setState({ rateUnit: 'min' })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
   useSolverStore.setState({
     status: { type: 'idle' },
@@ -83,7 +83,7 @@ describe('FactorySummary', () => {
   })
 
   it('toggling /min changes rateUnit in uiStore', () => {
-    useUiStore.setState({ rateUnit: 'sec', activeFloorPath: [] })
+    useUiStore.setState({ rateUnit: 'sec' })
     render(<FactorySummary />)
     fireEvent.click(screen.getByText('/min'))
     expect(useUiStore.getState().rateUnit).toBe('min')

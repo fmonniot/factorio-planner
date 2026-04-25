@@ -1,6 +1,5 @@
-import type { SolvedNode, GameData, RecipeNode, SubPlanNode } from '../../data/types'
+import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
-import { useUiStore } from '../../store/uiStore'
 import { ItemTile } from './ItemTile'
 import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
@@ -15,46 +14,71 @@ interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
   /** The plan node (game-recipe or subplan). */
   planNode: RecipeNode | SubPlanNode
-  /** Whether this is the first / last row in the list (for disabling move buttons). */
+  /** Whether this is the first / last row in the sibling list. */
   isFirst: boolean
   isLast: boolean
+  /** Nesting depth (0 = root, 1 = inside first-level subplan, …). */
+  depth: number
+  /** For SubPlanNode rows only: whether children are currently shown. */
+  isExpanded?: boolean
+  onToggleExpand?: () => void
   gameData: GameData
+  /** The full subplan tree (needed to resolve subplan names). */
+  rootPlan: SubPlan
 }
 
-export function RecipeRow({ solvedNode, planNode, isFirst, isLast, gameData }: RecipeRowProps) {
+export function RecipeRow({
+  solvedNode,
+  planNode,
+  isFirst,
+  isLast,
+  depth,
+  isExpanded,
+  onToggleExpand,
+  gameData,
+  rootPlan,
+}: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
-  const setActiveSubPlan = useBlockStore(s => s.setActiveSubPlan)
-  const pushFloor = useUiStore(s => s.pushFloor)
+  const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
 
-  // ── Resolve recipe & machine ───────────────────────────────────────────────
+  const indentPx = depth * 16
+
+  // ── SubPlan node ─────────────────────────────────────────────────────────
 
   if (planNode.kind === 'subplan') {
-    // SubPlan node: minimal row, click drills into the floor
-    const label = `Subplan: ${planNode.subPlanId}`
+    const childPlan = rootPlan.subPlans.find(sp => sp.id === planNode.subPlanId)
+      ?? findSubPlanDeep(rootPlan, planNode.subPlanId)
+    const label = childPlan?.name ?? planNode.subPlanId
+
     return (
-      <tr className="border-b border-gray-800 hover:bg-gray-800/40">
+      <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40">
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
-        <td className="px-2 py-1">
-          <input type="checkbox" disabled className="opacity-40" />
-        </td>
-        <td className="px-2 py-1" colSpan={7}>
+        <td
+          className="px-2 py-1"
+          colSpan={8}
+          style={{ paddingLeft: `${8 + indentPx}px` }}
+        >
           <button
             type="button"
-            onClick={() => {
-              pushFloor(planNode.subPlanId)
-              setActiveSubPlan(planNode.subPlanId)
-            }}
-            className="text-xs text-blue-400 hover:text-blue-300 hover:underline"
-            title="Drill into subplan"
+            onClick={onToggleExpand}
+            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 w-full text-left"
           >
-            ↳ {label}
+            <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
+            <span className="font-medium">{label}</span>
+            {childPlan && (
+              <span className="text-gray-600 text-[10px]">
+                {childPlan.nodes.length} recipe{childPlan.nodes.length !== 1 ? 's' : ''}
+              </span>
+            )}
           </button>
         </td>
       </tr>
     )
   }
+
+  // ── Game-recipe node ──────────────────────────────────────────────────────
 
   const recipe = gameData.recipes[planNode.recipeId]
   if (!recipe) return null
@@ -64,33 +88,35 @@ export function RecipeRow({ solvedNode, planNode, isFirst, isLast, gameData }: R
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
 
-  // ── Classify outputs into products vs byproducts ───────────────────────────
-
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
   const byproductEntries = outputEntries.filter(([id]) => id !== primaryItemId)
-
   const inputEntries = solvedNode ? Object.entries(solvedNode.inputRates) : []
-
   const powerKw = solvedNode?.powerKw ?? 0
-
-  // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
     <tr className="border-b border-gray-800 hover:bg-gray-800/40">
       {/* Reorder */}
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
-      {/* Enable checkbox — placeholder; enable/disable not yet in schema */}
-      <td className="px-2 py-1">
-        <input type="checkbox" defaultChecked disabled className="opacity-40" />
-      </td>
-
       {/* Recipe */}
-      <td className="px-2 py-1 whitespace-nowrap">
-        <span className="text-xs text-gray-200 truncate max-w-[10rem] block" title={recipe.name}>
-          {recipe.name}
-        </span>
+      <td className="px-2 py-1 whitespace-nowrap" style={{ paddingLeft: `${8 + indentPx}px` }}>
+        <div className="flex items-center gap-1">
+          <span className="text-xs text-gray-200 truncate max-w-[10rem]" title={recipe.name}>
+            {recipe.name}
+          </span>
+          <button
+            type="button"
+            onClick={() => {
+              const name = window.prompt('Subfactory name:', recipe.name)
+              if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
+            }}
+            className="text-gray-700 hover:text-gray-500 text-[10px] leading-none shrink-0"
+            title="Wrap in subfactory"
+          >
+            ⊞
+          </button>
+        </div>
       </td>
 
       {/* Machine + module slots */}
@@ -228,4 +254,17 @@ function ReorderCell({ nodeId, isFirst, isLast, moveUp, moveDown }: ReorderCellP
       </div>
     </td>
   )
+}
+
+// ---------------------------------------------------------------------------
+// Helper: find subplan anywhere in the tree
+// ---------------------------------------------------------------------------
+
+function findSubPlanDeep(plan: SubPlan, id: string): SubPlan | undefined {
+  if (plan.id === id) return plan
+  for (const sp of plan.subPlans) {
+    const found = findSubPlanDeep(sp, id)
+    if (found) return found
+  }
+  return undefined
 }

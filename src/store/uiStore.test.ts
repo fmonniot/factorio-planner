@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
+  useUiStore.setState({ rateUnit: 'min' })
 })
 
 afterEach(() => {
@@ -38,7 +38,7 @@ afterEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// Mutations
+// setRateUnit
 // ---------------------------------------------------------------------------
 
 describe('setRateUnit', () => {
@@ -51,54 +51,6 @@ describe('setRateUnit', () => {
     useUiStore.setState({ rateUnit: 'sec' })
     useUiStore.getState().setRateUnit('min')
     expect(useUiStore.getState().rateUnit).toBe('min')
-  })
-})
-
-describe('pushFloor', () => {
-  it('appends a subplan id to the path', () => {
-    useUiStore.getState().pushFloor('sp-1')
-    expect(useUiStore.getState().activeFloorPath).toEqual(['sp-1'])
-  })
-
-  it('stacks multiple pushes', () => {
-    useUiStore.getState().pushFloor('sp-1')
-    useUiStore.getState().pushFloor('sp-2')
-    expect(useUiStore.getState().activeFloorPath).toEqual(['sp-1', 'sp-2'])
-  })
-})
-
-describe('popFloor', () => {
-  it('removes the last id from the path', () => {
-    useUiStore.setState({ activeFloorPath: ['sp-1', 'sp-2'] })
-    useUiStore.getState().popFloor()
-    expect(useUiStore.getState().activeFloorPath).toEqual(['sp-1'])
-  })
-
-  it('is a no-op on an empty path', () => {
-    useUiStore.getState().popFloor()
-    expect(useUiStore.getState().activeFloorPath).toEqual([])
-  })
-})
-
-describe('resetFloor', () => {
-  it('clears the path', () => {
-    useUiStore.setState({ activeFloorPath: ['sp-1', 'sp-2', 'sp-3'] })
-    useUiStore.getState().resetFloor()
-    expect(useUiStore.getState().activeFloorPath).toEqual([])
-  })
-})
-
-describe('setFloorPath', () => {
-  it('replaces the path', () => {
-    useUiStore.setState({ activeFloorPath: ['sp-1'] })
-    useUiStore.getState().setFloorPath(['sp-a', 'sp-b'])
-    expect(useUiStore.getState().activeFloorPath).toEqual(['sp-a', 'sp-b'])
-  })
-
-  it('can set an empty path', () => {
-    useUiStore.setState({ activeFloorPath: ['sp-1'] })
-    useUiStore.getState().setFloorPath([])
-    expect(useUiStore.getState().activeFloorPath).toEqual([])
   })
 })
 
@@ -145,12 +97,6 @@ describe('loadPersistedUiState', () => {
     loadPersistedUiState()
     expect(useUiStore.getState().rateUnit).toBe('min')
   })
-
-  it('does not restore activeFloorPath (session-only)', () => {
-    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec', activeFloorPath: ['sp-1'] }))
-    loadPersistedUiState()
-    expect(useUiStore.getState().activeFloorPath).toEqual([])
-  })
 })
 
 describe('initUiStatePersistence', () => {
@@ -162,13 +108,6 @@ describe('initUiStatePersistence', () => {
       UI_STATE_STORAGE_KEY,
       expect.stringContaining('"sec"'),
     )
-  })
-
-  it('does not save when only activeFloorPath changes', () => {
-    const unsub = initUiStatePersistence()
-    useUiStore.getState().pushFloor('sp-1')
-    unsub()
-    expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 
   it('stops auto-saving after unsubscribe', () => {

@@ -14,13 +14,7 @@ export type RateUnit = 'sec' | 'min'
 
 export interface UiStoreState {
   rateUnit: RateUnit
-  activeFloorPath: string[]
-
   setRateUnit: (unit: RateUnit) => void
-  pushFloor: (subPlanId: string) => void
-  popFloor: () => void
-  resetFloor: () => void
-  setFloorPath: (path: string[]) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -29,15 +23,7 @@ export interface UiStoreState {
 
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
-  activeFloorPath: [],
-
   setRateUnit: (unit) => set({ rateUnit: unit }),
-  pushFloor: (subPlanId) =>
-    set((s) => ({ activeFloorPath: [...s.activeFloorPath, subPlanId] })),
-  popFloor: () =>
-    set((s) => ({ activeFloorPath: s.activeFloorPath.slice(0, -1) })),
-  resetFloor: () => set({ activeFloorPath: [] }),
-  setFloorPath: (path) => set({ activeFloorPath: path }),
 }))
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,6 @@
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useActiveSubPlanFromFloor } from '../../store/blockStore'
+import { useBlockStore, selectActiveSubPlan } from '../../store/blockStore'
 import { WarningsPopover } from './WarningsPopover'
 
 // ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ const BALANCE_EPSILON = 0.001
 export function BalancedItemsFooter() {
   const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
-  const subPlan = useActiveSubPlanFromFloor()
+  const subPlan = useBlockStore(selectActiveSubPlan)
 
   if (!result) return null
 

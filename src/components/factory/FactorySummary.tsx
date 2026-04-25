@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { useActiveSubPlanFromFloor } from '../../store/blockStore'
-import { useBlockStore } from '../../store/blockStore'
+import { useBlockStore, selectActiveSubPlan } from '../../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
@@ -30,7 +29,7 @@ function computeNetBalance(
 // ---------------------------------------------------------------------------
 
 export function FactorySummary() {
-  const subPlan = useActiveSubPlanFromFloor()
+  const subPlan = useBlockStore(selectActiveSubPlan)
   const solverResult = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)

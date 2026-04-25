@@ -61,7 +61,7 @@ beforeEach(() => {
     activeSubPlanId: block.rootPlan.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
+  useUiStore.setState({ rateUnit: 'min' })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
   useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map(), _setStatus: () => {} })
 })

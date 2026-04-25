@@ -3,11 +3,10 @@ import {
   useBlockStore,
   makeEmptyBlock,
   makeEmptySubPlan,
-  getActiveSubPlanFromFloor,
   findSubPlan,
 } from './blockStore'
-import { useUiStore } from './uiStore'
 import type { BlockStoreState } from './blockStore'
+import type { RecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -15,6 +14,14 @@ import type { BlockStoreState } from './blockStore'
 
 function freshState(): BlockStoreState {
   return useBlockStore.getState()
+}
+
+const ironNode: RecipeNode = {
+  kind: 'game-recipe',
+  id: 'node-iron',
+  recipeId: 'iron-plate',
+  modules: [],
+  byproductPolicy: {},
 }
 
 // ---------------------------------------------------------------------------
@@ -29,101 +36,10 @@ beforeEach(() => {
     activeSubPlanId: block.rootPlan.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
 })
 
 // ---------------------------------------------------------------------------
-// getActiveSubPlanFromFloor
-// ---------------------------------------------------------------------------
-
-describe('getActiveSubPlanFromFloor', () => {
-  it('returns the root subplan when floorPath is empty', () => {
-    const state = freshState()
-    const result = getActiveSubPlanFromFloor(state, [])
-    const block = state.blocks.find(b => b.id === state.activeBlockId)!
-    expect(result).toBeDefined()
-    expect(result!.id).toBe(block.rootPlan.id)
-  })
-
-  it('falls back to activeSubPlanId when floorPath is empty', () => {
-    const block = makeEmptyBlock('Block 2')
-    const child = makeEmptySubPlan('Child')
-    const blockWithChild = {
-      ...block,
-      rootPlan: {
-        ...block.rootPlan,
-        subPlans: [child],
-      },
-    }
-    useBlockStore.setState({
-      blocks: [blockWithChild],
-      activeBlockId: blockWithChild.id,
-      activeSubPlanId: child.id,
-      history: {},
-    })
-    const state = useBlockStore.getState()
-    const result = getActiveSubPlanFromFloor(state, [])
-    expect(result!.id).toBe(child.id)
-  })
-
-  it('resolves the last id in a single-element floorPath', () => {
-    const block = makeEmptyBlock('Block')
-    const child = makeEmptySubPlan('Child')
-    const blockWithChild = {
-      ...block,
-      rootPlan: { ...block.rootPlan, subPlans: [child] },
-    }
-    useBlockStore.setState({
-      blocks: [blockWithChild],
-      activeBlockId: blockWithChild.id,
-      activeSubPlanId: blockWithChild.rootPlan.id,
-      history: {},
-    })
-    const state = useBlockStore.getState()
-    const result = getActiveSubPlanFromFloor(state, [child.id])
-    expect(result!.id).toBe(child.id)
-  })
-
-  it('resolves the last id in a deep floorPath', () => {
-    const block = makeEmptyBlock('Block')
-    const grandchild = makeEmptySubPlan('Grandchild')
-    const child = { ...makeEmptySubPlan('Child'), subPlans: [grandchild] }
-    const blockWithTree = {
-      ...block,
-      rootPlan: { ...block.rootPlan, subPlans: [child] },
-    }
-    useBlockStore.setState({
-      blocks: [blockWithTree],
-      activeBlockId: blockWithTree.id,
-      activeSubPlanId: blockWithTree.rootPlan.id,
-      history: {},
-    })
-    const state = useBlockStore.getState()
-    const result = getActiveSubPlanFromFloor(state, [child.id, grandchild.id])
-    expect(result!.id).toBe(grandchild.id)
-  })
-
-  it('returns undefined when the id in floorPath does not exist', () => {
-    const state = freshState()
-    const result = getActiveSubPlanFromFloor(state, ['nonexistent-id'])
-    expect(result).toBeUndefined()
-  })
-
-  it('returns undefined when there is no active block', () => {
-    useBlockStore.setState({
-      blocks: [],
-      activeBlockId: 'gone',
-      activeSubPlanId: 'gone',
-      history: {},
-    })
-    const state = useBlockStore.getState()
-    const result = getActiveSubPlanFromFloor(state, [])
-    expect(result).toBeUndefined()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// findSubPlan (sanity check — used internally and by selectors)
+// findSubPlan
 // ---------------------------------------------------------------------------
 
 describe('findSubPlan', () => {
@@ -141,5 +57,128 @@ describe('findSubPlan', () => {
   it('returns undefined for a missing id', () => {
     const root = makeEmptySubPlan('Root')
     expect(findSubPlan(root, 'nope')).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// moveNodeUp / moveNodeDown
+// ---------------------------------------------------------------------------
+
+describe('moveNodeUp', () => {
+  it('moves a node up one position', () => {
+    const block = makeEmptyBlock('B')
+    const node2: RecipeNode = { ...ironNode, id: 'node-2' }
+    const rootPlan = { ...block.rootPlan, nodes: [ironNode, node2] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    useBlockStore.getState().moveNodeUp('node-2')
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes[0].id).toBe('node-2')
+    expect(nodes[1].id).toBe('node-iron')
+  })
+
+  it('is a no-op when already first', () => {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [ironNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    useBlockStore.getState().moveNodeUp('node-iron')
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes[0].id).toBe('node-iron')
+  })
+})
+
+describe('moveNodeDown', () => {
+  it('moves a node down one position', () => {
+    const block = makeEmptyBlock('B')
+    const node2: RecipeNode = { ...ironNode, id: 'node-2' }
+    const rootPlan = { ...block.rootPlan, nodes: [ironNode, node2] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    useBlockStore.getState().moveNodeDown('node-iron')
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes[0].id).toBe('node-2')
+    expect(nodes[1].id).toBe('node-iron')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// wrapNodeInSubPlan
+// ---------------------------------------------------------------------------
+
+describe('wrapNodeInSubPlan', () => {
+  function setupWithNode() {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [ironNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+  }
+
+  it('replaces the original node with a SubPlanNode', () => {
+    setupWithNode()
+    useBlockStore.getState().wrapNodeInSubPlan('node-iron', 'Iron Smelting')
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].kind).toBe('subplan')
+  })
+
+  it('creates a new child SubPlan containing the original node', () => {
+    setupWithNode()
+    useBlockStore.getState().wrapNodeInSubPlan('node-iron', 'Iron Smelting')
+    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
+    expect(rootPlan.subPlans).toHaveLength(1)
+    expect(rootPlan.subPlans[0].name).toBe('Iron Smelting')
+    expect(rootPlan.subPlans[0].nodes[0].id).toBe('node-iron')
+  })
+
+  it('the SubPlanNode references the new child SubPlan', () => {
+    setupWithNode()
+    useBlockStore.getState().wrapNodeInSubPlan('node-iron', 'Iron Smelting')
+    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
+    const spNode = rootPlan.nodes[0]
+    if (spNode.kind === 'subplan') {
+      expect(spNode.subPlanId).toBe(rootPlan.subPlans[0].id)
+    } else {
+      throw new Error('Expected subplan node')
+    }
+  })
+
+  it('is a no-op for a non-existent nodeId', () => {
+    setupWithNode()
+    const before = useBlockStore.getState().blocks[0].rootPlan
+    useBlockStore.getState().wrapNodeInSubPlan('nonexistent', 'Foo')
+    const after = useBlockStore.getState().blocks[0].rootPlan
+    expect(after).toBe(before)
+  })
+
+  it('is a no-op for a subplan-kind node', () => {
+    const block = makeEmptyBlock('B')
+    const spNode = { kind: 'subplan' as const, id: 'sp-node', subPlanId: 'sp-1' }
+    const rootPlan = { ...block.rootPlan, nodes: [spNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    const before = useBlockStore.getState().blocks[0].rootPlan
+    useBlockStore.getState().wrapNodeInSubPlan('sp-node', 'Foo')
+    expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
   })
 })

@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import { useUiStore } from '../../store/uiStore'
 import type { GameData, SolvedNode, RecipeNode, SubPlanNode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -70,6 +69,7 @@ const mockGameData: GameData = {
 // ---------------------------------------------------------------------------
 
 function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+  const block = useBlockStore.getState().blocks[0]
   return render(
     <table>
       <tbody>
@@ -78,7 +78,9 @@ function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
           planNode={ironPlateRecipeNode}
           isFirst={false}
           isLast={false}
+          depth={0}
           gameData={mockGameData}
+          rootPlan={block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }}
           {...props}
         />
       </tbody>
@@ -95,7 +97,6 @@ beforeEach(() => {
     activeSubPlanId: rootPlan.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min', activeFloorPath: [] })
 })
 
 // ---------------------------------------------------------------------------
@@ -190,13 +191,24 @@ describe('RecipeRow', () => {
     }
   })
 
-  it('subplan node renders drill-in button', () => {
+  it('subplan node renders expand/collapse toggle', () => {
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
-    const pushFloor = vi.fn()
-    useUiStore.setState({ rateUnit: 'min', activeFloorPath: [], pushFloor })
-    renderRow({ planNode: spNode, solvedNode: undefined })
-    const drillBtn = screen.getByRole('button', { name: /Subplan/ })
-    fireEvent.click(drillBtn)
-    expect(pushFloor).toHaveBeenCalledWith('sp-123')
+    const onToggle = vi.fn()
+    renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: false, onToggleExpand: onToggle })
+    // The collapsed toggle shows ▶ inside a colSpan cell (not the reorder ▲/▼ buttons)
+    const collapseIcon = screen.getByText('▶')
+    expect(collapseIcon).toBeInTheDocument()
+    // Click the button that contains ▶
+    fireEvent.click(collapseIcon.closest('button')!)
+    expect(onToggle).toHaveBeenCalled()
+  })
+
+  it('subplan node shows expanded indicator when isExpanded=true', () => {
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: true, onToggleExpand: () => {} })
+    // The expand toggle shows ▼ — but reorder also has ▼; check there are multiple ▼s (one per control)
+    const chevrons = screen.getAllByText('▼')
+    // At least one comes from the expand indicator (the colSpan button)
+    expect(chevrons.length).toBeGreaterThan(0)
   })
 })

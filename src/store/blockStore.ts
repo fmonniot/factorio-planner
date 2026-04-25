@@ -1,6 +1,5 @@
 import { create } from 'zustand'
 import type { AppState, Block, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
-import { useUiStore } from './uiStore'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on a SubPlan, tagged with which subplan it affects
@@ -138,6 +137,7 @@ export interface BlockStoreState {
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
+  wrapNodeInSubPlan: (nodeId: string, name: string) => void
 
   // Undo/redo (per active block)
   undo: () => void
@@ -514,6 +514,43 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
+  wrapNodeInSubPlan: (nodeId, name) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlan(block.rootPlan, state.activeSubPlanId)
+      if (!subPlan) return state
+      const node = subPlan.nodes.find(n => n.id === nodeId)
+      if (!node || node.kind !== 'game-recipe') return state
+
+      const now = new Date().toISOString()
+      const newSubPlan: SubPlan = {
+        id: crypto.randomUUID(),
+        name,
+        goals: [],
+        nodes: [node],
+        subPlans: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      const newSubPlanNode: SubPlanNode = {
+        kind: 'subplan',
+        id: crypto.randomUUID(),
+        subPlanId: newSubPlan.id,
+      }
+      const newRootPlan = updateSubPlanInTree(block.rootPlan, state.activeSubPlanId, p => ({
+        ...p,
+        nodes: p.nodes.map(n => (n.id === nodeId ? newSubPlanNode : n)),
+        subPlans: [...p.subPlans, newSubPlan],
+        updatedAt: now,
+      }))
+      return {
+        blocks: state.blocks.map(b =>
+          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
+        ),
+      }
+    }),
+
   // ── Undo / Redo ──────────────────────────────────────────────────────────
 
   undo: () =>
@@ -593,26 +630,3 @@ export function selectActiveSubPlan(state: BlockStoreState): SubPlan | undefined
   return findSubPlan(block.rootPlan, state.activeSubPlanId)
 }
 
-/**
- * Resolve the active subplan using a floor path (from uiStore).
- * The last entry in floorPath is the current floor's subplan id.
- * Falls back to activeSubPlanId when floorPath is empty.
- */
-export function getActiveSubPlanFromFloor(
-  state: BlockStoreState,
-  floorPath: string[],
-): SubPlan | undefined {
-  const block = selectActiveBlock(state)
-  if (!block) return undefined
-  const id = floorPath.length > 0 ? floorPath[floorPath.length - 1] : state.activeSubPlanId
-  return findSubPlan(block.rootPlan, id)
-}
-
-/**
- * React hook that returns the active subplan based on the current floor path.
- * Subscribes to both blockStore and uiStore so it re-renders on either change.
- */
-export function useActiveSubPlanFromFloor(): SubPlan | undefined {
-  const floorPath = useUiStore(s => s.activeFloorPath)
-  return useBlockStore(s => getActiveSubPlanFromFloor(s, floorPath))
-}
