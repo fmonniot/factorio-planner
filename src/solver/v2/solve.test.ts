@@ -48,7 +48,7 @@ function planNode(id: string, recipeId: string): GameRecipeNode {
 const TOLERANCE = 1e-4
 
 // ---------------------------------------------------------------------------
-// Tests
+// Basic tests
 // ---------------------------------------------------------------------------
 
 describe('v2 solver — basic cases', () => {
@@ -126,5 +126,50 @@ describe('v2 solver — basic cases', () => {
       nodes: [{ ...planNode('n1', 'iron-plate'), byproductConsumer: true }],
     }
     expect(() => solve(plan, gameData)).toThrow(/not implemented/)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Pinned rates
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — pinned rates', () => {
+  const gameData = makeGameData({
+    recipes: {
+      'iron-plate': recipe('iron-plate', 1, [], [product('iron-plate', 1)]),
+    },
+  })
+
+  it('feasible pin: throughput matches the pinned rate exactly', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [{ ...planNode('n1', 'iron-plate'), pinnedRate: 80 }],
+    }
+    const result = solve(plan, gameData)
+    expect(result.nodes[0].throughput).toBeCloseTo(80, 3)
+    expect(result.warnings).toHaveLength(0)
+  })
+
+  it('infeasible pin: solver emits infeasible-pins warning naming the recipe', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [{ ...planNode('n1', 'iron-plate'), pinnedRate: 40 }],
+    }
+    const result = solve(plan, gameData)
+    const pinWarnings = result.warnings.filter(w => w.type === 'infeasible-pins')
+    expect(pinWarnings).toHaveLength(1)
+    if (pinWarnings[0]?.type === 'infeasible-pins') {
+      expect(pinWarnings[0].recipeIds).toContain('iron-plate')
+    }
+  })
+
+  it('removing the pin resolves the plan cleanly', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [planNode('n1', 'iron-plate')],
+    }
+    const result = solve(plan, gameData)
+    expect(result.nodes[0].throughput).toBeCloseTo(60, 3)
+    expect(result.warnings.filter(w => w.type === 'infeasible-pins')).toHaveLength(0)
   })
 })

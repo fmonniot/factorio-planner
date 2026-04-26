@@ -13,12 +13,6 @@ export function solve(
   gameData: GameData,
   syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
 ): SolverResult {
-  // Features arriving in later tasks:
-  const hasPinnedRates = plan.nodes.some(
-    n => n.kind === 'game-recipe' && n.pinnedRate !== undefined,
-  )
-  if (hasPinnedRates) throw new Error('v2 solver: pinned rates not implemented')
-
   const hasBcRecipes = plan.nodes.some(
     n => n.kind === 'game-recipe' && n.byproductConsumer,
   )
@@ -65,7 +59,15 @@ export function solve(
     }
   }
 
-  const { throughput: throughputMap, warnings } = solveLP(system)
+  // Collect pinned rates for game-recipe nodes.
+  const pinnedRates = new Map<string, number>()
+  for (const n of mainNodes) {
+    if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
+      pinnedRates.set(n.recipeId, n.pinnedRate)
+    }
+  }
+
+  const { throughput: throughputMap, warnings } = solveLP(system, pinnedRates)
 
   const nodes: SolvedNode[] = []
 

@@ -27,9 +27,15 @@ function lpName(id: string): string {
  *   Constraints:
  *     - Goal items:         Σ S_ij * x_j ≥ d_i
  *     - Intermediate items: Σ S_ij * x_j ≥ 0
+ *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ x_j
+ *
+ * If the LP is infeasible and pinnedRates is non-empty, emits `infeasible-pins`.
  */
-export function solveLP(system: ClassifiedSystem): LPResult {
+export function solveLP(
+  system: ClassifiedSystem,
+  pinnedRates: Map<string, number> = new Map(),
+): LPResult {
   const { S, recipes, classification } = system
   const warnings: SolverWarning[] = []
 
@@ -47,7 +53,7 @@ export function solveLP(system: ClassifiedSystem): LPResult {
     recipeToVar.set(recipeId, name)
   }
 
-  const constraints: Record<string, { min?: number }> = {}
+  const constraints: Record<string, { min?: number; max?: number; equal?: number }> = {}
   const variables: Record<string, Record<string, number>> = {}
 
   // Initialize variable entries (each participates in the objective with coeff 1).
@@ -81,6 +87,15 @@ export function solveLP(system: ClassifiedSystem): LPResult {
     }
   }
 
+  // Pinned rates: x_j = rate (equality via min + max).
+  for (const [recipeId, rate] of pinnedRates) {
+    const varName = recipeToVar.get(recipeId)
+    if (!varName) continue
+    const cName = `pin_${varName}`
+    constraints[cName] = { equal: rate }
+    variables[varName][cName] = 1
+  }
+
   const model = {
     optimize: '__obj__',
     opType: 'min' as const,
@@ -91,11 +106,22 @@ export function solveLP(system: ClassifiedSystem): LPResult {
   const result = solver.Solve(model)
   const feasible = result.feasible === true
 
+  if (!feasible && pinnedRates.size > 0) {
+    warnings.push({ type: 'infeasible-pins', recipeIds: [...pinnedRates.keys()] })
+  }
+
   const throughput = new Map<string, number>()
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
     const val = result[varName]
     throughput.set(recipeId, typeof val === 'number' ? Math.max(0, val) : 0)
+  }
+
+  // For pinned recipes, ensure the throughput matches the pin when feasible.
+  if (feasible) {
+    for (const [recipeId, rate] of pinnedRates) {
+      throughput.set(recipeId, rate)
+    }
   }
 
   return { throughput, warnings, feasible }
