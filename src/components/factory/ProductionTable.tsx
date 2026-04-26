@@ -85,7 +85,6 @@ export function ProductionTable() {
                 <th className="px-2 py-1">Products</th>
                 <th className="px-2 py-1">Byproducts</th>
                 <th className="px-2 py-1">Ingredients</th>
-                <th className="px-2 py-1 w-16">Power</th>
               </tr>
             </thead>
             <tbody>

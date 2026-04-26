@@ -53,7 +53,7 @@ export function RecipeRow({
     return (
       <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40">
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
-        <td className="px-2 py-1" colSpan={8} style={{ paddingLeft: `${8 + indentPx}px` }}>
+        <td className="px-2 py-1" colSpan={7} style={{ paddingLeft: `${8 + indentPx}px` }}>
           <button
             type="button"
             onClick={onToggleExpand}
@@ -264,7 +264,7 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients */}
+      {/* Ingredients + electricity inline */}
       <td className="px-2 py-1">
         <div className="flex flex-wrap gap-0.5">
           {inputEntries.map(([itemId, ratePerMin]) => (
@@ -275,19 +275,15 @@ export function RecipeRow({
               variant="ingredient"
             />
           ))}
+          {powerKw > 0 && (
+            <ItemTile
+              item={undefined}
+              ratePerSec={powerKw / 60}
+              variant="electricity"
+              title={`${powerKw.toFixed(1)} kW`}
+            />
+          )}
         </div>
-      </td>
-
-      {/* Electricity */}
-      <td className="px-2 py-1 whitespace-nowrap">
-        {powerKw > 0 && (
-          <ItemTile
-            item={undefined}
-            ratePerSec={powerKw / 60}
-            variant="electricity"
-            title={`${powerKw.toFixed(1)} kW`}
-          />
-        )}
       </td>
     </tr>
   )
