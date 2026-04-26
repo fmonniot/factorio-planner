@@ -182,3 +182,32 @@ describe('wrapNodeInSubPlan', () => {
     expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Task 11: updateBlockSolverVersion
+// ---------------------------------------------------------------------------
+
+describe('updateBlockSolverVersion', () => {
+  it('updates solverVersion on the target block', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    const block = useBlockStore.getState().blocks.find(b => b.id === blockId)
+    expect(block?.solverVersion).toBe(2)
+  })
+
+  it('toggling from 2 back to 1 updates the block', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 1)
+    const block = useBlockStore.getState().blocks.find(b => b.id === blockId)
+    expect(block?.solverVersion).toBe(1)
+  })
+
+  it('the blocks array reference changes so solverStore subscription fires', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    const after = useBlockStore.getState().blocks
+    expect(after).not.toBe(before)
+  })
+})
