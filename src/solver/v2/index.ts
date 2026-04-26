@@ -113,6 +113,27 @@ export function solve(
     warnings.push({ type: 'overconstrained', surplusItems: overconstrainedItems })
   }
 
+  // Detect too-many-alternatives: multiple recipes with non-zero throughput
+  // all producing the same goal or intermediate item.
+  const ACTIVE_THRESHOLD = 1e-6
+  const producersByItem = new Map<string, string[]>()
+  for (const [itemId, rowS] of system.S) {
+    if (!system.classification.goals.has(itemId) && !system.classification.intermediates.has(itemId)) continue
+    const activeProducers: string[] = []
+    for (const [recipeId, coeff] of rowS) {
+      if (coeff > 0 && (throughputMap.get(recipeId) ?? 0) > ACTIVE_THRESHOLD) {
+        activeProducers.push(recipeId)
+      }
+    }
+    if (activeProducers.length > 1) {
+      producersByItem.set(itemId, activeProducers)
+    }
+  }
+  if (producersByItem.size > 0) {
+    const allAmbiguousRecipes = [...new Set([...producersByItem.values()].flat())]
+    warnings.push({ type: 'too-many-alternatives', recipeIds: allAmbiguousRecipes })
+  }
+
   const nodes: SolvedNode[] = []
 
   for (const planNode of mainNodes) {

@@ -255,3 +255,46 @@ describe('v2 solver — overconstrained warning', () => {
     expect(resultNode.outputRates['result']).toBeGreaterThanOrEqual(10 - 1e-4)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Too-many-alternatives warning
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — too-many-alternatives warning', () => {
+  it('two parallel recipes producing the same goal item may emit too-many-alternatives', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelt-a': recipe('smelt-a', 1, [item('ore-a', 1)], [product('iron-plate', 1)]),
+        'smelt-b': recipe('smelt-b', 1, [item('ore-b', 1)], [product('iron-plate', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [planNode('n1', 'smelt-a'), planNode('n2', 'smelt-b')],
+    }
+    const result = solve(plan, gd)
+    const altWarnings = result.warnings.filter(w => w.type === 'too-many-alternatives')
+    const bothActive = result.nodes.every(n => n.throughput > 1e-6)
+    if (bothActive) {
+      expect(altWarnings).toHaveLength(1)
+      if (altWarnings[0]?.type === 'too-many-alternatives') {
+        expect(altWarnings[0].recipeIds).toContain('smelt-a')
+        expect(altWarnings[0].recipeIds).toContain('smelt-b')
+      }
+    }
+  })
+
+  it('single-path plan has no too-many-alternatives warning', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelt': recipe('smelt', 1, [item('ore', 1)], [product('metal', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'metal', rate: 60 }],
+      nodes: [planNode('n1', 'smelt')],
+    }
+    const result = solve(plan, gd)
+    expect(result.warnings.filter(w => w.type === 'too-many-alternatives')).toHaveLength(0)
+  })
+})
