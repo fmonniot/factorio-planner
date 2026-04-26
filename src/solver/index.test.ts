@@ -88,12 +88,14 @@ describe('solve dispatcher', () => {
     expect(result.nodes[0].throughput).toBeGreaterThan(0)
   })
 
-  it('routes solverVersion 2 to v2 which throws for unsupported features', () => {
+  it('routes solverVersion 2 to v2 which handles pinned rates', () => {
     const pinnedPlan = {
       ...simplePlan,
       solverVersion: 2 as const,
       nodes: [{ ...simplePlan.nodes[0]!, pinnedRate: 80 }],
     }
-    expect(() => solve(pinnedPlan, simpleGameData)).toThrowError(/not implemented/i)
+    // pin at 80 with goal at 60 is feasible
+    const result = solve(pinnedPlan, simpleGameData)
+    expect(result.nodes[0].throughput).toBeCloseTo(80, 3)
   })
 })
