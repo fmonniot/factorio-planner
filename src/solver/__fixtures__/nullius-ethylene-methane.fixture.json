@@ -1,0 +1,48 @@
+{
+  "description": "Nullius ethylene 800/min + methane 400/min",
+  "goals": [
+    {
+      "id": "0244b7c9-a4b6-4b44-8c64-afe24674fdbc",
+      "itemId": "nullius-ethylene",
+      "rate": 800
+    },
+    {
+      "id": "3cad1b4d-5d18-42bb-94e7-526a09874f21",
+      "itemId": "nullius-methane",
+      "rate": 400
+    }
+  ],
+  "nodes": [
+    {
+      "id": "f948339d-80a3-4acc-9323-53e45837027a",
+      "recipeId": "nullius-propene-pyrolysis",
+      "modules": [],
+      "byproductPolicy": {},
+      "byproductConsumer": true
+    },
+    {
+      "id": "ecc1285d-f051-45dc-89f2-a67c48fbce9f",
+      "recipeId": "nullius-carbon-monoxide-to-alkenes",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "2ac02185-1d8e-47c3-b744-f67ab0c11078",
+      "recipeId": "nullius-benzene-combustion",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "50448dde-dad7-4895-b26a-d607aaeec7ba",
+      "recipeId": "nullius-steam-electrolysis",
+      "modules": [],
+      "byproductPolicy": {}
+    },
+    {
+      "id": "87c4f609-b50f-4d0a-bea1-458fcfd28ffd",
+      "recipeId": "nullius-methane",
+      "modules": [],
+      "byproductPolicy": {}
+    }
+  ]
+}

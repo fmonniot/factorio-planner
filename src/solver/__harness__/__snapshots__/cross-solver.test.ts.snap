@@ -1,0 +1,85 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`cross-solver harness > fixture: automation-science-pack > 60/min automation-science-pack — v2 snapshot 1`] = `
+{
+  "throughputs": {
+    "node-1": 60,
+    "node-2": 60,
+    "node-3": 60,
+    "node-4": 120,
+  },
+  "unsatisfiedItems": [
+    "copper-ore",
+    "iron-ore",
+  ],
+  "warningTypes": [],
+}
+`;
+
+exports[`cross-solver harness > fixture: chemical-science-pack > 60/min chemical-science-pack — v2 snapshot 1`] = `
+{
+  "throughputs": {
+    "node-1": 30,
+    "node-10": 60,
+    "node-11": 600,
+    "node-12": 8,
+    "node-13": 16,
+    "node-2": 15,
+    "node-3": 90,
+    "node-4": 60,
+    "node-5": 50,
+    "node-6": 90,
+    "node-7": 180,
+    "node-8": 40,
+    "node-9": 60,
+  },
+  "unsatisfiedItems": [
+    "coal",
+    "copper-cable",
+    "crude-oil",
+    "iron-ore",
+    "water",
+  ],
+  "warningTypes": [],
+}
+`;
+
+exports[`cross-solver harness > fixture: logistic-science-pack > 60/min logistic-science-pack — v2 snapshot 1`] = `
+{
+  "throughputs": {
+    "node-1": 60,
+    "node-10": 90.2444,
+    "node-2": 15,
+    "node-3": 4,
+    "node-4": 19,
+    "node-5": 23.9,
+    "node-6": 19,
+    "node-7": 1.3333,
+    "node-8": 21.2222,
+    "node-9": 9.5,
+  },
+  "unsatisfiedItems": [
+    "iron-ore",
+    "nullius-plastic",
+  ],
+  "warningTypes": [],
+}
+`;
+
+exports[`cross-solver harness > fixture: nullius-ethylene-methane > Nullius ethylene 800/min + methane 400/min — v2 snapshot 1`] = `
+{
+  "throughputs": {
+    "2ac02185-1d8e-47c3-b744-f67ab0c11078": 56.25,
+    "50448dde-dad7-4895-b26a-d607aaeec7ba": 11.25,
+    "87c4f609-b50f-4d0a-bea1-458fcfd28ffd": 0,
+    "ecc1285d-f051-45dc-89f2-a67c48fbce9f": 50,
+    "f948339d-80a3-4acc-9323-53e45837027a": 6.6667,
+  },
+  "unsatisfiedItems": [
+    "nullius-carbon-monoxide",
+  ],
+  "warningTypes": [
+    "overconstrained",
+  ],
+}
+`;
