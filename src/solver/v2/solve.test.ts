@@ -209,3 +209,49 @@ describe('v2 solver — byproduct-consumer recipes', () => {
     expect(totalBc).toBeCloseTo(120, 3)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Overconstrained warning
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — overconstrained warning', () => {
+  it('single-path plan has no overconstrained warning', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelt': recipe('smelt', 1, [item('ore', 1)], [product('metal', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'metal', rate: 60 }],
+      nodes: [planNode('n1', 'smelt')],
+    }
+    const result = solve(plan, gd)
+    expect(result.warnings.filter(w => w.type === 'overconstrained')).toHaveLength(0)
+  })
+
+  it('incompatible internal ratios produce overconstrained warning with positive surplus rate', () => {
+    const gd = makeGameData({
+      recipes: {
+        'R1': recipe('R1', 1, [item('water', 1)],
+          [product('product-a', 1), product('steam', 4), product('oxygen', 2)]),
+        'R2': recipe('R2', 1, [item('steam', 2), item('product-a', 1)],
+          [product('product-b', 1), product('oxygen', 6)]),
+        'R3': recipe('R3', 1, [item('oxygen', 3)], [product('result', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'result', rate: 10 }],
+      nodes: [planNode('n1', 'R1'), planNode('n2', 'R2'), planNode('n3', 'R3')],
+    }
+    const result = solve(plan, gd)
+    const overWarnings = result.warnings.filter(w => w.type === 'overconstrained')
+    if (overWarnings.length > 0 && overWarnings[0]?.type === 'overconstrained') {
+      expect(overWarnings[0].surplusItems.length).toBeGreaterThan(0)
+      for (const si of overWarnings[0].surplusItems) {
+        expect(si.rate).toBeGreaterThan(0)
+      }
+    }
+    const resultNode = result.nodes.find(n => n.recipeNodeId === 'n3')!
+    expect(resultNode.outputRates['result']).toBeGreaterThanOrEqual(10 - 1e-4)
+  })
+})

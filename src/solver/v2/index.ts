@@ -100,6 +100,19 @@ export function solve(
     }
   }
 
+  // Detect overconstrained intermediates: positive net flow after bc consumption.
+  const SURPLUS_TOLERANCE = 1e-6
+  const overconstrainedItems: { itemId: string; rate: number }[] = []
+  for (const itemId of system.classification.intermediates) {
+    const surplus = itemSurplus.get(itemId) ?? 0
+    if (surplus > SURPLUS_TOLERANCE) {
+      overconstrainedItems.push({ itemId, rate: surplus })
+    }
+  }
+  if (overconstrainedItems.length > 0) {
+    warnings.push({ type: 'overconstrained', surplusItems: overconstrainedItems })
+  }
+
   const nodes: SolvedNode[] = []
 
   for (const planNode of mainNodes) {

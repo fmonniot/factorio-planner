@@ -51,6 +51,7 @@ export type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number }
   // v2-only warning types
   | { type: 'infeasible-pins'; recipeIds: string[] }
+  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
 
 export interface SolverResult {
   nodes: SolvedNode[]
