@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { GameData } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Popover } from './Popover'
+import { iconUrl } from '../../utils/iconUrl'
 
 interface MachinePopoverProps {
   nodeId: string
@@ -125,7 +126,15 @@ export function MachineCell({
         title={machine?.name ?? 'Select machine'}
       >
         <span className="font-mono tabular-nums">{machineCountCeil}</span>
-        <span className="truncate max-w-[6rem]">{machine?.name ?? '—'}</span>
+        {machine?.iconPath ? (
+          <img
+            src={iconUrl(machine.iconPath)}
+            alt={machine.name}
+            className="w-5 h-5 object-contain shrink-0"
+          />
+        ) : (
+          <span className="truncate max-w-[6rem]">{machine?.name ?? '—'}</span>
+        )}
       </button>
 
       {open && (

@@ -138,6 +138,7 @@ export function BeaconCell({ nodeId, beacon, gameData }: BeaconCellProps) {
           onClick={() => setOpen(o => !o)}
           className="text-xs text-gray-300 hover:text-gray-100"
           title="Edit beacon"
+          aria-label="Edit beacon"
         >
           ×{beacon.beaconCount}
         </button>
@@ -145,10 +146,11 @@ export function BeaconCell({ nodeId, beacon, gameData }: BeaconCellProps) {
         <button
           type="button"
           onClick={enable}
-          className="text-xs text-gray-600 hover:text-gray-400"
+          className="w-5 h-5 flex items-center justify-center rounded bg-gray-800 text-gray-500 hover:text-gray-200 hover:bg-gray-700 text-xs leading-none"
           title="Add beacon"
+          aria-label="Add beacon"
         >
-          +beacon
+          +
         </button>
       )}
 
