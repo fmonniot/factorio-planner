@@ -1,5 +1,5 @@
 import { Matrix, LuDecomposition, pseudoInverse } from 'ml-matrix'
-import type { SolverWarning } from '../data/types'
+import type { SolverWarning } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Core solve

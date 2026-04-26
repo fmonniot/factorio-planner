@@ -1,4 +1,4 @@
-import type { SubPlan, SolverResult } from '../data/types'
+import type { SubPlan, SolverResult } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Synthetic recipe

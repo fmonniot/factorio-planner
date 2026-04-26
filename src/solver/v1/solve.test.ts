@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { buildStoichiometryMatrix } from './build'
 import { reduceSystem } from './reduce'
 import { solveSystem } from './solve'
-import type { GameData } from '../data/types'
+import type { GameData } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Shared helpers

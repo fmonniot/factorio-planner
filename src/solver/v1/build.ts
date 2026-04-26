@@ -1,4 +1,4 @@
-import type { GameData, Recipe } from '../data/types'
+import type { GameData, Recipe } from '../../data/types'
 import type { SyntheticRecipe } from './subplan'
 
 // ---------------------------------------------------------------------------
