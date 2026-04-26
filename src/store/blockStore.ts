@@ -135,6 +135,7 @@ export interface BlockStoreState {
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
+  updateNodeByproductConsumer: (nodeId: string, value: boolean) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
   wrapNodeInSubPlan: (nodeId: string, name: string) => void
@@ -479,6 +480,21 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
+  updateNodeByproductConsumer: (nodeId, value) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old) return state
+      const oldValue = old.kind === 'game-recipe' ? old.byproductConsumer : undefined
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductConsumer: value } : n) }),
+        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductConsumer: oldValue } : n) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
   updateNodePrimaryProduct: (nodeId, primaryProduct) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
@@ -505,7 +521,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
           ...p,
           nodes: p.nodes.map(n =>
             n.id === nodeId
-              ? { ...n, recipeId, machineId: undefined, modules: [], beaconConfig: undefined, pinnedRate: undefined, byproductPolicy: {} }
+              ? { ...n, recipeId, machineId: undefined, modules: [], beaconConfig: undefined, pinnedRate: undefined, byproductPolicy: {}, byproductConsumer: undefined }
               : n,
           ),
         }),

@@ -37,6 +37,7 @@ export function RecipeRow({
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
+  const updateNodeByproductConsumer = useBlockStore(s => s.updateNodeByproductConsumer)
   const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
@@ -83,6 +84,7 @@ export function RecipeRow({
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
+  const isByproductConsumer = planNode.byproductConsumer === true
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
@@ -117,19 +119,34 @@ export function RecipeRow({
       {/* Recipe icon + wrap + pin */}
       <td className="px-2 py-0.5 whitespace-nowrap" style={{ paddingLeft: `${8 + indentPx}px` }}>
         <div className="flex items-center gap-1">
-          {/* Pin toggle — always visible when pinned, hover-only when not */}
+          {/* Byproduct-consumer toggle */}
           <button
             type="button"
-            onClick={isPinned ? handleUnpin : handlePin}
-            title={isPinned ? 'Unpin rate' : 'Pin rate'}
+            onClick={() => updateNodeByproductConsumer(planNode.id, !isByproductConsumer)}
+            title={isByproductConsumer ? 'Stop absorbing byproduct (re-enter main solve)' : 'Only run to absorb byproduct from other recipes'}
             className={`text-sm leading-none shrink-0 transition-opacity ${
-              isPinned
-                ? 'text-yellow-400 hover:text-yellow-300'
+              isByproductConsumer
+                ? 'text-emerald-400 hover:text-emerald-300'
                 : 'text-gray-700 hover:text-gray-400 opacity-0 group-hover:opacity-100'
             }`}
           >
-            {isPinned ? '📌' : '📍'}
+            ♻
           </button>
+          {/* Pin toggle — hidden when byproduct consumer (throughput is derived) */}
+          {!isByproductConsumer && (
+            <button
+              type="button"
+              onClick={isPinned ? handleUnpin : handlePin}
+              title={isPinned ? 'Unpin rate' : 'Pin rate'}
+              className={`text-sm leading-none shrink-0 transition-opacity ${
+                isPinned
+                  ? 'text-yellow-400 hover:text-yellow-300'
+                  : 'text-gray-700 hover:text-gray-400 opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              {isPinned ? '📌' : '📍'}
+            </button>
+          )}
           {/* Wrap in subfactory */}
           <button
             type="button"
@@ -192,7 +209,7 @@ export function RecipeRow({
       <td className="px-2 py-0.5">
         <div className="flex flex-wrap gap-0.5 items-center">
           {productEntries.map(([itemId, ratePerMin]) => {
-            if (isPinned) {
+            if (isPinned && !isByproductConsumer) {
               // Replace the static tile with an editable input.
               return (
                 <div key={itemId} className="flex items-center gap-1">

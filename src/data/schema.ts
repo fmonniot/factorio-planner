@@ -152,6 +152,7 @@ export const GameRecipeNodeSchema = z.object({
   pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
+  byproductConsumer: z.boolean().optional(),
 })
 
 export const SubPlanNodeSchema = z.object({

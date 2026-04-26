@@ -1,0 +1,48 @@
+{
+  "blocks": [
+    {
+      "id": "aaaa0001-0000-0000-0000-000000000001",
+      "name": "Block 1",
+      "gameDataVersion": "",
+      "rootPlan": {
+        "id": "aaaa0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "goals": [
+          {
+            "id": "aaaa0003-0000-0000-0000-000000000001",
+            "itemId": "nullius-hydrogen",
+            "rate": 100
+          }
+        ],
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "aaaa0004-0000-0000-0000-000000000001",
+            "recipeId": "nullius-steam-electrolysis",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "aaaa0005-0000-0000-0000-000000000001",
+            "recipeId": "nullius-acid-sulfuric",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "aaaa0006-0000-0000-0000-000000000001",
+            "recipeId": "nullius-acid-nitric",
+            "modules": [],
+            "byproductPolicy": {},
+            "byproductConsumer": true
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-26T00:00:00.000Z",
+        "updatedAt": "2026-04-26T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "aaaa0001-0000-0000-0000-000000000001"
+}

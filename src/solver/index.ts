@@ -33,16 +33,29 @@ export function solve(
 ): SolverResult {
   const warnings: SolverWarning[] = []
 
+  // Split nodes: byproduct-consumer recipes are excluded from the main matrix
+  // and have their throughput derived post-solve from the byproduct surplus.
+  const mainPlanNodes = plan.nodes.filter(
+    n => n.kind !== 'game-recipe' || !n.byproductConsumer,
+  )
+  const bcPlanNodes = plan.nodes.filter(
+    n => n.kind === 'game-recipe' && n.byproductConsumer,
+  ) as Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
+
   // ── 1. Compute module effects per node (game-recipe nodes only) ──────────
   const nodeEffectsMap = new Map(
-    plan.nodes
+    mainPlanNodes
       .filter(n => n.kind === 'game-recipe')
       .map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+  )
+  // Also compute effects for byproduct-consumer nodes (needed for machine metrics)
+  const bcEffectsMap = new Map(
+    bcPlanNodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
   )
 
   // ── 2. Productivity map (skip recipes that disallow it) ─────────────────
   const productivityMap = new Map<string, number>()
-  for (const n of plan.nodes) {
+  for (const n of mainPlanNodes) {
     if (n.kind !== 'game-recipe') continue
     const recipe = gameData.recipes[n.recipeId]
     const effects = nodeEffectsMap.get(n.recipeId)!
@@ -60,7 +73,7 @@ export function solve(
   // matrix columns, making the system rank-deficient and causing the SVD-based
   // pseudo-inverse to return astronomically large throughput values.
   const rawRecipeIds = [
-    ...plan.nodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
+    ...mainPlanNodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
     ...syntheticRecipes.keys(),
   ]
   const recipeIds = [...new Set(rawRecipeIds)]
@@ -76,7 +89,7 @@ export function solve(
 
   // ── 3b. Apply byproductPolicy: zero out discarded products ───────────────
   // Only game-recipe nodes carry a byproduct policy.
-  for (const planNode of plan.nodes) {
+  for (const planNode of mainPlanNodes) {
     if (planNode.kind !== 'game-recipe') continue
     const j = matrix.recipeIndex.get(planNode.recipeId)
     if (j === undefined) continue
@@ -106,7 +119,7 @@ export function solve(
 
   // ── 6. Apply pinned rates ────────────────────────────────────────────────
   const pinnedRates = new Map<string, number>()
-  for (const n of plan.nodes) {
+  for (const n of mainPlanNodes) {
     if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
       pinnedRates.set(n.recipeId, n.pinnedRate)
     }
@@ -131,11 +144,43 @@ export function solve(
     matrix.recipes.map((id, j) => [id, fullThroughput[j]]),
   )
 
+  // ── 8b. Derive byproduct-consumer throughputs from main-solve surplus ────
+  // Compute per-item net rate produced by the main recipes.
+  const itemSurplus = new Map<string, number>()
+  for (let i = 0; i < matrix.items.length; i++) {
+    const itemId = matrix.items[i]
+    let net = 0
+    for (let j = 0; j < matrix.recipes.length; j++) {
+      net += matrix.S[i][j] * (throughputMap.get(matrix.recipes[j]) ?? 0)
+    }
+    itemSurplus.set(itemId, net)
+  }
+
+  const bcThroughputMap = new Map<string, number>()
+  for (const planNode of bcPlanNodes) {
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+    let throughput = Infinity
+    for (const ing of recipe.ingredients) {
+      const surplus = itemSurplus.get(ing.itemId) ?? 0
+      if (surplus > 0 && ing.amount > 0) {
+        throughput = Math.min(throughput, surplus / ing.amount)
+      }
+    }
+    if (!isFinite(throughput)) throughput = 0
+    bcThroughputMap.set(planNode.recipeId, throughput)
+    // Deduct from surplus so subsequent bc recipes see the remainder.
+    for (const ing of recipe.ingredients) {
+      const s = itemSurplus.get(ing.itemId) ?? 0
+      itemSurplus.set(ing.itemId, Math.max(0, s - ing.amount * throughput))
+    }
+  }
+
   // ── 9. Build SolvedNode per plan node and per implicit subplan ──────────
   const nodes: SolvedNode[] = []
 
   // Game-recipe nodes
-  for (const planNode of plan.nodes) {
+  for (const planNode of mainPlanNodes) {
     if (planNode.kind !== 'game-recipe') continue
     const recipe = gameData.recipes[planNode.recipeId]
     if (!recipe) continue
@@ -166,6 +211,56 @@ export function solve(
     }
 
     // Output rates: effective production per minute (accounting for productivity).
+    const outputRates: Record<string, number> = {}
+    for (const prod of recipe.products) {
+      const effective = effectiveProductAmount(
+        prod.amount ?? 0,
+        prod.probability ?? 1,
+        prod.ignoredByProductivity ?? 0,
+        prodBonus,
+      )
+      outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: planNode.id,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact,
+      machineCountCeil,
+      powerKw,
+    })
+  }
+
+  // Byproduct-consumer nodes — throughput derived from surplus above.
+  for (const planNode of bcPlanNodes) {
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+
+    const throughput = bcThroughputMap.get(planNode.recipeId) ?? 0
+    const effects = bcEffectsMap.get(planNode.recipeId)!
+    const prodBonus = 0 // productivity not meaningful for bc recipes (inputs drive throughput)
+
+    const machineId =
+      planNode.machineId ?? gameData.defaultMachines[recipe.category]
+    const machine = machineId ? gameData.machines[machineId] : undefined
+
+    let machineCountExact = 0
+    let machineCountCeil = 0
+    let powerKw = 0
+    if (machine) {
+      const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
+      machineCountExact = m.machineCountExact
+      machineCountCeil = m.machineCountCeil
+      powerKw = m.powerKw
+    }
+
+    const inputRates: Record<string, number> = {}
+    for (const ing of recipe.ingredients) {
+      inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
+    }
+
     const outputRates: Record<string, number> = {}
     for (const prod of recipe.products) {
       const effective = effectiveProductAmount(
