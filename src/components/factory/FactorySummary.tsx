@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBlockStore, selectActiveSubPlan } from '../../store/blockStore'
+import { useBlockStore, selectActiveSubPlan, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
@@ -145,6 +145,8 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
 
 export function FactorySummary() {
   const subPlan = useBlockStore(selectActiveSubPlan)
+  const activeBlock = useBlockStore(selectActiveBlock)
+  const renameBlock = useBlockStore(s => s.renameBlock)
   const solverResult = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -153,6 +155,8 @@ export function FactorySummary() {
   const removeGoal = useBlockStore(s => s.removeGoal)
   const updateGoalRate = useBlockStore(s => s.updateGoalRate)
   const [showGoalPicker, setShowGoalPicker] = useState(false)
+  const [editingName, setEditingName] = useState(false)
+  const [nameDraft, setNameDraft] = useState('')
 
   const goals: ProductionGoal[] = subPlan?.goals ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
@@ -171,29 +175,68 @@ export function FactorySummary() {
     addGoal({ id: crypto.randomUUID(), itemId, rate: 60 })
   }
 
+  function startNameEdit() {
+    setNameDraft(activeBlock?.name ?? '')
+    setEditingName(true)
+  }
+
+  function commitNameEdit() {
+    const trimmed = nameDraft.trim()
+    if (trimmed && activeBlock) renameBlock(activeBlock.id, trimmed)
+    setEditingName(false)
+  }
+
+  function handleNameKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter') commitNameEdit()
+    if (e.key === 'Escape') setEditingName(false)
+  }
+
   return (
     <div className="border-b border-gray-700 bg-gray-900 shrink-0">
-      {/* Rate unit toggle */}
-      <div className="flex items-center justify-end px-3 pt-1.5 gap-2 text-xs text-gray-500">
-        <button
-          type="button"
-          onClick={() => setRateUnit('sec')}
-          className={`hover:text-gray-200 ${rateUnit === 'sec' ? 'text-teal-400' : ''}`}
-        >
-          /sec
-        </button>
-        <span>·</span>
-        <button
-          type="button"
-          onClick={() => setRateUnit('min')}
-          className={`hover:text-gray-200 ${rateUnit === 'min' ? 'text-teal-400' : ''}`}
-        >
-          /min
-        </button>
+      {/* Block name + rate unit toggle */}
+      <div className="flex items-center justify-between px-3 pt-1.5 gap-2 text-xs text-gray-500">
+        {editingName ? (
+          <input
+            type="text"
+            aria-label="Block name"
+            autoFocus
+            value={nameDraft}
+            onChange={e => setNameDraft(e.target.value)}
+            onBlur={commitNameEdit}
+            onKeyDown={handleNameKeyDown}
+            className="bg-gray-800 text-gray-100 text-xs font-semibold rounded px-1.5 py-0.5 border border-gray-600 outline-none focus:ring-1 focus:ring-teal-500 w-32"
+          />
+        ) : (
+          <button
+            type="button"
+            onClick={startNameEdit}
+            title="Click to rename"
+            className="font-semibold text-gray-300 hover:text-gray-100 text-xs"
+          >
+            {activeBlock?.name ?? 'Factory'}
+          </button>
+        )}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setRateUnit('sec')}
+            className={`hover:text-gray-200 ${rateUnit === 'sec' ? 'text-teal-400' : ''}`}
+          >
+            /sec
+          </button>
+          <span>·</span>
+          <button
+            type="button"
+            onClick={() => setRateUnit('min')}
+            className={`hover:text-gray-200 ${rateUnit === 'min' ? 'text-teal-400' : ''}`}
+          >
+            /min
+          </button>
+        </div>
       </div>
 
       {/* Three-pane summary */}
-      <div className="grid grid-cols-3 divide-x divide-gray-800 pb-2">
+      <div className="grid grid-cols-3 gap-2 px-3 pb-2 pt-1">
         {/* Products — one GoalTile per goal */}
         <SummaryPane label="Products">
           {goals.map(goal => (
@@ -259,7 +302,7 @@ export function FactorySummary() {
 
 function SummaryPane({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="px-3 py-1.5">
+    <div className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5">
       <div className="text-[10px] uppercase tracking-wide text-gray-600 mb-1">{label}</div>
       <div className="flex flex-wrap gap-1 items-center min-h-[1.75rem]">
         {children}
