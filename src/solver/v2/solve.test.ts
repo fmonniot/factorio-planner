@@ -114,19 +114,6 @@ describe('v2 solver — basic cases', () => {
       expect(rel, `node ${nodeId} relative difference`).toBeLessThanOrEqual(TOLERANCE)
     }
   })
-
-  it('throws when plan has byproduct-consumer recipes', () => {
-    const gameData = makeGameData({
-      recipes: {
-        'iron-plate': recipe('iron-plate', 1, [], [product('iron-plate', 1)]),
-      },
-    })
-    const plan = {
-      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
-      nodes: [{ ...planNode('n1', 'iron-plate'), byproductConsumer: true }],
-    }
-    expect(() => solve(plan, gameData)).toThrow(/not implemented/)
-  })
 })
 
 // ---------------------------------------------------------------------------
@@ -171,5 +158,54 @@ describe('v2 solver — pinned rates', () => {
     const result = solve(plan, gameData)
     expect(result.nodes[0].throughput).toBeCloseTo(60, 3)
     expect(result.warnings.filter(w => w.type === 'infeasible-pins')).toHaveLength(0)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Byproduct-consumer recipes
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — byproduct-consumer recipes', () => {
+  const gameData = makeGameData({
+    recipes: {
+      'smelting': recipe('smelting', 1, [item('iron-ore', 2)], [product('iron-plate', 1), product('slag', 1)]),
+      'slag-disposal': recipe('slag-disposal', 1, [item('slag', 1)], [product('dust', 0.5)]),
+    },
+  })
+
+  it('bc recipe consumes exactly the surplus produced upstream', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [
+        planNode('n1', 'smelting'),
+        { ...planNode('n2', 'slag-disposal'), byproductConsumer: true },
+      ],
+    }
+    const result = solve(plan, gameData)
+    const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
+    expect(byId.get('n1')!.throughput).toBeCloseTo(60, 3)
+    expect(byId.get('n2')!.throughput).toBeCloseTo(60, 3)
+  })
+
+  it('multiple bc recipes split surplus', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelting': recipe('smelting', 1, [item('iron-ore', 2)], [product('iron-plate', 1), product('slag', 2)]),
+        'slag-a': recipe('slag-a', 1, [item('slag', 1)], [product('dust-a', 1)]),
+        'slag-b': recipe('slag-b', 1, [item('slag', 1)], [product('dust-b', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [
+        planNode('n1', 'smelting'),
+        { ...planNode('n2', 'slag-a'), byproductConsumer: true },
+        { ...planNode('n3', 'slag-b'), byproductConsumer: true },
+      ],
+    }
+    const result = solve(plan, gd)
+    const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
+    const totalBc = (byId.get('n2')!.throughput) + (byId.get('n3')!.throughput)
+    expect(totalBc).toBeCloseTo(120, 3)
   })
 })

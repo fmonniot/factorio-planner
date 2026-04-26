@@ -13,14 +13,14 @@ export function solve(
   gameData: GameData,
   syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
 ): SolverResult {
-  const hasBcRecipes = plan.nodes.some(
-    n => n.kind === 'game-recipe' && n.byproductConsumer,
-  )
-  if (hasBcRecipes) throw new Error('v2 solver: byproduct-consumer recipes not implemented')
-
+  // Split nodes: byproduct-consumer recipes are excluded from the LP and have
+  // their throughput computed post-solve from item surplus (same as v1).
   const mainNodes = plan.nodes.filter(
     n => n.kind !== 'game-recipe' || !n.byproductConsumer,
   )
+  const bcPlanNodes = plan.nodes.filter(
+    n => n.kind === 'game-recipe' && n.byproductConsumer,
+  ) as Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
   const rawRecipeIds = [
     ...mainNodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
@@ -34,6 +34,9 @@ export function solve(
     mainNodes
       .filter(n => n.kind === 'game-recipe')
       .map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+  )
+  const bcEffectsMap = new Map(
+    bcPlanNodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
   )
   const productivityMap = new Map<string, number>()
   for (const n of mainNodes) {
@@ -59,7 +62,6 @@ export function solve(
     }
   }
 
-  // Collect pinned rates for game-recipe nodes.
   const pinnedRates = new Map<string, number>()
   for (const n of mainNodes) {
     if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
@@ -68,6 +70,35 @@ export function solve(
   }
 
   const { throughput: throughputMap, warnings } = solveLP(system, pinnedRates)
+
+  // bc post-pass: compute per-item net surplus from main solve.
+  const itemSurplus = new Map<string, number>()
+  for (const [itemId, rowS] of system.S) {
+    let net = 0
+    for (const [recipeId, coeff] of rowS) {
+      net += coeff * (throughputMap.get(recipeId) ?? 0)
+    }
+    itemSurplus.set(itemId, net)
+  }
+
+  const bcThroughputMap = new Map<string, number>()
+  for (const planNode of bcPlanNodes) {
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+    let throughput = Infinity
+    for (const ing of recipe.ingredients) {
+      const surplus = itemSurplus.get(ing.itemId) ?? 0
+      if (surplus > 0 && ing.amount > 0) {
+        throughput = Math.min(throughput, surplus / ing.amount)
+      }
+    }
+    if (!isFinite(throughput)) throughput = 0
+    bcThroughputMap.set(planNode.recipeId, throughput)
+    for (const ing of recipe.ingredients) {
+      const s = itemSurplus.get(ing.itemId) ?? 0
+      itemSurplus.set(ing.itemId, Math.max(0, s - ing.amount * throughput))
+    }
+  }
 
   const nodes: SolvedNode[] = []
 
@@ -106,6 +137,48 @@ export function solve(
         prod.ignoredByProductivity ?? 0,
         prodBonus,
       )
+      outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: planNode.id,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact,
+      machineCountCeil,
+      powerKw,
+    })
+  }
+
+  for (const planNode of bcPlanNodes) {
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+
+    const throughput = bcThroughputMap.get(planNode.recipeId) ?? 0
+    const effects = bcEffectsMap.get(planNode.recipeId)!
+
+    const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
+    const machine = machineId ? gameData.machines[machineId] : undefined
+
+    let machineCountExact = 0
+    let machineCountCeil = 0
+    let powerKw = 0
+    if (machine) {
+      const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
+      machineCountExact = m.machineCountExact
+      machineCountCeil = m.machineCountCeil
+      powerKw = m.powerKw
+    }
+
+    const inputRates: Record<string, number> = {}
+    for (const ing of recipe.ingredients) {
+      inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
+    }
+
+    const outputRates: Record<string, number> = {}
+    for (const prod of recipe.products) {
+      const effective = effectiveProductAmount(prod.amount ?? 0, prod.probability ?? 1, prod.ignoredByProductivity ?? 0, 0)
       outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
     }
 
