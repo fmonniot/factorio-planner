@@ -82,9 +82,18 @@ describe('solve dispatcher', () => {
     expect(dispatched.nodes[0]?.throughput).toBeCloseTo(v1Direct.nodes[0]!.throughput, 6)
   })
 
-  it('routes solverVersion 2 to v2 and throws a recognizable error', () => {
-    expect(() => solve({ ...simplePlan, solverVersion: 2 }, simpleGameData)).toThrowError(
-      /v2 solver not implemented/i,
-    )
+  it('routes solverVersion 2 to v2 and returns a valid result for a simple plan', () => {
+    const result = solve({ ...simplePlan, solverVersion: 2 }, simpleGameData)
+    expect(result.nodes).toHaveLength(1)
+    expect(result.nodes[0].throughput).toBeGreaterThan(0)
+  })
+
+  it('routes solverVersion 2 to v2 which throws for unsupported features', () => {
+    const pinnedPlan = {
+      ...simplePlan,
+      solverVersion: 2 as const,
+      nodes: [{ ...simplePlan.nodes[0]!, pinnedRate: 80 }],
+    }
+    expect(() => solve(pinnedPlan, simpleGameData)).toThrowError(/not implemented/i)
   })
 })

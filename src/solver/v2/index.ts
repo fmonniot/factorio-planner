@@ -1,10 +1,158 @@
-import type { SubPlan, GameData, SolverResult } from '../../data/types'
+import type { SubPlan, GameData, SolverResult, SolvedNode, UnsatisfiedItem } from '../../data/types'
 import type { SyntheticRecipe } from '../v1/subplan'
+import { buildClassifiedSystem, effectiveProductAmount } from './build'
+import { solveLP } from './solve'
+import { computeNodeEffects, computeMachineMetrics } from '../v1/effects'
+
+// ---------------------------------------------------------------------------
+// v2 solver entry point
+// ---------------------------------------------------------------------------
 
 export function solve(
-  _plan: Pick<SubPlan, 'goals' | 'nodes'>,
-  _gameData: GameData,
-  _syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
+  plan: Pick<SubPlan, 'goals' | 'nodes'>,
+  gameData: GameData,
+  syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
 ): SolverResult {
-  throw new Error('v2 solver not implemented')
+  // Features arriving in later tasks:
+  const hasPinnedRates = plan.nodes.some(
+    n => n.kind === 'game-recipe' && n.pinnedRate !== undefined,
+  )
+  if (hasPinnedRates) throw new Error('v2 solver: pinned rates not implemented')
+
+  const hasBcRecipes = plan.nodes.some(
+    n => n.kind === 'game-recipe' && n.byproductConsumer,
+  )
+  if (hasBcRecipes) throw new Error('v2 solver: byproduct-consumer recipes not implemented')
+
+  const mainNodes = plan.nodes.filter(
+    n => n.kind !== 'game-recipe' || !n.byproductConsumer,
+  )
+
+  const rawRecipeIds = [
+    ...mainNodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
+    ...syntheticRecipes.keys(),
+  ]
+  const recipeIds = [...new Set(rawRecipeIds)]
+
+  const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
+
+  const nodeEffectsMap = new Map(
+    mainNodes
+      .filter(n => n.kind === 'game-recipe')
+      .map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+  )
+  const productivityMap = new Map<string, number>()
+  for (const n of mainNodes) {
+    if (n.kind !== 'game-recipe') continue
+    const effects = nodeEffectsMap.get(n.recipeId)!
+    if (effects.productivityBonus > 0) {
+      productivityMap.set(n.recipeId, effects.productivityBonus)
+    }
+  }
+
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap)
+
+  for (const n of mainNodes) {
+    if (n.kind !== 'game-recipe') continue
+    for (const [itemId, policy] of Object.entries(n.byproductPolicy)) {
+      if (policy === 'discard') {
+        const row = system.S.get(itemId)
+        if (row) {
+          const coeff = row.get(n.recipeId) ?? 0
+          if (coeff > 0) row.set(n.recipeId, 0)
+        }
+      }
+    }
+  }
+
+  const { throughput: throughputMap, warnings } = solveLP(system)
+
+  const nodes: SolvedNode[] = []
+
+  for (const planNode of mainNodes) {
+    if (planNode.kind !== 'game-recipe') continue
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+
+    const throughput = throughputMap.get(planNode.recipeId) ?? 0
+    const effects = nodeEffectsMap.get(planNode.recipeId)!
+    const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
+
+    const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
+    const machine = machineId ? gameData.machines[machineId] : undefined
+
+    let machineCountExact = 0
+    let machineCountCeil = 0
+    let powerKw = 0
+    if (machine) {
+      const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
+      machineCountExact = m.machineCountExact
+      machineCountCeil = m.machineCountCeil
+      powerKw = m.powerKw
+    }
+
+    const inputRates: Record<string, number> = {}
+    for (const ing of recipe.ingredients) {
+      inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
+    }
+
+    const outputRates: Record<string, number> = {}
+    for (const prod of recipe.products) {
+      const effective = effectiveProductAmount(
+        prod.amount ?? 0,
+        prod.probability ?? 1,
+        prod.ignoredByProductivity ?? 0,
+        prodBonus,
+      )
+      outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
+    }
+
+    nodes.push({
+      recipeNodeId: planNode.id,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact,
+      machineCountCeil,
+      powerKw,
+    })
+  }
+
+  for (const [syntheticId, synthetic] of syntheticRecipes) {
+    const throughput = throughputMap.get(syntheticId) ?? 0
+    const inputRates: Record<string, number> = {}
+    for (const ing of synthetic.ingredients) {
+      inputRates[ing.itemId] = ing.amount * throughput
+    }
+    const outputRates: Record<string, number> = {}
+    for (const prod of synthetic.products) {
+      outputRates[prod.itemId] = prod.amount * throughput
+    }
+    nodes.push({
+      recipeNodeId: synthetic.subPlanId,
+      inputRates,
+      outputRates,
+      throughput,
+      machineCountExact: 0,
+      machineCountCeil: 0,
+      powerKw: 0,
+    })
+  }
+
+  const unsatisfied: UnsatisfiedItem[] = []
+  for (const itemId of system.classification.raw) {
+    const row = system.S.get(itemId)
+    if (!row) continue
+    let totalConsumption = 0
+    for (const [recipeId, coeff] of row) {
+      if (coeff < 0) {
+        totalConsumption += Math.abs(coeff) * (throughputMap.get(recipeId) ?? 0)
+      }
+    }
+    if (totalConsumption > 0) {
+      unsatisfied.push({ itemId, rate: totalConsumption })
+    }
+  }
+
+  return { nodes, unsatisfied, warnings }
 }
