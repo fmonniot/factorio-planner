@@ -150,10 +150,10 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('RecipeRow', () => {
-  it('renders the recipe name', () => {
+  it('renders recipe name via title on icon/placeholder', () => {
     renderRow()
-    // Recipe name appears at least once (may appear more from item tiles)
-    expect(screen.getAllByText('Iron Plate').length).toBeGreaterThan(0)
+    // Recipe name is on the icon/placeholder title (may also appear in item tile titles)
+    expect(screen.getAllByTitle('Iron Plate').length).toBeGreaterThan(0)
   })
 
   it('renders the machine count', () => {

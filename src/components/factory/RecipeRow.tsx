@@ -5,6 +5,7 @@ import { ItemTile, fmtRate } from './ItemTile'
 import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
 import { BeaconCell } from './BeaconPopover'
+import { iconUrl } from '../../utils/iconUrl'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -113,12 +114,9 @@ export function RecipeRow({
       {/* Reorder */}
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
-      {/* Recipe name + wrap + pin */}
+      {/* Recipe icon + wrap + pin */}
       <td className="px-2 py-1 whitespace-nowrap" style={{ paddingLeft: `${8 + indentPx}px` }}>
         <div className="flex items-center gap-1">
-          <span className="text-xs text-gray-200 truncate max-w-[10rem]" title={recipe.name}>
-            {recipe.name}
-          </span>
           {/* Pin toggle — always visible when pinned, hover-only when not */}
           <button
             type="button"
@@ -144,6 +142,22 @@ export function RecipeRow({
           >
             ⊞
           </button>
+          {/* Recipe icon derived from primary product */}
+          {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
+            <img
+              src={iconUrl(gameData.items[primaryItemId]!.iconPath)}
+              alt={recipe.name}
+              title={recipe.name}
+              className="w-6 h-6 object-contain shrink-0"
+            />
+          ) : (
+            <span
+              title={recipe.name}
+              className="w-6 h-6 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
+            >
+              {recipe.name.substring(0, 2).toUpperCase()}
+            </span>
+          )}
         </div>
       </td>
 
