@@ -94,6 +94,7 @@ export function makeEmptyBlock(name: string): Block {
     id: crypto.randomUUID(),
     name,
     gameDataVersion: '',
+    solverVersion: 2,
     rootPlan: makeEmptySubPlan('Main'),
   }
 }

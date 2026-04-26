@@ -6,6 +6,7 @@ import {
   initAppStatePersistence,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
+import { parseAppState } from '../data/loader'
 
 // ---------------------------------------------------------------------------
 // localStorage mock
@@ -141,5 +142,66 @@ describe('initAppStatePersistence', () => {
     vi.clearAllMocks()
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// solverVersion schema
+// ---------------------------------------------------------------------------
+
+const minimalRootPlan = {
+  id: 'plan-1',
+  name: 'Main',
+  goals: [],
+  nodes: [],
+  subPlans: [],
+  createdAt: '2024-01-01T00:00:00.000Z',
+  updatedAt: '2024-01-01T00:00:00.000Z',
+}
+
+function makeAppStateJson(blockOverrides: Record<string, unknown>) {
+  const block = {
+    id: 'block-1',
+    name: 'Test',
+    gameDataVersion: '',
+    rootPlan: minimalRootPlan,
+    ...blockOverrides,
+  }
+  return JSON.stringify({ blocks: [block], activeBlockId: 'block-1' })
+}
+
+describe('solverVersion schema', () => {
+  it('a block without solverVersion loads with solverVersion 1', () => {
+    const raw = JSON.parse(makeAppStateJson({}))
+    const appState = parseAppState(raw)
+    expect(appState.blocks[0].solverVersion).toBe(1)
+  })
+
+  it('a block with solverVersion 2 round-trips', () => {
+    const raw = JSON.parse(makeAppStateJson({ solverVersion: 2 }))
+    const appState = parseAppState(raw)
+    expect(appState.blocks[0].solverVersion).toBe(2)
+  })
+
+  it('solverVersion 0 fails Zod validation', () => {
+    const raw = JSON.parse(makeAppStateJson({ solverVersion: 0 }))
+    expect(() => parseAppState(raw)).toThrow()
+  })
+
+  it('solverVersion 3 fails Zod validation', () => {
+    const raw = JSON.parse(makeAppStateJson({ solverVersion: 3 }))
+    expect(() => parseAppState(raw)).toThrow()
+  })
+
+  it("solverVersion '2' (string) fails Zod validation", () => {
+    const raw = JSON.parse(makeAppStateJson({ solverVersion: '2' }))
+    expect(() => parseAppState(raw)).toThrow()
+  })
+})
+
+describe('makeEmptyBlock', () => {
+  it('produces solverVersion 2', () => {
+    const block = makeEmptyBlock('New Plan')
+    expect(block.solverVersion).toBe(2)
   })
 })
