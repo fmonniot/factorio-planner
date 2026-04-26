@@ -298,3 +298,94 @@ describe('v2 solver — too-many-alternatives warning', () => {
     expect(result.warnings.filter(w => w.type === 'too-many-alternatives')).toHaveLength(0)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Goal shortfall detection
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — goal shortfall detection', () => {
+  it('LP infeasible with no producer: full goal rate appears in unsatisfied', () => {
+    // Goal: methane 400/min; no recipe produces methane.
+    const gd = makeGameData({
+      recipes: {
+        'other': recipe('other', 1, [], [product('other-item', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'methane', rate: 400 }],
+      nodes: [planNode('n1', 'other')],
+    }
+    const result = solve(plan, gd)
+    const entry = result.unsatisfied.find(u => u.itemId === 'methane')
+    expect(entry).toBeDefined()
+    expect(entry!.rate).toBeCloseTo(400, 3)
+  })
+
+  it('bc post-pass covers partial goal: shortfall is goal minus bc output', () => {
+    // No main-LP recipe for methane in the nodes list — only the bc recipe produces it.
+    // propene-cracking produces 100 propene/min (goal 100).
+    // bc propene-pyrolysis runs at 100/min → produces 200 methane.
+    // methane goal = 400 → shortfall = 200 should appear in unsatisfied.
+    const gd = makeGameData({
+      recipes: {
+        'propene-pyrolysis': recipe('propene-pyrolysis', 1, [item('propene', 1)], [product('methane', 2)]),
+        'propene-cracking': recipe('propene-cracking', 1, [], [product('propene', 1)]),
+      },
+    })
+    const plan = {
+      goals: [
+        { id: 'g1', itemId: 'methane', rate: 400 },
+        { id: 'g2', itemId: 'propene', rate: 100 },
+      ],
+      nodes: [
+        planNode('n2', 'propene-cracking'),
+        { ...planNode('n3', 'propene-pyrolysis'), byproductConsumer: true },
+      ],
+    }
+    const result = solve(plan, gd)
+    const entry = result.unsatisfied.find(u => u.itemId === 'methane')
+    expect(entry).toBeDefined()
+    expect(entry!.rate).toBeCloseTo(200, 1)
+  })
+
+  it('fully satisfied goal: no shortfall entry in unsatisfied', () => {
+    const gd = makeGameData({
+      recipes: {
+        'iron-plate': recipe('iron-plate', 1, [], [product('iron-plate', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [planNode('n1', 'iron-plate')],
+    }
+    const result = solve(plan, gd)
+    expect(result.unsatisfied.find(u => u.itemId === 'iron-plate')).toBeUndefined()
+  })
+
+  it('goal shortfall entries appear before raw-item entries in unsatisfied', () => {
+    // methane (goal, no producer) → shortfall entry
+    // widgetizer produces widget (goal) from raw-stuff (raw input) → raw entry
+    // Ordering: methane shortfall must come before raw-stuff raw entry.
+    const gd = makeGameData({
+      recipes: {
+        'widgetizer': recipe('widgetizer', 1, [item('raw-stuff', 1)], [product('widget', 1)]),
+      },
+    })
+    const plan = {
+      goals: [
+        { id: 'g1', itemId: 'methane', rate: 60 },
+        { id: 'g2', itemId: 'widget', rate: 10 },
+      ],
+      nodes: [planNode('n1', 'widgetizer')],
+    }
+    const result = solve(plan, gd)
+    // methane has no producer → shortfall of 60 in unsatisfied
+    const methaneIdx = result.unsatisfied.findIndex(u => u.itemId === 'methane')
+    expect(methaneIdx).not.toBe(-1)
+    // raw-stuff is consumed by widgetizer → appears as raw ingredient
+    const rawIdx = result.unsatisfied.findIndex(u => u.itemId === 'raw-stuff')
+    if (rawIdx !== -1) {
+      expect(methaneIdx).toBeLessThan(rawIdx)
+    }
+  })
+})

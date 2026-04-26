@@ -77,6 +77,7 @@ exports[`cross-solver harness > fixture: nullius-ethylene-methane > Nullius ethy
   },
   "unsatisfiedItems": [
     "nullius-carbon-monoxide",
+    "nullius-methane",
   ],
   "warningTypes": [
     "overconstrained",

@@ -69,7 +69,7 @@ export function solve(
     }
   }
 
-  const { throughput: throughputMap, warnings } = solveLP(system, pinnedRates)
+  const { throughput: throughputMap, warnings, feasible: _feasible } = solveLP(system, pinnedRates)
 
   // bc post-pass: compute per-item net surplus from main solve.
   const itemSurplus = new Map<string, number>()
@@ -248,7 +248,7 @@ export function solve(
     })
   }
 
-  const unsatisfied: UnsatisfiedItem[] = []
+  let unsatisfied: UnsatisfiedItem[] = []
   for (const itemId of system.classification.raw) {
     const row = system.S.get(itemId)
     if (!row) continue
@@ -262,6 +262,31 @@ export function solve(
       unsatisfied.push({ itemId, rate: totalConsumption })
     }
   }
+
+  // Goal shortfall pass: if the net production of a goal item across all built
+  // nodes (LP + bc + synthetic) is less than the goal rate, surface the deficit
+  // as an unsatisfied entry so the Ingredients pane shows what must come from
+  // outside. Always checked — not gated on _feasible — because the bc post-pass
+  // can cause a shortfall even when the LP is nominally feasible.
+  const GOAL_SHORTFALL_TOLERANCE = 1e-4
+  const unsatisfiedIds = new Set(unsatisfied.map(u => u.itemId))
+  const goalShortfalls: UnsatisfiedItem[] = []
+
+  for (const goal of plan.goals) {
+    if (unsatisfiedIds.has(goal.itemId)) continue
+    let netActual = 0
+    for (const node of nodes) {
+      netActual += node.outputRates[goal.itemId] ?? 0
+      netActual -= node.inputRates[goal.itemId] ?? 0
+    }
+    const shortfall = goal.rate - netActual
+    if (shortfall > GOAL_SHORTFALL_TOLERANCE) {
+      goalShortfalls.push({ itemId: goal.itemId, rate: shortfall })
+    }
+  }
+
+  // Goal shortfalls first so the UI surfaces them before raw ingredients.
+  unsatisfied = [...goalShortfalls, ...unsatisfied]
 
   return { nodes, unsatisfied, warnings }
 }
