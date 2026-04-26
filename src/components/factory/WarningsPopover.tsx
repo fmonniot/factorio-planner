@@ -14,6 +14,9 @@ function warningTitle(w: SolverWarning): string {
     case 'no-recipe': return 'No producer'
     case 'productivity-not-allowed': return 'Productivity ignored'
     case 'cycle-detected': return 'Recipe cycle'
+    case 'too-many-alternatives': return 'Ambiguous production split'
+    case 'overconstrained': return "Recipe network can't fully balance"
+    case 'infeasible-pins': return 'Pinned rate is impossible'
   }
 }
 
@@ -37,6 +40,18 @@ function warningBody(w: SolverWarning, gameData: GameData): string {
       const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
       return `Recipes form a cycle: ${names.join(' → ')}.`
     }
+    case 'too-many-alternatives': {
+      const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
+      return `${names.join(', ')} can all produce the same item.`
+    }
+    case 'overconstrained': {
+      const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
+      return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
+    }
+    case 'infeasible-pins': {
+      const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
+      return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes.`
+    }
   }
 }
 
@@ -47,6 +62,9 @@ function warningHint(w: SolverWarning): string {
     case 'no-recipe': return 'Add a recipe node that outputs this item.'
     case 'productivity-not-allowed': return 'Remove productivity modules from this node.'
     case 'cycle-detected': return "Pin one recipe's rate to anchor the cycle."
+    case 'too-many-alternatives': return "Pin one recipe's rate to set the split, or remove a recipe you don't need."
+    case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
+    case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
   }
 }
 
