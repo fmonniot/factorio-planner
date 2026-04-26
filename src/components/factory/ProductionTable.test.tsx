@@ -82,7 +82,8 @@ describe('ProductionTable', () => {
       history: {},
     })
     render(<ProductionTable />)
-    expect(screen.getAllByText('Iron Plate').length).toBeGreaterThan(0)
+    // Recipe icon/placeholder has the recipe name in its title attribute
+    expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
   })
 
   it('clicking add-recipe in empty state shows recipe picker', async () => {

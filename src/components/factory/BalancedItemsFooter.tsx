@@ -2,6 +2,7 @@ import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveSubPlan } from '../../store/blockStore'
 import { WarningsPopover } from './WarningsPopover'
+import { iconUrl } from '../../utils/iconUrl'
 
 // ---------------------------------------------------------------------------
 // BalancedItemsFooter
@@ -17,36 +18,46 @@ export function BalancedItemsFooter() {
   const gameData = useGameDataStore(selectGameData)
   const subPlan = useBlockStore(selectActiveSubPlan)
 
-  if (!result) return null
+  let balanced: string[] = []
 
-  // Compute net balance per item
-  const net = new Map<string, number>()
-  for (const node of result.nodes) {
-    for (const [id, rate] of Object.entries(node.outputRates))
-      net.set(id, (net.get(id) ?? 0) + rate)
-    for (const [id, rate] of Object.entries(node.inputRates))
-      net.set(id, (net.get(id) ?? 0) - rate)
+  if (result) {
+    // Compute net balance per item
+    const net = new Map<string, number>()
+    for (const node of result.nodes) {
+      for (const [id, rate] of Object.entries(node.outputRates))
+        net.set(id, (net.get(id) ?? 0) + rate)
+      for (const [id, rate] of Object.entries(node.inputRates))
+        net.set(id, (net.get(id) ?? 0) - rate)
+    }
+
+    const goalIds = new Set((subPlan?.goals ?? []).map(g => g.itemId))
+
+    // Balanced items: net near zero, not a goal, not a raw input
+    balanced = [...net]
+      .filter(([id, v]) =>
+        Math.abs(v) < BALANCE_EPSILON &&
+        !goalIds.has(id) &&
+        !result.unsatisfied.some(u => u.itemId === id),
+      )
+      .map(([id]) => id)
   }
 
-  const goalIds = new Set((subPlan?.goals ?? []).map(g => g.itemId))
-
-  // Balanced items: net near zero, not a goal, not a raw input
-  const balanced = [...net]
-    .filter(([id, v]) =>
-      Math.abs(v) < BALANCE_EPSILON &&
-      !goalIds.has(id) &&
-      !result.unsatisfied.some(u => u.itemId === id),
-    )
-    .map(([id]) => id)
-
   return (
-    <div className="shrink-0 border-t border-gray-800 px-3 py-1 flex items-center gap-1.5 flex-wrap text-[10px] text-gray-600">
+    <div className="shrink-0 border-t border-gray-800 px-3 py-1 flex items-center gap-1.5 flex-wrap text-[10px] text-gray-600 min-h-[1.75rem]">
       {balanced.length > 0 && (
         <>
           <span>Balanced:</span>
           {balanced.map(id => {
             const item = gameData?.items[id]
-            return (
+            return item?.iconPath ? (
+              <img
+                key={id}
+                src={iconUrl(item.iconPath)}
+                alt={item.name}
+                title={item.name}
+                className="w-4 h-4 object-contain"
+              />
+            ) : (
               <span key={id} className="text-gray-500" title={item?.name ?? id}>
                 {item?.name ?? id}
               </span>

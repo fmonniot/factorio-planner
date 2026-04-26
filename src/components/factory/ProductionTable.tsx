@@ -56,11 +56,6 @@ export function ProductionTable() {
 
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-gray-900">
-      {/* Table header */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-gray-700 shrink-0">
-        <span className="text-gray-400 text-xs font-medium">⚙ Production</span>
-      </div>
-
       {/* Scrollable table body */}
       <div className="flex-1 overflow-auto">
         {nodes.length === 0 ? (
@@ -85,7 +80,6 @@ export function ProductionTable() {
                 <th className="px-2 py-1">Products</th>
                 <th className="px-2 py-1">Byproducts</th>
                 <th className="px-2 py-1">Ingredients</th>
-                <th className="px-2 py-1 w-16">Power</th>
               </tr>
             </thead>
             <tbody>

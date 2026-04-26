@@ -180,7 +180,7 @@ function applyCommand(
 // Default initial state
 // ---------------------------------------------------------------------------
 
-const initialBlock = makeEmptyBlock('Block 1')
+const initialBlock = makeEmptyBlock('Factory')
 
 // ---------------------------------------------------------------------------
 // Store

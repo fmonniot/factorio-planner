@@ -30,10 +30,10 @@ interface ItemTileProps {
 }
 
 const variantClasses: Record<ItemTileVariant, string> = {
-  product:     'bg-gray-700 text-gray-100',
-  byproduct:   'bg-red-950 text-red-300',
-  ingredient:  'bg-green-950 text-green-300',
-  electricity: 'bg-cyan-950 text-cyan-300',
+  product:     'bg-gray-700 text-gray-100 border-t-2 border-teal-500',
+  byproduct:   'bg-red-950 text-red-300 border-t-2 border-red-500',
+  ingredient:  'bg-green-950 text-green-300 border-t-2 border-green-600',
+  electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
 export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTileProps) {
