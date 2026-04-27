@@ -11,6 +11,7 @@ export type {
   EffectName,
   Machine,
   Module,
+  BeaconEntity,
   GameData,
   ProductionGoal,
   ModuleConfig,
