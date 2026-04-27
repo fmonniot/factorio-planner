@@ -1,4 +1,12 @@
-# Notes
+# AI tetss
+
+Find a way to have claude always update the spec files after any changes.
+Then find a way to convince it that spec are always up to date doc and that
+it doesn't need to browse the entire code base all the time.
+
+
+
+# Functional Notes
 
 > :info: This is a non-structured list of notes I took while working on this project.
 
@@ -28,3 +36,5 @@
     - In progress
 
 - Consider a new solver constraint: the ability to hard link two product in recipes. For example, say that one recipe input scale must be fully driven by another recipe byproduct. Would be very helpful to have recipes that are only there to consume a byproduct (while contributing to the real output).
+
+- No way to remove recipe in the new UI…
