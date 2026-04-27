@@ -30,7 +30,7 @@ import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
-import { compositeIconLayers, readIconBuffer } from './icon-compositor.js'
+import { compositeIconLayers } from './icon-compositor.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -337,20 +337,22 @@ function makeIconResolver(resolvers, iconsOut) {
       return `${publicUrl}/${outName}`
     }
 
-    // --- Single-icon fast path ---
+    // --- Single-icon fallback: wrap as a one-layer composite so the sprite-sheet
+    //     crop (extract to icon_size × icon_size) is applied consistently. ---
     const iconPath = proto.icon
     if (!iconPath) return ''
 
-    const buf = readIconBuffer(iconPath, resolvers)
-    if (!buf) return ''
-
-    const m       = iconPath.match(MOD_PATH_RE)
-    const relPath = m[2]
-    const ext     = relPath.split('.').pop() ?? 'png'
-    const outName = id + '.' + ext
-    const outPath = join(iconsOut, outName)
+    const iconSize = proto.icon_size ?? 64
+    const outName  = id + '.png'
+    const outPath  = join(iconsOut, outName)
 
     if (!written.has(outName)) {
+      const buf = await compositeIconLayers(
+        [{ icon: iconPath, icon_size: iconSize, scale: 1 }],
+        resolvers,
+        iconSize,
+      )
+      if (!buf) return ''
       writeFileSync(outPath, buf)
       written.add(outName)
     }
