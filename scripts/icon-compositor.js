@@ -92,10 +92,28 @@ export async function compositeIconLayers(layers, resolvers, outputSize = 64) {
 
   if (compositeInputs.length === 0) return null
 
-  return sharp({
+  const compositedBuf = await sharp({
     create: { width: outputSize, height: outputSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
     .composite(compositeInputs)
+    .png()
+    .toBuffer()
+
+  return normalizeIcon(compositedBuf, outputSize)
+}
+
+async function normalizeIcon(buf, outputSize, paddingPct = 0.1) {
+  const paddingPx = Math.round(outputSize * paddingPct)
+  const innerSize = outputSize - 2 * paddingPx
+
+  return sharp(buf)
+    .trim({ threshold: 0 })
+    .resize(innerSize, innerSize, { fit: 'contain', background: { r: 0, g: 0, b: 0, alpha: 0 } })
+    .extend({
+      top: paddingPx, bottom: paddingPx,
+      left: paddingPx, right: paddingPx,
+      background: { r: 0, g: 0, b: 0, alpha: 0 },
+    })
     .png()
     .toBuffer()
 }
