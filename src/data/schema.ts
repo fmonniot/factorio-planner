@@ -108,6 +108,16 @@ export const ModuleSchema = z.object({
   iconPath: z.string().default(''),
 })
 
+export const BeaconEntitySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  iconPath: z.string(),
+  hidden: z.boolean().default(false),
+  moduleSlots: z.number().int().nonnegative(),
+  distributionEfficiency: z.number().min(0).max(1),
+  allowedEffects: z.array(EffectNameSchema),
+})
+
 export const GameDataSchema = z.object({
   factorioVersion: z.string(),
   modSet: z.record(z.string(), z.string()),
@@ -115,6 +125,7 @@ export const GameDataSchema = z.object({
   recipes: z.record(z.string(), RecipeSchema),
   machines: z.record(z.string(), MachineSchema),
   modules: z.record(z.string(), ModuleSchema),
+  beacons: z.record(z.string(), BeaconEntitySchema).default({}),
   defaultMachines: z.record(z.string(), z.string()),
 })
 
@@ -134,6 +145,7 @@ export const ModuleConfigSchema = z.object({
 })
 
 export const BeaconConfigSchema = z.object({
+  beaconId: z.string().optional(),
   moduleId: z.string(),
   beaconCount: z.number().int().nonnegative(),
   modulesPerBeacon: z.number().int().positive(),
@@ -233,6 +245,7 @@ export type Recipe = z.output<typeof RecipeSchema>
 export type EffectName = z.output<typeof EffectNameSchema>
 export type Machine = z.output<typeof MachineSchema>
 export type Module = z.output<typeof ModuleSchema>
+export type BeaconEntity = z.output<typeof BeaconEntitySchema>
 export type GameData = z.output<typeof GameDataSchema>
 
 export type ProductionGoal = z.output<typeof ProductionGoalSchema>

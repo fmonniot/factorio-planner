@@ -216,7 +216,14 @@ export function RecipeRow({
 
       {/* Beacon */}
       <td className="px-2 py-0.5 whitespace-nowrap">
-        <BeaconCell nodeId={planNode.id} beacon={planNode.beaconConfig} gameData={gameData} />
+        <BeaconCell
+          nodeId={planNode.id}
+          beacon={planNode.beaconConfig}
+          gameData={gameData}
+          recipeId={planNode.recipeId}
+          machineId={planNode.machineId}
+          recipeCategory={recipe.category}
+        />
       </td>
 
       {/* Products — primary output(s), with pinned-rate input when pinned */}

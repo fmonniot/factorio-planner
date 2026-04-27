@@ -9,7 +9,7 @@ import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopo
 // Effect computation helpers
 // ---------------------------------------------------------------------------
 
-interface EffectTotals {
+export interface EffectTotals {
   speed: number
   productivity: number
   consumption: number
@@ -30,7 +30,7 @@ function computeModuleEffects(modules: ModuleConfig[], gameData: GameData): Effe
   return totals
 }
 
-function applyRecipeConstraints(
+export function applyRecipeConstraints(
   totals: EffectTotals,
   allowedEffects: string[],
   allowProductivity: boolean,
@@ -53,13 +53,13 @@ function fmtEffect(value: number): string {
 // EffectsPanel
 // ---------------------------------------------------------------------------
 
-interface EffectsPanelProps {
+export interface EffectsPanelProps {
   label: string
   totals: EffectTotals
   showQuality: boolean
 }
 
-function EffectsPanel({ label, totals, showQuality }: EffectsPanelProps) {
+export function EffectsPanel({ label, totals, showQuality }: EffectsPanelProps) {
   const rows: { key: keyof EffectTotals; display: string }[] = [
     { key: 'speed', display: 'Speed' },
     { key: 'productivity', display: 'Productivity' },
