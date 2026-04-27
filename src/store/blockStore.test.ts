@@ -182,3 +182,73 @@ describe('wrapNodeInSubPlan', () => {
     expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Task 11: updateBlockSolverVersion
+// ---------------------------------------------------------------------------
+
+describe('updateBlockSolverVersion', () => {
+  it('updates solverVersion on the target block', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    const block = useBlockStore.getState().blocks.find(b => b.id === blockId)
+    expect(block?.solverVersion).toBe(2)
+  })
+
+  it('toggling from 2 back to 1 updates the block', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 1)
+    const block = useBlockStore.getState().blocks.find(b => b.id === blockId)
+    expect(block?.solverVersion).toBe(1)
+  })
+
+  it('the blocks array reference changes so solverStore subscription fires', () => {
+    const blockId = useBlockStore.getState().activeBlockId
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().updateBlockSolverVersion(blockId, 2)
+    const after = useBlockStore.getState().blocks
+    expect(after).not.toBe(before)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// toggleNoImportItem
+// ---------------------------------------------------------------------------
+
+describe('toggleNoImportItem', () => {
+  it('adds an item to noImportItems on first call', () => {
+    useBlockStore.getState().toggleNoImportItem('benzene')
+    const subPlanId = useBlockStore.getState().activeSubPlanId
+    const block = useBlockStore.getState().blocks[0]
+    const sub = findSubPlan(block.rootPlan, subPlanId)!
+    expect(sub.noImportItems).toEqual(['benzene'])
+  })
+
+  it('removes the item on a second call (toggle)', () => {
+    const t = useBlockStore.getState().toggleNoImportItem
+    t('benzene')
+    t('benzene')
+    const subPlanId = useBlockStore.getState().activeSubPlanId
+    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
+    expect(sub.noImportItems).toEqual([])
+  })
+
+  it('keeps existing items when adding a new one', () => {
+    const t = useBlockStore.getState().toggleNoImportItem
+    t('benzene')
+    t('oxygen')
+    const subPlanId = useBlockStore.getState().activeSubPlanId
+    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
+    expect(sub.noImportItems.sort()).toEqual(['benzene', 'oxygen'])
+  })
+
+  it('undo restores previous noImportItems list', () => {
+    const s = useBlockStore.getState()
+    s.toggleNoImportItem('benzene')
+    s.undo()
+    const subPlanId = useBlockStore.getState().activeSubPlanId
+    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
+    expect(sub.noImportItems).toEqual([])
+  })
+})

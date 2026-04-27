@@ -3,7 +3,7 @@ import { buildStoichiometryMatrix } from './build'
 import { reduceSystem } from './reduce'
 import { applyPinnedRates, mergeThroughput } from './pin'
 import { solveSystem } from './solve'
-import type { GameData } from '../data/types'
+import type { GameData } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers

@@ -378,3 +378,75 @@ describe('T12 — Pin rate UI', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Task 9: v2 surplus intermediate renders as a byproduct tile
+// ---------------------------------------------------------------------------
+
+describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
+  beforeEach(() => {
+    const block = makeEmptyBlock('Test')
+    const node: RecipeNode = {
+      kind: 'game-recipe',
+      id: 'node-elec',
+      recipeId: 'electrolysis',
+      modules: [],
+      byproductPolicy: {},
+    }
+    const rootPlan = { ...block.rootPlan, nodes: [node] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    useUiStore.setState({ rateUnit: 'min' })
+  })
+
+  it('a SolvedNode with a surplus item in outputRates renders a byproduct tile for it', () => {
+    // Simulate v2 result: electrolysis produces hydrogen (primary) + steam (surplus intermediate)
+    const surplusNode: SolvedNode = {
+      recipeNodeId: 'node-elec',
+      inputRates: { water: 100 },
+      outputRates: { hydrogen: 60, steam: 15 }, // steam is a surplus intermediate
+      throughput: 10,
+      machineCountExact: 1,
+      machineCountCeil: 1,
+      powerKw: 50,
+    }
+    const planNode: RecipeNode = {
+      kind: 'game-recipe',
+      id: 'node-elec',
+      recipeId: 'electrolysis',
+      modules: [],
+      byproductPolicy: {},
+    }
+    const gameDataWithSteam = {
+      ...mockGameData,
+      items: {
+        ...mockGameData.items,
+        steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false },
+      },
+    } as typeof mockGameData
+
+    const block = useBlockStore.getState().blocks[0]
+    render(
+      <table>
+        <tbody>
+          <RecipeRow
+            solvedNode={surplusNode}
+            planNode={planNode}
+            isFirst={false}
+            isLast={false}
+            depth={0}
+            gameData={gameDataWithSteam}
+            rootPlan={block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }}
+          />
+        </tbody>
+      </table>,
+    )
+    // steam appears as a byproduct tile (non-primary output — button with red-950 class)
+    const steamTiles = screen.getAllByTitle(/Steam/i)
+    expect(steamTiles.length).toBeGreaterThan(0)
+  })
+})

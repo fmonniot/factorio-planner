@@ -1,4 +1,4 @@
-import type { GameData, RecipeNode, Machine } from '../data/types'
+import type { GameData, RecipeNode, Machine } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Module and beacon effects

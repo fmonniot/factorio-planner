@@ -3,7 +3,7 @@ import { buildStoichiometryMatrix } from './build'
 import { reduceSystem } from './reduce'
 import { solveSystem } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
-import type { GameData, RecipeNode, Machine } from '../data/types'
+import type { GameData, RecipeNode, Machine } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers

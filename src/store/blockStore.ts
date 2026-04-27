@@ -84,6 +84,7 @@ export function makeEmptySubPlan(name: string): SubPlan {
     goals: [],
     nodes: [],
     subPlans: [],
+    noImportItems: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -94,6 +95,7 @@ export function makeEmptyBlock(name: string): Block {
     id: crypto.randomUUID(),
     name,
     gameDataVersion: '',
+    solverVersion: 2,
     rootPlan: makeEmptySubPlan('Main'),
   }
 }
@@ -113,6 +115,7 @@ export interface BlockStoreState {
   removeBlock: (blockId: string) => void
   renameBlock: (blockId: string, name: string) => void
   setActiveBlock: (blockId: string) => void
+  updateBlockSolverVersion: (blockId: string, version: 1 | 2) => void
 
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
@@ -124,6 +127,9 @@ export interface BlockStoreState {
   addGoal: (goal: ProductionGoal) => void
   removeGoal: (goalId: string) => void
   updateGoalRate: (goalId: string, rate: number) => void
+
+  // No-import items (LP cannot import these as raw inputs)
+  toggleNoImportItem: (itemId: string) => void
 
   // Node actions (on active subplan)
   addNode: (node: RecipeNode) => void
@@ -238,6 +244,11 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       }
     }),
 
+  updateBlockSolverVersion: (blockId, version) =>
+    set(state => ({
+      blocks: state.blocks.map(b => (b.id === blockId ? { ...b, solverVersion: version } : b)),
+    })),
+
   // ── SubPlan management ────────────────────────────────────────────────────
 
   addSubPlan: (parentSubPlanId, name) =>
@@ -336,6 +347,32 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         subPlanId: state.activeSubPlanId,
         apply: p => ({ ...p, goals: p.goals.map(g => g.id === goalId ? { ...g, rate } : g) }),
         undo: p => ({ ...p, goals: p.goals.map(g => g.id === goalId ? { ...g, rate: oldGoal.rate } : g) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  toggleNoImportItem: (itemId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const has = p.noImportItems.includes(itemId)
+          return {
+            ...p,
+            noImportItems: has
+              ? p.noImportItems.filter(i => i !== itemId)
+              : [...p.noImportItems, itemId],
+          }
+        },
+        undo: p => {
+          const has = p.noImportItems.includes(itemId)
+          return {
+            ...p,
+            noImportItems: has
+              ? p.noImportItems.filter(i => i !== itemId)
+              : [...p.noImportItems, itemId],
+          }
+        },
       }
       return applyCommand(state, cmd)
     }),
@@ -546,6 +583,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         goals: [],
         nodes: [node],
         subPlans: [],
+        noImportItems: [],
         createdAt: now,
         updatedAt: now,
       }

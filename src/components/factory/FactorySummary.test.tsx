@@ -171,6 +171,76 @@ describe('FactorySummary — GoalTile remove', () => {
   })
 })
 
+// ---------------------------------------------------------------------------
+// Task 9: v2 surplus and goal tile actual throughput
+// ---------------------------------------------------------------------------
+
+describe('FactorySummary — v2 surplus renders as byproduct', () => {
+  it('a surplus intermediate (net positive balance, not a goal) appears in Byproducts pane', () => {
+    // v2 result: iron-plate is the goal, steam has positive net balance (surplus intermediate)
+    const surplusResult: SolverResult = {
+      nodes: [
+        {
+          recipeNodeId: 'n1',
+          inputRates: {},
+          outputRates: { 'iron-plate': 65, 'steam': 20 }, // steam surplus
+          throughput: 65,
+          machineCountExact: 1,
+          machineCountCeil: 1,
+          powerKw: 0,
+        },
+        {
+          recipeNodeId: 'n2',
+          inputRates: { steam: 5 }, // some consumed, but net is 15
+          outputRates: {},
+          throughput: 5,
+          machineCountExact: 1,
+          machineCountCeil: 1,
+          powerKw: 0,
+        },
+      ],
+      unsatisfied: [],
+      warnings: [{ type: 'overconstrained', surplusItems: [{ itemId: 'steam', rate: 15 }] }],
+    }
+    setupStore([ironGoal])
+    // Extend game data to include steam so the tile shows the name
+    const gdWithSteam = { ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData } })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: surplusResult, subPlanResults: new Map(), _setStatus: () => {} })
+    render(<FactorySummary />)
+    // steam has net 15 (20 produced - 5 consumed), should appear in Byproducts
+    const steamTiles = screen.getAllByTitle(/Steam/i)
+    expect(steamTiles.length).toBeGreaterThan(0)
+  })
+})
+
+describe('FactorySummary — goal tile shows actual throughput when LP returns more', () => {
+  it('goal tile actual reflects LP output when it exceeds the requested rate', () => {
+    // v2 LP returns 850 iron-plate even though goal is 60 (overconstrained)
+    const overResult: SolverResult = {
+      nodes: [
+        {
+          recipeNodeId: 'n1',
+          inputRates: {},
+          outputRates: { 'iron-plate': 850 },
+          throughput: 850,
+          machineCountExact: 1,
+          machineCountCeil: 1,
+          powerKw: 0,
+        },
+      ],
+      unsatisfied: [],
+      warnings: [],
+    }
+    setupStore([{ id: 'g1', itemId: 'iron-plate', rate: 60 }])
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: overResult, subPlanResults: new Map(), _setStatus: () => {} })
+    render(<FactorySummary />)
+    // Actual tile should show 850, not 60
+    const actualSpan = screen.getByTitle(/Actual:/)
+    expect(actualSpan.textContent).toMatch(/850/)
+  })
+})
+
 describe('FactorySummary — add goal', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)

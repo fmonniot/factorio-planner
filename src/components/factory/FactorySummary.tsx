@@ -158,6 +158,11 @@ export function FactorySummary() {
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
 
+  const updateBlockSolverVersion = useBlockStore(s => s.updateBlockSolverVersion)
+  const solverVersion = activeBlock?.solverVersion ?? 1
+  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
+  const noImportItems = subPlan?.noImportItems ?? []
+
   const goals: ProductionGoal[] = subPlan?.goals ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
 
@@ -217,6 +222,29 @@ export function FactorySummary() {
           </button>
         )}
         <div className="flex items-center gap-2">
+          {activeBlock && (
+            <>
+              <button
+                type="button"
+                onClick={() => updateBlockSolverVersion(activeBlock.id, 1)}
+                title="Use v1 solver"
+                aria-label="Solver v1"
+                className={`hover:text-gray-200 text-[10px] px-1 rounded border ${solverVersion === 1 ? 'text-teal-400 border-teal-700' : 'border-gray-700'}`}
+              >
+                v1
+              </button>
+              <button
+                type="button"
+                onClick={() => updateBlockSolverVersion(activeBlock.id, 2)}
+                title="Use v2 solver (LP)"
+                aria-label="Solver v2"
+                className={`hover:text-gray-200 text-[10px] px-1 rounded border ${solverVersion === 2 ? 'text-teal-400 border-teal-700' : 'border-gray-700'}`}
+              >
+                v2
+              </button>
+              <span className="text-gray-700">·</span>
+            </>
+          )}
           <button
             type="button"
             onClick={() => setRateUnit('sec')}
@@ -272,7 +300,8 @@ export function FactorySummary() {
           ))}
         </SummaryPane>
 
-        {/* Ingredients */}
+        {/* Ingredients (click an active tile to forbid the LP from importing it;
+            click a locked chip to allow imports again). */}
         <SummaryPane label="Ingredients">
           {ingredientItems.map(({ itemId, rate }) => (
             <ItemTile
@@ -280,6 +309,16 @@ export function FactorySummary() {
               item={gameData?.items[itemId]}
               ratePerSec={rate / 60}
               variant="ingredient"
+              onClick={() => toggleNoImportItem(itemId)}
+              title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports of this item`}
+            />
+          ))}
+          {noImportItems.map(itemId => (
+            <NoImportChip
+              key={itemId}
+              item={gameData?.items[itemId]}
+              itemId={itemId}
+              onClick={() => toggleNoImportItem(itemId)}
             />
           ))}
         </SummaryPane>
@@ -299,6 +338,40 @@ export function FactorySummary() {
 // ---------------------------------------------------------------------------
 // SummaryPane
 // ---------------------------------------------------------------------------
+
+// ---------------------------------------------------------------------------
+// NoImportChip — locked item: small grey chip with lock icon + click to unlock
+// ---------------------------------------------------------------------------
+
+function NoImportChip({
+  item,
+  itemId,
+  onClick,
+}: {
+  item: Item | undefined
+  itemId: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`${item?.name ?? itemId} — locked (LP cannot import). Click to allow imports.`}
+      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-500 border border-gray-700 hover:text-gray-300 hover:border-gray-600"
+    >
+      {item?.iconPath ? (
+        <img
+          src={iconUrl(item.iconPath)}
+          alt={item.name}
+          className="w-4 h-4 object-contain shrink-0 opacity-50"
+        />
+      ) : (
+        <span className="text-[10px] truncate max-w-[4rem]">{item?.name ?? itemId}</span>
+      )}
+      <span className="text-[10px] leading-none">🔒</span>
+    </button>
+  )
+}
 
 function SummaryPane({ label, children }: { label: string; children: React.ReactNode }) {
   return (

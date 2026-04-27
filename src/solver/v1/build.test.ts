@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { buildStoichiometryMatrix, effectiveProductAmount } from './build'
-import type { GameData } from '../data/types'
+import type { GameData } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Minimal GameData factory — only the fields the builder reads

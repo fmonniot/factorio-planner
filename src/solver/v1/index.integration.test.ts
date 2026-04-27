@@ -23,9 +23,9 @@
 import { describe, it, expect, beforeAll } from 'vitest'
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { loadGameDataFromJson } from '../data/loader'
+import { loadGameDataFromJson } from '../../data/loader'
 import { solve } from './index'
-import type { GameData, RecipeNode, SolverResult } from '../data/types'
+import type { GameData, RecipeNode, SolverResult } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Game data loading (shared across all chains in this file)
@@ -57,7 +57,7 @@ interface SolverChainFixture {
 }
 
 function loadFixture(name: string): SolverChainFixture {
-  const path = resolve(import.meta.dirname, `./__fixtures__/${name}.fixture.json`)
+  const path = resolve(import.meta.dirname, `../__fixtures__/${name}.fixture.json`)
   return JSON.parse(readFileSync(path, 'utf-8')) as SolverChainFixture
 }
 
