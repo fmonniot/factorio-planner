@@ -5,7 +5,10 @@ import { solve as solveV2 } from './v2/index'
 
 export type { SyntheticRecipe } from './v1/subplan'
 
-type SolverPlan = Pick<SubPlan, 'goals' | 'nodes'> & { solverVersion?: 1 | 2 }
+type SolverPlan = Pick<SubPlan, 'goals' | 'nodes'> & {
+  solverVersion?: 1 | 2
+  noImportItems?: string[]
+}
 
 export function solve(
   plan: SolverPlan,

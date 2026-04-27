@@ -9,21 +9,19 @@ import { computeNodeEffects, computeMachineMetrics } from '../v1/effects'
 // ---------------------------------------------------------------------------
 
 export function solve(
-  plan: Pick<SubPlan, 'goals' | 'nodes'>,
+  plan: Pick<SubPlan, 'goals' | 'nodes'> & { noImportItems?: string[] },
   gameData: GameData,
   syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
 ): SolverResult {
-  // Split nodes: byproduct-consumer recipes are excluded from the LP and have
-  // their throughput computed post-solve from item surplus (same as v1).
-  const mainNodes = plan.nodes.filter(
-    n => n.kind !== 'game-recipe' || !n.byproductConsumer,
-  )
-  const bcPlanNodes = plan.nodes.filter(
-    n => n.kind === 'game-recipe' && n.byproductConsumer,
-  ) as Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
+  // All game-recipe nodes go into the LP. byproductConsumer is a flag that
+  // applies a small negative bonus to the recipe's objective coefficient,
+  // making the LP prefer to run it up to whatever surplus the intermediate
+  // constraints allow — without overriding goal-meeting decisions.
+  const gameRecipeNodes = plan.nodes.filter(n => n.kind === 'game-recipe') as
+    Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
   const rawRecipeIds = [
-    ...mainNodes.filter(n => n.kind === 'game-recipe').map(n => n.recipeId),
+    ...gameRecipeNodes.map(n => n.recipeId),
     ...syntheticRecipes.keys(),
   ]
   const recipeIds = [...new Set(rawRecipeIds)]
@@ -31,26 +29,23 @@ export function solve(
   const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
 
   const nodeEffectsMap = new Map(
-    mainNodes
-      .filter(n => n.kind === 'game-recipe')
-      .map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
-  )
-  const bcEffectsMap = new Map(
-    bcPlanNodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+    gameRecipeNodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
   )
   const productivityMap = new Map<string, number>()
-  for (const n of mainNodes) {
-    if (n.kind !== 'game-recipe') continue
+  for (const n of gameRecipeNodes) {
     const effects = nodeEffectsMap.get(n.recipeId)!
     if (effects.productivityBonus > 0) {
       productivityMap.set(n.recipeId, effects.productivityBonus)
     }
   }
 
+  const bcRecipeIds = new Set(
+    gameRecipeNodes.filter(n => n.byproductConsumer).map(n => n.recipeId),
+  )
+
   const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap)
 
-  for (const n of mainNodes) {
-    if (n.kind !== 'game-recipe') continue
+  for (const n of gameRecipeNodes) {
     for (const [itemId, policy] of Object.entries(n.byproductPolicy)) {
       if (policy === 'discard') {
         const row = system.S.get(itemId)
@@ -63,15 +58,31 @@ export function solve(
   }
 
   const pinnedRates = new Map<string, number>()
-  for (const n of mainNodes) {
-    if (n.kind === 'game-recipe' && n.pinnedRate !== undefined) {
+  for (const n of gameRecipeNodes) {
+    if (n.pinnedRate !== undefined) {
       pinnedRates.set(n.recipeId, n.pinnedRate)
     }
   }
 
-  const { throughput: throughputMap, slack: slackMap, warnings, feasible: _feasible } = solveLP(system, pinnedRates)
+  // No-import set: user's explicit list, plus bc recipes' ingredients.
+  // Auto-adding bc ingredients preserves the "consume surplus only, don't
+  // trigger new ingredient production" semantics: with no slack allowed on
+  // a bc ingredient, the LP can't import it just to fire the bc bonus —
+  // it must come from an in-plan producer (or raw if no producer exists).
+  const noImportItems = new Set(plan.noImportItems ?? [])
+  for (const n of gameRecipeNodes) {
+    if (!n.byproductConsumer) continue
+    const recipe = gameData.recipes[n.recipeId]
+    if (!recipe) continue
+    for (const ing of recipe.ingredients) {
+      noImportItems.add(ing.itemId)
+    }
+  }
 
-  // bc post-pass: compute per-item net surplus from main solve.
+  const { throughput: throughputMap, slack: slackMap, warnings, feasible: _feasible } =
+    solveLP(system, pinnedRates, bcRecipeIds, noImportItems)
+
+  // Per-item net surplus from the LP solve.
   const itemSurplus = new Map<string, number>()
   for (const [itemId, rowS] of system.S) {
     let net = 0
@@ -81,49 +92,7 @@ export function solve(
     itemSurplus.set(itemId, net)
   }
 
-  const bcThroughputMap = new Map<string, number>()
-  for (const planNode of bcPlanNodes) {
-    const recipe = gameData.recipes[planNode.recipeId]
-    if (!recipe) continue
-    let throughput = Infinity
-    for (const ing of recipe.ingredients) {
-      const surplus = itemSurplus.get(ing.itemId) ?? 0
-      if (surplus > 0 && ing.amount > 0) {
-        throughput = Math.min(throughput, surplus / ing.amount)
-      }
-    }
-    if (!isFinite(throughput)) throughput = 0
-    bcThroughputMap.set(planNode.recipeId, throughput)
-    for (const ing of recipe.ingredients) {
-      const s = itemSurplus.get(ing.itemId) ?? 0
-      itemSurplus.set(ing.itemId, Math.max(0, s - ing.amount * throughput))
-    }
-  }
-
-  // Adjust goal-item slack downward by any bc production covering that goal.
-  // The LP doesn't know about bc recipes, so slack over-reports for goals
-  // that bc partially satisfies.
-  const SLACK_TOLERANCE = 1e-6
-  const adjustedSlackMap = new Map(slackMap)
-  for (const planNode of bcPlanNodes) {
-    const recipe = gameData.recipes[planNode.recipeId]
-    if (!recipe) continue
-    const bcThroughput = bcThroughputMap.get(planNode.recipeId) ?? 0
-    if (bcThroughput === 0) continue
-    for (const prod of recipe.products) {
-      const existing = adjustedSlackMap.get(prod.itemId)
-      if (existing === undefined) continue
-      const bcContrib = prod.amount * bcThroughput
-      const adjusted = existing - bcContrib
-      if (adjusted <= SLACK_TOLERANCE) {
-        adjustedSlackMap.delete(prod.itemId)
-      } else {
-        adjustedSlackMap.set(prod.itemId, adjusted)
-      }
-    }
-  }
-
-  // Detect overconstrained intermediates: positive net flow after bc consumption.
+  // Detect overconstrained intermediates: positive net flow at LP optimum.
   const SURPLUS_TOLERANCE = 1e-6
   const overconstrainedItems: { itemId: string; rate: number }[] = []
   for (const itemId of system.classification.intermediates) {
@@ -159,8 +128,7 @@ export function solve(
 
   const nodes: SolvedNode[] = []
 
-  for (const planNode of mainNodes) {
-    if (planNode.kind !== 'game-recipe') continue
+  for (const planNode of gameRecipeNodes) {
     const recipe = gameData.recipes[planNode.recipeId]
     if (!recipe) continue
 
@@ -194,48 +162,6 @@ export function solve(
         prod.ignoredByProductivity ?? 0,
         prodBonus,
       )
-      outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
-    }
-
-    nodes.push({
-      recipeNodeId: planNode.id,
-      inputRates,
-      outputRates,
-      throughput,
-      machineCountExact,
-      machineCountCeil,
-      powerKw,
-    })
-  }
-
-  for (const planNode of bcPlanNodes) {
-    const recipe = gameData.recipes[planNode.recipeId]
-    if (!recipe) continue
-
-    const throughput = bcThroughputMap.get(planNode.recipeId) ?? 0
-    const effects = bcEffectsMap.get(planNode.recipeId)!
-
-    const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
-    const machine = machineId ? gameData.machines[machineId] : undefined
-
-    let machineCountExact = 0
-    let machineCountCeil = 0
-    let powerKw = 0
-    if (machine) {
-      const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
-      machineCountExact = m.machineCountExact
-      machineCountCeil = m.machineCountCeil
-      powerKw = m.powerKw
-    }
-
-    const inputRates: Record<string, number> = {}
-    for (const ing of recipe.ingredients) {
-      inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
-    }
-
-    const outputRates: Record<string, number> = {}
-    for (const prod of recipe.products) {
-      const effective = effectiveProductAmount(prod.amount ?? 0, prod.probability ?? 1, prod.ignoredByProductivity ?? 0, 0)
       outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
     }
 
@@ -289,9 +215,10 @@ export function solve(
   }
 
   // Intermediate slack → external imports needed for network balance.
-  // All goal-slack entries are zero (goals are hard constraints with no slack variable).
+  // Goals are hard constraints with no slack variable, so all slack entries
+  // here are intermediates.
   const slackIntermediates: UnsatisfiedItem[] = []
-  for (const [itemId, rate] of adjustedSlackMap) {
+  for (const [itemId, rate] of slackMap) {
     slackIntermediates.push({ itemId, rate })
   }
 

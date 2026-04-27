@@ -182,6 +182,8 @@ type SubPlanType = {
   goals: z.output<typeof ProductionGoalSchema>[]
   nodes: z.output<typeof RecipeNodeSchema>[]
   subPlans: SubPlanType[]
+  /** Items the LP solver must not import as raw inputs (no slack variable). */
+  noImportItems: string[]
   createdAt: string
   updatedAt: string
 }
@@ -193,6 +195,7 @@ export const SubPlanSchema: z.ZodType<SubPlanType, z.ZodTypeDef, unknown> = z.la
     goals: z.array(ProductionGoalSchema),
     nodes: z.array(RecipeNodeSchema),
     subPlans: z.array(SubPlanSchema),
+    noImportItems: z.array(z.string()).default([]),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   }),

@@ -23,6 +23,13 @@ function lpName(id: string): string {
 
 const BIG_M = 1e6
 const SLACK_TOLERANCE = 1e-6
+/**
+ * Tiny negative coefficient applied to byproduct-consumer recipes in the
+ * objective. Makes the LP prefer to run them up to the surplus their
+ * intermediate constraints allow, without overriding goal-meeting decisions
+ * (BIG_M slack cost dominates if the LP would have to import inputs).
+ */
+const BC_BONUS = -0.01
 
 /**
  * Build and solve the elastic LP for the given classified system.
@@ -44,6 +51,8 @@ const SLACK_TOLERANCE = 1e-6
 export function solveLP(
   system: ClassifiedSystem,
   pinnedRates: Map<string, number> = new Map(),
+  bcRecipeIds: Set<string> = new Set(),
+  noImportItems: Set<string> = new Set(),
 ): LPResult {
   const { S, recipes, classification } = system
   const warnings: SolverWarning[] = []
@@ -65,10 +74,13 @@ export function solveLP(
   const constraints: Record<string, { min?: number; max?: number; equal?: number }> = {}
   const variables: Record<string, Record<string, number>> = {}
 
-  // Initialize variable entries (each participates in the objective with coeff 1).
+  // Initialize variable entries. Regular recipes contribute +1 per unit
+  // throughput; byproduct-consumer recipes contribute BC_BONUS (a tiny
+  // negative number) so the LP prefers to run them up to the surplus their
+  // intermediates allow.
   for (const recipeId of recipes) {
     const varName = recipeToVar.get(recipeId)!
-    variables[varName] = { __obj__: 1 }
+    variables[varName] = { __obj__: bcRecipeIds.has(recipeId) ? BC_BONUS : 1 }
   }
 
   // itemId → slack variable name (for post-solve extraction)
@@ -84,6 +96,9 @@ export function solveLP(
         if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
       }
     }
+    // No-import items: hard constraint (no slack). LP becomes infeasible if
+    // the network can't balance internally.
+    if (noImportItems.has(itemId)) return
     // Slack variable: one per row, coefficient +1 in the row and BIG_M in objective.
     const slackName = `slack_${lpName(itemId)}`
     itemToSlack.set(itemId, slackName)
