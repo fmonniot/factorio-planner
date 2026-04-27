@@ -84,6 +84,7 @@ export function makeEmptySubPlan(name: string): SubPlan {
     goals: [],
     nodes: [],
     subPlans: [],
+    noImportItems: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -126,6 +127,9 @@ export interface BlockStoreState {
   addGoal: (goal: ProductionGoal) => void
   removeGoal: (goalId: string) => void
   updateGoalRate: (goalId: string, rate: number) => void
+
+  // No-import items (LP cannot import these as raw inputs)
+  toggleNoImportItem: (itemId: string) => void
 
   // Node actions (on active subplan)
   addNode: (node: RecipeNode) => void
@@ -347,6 +351,32 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
+  toggleNoImportItem: (itemId) =>
+    set(state => {
+      const cmd: Command = {
+        subPlanId: state.activeSubPlanId,
+        apply: p => {
+          const has = p.noImportItems.includes(itemId)
+          return {
+            ...p,
+            noImportItems: has
+              ? p.noImportItems.filter(i => i !== itemId)
+              : [...p.noImportItems, itemId],
+          }
+        },
+        undo: p => {
+          const has = p.noImportItems.includes(itemId)
+          return {
+            ...p,
+            noImportItems: has
+              ? p.noImportItems.filter(i => i !== itemId)
+              : [...p.noImportItems, itemId],
+          }
+        },
+      }
+      return applyCommand(state, cmd)
+    }),
+
   // ── Nodes ─────────────────────────────────────────────────────────────────
 
   addNode: (node) =>
@@ -553,6 +583,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         goals: [],
         nodes: [node],
         subPlans: [],
+        noImportItems: [],
         createdAt: now,
         updatedAt: now,
       }
