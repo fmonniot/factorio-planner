@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { GameData } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Popover } from './Popover'
@@ -103,50 +102,41 @@ interface MachineCellProps {
   machineId: string | undefined
   machineCountCeil: number
   gameData: GameData
+  onOpenEdit: () => void
 }
 
 export function MachineCell({
-  nodeId,
-  recipeId,
   recipeCategory,
   machineId,
   machineCountCeil,
   gameData,
+  onOpenEdit,
 }: MachineCellProps) {
-  const [open, setOpen] = useState(false)
   const resolvedId = machineId ?? gameData.defaultMachines[recipeCategory]
   const machine = resolvedId ? gameData.machines[resolvedId] : undefined
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-1 text-xs text-gray-300 hover:text-gray-100"
-        title={machine?.name ?? 'Select machine'}
-      >
-        <span className="font-mono tabular-nums">{machineCountCeil}</span>
-        {machine?.iconPath ? (
-          <img
-            src={iconUrl(machine.iconPath)}
-            alt={machine.name}
-            className="w-5 h-5 object-contain shrink-0"
-          />
-        ) : (
-          <span className="truncate max-w-[6rem]">{machine?.name ?? '—'}</span>
-        )}
-      </button>
-
-      {open && (
-        <MachinePopover
-          nodeId={nodeId}
-          recipeId={recipeId}
-          recipeCategory={recipeCategory}
-          currentMachineId={machineId}
-          gameData={gameData}
-          onClose={() => setOpen(false)}
+    <button
+      type="button"
+      onClick={onOpenEdit}
+      className="relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
+      title={machine?.name ?? 'Edit machine'}
+    >
+      {machine?.iconPath ? (
+        <img
+          src={iconUrl(machine.iconPath)}
+          alt={machine.name}
+          className="w-full h-full object-contain"
         />
+      ) : (
+        <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">
+          ?
+        </span>
       )}
-    </div>
+      <span className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
+        style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>
+        {machineCountCeil}
+      </span>
+    </button>
   )
 }
