@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -5,6 +6,7 @@ import { ItemTile, fmtRate } from './ItemTile'
 import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
 import { BeaconCell } from './BeaconPopover'
+import { EditMachineModal } from './EditMachineModal'
 import { iconUrl } from '../../utils/iconUrl'
 
 // ---------------------------------------------------------------------------
@@ -85,6 +87,7 @@ export function RecipeRow({
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
+  const [editMachineOpen, setEditMachineOpen] = useState(false)
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
@@ -188,16 +191,27 @@ export function RecipeRow({
             machineId={planNode.machineId}
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             gameData={gameData}
+            onOpenEdit={() => setEditMachineOpen(true)}
           />
           <ModuleCell
-            nodeId={planNode.id}
             modules={planNode.modules}
             machineSlots={machine?.moduleSlots ?? 0}
-            allowedMachineEffects={machine?.allowedEffects ?? []}
-            recipeId={planNode.recipeId}
             gameData={gameData}
+            onOpenEdit={() => setEditMachineOpen(true)}
           />
         </div>
+        {editMachineOpen && (
+          <EditMachineModal
+            nodeId={planNode.id}
+            recipeId={planNode.recipeId}
+            recipeCategory={recipe.category}
+            machineId={planNode.machineId}
+            machineCountCeil={solvedNode?.machineCountCeil ?? 0}
+            modules={planNode.modules}
+            gameData={gameData}
+            onClose={() => setEditMachineOpen(false)}
+          />
+        )}
       </td>
 
       {/* Beacon */}

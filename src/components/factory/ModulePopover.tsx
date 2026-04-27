@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Popover } from './Popover'
+import { iconUrl } from '../../utils/iconUrl'
 
 // ---------------------------------------------------------------------------
 // Logic helpers (pure, exported for testing)
@@ -154,33 +155,42 @@ export function ModulePopover({
 // ---------------------------------------------------------------------------
 
 interface ModuleCellProps {
-  nodeId: string
   modules: ModuleConfig[]
   machineSlots: number
-  allowedMachineEffects: string[]
-  recipeId: string
   gameData: GameData
+  onOpenEdit: () => void
 }
 
-export function ModuleCell(props: ModuleCellProps) {
-  const [open, setOpen] = useState(false)
-  const usedSlots = props.modules.reduce((sum, m) => sum + m.count, 0)
+export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: ModuleCellProps) {
+  if (machineSlots === 0) return null
 
-  if (props.machineSlots === 0) return null
+  const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
+  const firstModule = modules[0] ? gameData.modules[modules[0].moduleId] : undefined
 
   return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className="text-xs text-gray-400 hover:text-gray-200"
-        title="Edit modules"
-      >
-        [{usedSlots}/{props.machineSlots}]
-      </button>
-      {open && (
-        <ModulePopover {...props} onClose={() => setOpen(false)} />
+    <button
+      type="button"
+      onClick={onOpenEdit}
+      className="relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
+      title="Edit modules"
+    >
+      {firstModule?.iconPath ? (
+        <img
+          src={iconUrl(firstModule.iconPath)}
+          alt={firstModule.name}
+          className="w-full h-full object-contain"
+        />
+      ) : (
+        <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">
+          +
+        </span>
       )}
-    </div>
+      <span
+        className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
+        style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}
+      >
+        {usedSlots}/{machineSlots}
+      </span>
+    </button>
   )
 }
