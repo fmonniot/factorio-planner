@@ -137,7 +137,7 @@ export function BeaconModal({
               <button
                 type="button"
                 onClick={() => { setShowBeaconPicker(p => !p); setShowModulePicker(false) }}
-                className="relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
+                className="relative w-10 h-10 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
                 title={beaconEntity?.name ?? 'Select beacon type'}
               >
                 {beaconIcon ? (
@@ -175,7 +175,7 @@ export function BeaconModal({
                     onClick={() => selectBeacon(b.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${b.id === beacon.beaconId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
-                    {b.iconPath && <img src={iconUrl(b.iconPath)} alt={b.name} className="w-4 h-4 object-contain shrink-0" />}
+                    {b.iconPath && <img src={iconUrl(b.iconPath)} alt={b.name} className="w-5 h-5 object-contain shrink-0" />}
                     {b.name}
                   </button>
                 )) : (
@@ -237,7 +237,7 @@ export function BeaconModal({
               <button
                 type="button"
                 onClick={() => { setShowModulePicker(p => !p); setShowBeaconPicker(false) }}
-                className="relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
+                className="relative w-10 h-10 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
                 title={selectedModule?.name ?? 'Select module'}
               >
                 {moduleIcon ? (
@@ -261,7 +261,7 @@ export function BeaconModal({
                     onClick={() => selectModule(m.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === beacon.moduleId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
-                    {m.iconPath && <img src={iconUrl(m.iconPath)} alt={m.name} className="w-4 h-4 object-contain shrink-0" />}
+                    {m.iconPath && <img src={iconUrl(m.iconPath)} alt={m.name} className="w-5 h-5 object-contain shrink-0" />}
                     {m.name}
                   </button>
                 ))}

@@ -171,7 +171,7 @@ export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: Modu
     <button
       type="button"
       onClick={onOpenEdit}
-      className="relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
+      className="relative w-[35px] h-[35px] shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
       title="Edit modules"
     >
       {firstModule?.iconPath ? (

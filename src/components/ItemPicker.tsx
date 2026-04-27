@@ -64,8 +64,8 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
             return (
               <div key={i} className="flex items-center gap-1.5 mb-0.5">
                 {item?.iconPath
-                  ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain shrink-0" />
-                  : <span className="w-4 h-4 shrink-0" />
+                  ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-5 h-5 object-contain shrink-0" />
+                  : <span className="w-5 h-5 shrink-0" />
                 }
                 <span className="flex-1 truncate text-gray-300">{item?.name ?? ing.itemId}</span>
                 <span className="text-gray-500 shrink-0">{fmtAmount(ing.amount)}</span>
@@ -85,8 +85,8 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
             return (
               <div key={i} className="flex items-center gap-1.5 mb-0.5">
                 {item?.iconPath
-                  ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-4 h-4 object-contain shrink-0" />
-                  : <span className="w-4 h-4 shrink-0" />
+                  ? <img src={iconUrl(item.iconPath)} alt={item.name} title={item.name} className="w-5 h-5 object-contain shrink-0" />
+                  : <span className="w-5 h-5 shrink-0" />
                 }
                 <span className="flex-1 truncate text-gray-300">{item?.name ?? prod.itemId}</span>
                 <span className={`shrink-0 ${prob < 1 ? 'text-amber-400' : 'text-gray-500'}`}>

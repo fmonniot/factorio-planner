@@ -228,9 +228,9 @@ export function EditMachineModal({
             className="flex items-center gap-2 w-full bg-gray-800 hover:bg-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
           >
             {machine?.iconPath ? (
-              <img src={iconUrl(machine.iconPath)} alt={machine.name} className="w-6 h-6 object-contain shrink-0" />
+              <img src={iconUrl(machine.iconPath)} alt={machine.name} className="w-[30px] h-[30px] object-contain shrink-0" />
             ) : (
-              <span className="w-6 h-6 bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400 shrink-0">?</span>
+              <span className="w-[30px] h-[30px] bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400 shrink-0">?</span>
             )}
             <span className="flex-1 text-left">{machine?.name ?? 'Default'}</span>
             <span className="text-gray-500 text-xs">×{machineCountCeil} machines</span>
@@ -253,7 +253,7 @@ export function EditMachineModal({
                   className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
                 >
                   {m.iconPath && (
-                    <img src={iconUrl(m.iconPath)} alt={m.name} className="w-4 h-4 object-contain shrink-0" />
+                    <img src={iconUrl(m.iconPath)} alt={m.name} className="w-5 h-5 object-contain shrink-0" />
                   )}
                   {m.name}
                 </button>
@@ -290,9 +290,9 @@ export function EditMachineModal({
                 return (
                   <div key={mc.moduleId} className="flex items-center gap-2 bg-gray-800 rounded px-2 py-1">
                     {mod?.iconPath ? (
-                      <img src={iconUrl(mod.iconPath)} alt={mod.name} className="w-5 h-5 object-contain shrink-0" />
+                      <img src={iconUrl(mod.iconPath)} alt={mod.name} className="w-[25px] h-[25px] object-contain shrink-0" />
                     ) : (
-                      <span className="w-5 h-5 bg-gray-700 rounded flex items-center justify-center text-[8px] text-gray-400 shrink-0">M</span>
+                      <span className="w-[25px] h-[25px] bg-gray-700 rounded flex items-center justify-center text-[8px] text-gray-400 shrink-0">M</span>
                     )}
                     <span className="flex-1 text-xs text-gray-300 truncate" title={mod?.name ?? mc.moduleId}>
                       {mod?.name ?? mc.moduleId}

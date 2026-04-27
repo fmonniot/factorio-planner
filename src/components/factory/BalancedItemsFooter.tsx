@@ -55,7 +55,7 @@ export function BalancedItemsFooter() {
                 src={iconUrl(item.iconPath)}
                 alt={item.name}
                 title={item.name}
-                className="w-4 h-4 object-contain"
+                className="w-5 h-5 object-contain"
               />
             ) : (
               <span key={id} className="text-gray-500" title={item?.name ?? id}>

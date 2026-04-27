@@ -78,7 +78,7 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
           src={iconUrl(item.iconPath)}
           alt={item.name}
           title={item.name}
-          className="w-4 h-4 object-contain shrink-0"
+          className="w-5 h-5 object-contain shrink-0"
         />
       ) : (
         <span className="text-gray-400 text-[10px] shrink-0" title={item?.name ?? goal.itemId}>
@@ -363,7 +363,7 @@ function NoImportChip({
         <img
           src={iconUrl(item.iconPath)}
           alt={item.name}
-          className="w-4 h-4 object-contain shrink-0 opacity-50"
+          className="w-5 h-5 object-contain shrink-0 opacity-50"
         />
       ) : (
         <span className="text-[10px] truncate max-w-[4rem]">{item?.name ?? itemId}</span>
