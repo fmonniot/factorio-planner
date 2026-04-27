@@ -9,6 +9,8 @@ import type { SolverWarning } from '../../data/types'
 export interface LPResult {
   /** throughput for each recipe (recipe id → items/min of recipe executions) */
   throughput: Map<string, number>
+  /** external import required per item (itemId → rate); only entries > tolerance */
+  slack: Map<string, number>
   warnings: SolverWarning[]
   /** feasible flag from the LP solver */
   feasible: boolean
@@ -19,18 +21,25 @@ function lpName(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
+const BIG_M = 1e6
+const SLACK_TOLERANCE = 1e-6
+
 /**
- * Build and solve the LP for the given classified system.
+ * Build and solve the elastic LP for the given classified system.
  *
  * LP formulation:
- *   Variables: x_j ≥ 0 for each recipe j
+ *   Variables:
+ *     x_j ≥ 0  for each recipe j (throughput)
+ *     s_i ≥ 0  for each goal/intermediate item i (external import slack)
  *   Constraints:
- *     - Goal items:         Σ S_ij * x_j ≥ d_i
- *     - Intermediate items: Σ S_ij * x_j ≥ 0
+ *     - Goal items:         Σ S_ij * x_j + s_i ≥ d_i
+ *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
  *     - Pinned recipes:     x_j = rate  (equality)
- *   Objective: minimize Σ x_j
+ *   Objective: minimize Σ x_j + BIG_M * Σ s_i
  *
- * If the LP is infeasible and pinnedRates is non-empty, emits `infeasible-pins`.
+ * Slack s_i represents external import required for item i to balance.
+ * BIG_M ensures the LP only uses slack when the network is genuinely infeasible.
+ * If pinned rates conflict, emits `infeasible-pins`.
  */
 export function solveLP(
   system: ClassifiedSystem,
@@ -62,7 +71,26 @@ export function solveLP(
     variables[varName] = { __obj__: 1 }
   }
 
-  // Goal constraints: Σ S_ij * x_j ≥ d_i
+  // itemId → slack variable name (for post-solve extraction)
+  const itemToSlack = new Map<string, string>()
+
+  function addConstraintWithSlack(itemId: string, rhs: number) {
+    const rowS = S.get(itemId)
+    const cName = `c${constraintIdx++}`
+    constraints[cName] = { min: rhs }
+    if (rowS) {
+      for (const [recipeId, coeff] of rowS) {
+        const varName = recipeToVar.get(recipeId)
+        if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
+      }
+    }
+    // Slack variable: one per row, coefficient +1 in the row and BIG_M in objective.
+    const slackName = `slack_${lpName(itemId)}`
+    itemToSlack.set(itemId, slackName)
+    variables[slackName] = { __obj__: BIG_M, [cName]: 1 }
+  }
+
+  // Goal constraints: Σ S_ij * x_j ≥ d_i  (hard — no slack; products must be produced internally)
   let constraintIdx = 0
   for (const [itemId, rate] of classification.goals) {
     const rowS = S.get(itemId)
@@ -75,16 +103,9 @@ export function solveLP(
     }
   }
 
-  // Intermediate constraints: Σ S_ij * x_j ≥ 0
+  // Intermediate constraints: Σ S_ij * x_j + s_i ≥ 0  (elastic — slack allowed)
   for (const itemId of classification.intermediates) {
-    const rowS = S.get(itemId)
-    if (!rowS) continue
-    const cName = `c${constraintIdx++}`
-    constraints[cName] = { min: 0 }
-    for (const [recipeId, coeff] of rowS) {
-      const varName = recipeToVar.get(recipeId)
-      if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
-    }
+    addConstraintWithSlack(itemId, 0)
   }
 
   // Pinned rates: x_j = rate (equality via min + max).
@@ -106,6 +127,7 @@ export function solveLP(
   const result = solver.Solve(model)
   const feasible = result.feasible === true
 
+  // With hard goal constraints, LP can still be infeasible (no producer, or conflicting pins).
   if (!feasible && pinnedRates.size > 0) {
     warnings.push({ type: 'infeasible-pins', recipeIds: [...pinnedRates.keys()] })
   }
@@ -124,5 +146,13 @@ export function solveLP(
     }
   }
 
-  return { throughput, warnings, feasible }
+  const slack = new Map<string, number>()
+  for (const [itemId, slackName] of itemToSlack) {
+    const val = result[slackName]
+    if (typeof val === 'number' && val > SLACK_TOLERANCE) {
+      slack.set(itemId, val)
+    }
+  }
+
+  return { throughput, slack, warnings, feasible }
 }

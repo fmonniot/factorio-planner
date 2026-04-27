@@ -69,15 +69,16 @@ exports[`cross-solver harness > fixture: logistic-science-pack > 60/min logistic
 exports[`cross-solver harness > fixture: nullius-ethylene-methane > Nullius ethylene 800/min + methane 400/min — v2 snapshot 1`] = `
 {
   "throughputs": {
-    "2ac02185-1d8e-47c3-b744-f67ab0c11078": 56.25,
-    "50448dde-dad7-4895-b26a-d607aaeec7ba": 11.25,
-    "87c4f609-b50f-4d0a-bea1-458fcfd28ffd": 0,
+    "2ac02185-1d8e-47c3-b744-f67ab0c11078": 67.7083,
+    "50448dde-dad7-4895-b26a-d607aaeec7ba": 13.5417,
+    "87c4f609-b50f-4d0a-bea1-458fcfd28ffd": 16.6667,
     "ecc1285d-f051-45dc-89f2-a67c48fbce9f": 50,
     "f948339d-80a3-4acc-9323-53e45837027a": 6.6667,
   },
   "unsatisfiedItems": [
+    "nullius-benzene",
     "nullius-carbon-monoxide",
-    "nullius-methane",
+    "nullius-oxygen",
   ],
   "warningTypes": [
     "overconstrained",

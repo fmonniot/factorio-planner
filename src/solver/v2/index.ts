@@ -69,7 +69,7 @@ export function solve(
     }
   }
 
-  const { throughput: throughputMap, warnings, feasible: _feasible } = solveLP(system, pinnedRates)
+  const { throughput: throughputMap, slack: slackMap, warnings, feasible: _feasible } = solveLP(system, pinnedRates)
 
   // bc post-pass: compute per-item net surplus from main solve.
   const itemSurplus = new Map<string, number>()
@@ -97,6 +97,29 @@ export function solve(
     for (const ing of recipe.ingredients) {
       const s = itemSurplus.get(ing.itemId) ?? 0
       itemSurplus.set(ing.itemId, Math.max(0, s - ing.amount * throughput))
+    }
+  }
+
+  // Adjust goal-item slack downward by any bc production covering that goal.
+  // The LP doesn't know about bc recipes, so slack over-reports for goals
+  // that bc partially satisfies.
+  const SLACK_TOLERANCE = 1e-6
+  const adjustedSlackMap = new Map(slackMap)
+  for (const planNode of bcPlanNodes) {
+    const recipe = gameData.recipes[planNode.recipeId]
+    if (!recipe) continue
+    const bcThroughput = bcThroughputMap.get(planNode.recipeId) ?? 0
+    if (bcThroughput === 0) continue
+    for (const prod of recipe.products) {
+      const existing = adjustedSlackMap.get(prod.itemId)
+      if (existing === undefined) continue
+      const bcContrib = prod.amount * bcThroughput
+      const adjusted = existing - bcContrib
+      if (adjusted <= SLACK_TOLERANCE) {
+        adjustedSlackMap.delete(prod.itemId)
+      } else {
+        adjustedSlackMap.set(prod.itemId, adjusted)
+      }
     }
   }
 
@@ -248,32 +271,12 @@ export function solve(
     })
   }
 
-  let unsatisfied: UnsatisfiedItem[] = []
-  for (const itemId of system.classification.raw) {
-    const row = system.S.get(itemId)
-    if (!row) continue
-    let totalConsumption = 0
-    for (const [recipeId, coeff] of row) {
-      if (coeff < 0) {
-        totalConsumption += Math.abs(coeff) * (throughputMap.get(recipeId) ?? 0)
-      }
-    }
-    if (totalConsumption > 0) {
-      unsatisfied.push({ itemId, rate: totalConsumption })
-    }
-  }
-
-  // Goal shortfall pass: if the net production of a goal item across all built
-  // nodes (LP + bc + synthetic) is less than the goal rate, surface the deficit
-  // as an unsatisfied entry so the Ingredients pane shows what must come from
-  // outside. Always checked — not gated on _feasible — because the bc post-pass
-  // can cause a shortfall even when the LP is nominally feasible.
+  // Goal shortfall pass: if LP was infeasible (no LP-active producer, or conflicting pins),
+  // the actual net output of a goal may be below its target. Surface the deficit so the
+  // Ingredients pane shows what must come from outside. bc post-pass can also cover part.
   const GOAL_SHORTFALL_TOLERANCE = 1e-4
-  const unsatisfiedIds = new Set(unsatisfied.map(u => u.itemId))
   const goalShortfalls: UnsatisfiedItem[] = []
-
   for (const goal of plan.goals) {
-    if (unsatisfiedIds.has(goal.itemId)) continue
     let netActual = 0
     for (const node of nodes) {
       netActual += node.outputRates[goal.itemId] ?? 0
@@ -285,8 +288,32 @@ export function solve(
     }
   }
 
-  // Goal shortfalls first so the UI surfaces them before raw ingredients.
-  unsatisfied = [...goalShortfalls, ...unsatisfied]
+  // Intermediate slack → external imports needed for network balance.
+  // All goal-slack entries are zero (goals are hard constraints with no slack variable).
+  const slackIntermediates: UnsatisfiedItem[] = []
+  for (const [itemId, rate] of adjustedSlackMap) {
+    slackIntermediates.push({ itemId, rate })
+  }
+
+  const rawConsumption: UnsatisfiedItem[] = []
+  const goalShortfallIds = new Set(goalShortfalls.map(u => u.itemId))
+  for (const itemId of system.classification.raw) {
+    if (goalShortfallIds.has(itemId)) continue
+    const row = system.S.get(itemId)
+    if (!row) continue
+    let totalConsumption = 0
+    for (const [recipeId, coeff] of row) {
+      if (coeff < 0) {
+        totalConsumption += Math.abs(coeff) * (throughputMap.get(recipeId) ?? 0)
+      }
+    }
+    if (totalConsumption > 0) {
+      rawConsumption.push({ itemId, rate: totalConsumption })
+    }
+  }
+
+  // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
+  const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
   return { nodes, unsatisfied, warnings }
 }

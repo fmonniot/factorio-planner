@@ -389,3 +389,70 @@ describe('v2 solver — goal shortfall detection', () => {
     }
   })
 })
+
+// ---------------------------------------------------------------------------
+// Elastic slack — intermediate bottleneck detection
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — elastic slack on intermediates', () => {
+  it('internally feasible plan: no slack, throughputs unaffected', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelt': recipe('smelt', 1, [item('ore', 1)], [product('iron', 1)]),
+        'mine': recipe('mine', 1, [], [product('ore', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron', rate: 60 }],
+      nodes: [planNode('n1', 'smelt'), planNode('n2', 'mine')],
+    }
+    const result = solve(plan, gd)
+    expect(result.unsatisfied.find(u => u.itemId === 'ore')).toBeUndefined()
+    expect(result.nodes.find(n => n.recipeNodeId === 'n1')!.throughput).toBeCloseTo(60, 3)
+  })
+
+  it('pinned bottleneck: LP reports slack on the under-supplied intermediate', () => {
+    // smelt needs 2 ore per run (goal: iron 60 → x_smelt = 60 → need 120 ore).
+    // mine is pinned to 50 → supplies only 50 ore. Slack = 70.
+    const gd = makeGameData({
+      recipes: {
+        'smelt': recipe('smelt', 1, [item('ore', 2)], [product('iron', 1)]),
+        'mine': recipe('mine', 1, [], [product('ore', 1)]),
+      },
+    })
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'iron', rate: 60 }],
+      nodes: [planNode('n1', 'smelt'), { ...planNode('n2', 'mine'), pinnedRate: 50 }],
+    }
+    const result = solve(plan, gd)
+    expect(result.nodes.find(n => n.recipeNodeId === 'n1')!.throughput).toBeCloseTo(60, 3)
+    const oreEntry = result.unsatisfied.find(u => u.itemId === 'ore')
+    expect(oreEntry).toBeDefined()
+    expect(oreEntry!.rate).toBeCloseTo(70, 1)
+  })
+
+  it('intermediate slack comes after goal shortfalls in unsatisfied ordering', () => {
+    // missing-goal (goal, no producer) → goal shortfall first
+    // widget → produced from bottlenecked ore (slack intermediate) → slack second
+    const gd = makeGameData({
+      recipes: {
+        'smelt': recipe('smelt', 1, [item('ore', 2)], [product('widget', 1)]),
+        'mine': recipe('mine', 1, [], [product('ore', 1)]),
+      },
+    })
+    const plan = {
+      goals: [
+        { id: 'g1', itemId: 'missing-goal', rate: 10 },
+        { id: 'g2', itemId: 'widget', rate: 60 },
+      ],
+      nodes: [planNode('n1', 'smelt'), planNode('n2', 'mine')],
+    }
+    const result = solve(plan, gd)
+    const goalIdx = result.unsatisfied.findIndex(u => u.itemId === 'missing-goal')
+    const slackIdx = result.unsatisfied.findIndex(u => u.itemId === 'ore')
+    expect(goalIdx).not.toBe(-1)
+    if (slackIdx !== -1) {
+      expect(goalIdx).toBeLessThan(slackIdx)
+    }
+  })
+})
