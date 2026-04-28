@@ -168,12 +168,12 @@ export function RecipeRow({
               src={iconUrl(gameData.items[primaryItemId]!.iconPath)}
               alt={recipe.name}
               title={recipe.name}
-              className="w-[30px] h-[30px] object-contain shrink-0"
+              className="w-8 h-8 object-contain shrink-0"
             />
           ) : (
             <span
               title={recipe.name}
-              className="w-[30px] h-[30px] bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
+              className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
             >
               {recipe.name.substring(0, 2).toUpperCase()}
             </span>

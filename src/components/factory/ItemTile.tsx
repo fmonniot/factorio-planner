@@ -50,7 +50,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTile
         <img
           src={iconUrl(item.iconPath)}
           alt={item.name}
-          className="w-[25px] h-[25px] object-contain shrink-0"
+          className="w-7 h-7 object-contain shrink-0"
         />
       ) : (
         <span className="text-xs truncate max-w-[4rem]" title={item?.name ?? '?'}>
