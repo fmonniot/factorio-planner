@@ -38,3 +38,5 @@ it doesn't need to browse the entire code base all the time.
 - Consider a new solver constraint: the ability to hard link two product in recipes. For example, say that one recipe input scale must be fully driven by another recipe byproduct. Would be very helpful to have recipes that are only there to consume a byproduct (while contributing to the real output).
 
 - No way to remove recipe in the new UI…
+
+- Need to change the power back to Watts instead of that Value/sec nonsense (tooltip has kw so probably not too complex)
