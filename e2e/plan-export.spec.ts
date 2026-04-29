@@ -28,7 +28,7 @@ test.describe('Plan export', () => {
     await overlay.getByRole('button', { name: 'Chemistry research 1' }).first().click()
 
     // Wait for the recipe row to appear.
-    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // Trigger the download and capture it.
@@ -71,7 +71,7 @@ test.describe('Plan export', () => {
 
     // The recipe row should appear after reload without UI interaction.
     await expect(
-      page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+      page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     ).toBeVisible()
   })
 })

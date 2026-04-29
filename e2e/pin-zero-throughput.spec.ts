@@ -25,7 +25,7 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
 
   // The saline-electrolysis row must be present (proves the fixture loaded).
   const row = page.locator('main table tbody tr')
-    .filter({ hasText: 'nullius-saline-electrolysis' }).first()
+    .filter({ has: page.locator('[title="nullius-saline-electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
   // Pin button (📍) should be visible on the row — not yet pinned.

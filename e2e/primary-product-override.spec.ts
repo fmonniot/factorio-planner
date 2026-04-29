@@ -29,7 +29,7 @@ test.describe('Primary product override', () => {
     await overlay.getByRole('button', { name: /nullius-brine-electrolysis/ }).first().click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ hasText: 'nullius-brine-electrolysis' }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="nullius-brine-electrolysis"]') }).first()
     await expect(row).toBeVisible()
 
     // By default Hydrogen is primary — it appears in the Products column.
@@ -65,7 +65,7 @@ test.describe('Primary product override', () => {
     await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
     await overlay.getByRole('button', { name: 'Chemistry research 1' }).first().click()
 
-    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // Single-output: no "Set as primary" tiles (nothing to switch to).

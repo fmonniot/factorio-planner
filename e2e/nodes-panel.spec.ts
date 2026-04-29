@@ -36,7 +36,7 @@ test.describe('Nodes panel', () => {
     await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
 
     // 5. Recipe row appears in the production table
-    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // 6. "No recipes yet" is gone
@@ -56,7 +56,7 @@ test.describe('Nodes panel', () => {
     await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ hasText: 'Chemistry research 1' }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
     // The module cell shows slot count — click it to open the module popover.
