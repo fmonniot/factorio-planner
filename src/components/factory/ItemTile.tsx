@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 // Rate formatting (shared across factory components)
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   const v = unit === 'min' ? ratePerSec * 60 : ratePerSec
   if (v >= 100) return v.toFixed(0)

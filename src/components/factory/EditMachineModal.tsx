@@ -30,6 +30,7 @@ function computeModuleEffects(modules: ModuleConfig[], gameData: GameData): Effe
   return totals
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function applyRecipeConstraints(
   totals: EffectTotals,
   allowedEffects: string[],

@@ -91,7 +91,7 @@ export function solve(
     }
   }
 
-  const { throughput: throughputMap, slack: slackMap, warnings, feasible: _feasible } =
+  const { throughput: throughputMap, slack: slackMap, warnings } =
     solveLP(system, pinnedRates, bcRecipeIds, noImportItems)
 
   // Per-item net surplus from the LP solve.

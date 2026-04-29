@@ -190,7 +190,7 @@ const initialBlock = makeEmptyBlock('Factory')
 // Store
 // ---------------------------------------------------------------------------
 
-export const useBlockStore = create<BlockStoreState>((set, get) => ({
+export const useBlockStore = create<BlockStoreState>((set) => ({
   blocks: [initialBlock],
   activeBlockId: initialBlock.id,
   activeSubPlanId: initialBlock.rootPlan.id,

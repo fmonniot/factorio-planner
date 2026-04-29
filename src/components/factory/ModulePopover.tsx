@@ -8,6 +8,7 @@ import { iconUrl } from '../../utils/iconUrl'
 // Logic helpers (pure, exported for testing)
 // ---------------------------------------------------------------------------
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function isModuleAllowedInMachine(
   module: { effects: Record<string, number> },
   machine: { allowedEffects: string[] },
@@ -15,6 +16,7 @@ export function isModuleAllowedInMachine(
   return Object.keys(module.effects).every(e => machine.allowedEffects.includes(e))
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function isModuleAllowedForRecipe(
   module: { limitation: string[]; limitationBlacklist: string[] },
   recipeId: string,

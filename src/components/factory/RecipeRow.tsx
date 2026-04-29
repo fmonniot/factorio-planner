@@ -46,6 +46,7 @@ export function RecipeRow({
   const rateUnit = useUiStore(s => s.rateUnit)
 
   const indentPx = depth * 16
+  const [editMachineOpen, setEditMachineOpen] = useState(false)
 
   // ── SubPlan node ─────────────────────────────────────────────────────────
 
@@ -87,7 +88,6 @@ export function RecipeRow({
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
-  const [editMachineOpen, setEditMachineOpen] = useState(false)
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)

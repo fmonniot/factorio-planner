@@ -10,8 +10,6 @@ const SERVER_DATASETS = [
   { id: 'nullius', label: 'Nullius', url: '/data/nullius/game-data.json' },
 ] as const
 
-type ServerDatasetId = (typeof SERVER_DATASETS)[number]['id']
-
 const STORAGE_KEY = 'factorio-planner:game-data-source'
 
 // ---------------------------------------------------------------------------

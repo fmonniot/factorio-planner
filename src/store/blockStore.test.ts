@@ -5,16 +5,12 @@ import {
   makeEmptySubPlan,
   findSubPlan,
 } from './blockStore'
-import type { BlockStoreState } from './blockStore'
 import type { RecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function freshState(): BlockStoreState {
-  return useBlockStore.getState()
-}
 
 const ironNode: RecipeNode = {
   kind: 'game-recipe',
