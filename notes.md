@@ -1,42 +1,32 @@
-# AI tetss
+# Tasks
 
-Find a way to have claude always update the spec files after any changes.
-Then find a way to convince it that spec are always up to date doc and that
-it doesn't need to browse the entire code base all the time.
+## DX / AI Workflow
 
+- [ ] Configure Claude Code hooks (or CLAUDE.md guidance) to auto-update spec files after any source change, so specs serve as always-current documentation without requiring full codebase traversal each session.
 
+---
 
-# Functional Notes
+## UI / UX
 
-> :info: This is a non-structured list of notes I took while working on this project.
-
-
-- Selecting module should show real name, not id. IDs aren't really readable. May bring the localization question to the table.
-    - Same for machines
-
-- Adding an item is seemingly not correlated to the goal we created.
-    - It is, in a way. The goal will drive the target rate. What's less intuitive is that creating a goal doesn't prompt for the initial recipe choice.
-
-- Beacon UI isn't super clear. How do I add multiple type of beacon for example? Same issue of UI reset as modules. Also can't set up different kind of module per slot. Probably a lot easier to show one drop down per module slot.
-    - Also need to add some logic to correctly apply module restriction. Doubts prod modules can go into nullius beacons.
-        - Double check in game before launching clode on that.
+- [ ] **Module & machine labels:** Display human-readable names instead of internal IDs in the module and machine selectors. Investigate whether this requires pulling in the localisation layer.
 
 
-- Alright, now we have the same issue as with helmod. Needs to see if we can add constraints that force the solver to pick a certain rate for certain product and work around it. That does mean it will be able to work with things like "I'll need to x amount of y as raw inputs to complete the calculation" rather than scaling other sources for said item.
-    - Maybe learn more about solvers in general. Probably a solved problem (tadum tss) but I know nothing of this area of Mathematics
+- [ ] **Beacon UI overhaul:**
+  - [x] Replace the current beacon UI with one dropdown per module slot so users can assign different module types per slot.
+  - [x] Fix the UI-reset bug that also affects the module selector.
+  - [ ] Support multiple beacon types per machine.
+  - [ ] Enforce module restrictions (e.g. productivity modules cannot go into Nullius beacons — verify in-game before implementing).
 
-- nullius-saline-electrolysis still not using english locale
+- [ ] **Warning vs. error distinction:** Split the warning panel into two categories — *warnings* (suggestions the solver can ignore) and *errors* (conditions that prevent the plan from resolving) — and surface them with different visual treatment.
 
-- Should the warning UI be divided into warning and errors? The former are suggestions and the latter block the plan from resolving
+- [ ] **Remove-recipe action:** Add a way to remove a recipe from the plan in the current UI (the action is missing entirely).
 
+- [ ] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
 
-- Redo the UI using helmod/factory planner as a reference
-    - https://mods.factorio.com/mod/helmod
-    - https://mods.factorio.com/mod/factoryplanner
-    - In progress
+- [ ] **UI redesign (in progress):** Rework the overall UI using [helmod](https://mods.factorio.com/mod/helmod) and [Factory Planner](https://mods.factorio.com/mod/factoryplanner) as visual references.
 
-- Consider a new solver constraint: the ability to hard link two product in recipes. For example, say that one recipe input scale must be fully driven by another recipe byproduct. Would be very helpful to have recipes that are only there to consume a byproduct (while contributing to the real output).
+---
 
-- No way to remove recipe in the new UI…
+## Localisation
 
-- Need to change the power back to Watts instead of that Value/sec nonsense (tooltip has kw so probably not too complex)
+- [ ] **Missing English locale:** `nullius-saline-electrolysis` is still displayed with its internal ID instead of its English name. Trace and fix the locale lookup for this recipe.
