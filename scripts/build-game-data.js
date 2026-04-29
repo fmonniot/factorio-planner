@@ -30,7 +30,7 @@ import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
-import { compositeIconLayers } from './icon-compositor.js'
+import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -329,8 +329,9 @@ function makeIconResolver(resolvers, iconsOut) {
       const outPath = join(iconsOut, outName)
       if (!written.has(outName)) {
         const outputSize = proto.icon_size ?? 64
-        const buf = await compositeIconLayers(proto.icons, resolvers, outputSize)
-        if (!buf) return ''
+        const raw = await compositeIconLayers(proto.icons, resolvers, outputSize)
+        if (!raw) return ''
+        const buf = await normalizeIcon(raw, outputSize)
         writeFileSync(outPath, buf)
         written.add(outName)
       }
@@ -347,12 +348,13 @@ function makeIconResolver(resolvers, iconsOut) {
     const outPath  = join(iconsOut, outName)
 
     if (!written.has(outName)) {
-      const buf = await compositeIconLayers(
+      const raw = await compositeIconLayers(
         [{ icon: iconPath, icon_size: iconSize, scale: 1 }],
         resolvers,
         iconSize,
       )
-      if (!buf) return ''
+      if (!raw) return ''
+      const buf = await normalizeIcon(raw, iconSize)
       writeFileSync(outPath, buf)
       written.add(outName)
     }
