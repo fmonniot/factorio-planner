@@ -1,9 +1,9 @@
 import { create } from 'zustand'
 import type { SubPlan, SolverResult, GameData } from '../data/types'
 import type { SyntheticRecipe } from '../solver/index'
-import { deriveSyntheticRecipe } from '../solver/v1/subplan'
+import { deriveSyntheticRecipe } from '../solver/subplan'
 import { solve } from '../solver/index'
-import { useBlockStore, selectActiveSubPlan, findSubPlan } from './blockStore'
+import { useBlockStore, selectActiveSubPlan } from './blockStore'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 
 // ---------------------------------------------------------------------------
@@ -51,7 +51,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 // treat each child subplan as an opaque black-box recipe.
 // ---------------------------------------------------------------------------
 
-function solveBottomUp(rootPlan: SubPlan, gameData: GameData, solverVersion: 1 | 2 = 1): Map<string, SolverResult> {
+function solveBottomUp(rootPlan: SubPlan, gameData: GameData): Map<string, SolverResult> {
   const results = new Map<string, SolverResult>()
 
   function visit(subPlan: SubPlan): void {
@@ -69,7 +69,7 @@ function solveBottomUp(rootPlan: SubPlan, gameData: GameData, solverVersion: 1 |
       }
     }
 
-    const result = solve({ ...subPlan, solverVersion }, gameData, syntheticRecipes)
+    const result = solve(subPlan, gameData, syntheticRecipes)
     results.set(subPlan.id, result)
   }
 
@@ -118,9 +118,8 @@ export function wireSolver(): () => void {
         // subplans referenced as nodes in the active subplan).
         const activeBlock = blockState.blocks.find(b => b.id === blockState.activeBlockId)
         const rootPlan = activeBlock?.rootPlan ?? subPlan
-        const solverVersion = activeBlock?.solverVersion ?? 1
 
-        const allResults = solveBottomUp(rootPlan, gameData, solverVersion)
+        const allResults = solveBottomUp(rootPlan, gameData)
         const activeResult = allResults.get(subPlan.id) ?? { nodes: [], unsatisfied: [], warnings: [] }
 
         useSolverStore.getState()._setStatus(

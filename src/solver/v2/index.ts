@@ -1,8 +1,8 @@
 import type { SubPlan, GameData, SolverResult, SolvedNode, UnsatisfiedItem } from '../../data/types'
-import type { SyntheticRecipe } from '../v1/subplan'
+import type { SyntheticRecipe } from '../subplan'
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
-import { computeNodeEffects, computeMachineMetrics } from '../v1/effects'
+import { computeNodeEffects, computeMachineMetrics } from '../effects'
 
 // ---------------------------------------------------------------------------
 // v2 solver entry point

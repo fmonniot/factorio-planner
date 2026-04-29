@@ -1,12 +1,10 @@
 import type { SubPlan, GameData, SolverResult } from '../data/types'
-import type { SyntheticRecipe } from './v1/subplan'
-import { solve as solveV1 } from './v1/index'
+import type { SyntheticRecipe } from './subplan'
 import { solve as solveV2 } from './v2/index'
 
-export type { SyntheticRecipe } from './v1/subplan'
+export type { SyntheticRecipe } from './subplan'
 
 type SolverPlan = Pick<SubPlan, 'goals' | 'nodes'> & {
-  solverVersion?: 1 | 2
   noImportItems?: string[]
 }
 
@@ -15,9 +13,5 @@ export function solve(
   gameData: GameData,
   syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
 ): SolverResult {
-  const version = plan.solverVersion ?? 1
-  switch (version) {
-    case 1: return solveV1(plan, gameData, syntheticRecipes)
-    case 2: return solveV2(plan, gameData, syntheticRecipes)
-  }
+  return solveV2(plan, gameData, syntheticRecipes)
 }

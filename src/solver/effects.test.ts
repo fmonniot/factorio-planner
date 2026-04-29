@@ -1,9 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { buildStoichiometryMatrix } from './build'
-import { reduceSystem } from './reduce'
-import { solveSystem } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
-import type { GameData, RecipeNode, Machine } from '../../data/types'
+import type { GameData, GameRecipeNode, Machine } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -20,47 +17,19 @@ function makeGameData(
     recipes,
     machines: {},
     modules,
+    beacons: {},
     defaultMachines: {},
-  }
-}
-
-function item(itemId: string, amount: number) {
-  return { itemId, type: 'item' as const, amount }
-}
-
-function product(
-  itemId: string,
-  amount: number,
-  opts: { probability?: number; ignoredByProductivity?: number } = {},
-) {
-  return { itemId, type: 'item' as const, amount, ...opts }
-}
-
-function recipe(
-  id: string,
-  ingredients: GameData['recipes'][string]['ingredients'],
-  products: GameData['recipes'][string]['products'],
-): GameData['recipes'][string] {
-  return {
-    id,
-    name: id,
-    category: 'crafting',
-    craftingTime: 60,  // 60s for easy machine-count math (1 exec needs 1 machine at speed=1)
-    ingredients,
-    products,
-    madeIn: [],
-    allowProductivity: true,
-    mainProduct: undefined,
   }
 }
 
 function node(
   id: string,
   recipeId: string,
-  modules: RecipeNode['modules'] = [],
-  beaconConfig?: RecipeNode['beaconConfig'],
-): RecipeNode {
+  modules: GameRecipeNode['modules'] = [],
+  beaconConfig?: GameRecipeNode['beaconConfig'],
+): GameRecipeNode {
   return {
+    kind: 'game-recipe',
     id,
     recipeId,
     modules,
@@ -82,6 +51,7 @@ function machine(overrides: Partial<Machine> = {}): Machine {
     allowedEffects: ['speed', 'productivity', 'consumption', 'pollution', 'quality'],
     craftingCategories: ['crafting'],
     iconPath: '',
+    hidden: false,
     ...overrides,
   }
 }
@@ -89,6 +59,7 @@ function machine(overrides: Partial<Machine> = {}): Machine {
 const PROD3_MODULE: GameData['modules'][string] = {
   id: 'productivity-module-3',
   name: 'productivity-module-3',
+  iconPath: '',
   category: 'productivity',
   tier: 3,
   effects: { productivity: 0.1, consumption: 0.8, speed: -0.15, quality: 0 },
@@ -99,6 +70,7 @@ const PROD3_MODULE: GameData['modules'][string] = {
 const SPEED3_MODULE: GameData['modules'][string] = {
   id: 'speed-module-3',
   name: 'speed-module-3',
+  iconPath: '',
   category: 'speed',
   tier: 3,
   effects: { speed: 0.5, consumption: 0.7, productivity: 0, quality: 0 },
@@ -224,65 +196,5 @@ describe('computeMachineMetrics', () => {
     // 2.5 machines needed
     const metrics = computeMachineMetrics(2.5, 60, m, fx)
     expect(metrics.machineCountCeil).toBe(3)
-  })
-})
-
-// ---------------------------------------------------------------------------
-// Corpus case 6: productivity reduces upstream demand
-// Kovarex with 4× prod-3 (+40% total)
-// Goal: 5 U-235/min → ≈3.571 exec/min (vs 5 without prod)
-// ---------------------------------------------------------------------------
-
-describe('Corpus Case 6 — productivity reduces throughput', () => {
-  const gd = makeGameData(
-    {
-      'kovarex-enrichment-process': recipe(
-        'kovarex-enrichment-process',
-        [item('uranium-235', 40), item('uranium-238', 5)],
-        [
-          product('uranium-235', 41, { ignoredByProductivity: 40 }),
-          product('uranium-238', 2, { ignoredByProductivity: 2 }),
-        ],
-      ),
-    },
-    { 'productivity-module-3': PROD3_MODULE },
-  )
-
-  const n = node('n1', 'kovarex-enrichment-process', [
-    { moduleId: 'productivity-module-3', count: 4 },
-  ])
-
-  it('4× prod-3 gives +40% productivity bonus', () => {
-    const fx = computeNodeEffects(n, gd)
-    expect(fx.productivityBonus).toBeCloseTo(0.4)
-  })
-
-  it('productivity reduces kovarex throughput from 5 to ≈3.571 exec/min', () => {
-    const fx = computeNodeEffects(n, gd)
-    const prodMap = new Map([['kovarex-enrichment-process', fx.productivityBonus]])
-    const matrix = buildStoichiometryMatrix(
-      gd,
-      ['kovarex-enrichment-process'],
-      prodMap,
-    )
-    const system = reduceSystem(matrix, new Map([['uranium-235', 5]]))
-    const result = solveSystem(system.S, system.d, matrix.recipes)
-    expect(result.throughput[0]).toBeCloseTo(3.571, 2)
-  })
-
-  it('U-238 consumption drops from 15 to ≈10.714/min with productivity', () => {
-    const fx = computeNodeEffects(n, gd)
-    const prodMap = new Map([['kovarex-enrichment-process', fx.productivityBonus]])
-    const matrix = buildStoichiometryMatrix(
-      gd,
-      ['kovarex-enrichment-process'],
-      prodMap,
-    )
-    const system = reduceSystem(matrix, new Map([['uranium-235', 5]]))
-    const result = solveSystem(system.S, system.d, matrix.recipes)
-    const throughput = result.throughput[0]
-    // U-238 net per exec = −3 (same with and without prod, since ibp=2 covers all output)
-    const u238Consumption = throughput * 3
-    expect(u238Consumption).toBeCloseTo(10.714, 2)
   })
 })

@@ -7,7 +7,7 @@ import { fmtRate } from './ItemTile'
 import { iconUrl } from '../../utils/iconUrl'
 import { ItemTile } from './ItemTile'
 import { ItemPicker } from '../ItemPicker'
-import type { ProductionGoal, Item, GameData } from '../../data/types'
+import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 
 // ---------------------------------------------------------------------------
@@ -158,8 +158,6 @@ export function FactorySummary() {
   const [editingName, setEditingName] = useState(false)
   const [nameDraft, setNameDraft] = useState('')
 
-  const updateBlockSolverVersion = useBlockStore(s => s.updateBlockSolverVersion)
-  const solverVersion = activeBlock?.solverVersion ?? 1
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = subPlan?.noImportItems ?? []
 
@@ -222,29 +220,6 @@ export function FactorySummary() {
           </button>
         )}
         <div className="flex items-center gap-2">
-          {activeBlock && (
-            <>
-              <button
-                type="button"
-                onClick={() => updateBlockSolverVersion(activeBlock.id, 1)}
-                title="Use v1 solver"
-                aria-label="Solver v1"
-                className={`hover:text-gray-200 text-[10px] px-1 rounded border ${solverVersion === 1 ? 'text-teal-400 border-teal-700' : 'border-gray-700'}`}
-              >
-                v1
-              </button>
-              <button
-                type="button"
-                onClick={() => updateBlockSolverVersion(activeBlock.id, 2)}
-                title="Use v2 solver (LP)"
-                aria-label="Solver v2"
-                className={`hover:text-gray-200 text-[10px] px-1 rounded border ${solverVersion === 2 ? 'text-teal-400 border-teal-700' : 'border-gray-700'}`}
-              >
-                v2
-              </button>
-              <span className="text-gray-700">·</span>
-            </>
-          )}
           <button
             type="button"
             onClick={() => setRateUnit('sec')}

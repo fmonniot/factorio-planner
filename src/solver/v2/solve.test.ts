@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
-import { solve as solveV1 } from '../v1/index'
 import type { GameData, GameRecipeNode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -45,8 +44,6 @@ function planNode(id: string, recipeId: string): GameRecipeNode {
   return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} }
 }
 
-const TOLERANCE = 1e-4
-
 // ---------------------------------------------------------------------------
 // Basic tests
 // ---------------------------------------------------------------------------
@@ -85,7 +82,7 @@ describe('v2 solver — basic cases', () => {
     expect(byRecipe.get('n2')!.throughput).toBeCloseTo(120, 3)
   })
 
-  it('plan that v1 also solves correctly: v2 matches v1 within tolerance', () => {
+  it('3-recipe chain: rates correct end-to-end', () => {
     const gameData = makeGameData({
       recipes: {
         'wire': recipe('wire', 1, [item('copper-cable', 2)], [product('wire', 1)]),
@@ -101,18 +98,11 @@ describe('v2 solver — basic cases', () => {
         planNode('n3', 'copper-plate'),
       ],
     }
-    const v2 = solve(plan, gameData)
-    const v1 = solveV1(plan, gameData)
-
-    const v2Map = new Map(v2.nodes.map(n => [n.recipeNodeId, n.throughput]))
-    const v1Map = new Map(v1.nodes.map(n => [n.recipeNodeId, n.throughput]))
-
-    for (const nodeId of ['n1', 'n2', 'n3']) {
-      const v2Rate = v2Map.get(nodeId)!
-      const v1Rate = v1Map.get(nodeId)!
-      const rel = v1Rate === 0 ? Math.abs(v2Rate) : Math.abs(v2Rate - v1Rate) / v1Rate
-      expect(rel, `node ${nodeId} relative difference`).toBeLessThanOrEqual(TOLERANCE)
-    }
+    const result = solve(plan, gameData)
+    const byNode = new Map(result.nodes.map(n => [n.recipeNodeId, n.throughput]))
+    expect(byNode.get('n1')).toBeCloseTo(60, 3)
+    expect(byNode.get('n2')).toBeCloseTo(60, 3)
+    expect(byNode.get('n3')).toBeCloseTo(60, 3)
   })
 })
 

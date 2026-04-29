@@ -95,7 +95,6 @@ export function makeEmptyBlock(name: string): Block {
     id: crypto.randomUUID(),
     name,
     gameDataVersion: '',
-    solverVersion: 2,
     rootPlan: makeEmptySubPlan('Main'),
   }
 }
@@ -115,8 +114,6 @@ export interface BlockStoreState {
   removeBlock: (blockId: string) => void
   renameBlock: (blockId: string, name: string) => void
   setActiveBlock: (blockId: string) => void
-  updateBlockSolverVersion: (blockId: string, version: 1 | 2) => void
-
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
   removeSubPlan: (subPlanId: string) => void
@@ -243,11 +240,6 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         activeSubPlanId: block.rootPlan.id,
       }
     }),
-
-  updateBlockSolverVersion: (blockId, version) =>
-    set(state => ({
-      blocks: state.blocks.map(b => (b.id === blockId ? { ...b, solverVersion: version } : b)),
-    })),
 
   // ── SubPlan management ────────────────────────────────────────────────────
 

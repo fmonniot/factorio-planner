@@ -1,4 +1,4 @@
-import type { GameData, RecipeNode, Machine } from '../../data/types'
+import type { GameData, GameRecipeNode, Machine } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Module and beacon effects
@@ -33,7 +33,7 @@ export interface NodeEffects {
  * @param node     - the recipe node from the plan
  * @param gameData - used to look up module effect values
  */
-export function computeNodeEffects(node: RecipeNode, gameData: GameData): NodeEffects {
+export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): NodeEffects {
   let productivityBonus = 0
   let speedBonus = 0
   let consumptionBonus = 0

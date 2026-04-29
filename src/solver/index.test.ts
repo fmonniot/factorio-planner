@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
-import { solve as solveV1 } from './v1/index'
 import type { GameData, SubPlan, GameRecipeNode } from '../data/types'
-
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
 
 function makeGameData(overrides: Partial<GameData> = {}): GameData {
   return {
@@ -18,14 +13,6 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     defaultMachines: {},
     ...overrides,
   }
-}
-
-function makePlan(
-  goals: SubPlan['goals'],
-  nodes: SubPlan['nodes'],
-  solverVersion?: 1 | 2,
-): Pick<SubPlan, 'goals' | 'nodes'> & { solverVersion?: 1 | 2 } {
-  return { goals, nodes, solverVersion }
 }
 
 function product(itemId: string, amount: number) {
@@ -58,43 +45,23 @@ function planNode(id: string, recipeId: string): GameRecipeNode {
 
 const ironRecipe = recipe('iron-plate', 1, [], [product('iron-plate', 1)])
 const simpleGameData = makeGameData({ recipes: { 'iron-plate': ironRecipe } })
-const simplePlan = makePlan(
-  [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
-  [planNode('n1', 'iron-plate')],
-)
+const simplePlan: Pick<SubPlan, 'goals' | 'nodes'> = {
+  goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+  nodes: [planNode('n1', 'iron-plate')],
+}
 
-// ---------------------------------------------------------------------------
-// Dispatcher tests
-// ---------------------------------------------------------------------------
-
-describe('solve dispatcher', () => {
-  it('routes solverVersion 1 to v1 and returns the same result as calling v1 directly', () => {
-    const v1Direct = solveV1(simplePlan, simpleGameData)
-    const dispatched = solve({ ...simplePlan, solverVersion: 1 }, simpleGameData)
-    expect(dispatched.nodes.length).toBe(v1Direct.nodes.length)
-    expect(dispatched.nodes[0]?.throughput).toBeCloseTo(v1Direct.nodes[0]!.throughput, 6)
-    expect(dispatched.warnings).toEqual(v1Direct.warnings)
-  })
-
-  it('defaults missing solverVersion to v1', () => {
-    const v1Direct = solveV1(simplePlan, simpleGameData)
-    const dispatched = solve(simplePlan, simpleGameData)
-    expect(dispatched.nodes[0]?.throughput).toBeCloseTo(v1Direct.nodes[0]!.throughput, 6)
-  })
-
-  it('routes solverVersion 2 to v2 and returns a valid result for a simple plan', () => {
-    const result = solve({ ...simplePlan, solverVersion: 2 }, simpleGameData)
+describe('solve', () => {
+  it('returns a node with positive throughput for a simple plan', () => {
+    const result = solve(simplePlan, simpleGameData)
     expect(result.nodes).toHaveLength(1)
     expect(result.nodes[0].throughput).toBeGreaterThan(0)
   })
 
-  it('routes solverVersion 2 to v2 which handles pinned rates', () => {
+  it('respects a pinned rate', () => {
     const pinnedPlan = {
       ...simplePlan,
-      solverVersion: 2 as const,
       nodes: [{ ...simplePlan.nodes[0]!, pinnedRate: 80 }],
     }
-    // pin at 80 with goal at 60 is feasible
     const result = solve(pinnedPlan, simpleGameData)
     expect(result.nodes[0].throughput).toBeCloseTo(80, 3)
   })

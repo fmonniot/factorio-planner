@@ -217,7 +217,6 @@ export const BlockSchema = z.object({
   id: z.string(),
   name: z.string(),
   gameDataVersion: z.string(),
-  solverVersion: z.union([z.literal(1), z.literal(2)]).default(1),
   rootPlan: SubPlanSchema,
 })
 
