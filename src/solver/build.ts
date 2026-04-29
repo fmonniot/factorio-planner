@@ -1,9 +1,9 @@
-import type { GameData } from '../../data/types'
+import type { GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
-// Item classification for the v2 LP solver
+// Item classification for the LP solver
 //
-// Categories (same as v1's reduce.ts classification logic):
+// Categories:
 //   goal        — item appears in the goals map
 //   intermediate — produced AND consumed by at least one active recipe
 //   raw         — no producer in the active recipe set (external source)
@@ -29,7 +29,6 @@ export interface ClassifiedSystem {
 
 /**
  * Compute the effective product amount accounting for probability only.
- * (v2 does not support productivity bonus in Task 5.)
  */
 export function effectiveProductAmount(
   amount: number,
@@ -43,7 +42,7 @@ export function effectiveProductAmount(
 }
 
 /**
- * Build the net stoichiometry map and classify items for the v2 LP.
+ * Build the net stoichiometry map and classify items for the LP.
  */
 export function buildClassifiedSystem(
   gameData: GameData,

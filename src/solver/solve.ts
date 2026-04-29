@@ -1,6 +1,6 @@
 import solver from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
-import type { SolverWarning } from '../../data/types'
+import type { SolverWarning } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // LP construction and solve

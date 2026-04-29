@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
-import type { GameData, GameRecipeNode } from '../../data/types'
+import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -14,6 +14,7 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     recipes: {},
     machines: {},
     modules: {},
+    beacons: {},
     defaultMachines: {},
     ...overrides,
   }
@@ -178,10 +179,6 @@ describe('v2 solver — byproduct-consumer recipes', () => {
   })
 
   it('bc recipe contributes to a goal: main producer shrinks to compensate', () => {
-    // Two methane producers: main 'methane-synth' (1/exec) and bc 'pyrolysis' (2/exec).
-    // pyrolysis bounded by propene supply from 'cracking' (which is required for the propene goal).
-    // LP: cracking ≥ 100, pyrolysis = (12/90)·… well here cracking=propene_goal+pyrolysis_use.
-    // With pyrolysis bonus, LP runs it up to propene supply; methane-synth fills the rest.
     const gd = makeGameData({
       recipes: {
         'methane-synth': recipe('methane-synth', 1, [], [product('methane', 1)]),
@@ -202,14 +199,11 @@ describe('v2 solver — byproduct-consumer recipes', () => {
     }
     const result = solve(plan, gd)
     const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
-    // Pyrolysis runs > 0 (bc bonus + propene available).
     expect(byId.get('n2')!.throughput).toBeGreaterThan(0)
-    // Methane goal met exactly without overshoot.
     const totalMethane =
       (byId.get('n1')!.outputRates['methane'] ?? 0) +
       (byId.get('n2')!.outputRates['methane'] ?? 0)
     expect(totalMethane).toBeCloseTo(400, 1)
-    // Propene goal met (cracking ≥ 100 + pyrolysis_consumption).
     const propeneNet =
       (byId.get('n3')!.outputRates['propene'] ?? 0) -
       (byId.get('n2')!.inputRates['propene'] ?? 0)
@@ -217,9 +211,6 @@ describe('v2 solver — byproduct-consumer recipes', () => {
   })
 
   it('bc ingredients are auto no-import: LP cannot shortcut via slack', () => {
-    // Without auto no-import on bc ingredients, the LP would import 'propene'
-    // as slack to fire pyrolysis (bonus) and skip cracking entirely.
-    // Auto no-import forces the LP to run cracking to supply pyrolysis.
     const gd = makeGameData({
       recipes: {
         'pyrolysis': recipe('pyrolysis', 1, [item('propene', 1)], [product('methane', 2)]),
@@ -235,12 +226,9 @@ describe('v2 solver — byproduct-consumer recipes', () => {
     }
     const result = solve(plan, gd)
     const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
-    // Both recipes ran.
     expect(byId.get('n1')!.throughput).toBeGreaterThan(0)
     expect(byId.get('n2')!.throughput).toBeGreaterThan(0)
-    // propene is not in unsatisfied (auto no-import).
     expect(result.unsatisfied.find(u => u.itemId === 'propene')).toBeUndefined()
-    // crude (raw input to cracking) is.
     expect(result.unsatisfied.find(u => u.itemId === 'crude')).toBeDefined()
   })
 
@@ -362,7 +350,6 @@ describe('v2 solver — too-many-alternatives warning', () => {
 
 describe('v2 solver — goal shortfall detection', () => {
   it('LP infeasible with no producer: full goal rate appears in unsatisfied', () => {
-    // Goal: methane 400/min; no recipe produces methane.
     const gd = makeGameData({
       recipes: {
         'other': recipe('other', 1, [], [product('other-item', 1)]),
@@ -379,9 +366,6 @@ describe('v2 solver — goal shortfall detection', () => {
   })
 
   it('bc recipe in LP: contributes to goal so other recipes shrink to compensate', () => {
-    // Two methane producers: pyrolysis (bc) and methane-synth (regular).
-    // Pyrolysis is "cheaper" per methane (2/exec vs 1/exec) and bounded by propene supply.
-    // LP saturates pyrolysis up to its propene limit, fills the remainder with methane-synth.
     const gd = makeGameData({
       recipes: {
         'propene-pyrolysis': recipe('propene-pyrolysis', 1, [item('propene', 1)], [product('methane', 2)]),
@@ -402,12 +386,10 @@ describe('v2 solver — goal shortfall detection', () => {
     }
     const result = solve(plan, gd)
     const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
-    // Both methane producers contribute; sum equals the goal (no shortfall, no overshoot).
     const totalMethane =
       (byId.get('n1')!.outputRates['methane'] ?? 0) +
       (byId.get('n3')!.outputRates['methane'] ?? 0)
     expect(totalMethane).toBeCloseTo(400, 1)
-    // Methane is fully met internally — no entry in unsatisfied.
     expect(result.unsatisfied.find(u => u.itemId === 'methane')).toBeUndefined()
   })
 
@@ -426,9 +408,6 @@ describe('v2 solver — goal shortfall detection', () => {
   })
 
   it('goal shortfall entries appear before raw-item entries in unsatisfied', () => {
-    // methane (goal, no producer) → shortfall entry
-    // widgetizer produces widget (goal) from raw-stuff (raw input) → raw entry
-    // Ordering: methane shortfall must come before raw-stuff raw entry.
     const gd = makeGameData({
       recipes: {
         'widgetizer': recipe('widgetizer', 1, [item('raw-stuff', 1)], [product('widget', 1)]),
@@ -442,10 +421,8 @@ describe('v2 solver — goal shortfall detection', () => {
       nodes: [planNode('n1', 'widgetizer')],
     }
     const result = solve(plan, gd)
-    // methane has no producer → shortfall of 60 in unsatisfied
     const methaneIdx = result.unsatisfied.findIndex(u => u.itemId === 'methane')
     expect(methaneIdx).not.toBe(-1)
-    // raw-stuff is consumed by widgetizer → appears as raw ingredient
     const rawIdx = result.unsatisfied.findIndex(u => u.itemId === 'raw-stuff')
     if (rawIdx !== -1) {
       expect(methaneIdx).toBeLessThan(rawIdx)
@@ -475,8 +452,6 @@ describe('v2 solver — elastic slack on intermediates', () => {
   })
 
   it('pinned bottleneck: LP reports slack on the under-supplied intermediate', () => {
-    // smelt needs 2 ore per run (goal: iron 60 → x_smelt = 60 → need 120 ore).
-    // mine is pinned to 50 → supplies only 50 ore. Slack = 70.
     const gd = makeGameData({
       recipes: {
         'smelt': recipe('smelt', 1, [item('ore', 2)], [product('iron', 1)]),
@@ -495,9 +470,6 @@ describe('v2 solver — elastic slack on intermediates', () => {
   })
 
   it('noImportItems: marked item gets no slack, LP must produce internally', () => {
-    // Without noImport: LP can shortcut by importing 'wood' (slack at BIG_M),
-    // skipping the chopper recipe entirely.
-    // With noImport on 'wood': the LP must run chopper to supply paper.
     const gd = makeGameData({
       recipes: {
         'paper': recipe('paper', 1, [item('wood', 1)], [product('paper', 1)]),
@@ -514,13 +486,10 @@ describe('v2 solver — elastic slack on intermediates', () => {
     expect(byId.get('n1')!.throughput).toBeCloseTo(60, 3)
     expect(byId.get('n2')!.throughput).toBeCloseTo(60, 3)
     expect(result.unsatisfied.find(u => u.itemId === 'wood')).toBeUndefined()
-    // tree (raw) still appears as needed input.
     expect(result.unsatisfied.find(u => u.itemId === 'tree')).toBeDefined()
   })
 
   it('intermediate slack comes after goal shortfalls in unsatisfied ordering', () => {
-    // missing-goal (goal, no producer) → goal shortfall first
-    // widget → produced from bottlenecked ore (slack intermediate) → slack second
     const gd = makeGameData({
       recipes: {
         'smelt': recipe('smelt', 1, [item('ore', 2)], [product('widget', 1)]),
