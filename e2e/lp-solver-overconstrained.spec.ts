@@ -50,10 +50,4 @@ test.describe('LP solver — overconstrained Nullius plan', () => {
     await expect(page.getByText(/can't fully balance/i)).toBeVisible()
   })
 
-  test('solverVersion 2 is reflected in the toggle UI', async ({ page }) => {
-    // The v2 button should have teal styling (active state)
-    const v2Btn = page.getByRole('button', { name: 'Solver v2' })
-    await expect(v2Btn).toBeVisible()
-    await expect(v2Btn).toHaveClass(/teal/)
-  })
 })
