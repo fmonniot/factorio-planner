@@ -20,6 +20,18 @@ export function solve(
   const gameRecipeNodes = plan.nodes.filter(n => n.kind === 'game-recipe') as
     Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
+  // Detect duplicate recipe nodes (same recipeId used more than once).
+  const recipeIdCount = new Map<string, number>()
+  for (const n of gameRecipeNodes) {
+    recipeIdCount.set(n.recipeId, (recipeIdCount.get(n.recipeId) ?? 0) + 1)
+  }
+  const duplicateWarnings: SolverResult['warnings'] = []
+  for (const [recipeId, count] of recipeIdCount) {
+    if (count > 1) {
+      duplicateWarnings.push({ type: 'duplicate-recipe', recipeId, count })
+    }
+  }
+
   const rawRecipeIds = [
     ...gameRecipeNodes.map(n => n.recipeId),
     ...syntheticRecipes.keys(),
@@ -240,5 +252,5 @@ export function solve(
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  return { nodes, unsatisfied, warnings }
+  return { nodes, unsatisfied, warnings: [...duplicateWarnings, ...warnings] }
 }
