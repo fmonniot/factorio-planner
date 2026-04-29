@@ -52,7 +52,7 @@ test.describe('Recipe picker detail panel', () => {
   test('detail panel disappears when cursor leaves the recipe row', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    await page.getByRole('button', { name: '+ Add' }).nth(1).click()
+    await page.getByText('+ Add recipe').click()
     await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
 
     const recipeRow = overlay.getByRole('button', { name: /Chemistry research 1/ }).first()
