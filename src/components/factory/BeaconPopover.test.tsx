@@ -1,23 +1,43 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { BeaconPopover } from './BeaconPopover'
+import { BeaconModal } from './BeaconModal'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, BeaconConfig, RecipeNode } from '../../data/types'
 
 const speedModule = {
   id: 'speed-3',
   name: 'Speed 3',
+  iconPath: '',
   effects: { speed: 0.5, consumption: 0.7 },
   limitation: [],
   limitationBlacklist: [],
   hidden: false,
   tier: 3,
-  qualityId: undefined,
 }
 
-const mockGameData = {
+const mockGameData: GameData = {
+  factorioVersion: '2.0.0',
+  modSet: {},
+  items: {},
+  recipes: {
+    'iron-plate': {
+      id: 'iron-plate',
+      name: 'Iron Plate',
+      hidden: false,
+      category: 'crafting',
+      craftingTime: 1,
+      ingredients: [],
+      products: [{ itemId: 'iron-plate', type: 'item', amount: 1 }],
+      madeIn: [],
+      allowProductivity: false,
+      mainProduct: undefined,
+    },
+  },
+  machines: {},
   modules: { 'speed-3': speedModule },
-} as unknown as GameData
+  beacons: {},
+  defaultMachines: {},
+}
 
 const beacon: BeaconConfig = {
   moduleId: 'speed-3',
@@ -46,12 +66,15 @@ beforeEach(() => {
   })
 })
 
-describe('BeaconPopover', () => {
+describe('BeaconModal', () => {
   it('renders the beacon count field', () => {
     render(
-      <BeaconPopover
+      <BeaconModal
         nodeId="n1"
         beacon={beacon}
+        recipeId="iron-plate"
+        machineId={undefined}
+        recipeCategory="crafting"
         gameData={mockGameData}
         onClose={() => {}}
       />
@@ -60,13 +83,15 @@ describe('BeaconPopover', () => {
   })
 
   it('calls updateNodeBeacon(undefined) when Remove beacon is clicked', () => {
-    const onClose = () => {}
     render(
-      <BeaconPopover
+      <BeaconModal
         nodeId="n1"
         beacon={beacon}
+        recipeId="iron-plate"
+        machineId={undefined}
+        recipeCategory="crafting"
         gameData={mockGameData}
-        onClose={onClose}
+        onClose={() => {}}
       />
     )
     fireEvent.click(screen.getByText('Remove beacon'))
@@ -78,9 +103,12 @@ describe('BeaconPopover', () => {
 
   it('updates beaconCount on input change', () => {
     render(
-      <BeaconPopover
+      <BeaconModal
         nodeId="n1"
         beacon={beacon}
+        recipeId="iron-plate"
+        machineId={undefined}
+        recipeCategory="crafting"
         gameData={mockGameData}
         onClose={() => {}}
       />
