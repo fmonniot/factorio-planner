@@ -50,7 +50,7 @@ test.describe('Byproduct consumer mode', () => {
     await expect(badge).toBeVisible()
 
     await badge.click()
-    await expect(page.getByText('Ambiguous production split')).toBeVisible()
+    await expect(page.getByText(/Recipe network can.t fully balance/)).toBeVisible()
   })
 
   test('toggling byproduct consumer on a recipe removes the underdetermined warning', async ({ page }) => {
@@ -104,7 +104,7 @@ test.describe('Byproduct consumer mode', () => {
     const badge = page.getByRole('button', { name: /warning/ })
     await expect(badge).toBeVisible()
     await badge.click()
-    await expect(page.getByText('Ambiguous production split')).toBeVisible()
+    await expect(page.getByText(/Recipe network can.t fully balance/)).toBeVisible()
   })
 
   test('byproductConsumer field survives a plan reload', async ({ page }) => {
