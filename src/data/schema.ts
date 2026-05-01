@@ -114,7 +114,7 @@ export const BeaconEntitySchema = z.object({
   iconPath: z.string(),
   hidden: z.boolean().default(false),
   moduleSlots: z.number().int().nonnegative(),
-  distributionEfficiency: z.number().min(0).max(1),
+  distributionEfficiency: z.number().min(0),
   allowedEffects: z.array(EffectNameSchema),
 })
 
@@ -149,7 +149,7 @@ export const BeaconConfigSchema = z.object({
   moduleId: z.string(),
   beaconCount: z.number().int().nonnegative(),
   modulesPerBeacon: z.number().int().positive(),
-  distributionEfficiency: z.number().min(0).max(1),
+  distributionEfficiency: z.number().min(0),
 })
 
 export const GameRecipeNodeSchema = z.object({
