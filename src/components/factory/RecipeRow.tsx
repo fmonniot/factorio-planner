@@ -43,6 +43,7 @@ export function RecipeRow({
   const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
+  const removeNode = useBlockStore(s => s.removeNode)
   const rateUnit = useUiStore(s => s.rateUnit)
 
   const indentPx = depth * 16
@@ -55,9 +56,9 @@ export function RecipeRow({
     const label = childPlan?.name ?? planNode.subPlanId
 
     return (
-      <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40">
+      <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group">
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
-        <td className="px-2 py-0.5" colSpan={7} style={{ paddingLeft: `${8 + indentPx}px` }}>
+        <td className="px-2 py-0.5" colSpan={6} style={{ paddingLeft: `${8 + indentPx}px` }}>
           <button
             type="button"
             onClick={onToggleExpand}
@@ -70,6 +71,16 @@ export function RecipeRow({
                 {childPlan.nodes.length} recipe{childPlan.nodes.length !== 1 ? 's' : ''}
               </span>
             )}
+          </button>
+        </td>
+        <td className="px-1 py-0.5 text-right">
+          <button
+            type="button"
+            onClick={() => removeNode(planNode.id)}
+            title="Remove subplan"
+            className="text-gray-700 hover:text-red-400 text-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            ×
           </button>
         </td>
       </tr>
@@ -161,6 +172,15 @@ export function RecipeRow({
             title="Wrap in subfactory"
           >
             ⊞
+          </button>
+          {/* Remove node */}
+          <button
+            type="button"
+            onClick={() => removeNode(planNode.id)}
+            title="Remove recipe"
+            className="text-gray-700 hover:text-red-400 text-sm leading-none shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+          >
+            ×
           </button>
           {/* Recipe icon derived from primary product */}
           {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (

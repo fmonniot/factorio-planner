@@ -249,6 +249,27 @@ describe('RecipeRow', () => {
     expect(onToggle).toHaveBeenCalled()
   })
 
+  it('× button removes a game-recipe node from the store', () => {
+    renderRow()
+    fireEvent.click(screen.getByTitle('Remove recipe'))
+    expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
+  })
+
+  it('× button removes a subplan node from the store', () => {
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [spNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    renderRow({ planNode: spNode, solvedNode: undefined })
+    fireEvent.click(screen.getByTitle('Remove subplan'))
+    expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
+  })
+
   it('subplan node shows expanded indicator when isExpanded=true', () => {
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: true, onToggleExpand: () => {} })
