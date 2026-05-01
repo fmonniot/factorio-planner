@@ -85,6 +85,24 @@ end
 
 ---
 
+## Sample data (nullius mod)
+
+The sample file `data/samples/nullius/game-data.json` now ships with
+hand-authored beacon entries based on typical Nullius mod values. These are
+**estimates** — re-run `node scripts/build-game-data.js` after a real Factorio
+dump to replace them with authoritative values.
+
+| Beacon | Module slots | Efficiency |
+|---|---|---|
+| Small beacon 1 | 1 | 50% |
+| Small beacon 2 | 2 | 50% |
+| Small beacon 3 | 3 | 50% |
+| Large beacon 1 | 4 | 30% |
+| Large beacon 2 | 6 | 30% |
+| Super beacon (ee) | 20 | 100% |
+
+---
+
 ## Behaviour once populated
 
 When `gameData.beacons` is non-empty:

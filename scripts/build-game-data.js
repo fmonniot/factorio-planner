@@ -630,6 +630,35 @@ async function exportModules(raw, localeMap, resolveIcon) {
 }
 
 // ---------------------------------------------------------------------------
+// Beacons
+// ---------------------------------------------------------------------------
+
+const ALL_EFFECTS = ['consumption', 'pollution', 'productivity', 'quality', 'speed']
+
+async function exportBeacons(raw, localeMap, resolveIcon) {
+  const beacons = {}
+
+  for (const proto of Object.values(raw.beacon ?? {})) {
+    // allowed_effects: nil in Factorio means all effects are permitted.
+    const allowedEffects = proto.allowed_effects
+      ? proto.allowed_effects.slice().sort()
+      : ALL_EFFECTS.slice()
+
+    beacons[proto.name] = {
+      id:                     proto.name,
+      name:                   resolveLocale(proto.localised_name, proto.name, localeMap),
+      iconPath:               await resolveIcon(proto, proto.name),
+      hidden:                 proto.hidden ?? false,
+      moduleSlots:            proto.module_slots ?? 0,
+      distributionEfficiency: proto.distribution_effectivity ?? 0,
+      allowedEffects,
+    }
+  }
+
+  return beacons
+}
+
+// ---------------------------------------------------------------------------
 // Default machines
 // ---------------------------------------------------------------------------
 
@@ -688,6 +717,9 @@ const recipes = exportRecipes(raw, localeMap, categoryMap)
 process.stderr.write(`[build-game-data] Exporting modules...\n`)
 const modules = await exportModules(raw, localeMap, resolveIcon)
 
+process.stderr.write(`[build-game-data] Exporting beacons...\n`)
+const beacons = await exportBeacons(raw, localeMap, resolveIcon)
+
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
 // Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
@@ -743,6 +775,7 @@ const output = {
   recipes,
   machines,
   modules,
+  beacons,
   defaultMachines,
 }
 
@@ -753,6 +786,6 @@ const count = o => Object.keys(o).length
 process.stderr.write(
   `[build-game-data] Done — factorioVersion=${factorioVersion} ` +
   `items=${count(items)} recipes=${count(recipes)} ` +
-  `machines=${count(machines)} modules=${count(modules)}\n` +
+  `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )
