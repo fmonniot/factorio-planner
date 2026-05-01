@@ -2,7 +2,9 @@
 
 ## DX / AI Workflow
 
-- [ ] Configure Claude Code hooks (or CLAUDE.md guidance) to auto-update spec files after any source change, so specs serve as always-current documentation without requiring full codebase traversal each session.
+- [x] Configure Claude Code hooks (or CLAUDE.md guidance) to auto-update spec files after any source change, so specs serve as always-current documentation without requiring full codebase traversal each session.
+
+- [x] Configure Claude Code hooks (or CLAUDE.md guidance) to always leave the tests (npm test and npm run lint) green after changes.
 
 ---
 

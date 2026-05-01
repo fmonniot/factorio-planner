@@ -62,25 +62,36 @@ src/
     loader.integration.test.ts  6 skipIf tests (need data/samples/nullius/game-data.json)
   solver/
     build.ts           buildStoichiometryMatrix + effectiveProductAmount
-    reduce.ts          reduceSystem — classifies items, builds reduced S and d
     solve.ts           solveSystem — LU then pseudo-inverse fallback
-    pin.ts             applyPinnedRates + mergeThroughput
     effects.ts         computeNodeEffects + computeMachineMetrics
+    subplan.ts         synthetic recipe generation for sub-plans
     index.ts           solve(plan, gameData) — the single entry point the UI calls
   store/
     gameDataStore.ts   Active GameData (empty/loading/loaded/error); handles file import
-    planStore.ts       Plan state with undo/redo via command pattern
+    blockStore.ts      Block/SubPlan/RecipeNode state with undo/redo via command pattern
     solverStore.ts     Auto-solves on plan/data change (150 ms debounce)
     persistence.ts     localStorage auto-save and restore on startup
+    uiStore.ts         Transient UI state (active tab, modal visibility, etc.)
   components/
-    AppShell.tsx       Full-screen layout: header, sidebar, main area, summary bar
-    GoalsPanel.tsx     Sidebar panel for production goals (add/remove/edit rate)
-    NodesPanel.tsx     Sidebar panel for recipe nodes (add/remove)
+    BlockTabs.tsx      Tab switcher for blocks; manages active block selection
+    GameDataSelector.tsx  Game data source picker (file import)
     ItemPicker.tsx     Modal search for items or recipes
-    RecipeCard.tsx     Card showing recipe details, machine count, power, I/O rates
-    TreeView.tsx       Horizontal column layout of the production chain
-    TableView.tsx      Sortable table view of nodes with inline editing
-    SummaryBar.tsx     Footer: total machines, power, unsatisfied inputs, warnings
+    Modal.tsx          Generic modal wrapper
+    factory/
+      FactoryShell.tsx     Factory view layout: top bar + production table + summary
+      TopBar.tsx           Block header with name, goals, and add-recipe action
+      ProductionTable.tsx  Sortable table of recipe nodes with inline editing
+      RecipeRow.tsx        Single row: machine count, I/O rates, popover triggers
+      FactorySummary.tsx   Footer stats: total machines, power, warnings count
+      BalancedItemsFooter.tsx  Collapsed items that net to zero across the plan
+      ItemTile.tsx         Icon + rate chip used in recipe I/O columns
+      Popover.tsx          Generic floating popover container
+      BeaconPopover.tsx    Beacon configuration popover (module slots per beacon)
+      BeaconModal.tsx      Full beacon config modal (multiple beacon types)
+      MachinePopover.tsx   Machine picker popover
+      ModulePopover.tsx    Module slot configuration popover
+      EditMachineModal.tsx Full machine + module + beacon edit modal
+      WarningsPopover.tsx  Solver warnings detail popover
 ```
 
 ---
@@ -189,3 +200,19 @@ Read these before making decisions that affect core behaviour:
 Phases 6–7 are pending (see `spec/plan.md`):
 - **Phase 6** — Import/export, URL sharing (6.1–6.5)
 - **Phase 7** — Icons and polish (7.1–7.5)
+
+---
+
+## Spec maintenance
+
+After making changes to source files, update the relevant spec docs so this file stays accurate for future sessions. The goal is that a new session can read `AGENTS.md` + the `spec/` files and have enough context to work without traversing the codebase.
+
+| What changed | What to update |
+|---|---|
+| Solver algorithm (`src/solver/`) | `spec/solver.md`; `spec/test-corpus.md` if expected corpus values changed |
+| Data model (`src/data/schema.ts`, `types.ts`) | `spec/data-model.md` |
+| File added/removed/renamed | Repository layout table in this file (`AGENTS.md`) |
+| Store or component architecture | Repository layout table in this file (`AGENTS.md`) |
+| Technology or tooling change | `spec/tech-stack.md`; Commands and Tech stack sections in this file |
+| Phase or feature completed | Mark `[x]` in `spec/plan.md` |
+| New corpus case added | `spec/test-corpus.md` |
