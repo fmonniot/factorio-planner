@@ -413,3 +413,98 @@ Depth 0 (root plan)
 **Scope:** Update any e2e specs that reference the sidebar or floor breadcrumb. Restore
 `subplan-empty-state.spec.ts` with a new flow that matches the inline-expand model.
 **Success criteria:** `npm run test:e2e` green (no skipped tests from sidebar/floor navigation).
+
+## T15 — Recipe / item picker redesign (Factorio-style)
+**Prerequisites:** T14.
+**Status:** Shipped (branch `item-recipe-picker`, commits `0a0d0da`..`fdeaf49`).
+
+### Context
+The original `ItemPicker` from T06 was a flat fuzzy-search list that worked for both
+`source="items"` (goal picker) and `source="recipes"` (add-recipe picker). It looked
+nothing like Factorio's vanilla pickers, which rely on a hierarchical layout driven
+by item-group / item-subgroup metadata. The redesign brings both modes to visual
+parity with vanilla, using three new design references:
+
+- [Screenshot 2026-04-27 at 19.22.05.png](Screenshot%202026-04-27%20at%2019.22.05.png) — recipe picker.
+- [Screenshot 2026-05-05 at 22.52.00.png](Screenshot%202026-05-05%20at%2022.52.00.png) — item / goal picker.
+- [Screenshot 2026-05-05 at 22.52.35.png](Screenshot%202026-05-05%20at%2022.52.35.png) — hover recipe detail card.
+
+### Data pipeline additions
+[scripts/build-game-data.js](../../scripts/build-game-data.js) now emits:
+- `subgroup: string` and `order: string` on each recipe and item. When a recipe has no
+  explicit `subgroup`, it falls back to the main product's subgroup, mirroring
+  Factorio runtime behaviour.
+- New top-level `itemGroups: Record<string, { id, name, order, iconPath }>` and
+  `itemSubgroups: Record<string, { id, group, order }>` derived from
+  `raw['item-group']` / `raw['item-subgroup']`.
+
+[src/data/schema.ts](../../src/data/schema.ts) gained matching fields with
+`.default('')` / `.default({})` so older bundles still load.
+
+### Recipe-mode picker
+Two-level navigation matching vanilla:
+- **Top tabs** — one per item-group present in the filtered set (`recipe.subgroup →
+  itemSubgroups[…].group → itemGroups[…]`), sorted by `itemGroup.order`. Each tab
+  carries a single icon (`itemGroup.iconPath`). Tabs auto-hide when zero or one
+  group remains (e.g. when `filterByItemId` collapses the result to a single group).
+- **Body** — recipes flow inside the selected tab as one `grid grid-cols-10 gap-1`
+  per subgroup. Subgroup boundaries cause natural row breaks (a subgroup with 4
+  recipes occupies one line; one with 14 wraps to two).
+- **Slot button** — each recipe is an aspect-square `<button data-testid="recipe-slot"
+  data-recipe-id="…">`. Click → `onSelect(recipe.id); onClose()`. Hover/focus → render
+  `RecipeDetailPanel` to the right of the picker (absolutely positioned so it
+  doesn't shift the picker).
+- **Header chrome** — title `Add recipe`, search input, close `×`. Below: a subtitle
+  (`Choose a recipe to produce '…'` when filtered, else `Choose a recipe`) and a
+  single `Show hidden recipes` toggle.
+
+### Recipe hover detail panel (`RecipeDetailPanel`)
+Vertical card layout matching the screenshot:
+- Header: `<recipe.name> (Recipe)`.
+- `Ingredients:` block — one icon + `N × Name` per ingredient, with the crafting time
+  rendered as the last row (`⏱ <s> Crafting time`).
+- `Products:` block — same row format, with `×<probability>` suffix for stochastic
+  outputs.
+- `Made in:` block — one icon + name per machine in `recipe.madeIn`.
+
+### Items-mode (goal) picker
+- **Header** — title `Add product`, search input, close `×`.
+- **Amount field** — numeric input, default `60`. The chosen amount flows through
+  `onSelect(itemId, rate)`, replacing the previous hard-coded default in
+  `FactorySummary.handleAddGoal`.
+- **Group tabs** — same shape as the recipe picker (one icon per item-group).
+  When item-group metadata is missing (older bundles, test fixtures), tabs are
+  hidden and the slot grid renders as a single bucket.
+- **Slot grid** — items grouped by subgroup, each subgroup as its own
+  `grid grid-cols-10`. Click → `onSelect(itemId, amount); onClose()`.
+- **Footer** — `Cancel` (closes) and `Submit` (confirms last selected item).
+
+### Files
+- [src/components/ItemPicker.tsx](../../src/components/ItemPicker.tsx) — full rewrite
+  of `RecipePickerBody`, `ItemPickerBody`, and `RecipeDetailPanel`. New shared
+  `PickerFrame` component handles the modal shell and side-panel positioning.
+- [src/components/factory/FactorySummary.tsx](../../src/components/factory/FactorySummary.tsx)
+  — `handleAddGoal` now accepts `(itemId, rate)`.
+- [src/components/ItemPicker.test.tsx](../../src/components/ItemPicker.test.tsx) — new.
+- [e2e/recipe-picker-detail.spec.ts](../../e2e/recipe-picker-detail.spec.ts) — rewritten.
+- [e2e/recipe-picker-grouping.spec.ts](../../e2e/recipe-picker-grouping.spec.ts) — new.
+- [e2e/item-picker-goal.spec.ts](../../e2e/item-picker-goal.spec.ts) — new.
+- Existing specs updated to use the new selectors:
+  [e2e/nodes-panel.spec.ts](../../e2e/nodes-panel.spec.ts),
+  [e2e/plan-export.spec.ts](../../e2e/plan-export.spec.ts),
+  [e2e/primary-product-override.spec.ts](../../e2e/primary-product-override.spec.ts).
+
+### Test selectors (stable)
+- `data-testid="recipe-group-tab"` + `data-group-id`.
+- `data-testid="recipe-subgroup-row"` + `data-subgroup`.
+- `data-testid="recipe-slot"` + `data-recipe-id` + `title` (recipe name).
+- `data-testid="recipe-detail-panel"`.
+- `data-testid="item-group-tab"` + `data-group-id` + `data-active`.
+- `data-testid="item-subgroup-row"` + `data-subgroup`.
+- `data-testid="item-slot"` + `data-item-id` + `title` (item name).
+
+### Result
+- `npm run test:unit` — 230/230 pass.
+- `npm run test:e2e` — 40/40 pass, 2 skipped (pre-existing skips unrelated to pickers).
+- Unfiltered "Add recipe" view goes from hundreds of decorated rows to a compact
+  tabbed view (~6–26 group tabs, ~dozens of subgroup rows in the selected tab).
