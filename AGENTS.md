@@ -12,7 +12,7 @@ A browser-based production planner for Factorio targeting the **Nullius** overha
 
 ## Tech stack
 
-React 19 + TypeScript on Vite 8, Zustand 5 for state, Zod 3 for schemas, ml-matrix 6 for the solver, Tailwind v4 for styling, Vitest 3 for tests.
+React 19 + TypeScript on Vite 8, Zustand 5 for state, Zod 3 for schemas, `javascript-lp-solver` for the LP-based solver, Tailwind v4 for styling, Vitest 3 + Playwright for tests.
 
 → Full rationale and version pins: [spec/tech-stack.md](spec/tech-stack.md).
 
@@ -71,28 +71,40 @@ Key transform: `mainProduct: z.string().nullable().optional().transform(v => v =
 ## Solver pipeline
 
 ```
-solve(plan, gameData)
-  → computeNodeEffects        module + beacon bonuses per node
-  → buildStoichiometryMatrix  S[item][recipe] = net production per exec
-  → reduceSystem              classify items, build reduced S and demand d
-  → applyPinnedRates          substitute fixed throughputs into d
-  → solveSystem               LU decompose; pseudo-inverse fallback
-  → mergeThroughput           reassemble full throughput vector
-  → computeMachineMetrics     machine count and power per node
-  → SolverResult              { nodes, unsatisfied, warnings }
+solve(plan, gameData, syntheticRecipes?)
+  → computeNodeEffects       module + beacon bonuses per node
+  → buildClassifiedSystem    net S[item][recipe] + classification
+                             (goals / intermediates / raw / byproducts)
+  → solveLP                  elastic LP via javascript-lp-solver
+                               – hard goal constraints
+                               – slack-extended intermediates (BIG_M cost)
+                               – pinned recipes as equality
+                               – byproductConsumer recipes get a tiny
+                                 negative objective bonus
+  → diagnostic passes        goal shortfalls, intermediate slack,
+                             raw consumption, overconstrained surplus,
+                             too-many-alternatives, infeasible-pins
+  → computeMachineMetrics    machine count and power per node
+  → SolverResult             { nodes, unsatisfied, warnings }
 ```
 
-**Item classifications** (from `reduceSystem`):
-- `raw` — no active recipe produces it; reported as `UnsatisfiedItem` after solving
-- `byproduct` — produced but never consumed and not a goal; row removed from system
-- `intermediate` — both produced and consumed; row kept with `d[i] = 0`
-- `goal` — user-demanded item; row kept with `d[i] = goal_rate`
+**Item classifications** (from `buildClassifiedSystem`):
+- `goal` — user-demanded; constrained `Σ S_ij · x_j ≥ rate` (no slack).
+- `intermediate` — both produced and consumed; constrained `Σ S_ij · x_j + s_i ≥ 0` with slack `s_i ≥ 0` carrying `BIG_M = 1e6` cost.
+- `raw` — no producer in the active set; treated as free input, total consumption reported as `UnsatisfiedItem`.
+- `byproduct` — produced but never consumed; excluded from LP rows.
 
-**Stoichiometry sign convention:** positive = net produced, negative = net consumed.
+`goals` take priority — an item appearing in `plan.goals` is a goal even if recipes also produce/consume it.
 
-**Productivity:** `effectiveProductAmount(amount, probability, ignoredByProductivity, productivityBonus)` — only the `amount − ignoredByProductivity` portion scales. Used in `build.ts` to modify S before solving.
+**Stoichiometry sign convention:** positive = net produced per execution, negative = net consumed.
 
-**Kovarex cycle:** handled naturally by net stoichiometry — U-235 row is `41 − 40 = +1`, no special cycle-breaking needed.
+**Productivity:** `effectiveProductAmount(amount, probability, ignoredByProductivity, productivityBonus)` — only the `amount − ignoredByProductivity` portion scales. Applied in `build.ts` before items enter `S`.
+
+**Kovarex cycle:** handled naturally — U-235 net stoichiometry is `41 − 40 = +1`, the LP solves the cycle as an ordinary constraint.
+
+**Byproduct consumer recipes** flip their objective coefficient from `+1` to `BC_BONUS = -0.01` and auto-extend `noImportItems` with their ingredients. The LP runs them up to whatever surplus the intermediates allow without ever importing inputs to fire them.
+
+→ Full formulation: [spec/solver.md](spec/solver.md).
 
 ---
 
