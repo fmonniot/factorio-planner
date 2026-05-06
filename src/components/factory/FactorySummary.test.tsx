@@ -245,17 +245,20 @@ describe('FactorySummary — add goal', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
     fireEvent.click(screen.getByTitle('Add goal'))
-    await waitFor(() => expect(screen.getByPlaceholderText(/Search items/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument())
   })
 
   it('adding a goal via picker calls addGoal', async () => {
     setupStore([])
     render(<FactorySummary />)
     fireEvent.click(screen.getByTitle('Add goal'))
-    await waitFor(() => screen.getByPlaceholderText(/Search items/i))
-    fireEvent.click(screen.getByRole('button', { name: /Iron Plate/ }))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
+    const slots = screen.getAllByTestId('item-slot')
+    const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
+    fireEvent.click(ironSlot)
     const goals = useBlockStore.getState().blocks[0].rootPlan.goals
     expect(goals).toHaveLength(1)
     expect(goals[0].itemId).toBe('iron-plate')
+    expect(goals[0].rate).toBe(60)
   })
 })

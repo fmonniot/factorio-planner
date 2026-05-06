@@ -174,8 +174,8 @@ export function FactorySummary() {
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
 
-  function handleAddGoal(itemId: string) {
-    addGoal({ id: crypto.randomUUID(), itemId, rate: 60 })
+  function handleAddGoal(itemId: string, rate: number) {
+    addGoal({ id: crypto.randomUUID(), itemId, rate })
   }
 
   function startNameEdit() {
