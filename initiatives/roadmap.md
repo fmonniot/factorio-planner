@@ -13,32 +13,21 @@ Status markers: `[ ]` not started · `[~]` in progress · `[x]` done
 |---|---|
 | Phase 0 — Ground truth | Lua export, Nullius sample data, data analysis, 6-case test corpus. See [../spec/data-analysis.md](../spec/data-analysis.md), [../spec/test-corpus.md](../spec/test-corpus.md). |
 | Phase 1 — Project scaffold | Vite + React 19 + Tailwind v4 + Vitest. Zod schemas, loader (29 unit tests). |
-| Phase 2 — Solver | Stoichiometry, reduction, LU + pseudo-inverse, pinned rates, modules/beacons, entry point. All 6 corpus cases. See [../spec/solver.md](../spec/solver.md). |
+| Phase 2 — Solver (initial) | Stoichiometry, reduction, LU + pseudo-inverse, pinned rates, modules/beacons. Subsequently replaced by the LP solver migration. |
 | Phase 3 — State and data loading | Plan store with undo/redo, game-data store, debounced solver subscription, localStorage persistence. |
-| Phase 4 — UI core | App shell, item picker, goals panel, recipe card, tree view, summary bar (subsequently replaced by the UI redesign). |
-| Phase 5 — UI editing | Machine selector, alternate recipes, modules, beacons, rate pinning, byproduct policy, table view (subsequently replaced by the UI redesign). |
-| LP solver v2 | Linear-programming solver migration. Tasks 1–12 done; task 13 (delete v1) gated on real-data validation. See [archive/lp-solver/](archive/lp-solver/). |
+| Phase 4 — UI core (legacy) | App shell, item picker, goals panel, recipe card, tree view, summary bar — replaced by the UI redesign. |
+| Phase 5 — UI editing (legacy) | Machine selector, alternate recipes, modules, beacons, rate pinning, byproduct policy, table view — replaced by the UI redesign. |
+| LP solver v2 | Replaces the LU + pseudo-inverse solver with `javascript-lp-solver`. Tasks 1–12 done; v1 retired and v2 flattened back into `src/solver/`. See [archive/lp-solver/](archive/lp-solver/). |
 | Factory-Planner UI redesign | Flat dense table, inline expand/collapse, Factorio-style recipe and item pickers (T01–T15). See [archive/ui-redesign/plan.md](archive/ui-redesign/plan.md). |
+| Visual parity (V01–V10) | Recipe icon, machine/beacon icon-and-badge cells, inline electricity tile, editable block name, single-row top bar, merged status footer, tile chrome polish. See [archive/visual-parity/tickets.md](archive/visual-parity/tickets.md). |
+| Edit Machine modal | Unified machine + module configuration in a single modal with effects panels. See [archive/edit-machine-modal/design.md](archive/edit-machine-modal/design.md). |
+| Edit Beacon modal | Beacon cell refactored to icon+badge trigger; full BeaconModal with beacon-type picker. Game-data exporter updated to populate `beacons` collection. See [archive/edit-beacon-modal/](archive/edit-beacon-modal/). |
 
 ---
 
 ## Active
 
-### Visual parity (V01–V09)
-
-Bring the shipped UI to visual parity with the Factory Planner mod target.
-Tickets in [visual-parity/tickets.md](visual-parity/tickets.md).
-
-- [ ] V01 Recipe column shows recipe icon; pin/wrap move left of icon
-- [ ] V02 Machine cell: icon + count + module-slot dots
-- [ ] V03 Beacon cell: icon-style add button
-- [ ] V04 Power inline as electricity tile
-- [ ] V05 Editable block name + summary box card chrome
-- [ ] V06 Drop the "Production" table heading
-- [ ] V07 BlockTabs share a row with the game-data picker
-- [ ] V08 Merge BalancedItemsFooter and warning indicator
-- [ ] V09 Tile chrome and table density polish
-- [x] V10 Recipe / item picker redesign (shipped via T15)
+No active initiative folders. The remaining sequenced work is below.
 
 ### Phase 6 — Import / Export / Sharing
 
@@ -63,13 +52,6 @@ Tickets in [visual-parity/tickets.md](visual-parity/tickets.md).
 
 ---
 
-## Pending design
-
-- [edit-machine-modal/](edit-machine-modal/) — unify machine + module popovers into a single modal.
-- [edit-beacon-modal/](edit-beacon-modal/) — beacon cell refactor and modal editor (blocked on game-data export).
-
----
-
 ## Open TODOs
 
 **Solver integration test.** Add a `src/solver/index.integration.test.ts` that runs the
@@ -83,7 +65,7 @@ counts.
 
 ## Deferred (post-v1)
 
-- Optimization mode (minimize machines/power via LP)
+- Optimization mode (minimize machines/power via LP cost function)
 - Sankey / flow diagram view
 - Mining/extraction machine modelling
 - Quality tier support
