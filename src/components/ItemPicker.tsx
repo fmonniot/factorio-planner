@@ -179,34 +179,64 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
   const [query, setQuery] = useState(initialQuery)
   const [showHidden, setShowHidden] = useState(false)
   const [hoveredRecipeId, setHoveredRecipeId] = useState<string | null>(null)
+  const [pinnedGroupId, setPinnedGroupId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  // Group recipes by subgroup (fallback to category).
-  const groups = useMemo(() => {
-    const filtered = Object.values(gameData.recipes)
+  // Recipes that pass all filters (hidden toggle, item filter, search).
+  const filteredRecipes = useMemo(
+    () => Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
       .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
-      .filter(r => matchesRecipe(query, r))
+      .filter(r => matchesRecipe(query, r)),
+    [gameData, showHidden, filterByItemId, query],
+  )
 
-    const byGroup = new Map<string, Recipe[]>()
-    for (const r of filtered) {
-      const key = r.subgroup || r.category
-      const arr = byGroup.get(key) ?? []
-      arr.push(r)
-      byGroup.set(key, arr)
+  // Top-level item-groups present after filtering, sorted by group order.
+  const visibleGroups = useMemo(() => {
+    const subgroups = gameData.itemSubgroups ?? {}
+    const itemGroups = gameData.itemGroups ?? {}
+    const presentGroupIds = new Set<string>()
+    for (const r of filteredRecipes) {
+      const groupId = subgroups[r.subgroup]?.group || ''
+      if (groupId) presentGroupIds.add(groupId)
     }
-    for (const arr of byGroup.values()) {
+    return [...presentGroupIds]
+      .map(id => itemGroups[id])
+      .filter((g): g is NonNullable<typeof g> => !!g)
+      .sort((a, b) => (a.order || a.id).localeCompare(b.order || b.id))
+  }, [filteredRecipes, gameData])
+
+  const selectedGroupId = (pinnedGroupId && visibleGroups.find(g => g.id === pinnedGroupId))
+    ? pinnedGroupId
+    : (visibleGroups[0]?.id ?? null)
+
+  // Recipes in the selected group, bucketed by subgroup. Each bucket renders
+  // as its own grid container so subgroup boundaries naturally produce row
+  // breaks; small subgroups fit on one line, large ones wrap.
+  const subgroupRows = useMemo(() => {
+    const subgroups = gameData.itemSubgroups ?? {}
+    const inGroup = selectedGroupId
+      ? filteredRecipes.filter(r => subgroups[r.subgroup]?.group === selectedGroupId)
+      : filteredRecipes
+    const bySubgroup = new Map<string, Recipe[]>()
+    for (const r of inGroup) {
+      const key = r.subgroup || r.category || '(none)'
+      const arr = bySubgroup.get(key) ?? []
+      arr.push(r)
+      bySubgroup.set(key, arr)
+    }
+    for (const arr of bySubgroup.values()) {
       arr.sort((a, b) => (a.order || a.name).localeCompare(b.order || b.name))
     }
-    return [...byGroup.entries()]
+    return [...bySubgroup.entries()]
       .sort((a, b) => {
-        const aMin = a[1].reduce((m, r) => r.order && r.order < m ? r.order : m, '￿')
-        const bMin = b[1].reduce((m, r) => r.order && r.order < m ? r.order : m, '￿')
-        return aMin.localeCompare(bMin)
+        const aOrder = subgroups[a[0]]?.order ?? a[0]
+        const bOrder = subgroups[b[0]]?.order ?? b[0]
+        return aOrder.localeCompare(bOrder)
       })
-  }, [gameData, query, showHidden, filterByItemId])
+  }, [filteredRecipes, selectedGroupId, gameData])
 
   const subtitle = filterByItemId
     ? `Choose a recipe to produce '${gameData.items[filterByItemId]?.name ?? filterByItemId}'`
@@ -215,6 +245,9 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
   const sidePanel = hoveredRecipeId
     ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} />
     : null
+
+  // Skip the tab strip when there's no choice to make (zero or one group).
+  const showTabs = visibleGroups.length > 1
 
   return (
     <PickerFrame onClose={onClose} sidePanel={sidePanel}>
@@ -254,74 +287,74 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
         </label>
       </div>
 
-      {/* Body: grouped rows */}
-      <div className="overflow-y-auto flex-1 p-2 space-y-2">
-        {groups.length === 0 && (
+      {/* Item-group tabs (hidden when there's nothing to switch between) */}
+      {showTabs && (
+        <div className="px-2 py-2 border-b border-gray-700 flex flex-wrap gap-1">
+          {visibleGroups.map(g => {
+            const active = g.id === selectedGroupId
+            return (
+              <button
+                key={g.id}
+                type="button"
+                data-testid="recipe-group-tab"
+                data-group-id={g.id}
+                data-active={active || undefined}
+                title={g.name}
+                onClick={() => setPinnedGroupId(g.id)}
+                className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
+              >
+                {g.iconPath
+                  ? <img src={iconUrl(g.iconPath)} alt={g.name} className="w-7 h-7 object-contain" />
+                  : <span className="px-2 text-xs text-gray-200">{g.name.slice(0, 4)}</span>
+                }
+              </button>
+            )
+          })}
+        </div>
+      )}
+
+      {/* Body: subgroup grids, flowing within the selected group */}
+      <div className="overflow-y-auto flex-1 p-2 space-y-1">
+        {subgroupRows.length === 0 && (
           <div className="px-2 py-3 text-gray-500 text-sm">No recipes match</div>
         )}
-        {groups.map(([groupKey, recipes]) => {
-          // Left cell: unique ingredient icons across the row's recipes. Skip
-          // ingredients whose iconPath is missing so the cell never falls back
-          // to ugly text fragments.
-          const ingredientItems: Item[] = []
-          const seen = new Set<string>()
-          for (const r of recipes) {
-            for (const ing of r.ingredients) {
-              if (seen.has(ing.itemId)) continue
-              const it = gameData.items[ing.itemId]
-              if (it?.iconPath) {
-                ingredientItems.push(it)
-                seen.add(ing.itemId)
-              }
-            }
-          }
-          return (
-            <div
-              key={groupKey}
-              data-testid="recipe-group"
-              data-subgroup={groupKey}
-              className="bg-gray-800 border border-gray-700 rounded p-2 flex items-start gap-3"
-            >
-              {/* Left: ingredient icons (max 3 — fits one row in w-20) */}
-              <div className="w-20 shrink-0 flex flex-wrap gap-0.5 justify-center items-center pt-1">
-                {ingredientItems.slice(0, 3).map(it => (
-                  <img key={it.id} src={iconUrl(it.iconPath)} alt={it.name} title={it.name} className="w-6 h-6 object-contain" />
-                ))}
-              </div>
-              {/* Right: recipe slots */}
-              <div className="flex-1 grid grid-cols-6 gap-1">
-                {recipes.map(r => {
-                  // Pick the first product (main first) that actually has an icon.
-                  const candidates = [r.mainProduct, ...r.products.map(p => p.itemId)]
-                    .filter((id): id is string => !!id)
-                  const product = candidates
-                    .map(id => gameData.items[id])
-                    .find(it => it?.iconPath)
-                  return (
-                    <button
-                      key={r.id}
-                      type="button"
-                      data-testid="recipe-slot"
-                      data-recipe-id={r.id}
-                      title={r.name}
-                      onClick={() => { onSelect(r.id); onClose() }}
-                      onMouseEnter={() => setHoveredRecipeId(r.id)}
-                      onMouseLeave={() => setHoveredRecipeId(null)}
-                      onFocus={() => setHoveredRecipeId(r.id)}
-                      onBlur={() => setHoveredRecipeId(null)}
-                      className="aspect-square flex items-center justify-center bg-green-900/40 hover:bg-green-700/60 border border-green-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
-                    >
-                      {product
-                        ? <img src={iconUrl(product.iconPath)} alt={product.name} className="w-8 h-8 object-contain" />
-                        : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
-                      }
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )
-        })}
+        {subgroupRows.map(([sgId, recipes]) => (
+          <div
+            key={sgId}
+            data-testid="recipe-subgroup-row"
+            data-subgroup={sgId}
+            className="grid grid-cols-10 gap-1"
+          >
+            {recipes.map(r => {
+              // Pick the first product (main first) that actually has an icon.
+              const candidates = [r.mainProduct, ...r.products.map(p => p.itemId)]
+                .filter((id): id is string => !!id)
+              const product = candidates
+                .map(id => gameData.items[id])
+                .find(it => it?.iconPath)
+              return (
+                <button
+                  key={r.id}
+                  type="button"
+                  data-testid="recipe-slot"
+                  data-recipe-id={r.id}
+                  title={r.name}
+                  onClick={() => { onSelect(r.id); onClose() }}
+                  onMouseEnter={() => setHoveredRecipeId(r.id)}
+                  onMouseLeave={() => setHoveredRecipeId(null)}
+                  onFocus={() => setHoveredRecipeId(r.id)}
+                  onBlur={() => setHoveredRecipeId(null)}
+                  className="aspect-square flex items-center justify-center bg-green-900/40 hover:bg-green-700/60 border border-green-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                >
+                  {product
+                    ? <img src={iconUrl(product.iconPath)} alt={product.name} className="w-7 h-7 object-contain" />
+                    : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
+                  }
+                </button>
+              )
+            })}
+          </div>
+        ))}
       </div>
     </PickerFrame>
   )

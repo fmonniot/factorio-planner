@@ -15,18 +15,39 @@ test.describe('Recipe picker grouping', () => {
     await loadGameData(page)
   })
 
-  test('recipes are grouped into rows by subgroup', async ({ page }) => {
+  test('top-level item-group tabs render and switching tabs swaps the visible recipes', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
     await page.getByText('+ Add recipe').click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
-    const groups = overlay.locator('[data-testid="recipe-group"]')
-    await expect(groups.first()).toBeVisible()
-    expect(await groups.count()).toBeGreaterThan(1)
+    const tabs = overlay.locator('[data-testid="recipe-group-tab"]')
+    expect(await tabs.count()).toBeGreaterThan(1)
+    // ~26 item-groups in nullius — sanity-bound on the upper end too.
+    expect(await tabs.count()).toBeLessThanOrEqual(30)
 
-    // Each group contains at least one slot.
-    const firstGroupSlots = groups.first().locator('[data-testid="recipe-slot"]')
-    expect(await firstGroupSlots.count()).toBeGreaterThan(0)
+    const firstSlots = await overlay.locator('[data-testid="recipe-slot"]').evaluateAll(
+      els => els.map(e => e.getAttribute('data-recipe-id')),
+    )
+
+    // Click the second tab.
+    await tabs.nth(1).click()
+    const secondSlots = await overlay.locator('[data-testid="recipe-slot"]').evaluateAll(
+      els => els.map(e => e.getAttribute('data-recipe-id')),
+    )
+    expect(secondSlots).not.toEqual(firstSlots)
+  })
+
+  test('recipes are organised into subgroup-row grids inside the selected tab', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByText('+ Add recipe').click()
+
+    const subgroupRows = overlay.locator('[data-testid="recipe-subgroup-row"]')
+    await expect(subgroupRows.first()).toBeVisible()
+    expect(await subgroupRows.count()).toBeGreaterThan(0)
+
+    // Each row contains at least one slot.
+    const firstRowSlots = subgroupRows.first().locator('[data-testid="recipe-slot"]')
+    expect(await firstRowSlots.count()).toBeGreaterThan(0)
   })
 
   test('Show-hidden toggle reveals additional recipes', async ({ page }) => {

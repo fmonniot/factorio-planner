@@ -48,6 +48,15 @@ const fixture: GameData = {
       madeIn: ['stone-furnace'], allowProductivity: false, hidden: true,
       mainProduct: null, subgroup: 'smelting-basic', order: 'z',
     },
+    // Lives in subgroup 'fluid' → group 'fluids', so the unfiltered recipe
+    // picker renders both 'intermediates' and 'fluids' tabs.
+    'boil-water': {
+      id: 'boil-water', name: 'Boil Water', category: 'crafting', craftingTime: 1,
+      ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+      products: [{ itemId: 'water', type: 'fluid', amount: 100 }],
+      madeIn: ['assembling-machine-1'], allowProductivity: false, hidden: false,
+      mainProduct: null, subgroup: 'fluid', order: 'a',
+    },
   },
   machines: {
     'stone-furnace':       { id: 'stone-furnace',       name: 'Stone Furnace',       type: 'furnace',           craftingSpeed: 1, energyUsageKw: 90, energyType: 'burner',   drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['smelting'], iconPath: '', hidden: false },
@@ -77,13 +86,46 @@ beforeEach(() => {
 // ---------------------------------------------------------------------------
 
 describe('ItemPicker — recipes mode', () => {
-  it('groups recipes by subgroup into separate rows', () => {
+  it('renders one tab per item-group present in the results, sorted by group order', () => {
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const tabs = screen.getAllByTestId('recipe-group-tab')
+    expect(tabs.map(t => t.getAttribute('data-group-id'))).toEqual(['intermediates', 'fluids'])
+  })
+
+  it('default-selects the first visible group and shows only its subgroup rows', () => {
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const intermediates = screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'intermediates')!
+    expect(intermediates.getAttribute('data-active')).toBe('true')
+
+    const subgroupIds = screen.getAllByTestId('recipe-subgroup-row')
+      .map(r => r.getAttribute('data-subgroup'))
+    expect(subgroupIds).toEqual(expect.arrayContaining(['smelting-basic', 'fill-barrel']))
+    expect(subgroupIds).not.toContain('fluid') // fluid lives in the 'fluids' group
+  })
+
+  it('clicking a different tab swaps the visible subgroup rows', () => {
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const fluidsTab = screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'fluids')!
+    fireEvent.click(fluidsTab)
+
+    const subgroupIds = screen.getAllByTestId('recipe-subgroup-row')
+      .map(r => r.getAttribute('data-subgroup'))
+    expect(subgroupIds).toEqual(['fluid'])
+  })
+
+  it('groups recipes by subgroup within the selected tab', () => {
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
-    const groups = screen.getAllByTestId('recipe-group')
-    expect(groups).toHaveLength(2)
-    expect(groups.map(g => g.getAttribute('data-subgroup'))).toEqual(
+    const rows = screen.getAllByTestId('recipe-subgroup-row')
+    expect(rows).toHaveLength(2)
+    expect(rows.map(r => r.getAttribute('data-subgroup'))).toEqual(
       expect.arrayContaining(['smelting-basic', 'fill-barrel']),
     )
+  })
+
+  it('hides the tab strip when filterByItemId leaves only one group', () => {
+    // All iron-plate-producing recipes live in the 'intermediates' group.
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.queryAllByTestId('recipe-group-tab')).toHaveLength(0)
   })
 
   it('hides hidden recipes by default and reveals them when toggled', () => {
