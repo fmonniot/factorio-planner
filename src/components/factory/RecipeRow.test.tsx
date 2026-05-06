@@ -276,6 +276,21 @@ describe('RecipeRow', () => {
     const chevrons = screen.getAllByText('▼')
     expect(chevrons.length).toBeGreaterThan(0)
   })
+
+  it('clicking an ingredient tile calls onIngredientClick with the item id', () => {
+    const onIngredientClick = vi.fn()
+    renderRow({ onIngredientClick })
+    // Title set when onIngredientClick is provided.
+    const tile = screen.getByTitle('Iron Ore — Find producer recipe')
+    fireEvent.click(tile)
+    expect(onIngredientClick).toHaveBeenCalledWith('iron-ore')
+  })
+
+  it('ingredient tile is not a button when onIngredientClick is omitted', () => {
+    renderRow()
+    // No "Find producer recipe" title — the tile renders as a span.
+    expect(screen.queryByTitle(/Find producer recipe/)).not.toBeInTheDocument()
+  })
 })
 
 // ---------------------------------------------------------------------------

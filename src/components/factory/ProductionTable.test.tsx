@@ -109,4 +109,40 @@ describe('ProductionTable', () => {
       expect(nodes[0].recipeId).toBe('iron-plate')
     }
   })
+
+  it('clicking an ingredient opens the picker filtered to that item', async () => {
+    // Seed a row, and a solver result so the row has an ingredient tile.
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlan = { ...block.rootPlan, nodes: [existingNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    useSolverStore.setState({
+      status: { type: 'success' },
+      lastResult: {
+        nodes: [{
+          recipeNodeId: 'node-1',
+          inputRates: { 'iron-ore': 60 },
+          outputRates: { 'iron-plate': 60 },
+          throughput: 30,
+          machineCountExact: 1,
+          machineCountCeil: 1,
+          powerKw: 0,
+        }],
+      },
+      subPlanResults: new Map(),
+      _setStatus: () => {},
+    } as never)
+
+    render(<ProductionTable />)
+    const ingredient = screen.getByTitle('Iron Ore — Find producer recipe')
+    fireEvent.click(ingredient)
+
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    // Subtitle reflects the targeted item.
+    expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
+  })
 })

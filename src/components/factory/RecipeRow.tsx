@@ -23,6 +23,8 @@ interface RecipeRowProps {
   onToggleExpand?: () => void
   gameData: GameData
   rootPlan: SubPlan
+  /** Open the recipe picker pre-filtered to recipes producing this item. */
+  onIngredientClick?: (itemId: string) => void
 }
 
 export function RecipeRow({
@@ -35,6 +37,7 @@ export function RecipeRow({
   onToggleExpand,
   gameData,
   rootPlan,
+  onIngredientClick,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -325,14 +328,19 @@ export function RecipeRow({
       {/* Ingredients + electricity inline */}
       <td className="px-2 py-0.5">
         <div className="flex flex-wrap gap-0.5">
-          {inputEntries.map(([itemId, ratePerMin]) => (
-            <ItemTile
-              key={itemId}
-              item={gameData.items[itemId]}
-              ratePerSec={ratePerMin / 60}
-              variant="ingredient"
-            />
-          ))}
+          {inputEntries.map(([itemId, ratePerMin]) => {
+            const itemName = gameData.items[itemId]?.name ?? itemId
+            return (
+              <ItemTile
+                key={itemId}
+                item={gameData.items[itemId]}
+                ratePerSec={ratePerMin / 60}
+                variant="ingredient"
+                onClick={onIngredientClick ? () => onIngredientClick(itemId) : undefined}
+                title={onIngredientClick ? `${itemName} — Find producer recipe` : undefined}
+              />
+            )
+          })}
           {powerKw > 0 && (
             <ItemTile
               item={undefined}

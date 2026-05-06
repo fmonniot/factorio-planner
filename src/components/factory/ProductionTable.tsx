@@ -17,7 +17,7 @@ export function ProductionTable() {
   const gameData = useGameDataStore(selectGameData)
   const addNode = useBlockStore(s => s.addNode)
 
-  const [showRecipePicker, setShowRecipePicker] = useState(false)
+  const [picker, setPicker] = useState<null | { filterByItemId?: string }>(null)
   // Set of SubPlanNode ids whose children are currently expanded.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -63,7 +63,7 @@ export function ProductionTable() {
             <span className="text-sm">No recipes yet</span>
             <button
               type="button"
-              onClick={() => setShowRecipePicker(true)}
+              onClick={() => setPicker({})}
               className="text-xs text-blue-400 hover:text-blue-300"
             >
               + Add recipe
@@ -91,6 +91,7 @@ export function ProductionTable() {
                 gameData,
                 expanded,
                 toggleExpand,
+                (itemId) => setPicker({ filterByItemId: itemId }),
               )}
             </tbody>
           </table>
@@ -102,7 +103,7 @@ export function ProductionTable() {
         <div className="shrink-0 border-t border-gray-800 px-3 py-1.5">
           <button
             type="button"
-            onClick={() => setShowRecipePicker(true)}
+            onClick={() => setPicker({})}
             className="text-xs text-gray-600 hover:text-gray-400"
           >
             + Add recipe
@@ -110,11 +111,12 @@ export function ProductionTable() {
         </div>
       )}
 
-      {showRecipePicker && (
+      {picker && (
         <ItemPicker
           source="recipes"
+          filterByItemId={picker.filterByItemId}
           onSelect={handleAddRecipe}
-          onClose={() => setShowRecipePicker(false)}
+          onClose={() => setPicker(null)}
         />
       )}
     </div>
@@ -133,6 +135,7 @@ function renderNodes(
   gameData: import('../../data/types').GameData,
   expanded: Set<string>,
   toggleExpand: (id: string) => void,
+  onIngredientClick: (itemId: string) => void,
 ): React.ReactNode[] {
   const rows: React.ReactNode[] = []
 
@@ -149,6 +152,7 @@ function renderNodes(
         onToggleExpand={planNode.kind === 'subplan' ? () => toggleExpand(planNode.id) : undefined}
         gameData={gameData}
         rootPlan={rootPlan}
+        onIngredientClick={onIngredientClick}
       />
     )
 
@@ -165,6 +169,7 @@ function renderNodes(
             gameData,
             expanded,
             toggleExpand,
+            onIngredientClick,
           )
         )
       }
