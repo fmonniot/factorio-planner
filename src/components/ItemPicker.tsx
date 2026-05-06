@@ -147,13 +147,18 @@ function PickerFrame({
 
   return (
     <div
-      className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50 gap-3"
+      className="fixed inset-0 bg-black/60 flex items-start justify-center pt-16 z-50"
       onMouseDown={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className={`bg-gray-900 border border-gray-700 rounded-lg ${width} max-h-[85vh] flex flex-col shadow-2xl`}>
-        {children}
+      {/* Anchor: positions the picker centered while letting the side panel float to the right without shifting layout. */}
+      <div className="relative">
+        <div className={`bg-gray-900 border border-gray-700 rounded-lg ${width} max-h-[85vh] flex flex-col shadow-2xl`}>
+          {children}
+        </div>
+        {sidePanel && (
+          <div className="absolute top-0 left-full ml-3">{sidePanel}</div>
+        )}
       </div>
-      {sidePanel && <div className="self-start">{sidePanel}</div>}
     </div>
   )
 }

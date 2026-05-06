@@ -19,13 +19,13 @@ test.describe('Plan export', () => {
 
     // Add a goal via FactorySummary [+]
     await page.getByTitle('Add goal').click()
-    await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
-    await overlay.getByRole('button', { name: /Chemistry research/ }).first().click()
+    await overlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
+    await overlay.locator('[data-testid="item-slot"]').first().click()
 
     // Add a recipe via ProductionTable
     await page.getByText('+ Add recipe').click()
-    await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
-    await overlay.getByRole('button', { name: 'Chemistry research 1' }).first().click()
+    await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
+    await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 
     // Wait for the recipe row to appear.
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
