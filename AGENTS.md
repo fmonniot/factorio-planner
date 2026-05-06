@@ -12,17 +12,11 @@ A browser-based production planner for Factorio targeting the **Nullius** overha
 
 ## Tech stack
 
-| Concern | Library/tool |
-|---|---|
-| UI | React 19 + TypeScript |
-| State | Zustand 5 |
-| Solver | ml-matrix 6 (LU decomposition, pseudo-inverse) |
-| Schema/validation | Zod 3 |
-| Styling | Tailwind CSS v4 via `@tailwindcss/vite` |
-| Build | Vite 8 |
-| Tests | Vitest 3 |
+React 19 + TypeScript on Vite 8, Zustand 5 for state, Zod 3 for schemas, ml-matrix 6 for the solver, Tailwind v4 for styling, Vitest 3 for tests.
 
-**Important quirks:**
+→ Full rationale and version pins: [spec/tech-stack.md](spec/tech-stack.md).
+
+**Quirks worth knowing:**
 - `vite.config.ts` and `vitest.config.ts` are **separate files**. The `test` key causes a TypeScript error in `UserConfigExport`, so test config lives exclusively in `vitest.config.ts`.
 - Tailwind CSS v4 uses `@import "tailwindcss"` in CSS (not `@tailwind` directives).
 
@@ -43,56 +37,20 @@ npm run lint       # ESLint
 ## Repository layout
 
 ```
-spec/                  Design documents (read before changing behaviour)
-  plan.md              Sequenced work plan with status markers [x]/[~]/[ ]
-  test-corpus.md       6 verified corpus cases — source of truth for solver tests
-  solver.md            Solver algorithm and formulation
-  data-model.md        Full data model reference
-scripts/
-  build-game-data.js             Node.js pipeline: --dump-data JSON → game-data.json
-  verify-game-data.js            Report-only diff of new vs backup game-data.json
-  trace-recipe-chain.js          Trace recipe dependency chain; emits solver fixtures
+spec/                  Timeless reference: how the system works today
+initiatives/           Time-bound: roadmap, active initiatives, archive
+TODO.md                Inbox of small items
+scripts/               Build/export tooling (build-game-data.js, verify-game-data.js, trace-recipe-chain.js)
 data/samples/          Git-ignored — real Nullius export goes here locally
 src/
-  data/
-    schema.ts          Zod schemas — single source of truth for all types
-    types.ts           Re-exports game/plan types from schema.ts; adds solver state types
-    loader.ts          parseGameData / loadGameDataFromJson / parsePlan / loadPlanFromJson
-    loader.test.ts     29 unit tests
-    loader.integration.test.ts  6 skipIf tests (need data/samples/nullius/game-data.json)
-  solver/
-    build.ts           buildStoichiometryMatrix + effectiveProductAmount
-    solve.ts           solveSystem — LU then pseudo-inverse fallback
-    effects.ts         computeNodeEffects + computeMachineMetrics
-    subplan.ts         synthetic recipe generation for sub-plans
-    index.ts           solve(plan, gameData) — the single entry point the UI calls
-  store/
-    gameDataStore.ts   Active GameData (empty/loading/loaded/error); handles file import
-    blockStore.ts      Block/SubPlan/RecipeNode state with undo/redo via command pattern
-    solverStore.ts     Auto-solves on plan/data change (150 ms debounce)
-    persistence.ts     localStorage auto-save and restore on startup
-    uiStore.ts         Transient UI state (active tab, modal visibility, etc.)
-  components/
-    BlockTabs.tsx      Tab switcher for blocks; manages active block selection
-    GameDataSelector.tsx  Game data source picker (file import)
-    ItemPicker.tsx     Modal search for items or recipes
-    Modal.tsx          Generic modal wrapper
-    factory/
-      FactoryShell.tsx     Factory view layout: top bar + production table + summary
-      TopBar.tsx           Block header with name, goals, and add-recipe action
-      ProductionTable.tsx  Sortable table of recipe nodes with inline editing
-      RecipeRow.tsx        Single row: machine count, I/O rates, popover triggers
-      FactorySummary.tsx   Footer stats: total machines, power, warnings count
-      BalancedItemsFooter.tsx  Collapsed items that net to zero across the plan
-      ItemTile.tsx         Icon + rate chip used in recipe I/O columns
-      Popover.tsx          Generic floating popover container
-      BeaconPopover.tsx    Beacon configuration popover (module slots per beacon)
-      BeaconModal.tsx      Full beacon config modal (multiple beacon types)
-      MachinePopover.tsx   Machine picker popover
-      ModulePopover.tsx    Module slot configuration popover
-      EditMachineModal.tsx Full machine + module + beacon edit modal
-      WarningsPopover.tsx  Solver warnings detail popover
+  data/                Zod schemas, loader (schema.ts is the single source of truth)
+  solver/              Stoichiometry, reduction, LU + pseudo-inverse, effects, entry point
+  store/               Zustand stores (block, gameData, solver, persistence, ui)
+  components/          UI components; src/components/factory/ is the production-table view
+e2e/                   Playwright specs
 ```
+
+→ For component and module specifics, read the file headers in `src/`. For the data model, see [spec/data-model.md](spec/data-model.md).
 
 ---
 
@@ -186,20 +144,42 @@ Read these before making decisions that affect core behaviour:
 
 | File | Contents |
 |---|---|
-| `spec/plan.md` | Implementation roadmap with status; update `[x]` on completion |
-| `spec/test-corpus.md` | 6 corpus cases with full derivations — ground truth for solver |
-| `spec/solver.md` | Linear algebra formulation, algorithm walkthrough |
-| `spec/data-model.md` | Full field-level data model reference |
-| `spec/data-analysis.md` | Findings from real Nullius export (explains design choices) |
-| `spec/tech-stack.md` | Technology choices and rationale |
+| [spec/test-corpus.md](spec/test-corpus.md) | 6 corpus cases with full derivations — ground truth for solver |
+| [spec/solver.md](spec/solver.md) | Linear algebra formulation, algorithm walkthrough |
+| [spec/data-model.md](spec/data-model.md) | Full field-level data model reference |
+| [spec/data-analysis.md](spec/data-analysis.md) | Findings from real Nullius export (explains design choices) |
+| [spec/tech-stack.md](spec/tech-stack.md) | Technology choices and rationale |
+| [initiatives/README.md](initiatives/README.md) | Index of active and archived initiatives |
+| [initiatives/roadmap.md](initiatives/roadmap.md) | What's shipped, what's active, what's deferred |
 
 ---
 
 ## What is not yet implemented
 
-Phases 6–7 are pending (see `spec/plan.md`):
+Phases 6–7 are pending — see [initiatives/roadmap.md](initiatives/roadmap.md):
 - **Phase 6** — Import/export, URL sharing (6.1–6.5)
 - **Phase 7** — Icons and polish (7.1–7.5)
+
+---
+
+## Documentation layout
+
+Two locations, two purposes. Follow these rules when adding or editing docs:
+
+1. **`spec/` is timeless.** Files there describe how the system currently works. No phase markers, no ticket numbers, no `[ ]/[~]/[x]` checklists. If a fact changes, the file changes; old behaviour is not preserved.
+
+2. **`initiatives/` is time-bound.** Anything with a status, a ticket list, a roadmap, or a "we plan to do X" framing belongs here. Each initiative is its own folder.
+
+3. **Status badge on every active initiative.** The first non-heading line of an initiative's primary doc is one of:
+   - `Status: Active` — work in progress
+   - `Status: Future` — design exists, no implementation yet
+   - `Status: Blocked — <reason>` — waiting on external work
+
+4. **When an initiative ships, move the folder to `initiatives/archive/`.** Verbatim — no rewriting, no splitting. A single `git mv initiatives/<name> initiatives/archive/<name>` is the entire operation. The location implies the final status; no badge needed in archive.
+
+5. **Update `initiatives/README.md` whenever a folder is added, archived, or its status changes.** The README is the only initiative index; nothing else should claim that role.
+
+6. **AGENTS.md does not duplicate `spec/`.** It points to spec files for tech stack, data model, and solver behaviour — never restates them.
 
 ---
 
@@ -209,10 +189,11 @@ After making changes to source files, update the relevant spec docs so this file
 
 | What changed | What to update |
 |---|---|
-| Solver algorithm (`src/solver/`) | `spec/solver.md`; `spec/test-corpus.md` if expected corpus values changed |
-| Data model (`src/data/schema.ts`, `types.ts`) | `spec/data-model.md` |
+| Solver algorithm (`src/solver/`) | [spec/solver.md](spec/solver.md); [spec/test-corpus.md](spec/test-corpus.md) if expected corpus values changed |
+| Data model (`src/data/schema.ts`, `types.ts`) | [spec/data-model.md](spec/data-model.md) |
 | File added/removed/renamed | Repository layout table in this file (`AGENTS.md`) |
 | Store or component architecture | Repository layout table in this file (`AGENTS.md`) |
-| Technology or tooling change | `spec/tech-stack.md`; Commands and Tech stack sections in this file |
-| Phase or feature completed | Mark `[x]` in `spec/plan.md` |
-| New corpus case added | `spec/test-corpus.md` |
+| Technology or tooling change | [spec/tech-stack.md](spec/tech-stack.md); Commands and Tech stack sections in this file |
+| Phase or feature completed | Mark `[x]` in [initiatives/roadmap.md](initiatives/roadmap.md) |
+| Initiative shipped | `git mv initiatives/<name> initiatives/archive/<name>`, update [initiatives/README.md](initiatives/README.md) |
+| New corpus case added | [spec/test-corpus.md](spec/test-corpus.md) |

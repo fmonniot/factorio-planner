@@ -1,5 +1,7 @@
 # Machine + Module cells → unified "Edit machine" modal
 
+Status: Future
+
 ## Context
 
 Today the production table edits the machine and module configuration through two
