@@ -260,13 +260,16 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
           <div className="px-2 py-3 text-gray-500 text-sm">No recipes match</div>
         )}
         {groups.map(([groupKey, recipes]) => {
+          // Left cell: unique ingredient icons across the row's recipes. Skip
+          // ingredients whose iconPath is missing so the cell never falls back
+          // to ugly text fragments.
           const ingredientItems: Item[] = []
           const seen = new Set<string>()
           for (const r of recipes) {
             for (const ing of r.ingredients) {
               if (seen.has(ing.itemId)) continue
               const it = gameData.items[ing.itemId]
-              if (it) {
+              if (it?.iconPath) {
                 ingredientItems.push(it)
                 seen.add(ing.itemId)
               }
@@ -279,19 +282,21 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
               data-subgroup={groupKey}
               className="bg-gray-800 border border-gray-700 rounded p-2 flex items-start gap-3"
             >
-              {/* Left: ingredient icons */}
+              {/* Left: ingredient icons (max 3 — fits one row in w-20) */}
               <div className="w-20 shrink-0 flex flex-wrap gap-0.5 justify-center items-center pt-1">
-                {ingredientItems.slice(0, 4).map(it => (
-                  it.iconPath
-                    ? <img key={it.id} src={iconUrl(it.iconPath)} alt={it.name} title={it.name} className="w-6 h-6 object-contain" />
-                    : <span key={it.id} title={it.name} className="w-6 h-6 text-[10px] text-gray-300 flex items-center justify-center">{it.name.slice(0, 2)}</span>
+                {ingredientItems.slice(0, 3).map(it => (
+                  <img key={it.id} src={iconUrl(it.iconPath)} alt={it.name} title={it.name} className="w-6 h-6 object-contain" />
                 ))}
               </div>
               {/* Right: recipe slots */}
               <div className="flex-1 grid grid-cols-6 gap-1">
                 {recipes.map(r => {
-                  const productId = r.mainProduct ?? r.products[0]?.itemId
-                  const product = productId ? gameData.items[productId] : undefined
+                  // Pick the first product (main first) that actually has an icon.
+                  const candidates = [r.mainProduct, ...r.products.map(p => p.itemId)]
+                    .filter((id): id is string => !!id)
+                  const product = candidates
+                    .map(id => gameData.items[id])
+                    .find(it => it?.iconPath)
                   return (
                     <button
                       key={r.id}
@@ -306,9 +311,9 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
                       onBlur={() => setHoveredRecipeId(null)}
                       className="aspect-square flex items-center justify-center bg-green-900/40 hover:bg-green-700/60 border border-green-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
                     >
-                      {product?.iconPath
-                        ? <img src={iconUrl(product.iconPath)} alt={product.name} className="w-7 h-7 object-contain" />
-                        : <span className="text-xs text-gray-300">{r.name.slice(0, 2)}</span>
+                      {product
+                        ? <img src={iconUrl(product.iconPath)} alt={product.name} className="w-8 h-8 object-contain" />
+                        : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
                       }
                     </button>
                   )
@@ -507,8 +512,8 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
                   className={`aspect-square flex items-center justify-center rounded border outline-none focus:ring-1 focus:ring-blue-500 ${active ? 'bg-amber-800/40 border-amber-600' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
                 >
                   {it.iconPath
-                    ? <img src={iconUrl(it.iconPath)} alt={it.name} className="w-6 h-6 object-contain" />
-                    : <span className="text-[10px] text-gray-200">{it.name.slice(0, 2)}</span>
+                    ? <img src={iconUrl(it.iconPath)} alt={it.name} className="w-7 h-7 object-contain" />
+                    : <span className="text-[10px] text-gray-300 leading-tight text-center px-0.5 break-words">{it.name.slice(0, 8)}</span>
                   }
                 </button>
               )
