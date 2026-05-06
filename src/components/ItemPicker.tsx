@@ -277,13 +277,9 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
               {/* Left: ingredient icons */}
               <div className="w-20 shrink-0 flex flex-wrap gap-0.5 justify-center items-center pt-1">
                 {ingredientItems.slice(0, 4).map(it => (
-                  <img
-                    key={it.id}
-                    src={iconUrl(it.iconPath)}
-                    alt={it.name}
-                    title={it.name}
-                    className="w-6 h-6 object-contain"
-                  />
+                  it.iconPath
+                    ? <img key={it.id} src={iconUrl(it.iconPath)} alt={it.name} title={it.name} className="w-6 h-6 object-contain" />
+                    : <span key={it.id} title={it.name} className="w-6 h-6 text-[10px] text-gray-300 flex items-center justify-center">{it.name.slice(0, 2)}</span>
                 ))}
               </div>
               {/* Right: recipe slots */}
