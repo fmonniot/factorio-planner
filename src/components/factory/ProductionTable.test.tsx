@@ -90,17 +90,17 @@ describe('ProductionTable', () => {
     render(<ProductionTable />)
     fireEvent.click(screen.getByText('+ Add recipe'))
     await waitFor(() => {
-      expect(screen.getByPlaceholderText(/Search recipes/i)).toBeInTheDocument()
+      expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })
   })
 
   it('adding a recipe via picker creates a node in blockStore', async () => {
     render(<ProductionTable />)
     fireEvent.click(screen.getByText('+ Add recipe'))
-    await waitFor(() => screen.getByPlaceholderText(/Search recipes/i))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
 
-    // Click the Iron Plate recipe entry in the picker
-    const recipeButton = screen.getByRole('button', { name: /Iron Plate/ })
+    // Click the Iron Plate recipe slot in the picker
+    const recipeButton = screen.getByTitle('Iron Plate')
     fireEvent.click(recipeButton)
 
     const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes

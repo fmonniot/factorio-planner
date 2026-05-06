@@ -265,6 +265,14 @@ indicator at bottom-right). Merge them so the bottom of the page is a single sta
 - `npm run test:unit` passes; e2e: update any spec that targeted the old standalone
   warning indicator.
 
+### V10 — Recipe / item picker redesign — **Shipped (T15)**
+**Status:** Done. The flat fuzzy-search list shipped in T06 has been replaced by
+two-level Factorio-style pickers. See `plan.md` T15 for the full record. Stable
+selectors exposed for future test work:
+- Recipe picker: `recipe-group-tab`, `recipe-subgroup-row`, `recipe-slot`,
+  `recipe-detail-panel`.
+- Item picker: `item-group-tab`, `item-subgroup-row`, `item-slot`.
+
 ### V09 — Polish: tile chrome and table density
 **Prerequisites:** V01 (because tile presentation is more visible once recipe icons land).
 **Why:** Final pass for visual fidelity. Target tiles have a stronger card feel
@@ -291,6 +299,7 @@ indicator at bottom-right). Merge them so the bottom of the page is a single sta
 5. **V06** (drop Production heading) + **V07** (single-row top bar, drop in-app title).
 6. **V08** (merge balanced-items footer with warning indicator).
 7. **V09** (tile chrome + density) — final pass once everything else is in place.
+8. **V10** — already shipped via T15 (recipe / item picker redesign).
 
 Each ticket should ship as its own PR; running the dev server after each one and
 comparing against the target screenshot is the verification loop.

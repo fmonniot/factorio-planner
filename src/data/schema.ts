@@ -33,6 +33,8 @@ export const ItemSchema = z.object({
   iconPath: z.string(),
   hidden: z.boolean().default(false),
   stackSize: z.number().int().positive().optional(),
+  subgroup: z.string().default(''),
+  order: z.string().default(''),
 })
 
 export const IngredientSchema = z.object({
@@ -70,6 +72,21 @@ export const RecipeSchema = z.object({
     .nullable()
     .optional()
     .transform(v => (v === '' ? null : v)),
+  subgroup: z.string().default(''),
+  order: z.string().default(''),
+})
+
+export const ItemGroupSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  order: z.string().default(''),
+  iconPath: z.string().default(''),
+})
+
+export const ItemSubgroupSchema = z.object({
+  id: z.string(),
+  group: z.string().default(''),
+  order: z.string().default(''),
 })
 
 export const EffectNameSchema = z.enum([
@@ -127,6 +144,8 @@ export const GameDataSchema = z.object({
   modules: z.record(z.string(), ModuleSchema),
   beacons: z.record(z.string(), BeaconEntitySchema).default({}),
   defaultMachines: z.record(z.string(), z.string()),
+  itemGroups: z.record(z.string(), ItemGroupSchema).default({}),
+  itemSubgroups: z.record(z.string(), ItemSubgroupSchema).default({}),
 })
 
 // ---------------------------------------------------------------------------
@@ -245,6 +264,8 @@ export type EffectName = z.output<typeof EffectNameSchema>
 export type Machine = z.output<typeof MachineSchema>
 export type Module = z.output<typeof ModuleSchema>
 export type BeaconEntity = z.output<typeof BeaconEntitySchema>
+export type ItemGroup = z.output<typeof ItemGroupSchema>
+export type ItemSubgroup = z.output<typeof ItemSubgroupSchema>
 export type GameData = z.output<typeof GameDataSchema>
 
 export type ProductionGoal = z.output<typeof ProductionGoalSchema>

@@ -490,6 +490,8 @@ async function exportItems(raw, localeMap, resolveIcon) {
         iconPath:  await resolveIcon(proto, proto.name),
         hidden:    proto.hidden ?? false,
         stackSize: proto.stack_size,
+        subgroup:  proto.subgroup ?? '',
+        order:     proto.order ?? '',
       }
     }
   }
@@ -501,10 +503,41 @@ async function exportItems(raw, localeMap, resolveIcon) {
       type:     'fluid',
       iconPath: await resolveIcon(proto, proto.name),
       hidden:   proto.hidden ?? false,
+      subgroup: proto.subgroup ?? '',
+      order:    proto.order ?? '',
     }
   }
 
   return items
+}
+
+// ---------------------------------------------------------------------------
+// Item groups & subgroups
+// ---------------------------------------------------------------------------
+
+async function exportItemGroups(raw, localeMap, resolveIcon) {
+  const groups = {}
+  for (const proto of Object.values(raw['item-group'] ?? {})) {
+    groups[proto.name] = {
+      id:       proto.name,
+      name:     resolveLocale(proto.localised_name, proto.name, localeMap),
+      order:    proto.order ?? '',
+      iconPath: await resolveIcon(proto, `group-${proto.name}`),
+    }
+  }
+  return groups
+}
+
+function exportItemSubgroups(raw) {
+  const subgroups = {}
+  for (const proto of Object.values(raw['item-subgroup'] ?? {})) {
+    subgroups[proto.name] = {
+      id:    proto.name,
+      group: proto.group ?? '',
+      order: proto.order ?? '',
+    }
+  }
+  return subgroups
 }
 
 // ---------------------------------------------------------------------------
@@ -568,6 +601,18 @@ function buildCategoryMap(machines) {
 function exportRecipes(raw, localeMap, categoryMap) {
   const recipes = {}
 
+  // Helper: resolve a recipe's subgroup, falling back to the main product's
+  // subgroup (mirrors Factorio's runtime behaviour). Walks all item subtypes
+  // plus fluid since main_product can refer to either.
+  const lookupItemSubgroup = (id) => {
+    if (!id) return ''
+    for (const subtype of ITEM_SUBTYPES) {
+      const proto = raw[subtype]?.[id]
+      if (proto) return proto.subgroup ?? ''
+    }
+    return raw.fluid?.[id]?.subgroup ?? ''
+  }
+
   for (const proto of Object.values(raw.recipe ?? {})) {
     if (proto.parameter) continue
 
@@ -581,6 +626,14 @@ function exportRecipes(raw, localeMap, categoryMap) {
 
     const mainProduct = resolveMainProduct(proto, products)
 
+    let subgroup = proto.subgroup ?? ''
+    if (!subgroup) {
+      const fallbackId = (typeof mainProduct === 'string' && mainProduct !== '')
+        ? mainProduct
+        : (products.length === 1 ? products[0].itemId : '')
+      subgroup = lookupItemSubgroup(fallbackId)
+    }
+
     const entry = {
       id:               proto.name,
       name:             resolveLocale(proto.localised_name, proto.name, localeMap),
@@ -591,6 +644,8 @@ function exportRecipes(raw, localeMap, categoryMap) {
       madeIn,
       allowProductivity,
       hidden:           proto.hidden ?? false,
+      subgroup,
+      order:            proto.order ?? '',
     }
     if (mainProduct !== undefined) entry.mainProduct = mainProduct
 
@@ -720,6 +775,10 @@ const modules = await exportModules(raw, localeMap, resolveIcon)
 process.stderr.write(`[build-game-data] Exporting beacons...\n`)
 const beacons = await exportBeacons(raw, localeMap, resolveIcon)
 
+process.stderr.write(`[build-game-data] Exporting item groups...\n`)
+const itemGroups    = await exportItemGroups(raw, localeMap, resolveIcon)
+const itemSubgroups = exportItemSubgroups(raw)
+
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
 // Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
@@ -777,6 +836,8 @@ const output = {
   modules,
   beacons,
   defaultMachines,
+  itemGroups,
+  itemSubgroups,
 }
 
 mkdirSync(dirname(outputPath), { recursive: true })
@@ -786,6 +847,7 @@ const count = o => Object.keys(o).length
 process.stderr.write(
   `[build-game-data] Done — factorioVersion=${factorioVersion} ` +
   `items=${count(items)} recipes=${count(recipes)} ` +
-  `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)}\n` +
+  `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)} ` +
+  `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )

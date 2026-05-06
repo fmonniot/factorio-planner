@@ -12,6 +12,8 @@ export type {
   Machine,
   Module,
   BeaconEntity,
+  ItemGroup,
+  ItemSubgroup,
   GameData,
   ProductionGoal,
   ModuleConfig,

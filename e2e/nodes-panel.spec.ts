@@ -21,19 +21,19 @@ test.describe('Nodes panel', () => {
 
     // 1. Add a goal via the Products [+] button in FactorySummary
     await page.getByTitle('Add goal').click()
-    await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
-    await pickerOverlay.getByRole('button', { name: /Chemistry research/ }).first().click()
+    await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
+    await pickerOverlay.locator('[data-testid="item-slot"]').first().click()
 
     // 2. Main panel should show the "no recipes yet" state
     await expect(page.getByText('No recipes yet')).toBeVisible()
 
     // 3. Open recipe picker via "+ Add recipe" in ProductionTable
     await page.getByText('+ Add recipe').click()
-    await expect(page.getByPlaceholder('Search recipes…')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
     // 4. Search and select nullius-chemical-pack recipe
-    await page.getByPlaceholder('Search recipes…').fill('nullius-chemical-pack')
-    await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
+    await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
+    await pickerOverlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 
     // 5. Recipe row appears in the production table
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
@@ -48,12 +48,12 @@ test.describe('Nodes panel', () => {
 
     // Set up: goal + recipe node for nullius-chemical-pack.
     await page.getByTitle('Add goal').click()
-    await page.getByPlaceholder('Search items…').fill('nullius-chemical-pack')
-    await pickerOverlay.getByRole('button', { name: /Chemistry research/ }).first().click()
+    await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
+    await pickerOverlay.locator('[data-testid="item-slot"]').first().click()
 
     await page.getByText('+ Add recipe').click()
-    await page.getByPlaceholder('Search recipes…').fill('nullius-chemical-pack')
-    await pickerOverlay.getByRole('button', { name: /Chemistry research 1/ }).first().click()
+    await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
+    await pickerOverlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 
     // Wait for the row to appear.
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()

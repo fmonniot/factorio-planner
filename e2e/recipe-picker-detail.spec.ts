@@ -15,95 +15,80 @@ test.describe('Recipe picker detail panel', () => {
     await loadGameData(page)
   })
 
-  test('hovering a recipe row shows machine, crafting time, ingredients and products', async ({ page }) => {
+  test('hovering a recipe slot shows the redesigned detail panel', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    // Open the recipe picker via the ProductionTable "+ Add recipe" button.
     await page.getByText('+ Add recipe').click()
-    await expect(page.getByPlaceholder('Search recipes…')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
-    // Search for "Chemistry research 1" so it's the only result.
-    await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
-    const recipeRow = overlay.getByRole('button', { name: /Chemistry research 1/ }).first()
-    await expect(recipeRow).toBeVisible()
+    // Narrow to a single result.
+    await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
+    const slot = overlay.locator('[data-testid="recipe-slot"]').first()
+    await expect(slot).toBeVisible()
 
     // No detail panel before hover.
-    await expect(overlay.getByText('Chemical plant 3')).not.toBeVisible()
+    await expect(overlay.getByTestId('recipe-detail-panel')).not.toBeVisible()
 
-    // Hover the recipe row.
-    await recipeRow.hover()
-
-    // The detail panel is the w-64 div that appears to the right of the picker.
-    const detail = overlay.locator('.w-64')
+    await slot.hover()
+    const detail = overlay.getByTestId('recipe-detail-panel')
     await expect(detail).toBeVisible()
 
-    // Machine and crafting time (these only appear in the detail panel).
-    await expect(detail.getByText('Chemical plant 3')).toBeVisible()
-    await expect(detail.getByText('15s')).toBeVisible()
+    // Header carries the (Recipe) suffix.
+    await expect(detail).toContainText('(Recipe)')
 
-    // A sample of ingredients.
-    await expect(detail.getByText('Sodium hydroxide')).toBeVisible()
-    await expect(detail.getByText('Sulfuric acid')).toBeVisible()
+    // Sectioned body.
+    await expect(detail.getByText('Ingredients:')).toBeVisible()
+    await expect(detail.getByText('Crafting time')).toBeVisible()
+    await expect(detail.getByText('Products:')).toBeVisible()
+    await expect(detail.getByText('Made in:')).toBeVisible()
 
-    // The product (exact match avoids ambiguity with "Chemistry research 1" in the result list).
-    await expect(detail.getByText('Chemistry research', { exact: true })).toBeVisible()
+    // Made-in lists at least one machine.
+    await expect(detail.getByText(/Chemical plant 3/).first()).toBeVisible()
   })
 
-  test('detail panel disappears when cursor leaves the recipe row', async ({ page }) => {
+  test('detail panel disappears when cursor leaves the slot', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-
     await page.getByText('+ Add recipe').click()
-    await page.getByPlaceholder('Search recipes…').fill('Chemistry research 1')
+    await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
 
-    const recipeRow = overlay.getByRole('button', { name: /Chemistry research 1/ }).first()
-    await recipeRow.hover()
-    await expect(overlay.getByText('Chemical plant 3')).toBeVisible()
+    const slot = overlay.locator('[data-testid="recipe-slot"]').first()
+    await slot.hover()
+    await expect(overlay.getByTestId('recipe-detail-panel')).toBeVisible()
 
-    // Move mouse away to the overlay backdrop.
+    // Move the mouse out of the slot.
     await page.mouse.move(10, 10)
-    await expect(overlay.getByText('Chemical plant 3')).not.toBeVisible()
+    await expect(overlay.getByTestId('recipe-detail-panel')).not.toBeVisible()
   })
 
   test('detail panel updates when hovering a different recipe', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-
     await page.getByText('+ Add recipe').click()
+    await overlay.getByPlaceholder('Search…').fill('Chemistry research')
 
-    // Search for something that yields multiple results.
-    await page.getByPlaceholder('Search recipes…').fill('Chemistry research')
+    const slots = overlay.locator('[data-testid="recipe-slot"]')
+    await expect(slots.first()).toBeVisible()
 
-    const row1 = overlay.getByRole('button', { name: /Chemistry research 1/ }).first()
-    const row2 = overlay.getByRole('button', { name: /Chemistry research 2/ }).first()
-    await expect(row1).toBeVisible()
-    await expect(row2).toBeVisible()
+    // Hover first slot.
+    await slots.nth(0).hover()
+    const detail = overlay.getByTestId('recipe-detail-panel')
+    const firstHeader = await detail.locator('.font-semibold').first().textContent()
 
-    // Hover first recipe — detail panel shows 15s crafting time.
-    await row1.hover()
-    await expect(overlay.getByText('15s')).toBeVisible()
-
-    // Hover second recipe — detail panel updates.
-    await row2.hover()
-    // Verify the detail panel now shows the second recipe's id (scoped to the
-    // w-64 detail panel to avoid the ambiguity with the result row label).
-    const detail = overlay.locator('.w-64')
-    await expect(detail.getByText('nullius-chemical-pack-2')).toBeVisible()
+    // Hover a different slot.
+    await slots.nth(1).hover()
+    const secondHeader = await detail.locator('.font-semibold').first().textContent()
+    expect(secondHeader).not.toEqual(firstHeader)
   })
 
-  test('detail panel does not appear in item-mode picker', async ({ page }) => {
+  test('item-mode picker has no recipe detail panel', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-
-    // Open the item/goal picker via FactorySummary [+].
     await page.getByTitle('Add goal').click()
-    await expect(page.getByPlaceholder('Search items…')).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
 
-    await page.getByPlaceholder('Search items…').fill('Chemistry research')
-    const itemRow = overlay.getByRole('button', { name: /Chemistry research/ }).first()
-    await expect(itemRow).toBeVisible()
+    const slot = overlay.locator('[data-testid="item-slot"]').first()
+    await expect(slot).toBeVisible()
+    await slot.hover()
 
-    await itemRow.hover()
-
-    // No detail panel (no machine/crafting time info).
-    await expect(overlay.getByText('Chemical plant 3')).not.toBeVisible()
-    await expect(overlay.getByText('15s')).not.toBeVisible()
+    // No recipe detail panel exists in items mode.
+    await expect(overlay.getByTestId('recipe-detail-panel')).not.toBeVisible()
   })
 })
