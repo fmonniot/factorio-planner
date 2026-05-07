@@ -34,7 +34,6 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
-    activeSubPlanId: block.rootPlan.id,
     history: {},
   })
 })
@@ -50,7 +49,7 @@ afterEach(() => {
 describe('saveAppState', () => {
   it('writes the current app state to localStorage', () => {
     const block = makeEmptyBlock('Iron Setup')
-    useBlockStore.setState({ blocks: [block], activeBlockId: block.id, activeSubPlanId: block.rootPlan.id, history: {} })
+    useBlockStore.setState({ blocks: [block], activeBlockId: block.id, history: {} })
     saveAppState()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       APP_STATE_STORAGE_KEY,
@@ -129,8 +128,8 @@ describe('initAppStatePersistence', () => {
 
   it('does not save when only non-block state changes', () => {
     const unsub = initAppStatePersistence()
-    // Change activeSubPlanId (not blocks) — should not trigger a save.
-    useBlockStore.setState({ activeSubPlanId: 'some-other-id' })
+    // Change history (not blocks) — should not trigger a save.
+    useBlockStore.setState({ history: { 'some-id': { undoStack: [], redoStack: [] } } })
     unsub()
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })

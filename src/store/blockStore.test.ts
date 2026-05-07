@@ -29,7 +29,6 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
-    activeSubPlanId: block.rootPlan.id,
     history: {},
   })
 })
@@ -68,7 +67,6 @@ describe('moveNodeUp', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     useBlockStore.getState().moveNodeUp('node-2')
@@ -83,7 +81,6 @@ describe('moveNodeUp', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     useBlockStore.getState().moveNodeUp('node-iron')
@@ -100,7 +97,6 @@ describe('moveNodeDown', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     useBlockStore.getState().moveNodeDown('node-iron')
@@ -121,7 +117,6 @@ describe('wrapNodeInSubPlan', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
   }
@@ -170,7 +165,6 @@ describe('wrapNodeInSubPlan', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     const before = useBlockStore.getState().blocks[0].rootPlan
@@ -184,38 +178,30 @@ describe('wrapNodeInSubPlan', () => {
 // ---------------------------------------------------------------------------
 
 describe('toggleNoImportItem', () => {
-  it('adds an item to noImportItems on first call', () => {
+  it('adds an item to block-level noImportItems on first call', () => {
     useBlockStore.getState().toggleNoImportItem('benzene')
-    const subPlanId = useBlockStore.getState().activeSubPlanId
-    const block = useBlockStore.getState().blocks[0]
-    const sub = findSubPlan(block.rootPlan, subPlanId)!
-    expect(sub.noImportItems).toEqual(['benzene'])
+    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual(['benzene'])
   })
 
   it('removes the item on a second call (toggle)', () => {
     const t = useBlockStore.getState().toggleNoImportItem
     t('benzene')
     t('benzene')
-    const subPlanId = useBlockStore.getState().activeSubPlanId
-    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
-    expect(sub.noImportItems).toEqual([])
+    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual([])
   })
 
   it('keeps existing items when adding a new one', () => {
     const t = useBlockStore.getState().toggleNoImportItem
     t('benzene')
     t('oxygen')
-    const subPlanId = useBlockStore.getState().activeSubPlanId
-    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
-    expect(sub.noImportItems.sort()).toEqual(['benzene', 'oxygen'])
+    expect(useBlockStore.getState().blocks[0].noImportItems.slice().sort())
+      .toEqual(['benzene', 'oxygen'])
   })
 
   it('undo restores previous noImportItems list', () => {
     const s = useBlockStore.getState()
     s.toggleNoImportItem('benzene')
     s.undo()
-    const subPlanId = useBlockStore.getState().activeSubPlanId
-    const sub = findSubPlan(useBlockStore.getState().blocks[0].rootPlan, subPlanId)!
-    expect(sub.noImportItems).toEqual([])
+    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual([])
   })
 })

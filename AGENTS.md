@@ -71,7 +71,7 @@ Key transform: `mainProduct: z.string().nullable().optional().transform(v => v =
 ## Solver pipeline
 
 ```
-solve(plan, gameData, syntheticRecipes?)
+solve(plan, gameData)        // plan = flattenBlock(block) — see src/solver/index.ts
   → computeNodeEffects       module + beacon bonuses per node
   → buildClassifiedSystem    net S[item][recipe] + classification
                              (goals / intermediates / raw / byproducts)

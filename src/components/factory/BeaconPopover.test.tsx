@@ -61,7 +61,6 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [{ ...block, rootPlan }],
     activeBlockId: block.id,
-    activeSubPlanId: rootPlan.id,
     history: {},
   })
 })

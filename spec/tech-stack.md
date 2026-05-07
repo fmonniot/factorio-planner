@@ -102,8 +102,7 @@ factorio-planner/
 │   │   ├── build.ts            # Net stoichiometry + item classification
 │   │   ├── solve.ts            # LP construction and solveLP()
 │   │   ├── effects.ts          # Module/beacon effects + machine metrics
-│   │   ├── subplan.ts          # Synthetic-recipe synthesis for sub-plans
-│   │   └── index.ts            # solve(plan, gameData) entry point
+│   │   └── index.ts            # solve(plan, gameData) + flattenBlock(block)
 │   ├── store/
 │   │   ├── blockStore.ts       # Block/SubPlan/RecipeNode state, undo/redo
 │   │   ├── gameDataStore.ts    # Active GameData (empty/loading/loaded/error)

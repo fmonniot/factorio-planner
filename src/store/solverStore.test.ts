@@ -40,11 +40,10 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
-    activeSubPlanId: block.rootPlan.id,
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map() })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
   unwire = wireSolver()
 })
 
@@ -125,7 +124,7 @@ describe('wireSolver', () => {
     unwire!()
     unwire = undefined
 
-    useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map() })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     vi.runAllTimers()
     // Store should remain idle after unwire

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBlockStore, selectActiveSubPlan, selectActiveBlock } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
@@ -144,7 +144,6 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
 // ---------------------------------------------------------------------------
 
 export function FactorySummary() {
-  const subPlan = useBlockStore(selectActiveSubPlan)
   const activeBlock = useBlockStore(selectActiveBlock)
   const renameBlock = useBlockStore(s => s.renameBlock)
   const solverResult = useSolverStore(selectSolverResult)
@@ -159,9 +158,9 @@ export function FactorySummary() {
   const [nameDraft, setNameDraft] = useState('')
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
-  const noImportItems = subPlan?.noImportItems ?? []
+  const noImportItems = activeBlock?.noImportItems ?? []
 
-  const goals: ProductionGoal[] = subPlan?.goals ?? []
+  const goals: ProductionGoal[] = activeBlock?.goals ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
 
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()

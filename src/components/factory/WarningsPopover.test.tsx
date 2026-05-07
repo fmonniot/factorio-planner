@@ -31,7 +31,6 @@ function setupWithWarnings(result: Partial<SolverResult>) {
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: { nodes: [], unsatisfied: [], warnings: [], ...result },
-    subPlanResults: new Map(),
     _setStatus: () => {},
   })
 }

@@ -2,13 +2,12 @@ import { create } from 'zustand'
 import type { AppState, Block, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
-// Command pattern — operates on a SubPlan, tagged with which subplan it affects
+// Command pattern — operates on the active Block, with full apply/undo.
 // ---------------------------------------------------------------------------
 
 interface Command {
-  subPlanId: string
-  apply: (plan: SubPlan) => SubPlan
-  undo: (plan: SubPlan) => SubPlan
+  apply: (block: Block) => Block
+  undo: (block: Block) => Block
 }
 
 interface BlockHistory {
@@ -29,10 +28,11 @@ export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
   return undefined
 }
 
-function findParentSubPlan(plan: SubPlan, targetId: string): SubPlan | undefined {
+/** Find the SubPlan that directly contains a node with the given nodeId. */
+function findSubPlanContainingNode(plan: SubPlan, nodeId: string): SubPlan | undefined {
+  if (plan.nodes.some(n => n.id === nodeId)) return plan
   for (const sp of plan.subPlans) {
-    if (sp.id === targetId) return plan
-    const found = findParentSubPlan(sp, targetId)
+    const found = findSubPlanContainingNode(sp, nodeId)
     if (found) return found
   }
   return undefined
@@ -72,6 +72,15 @@ function withUpdatedAt(plan: SubPlan): SubPlan {
   return { ...plan, updatedAt: new Date().toISOString() }
 }
 
+/** Return a new Block with the active subplan (or its ancestor on the path
+ *  to the target subplan) marked as updated. */
+function touchSubPlan(block: Block, subPlanId: string): Block {
+  return {
+    ...block,
+    rootPlan: updateSubPlanInTree(block.rootPlan, subPlanId, withUpdatedAt),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Factory helpers
 // ---------------------------------------------------------------------------
@@ -81,10 +90,8 @@ export function makeEmptySubPlan(name: string): SubPlan {
   return {
     id: crypto.randomUUID(),
     name,
-    goals: [],
     nodes: [],
     subPlans: [],
-    noImportItems: [],
     createdAt: now,
     updatedAt: now,
   }
@@ -95,6 +102,8 @@ export function makeEmptyBlock(name: string): Block {
     id: crypto.randomUUID(),
     name,
     gameDataVersion: '',
+    goals: [],
+    noImportItems: [],
     rootPlan: makeEmptySubPlan('Main'),
   }
 }
@@ -106,7 +115,6 @@ export function makeEmptyBlock(name: string): Block {
 export interface BlockStoreState {
   blocks: Block[]
   activeBlockId: string
-  activeSubPlanId: string
   history: Record<string, BlockHistory>
 
   // Block management
@@ -118,17 +126,16 @@ export interface BlockStoreState {
   addSubPlan: (parentSubPlanId: string, name: string) => void
   removeSubPlan: (subPlanId: string) => void
   renameSubPlan: (subPlanId: string, name: string) => void
-  setActiveSubPlan: (subPlanId: string) => void
 
-  // Goal actions (on active subplan)
+  // Goal actions (block-level)
   addGoal: (goal: ProductionGoal) => void
   removeGoal: (goalId: string) => void
   updateGoalRate: (goalId: string, rate: number) => void
 
-  // No-import items (LP cannot import these as raw inputs)
+  // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
 
-  // Node actions (on active subplan)
+  // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode) => void
   removeNode: (nodeId: string) => void
   moveNodeUp: (nodeId: string) => void
@@ -152,7 +159,7 @@ export interface BlockStoreState {
 }
 
 // ---------------------------------------------------------------------------
-// applyCommand — applies a command to the active subplan and pushes to history
+// applyCommand — applies a command to the active block and pushes to history
 // ---------------------------------------------------------------------------
 
 function applyCommand(
@@ -162,10 +169,7 @@ function applyCommand(
   const block = state.blocks.find(b => b.id === state.activeBlockId)
   if (!block) return {}
 
-  const newRootPlan = updateSubPlanInTree(block.rootPlan, cmd.subPlanId, p =>
-    withUpdatedAt(cmd.apply(p)),
-  )
-  const newBlock = { ...block, rootPlan: newRootPlan }
+  const newBlock = cmd.apply(block)
   const hist = state.history[block.id] ?? { undoStack: [], redoStack: [] }
 
   return {
@@ -177,6 +181,39 @@ function applyCommand(
         redoStack: [],
       },
     },
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Helpers for building node-scoped commands. The containing subplan is
+// resolved at command-creation time and captured in the closure so apply/undo
+// always touch the same subplan even after subsequent mutations.
+// ---------------------------------------------------------------------------
+
+function nodeCommand(
+  block: Block,
+  nodeId: string,
+  applyNode: (node: RecipeNode) => RecipeNode,
+  undoNode: (node: RecipeNode) => RecipeNode,
+): Command | undefined {
+  const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+  if (!subPlan) return undefined
+  const subPlanId = subPlan.id
+  return {
+    apply: b => touchSubPlan({
+      ...b,
+      rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+        ...p,
+        nodes: p.nodes.map(n => (n.id === nodeId ? applyNode(n) : n)),
+      })),
+    }, subPlanId),
+    undo: b => touchSubPlan({
+      ...b,
+      rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+        ...p,
+        nodes: p.nodes.map(n => (n.id === nodeId ? undoNode(n) : n)),
+      })),
+    }, subPlanId),
   }
 }
 
@@ -193,7 +230,6 @@ const initialBlock = makeEmptyBlock('Factory')
 export const useBlockStore = create<BlockStoreState>((set) => ({
   blocks: [initialBlock],
   activeBlockId: initialBlock.id,
-  activeSubPlanId: initialBlock.rootPlan.id,
   history: {},
 
   // ── Block management ──────────────────────────────────────────────────────
@@ -204,7 +240,6 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       return {
         blocks: [...state.blocks, block],
         activeBlockId: block.id,
-        activeSubPlanId: block.rootPlan.id,
       }
     }),
 
@@ -221,7 +256,6 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       return {
         blocks: remaining,
         activeBlockId: next.id,
-        activeSubPlanId: next.rootPlan.id,
         history: newHistory,
       }
     }),
@@ -235,10 +269,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === blockId)
       if (!block) return state
-      return {
-        activeBlockId: blockId,
-        activeSubPlanId: block.rootPlan.id,
-      }
+      return { activeBlockId: blockId }
     }),
 
   // ── SubPlan management ────────────────────────────────────────────────────
@@ -269,20 +300,12 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      // Remove the subplan from the tree, then clean up any node references to it.
       let newRootPlan = removeSubPlanFromTree(block.rootPlan, subPlanId)
       newRootPlan = removeSubPlanNodeReferences(newRootPlan, subPlanId)
-      const newBlocks = state.blocks.map(b =>
-        b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-      )
-      // If the removed subplan was active, switch to its parent (or root).
-      if (state.activeSubPlanId !== subPlanId) {
-        return { blocks: newBlocks }
-      }
-      const parent = findParentSubPlan(block.rootPlan, subPlanId)
       return {
-        blocks: newBlocks,
-        activeSubPlanId: parent?.id ?? block.rootPlan.id,
+        blocks: state.blocks.map(b =>
+          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
+        ),
       }
     }),
 
@@ -301,16 +324,13 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       }
     }),
 
-  setActiveSubPlan: (subPlanId) => set({ activeSubPlanId: subPlanId }),
-
-  // ── Goals ─────────────────────────────────────────────────────────────────
+  // ── Goals (block-level) ───────────────────────────────────────────────────
 
   addGoal: (goal) =>
     set(state => {
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, goals: [...p.goals, goal] }),
-        undo: p => ({ ...p, goals: p.goals.filter(g => g.id !== goal.id) }),
+        apply: b => ({ ...b, goals: [...b.goals, goal] }),
+        undo: b => ({ ...b, goals: b.goals.filter(g => g.id !== goal.id) }),
       }
       return applyCommand(state, cmd)
     }),
@@ -318,13 +338,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   removeGoal: (goalId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
-      const target = subPlan?.goals.find(g => g.id === goalId)
+      const target = block?.goals.find(g => g.id === goalId)
       if (!target) return state
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, goals: p.goals.filter(g => g.id !== goalId) }),
-        undo: p => ({ ...p, goals: [...p.goals, target] }),
+        apply: b => ({ ...b, goals: b.goals.filter(g => g.id !== goalId) }),
+        undo: b => ({ ...b, goals: [...b.goals, target] }),
       }
       return applyCommand(state, cmd)
     }),
@@ -332,13 +350,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   updateGoalRate: (goalId, rate) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
-      const oldGoal = subPlan?.goals.find(g => g.id === goalId)
+      const oldGoal = block?.goals.find(g => g.id === goalId)
       if (!oldGoal) return state
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, goals: p.goals.map(g => g.id === goalId ? { ...g, rate } : g) }),
-        undo: p => ({ ...p, goals: p.goals.map(g => g.id === goalId ? { ...g, rate: oldGoal.rate } : g) }),
+        apply: b => ({ ...b, goals: b.goals.map(g => g.id === goalId ? { ...g, rate } : g) }),
+        undo: b => ({ ...b, goals: b.goals.map(g => g.id === goalId ? { ...g, rate: oldGoal.rate } : g) }),
       }
       return applyCommand(state, cmd)
     }),
@@ -346,23 +362,22 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   toggleNoImportItem: (itemId) =>
     set(state => {
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => {
-          const has = p.noImportItems.includes(itemId)
+        apply: b => {
+          const has = b.noImportItems.includes(itemId)
           return {
-            ...p,
+            ...b,
             noImportItems: has
-              ? p.noImportItems.filter(i => i !== itemId)
-              : [...p.noImportItems, itemId],
+              ? b.noImportItems.filter(i => i !== itemId)
+              : [...b.noImportItems, itemId],
           }
         },
-        undo: p => {
-          const has = p.noImportItems.includes(itemId)
+        undo: b => {
+          const has = b.noImportItems.includes(itemId)
           return {
-            ...p,
+            ...b,
             noImportItems: has
-              ? p.noImportItems.filter(i => i !== itemId)
-              : [...p.noImportItems, itemId],
+              ? b.noImportItems.filter(i => i !== itemId)
+              : [...b.noImportItems, itemId],
           }
         },
       }
@@ -370,57 +385,94 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     }),
 
   // ── Nodes ─────────────────────────────────────────────────────────────────
+  //
+  // Newly added nodes go into the rootPlan. Existing-node mutations resolve
+  // the containing subplan by walking the tree at command-creation time.
 
   addNode: (node) =>
     set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlanId = block.rootPlan.id
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: [...p.nodes, node] }),
-        undo: p => ({ ...p, nodes: p.nodes.filter(n => n.id !== node.id) }),
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+            ...p,
+            nodes: [...p.nodes, node],
+          })),
+        }, subPlanId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+            ...p,
+            nodes: p.nodes.filter(n => n.id !== node.id),
+          })),
+        }, subPlanId),
       }
       return applyCommand(state, cmd)
     }),
 
   moveNodeUp: (nodeId) =>
     set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      if (!subPlan) return state
+      const subPlanId = subPlan.id
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => {
-          const idx = p.nodes.findIndex(n => n.id === nodeId)
-          if (idx <= 0) return p
-          const nodes = [...p.nodes]
-          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
-          return { ...p, nodes }
-        },
-        undo: p => {
-          const idx = p.nodes.findIndex(n => n.id === nodeId)
-          if (idx < 0 || idx >= p.nodes.length - 1) return p
-          const nodes = [...p.nodes]
-          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
-          return { ...p, nodes }
-        },
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => {
+            const idx = p.nodes.findIndex(n => n.id === nodeId)
+            if (idx <= 0) return p
+            const nodes = [...p.nodes]
+            ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+            return { ...p, nodes }
+          }),
+        }, subPlanId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => {
+            const idx = p.nodes.findIndex(n => n.id === nodeId)
+            if (idx < 0 || idx >= p.nodes.length - 1) return p
+            const nodes = [...p.nodes]
+            ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+            return { ...p, nodes }
+          }),
+        }, subPlanId),
       }
       return applyCommand(state, cmd)
     }),
 
   moveNodeDown: (nodeId) =>
     set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      if (!subPlan) return state
+      const subPlanId = subPlan.id
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => {
-          const idx = p.nodes.findIndex(n => n.id === nodeId)
-          if (idx < 0 || idx >= p.nodes.length - 1) return p
-          const nodes = [...p.nodes]
-          ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
-          return { ...p, nodes }
-        },
-        undo: p => {
-          const idx = p.nodes.findIndex(n => n.id === nodeId)
-          if (idx <= 0) return p
-          const nodes = [...p.nodes]
-          ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
-          return { ...p, nodes }
-        },
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => {
+            const idx = p.nodes.findIndex(n => n.id === nodeId)
+            if (idx < 0 || idx >= p.nodes.length - 1) return p
+            const nodes = [...p.nodes]
+            ;[nodes[idx], nodes[idx + 1]] = [nodes[idx + 1], nodes[idx]]
+            return { ...p, nodes }
+          }),
+        }, subPlanId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => {
+            const idx = p.nodes.findIndex(n => n.id === nodeId)
+            if (idx <= 0) return p
+            const nodes = [...p.nodes]
+            ;[nodes[idx - 1], nodes[idx]] = [nodes[idx], nodes[idx - 1]]
+            return { ...p, nodes }
+          }),
+        }, subPlanId),
       }
       return applyCommand(state, cmd)
     }),
@@ -428,13 +480,27 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   removeNode: (nodeId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
-      const target = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      if (!subPlan) return state
+      const target = subPlan.nodes.find(n => n.id === nodeId)
       if (!target) return state
+      const subPlanId = subPlan.id
       const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.filter(n => n.id !== nodeId) }),
-        undo: p => ({ ...p, nodes: [...p.nodes, target] }),
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+            ...p,
+            nodes: p.nodes.filter(n => n.id !== nodeId),
+          })),
+        }, subPlanId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+            ...p,
+            nodes: [...p.nodes, target],
+          })),
+        }, subPlanId),
       }
       return applyCommand(state, cmd)
     }),
@@ -442,140 +508,143 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   updateNodeMachine: (nodeId, machineId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, machineId } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, machineId: old.machineId } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldMachineId = old.machineId
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, machineId } : n,
+        n => n.kind === 'game-recipe' ? { ...n, machineId: oldMachineId } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodeModules: (nodeId, modules) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, modules } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, modules: old.modules } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldModules = old.modules
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, modules } : n,
+        n => n.kind === 'game-recipe' ? { ...n, modules: oldModules } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodeBeacon: (nodeId, beaconConfig) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, beaconConfig } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, beaconConfig: old.beaconConfig } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldBeacon = old.beaconConfig
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, beaconConfig } : n,
+        n => n.kind === 'game-recipe' ? { ...n, beaconConfig: oldBeacon } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodePinnedRate: (nodeId, pinnedRate) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, pinnedRate } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, pinnedRate: old.pinnedRate } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldPinned = old.pinnedRate
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, pinnedRate } : n,
+        n => n.kind === 'game-recipe' ? { ...n, pinnedRate: oldPinned } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodeByproductPolicy: (nodeId, byproductPolicy) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductPolicy } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductPolicy: old.byproductPolicy } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldPolicy = old.byproductPolicy
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, byproductPolicy } : n,
+        n => n.kind === 'game-recipe' ? { ...n, byproductPolicy: oldPolicy } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodeByproductConsumer: (nodeId, value) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const oldValue = old.kind === 'game-recipe' ? old.byproductConsumer : undefined
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductConsumer: value } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, byproductConsumer: oldValue } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldValue = old.byproductConsumer
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: value } : n,
+        n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: oldValue } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodePrimaryProduct: (nodeId, primaryProduct) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, primaryProduct } : n) }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? { ...n, primaryProduct: (old as { primaryProduct?: string }).primaryProduct } : n) }),
-      }
-      return applyCommand(state, cmd)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldPrimary = old.primaryProduct
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, primaryProduct } : n,
+        n => n.kind === 'game-recipe' ? { ...n, primaryProduct: oldPrimary } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   updateNodeRecipe: (nodeId, recipeId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const subPlan = block ? findSubPlan(block.rootPlan, state.activeSubPlanId) : undefined
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
       const old = subPlan?.nodes.find(n => n.id === nodeId)
-      if (!old) return state
-      const cmd: Command = {
-        subPlanId: state.activeSubPlanId,
-        apply: p => ({
-          ...p,
-          nodes: p.nodes.map(n =>
-            n.id === nodeId
-              ? { ...n, recipeId, machineId: undefined, modules: [], beaconConfig: undefined, pinnedRate: undefined, byproductPolicy: {}, byproductConsumer: undefined }
-              : n,
-          ),
+      if (!old || old.kind !== 'game-recipe') return state
+      const cmd = nodeCommand(block, nodeId,
+        () => ({
+          kind: 'game-recipe',
+          id: nodeId,
+          recipeId,
+          modules: [],
+          byproductPolicy: {},
         }),
-        undo: p => ({ ...p, nodes: p.nodes.map(n => n.id === nodeId ? old : n) }),
-      }
-      return applyCommand(state, cmd)
+        () => old,
+      )
+      return cmd ? applyCommand(state, cmd) : state
     }),
 
   wrapNodeInSubPlan: (nodeId, name) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const subPlan = findSubPlan(block.rootPlan, state.activeSubPlanId)
-      if (!subPlan) return state
-      const node = subPlan.nodes.find(n => n.id === nodeId)
+      const containing = findSubPlanContainingNode(block.rootPlan, nodeId)
+      if (!containing) return state
+      const node = containing.nodes.find(n => n.id === nodeId)
       if (!node || node.kind !== 'game-recipe') return state
 
       const now = new Date().toISOString()
       const newSubPlan: SubPlan = {
         id: crypto.randomUUID(),
         name,
-        goals: [],
         nodes: [node],
         subPlans: [],
-        noImportItems: [],
         createdAt: now,
         updatedAt: now,
       }
@@ -584,7 +653,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         id: crypto.randomUUID(),
         subPlanId: newSubPlan.id,
       }
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, state.activeSubPlanId, p => ({
+      const newRootPlan = updateSubPlanInTree(block.rootPlan, containing.id, p => ({
         ...p,
         nodes: p.nodes.map(n => (n.id === nodeId ? newSubPlanNode : n)),
         subPlans: [...p.subPlans, newSubPlan],
@@ -608,13 +677,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
       const stack = [...hist.undoStack]
       const cmd = stack.pop()!
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, cmd.subPlanId, p =>
-        withUpdatedAt(cmd.undo(p)),
-      )
+      const newBlock = cmd.undo(block)
       return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+        blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
         history: {
           ...state.history,
           [block.id]: {
@@ -634,13 +699,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
       const stack = [...hist.redoStack]
       const cmd = stack.pop()!
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, cmd.subPlanId, p =>
-        withUpdatedAt(cmd.apply(p)),
-      )
+      const newBlock = cmd.apply(block)
       return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+        blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
         history: {
           ...state.history,
           [block.id]: {
@@ -657,7 +718,6 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set({
       blocks: appState.blocks,
       activeBlockId: appState.activeBlockId,
-      activeSubPlanId: appState.blocks.find(b => b.id === appState.activeBlockId)?.rootPlan.id ?? '',
       history: {},
     }),
 }))
@@ -669,10 +729,3 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 export function selectActiveBlock(state: BlockStoreState): Block | undefined {
   return state.blocks.find(b => b.id === state.activeBlockId)
 }
-
-export function selectActiveSubPlan(state: BlockStoreState): SubPlan | undefined {
-  const block = selectActiveBlock(state)
-  if (!block) return undefined
-  return findSubPlan(block.rootPlan, state.activeSubPlanId)
-}
-

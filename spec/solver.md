@@ -87,7 +87,9 @@ These three knobs sit on individual `RecipeNode`s and are consumed by `solve()`:
 
 ## Sub-plans
 
-Sub-plans appear to the parent plan as a single "synthetic recipe" via [src/solver/subplan.ts](../src/solver/subplan.ts). The synthetic recipe's net inputs/outputs are computed from the inner solve, then injected into the outer LP as one more recipe variable. Solver entry points: `solve(plan, gameData, syntheticRecipes)`.
+Sub-plans are a UI/persistence grouping only. They do not affect solver output: every `RecipeNode` in the tree, regardless of how deeply nested in `subPlans`, is flattened into a single global LP per `Block` via [`flattenBlock(block)`](../src/solver/index.ts) before `solve()` runs. Goals and `noImportItems` live on the `Block`, not on individual subplans.
+
+Wrapping a recipe into a subplan for organisation has no effect on its computed throughput. Solver entry point: `solve(plan, gameData)`, where `plan = flattenBlock(block)`.
 
 ---
 

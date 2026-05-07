@@ -58,12 +58,11 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
-    activeSubPlanId: block.rootPlan.id,
     history: {},
   })
   useUiStore.setState({ rateUnit: 'min' })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, subPlanResults: new Map(), _setStatus: () => {} })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, _setStatus: () => {} })
 })
 
 describe('ProductionTable', () => {
@@ -78,7 +77,6 @@ describe('ProductionTable', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     render(<ProductionTable />)
@@ -117,7 +115,6 @@ describe('ProductionTable', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     useSolverStore.setState({
@@ -133,7 +130,6 @@ describe('ProductionTable', () => {
           powerKw: 0,
         }],
       },
-      subPlanResults: new Map(),
       _setStatus: () => {},
     } as never)
 

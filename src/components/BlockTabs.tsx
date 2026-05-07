@@ -83,7 +83,7 @@ function BlockTab({ blockId, isActive, onClick }: BlockTabProps) {
 
   if (!block) return null
 
-  const firstGoal = block.rootPlan.goals[0]
+  const firstGoal = block.goals[0]
   const firstItem = firstGoal ? gameData?.items[firstGoal.itemId] : undefined
 
   function handleContextMenu(e: React.MouseEvent) {

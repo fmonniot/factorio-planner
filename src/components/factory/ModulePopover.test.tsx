@@ -66,7 +66,6 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
-    activeSubPlanId: block.rootPlan.id,
     history: {},
   })
 })
@@ -100,7 +99,6 @@ describe('ModulePopover', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
 

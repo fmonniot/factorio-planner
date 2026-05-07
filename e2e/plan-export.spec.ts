@@ -51,11 +51,11 @@ test.describe('Plan export', () => {
     expect(Array.isArray(parsed.blocks)).toBe(true)
     expect(parsed.blocks.length).toBeGreaterThan(0)
 
-    const rootPlan = parsed.blocks[0].rootPlan
-    expect(rootPlan.goals.length).toBeGreaterThan(0)
-    expect(rootPlan.goals[0].itemId).toBe('nullius-chemical-pack')
-    expect(rootPlan.nodes.length).toBeGreaterThan(0)
-    expect(rootPlan.nodes[0].recipeId).toBe('nullius-chemical-pack')
+    const block = parsed.blocks[0]
+    expect(block.goals.length).toBeGreaterThan(0)
+    expect(block.goals[0].itemId).toBe('nullius-chemical-pack')
+    expect(block.rootPlan.nodes.length).toBeGreaterThan(0)
+    expect(block.rootPlan.nodes[0].recipeId).toBe('nullius-chemical-pack')
   })
 
   test('loadPlanFixture round-trip: exported fixture restores the plan on reload', async ({ page }) => {
