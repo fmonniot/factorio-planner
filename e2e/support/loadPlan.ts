@@ -7,8 +7,11 @@ const GAME_DATA_KEY = 'factorio-planner:game-data-source'
 /**
  * Load a plan fixture JSON into the app via localStorage injection.
  *
- * Navigates to '/', injects the plan state and game-data source into
- * localStorage, then reloads so the app boots with that state.
+ * Plants localStorage with `addInitScript` so it is set before any page
+ * script runs, then navigates once. Avoids the goto → evaluate → reload
+ * race where Vite's HMR/module-loading can navigate the page between
+ * the initial goto and a follow-up `page.evaluate`, destroying the
+ * execution context.
  *
  * @param page             Playwright page object
  * @param planFixturePath  Absolute path to an exported plan JSON file
@@ -21,8 +24,7 @@ export async function loadPlanFixture(
   gameDataSource: 'nullius' | null = 'nullius',
 ): Promise<void> {
   const json = fs.readFileSync(planFixturePath, 'utf8')
-  await page.goto('/')
-  await page.evaluate(
+  await page.addInitScript(
     ({ stateKey, stateJson, gameDataKey, gameDataValue }) => {
       localStorage.setItem(stateKey, stateJson)
       if (gameDataValue) localStorage.setItem(gameDataKey, gameDataValue)
@@ -34,5 +36,5 @@ export async function loadPlanFixture(
       gameDataValue: gameDataSource,
     },
   )
-  await page.reload()
+  await page.goto('/')
 }
