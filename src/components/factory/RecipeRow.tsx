@@ -47,6 +47,7 @@ export function RecipeRow({
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
   const removeNode = useBlockStore(s => s.removeNode)
+  const removeSubPlan = useBlockStore(s => s.removeSubPlan)
   const rateUnit = useUiStore(s => s.rateUnit)
 
   const indentPx = depth * 16
@@ -61,30 +62,30 @@ export function RecipeRow({
     return (
       <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group">
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
-        <td className="px-2 py-0.5" colSpan={6} style={{ paddingLeft: `${8 + indentPx}px` }}>
-          <button
-            type="button"
-            onClick={onToggleExpand}
-            className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 w-full text-left"
-          >
-            <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
-            <span className="font-medium">{label}</span>
-            {childPlan && (
-              <span className="text-gray-600 text-[10px]">
-                {childPlan.nodes.length} recipe{childPlan.nodes.length !== 1 ? 's' : ''}
-              </span>
-            )}
-          </button>
-        </td>
-        <td className="px-1 py-0.5 text-right">
-          <button
-            type="button"
-            onClick={() => removeNode(planNode.id)}
-            title="Remove subplan"
-            className="text-gray-700 hover:text-red-400 text-sm leading-none opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            ×
-          </button>
+        <td className="px-2 py-0.5" colSpan={7} style={{ paddingLeft: `${8 + indentPx}px` }}>
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onToggleExpand}
+              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 text-left"
+            >
+              <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
+              <span className="font-medium">{label}</span>
+              {childPlan && (
+                <span className="text-gray-600 text-[10px]">
+                  {childPlan.nodes.length} recipe{childPlan.nodes.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={() => removeSubPlan(planNode.subPlanId)}
+              title="Remove subplan"
+              className="text-gray-500 hover:text-red-400 text-sm leading-none"
+            >
+              ×
+            </button>
+          </div>
         </td>
       </tr>
     )

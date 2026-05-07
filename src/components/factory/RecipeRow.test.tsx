@@ -255,10 +255,20 @@ describe('RecipeRow', () => {
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
   })
 
-  it('× button removes a subplan node from the store', () => {
+  it('× button fully deletes the subplan from the tree (and its node reference)', () => {
+    const childSubPlan = {
+      id: 'sp-123',
+      name: 'My Subfactory',
+      goals: [],
+      nodes: [],
+      subPlans: [],
+      noImportItems: [],
+      createdAt: '',
+      updatedAt: '',
+    }
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     const block = makeEmptyBlock('Test')
-    const rootPlan = { ...block.rootPlan, nodes: [spNode] }
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
@@ -267,7 +277,38 @@ describe('RecipeRow', () => {
     })
     renderRow({ planNode: spNode, solvedNode: undefined })
     fireEvent.click(screen.getByTitle('Remove subplan'))
-    expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
+    const updatedRoot = useBlockStore.getState().blocks[0].rootPlan
+    expect(updatedRoot.nodes).toHaveLength(0)
+    expect(updatedRoot.subPlans).toHaveLength(0)
+  })
+
+  it('× button sits in the same <td> as the subplan name and is not hidden behind hover', () => {
+    const childSubPlan = {
+      id: 'sp-123',
+      name: 'My Subfactory',
+      goals: [],
+      nodes: [],
+      subPlans: [],
+      noImportItems: [],
+      createdAt: '',
+      updatedAt: '',
+    }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      activeSubPlanId: rootPlan.id,
+      history: {},
+    })
+    renderRow({ planNode: spNode, solvedNode: undefined })
+    const label = screen.getByText('My Subfactory')
+    const button = screen.getByTitle('Remove subplan')
+    // The visual-adjacency check: name and × live in the same cell.
+    expect(label.closest('td')).toBe(button.closest('td'))
+    // The discoverability check: × is not gated behind hover-only opacity.
+    expect(button.className).not.toMatch(/opacity-0/)
   })
 
   it('subplan node shows expanded indicator when isExpanded=true', () => {
