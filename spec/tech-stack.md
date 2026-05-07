@@ -26,9 +26,9 @@ Zustand's minimal API handles both without boilerplate. Redux Toolkit is viable 
 
 The solver runs entirely in the browser with no server round-trip. This keeps the app fully static and ensures it works offline.
 
-**Linear algebra:** [`ml-matrix`](https://github.com/mljs/matrix) provides LU decomposition, matrix inversion, and least-squares. The matrices are small (typically < 200×200 for any realistic plan), so performance is not a concern.
+**LP engine:** [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver) — a pure-JS simplex implementation. The solver builds an elastic LP per plan: hard constraints on goals, slack-extended constraints on intermediates, equality constraints for pinned recipes. Problems are small (< 200 variables for any realistic plan), so performance is not a concern. See [solver.md](solver.md) for the formulation.
 
-**No WASM for v1.** The solver does not need WASM-level performance. If profiling later shows the solver is slow for very large modded plans, it can be moved to a Web Worker with a message-passing interface.
+**No WASM for v1.** If profiling later shows the solver is slow for very large modded plans, it can be moved to a Web Worker with a message-passing interface.
 
 ---
 
@@ -50,30 +50,28 @@ Fast dev server with HMR, native ESM, and simple configuration. No custom webpac
 
 | Layer | Tool | Scope |
 |---|---|---|
-| Solver unit tests | Vitest | Matrix construction, solve correctness, cycle handling, known recipe chains |
-| Component tests | React Testing Library + Vitest | Item picker, recipe card interactions, goal CRUD |
-| E2E (stretch) | Playwright | Full plan creation flows |
+| Solver unit tests | Vitest | LP construction, solve correctness, cycle handling, slack reporting, known recipe chains |
+| Component tests | React Testing Library + Vitest | Item picker, recipe row interactions, modal flows, goal CRUD |
+| Integration | Vitest (skip-if) | Real Nullius `game-data.json` loading |
+| E2E | Playwright | Full plan creation flows |
 
-Solver tests are the most critical. They should cover:
-- Simple linear chain (iron ore → iron plate → iron gear)
-- Multi-output recipe (advanced oil processing)
-- Cycle (Kovarex enrichment)
-- Productivity module effect on upstream demand
-- Pinned node (rate override propagation)
+Solver tests cover all six corpus cases (see [test-corpus.md](test-corpus.md)) plus integration scenarios for the LP-specific machinery: byproduct-consumer recipes, pinned rates, intermediate slack reporting, overconstrained surplus, and infeasible pins.
 
 ---
 
 ## Data Pipeline
 
-Game data is not bundled in source. A Lua export script run inside Factorio (via the in-game console or a helper mod) produces the `GameData` JSON bundle. This approach supports any mod combination — the script reads the live `data.raw` tables that the game has already processed, including all mod additions and overrides.
+Game data is not bundled in source. The primary pipeline runs `factorio --dump-data` (no GUI needed) to emit `data-raw-dump.json`, then a Node script post-processes it into the `GameData` shape the app expects.
 
-**Export script** (`scripts/export-game-data.lua`): run in Factorio's script console or packaged as a mod. Outputs a JSON file the user then imports into the planner.
+**Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the mods directory for icons, resolves locale strings, classifies machines, exports beacons, and emits `data/samples/nullius/game-data.json` plus a sprite of icons under `public/data/<mod>/icons/`.
 
-**Bundled data:** The Nullius export (`data/samples/nullius/data-raw-dump.json`) is the default dataset shipped with the app. It loads on startup with no user action required.
+**Verify script** (`scripts/verify-game-data.js`): report-only diff between the new and a backup `game-data.json`, used after re-exports.
 
-**Schema validation:** The JSON bundle is validated at load time against the `GameData` TypeScript interface (using Zod). Invalid bundles are rejected with a user-visible error.
+**Legacy fallback:** `scripts/factorio-planner-export_1.0.0/` is a Factorio mod that emits the same JSON shape from a save's first tick. Used when `--dump-data` is not viable.
 
-**Versioning:** The bundle includes a `version` string and a `modSet` list. Plans record the version they were created with. On load, if the plan's version differs from the loaded bundle, a warning is shown but the plan is still opened (best-effort).
+**Schema validation:** The JSON is parsed at load time against the Zod schema in `src/data/schema.ts`. Invalid bundles surface a structured `GameDataLoadError`.
+
+**No bundled data.** The app starts empty — the user imports `game-data.json` via the top-bar selector. Plans persist in localStorage independently of the active game data.
 
 ---
 
@@ -91,34 +89,36 @@ Static site. No backend, no database.
 
 ```
 factorio-planner/
-├── spec/                   # This directory
-├── scripts/
-│   └── export-game-data/   # Data pipeline tooling
+├── spec/                       # Timeless reference docs (this directory)
+├── initiatives/                # Roadmap, active and archived initiatives
+├── scripts/                    # Game-data export + verification tooling
+├── data/samples/               # Git-ignored — local game-data.json exports
 ├── src/
 │   ├── data/
-│   │   ├── schema.ts       # Zod schema for GameData
-│   │   └── nullius/        # Bundled Nullius game data JSON (processed from samples/)
+│   │   ├── schema.ts           # Zod schema for GameData and Plan (single source of truth)
+│   │   ├── types.ts            # Re-exports + transient solver types
+│   │   └── loader.ts           # parseGameData / parsePlan with structured errors
 │   ├── solver/
-│   │   ├── matrix.ts       # LU decomposition, linear algebra utilities
-│   │   ├── build.ts        # Stoichiometry matrix construction
-│   │   ├── solve.ts        # Main solver entry point
-│   │   └── solver.test.ts
+│   │   ├── build.ts            # Net stoichiometry + item classification
+│   │   ├── solve.ts            # LP construction and solveLP()
+│   │   ├── effects.ts          # Module/beacon effects + machine metrics
+│   │   └── index.ts            # solve(plan, gameData) + flattenBlock(block)
 │   ├── store/
-│   │   ├── planStore.ts    # Zustand plan state + undo/redo
-│   │   └── gameDataStore.ts
+│   │   ├── blockStore.ts       # Block/SubPlan/RecipeNode state, undo/redo
+│   │   ├── gameDataStore.ts    # Active GameData (empty/loading/loaded/error)
+│   │   ├── solverStore.ts      # Debounced auto-solve subscription
+│   │   ├── uiStore.ts          # Transient UI prefs (rateUnit, etc.)
+│   │   └── persistence.ts      # localStorage save/restore
 │   ├── components/
-│   │   ├── RecipeCard/
-│   │   ├── GoalsPanel/
-│   │   ├── ItemPicker/
-│   │   ├── SummaryBar/
-│   │   └── SettingsPanel/
-│   ├── views/
-│   │   ├── TreeView.tsx
-│   │   └── TableView.tsx
-│   └── App.tsx
-├── public/
-│   └── icons/              # Factorio item icon sprite sheets
+│   │   ├── ItemPicker.tsx      # Modal recipe/item picker (Factorio-style)
+│   │   ├── BlockTabs.tsx       # Block selector
+│   │   ├── Modal.tsx           # Generic modal primitive
+│   │   └── factory/            # Production view (FactoryShell, RecipeRow, ProductionTable, …)
+│   └── main.tsx                # Entry: wires stores + mounts FactoryShell
+├── public/data/<mod>/icons/    # Generated icons sprite per game-data import
+├── e2e/                        # Playwright specs
 ├── index.html
 ├── vite.config.ts
+├── vitest.config.ts            # Separate file — `test` key in vite.config errors
 └── tsconfig.json
 ```

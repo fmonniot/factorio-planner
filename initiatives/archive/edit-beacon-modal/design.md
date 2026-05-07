@@ -1,12 +1,14 @@
 # Beacon cell → icon+badge trigger + BeaconModal
 
+Status: Future — blocked on game-data export (see [beacon-export-notes.md](beacon-export-notes.md))
+
 ## Context
 
 Today `BeaconCell` shows a plain `×4` text button (or `+` when no beacon is
 configured) that opens a compact `BeaconPopover` with a dropdown + numeric
 inputs. This is inconsistent with the new `MachineCell` / `ModuleCell` style
 (icon+badge, modal). The reference UI is the Factory Planner mod's own
-"Edit beacon" dialog ([docs/ui-redesign/Screenshot 2026-04-27 at 20.56.04.png](../docs/ui-redesign/Screenshot%202026-04-27%20at%2020.56.04.png)).
+"Edit beacon" dialog ([Screenshot 2026-04-27 at 20.56.04.png](Screenshot%202026-04-27%20at%2020.56.04.png)).
 
 ---
 

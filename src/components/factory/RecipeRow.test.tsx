@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
-import type { GameData, SolvedNode, RecipeNode, SubPlanNode } from '../../data/types'
+import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Fixtures — single-output
@@ -140,7 +140,6 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [{ ...block, rootPlan }],
     activeBlockId: block.id,
-    activeSubPlanId: rootPlan.id,
     history: {},
   })
 })
@@ -195,7 +194,6 @@ describe('RecipeRow', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     renderRow({ isFirst: false, planNode: node2 })
@@ -219,7 +217,6 @@ describe('RecipeRow', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     renderRow({ planNode: nodeWithByproduct, solvedNode: solvedWithByproduct })
@@ -255,19 +252,58 @@ describe('RecipeRow', () => {
     expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
   })
 
-  it('× button removes a subplan node from the store', () => {
+  it('× button fully deletes the subplan from the tree (and its node reference)', () => {
+    const childSubPlan = {
+      id: 'sp-123',
+      name: 'My Subfactory',
+      goals: [],
+      nodes: [],
+      subPlans: [],
+      noImportItems: [],
+      createdAt: '',
+      updatedAt: '',
+    }
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     const block = makeEmptyBlock('Test')
-    const rootPlan = { ...block.rootPlan, nodes: [spNode] }
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     renderRow({ planNode: spNode, solvedNode: undefined })
     fireEvent.click(screen.getByTitle('Remove subplan'))
-    expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
+    const updatedRoot = useBlockStore.getState().blocks[0].rootPlan
+    expect(updatedRoot.nodes).toHaveLength(0)
+    expect(updatedRoot.subPlans).toHaveLength(0)
+  })
+
+  it('× button sits in the same <td> as the subplan name and is not hidden behind hover', () => {
+    const childSubPlan = {
+      id: 'sp-123',
+      name: 'My Subfactory',
+      goals: [],
+      nodes: [],
+      subPlans: [],
+      noImportItems: [],
+      createdAt: '',
+      updatedAt: '',
+    }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    renderRow({ planNode: spNode, solvedNode: undefined })
+    const label = screen.getByText('My Subfactory')
+    const button = screen.getByTitle('Remove subplan')
+    // The visual-adjacency check: name and × live in the same cell.
+    expect(label.closest('td')).toBe(button.closest('td'))
+    // The discoverability check: × is not gated behind hover-only opacity.
+    expect(button.className).not.toMatch(/opacity-0/)
   })
 
   it('subplan node shows expanded indicator when isExpanded=true', () => {
@@ -306,7 +342,7 @@ describe('T11 — Primary product selection', () => {
   it('multi-output: primary tile appears in Products column (no badge needed)', () => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     // The Products cell renders a tile for Hydrogen (the primary).
     // The Byproducts cell renders a tile for Oxygen with "Set as primary".
@@ -318,7 +354,7 @@ describe('T11 — Primary product selection', () => {
   it('multi-output: non-primary tiles have title "Set as primary"', () => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     // Oxygen is non-primary → its tile has title "Set as primary"
     expect(screen.getByTitle(/Set as primary/)).toBeInTheDocument()
@@ -327,7 +363,7 @@ describe('T11 — Primary product selection', () => {
   it('clicking "Set as primary" calls updateNodePrimaryProduct', () => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
 
     const setAsPrimaryBtn = screen.getByTitle(/Set as primary/)
@@ -346,10 +382,10 @@ describe('T11 — Primary product selection', () => {
 
 describe('T12 — Pin rate UI', () => {
   function setupElectrolysis(pinnedRate?: number) {
-    const node: RecipeNode = { ...electrolysisPlanNode, pinnedRate }
+    const node: GameRecipeNode = { ...(electrolysisPlanNode as GameRecipeNode), pinnedRate }
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [node] }
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, activeSubPlanId: rootPlan.id, history: {} })
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
     return node
   }
 
@@ -433,7 +469,6 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
     useBlockStore.setState({
       blocks: [{ ...block, rootPlan }],
       activeBlockId: block.id,
-      activeSubPlanId: rootPlan.id,
       history: {},
     })
     useUiStore.setState({ rateUnit: 'min' })

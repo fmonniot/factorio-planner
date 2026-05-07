@@ -4,128 +4,110 @@ The solver is the computational core of the planner. It takes a set of productio
 
 ---
 
-## Why a Matrix Solver
+## Why a Linear Program
 
-A naive recursive approach (walk the recipe tree, multiply rates) fails in two cases:
+A naive recursive walk over the recipe graph fails in two cases:
 
-1. **Cycles** — coal liquefaction consumes heavy oil to produce more coal; Kovarex enrichment cycles U-235/U-238. A recursive walker either loops infinitely or requires ad-hoc cycle-breaking.
-2. **Multi-output recipes** — advanced oil processing produces light oil, heavy oil, and petroleum gas simultaneously. If all three are needed downstream, the rates must be balanced globally, not greedily per-product.
+1. **Cycles** — coal liquefaction consumes heavy oil to produce more coal; Kovarex enrichment cycles U-235/U-238. A recursive walker either loops indefinitely or requires ad-hoc cycle-breaking.
+2. **Multi-output recipes** — advanced oil processing produces light oil, heavy oil, and petroleum gas simultaneously. If all three are needed downstream, throughputs must balance globally, not greedily per-product.
 
-A linear system handles both naturally: cycles become additional constraints in the same matrix, and multi-output recipes share a single throughput variable.
-
----
-
-## Formulation
-
-### Variables
-
-Let there be `n` recipes reachable from the production goals. The unknowns are:
-
-```
-x = [x_1, x_2, ..., x_n]   (recipe throughput, in executions/minute)
-```
-
-### Stoichiometry Matrix
-
-Build an `m × n` matrix `S` (m = number of distinct items/fluids):
-
-```
-S[i][j] = net production of item i per execution of recipe j
-         = sum(products where itemId == i) * productivity
-         - sum(ingredients where itemId == i)
-```
-
-For items that only appear as ingredients (raw resources), the row will be all-negative or zero.
-
-### Demand Vector
-
-```
-d[i] = desired net output rate for item i (items/minute)
-     = goal rate if item i is a production goal
-     = 0 for all intermediates (consumed = produced)
-     = unconstrained for raw resources and byproducts
-```
-
-### System
-
-```
-S · x = d     subject to x >= 0
-```
-
-This is an underdetermined system in general (more items than recipes or vice versa). The approach:
-
-1. For items that are **pure intermediates** (appear as both product and ingredient, no external goal), add the constraint `net = 0`: their row in `S · x = d` contributes `d[i] = 0`.
-2. For **production goals**, set `d[i] = goal_rate`.
-3. For **raw resources** (items with no producing recipe), treat as free inputs — remove their row from the system, record the computed demand as a `UnsatisfiedItem`.
-4. For **byproducts** with `policy = "feed-back"` (default), keep the row — the solver will route surplus output to satisfy downstream demand. With `policy = "discard"`, remove the row (excess output is dropped and the solver ignores it).
-
-After reduction, the system should be square and determined for well-formed inputs.
+A linear program handles both naturally: cycles are just additional constraints, multi-output recipes share a single throughput variable, and the LP picks among alternative recipes by minimising total throughput. The solver uses [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver) — a pure-JS simplex implementation. Problems are small (< 200 variables for any realistic plan); performance is not a concern.
 
 ---
 
-## Algorithm
+## Item classification
 
-```
-1. Collect all reachable recipes via BFS from production goals.
-2. Assign an index to each recipe and each item.
-3. Build stoichiometry matrix S.
-4. Partition items into: goals | intermediates | raw | byproducts.
-5. Reduce system per partition rules above.
-6. If any recipe rate is pinned (user override), substitute x_j = pinned_value,
-   move its column to the RHS, reduce dimensions.
-7. Solve the reduced system via LU decomposition.
-   - If rank-deficient: flag underdetermined warning, fall back to least-squares (pseudoinverse).
-   - If any x_i < 0: flag infeasible, report which recipes.
-8. Back-substitute pinned variables.
-9. Compute per-node outputs: inputRates, outputRates, machineCount, powerKw.
-```
+For each item that appears in the active recipe set, classify it into exactly one bucket (see [src/solver/build.ts](../src/solver/build.ts)):
+
+- **goal** — appears in `plan.goals`. Drives a hard "produce at least X per minute" constraint.
+- **intermediate** — produced and consumed by recipes in the plan. Must net to ≥ 0 (no surplus, no deficit), with elastic slack so an unbalanced plan still solves with an explicit "external import" report.
+- **raw** — no producer in the active recipe set. Treated as a free input; consumption is reported as `UnsatisfiedItem`.
+- **byproduct** — has producers but no consumers. Excluded from the LP rows; the LP doesn't try to balance them.
+
+`goals` take priority — an item that appears in `plan.goals` is a goal even if recipes also produce/consume it.
 
 ---
 
-## Machine Count and Power
+## LP formulation
 
-Given recipe throughput `x_j` (executions/minute):
+Variables (see [src/solver/solve.ts](../src/solver/solve.ts)):
 
 ```
-machineCountExact = x_j * recipe.craftingTime / 60 / machine.craftingSpeed / productivityMultiplier
-
-powerKw = machineCountCeil * (machine.energyConsumption * speedMultiplier + machine.drainConsumption)
-        + beaconPowerKw
+x_j ≥ 0   for each recipe j           (throughput, executions/minute)
+s_i ≥ 0   for each goal/intermediate  (external import slack)
 ```
 
-Module effects are applied as multipliers on the machine's base crafting speed and energy consumption. Productivity modules also affect the stoichiometry matrix (they increase effective product output, which the solver must account for in step 3 above).
+Constraints:
+
+```
+Σ S_ij · x_j        ≥ d_i      for each goal i           (hard, no slack)
+Σ S_ij · x_j + s_i  ≥ 0        for each intermediate i   (elastic — slack allowed)
+x_j                 = pin_j    for each pinned recipe j
+```
+
+`S_ij` is the net stoichiometry coefficient: positive = produced per execution, negative = consumed. Productivity bonuses scale only the `amount − ignoredByProductivity` portion of products before they enter `S` (`effectiveProductAmount` in `build.ts`).
+
+Objective:
+
+```
+minimize  Σ x_j  +  BIG_M · Σ s_i  +  BC_BONUS · Σ x_j (j ∈ byproductConsumer)
+```
+
+Where `BIG_M = 1e6` makes slack the last-resort balancer (the LP only imports an item if the network genuinely cannot produce it internally), and `BC_BONUS = -0.01` is a tiny negative coefficient that nudges byproduct-consumer recipes to run up to whatever surplus the intermediate constraints permit, without ever overriding goal-meeting decisions.
 
 ---
 
-## Productivity and Stoichiometry
+## Slack, surplus, and warnings
 
-When productivity modules are present:
+The LP always returns a feasible solution as long as goals have producers and pins don't conflict. Three diagnostic passes interpret the result:
+
+- **Goal shortfall** — if a goal's `outputRates − inputRates` across all nodes is below its `rate`, the deficit is reported as `UnsatisfiedItem`. Happens when no LP-active producer exists or pinned rates conflict.
+- **Intermediate slack** — any `s_i > 1e-6` is reported as `UnsatisfiedItem` ("must come from outside") and surfaced in the Ingredients pane.
+- **Raw consumption** — for items classified as `raw`, total consumption across recipes is summed and reported as `UnsatisfiedItem`.
+- **Overconstrained** — if an intermediate ends with positive net flow at the LP optimum (surplus that can't be discarded), emits the `overconstrained` warning with the surplus items and rates.
+- **Too-many-alternatives** — if a goal or intermediate has more than one active producer (multiple `x_j > 1e-6` with positive `S_ij`), emits `too-many-alternatives`. Usually a sign that a recipe selection is missing.
+- **Duplicate-recipe** — same `recipeId` used by multiple plan nodes; emitted up front, before the LP.
+- **Infeasible-pins** — LP infeasible AND pins are present. Emitted as `infeasible-pins` with the pinned recipe ids.
+
+`SolverWarning` is the discriminated union in [src/data/types.ts](../src/data/types.ts).
+
+---
+
+## Pinned rates, byproduct policies, byproduct consumers
+
+These three knobs sit on individual `RecipeNode`s and are consumed by `solve()`:
+
+- **`pinnedRate`** — translates to `x_j = rate` (equality constraint). Useful for "I want exactly N machines of this".
+- **`byproductPolicy[itemId] = 'discard'`** — zeroes the recipe's positive coefficient for that item in `S` before classification, so the item is no longer treated as produced by this recipe.
+- **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. The recipe also auto-extends `noImportItems` with its ingredients, so the LP can't import them just to fire the bonus — it must consume from another in-plan producer.
+
+`noImportItems` makes a constraint hard (no slack variable on its row). The user can also pass an explicit list per plan.
+
+---
+
+## Sub-plans
+
+Sub-plans are a UI/persistence grouping only. They do not affect solver output: every `RecipeNode` in the tree, regardless of how deeply nested in `subPlans`, is flattened into a single global LP per `Block` via [`flattenBlock(block)`](../src/solver/index.ts) before `solve()` runs. Goals and `noImportItems` live on the `Block`, not on individual subplans.
+
+Wrapping a recipe into a subplan for organisation has no effect on its computed throughput. Solver entry point: `solve(plan, gameData)`, where `plan = flattenBlock(block)`.
+
+---
+
+## Machine count and power
+
+Per node, given recipe throughput `x_j` (executions/minute):
 
 ```
-S[i][j] (for products) = amount * (1 + productivityBonus)
-S[i][j] (for ingredients) = -amount   (unchanged)
+machineCountExact = x_j · craftingTime / 60 / craftingSpeed / (1 + speedBonus)
+machineCountCeil  = Math.ceil(machineCountExact)
+powerKw           = machineCountCeil · energyConsumption · (1 + consumptionBonus)
+                  + beaconCount · beaconBasePower · (1 + beaconConsumptionBonus)
 ```
 
-This means productivity effectively reduces upstream demand. The solver handles this by recomputing `S` after the user configures modules, then re-solving.
+Module and beacon effects are computed in [src/solver/effects.ts](../src/solver/effects.ts) (`computeNodeEffects` + `computeMachineMetrics`).
 
 ---
 
-## Cycles
+## Statelessness
 
-A cycle (e.g. recipe A produces item X, recipe B consumes X and produces Y, recipe A also consumes Y) results in a square, non-singular system if there is an external demand. The LU decomposition handles this directly — no special cycle-breaking is needed as long as the system is determined.
-
-If a cycle has no external demand it is rank-deficient. The solver warns with `cycle-detected` and sets those recipe rates to 0 (no reason to run them).
-
----
-
-## Alternate Recipe Selection
-
-The user may select, per item, which recipe to use when multiple recipes produce that item. This is a discrete choice that changes which recipes are included in the system. After the user changes a recipe selection, the solver re-runs from step 1.
-
-Items with multiple producing recipes and no user selection use the non-alternate recipe by default.
-
----
-
-## Incremental Re-solving
-
-The solver is stateless and fast enough to re-run fully on every change. There is no incremental update logic. The UI should debounce user inputs and call the solver once per settled state.
+The solver is fully stateless: every call recomputes from scratch. There is no incremental update logic. The store debounces (150 ms) so a burst of UI input collapses to one solve.

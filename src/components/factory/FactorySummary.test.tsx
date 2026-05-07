@@ -42,11 +42,9 @@ const mockSolverResult: SolverResult = {
 
 function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
   const block = makeEmptyBlock('Test')
-  const rootPlan = { ...block.rootPlan, goals }
   useBlockStore.setState({
-    blocks: [{ ...block, rootPlan }],
+    blocks: [{ ...block, goals }],
     activeBlockId: block.id,
-    activeSubPlanId: rootPlan.id,
     history: {},
   })
   useUiStore.setState({ rateUnit: 'min' })
@@ -54,7 +52,6 @@ function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: withSolver ? mockSolverResult : undefined,
-    subPlanResults: new Map(),
     _setStatus: () => {},
   })
 }
@@ -128,7 +125,7 @@ describe('FactorySummary — GoalTile editing', () => {
     const input = screen.getByLabelText('Goal target rate')
     fireEvent.change(input, { target: { value: '120' } })
     fireEvent.blur(input)
-    const goals = useBlockStore.getState().blocks[0].rootPlan.goals
+    const goals = useBlockStore.getState().blocks[0].goals
     expect(goals[0].rate).toBeCloseTo(120) // stored in items/min
   })
 
@@ -139,7 +136,7 @@ describe('FactorySummary — GoalTile editing', () => {
     const input = screen.getByLabelText('Goal target rate')
     fireEvent.change(input, { target: { value: '2' } }) // 2/sec = 120/min
     fireEvent.blur(input)
-    const goals = useBlockStore.getState().blocks[0].rootPlan.goals
+    const goals = useBlockStore.getState().blocks[0].goals
     expect(goals[0].rate).toBeCloseTo(120)
   })
 
@@ -149,7 +146,7 @@ describe('FactorySummary — GoalTile editing', () => {
     const input = screen.getByLabelText('Goal target rate')
     fireEvent.change(input, { target: { value: '90' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(useBlockStore.getState().blocks[0].rootPlan.goals[0].rate).toBeCloseTo(90)
+    expect(useBlockStore.getState().blocks[0].goals[0].rate).toBeCloseTo(90)
   })
 
   it('pressing Escape cancels without saving', () => {
@@ -158,7 +155,7 @@ describe('FactorySummary — GoalTile editing', () => {
     const input = screen.getByLabelText('Goal target rate')
     fireEvent.change(input, { target: { value: '999' } })
     fireEvent.keyDown(input, { key: 'Escape' })
-    expect(useBlockStore.getState().blocks[0].rootPlan.goals[0].rate).toBe(60) // unchanged
+    expect(useBlockStore.getState().blocks[0].goals[0].rate).toBe(60) // unchanged
   })
 })
 
@@ -167,7 +164,7 @@ describe('FactorySummary — GoalTile remove', () => {
     render(<FactorySummary />)
     const removeBtn = screen.getByTitle('Remove goal')
     fireEvent.click(removeBtn)
-    expect(useBlockStore.getState().blocks[0].rootPlan.goals).toHaveLength(0)
+    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(0)
   })
 })
 
@@ -206,7 +203,7 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
     // Extend game data to include steam so the tile shows the name
     const gdWithSteam = { ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }
     useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData } })
-    useSolverStore.setState({ status: { type: 'idle' }, lastResult: surplusResult, subPlanResults: new Map(), _setStatus: () => {} })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: surplusResult, _setStatus: () => {} })
     render(<FactorySummary />)
     // steam has net 15 (20 produced - 5 consumed), should appear in Byproducts
     const steamTiles = screen.getAllByTitle(/Steam/i)
@@ -233,7 +230,7 @@ describe('FactorySummary — goal tile shows actual throughput when LP returns m
       warnings: [],
     }
     setupStore([{ id: 'g1', itemId: 'iron-plate', rate: 60 }])
-    useSolverStore.setState({ status: { type: 'idle' }, lastResult: overResult, subPlanResults: new Map(), _setStatus: () => {} })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: overResult, _setStatus: () => {} })
     render(<FactorySummary />)
     // Actual tile should show 850, not 60
     const actualSpan = screen.getByTitle(/Actual:/)
@@ -256,7 +253,7 @@ describe('FactorySummary — add goal', () => {
     const slots = screen.getAllByTestId('item-slot')
     const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
     fireEvent.click(ironSlot)
-    const goals = useBlockStore.getState().blocks[0].rootPlan.goals
+    const goals = useBlockStore.getState().blocks[0].goals
     expect(goals).toHaveLength(1)
     expect(goals[0].itemId).toBe('iron-plate')
     expect(goals[0].rate).toBe(60)

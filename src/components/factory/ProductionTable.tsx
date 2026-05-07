@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBlockStore, selectActiveBlock, selectActiveSubPlan } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
@@ -12,7 +12,6 @@ import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
 export function ProductionTable() {
   const activeBlock = useBlockStore(selectActiveBlock)
-  const activeSubPlan = useBlockStore(selectActiveSubPlan)
   const solverResult = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
   const addNode = useBlockStore(s => s.addNode)
@@ -31,7 +30,7 @@ export function ProductionTable() {
   }
 
   const rootPlan = activeBlock?.rootPlan
-  const nodes = activeSubPlan?.nodes ?? []
+  const nodes = rootPlan?.nodes ?? []
   const solvedMap = new Map(solverResult?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
 
   function handleAddRecipe(recipeId: string) {

@@ -1,22 +1,39 @@
-import type { SubPlan, GameData, SolverResult, SolvedNode, UnsatisfiedItem } from '../data/types'
-import type { SyntheticRecipe } from './subplan'
+import type { Block, GameData, ProductionGoal, RecipeNode, SolvedNode, SolverResult, SubPlan, UnsatisfiedItem } from '../data/types'
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
 
-export type { SyntheticRecipe } from './subplan'
+interface SolverPlan {
+  goals: ProductionGoal[]
+  nodes: RecipeNode[]
+  noImportItems?: string[]
+}
 
-type SolverPlan = Pick<SubPlan, 'goals' | 'nodes'> & { noImportItems?: string[] }
+/**
+ * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
+ * RecipeNode (skipping SubPlanNode handles, which are pure UI grouping), and
+ * surface block-level goals + noImportItems.
+ */
+export function flattenBlock(block: Block): SolverPlan {
+  const nodes: RecipeNode[] = []
+  function visit(plan: SubPlan): void {
+    for (const n of plan.nodes) nodes.push(n)
+    for (const sp of plan.subPlans) visit(sp)
+  }
+  visit(block.rootPlan)
+  return {
+    goals: block.goals,
+    nodes,
+    noImportItems: block.noImportItems,
+  }
+}
 
-export function solve(
-  plan: SolverPlan,
-  gameData: GameData,
-  syntheticRecipes: Map<string, SyntheticRecipe> = new Map(),
-): SolverResult {
-  // All game-recipe nodes go into the LP. byproductConsumer is a flag that
-  // applies a small negative bonus to the recipe's objective coefficient,
-  // making the LP prefer to run it up to whatever surplus the intermediate
-  // constraints allow — without overriding goal-meeting decisions.
+export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
+  // SubPlanNodes are UI grouping only; the solver only sees game-recipe nodes.
+  // byproductConsumer is a flag that applies a small negative bonus to the
+  // recipe's objective coefficient, making the LP prefer to run it up to
+  // whatever surplus the intermediate constraints allow — without overriding
+  // goal-meeting decisions.
   const gameRecipeNodes = plan.nodes.filter(n => n.kind === 'game-recipe') as
     Extract<(typeof plan.nodes)[number], { kind: 'game-recipe' }>[]
 
@@ -32,11 +49,7 @@ export function solve(
     }
   }
 
-  const rawRecipeIds = [
-    ...gameRecipeNodes.map(n => n.recipeId),
-    ...syntheticRecipes.keys(),
-  ]
-  const recipeIds = [...new Set(rawRecipeIds)]
+  const recipeIds = [...new Set(gameRecipeNodes.map(n => n.recipeId))]
 
   const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
 
@@ -185,27 +198,6 @@ export function solve(
       machineCountExact,
       machineCountCeil,
       powerKw,
-    })
-  }
-
-  for (const [syntheticId, synthetic] of syntheticRecipes) {
-    const throughput = throughputMap.get(syntheticId) ?? 0
-    const inputRates: Record<string, number> = {}
-    for (const ing of synthetic.ingredients) {
-      inputRates[ing.itemId] = ing.amount * throughput
-    }
-    const outputRates: Record<string, number> = {}
-    for (const prod of synthetic.products) {
-      outputRates[prod.itemId] = prod.amount * throughput
-    }
-    nodes.push({
-      recipeNodeId: synthetic.subPlanId,
-      inputRates,
-      outputRates,
-      throughput,
-      machineCountExact: 0,
-      machineCountCeil: 0,
-      powerKw: 0,
     })
   }
 

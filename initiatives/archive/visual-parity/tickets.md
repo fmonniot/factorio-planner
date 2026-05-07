@@ -1,8 +1,10 @@
 # UI Redesign — Visual Parity Pass vs Factory Planner Target
 
+Status: Active
+
 ## Context
 
-The UI redesign in `docs/ui-redesign/plan.md` shipped through T01–T14. The result
+The UI redesign (see [archive/ui-redesign/plan.md](../archive/ui-redesign/plan.md)) shipped through T01–T15. The result
 ([Screenshot 2026-04-26 at 04.24.05.png](Screenshot%202026-04-26%20at%2004.24.05.png))
 captures the structural intent — flat subplan table, dense rows, three-section header,
 inline expand/collapse — but is **visually thin** compared to the original Factory
@@ -19,9 +21,6 @@ and breaks the gaps into tickets sized for a single Sonnet 4.6 session.
 The goal is: bring the shipped UI to visual parity with the target without reverting any
 T13/T14 architectural decisions (no sidebar, no floor breadcrumb, inline-expand instead
 of drill-in).
-
-The output should be saved to `docs/ui-redesign/visual-parity-tickets.md` once the user
-approves.
 
 ---
 
@@ -84,7 +83,7 @@ approves.
 
 ## Deliberate divergences (no work)
 
-These were explicit decisions in `docs/ui-redesign/plan.md` and the T13/T14 follow-up.
+These were explicit decisions in [archive/ui-redesign/plan.md](../archive/ui-redesign/plan.md) and the T13/T14 follow-up.
 Listed here for completeness so future readers don't file tickets against them:
 
 - No left sidebar; no district selector; no subfactory toolbar; no sidebar search.

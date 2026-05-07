@@ -1,6 +1,6 @@
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useBlockStore, selectActiveSubPlan } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { WarningsPopover } from './WarningsPopover'
 import { iconUrl } from '../../utils/iconUrl'
 
@@ -16,7 +16,7 @@ const BALANCE_EPSILON = 0.001
 export function BalancedItemsFooter() {
   const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
-  const subPlan = useBlockStore(selectActiveSubPlan)
+  const block = useBlockStore(selectActiveBlock)
 
   let balanced: string[] = []
 
@@ -30,7 +30,7 @@ export function BalancedItemsFooter() {
         net.set(id, (net.get(id) ?? 0) - rate)
     }
 
-    const goalIds = new Set((subPlan?.goals ?? []).map(g => g.itemId))
+    const goalIds = new Set((block?.goals ?? []).map(g => g.itemId))
 
     // Balanced items: net near zero, not a goal, not a raw input
     balanced = [...net]

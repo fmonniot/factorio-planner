@@ -88,11 +88,12 @@ function minimalGameData(): GameData {
   }) as GameData
 }
 
+// minimalPlan is a SubPlan as returned by the schema after migration:
+// no goals, no noImportItems — those live on the Block now.
 function minimalPlan(): SubPlan {
   return structuredClone({
     id: 'plan-1',
     name: 'Test Plan',
-    goals: [{ id: 'goal-1', itemId: 'iron-plate', rate: 60 }],
     nodes: [
       {
         kind: 'game-recipe' as const,
@@ -291,13 +292,11 @@ describe('parsePlan', () => {
   it('accepts a valid minimal plan', () => {
     const plan = parsePlan(minimalPlan())
     expect(plan.id).toBe('plan-1')
-    expect(plan.goals).toHaveLength(1)
     expect(plan.nodes).toHaveLength(1)
   })
 
-  it('accepts a plan with no nodes or goals', () => {
+  it('accepts a plan with no nodes', () => {
     const plan = minimalPlan()
-    plan.goals = []
     plan.nodes = []
     expect(() => parsePlan(plan)).not.toThrow()
   })
@@ -315,7 +314,7 @@ describe('parsePlan', () => {
 
   it('accepts a node with a pinned rate', () => {
     const plan = minimalPlan()
-    plan.nodes[0].pinnedRate = 10
+    ;(plan.nodes[0] as GameRecipeNode).pinnedRate = 10
     expect(() => parsePlan(plan)).not.toThrow()
   })
 
@@ -334,12 +333,6 @@ describe('parsePlan', () => {
 describe('parsePlan — validation errors', () => {
   it('throws ZodError for non-object input', () => {
     expect(() => parsePlan(null)).toThrow(ZodError)
-  })
-
-  it('throws ZodError when goal rate is not positive', () => {
-    const plan = minimalPlan()
-    plan.goals[0].rate = 0
-    expect(() => parsePlan(plan)).toThrow(ZodError)
   })
 
   it('throws ZodError when createdAt is not an ISO datetime', () => {

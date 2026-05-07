@@ -190,8 +190,6 @@ export const SubPlanNodeSchema = z.object({
   kind: z.literal('subplan'),
   id: z.string(),
   subPlanId: z.string(),
-  // Coerce 0 → undefined so a plan saved with pinnedRate=0 still loads correctly.
-  pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
 })
 
 // Preprocess injects kind: 'game-recipe' on legacy data that lacks the field,
@@ -207,14 +205,15 @@ export const RecipeNodeSchema = z.preprocess(
 
 // SubPlan is recursive, so the TypeScript type is defined manually first, then
 // the Zod schema is annotated with it so z.lazy() can reference it correctly.
+//
+// SubPlans are a UI/persistence grouping only — they have no goals, no
+// noImportItems, and no semantic effect on the solver. The solver flattens
+// every RecipeNode in the tree into a single global LP per Block.
 type SubPlanType = {
   id: string
   name: string
-  goals: z.output<typeof ProductionGoalSchema>[]
   nodes: z.output<typeof RecipeNodeSchema>[]
   subPlans: SubPlanType[]
-  /** Items the LP solver must not import as raw inputs (no slack variable). */
-  noImportItems: string[]
   createdAt: string
   updatedAt: string
 }
@@ -223,21 +222,102 @@ export const SubPlanSchema: z.ZodType<SubPlanType, z.ZodTypeDef, unknown> = z.la
   z.object({
     id: z.string(),
     name: z.string(),
-    goals: z.array(ProductionGoalSchema),
     nodes: z.array(RecipeNodeSchema),
     subPlans: z.array(SubPlanSchema),
-    noImportItems: z.array(z.string()).default([]),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   }),
 )
 
-export const BlockSchema = z.object({
-  id: z.string(),
-  name: z.string(),
-  gameDataVersion: z.string(),
-  rootPlan: SubPlanSchema,
-})
+// ---------------------------------------------------------------------------
+// Block migration — hoist legacy per-subplan goals and noImportItems to block
+// level. Preserves backwards-compat for plans saved before subplans were
+// flattened into one global LP.
+//
+// Walks the raw rootPlan tree, collects goals (deduping by itemId, summing
+// rates) and noImportItems (deduping via Set), surfaces them at block level,
+// and strips them from each subplan in the returned shape.
+// ---------------------------------------------------------------------------
+
+interface RawGoal { id?: unknown; itemId?: unknown; rate?: unknown }
+interface RawSubPlan {
+  goals?: unknown
+  noImportItems?: unknown
+  subPlans?: unknown
+  [key: string]: unknown
+}
+
+function migrateBlock(input: unknown): unknown {
+  if (typeof input !== 'object' || input === null) return input
+  const data = input as Record<string, unknown>
+  if (typeof data.rootPlan !== 'object' || data.rootPlan === null) return input
+
+  const collectedGoals = new Map<string, { id: string; itemId: string; rate: number }>()
+  const collectedNoImports = new Set<string>()
+
+  function visit(plan: RawSubPlan): RawSubPlan {
+    if (Array.isArray(plan.goals)) {
+      for (const g of plan.goals as RawGoal[]) {
+        if (typeof g?.itemId !== 'string') continue
+        if (typeof g?.rate !== 'number' || !(g.rate > 0)) continue
+        const existing = collectedGoals.get(g.itemId)
+        if (existing) {
+          existing.rate += g.rate
+        } else {
+          collectedGoals.set(g.itemId, {
+            id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
+            itemId: g.itemId,
+            rate: g.rate,
+          })
+        }
+      }
+    }
+    if (Array.isArray(plan.noImportItems)) {
+      for (const itemId of plan.noImportItems as unknown[]) {
+        if (typeof itemId === 'string') collectedNoImports.add(itemId)
+      }
+    }
+    const { goals: _g, noImportItems: _n, subPlans, ...rest } = plan
+    void _g; void _n
+    const visitedSubPlans = Array.isArray(subPlans)
+      ? (subPlans as RawSubPlan[]).map(sp =>
+          visit(typeof sp === 'object' && sp !== null ? sp : ({} as RawSubPlan)),
+        )
+      : []
+    return { ...rest, subPlans: visitedSubPlans }
+  }
+
+  const migratedRoot = visit(data.rootPlan as RawSubPlan)
+
+  // Block-level goals/noImportItems on the input take precedence over hoisted
+  // ones (re-saved migrated plans pass through unchanged).
+  const blockGoals = Array.isArray(data.goals) && data.goals.length > 0
+    ? data.goals
+    : [...collectedGoals.values()]
+  const blockNoImports = Array.isArray(data.noImportItems) && data.noImportItems.length > 0
+    ? data.noImportItems
+    : [...collectedNoImports]
+
+  return {
+    ...data,
+    goals: blockGoals,
+    noImportItems: blockNoImports,
+    rootPlan: migratedRoot,
+  }
+}
+
+export const BlockSchema = z.preprocess(
+  migrateBlock,
+  z.object({
+    id: z.string(),
+    name: z.string(),
+    gameDataVersion: z.string(),
+    goals: z.array(ProductionGoalSchema).default([]),
+    /** Items the LP solver must not import as raw inputs (no slack variable). */
+    noImportItems: z.array(z.string()).default([]),
+    rootPlan: SubPlanSchema,
+  }),
+)
 
 export const AppStateSchema = z.object({
   blocks: z.array(BlockSchema),

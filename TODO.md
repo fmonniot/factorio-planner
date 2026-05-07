@@ -1,21 +1,15 @@
 # Tasks
 
-## DX / AI Workflow
-
-- [x] Configure Claude Code hooks (or CLAUDE.md guidance) to auto-update spec files after any source change, so specs serve as always-current documentation without requiring full codebase traversal each session.
-
-- [x] Configure Claude Code hooks (or CLAUDE.md guidance) to always leave the tests (npm test and npm run lint) green after changes.
-
----
+Inbox of small items that don't warrant a full initiative folder under
+[initiatives/](initiatives/). Larger work belongs in
+[initiatives/roadmap.md](initiatives/roadmap.md); the UI redesign tracked here
+is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-parity/tickets.md).
 
 ## UI / UX
 
 - [ ] **Module & machine labels:** Display human-readable names instead of internal IDs in the module and machine selectors. Investigate whether this requires pulling in the localisation layer.
 
-
 - [ ] **Beacon UI overhaul:**
-  - [x] Replace the current beacon UI with one dropdown per module slot so users can assign different module types per slot.
-  - [x] Fix the UI-reset bug that also affects the module selector.
   - [ ] Support multiple beacon types per machine.
   - [ ] Enforce module restrictions (e.g. productivity modules cannot go into Nullius beacons — verify in-game before implementing).
 
@@ -24,8 +18,6 @@
 - [ ] **Remove-recipe action:** Add a way to remove a recipe from the plan in the current UI (the action is missing entirely).
 
 - [ ] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
-
-- [ ] **UI redesign (in progress):** Rework the overall UI using [helmod](https://mods.factorio.com/mod/helmod) and [Factory Planner](https://mods.factorio.com/mod/factoryplanner) as visual references.
 
 ---
 
