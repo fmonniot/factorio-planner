@@ -1,6 +1,18 @@
 # Initiative: Flatten subplans — global LP, subplans as UI grouping
 
-Status: Active
+Status: Shipped — commit `fb79152`.
+
+---
+
+## Outcome (shipped)
+
+Implemented as designed; one commit. Test suite: 235 unit + 41 e2e green; lint + Vite build clean. Deviations from the original plan:
+
+- **Solver entry point**: shipped as `solve(plan, gameData)` with a separate `flattenBlock(block): SolverPlan` helper in [src/solver/index.ts](../../src/solver/index.ts), rather than `solve(block, gameData)`. Keeps existing solver tests easy to write (they pass `{goals, nodes}` directly without constructing a Block).
+- **Persistence**: no schema-version bump. The `BlockSchema` preprocess hoists legacy `rootPlan.goals` / `rootPlan.noImportItems` on load; existing e2e fixtures (which still carry the old shape) parse unchanged and surface goals at block level.
+- **Vestigial `pinnedRate` on `SubPlanNode`**: removed as part of the schema cleanup (was never read by the solver). Zod silently strips it from old persisted nodes.
+- **`subplan-empty-state.spec.ts`**: deleted (was already `test.skip()` pending a port that never happened).
+- **Regression test**: [src/solver/index.test.ts](../../src/solver/index.test.ts) gained both the wrap-in-subplan parity assertion (the bug the user hit) and a `flattenBlock` tree-walk sanity test.
 
 ---
 
