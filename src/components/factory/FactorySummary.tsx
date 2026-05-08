@@ -4,7 +4,7 @@ import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 import { ItemTile } from './ItemTile'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal, Item } from '../../data/types'
@@ -74,8 +74,8 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
     <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs group/goal">
       {/* Icon */}
       {item?.iconPath ? (
-        <img
-          src={iconUrl(item.iconPath)}
+        <Icon
+          iconPath={item.iconPath}
           alt={item.name}
           title={item.name}
           className="w-5 h-5 object-contain shrink-0"
@@ -334,8 +334,8 @@ function NoImportChip({
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-500 border border-gray-700 hover:text-gray-300 hover:border-gray-600"
     >
       {item?.iconPath ? (
-        <img
-          src={iconUrl(item.iconPath)}
+        <Icon
+          iconPath={item.iconPath}
           alt={item.name}
           className="w-5 h-5 object-contain shrink-0 opacity-50"
         />

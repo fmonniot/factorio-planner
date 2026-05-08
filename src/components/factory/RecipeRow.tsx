@@ -7,7 +7,7 @@ import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
 import { BeaconCell } from './BeaconPopover'
 import { EditMachineModal } from './EditMachineModal'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -188,8 +188,8 @@ export function RecipeRow({
           </button>
           {/* Recipe icon derived from primary product */}
           {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
-            <img
-              src={iconUrl(gameData.items[primaryItemId]!.iconPath)}
+            <Icon
+              iconPath={gameData.items[primaryItemId]!.iconPath}
               alt={recipe.name}
               title={recipe.name}
               className="w-8 h-8 object-contain shrink-0"

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Modal } from '../Modal'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
 
 // ---------------------------------------------------------------------------
@@ -229,7 +229,7 @@ export function EditMachineModal({
             className="flex items-center gap-2 w-full bg-gray-800 hover:bg-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
           >
             {machine?.iconPath ? (
-              <img src={iconUrl(machine.iconPath)} alt={machine.name} className="w-[30px] h-[30px] object-contain shrink-0" />
+              <Icon iconPath={machine.iconPath} alt={machine.name} className="w-[30px] h-[30px] object-contain shrink-0" />
             ) : (
               <span className="w-[30px] h-[30px] bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400 shrink-0">?</span>
             )}
@@ -254,7 +254,7 @@ export function EditMachineModal({
                   className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
                 >
                   {m.iconPath && (
-                    <img src={iconUrl(m.iconPath)} alt={m.name} className="w-5 h-5 object-contain shrink-0" />
+                    <Icon iconPath={m.iconPath} alt={m.name} className="w-5 h-5 object-contain shrink-0" />
                   )}
                   {m.name}
                 </button>
@@ -291,7 +291,7 @@ export function EditMachineModal({
                 return (
                   <div key={mc.moduleId} className="flex items-center gap-2 bg-gray-800 rounded px-2 py-1">
                     {mod?.iconPath ? (
-                      <img src={iconUrl(mod.iconPath)} alt={mod.name} className="w-[25px] h-[25px] object-contain shrink-0" />
+                      <Icon iconPath={mod.iconPath} alt={mod.name} className="w-[25px] h-[25px] object-contain shrink-0" />
                     ) : (
                       <span className="w-[25px] h-[25px] bg-gray-700 rounded flex items-center justify-center text-[8px] text-gray-400 shrink-0">M</span>
                     )}

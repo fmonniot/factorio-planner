@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Modal } from '../Modal'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
 import type { EffectTotals } from './EditMachineModal'
 
@@ -141,7 +141,7 @@ export function BeaconModal({
                 title={beaconEntity?.name ?? 'Select beacon type'}
               >
                 {beaconIcon ? (
-                  <img src={iconUrl(beaconIcon)} alt={beaconEntity?.name} className="w-full h-full object-contain" />
+                  <Icon iconPath={beaconIcon} alt={beaconEntity?.name} className="w-full h-full object-contain" />
                 ) : (
                   <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">?</span>
                 )}
@@ -175,7 +175,7 @@ export function BeaconModal({
                     onClick={() => selectBeacon(b.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${b.id === beacon.beaconId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
-                    {b.iconPath && <img src={iconUrl(b.iconPath)} alt={b.name} className="w-5 h-5 object-contain shrink-0" />}
+                    {b.iconPath && <Icon iconPath={b.iconPath} alt={b.name} className="w-5 h-5 object-contain shrink-0" />}
                     {b.name}
                   </button>
                 )) : (
@@ -241,7 +241,7 @@ export function BeaconModal({
                 title={selectedModule?.name ?? 'Select module'}
               >
                 {moduleIcon ? (
-                  <img src={iconUrl(moduleIcon)} alt={selectedModule?.name} className="w-full h-full object-contain" />
+                  <Icon iconPath={moduleIcon} alt={selectedModule?.name} className="w-full h-full object-contain" />
                 ) : (
                   <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">M</span>
                 )}
@@ -261,7 +261,7 @@ export function BeaconModal({
                     onClick={() => selectModule(m.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === beacon.moduleId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
-                    {m.iconPath && <img src={iconUrl(m.iconPath)} alt={m.name} className="w-5 h-5 object-contain shrink-0" />}
+                    {m.iconPath && <Icon iconPath={m.iconPath} alt={m.name} className="w-5 h-5 object-contain shrink-0" />}
                     {m.name}
                   </button>
                 ))}

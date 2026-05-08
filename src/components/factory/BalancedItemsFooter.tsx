@@ -2,7 +2,7 @@ import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { WarningsPopover } from './WarningsPopover'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 
 // ---------------------------------------------------------------------------
 // BalancedItemsFooter
@@ -50,9 +50,9 @@ export function BalancedItemsFooter() {
           {balanced.map(id => {
             const item = gameData?.items[id]
             return item?.iconPath ? (
-              <img
+              <Icon
                 key={id}
-                src={iconUrl(item.iconPath)}
+                iconPath={item.iconPath}
                 alt={item.name}
                 title={item.name}
                 className="w-5 h-5 object-contain"

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { iconUrl } from '../utils/iconUrl'
+import { Icon } from './Icon'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -35,7 +35,7 @@ function ItemRow({
   return (
     <div className="flex items-center gap-2 py-1">
       {iconPath
-        ? <img src={iconUrl(iconPath)} alt={name} className="w-6 h-6 object-contain shrink-0" />
+        ? <Icon iconPath={iconPath} alt={name} className="w-6 h-6 object-contain shrink-0" />
         : <span className="w-6 h-6 shrink-0" />
       }
       <span className="font-semibold text-gray-100 shrink-0">
@@ -111,7 +111,7 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
             return (
               <div key={machineId} className="flex items-center gap-2 py-1">
                 {machine?.iconPath
-                  ? <img src={iconUrl(machine.iconPath)} alt={machine.name} className="w-6 h-6 object-contain shrink-0" />
+                  ? <Icon iconPath={machine.iconPath} alt={machine.name} className="w-6 h-6 object-contain shrink-0" />
                   : <span className="w-6 h-6 shrink-0" />
                 }
                 <span className="text-gray-300 truncate">{machine?.name ?? machineId}</span>
@@ -304,7 +304,7 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
                 className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
               >
                 {g.iconPath
-                  ? <img src={iconUrl(g.iconPath)} alt={g.name} className="w-7 h-7 object-contain" />
+                  ? <Icon iconPath={g.iconPath} alt={g.name} className="w-7 h-7 object-contain" />
                   : <span className="px-2 text-xs text-gray-200">{g.name.slice(0, 4)}</span>
                 }
               </button>
@@ -347,7 +347,7 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
                   className="aspect-square flex items-center justify-center bg-green-900/40 hover:bg-green-700/60 border border-green-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
                 >
                   {product
-                    ? <img src={iconUrl(product.iconPath)} alt={product.name} className="w-7 h-7 object-contain" />
+                    ? <Icon iconPath={product.iconPath} alt={product.name} className="w-7 h-7 object-contain" />
                     : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
                   }
                 </button>
@@ -511,7 +511,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
               className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
             >
               {g.iconPath
-                ? <img src={iconUrl(g.iconPath)} alt={g.name} className="w-7 h-7 object-contain" />
+                ? <Icon iconPath={g.iconPath} alt={g.name} className="w-7 h-7 object-contain" />
                 : <span className="px-2 text-xs text-gray-200">{g.name.slice(0, 4)}</span>
               }
             </button>
@@ -545,7 +545,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
                   className={`aspect-square flex items-center justify-center rounded border outline-none focus:ring-1 focus:ring-blue-500 ${active ? 'bg-amber-800/40 border-amber-600' : 'bg-gray-700 border-gray-600 hover:bg-gray-600'}`}
                 >
                   {it.iconPath
-                    ? <img src={iconUrl(it.iconPath)} alt={it.name} className="w-7 h-7 object-contain" />
+                    ? <Icon iconPath={it.iconPath} alt={it.name} className="w-7 h-7 object-contain" />
                     : <span className="text-[10px] text-gray-300 leading-tight text-center px-0.5 break-words">{it.name.slice(0, 8)}</span>
                   }
                 </button>
