@@ -7,7 +7,7 @@ import { useBlockStore } from '../store/blockStore'
 // ---------------------------------------------------------------------------
 
 const SERVER_DATASETS = [
-  { id: 'nullius', label: 'Nullius', url: '/data/nullius/game-data.json' },
+  { id: 'nullius', label: 'Nullius', url: `${import.meta.env.BASE_URL}data/nullius/game-data.json` },
 ] as const
 
 const STORAGE_KEY = 'factorio-planner:game-data-source'
