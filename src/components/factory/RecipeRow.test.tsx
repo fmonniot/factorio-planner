@@ -496,7 +496,7 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
       ...mockGameData,
       items: {
         ...mockGameData.items,
-        steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false },
+        steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false, subgroup: '', order: '' },
       },
     } as typeof mockGameData
 

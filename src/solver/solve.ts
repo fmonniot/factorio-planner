@@ -1,4 +1,4 @@
-import solver from 'javascript-lp-solver'
+import solver, { type SolveResult } from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
 import type { SolverWarning } from '../data/types'
 
@@ -139,7 +139,7 @@ export function solveLP(
     variables,
   }
 
-  const result = solver.Solve(model)
+  const result = solver.Solve(model) as SolveResult
   const feasible = result.feasible === true
 
   // With hard goal constraints, LP can still be infeasible (no producer, or conflicting pins).

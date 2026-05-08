@@ -19,6 +19,8 @@ function makeGameData(
     modules,
     beacons: {},
     defaultMachines: {},
+    itemGroups: {},
+    itemSubgroups: {},
   }
 }
 

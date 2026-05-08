@@ -8,10 +8,10 @@ const speedModule = {
   id: 'speed-3',
   name: 'Speed 3',
   iconPath: '',
+  category: 'speed',
   effects: { speed: 0.5, consumption: 0.7 },
   limitation: [],
   limitationBlacklist: [],
-  hidden: false,
   tier: 3,
 }
 
@@ -31,12 +31,16 @@ const mockGameData: GameData = {
       madeIn: [],
       allowProductivity: false,
       mainProduct: undefined,
+      subgroup: '',
+      order: '',
     },
   },
   machines: {},
   modules: { 'speed-3': speedModule },
   beacons: {},
   defaultMachines: {},
+  itemGroups: {},
+  itemSubgroups: {},
 }
 
 const beacon: BeaconConfig = {

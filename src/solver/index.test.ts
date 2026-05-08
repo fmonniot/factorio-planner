@@ -10,7 +10,10 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     recipes: {},
     machines: {},
     modules: {},
+    beacons: {},
     defaultMachines: {},
+    itemGroups: {},
+    itemSubgroups: {},
     ...overrides,
   }
 }
@@ -36,6 +39,8 @@ function recipe(
     allowProductivity: false,
     mainProduct: undefined,
     hidden: false,
+    subgroup: '',
+    order: '',
   }
 }
 
