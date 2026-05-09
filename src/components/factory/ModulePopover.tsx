@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Popover } from './Popover'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 
 // ---------------------------------------------------------------------------
 // Logic helpers (pure, exported for testing)
@@ -177,8 +177,8 @@ export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: Modu
       title="Edit modules"
     >
       {firstModule?.iconPath ? (
-        <img
-          src={iconUrl(firstModule.iconPath)}
+        <Icon
+          iconPath={firstModule.iconPath}
           alt={firstModule.name}
           className="w-full h-full object-contain"
         />

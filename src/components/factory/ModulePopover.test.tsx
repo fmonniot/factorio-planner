@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ModulePopover, isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import type { GameData, RecipeNode } from '../../data/types'
+import type { GameData, GameRecipeNode, RecipeNode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Pure logic helpers
@@ -59,7 +59,7 @@ const mockGameData = {
   modules: { 'speed-3': speedModule },
 } as unknown as GameData
 
-const existingModule: RecipeNode['modules'][0] = { moduleId: 'speed-3', count: 2 }
+const existingModule: GameRecipeNode['modules'][0] = { moduleId: 'speed-3', count: 2 }
 
 beforeEach(() => {
   const block = makeEmptyBlock('Test')

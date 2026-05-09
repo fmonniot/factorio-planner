@@ -76,7 +76,9 @@ const minimalModule = {
 }
 
 function minimalGameData(): GameData {
-  // Use structuredClone so mutation in one test doesn't bleed into another
+  // The literal omits fields with Zod-applied defaults (subgroup, order, hidden,
+  // beacons, itemGroups, itemSubgroups). Cast through unknown — the parser tests
+  // here exercise loadGameDataFromJson, which fills those defaults at runtime.
   return structuredClone({
     factorioVersion: '2.0.28',
     modSet: { base: '2.0.28', nullius: '1.8.6' },
@@ -85,7 +87,7 @@ function minimalGameData(): GameData {
     machines: { 'electric-furnace': minimalMachine },
     modules: { 'productivity-module-3': minimalModule },
     defaultMachines: { smelting: 'electric-furnace' },
-  }) as GameData
+  }) as unknown as GameData
 }
 
 // minimalPlan is a SubPlan as returned by the schema after migration:
@@ -140,6 +142,9 @@ describe('parseGameData', () => {
       ],
       madeIn: ['centrifuge'],
       allowProductivity: true,
+      hidden: false,
+      subgroup: '',
+      order: '',
     }
     const data = parseGameData(gd)
     expect(data.recipes['uranium-processing'].products[0].probability).toBe(0.007)
@@ -162,6 +167,9 @@ describe('parseGameData', () => {
       ],
       madeIn: ['centrifuge'],
       allowProductivity: true,
+      hidden: false,
+      subgroup: '',
+      order: '',
     }
     const data = parseGameData(gd)
     expect(data.recipes['kovarex'].products[0].ignoredByProductivity).toBe(40)
@@ -186,6 +194,9 @@ describe('parseGameData', () => {
       madeIn: ['oil-refinery'],
       allowProductivity: false,
       mainProduct: null,
+      hidden: false,
+      subgroup: '',
+      order: '',
     }
     const data = parseGameData(gd)
     expect(data.recipes['oil-processing'].mainProduct).toBeNull()

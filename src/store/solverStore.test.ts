@@ -19,7 +19,10 @@ function makeGameDataJson(overrides: Partial<GameData> = {}): string {
     recipes: {},
     machines: {},
     modules: {},
+    beacons: {},
     defaultMachines: {},
+    itemGroups: {},
+    itemSubgroups: {},
     ...overrides,
   }
   return JSON.stringify(data)

@@ -1,7 +1,7 @@
 import type { GameData } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { Popover } from './Popover'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 
 interface MachinePopoverProps {
   nodeId: string
@@ -123,8 +123,8 @@ export function MachineCell({
       title={machine?.name ?? 'Edit machine'}
     >
       {machine?.iconPath ? (
-        <img
-          src={iconUrl(machine.iconPath)}
+        <Icon
+          iconPath={machine.iconPath}
           alt={machine.name}
           className="w-full h-full object-contain"
         />

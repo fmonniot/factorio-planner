@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 import { BeaconModal } from './BeaconModal'
 
 // ---------------------------------------------------------------------------
@@ -81,8 +81,8 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
         aria-label="Edit beacon"
       >
         {displayIcon ? (
-          <img
-            src={iconUrl(displayIcon)}
+          <Icon
+            iconPath={displayIcon}
             alt={beaconEntity?.name ?? moduleData?.name ?? 'beacon'}
             className="w-full h-full object-contain"
           />

@@ -1,5 +1,5 @@
 import type { Item } from '../../data/types'
-import { iconUrl } from '../../utils/iconUrl'
+import { Icon } from '../Icon'
 import { useUiStore } from '../../store/uiStore'
 
 // ---------------------------------------------------------------------------
@@ -48,8 +48,8 @@ export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTile
       {variant === 'electricity' ? (
         <span className="text-base leading-none">⚡</span>
       ) : item?.iconPath ? (
-        <img
-          src={iconUrl(item.iconPath)}
+        <Icon
+          iconPath={item.iconPath}
           alt={item.name}
           className="w-7 h-7 object-contain shrink-0"
         />

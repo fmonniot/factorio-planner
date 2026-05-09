@@ -6,7 +6,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 // Icon URL helper
 // ---------------------------------------------------------------------------
 
-import { iconUrl } from '../utils/iconUrl'
+import { Icon } from './Icon'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -107,8 +107,8 @@ function BlockTab({ blockId, isActive, onClick }: BlockTabProps) {
         `}
       >
         {firstItem ? (
-          <img
-            src={iconUrl(firstItem.iconPath)}
+          <Icon
+            iconPath={firstItem.iconPath}
             alt={firstItem.name}
             className="w-6 h-6 object-contain"
             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}

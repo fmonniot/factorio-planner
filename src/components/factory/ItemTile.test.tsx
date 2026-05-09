@@ -29,8 +29,11 @@ describe('fmtRate', () => {
 const mockItem: Item = {
   id: 'iron-plate',
   name: 'Iron Plate',
+  type: 'item',
   iconPath: '',
   hidden: false,
+  subgroup: '',
+  order: '',
 }
 
 beforeEach(() => {
