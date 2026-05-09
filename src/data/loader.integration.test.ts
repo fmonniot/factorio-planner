@@ -1,20 +1,11 @@
 /**
  * Integration test: validates the real Nullius game-data export against the schema.
  *
- * The test file is produced by running scripts/export-game-data.lua inside
- * Factorio (with the Nullius mod active) and copying the output to:
- *   data/samples/nullius/game-data.json
+ * The export lives at public/data/nullius/game-data.json — the same file the
+ * web app loads at runtime. Tests skip automatically when it is absent.
  *
- * That path is git-ignored (data/samples/ is excluded due to file size).
- * Tests in this file skip automatically when the file is not present, so CI
- * passes without it. Run locally after re-exporting to catch schema drift.
- *
- * To regenerate:
- *   1. Open Factorio with the Nullius mod loaded.
- *   2. Open the console and run:  /c <paste contents of scripts/export-game-data.lua>
- *   3. Copy %APPDATA%\Factorio\script-output\factorio-planner-export.json
- *      to data/samples/nullius/game-data.json
- *   4. Run:  npm test
+ * To regenerate, see scripts/build-game-data.js (its --output default points
+ * at public/data/nullius/game-data.json).
  */
 
 import { describe, it, expect } from 'vitest'
@@ -24,7 +15,7 @@ import { loadGameDataFromJson } from './loader'
 
 const SAMPLE_PATH = resolve(
   import.meta.dirname,
-  '../../data/samples/nullius/game-data.json',
+  '../../public/data/nullius/game-data.json',
 )
 
 const sampleExists = existsSync(SAMPLE_PATH)

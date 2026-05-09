@@ -87,7 +87,7 @@ end
 
 ## Sample data (nullius mod)
 
-The sample file `data/samples/nullius/game-data.json` now ships with
+The sample file `public/data/nullius/game-data.json` now ships with
 hand-authored beacon entries based on typical Nullius mod values. These are
 **estimates** — re-run `node scripts/build-game-data.js` after a real Factorio
 dump to replace them with authoritative values.

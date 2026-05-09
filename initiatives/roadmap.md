@@ -55,7 +55,7 @@ No active initiative folders. The remaining sequenced work is below.
 ## Open TODOs
 
 **Solver integration test.** Add a `src/solver/index.integration.test.ts` that runs the
-full solver against the real Nullius `data/samples/nullius/game-data.json` export
+full solver against the real Nullius `public/data/nullius/game-data.json` export
 (gate with `skipIf(!sampleExists)`). Exercise corpus-like goals on real recipe/machine
 data to catch regressions that synthetic unit tests cannot: missing machine for a
 category, unexpected item classifications, real craftingSpeed values affecting machine

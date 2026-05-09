@@ -9,7 +9,7 @@ and committed so reviewers can inspect the chain without running the game.
 1. **Trace** the dependency graph with the helper script:
 
    ```sh
-   node scripts/trace-recipe-chain.js data/samples/nullius/game-data.json \
+   node scripts/trace-recipe-chain.js public/data/nullius/game-data.json \
         <itemId>:<rate/min> \
         --md spec/solver-chains/<name>.md \
         > src/solver/__fixtures__/<name>.fixture.json
@@ -44,7 +44,7 @@ and committed so reviewers can inspect the chain without running the game.
 
 ```sh
 # 1. Trace the chain
-node scripts/trace-recipe-chain.js data/samples/nullius/game-data.json \
+node scripts/trace-recipe-chain.js public/data/nullius/game-data.json \
      my-item:60 \
      --md spec/solver-chains/my-item.md \
      > src/solver/__fixtures__/my-item.fixture.json

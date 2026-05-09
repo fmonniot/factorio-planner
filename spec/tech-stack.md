@@ -61,9 +61,9 @@ Solver tests cover all six corpus cases (see [test-corpus.md](test-corpus.md)) p
 
 ## Data Pipeline
 
-Game data is not bundled in source. The primary pipeline runs `factorio --dump-data` (no GUI needed) to emit `data-raw-dump.json`, then a Node script post-processes it into the `GameData` shape the app expects.
+Game data is bundled with the app under `public/data/<mod>/`. The pipeline runs `factorio --dump-data` (no GUI needed) to emit `data-raw-dump.json`, then a Node script post-processes it into the `GameData` shape the app expects.
 
-**Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the mods directory for icons, resolves locale strings, classifies machines, exports beacons, and emits `data/samples/nullius/game-data.json` plus a sprite of icons under `public/data/<mod>/icons/`.
+**Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the mods directory for icons, resolves locale strings, classifies machines, exports beacons, and emits `public/data/nullius/game-data.json` plus icons under `public/data/<mod>/icons/`.
 
 **Verify script** (`scripts/verify-game-data.js`): report-only diff between the new and a backup `game-data.json`, used after re-exports.
 
@@ -92,7 +92,7 @@ factorio-planner/
 ├── spec/                       # Timeless reference docs (this directory)
 ├── initiatives/                # Roadmap, active and archived initiatives
 ├── scripts/                    # Game-data export + verification tooling
-├── data/samples/               # Git-ignored — local game-data.json exports
+├── public/data/                # Committed game-data.json + icon set served by the app
 ├── src/
 │   ├── data/
 │   │   ├── schema.ts           # Zod schema for GameData and Plan (single source of truth)

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 
-const GAME_DATA_PATH = path.resolve('data/samples/nullius/game-data.json')
+const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 
 async function loadGameData(page: import('@playwright/test').Page) {
   const fileInput = page.locator('input[type="file"]')
