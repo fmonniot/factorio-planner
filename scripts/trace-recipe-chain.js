@@ -18,7 +18,7 @@
  *        [--md <markdown-output-path>]
  *
  * Example:
- *   node scripts/trace-recipe-chain.js data/samples/nullius/game-data.json \
+ *   node scripts/trace-recipe-chain.js public/data/nullius/game-data.json \
  *        chemical-science-pack:60 \
  *        --md spec/solver-chains/chemical-science-pack.md \
  *        > spec/solver-chains/chemical-science-pack.fixture.json

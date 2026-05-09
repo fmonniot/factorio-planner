@@ -41,7 +41,7 @@ spec/                  Timeless reference: how the system works today
 initiatives/           Time-bound: roadmap, active initiatives, archive
 TODO.md                Inbox of small items
 scripts/               Build/export tooling (build-game-data.js, verify-game-data.js, trace-recipe-chain.js)
-data/samples/          Git-ignored — real Nullius export goes here locally
+public/data/nullius/   Committed game-data export and icon set served by the app
 src/
   data/                Zod schemas, loader (schema.ts is the single source of truth)
   solver/              Stoichiometry, reduction, LU + pseudo-inverse, effects, entry point
@@ -114,7 +114,7 @@ Tests live beside the source files as `*.test.ts`. Integration tests use `.integ
 
 **Corpus cases** (`spec/test-corpus.md`) are the canonical expected values for solver tests. All 6 cases are covered in `src/solver/index.test.ts` and the individual module tests. Any change to solver logic must be validated against all 6.
 
-**Integration tests** (`loader.integration.test.ts`) skip automatically when `data/samples/nullius/game-data.json` is absent (CI-safe). Run locally after re-exporting from Factorio.
+**Integration tests** (`loader.integration.test.ts`) skip automatically when `public/data/nullius/game-data.json` is absent. Run locally after re-exporting from Factorio.
 
 **Fixture hygiene:** test fixture factory functions must return `structuredClone(...)` to prevent test-to-test mutation. Failure to do this causes hard-to-diagnose test ordering bugs.
 
@@ -138,12 +138,12 @@ node scripts/build-game-data.js \
   --factorio-dir /Applications/factorio.app/Contents \
   --mods-dir  ~/Library/Application\ Support/factorio/mods \
   --icons-out public/data/nullius/icons \
-  --output    data/samples/nullius/game-data.json
+  --output    public/data/nullius/game-data.json
 
 # 3. Optional: diff against a reference backup
 node scripts/verify-game-data.js \
-  --reference data/samples/nullius/game-data.json.backup \
-  --actual    data/samples/nullius/game-data.json
+  --reference public/data/nullius/game-data.json.backup \
+  --actual    public/data/nullius/game-data.json
 ```
 
 **Legacy Lua mod** (fallback): `scripts/factorio-planner-export_1.0.0/` — symlink into the Factorio mods directory, load a save, wait one tick. Output lands at `script-output/factorio-planner-export.json`.

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 
-const GAME_DATA_PATH = path.resolve('data/samples/nullius/game-data.json')
+const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 const STORAGE_KEY = 'factorio-planner:game-data-source'
 const IDB_NAME = 'factorio-planner'
 const IDB_STORE = 'game-data'

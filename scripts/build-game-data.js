@@ -11,14 +11,14 @@
  *     --factorio-dir /Applications/factorio.app/Contents \
  *     --mods-dir  ~/...factorio/mods \
  *     --icons-out public/data/nullius/icons \
- *     --output    data/samples/nullius/game-data.json
+ *     --output    public/data/nullius/game-data.json
  *
  * macOS defaults (omit flags and the defaults are used):
  *   --dump        ~/Library/Application Support/factorio/script-output/data-raw-dump.json
  *   --factorio-dir /Applications/factorio.app/Contents
  *   --mods-dir    ~/Library/Application Support/factorio/mods
  *   --icons-out   public/data/nullius/icons
- *   --output      data/samples/nullius/game-data.json
+ *   --output      public/data/nullius/game-data.json
  * 
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
@@ -48,7 +48,7 @@ const DEFAULTS = {
   factorioDir:  '/Applications/factorio.app/Contents',
   modsDir:      `${HOME}/Library/Application Support/factorio/mods`,
   iconsOut:     'public/data/nullius/icons',
-  output:       'data/samples/nullius/game-data.json',
+  output:       'public/data/nullius/game-data.json',
 }
 
 function parseArgs(argv) {

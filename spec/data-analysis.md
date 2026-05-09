@@ -1,7 +1,7 @@
 # Data Analysis — Nullius Mod Export
 
-Analysis of `data/samples/nullius/data-raw-dump.json` (41MB, data.raw stage dump,
-Nullius overhaul mod + base game, Factorio 2.0).
+Analysis of the raw `factorio --dump-data` output for the Nullius overhaul mod
++ base game on Factorio 2.0 (~41 MB; see AGENTS.md for how to regenerate).
 
 Dataset size: 2405 recipes · 1038 items · 89 fluids · 136 machines (101 assembling + 33 furnace + 2 rocket-silo) · 27 modules · 2 quality tiers.
 

@@ -1,4 +1,3 @@
-import { createReadStream, statSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
@@ -12,24 +11,6 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
-    // Serve bundled game datasets during development.
-    // In production the prebuild script copies the files into public/ first.
-    {
-      name: 'serve-bundled-game-data',
-      configureServer(server) {
-        server.middlewares.use('/data/nullius/game-data.json', (_req, res) => {
-          const filePath = resolve('data/samples/nullius/game-data.json')
-          try {
-            const stat = statSync(filePath)
-            res.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': stat.size })
-            createReadStream(filePath).pipe(res)
-          } catch {
-            res.writeHead(404)
-            res.end()
-          }
-        })
-      },
-    },
     // Lazy-convert icon PNGs to WebP on dev-server requests so <picture>
     // sources resolve in dev the same way they do in prod (postbuild generates
     // siblings into dist/). Cached in-process; cold-cache cost ~5–20 ms/icon.

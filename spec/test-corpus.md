@@ -1,7 +1,7 @@
 # Solver Test Corpus
 
 Six recipe chains of increasing complexity, all using real Nullius recipes verified
-against `data/samples/nullius/data-raw-dump.json`.
+against the raw `factorio --dump-data` output (see AGENTS.md for how to regenerate).
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
 
