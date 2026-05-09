@@ -7,6 +7,7 @@
     "dev": "vite",
     "prebuild": "mkdir -p public/data/nullius && cp data/samples/nullius/game-data.json public/data/nullius/game-data.json",
     "build": "tsc -b && vite build",
+    "postbuild": "node scripts/build-icons.mjs",
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:e2e",

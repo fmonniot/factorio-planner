@@ -1,5 +1,5 @@
 import type { ImgHTMLAttributes } from 'react'
-import { iconUrl } from '../utils/iconUrl'
+import { iconUrl, iconUrlWebp } from '../utils/iconUrl'
 
 interface IconProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
   iconPath: string
@@ -7,11 +7,14 @@ interface IconProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
 
 export function Icon({ iconPath, ...rest }: IconProps) {
   return (
-    <img
-      src={iconUrl(iconPath)}
-      loading="lazy"
-      decoding="async"
-      {...rest}
-    />
+    <picture style={{ display: 'contents' }}>
+      <source srcSet={iconUrlWebp(iconPath)} type="image/webp" />
+      <img
+        src={iconUrl(iconPath)}
+        loading="lazy"
+        decoding="async"
+        {...rest}
+      />
+    </picture>
   )
 }
