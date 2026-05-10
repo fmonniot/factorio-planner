@@ -14,6 +14,14 @@ export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   return v.toFixed(2)
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
+export function fmtPower(kw: number): { value: string; unit: string } {
+  if (kw < 1) return { value: (kw * 1000).toFixed(0), unit: 'W' }
+  if (kw < 1000) return { value: kw.toFixed(1), unit: 'kW' }
+  if (kw < 1_000_000) return { value: (kw / 1000).toFixed(1), unit: 'MW' }
+  return { value: (kw / 1_000_000).toFixed(1), unit: 'GW' }
+}
+
 // ---------------------------------------------------------------------------
 // ItemTile
 // ---------------------------------------------------------------------------
@@ -39,13 +47,16 @@ const variantClasses: Record<ItemTileVariant, string> = {
 
 export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
-  const label = fmtRate(ratePerSec, unit)
-  const unitLabel = unit === 'min' ? '/m' : '/s'
   const cls = variantClasses[variant]
+
+  const isPower = variant === 'electricity'
+  const power = isPower ? fmtPower(ratePerSec) : null
+  const label = isPower ? power!.value : fmtRate(ratePerSec, unit)
+  const unitLabel = isPower ? power!.unit : unit === 'min' ? '/m' : '/s'
 
   const inner = (
     <>
-      {variant === 'electricity' ? (
+      {isPower ? (
         <span className="text-base leading-none">⚡</span>
       ) : item?.iconPath ? (
         <Icon

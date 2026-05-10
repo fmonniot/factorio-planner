@@ -20,7 +20,7 @@ is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-pari
 
 - [ ] **Remove-recipe action:** Add a way to remove a recipe from the plan in the current UI (the action is missing entirely).
 
-- [ ] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
+- [x] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
 
 ---
 

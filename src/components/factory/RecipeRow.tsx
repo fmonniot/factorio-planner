@@ -444,28 +444,29 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients + electricity inline */}
+      {/* Ingredients + electricity */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5">
-          {inputEntries.map(([itemId, ratePerMin]) => {
-            const itemName = gameData.items[itemId]?.name ?? itemId
-            return (
-              <ItemTile
-                key={itemId}
-                item={gameData.items[itemId]}
-                ratePerSec={ratePerMin / 60}
-                variant="ingredient"
-                onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                title={onIngredientClick ? `${itemName} — Find producer recipe` : undefined}
-              />
-            )
-          })}
+        <div className="flex items-start gap-1">
+          <div className="flex flex-wrap gap-0.5 flex-1">
+            {inputEntries.map(([itemId, ratePerMin]) => {
+              const itemName = gameData.items[itemId]?.name ?? itemId
+              return (
+                <ItemTile
+                  key={itemId}
+                  item={gameData.items[itemId]}
+                  ratePerSec={ratePerMin / 60}
+                  variant="ingredient"
+                  onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
+                  title={onIngredientClick ? `${itemName} — Find producer recipe` : undefined}
+                />
+              )
+            })}
+          </div>
           {powerKw > 0 && (
             <ItemTile
               item={undefined}
-              ratePerSec={powerKw / 60}
+              ratePerSec={powerKw}
               variant="electricity"
-              title={`${powerKw.toFixed(1)} kW`}
             />
           )}
         </div>

@@ -1,12 +1,33 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ItemTile, fmtRate } from './ItemTile'
+import { ItemTile, fmtRate, fmtPower } from './ItemTile'
 import { useUiStore } from '../../store/uiStore'
 import type { Item } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // fmtRate
 // ---------------------------------------------------------------------------
+
+describe('fmtPower', () => {
+  it('formats sub-kW values in W', () => {
+    expect(fmtPower(0.5)).toEqual({ value: '500', unit: 'W' })
+  })
+
+  it('formats kW range', () => {
+    expect(fmtPower(1)).toEqual({ value: '1.0', unit: 'kW' })
+    expect(fmtPower(180)).toEqual({ value: '180.0', unit: 'kW' })
+    expect(fmtPower(999)).toEqual({ value: '999.0', unit: 'kW' })
+  })
+
+  it('formats MW range', () => {
+    expect(fmtPower(1000)).toEqual({ value: '1.0', unit: 'MW' })
+    expect(fmtPower(2500)).toEqual({ value: '2.5', unit: 'MW' })
+  })
+
+  it('formats GW range', () => {
+    expect(fmtPower(1_000_000)).toEqual({ value: '1.0', unit: 'GW' })
+  })
+})
 
 describe('fmtRate', () => {
   it('formats per-sec rates in /sec mode', () => {
@@ -55,6 +76,25 @@ describe('ItemTile', () => {
   it('renders electricity symbol for electricity variant with no item', () => {
     render(<ItemTile item={undefined} ratePerSec={5} variant="electricity" />)
     expect(screen.getByText('⚡')).toBeInTheDocument()
+  })
+
+  it('renders power in kW for electricity variant', () => {
+    render(<ItemTile item={undefined} ratePerSec={180} variant="electricity" />)
+    expect(screen.getByText(/180\.0/)).toBeInTheDocument()
+    expect(screen.getByText('kW')).toBeInTheDocument()
+  })
+
+  it('renders power in MW for large electricity values', () => {
+    render(<ItemTile item={undefined} ratePerSec={2500} variant="electricity" />)
+    expect(screen.getByText(/2\.5/)).toBeInTheDocument()
+    expect(screen.getByText('MW')).toBeInTheDocument()
+  })
+
+  it('electricity power display is independent of rateUnit', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    render(<ItemTile item={undefined} ratePerSec={180} variant="electricity" />)
+    expect(screen.getByText(/180\.0/)).toBeInTheDocument()
+    expect(screen.getByText('kW')).toBeInTheDocument()
   })
 
   it('renders item name when no iconPath', () => {
