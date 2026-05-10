@@ -67,11 +67,10 @@ export const RecipeSchema = z.object({
   hidden: z.boolean().default(false),
   // null = explicitly multi-output with no primary (main_product = "" in Lua export)
   // The Lua exporter emits "" for the multi-output case; we normalise to null here.
-  mainProduct: z
-    .string()
-    .nullable()
-    .optional()
-    .transform(v => (v === '' ? null : v)),
+  mainProduct: z.preprocess(
+    v => (v === '' ? null : v),
+    z.string().nullable().optional(),
+  ),
   subgroup: z.string().default(''),
   order: z.string().default(''),
 })
@@ -119,7 +118,7 @@ export const ModuleSchema = z.object({
   name: z.string(),
   category: z.string(),
   tier: z.number().int().nonnegative(),
-  effects: z.record(EffectNameSchema, z.number()),
+  effects: z.partialRecord(EffectNameSchema, z.number()),
   limitation: luaArray(z.string()),
   limitationBlacklist: luaArray(z.string()),
   iconPath: z.string().default(''),
@@ -218,7 +217,7 @@ type SubPlanType = {
   updatedAt: string
 }
 
-export const SubPlanSchema: z.ZodType<SubPlanType, z.ZodTypeDef, unknown> = z.lazy(() =>
+export const SubPlanSchema: z.ZodType<SubPlanType, unknown> = z.lazy(() =>
   z.object({
     id: z.string(),
     name: z.string(),
