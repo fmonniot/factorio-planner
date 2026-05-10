@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { useSolverStore, selectSolverResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import type { SolverWarning, GameData } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -57,10 +58,27 @@ function isCritical(w: SolverWarning): boolean {
 export function WarningsPopover() {
   const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
+  const block = useBlockStore(selectActiveBlock)
+  const removeNode = useBlockStore(s => s.removeNode)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   const warnings = result?.warnings ?? []
+
+  function fixDuplicateRecipe(recipeId: string) {
+    if (!block) return
+    const b = block
+    let kept = false
+    function walk(plan: typeof b.rootPlan) {
+      for (const n of plan.nodes) {
+        if (n.kind === 'game-recipe' && n.recipeId === recipeId) {
+          if (!kept) { kept = true } else { removeNode(n.id) }
+        }
+      }
+      for (const sp of plan.subPlans) walk(sp)
+    }
+    walk(b.rootPlan)
+  }
 
   useEffect(() => {
     if (!open) return
@@ -113,6 +131,15 @@ export function WarningsPopover() {
                 <div className="text-gray-500 leading-snug">
                   → {warningHint(w)}
                 </div>
+                {w.type === 'duplicate-recipe' && (
+                  <button
+                    type="button"
+                    onClick={() => fixDuplicateRecipe(w.recipeId)}
+                    className="mt-1.5 text-teal-400 hover:text-teal-300 underline"
+                  >
+                    Fix: remove duplicates
+                  </button>
+                )}
               </div>
             ))}
           </div>
