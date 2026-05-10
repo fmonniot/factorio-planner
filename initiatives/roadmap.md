@@ -23,6 +23,7 @@ Status markers: `[ ]` not started · `[~]` in progress · `[x]` done
 | Edit Machine modal | Unified machine + module configuration in a single modal with effects panels. See [archive/edit-machine-modal/design.md](archive/edit-machine-modal/design.md). |
 | Edit Beacon modal | Beacon cell refactored to icon+badge trigger; full BeaconModal with beacon-type picker. Game-data exporter updated to populate `beacons` collection. See [archive/edit-beacon-modal/](archive/edit-beacon-modal/). |
 | Reorder recipes (DnD) | Drag-and-drop reordering of recipe and subgroup rows, including cross-subgroup moves. New `moveNode` store action with undo/redo; `RecipeDndProvider` context; insertion indicators. See [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/). |
+| Subgroup ingredient routing | Clicking an ingredient tile inside a subgroup now adds the new recipe to that subgroup rather than root. `addNode` accepts an optional `targetSubPlanId`; `onIngredientClick` forwards `parentSubPlanId`. |
 
 ---
 

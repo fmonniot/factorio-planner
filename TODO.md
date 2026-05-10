@@ -22,10 +22,6 @@ is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-pari
 
 - [ ] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
 
-- [ ] **Subgroup improvements:**
-  - [ ] When clicking on the ingredient of a recipe in a sub group, the added recipe should be added to said subgroup
-
-
 ---
 
 ## Localisation
