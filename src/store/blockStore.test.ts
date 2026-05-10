@@ -57,6 +57,34 @@ describe('findSubPlan', () => {
 })
 
 // ---------------------------------------------------------------------------
+// addNode
+// ---------------------------------------------------------------------------
+
+describe('addNode', () => {
+  it('appends to rootPlan by default', () => {
+    useBlockStore.getState().addNode(ironNode)
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].id).toBe('node-iron')
+  })
+
+  it('appends to a specific subplan when targetSubPlanId is provided', () => {
+    const child = makeEmptySubPlan('Sub')
+    const block = useBlockStore.getState().blocks[0]
+    const spNode: import('../data/types').SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: child.id }
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().addNode(ironNode, child.id)
+
+    const updated = useBlockStore.getState().blocks[0].rootPlan
+    expect(updated.nodes).toHaveLength(1) // still just the spNode at root
+    expect(updated.subPlans[0].nodes).toHaveLength(1)
+    expect(updated.subPlans[0].nodes[0].id).toBe('node-iron')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // moveNodeUp / moveNodeDown
 // ---------------------------------------------------------------------------
 

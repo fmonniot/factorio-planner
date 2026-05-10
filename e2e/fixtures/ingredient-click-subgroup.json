@@ -1,0 +1,60 @@
+{
+  "blocks": [
+    {
+      "id": "cccc0001-0000-0000-0000-000000000001",
+      "name": "Test",
+      "gameDataVersion": "",
+      "rootPlan": {
+        "id": "cccc0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "goals": [
+          {
+            "id": "cccc0003-0000-0000-0000-000000000001",
+            "itemId": "nullius-hydrogen",
+            "rate": 100
+          },
+          {
+            "id": "cccc0003-0000-0000-0000-000000000002",
+            "itemId": "nullius-acid-sulfuric",
+            "rate": 60
+          }
+        ],
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "cccc0004-0000-0000-0000-000000000001",
+            "recipeId": "nullius-steam-electrolysis",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "cccc0005-0000-0000-0000-000000000001",
+            "subPlanId": "cccc0010-0000-0000-0000-000000000001"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "cccc0010-0000-0000-0000-000000000001",
+            "name": "Acid Sub",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "cccc0011-0000-0000-0000-000000000001",
+                "recipeId": "nullius-acid-sulfuric",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-05-10T00:00:00.000Z",
+        "updatedAt": "2026-05-10T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "cccc0001-0000-0000-0000-000000000001"
+}

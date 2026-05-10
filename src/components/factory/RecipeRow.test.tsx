@@ -319,13 +319,15 @@ describe('RecipeRow', () => {
     expect(chevrons.length).toBeGreaterThan(0)
   })
 
-  it('clicking an ingredient tile calls onIngredientClick with the item id', () => {
+  it('clicking an ingredient tile calls onIngredientClick with the item id and subPlanId', () => {
     const onIngredientClick = vi.fn()
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlanId = block.rootPlan.id
     renderRow({ onIngredientClick })
     // Title set when onIngredientClick is provided.
     const tile = screen.getByTitle('Iron Ore — Find producer recipe')
     fireEvent.click(tile)
-    expect(onIngredientClick).toHaveBeenCalledWith('iron-ore')
+    expect(onIngredientClick).toHaveBeenCalledWith('iron-ore', rootPlanId)
   })
 
   it('ingredient tile is not a button when onIngredientClick is omitted', () => {

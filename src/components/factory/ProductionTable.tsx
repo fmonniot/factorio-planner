@@ -17,7 +17,7 @@ export function ProductionTable() {
   const gameData = useGameDataStore(selectGameData)
   const addNode = useBlockStore(s => s.addNode)
 
-  const [picker, setPicker] = useState<null | { filterByItemId?: string }>(null)
+  const [picker, setPicker] = useState<null | { filterByItemId?: string; targetSubPlanId?: string }>(null)
   // Set of SubPlanNode ids whose children are currently expanded.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -42,7 +42,7 @@ export function ProductionTable() {
       modules: [],
       byproductPolicy: {},
     }
-    addNode(node)
+    addNode(node, picker?.targetSubPlanId)
   }
 
   if (!gameData) {
@@ -93,7 +93,7 @@ export function ProductionTable() {
                   gameData,
                   expanded,
                   toggleExpand,
-                  (itemId) => setPicker({ filterByItemId: itemId }),
+                  (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
                 )}
                 {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
               </tbody>
@@ -140,7 +140,7 @@ function renderNodes(
   gameData: import('../../data/types').GameData,
   expanded: Set<string>,
   toggleExpand: (id: string) => void,
-  onIngredientClick: (itemId: string) => void,
+  onIngredientClick: (itemId: string, subPlanId: string) => void,
 ): React.ReactNode[] {
   const rows: React.ReactNode[] = []
 

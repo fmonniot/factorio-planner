@@ -30,7 +30,7 @@ interface RecipeRowProps {
   /** Index of this node within its parent SubPlan — used for DnD. */
   nodeIndex: number
   /** Open the recipe picker pre-filtered to recipes producing this item. */
-  onIngredientClick?: (itemId: string) => void
+  onIngredientClick?: (itemId: string, subPlanId: string) => void
 }
 
 export function RecipeRow({
@@ -455,7 +455,7 @@ export function RecipeRow({
                 item={gameData.items[itemId]}
                 ratePerSec={ratePerMin / 60}
                 variant="ingredient"
-                onClick={onIngredientClick ? () => onIngredientClick(itemId) : undefined}
+                onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
                 title={onIngredientClick ? `${itemName} — Find producer recipe` : undefined}
               />
             )

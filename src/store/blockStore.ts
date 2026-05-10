@@ -143,7 +143,7 @@ export interface BlockStoreState {
   toggleNoImportItem: (itemId: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
-  addNode: (node: RecipeNode) => void
+  addNode: (node: RecipeNode, targetSubPlanId?: string) => void
   removeNode: (nodeId: string) => void
   moveNodeUp: (nodeId: string) => void
   moveNodeDown: (nodeId: string) => void
@@ -397,11 +397,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   // Newly added nodes go into the rootPlan. Existing-node mutations resolve
   // the containing subplan by walking the tree at command-creation time.
 
-  addNode: (node) =>
+  addNode: (node, targetSubPlanId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const subPlanId = block.rootPlan.id
+      const subPlanId = targetSubPlanId ?? block.rootPlan.id
       const cmd: Command = {
         apply: b => touchSubPlan({
           ...b,
