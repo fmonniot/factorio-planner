@@ -60,6 +60,13 @@ function removeSubPlanFromTree(plan: SubPlan, targetId: string): SubPlan {
 }
 
 // Remove any SubPlanNode referencing removedId from every node list in the tree.
+/** Return true when candidateId is a descendant of (or equal to) ancestorId. */
+export function isSubPlanDescendant(plan: SubPlan, ancestorId: string, candidateId: string): boolean {
+  const ancestor = findSubPlan(plan, ancestorId)
+  if (!ancestor) return false
+  return findSubPlan(ancestor, candidateId) !== undefined
+}
+
 function removeSubPlanNodeReferences(plan: SubPlan, removedId: string): SubPlan {
   return {
     ...plan,
@@ -140,6 +147,7 @@ export interface BlockStoreState {
   removeNode: (nodeId: string) => void
   moveNodeUp: (nodeId: string) => void
   moveNodeDown: (nodeId: string) => void
+  moveNode: (nodeId: string, targetSubPlanId: string, targetIndex: number) => void
   updateNodeMachine: (nodeId: string, machineId: string | undefined) => void
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
@@ -473,6 +481,65 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
             return { ...p, nodes }
           }),
         }, subPlanId),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  moveNode: (nodeId, targetSubPlanId, targetIndex) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+
+      const sourcePlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      if (!sourcePlan) return state
+      const sourceSubPlanId = sourcePlan.id
+      const sourceIndex = sourcePlan.nodes.findIndex(n => n.id === nodeId)
+      if (sourceIndex === -1) return state
+
+      const node = sourcePlan.nodes[sourceIndex]
+
+      // Cycle guard: refuse to move a subplan node into its own subtree.
+      if (node.kind === 'subplan') {
+        if (isSubPlanDescendant(block.rootPlan, node.subPlanId, targetSubPlanId)) return state
+      }
+
+      // Normalise index for same-subplan moves.
+      const normIndex = sourceSubPlanId === targetSubPlanId && sourceIndex < targetIndex
+        ? targetIndex - 1
+        : targetIndex
+
+      // No-op guard.
+      if (sourceSubPlanId === targetSubPlanId && sourceIndex === normIndex) return state
+
+      const cmd: Command = {
+        apply: b => {
+          let root = b.rootPlan
+          // Remove from source.
+          root = updateSubPlanInTree(root, sourceSubPlanId, p => ({
+            ...p, nodes: p.nodes.filter(n => n.id !== nodeId),
+          }))
+          // Insert into target.
+          root = updateSubPlanInTree(root, targetSubPlanId, p => {
+            const nodes = [...p.nodes]
+            nodes.splice(normIndex, 0, node)
+            return { ...p, nodes }
+          })
+          return touchSubPlan(touchSubPlan({ ...b, rootPlan: root }, sourceSubPlanId), targetSubPlanId)
+        },
+        undo: b => {
+          let root = b.rootPlan
+          // Remove from target.
+          root = updateSubPlanInTree(root, targetSubPlanId, p => ({
+            ...p, nodes: p.nodes.filter(n => n.id !== nodeId),
+          }))
+          // Restore at source.
+          root = updateSubPlanInTree(root, sourceSubPlanId, p => {
+            const nodes = [...p.nodes]
+            nodes.splice(sourceIndex, 0, node)
+            return { ...p, nodes }
+          })
+          return touchSubPlan(touchSubPlan({ ...b, rootPlan: root }, sourceSubPlanId), targetSubPlanId)
+        },
       }
       return applyCommand(state, cmd)
     }),

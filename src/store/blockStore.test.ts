@@ -4,8 +4,9 @@ import {
   makeEmptyBlock,
   makeEmptySubPlan,
   findSubPlan,
+  isSubPlanDescendant,
 } from './blockStore'
-import type { RecipeNode } from '../data/types'
+import type { RecipeNode, SubPlanNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -170,6 +171,126 @@ describe('wrapNodeInSubPlan', () => {
     const before = useBlockStore.getState().blocks[0].rootPlan
     useBlockStore.getState().wrapNodeInSubPlan('sp-node', 'Foo')
     expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// isSubPlanDescendant
+// ---------------------------------------------------------------------------
+
+describe('isSubPlanDescendant', () => {
+  it('returns true when candidate equals ancestor', () => {
+    const root = makeEmptySubPlan('Root')
+    expect(isSubPlanDescendant(root, root.id, root.id)).toBe(true)
+  })
+
+  it('returns true for a direct child', () => {
+    const child = makeEmptySubPlan('Child')
+    const root = { ...makeEmptySubPlan('Root'), subPlans: [child] }
+    expect(isSubPlanDescendant(root, root.id, child.id)).toBe(true)
+  })
+
+  it('returns false for an unrelated subplan', () => {
+    const child = makeEmptySubPlan('Child')
+    const other = makeEmptySubPlan('Other')
+    const root = { ...makeEmptySubPlan('Root'), subPlans: [child, other] }
+    expect(isSubPlanDescendant(root, child.id, other.id)).toBe(false)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// moveNode
+// ---------------------------------------------------------------------------
+
+describe('moveNode', () => {
+  const nodeA: RecipeNode = { kind: 'game-recipe', id: 'node-a', recipeId: 'iron-plate', modules: [], byproductPolicy: {} }
+  const nodeB: RecipeNode = { kind: 'game-recipe', id: 'node-b', recipeId: 'copper-plate', modules: [], byproductPolicy: {} }
+  const nodeC: RecipeNode = { kind: 'game-recipe', id: 'node-c', recipeId: 'steel-plate', modules: [], byproductPolicy: {} }
+
+  it('reorders forward within the same subplan', () => {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, nodeB, nodeC] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-a', rootPlan.id, 2)
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes.map(n => n.id)).toEqual(['node-b', 'node-a', 'node-c'])
+  })
+
+  it('reorders backward within the same subplan', () => {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, nodeB, nodeC] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-c', rootPlan.id, 0)
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes.map(n => n.id)).toEqual(['node-c', 'node-a', 'node-b'])
+  })
+
+  it('moves a recipe from root into a subgroup', () => {
+    const child = { ...makeEmptySubPlan('Sub'), nodes: [nodeB] }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: child.id }
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-a', child.id, 1)
+
+    const state = useBlockStore.getState().blocks[0].rootPlan
+    expect(state.nodes.map(n => n.id)).toEqual(['sp-node'])
+    const childState = state.subPlans[0]
+    expect(childState.nodes.map(n => n.id)).toEqual(['node-b', 'node-a'])
+  })
+
+  it('moves a recipe from a subgroup back to root', () => {
+    const child = { ...makeEmptySubPlan('Sub'), nodes: [nodeB] }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: child.id }
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-b', rootPlan.id, 0)
+
+    const state = useBlockStore.getState().blocks[0].rootPlan
+    expect(state.nodes.map(n => n.id)).toEqual(['node-b', 'node-a', 'sp-node'])
+    expect(state.subPlans[0].nodes).toHaveLength(0)
+  })
+
+  it('undo/redo round-trip restores prior order', () => {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, nodeB, nodeC] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-a', rootPlan.id, 2)
+    useBlockStore.getState().undo()
+    const afterUndo = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(afterUndo.map(n => n.id)).toEqual(['node-a', 'node-b', 'node-c'])
+
+    useBlockStore.getState().redo()
+    const afterRedo = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(afterRedo.map(n => n.id)).toEqual(['node-b', 'node-a', 'node-c'])
+  })
+
+  it('cycle guard: moving a subplan into its own subtree is a no-op', () => {
+    const child = { ...makeEmptySubPlan('Child') }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: child.id }
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    const before = useBlockStore.getState().blocks[0].rootPlan
+    useBlockStore.getState().moveNode('sp-node', child.id, 0)
+    expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
+  })
+
+  it('trivial no-op does not push to history', () => {
+    const block = makeEmptyBlock('B')
+    const rootPlan = { ...block.rootPlan, nodes: [nodeA, nodeB] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+
+    useBlockStore.getState().moveNode('node-a', rootPlan.id, 0)
+    const hist = useBlockStore.getState().history[block.id]
+    expect(hist?.undoStack ?? []).toHaveLength(0)
   })
 })
 

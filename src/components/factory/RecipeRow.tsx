@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { ItemTile, fmtRate } from './ItemTile'
 import { MachineCell } from './MachinePopover'
@@ -8,6 +9,7 @@ import { ModuleCell } from './ModulePopover'
 import { BeaconCell } from './BeaconPopover'
 import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
+import { useRecipeDnd } from './RecipeDnd'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -23,6 +25,10 @@ interface RecipeRowProps {
   onToggleExpand?: () => void
   gameData: GameData
   rootPlan: SubPlan
+  /** The SubPlan that directly contains this node — used for DnD. */
+  parentSubPlanId: string
+  /** Index of this node within its parent SubPlan — used for DnD. */
+  nodeIndex: number
   /** Open the recipe picker pre-filtered to recipes producing this item. */
   onIngredientClick?: (itemId: string) => void
 }
@@ -37,10 +43,13 @@ export function RecipeRow({
   onToggleExpand,
   gameData,
   rootPlan,
+  parentSubPlanId,
+  nodeIndex,
   onIngredientClick,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
+  const moveNode = useBlockStore(s => s.moveNode)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
   const updateNodeByproductConsumer = useBlockStore(s => s.updateNodeByproductConsumer)
   const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
@@ -50,8 +59,85 @@ export function RecipeRow({
   const removeSubPlan = useBlockStore(s => s.removeSubPlan)
   const rateUnit = useUiStore(s => s.rateUnit)
 
+  const { dragging, beginDrag, endDrag } = useRecipeDnd()
+  const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
+  const rowRef = useRef<HTMLTableRowElement>(null)
+
   const indentPx = depth * 16
   const [editMachineOpen, setEditMachineOpen] = useState(false)
+
+  function handleDragStart(e: React.DragEvent) {
+    e.dataTransfer.effectAllowed = 'move'
+    setIsDragging(true)
+    if (planNode.kind === 'subplan') {
+      beginDrag({ nodeId: planNode.id, kind: 'subplan', subPlanId: planNode.subPlanId, sourceSubPlanId: parentSubPlanId })
+    } else {
+      beginDrag({ nodeId: planNode.id, kind: 'game-recipe', sourceSubPlanId: parentSubPlanId })
+    }
+  }
+
+  function handleDragEnd() {
+    setIsDragging(false)
+    setDropZone(null)
+    endDrag()
+  }
+
+  function computeDropZone(e: React.DragEvent): 'before' | 'after' | 'into' | null {
+    if (!dragging) return null
+    const rect = rowRef.current?.getBoundingClientRect()
+    if (!rect) return null
+
+    // Cycle guard: don't allow dropping a subplan onto its own subtree.
+    if (dragging.kind === 'subplan' && dragging.subPlanId) {
+      if (isSubPlanDescendant(rootPlan, dragging.subPlanId, parentSubPlanId)) return null
+    }
+
+    const relY = (e.clientY - rect.top) / rect.height
+
+    if (planNode.kind === 'subplan') {
+      // Collapsed subgroup: always append-into
+      if (!isExpanded) return 'into'
+      // Expanded subgroup: top half = before (sibling), bottom half = first child
+      return relY < 0.5 ? 'before' : 'into'
+    }
+
+    return relY < 0.5 ? 'before' : 'after'
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    const zone = computeDropZone(e)
+    if (!zone) return
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDropZone(zone)
+  }
+
+  function handleDragLeave() {
+    setDropZone(null)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    const zone = dropZone ?? computeDropZone(e)
+    if (!dragging || !zone) { setDropZone(null); return }
+
+    if (zone === 'into') {
+      // Append into the subplan referenced by this node.
+      if (planNode.kind === 'subplan') {
+        const childPlan = findSubPlanDeep(rootPlan, planNode.subPlanId)
+        if (childPlan) {
+          moveNode(dragging.nodeId, childPlan.id, childPlan.nodes.length)
+        }
+      }
+    } else {
+      const insertIndex = zone === 'before' ? nodeIndex : nodeIndex + 1
+      moveNode(dragging.nodeId, parentSubPlanId, insertIndex)
+    }
+
+    setDropZone(null)
+    endDrag()
+  }
 
   // ── SubPlan node ─────────────────────────────────────────────────────────
 
@@ -59,8 +145,23 @@ export function RecipeRow({
     const childPlan = findSubPlanDeep(rootPlan, planNode.subPlanId)
     const label = childPlan?.name ?? planNode.subPlanId
 
+    const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
+    const subplanOpacity = isDragging ? 'opacity-50' : ''
+
     return (
-      <tr className="border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group">
+      <tr
+        ref={rowRef}
+        className={`border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity}`}
+        draggable
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
+        {dropZone === 'before' && (
+          <td colSpan={8} className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" />
+        )}
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
         <td className="px-2 py-0.5" colSpan={7} style={{ paddingLeft: `${8 + indentPx}px` }}>
           <div className="flex items-center gap-1.5">
@@ -129,8 +230,25 @@ export function RecipeRow({
     }
   }
 
+  const recipeOpacity = isDragging ? 'opacity-50' : ''
+
   return (
-    <tr className="border-b border-gray-800 hover:bg-gray-800/40 group">
+    <tr
+      ref={rowRef}
+      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity}`}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {dropZone === 'before' && (
+        <td colSpan={8} className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" style={{ zIndex: 10 }} />
+      )}
+      {dropZone === 'after' && (
+        <td colSpan={8} className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" style={{ zIndex: 10 }} />
+      )}
       {/* Reorder */}
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 

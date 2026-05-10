@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
+import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode } from '../../data/types'
@@ -116,21 +117,26 @@ const mockGameData: GameData = {
 
 function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
   const block = useBlockStore.getState().blocks[0]
+  const rootPlan = block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }
   return render(
-    <table>
-      <tbody>
-        <RecipeRow
-          solvedNode={solvedNode}
-          planNode={ironPlateRecipeNode}
-          isFirst={false}
-          isLast={false}
-          depth={0}
-          gameData={mockGameData}
-          rootPlan={block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }}
-          {...props}
-        />
-      </tbody>
-    </table>
+    <RecipeDndProvider>
+      <table>
+        <tbody>
+          <RecipeRow
+            solvedNode={solvedNode}
+            planNode={ironPlateRecipeNode}
+            isFirst={false}
+            isLast={false}
+            depth={0}
+            gameData={mockGameData}
+            rootPlan={rootPlan}
+            parentSubPlanId={rootPlan.id}
+            nodeIndex={0}
+            {...props}
+          />
+        </tbody>
+      </table>
+    </RecipeDndProvider>
   )
 }
 
@@ -501,20 +507,25 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
     } as typeof mockGameData
 
     const block = useBlockStore.getState().blocks[0]
+    const rootPlan = block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }
     render(
-      <table>
-        <tbody>
-          <RecipeRow
-            solvedNode={surplusNode}
-            planNode={planNode}
-            isFirst={false}
-            isLast={false}
-            depth={0}
-            gameData={gameDataWithSteam}
-            rootPlan={block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }}
-          />
-        </tbody>
-      </table>,
+      <RecipeDndProvider>
+        <table>
+          <tbody>
+            <RecipeRow
+              solvedNode={surplusNode}
+              planNode={planNode}
+              isFirst={false}
+              isLast={false}
+              depth={0}
+              gameData={gameDataWithSteam}
+              rootPlan={rootPlan}
+              parentSubPlanId={rootPlan.id}
+              nodeIndex={0}
+            />
+          </tbody>
+        </table>
+      </RecipeDndProvider>,
     )
     // steam appears as a byproduct tile (non-primary output — button with red-950 class)
     const steamTiles = screen.getAllByTitle(/Steam/i)
