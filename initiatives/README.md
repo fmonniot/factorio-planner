@@ -18,7 +18,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Roadmap                     | —        | [roadmap.md](roadmap.md)                               |
-| Reorder recipes (DnD)       | Active   | [reorder-recipes-dnd/](reorder-recipes-dnd/)           |
+| Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |
 | LP solver v2                | Shipped  | [archive/lp-solver/](archive/lp-solver/)               |
 | Factory-planner UI redesign | Shipped  | [archive/ui-redesign/](archive/ui-redesign/)           |
 | Visual parity (V01–V10)     | Shipped  | [archive/visual-parity/](archive/visual-parity/)       |

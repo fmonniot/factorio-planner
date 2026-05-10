@@ -22,6 +22,7 @@ Status markers: `[ ]` not started · `[~]` in progress · `[x]` done
 | Visual parity (V01–V10) | Recipe icon, machine/beacon icon-and-badge cells, inline electricity tile, editable block name, single-row top bar, merged status footer, tile chrome polish. See [archive/visual-parity/tickets.md](archive/visual-parity/tickets.md). |
 | Edit Machine modal | Unified machine + module configuration in a single modal with effects panels. See [archive/edit-machine-modal/design.md](archive/edit-machine-modal/design.md). |
 | Edit Beacon modal | Beacon cell refactored to icon+badge trigger; full BeaconModal with beacon-type picker. Game-data exporter updated to populate `beacons` collection. See [archive/edit-beacon-modal/](archive/edit-beacon-modal/). |
+| Reorder recipes (DnD) | Drag-and-drop reordering of recipe and subgroup rows, including cross-subgroup moves. New `moveNode` store action with undo/redo; `RecipeDndProvider` context; insertion indicators. See [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/). |
 
 ---
 

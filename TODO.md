@@ -24,7 +24,6 @@ is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-pari
 
 - [ ] **Subgroup improvements:**
   - [ ] When clicking on the ingredient of a recipe in a sub group, the added recipe should be added to said subgroup
-  - [ ] It should be possible to move recipes between the main group and a sub group, or between sub groups. Drag'n'drop sounds like a good way to do that.
 
 
 ---
