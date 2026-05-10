@@ -1,7 +1,6 @@
 import { TopBar } from './TopBar'
 import { FactorySummary } from './FactorySummary'
 import { ProductionTable } from './ProductionTable'
-import { BalancedItemsFooter } from './BalancedItemsFooter'
 
 export function FactoryShell() {
   return (
@@ -10,7 +9,6 @@ export function FactoryShell() {
       <main className="flex flex-col flex-1 min-h-0 overflow-hidden">
         <FactorySummary />
         <ProductionTable />
-        <BalancedItemsFooter />
       </main>
     </div>
   )

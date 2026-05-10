@@ -9,6 +9,7 @@ import { ItemTile } from './ItemTile'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
+import { WarningsPopover } from './WarningsPopover'
 
 // ---------------------------------------------------------------------------
 // Net balance helper
@@ -218,22 +219,25 @@ export function FactorySummary() {
             {activeBlock?.name ?? 'Factory'}
           </button>
         )}
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRateUnit('sec')}
-            className={`hover:text-gray-200 ${rateUnit === 'sec' ? 'text-teal-400' : ''}`}
-          >
-            /sec
-          </button>
-          <span>·</span>
-          <button
-            type="button"
-            onClick={() => setRateUnit('min')}
-            className={`hover:text-gray-200 ${rateUnit === 'min' ? 'text-teal-400' : ''}`}
-          >
-            /min
-          </button>
+        <div className="flex items-center gap-3">
+          <WarningsPopover />
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setRateUnit('sec')}
+              className={`hover:text-gray-200 ${rateUnit === 'sec' ? 'text-teal-400' : ''}`}
+            >
+              /sec
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setRateUnit('min')}
+              className={`hover:text-gray-200 ${rateUnit === 'min' ? 'text-teal-400' : ''}`}
+            >
+              /min
+            </button>
+          </div>
         </div>
       </div>
 
