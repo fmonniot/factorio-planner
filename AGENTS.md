@@ -195,6 +195,12 @@ Two locations, two purposes. Follow these rules when adding or editing docs:
 
 ---
 
+## Testing preference
+
+When proposing a plan that includes validation steps, prefer writing Playwright e2e tests (in `e2e/`) over manual browser validation. Only fall back to manual testing when the scenario cannot be automated.
+
+---
+
 ## Spec maintenance
 
 After making changes to source files, update the relevant spec docs so this file stays accurate for future sessions. The goal is that a new session can read `AGENTS.md` + the `spec/` files and have enough context to work without traversing the codebase.
