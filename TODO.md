@@ -18,8 +18,6 @@ is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-pari
   - [ ] Duplicate recipe show up without a good reason to? Export plan to figure out why that is.
   - [ ] biggest question around whether we actually need the bar at all? balanced items doesn't seems to make much sense nowadays, we offer enough tools for the user to solve issues with a plan without having to know there is a specific error/warning? Or maybe it's still useful? Maybe just as a console log?
 
-- [ ] **Remove-recipe action:** Add a way to remove a recipe from the plan in the current UI (the action is missing entirely).
-
 - [x] **Power display:** Show power values in Watts/kW/MW instead of the current "Value/sec" format. Tooltip already shows kW, so the data is available.
 
 ---
