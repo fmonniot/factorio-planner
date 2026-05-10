@@ -9,67 +9,45 @@ import type { SolverWarning, GameData } from '../../data/types'
 
 function warningTitle(w: SolverWarning): string {
   switch (w.type) {
+    case 'no-recipe': return 'No recipe in plan'
     case 'duplicate-recipe': return 'Duplicate recipe'
-    case 'underdetermined': return 'Underdetermined system'
-    case 'no-recipe': return 'No producer'
-    case 'productivity-not-allowed': return 'Productivity ignored'
-    case 'cycle-detected': return 'Recipe cycle'
-    case 'too-many-alternatives': return 'Ambiguous production split'
-    case 'overconstrained': return "Recipe network can't fully balance"
     case 'infeasible-pins': return 'Pinned rate is impossible'
+    case 'overconstrained': return "Recipe network can't fully balance"
   }
 }
 
 function warningBody(w: SolverWarning, gameData: GameData): string {
   switch (w.type) {
+    case 'no-recipe': {
+      const name = gameData.items[w.itemId]?.name ?? w.itemId
+      return `No active recipe produces "${name}". It is treated as a raw input.`
+    }
     case 'duplicate-recipe': {
       const name = gameData.recipes[w.recipeId]?.name ?? w.recipeId
       return `"${name}" appears on ${w.count} nodes. The solver merges them into one column.`
     }
-    case 'underdetermined':
-      return 'The system has more recipe columns than constraints; the minimum-norm solution may not match your intent.'
-    case 'no-recipe': {
-      const name = gameData.items[w.itemId]?.name ?? w.itemId
-      return `No active recipe produces "${name}".`
-    }
-    case 'productivity-not-allowed': {
-      const name = gameData.recipes[w.recipeId]?.name ?? w.recipeId
-      return `"${name}" does not allow productivity modules; the bonus was ignored.`
-    }
-    case 'cycle-detected': {
+    case 'infeasible-pins': {
       const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
-      return `Recipes form a cycle: ${names.join(' → ')}.`
-    }
-    case 'too-many-alternatives': {
-      const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
-      return `${names.join(', ')} can all produce the same item.`
+      return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes. Goals will not be met.`
     }
     case 'overconstrained': {
       const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
-    }
-    case 'infeasible-pins': {
-      const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
-      return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes.`
     }
   }
 }
 
 function warningHint(w: SolverWarning): string {
   switch (w.type) {
-    case 'duplicate-recipe': return 'Remove one of the duplicate nodes in the production table.'
-    case 'underdetermined': return 'Add more goals, or pin a recipe rate to constrain the free variables.'
     case 'no-recipe': return 'Add a recipe node that outputs this item.'
-    case 'productivity-not-allowed': return 'Remove productivity modules from this node.'
-    case 'cycle-detected': return "Pin one recipe's rate to anchor the cycle."
-    case 'too-many-alternatives': return "Pin one recipe's rate to set the split, or remove a recipe you don't need."
-    case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
+    case 'duplicate-recipe': return 'Remove one of the duplicate nodes in the production table.'
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
+    case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
   }
 }
 
 function isCritical(w: SolverWarning): boolean {
-  return w.type === 'duplicate-recipe' || w.type === 'underdetermined'
+  return w.type === 'infeasible-pins'
 }
 
 // ---------------------------------------------------------------------------

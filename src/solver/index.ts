@@ -70,6 +70,16 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
 
   const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap)
 
+  // Warn for goal items with no producer recipe in the plan.
+  const noRecipeWarnings: SolverResult['warnings'] = []
+  for (const goal of plan.goals) {
+    const row = system.S.get(goal.itemId)
+    const hasProducer = row !== undefined && [...row.values()].some(c => c > 0)
+    if (!hasProducer) {
+      noRecipeWarnings.push({ type: 'no-recipe', itemId: goal.itemId })
+    }
+  }
+
   for (const n of gameRecipeNodes) {
     for (const [itemId, policy] of Object.entries(n.byproductPolicy)) {
       if (policy === 'discard') {
@@ -128,27 +138,6 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
   }
   if (overconstrainedItems.length > 0) {
     warnings.push({ type: 'overconstrained', surplusItems: overconstrainedItems })
-  }
-
-  // Detect too-many-alternatives: multiple recipes with non-zero throughput
-  // all producing the same goal or intermediate item.
-  const ACTIVE_THRESHOLD = 1e-6
-  const producersByItem = new Map<string, string[]>()
-  for (const [itemId, rowS] of system.S) {
-    if (!system.classification.goals.has(itemId) && !system.classification.intermediates.has(itemId)) continue
-    const activeProducers: string[] = []
-    for (const [recipeId, coeff] of rowS) {
-      if (coeff > 0 && (throughputMap.get(recipeId) ?? 0) > ACTIVE_THRESHOLD) {
-        activeProducers.push(recipeId)
-      }
-    }
-    if (activeProducers.length > 1) {
-      producersByItem.set(itemId, activeProducers)
-    }
-  }
-  if (producersByItem.size > 0) {
-    const allAmbiguousRecipes = [...new Set([...producersByItem.values()].flat())]
-    warnings.push({ type: 'too-many-alternatives', recipeIds: allAmbiguousRecipes })
   }
 
   const nodes: SolvedNode[] = []
@@ -244,5 +233,5 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  return { nodes, unsatisfied, warnings: [...duplicateWarnings, ...warnings] }
+  return { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] }
 }

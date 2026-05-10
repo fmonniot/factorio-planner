@@ -15,10 +15,9 @@ const mockGameData: GameData = {
   items: {
     steam: { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', hidden: false },
     oxygen: { id: 'oxygen', name: 'Oxygen', type: 'fluid', iconPath: '', hidden: false },
+    'iron-plate': { id: 'iron-plate', name: 'Iron Plate', type: 'item', iconPath: '', hidden: false },
   },
   recipes: {
-    'smelt-a': { id: 'smelt-a', name: 'Smelt A', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false },
-    'smelt-b': { id: 'smelt-b', name: 'Smelt B', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false },
     'boiler': { id: 'boiler', name: 'Boiler Recipe', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false },
   },
   machines: {},
@@ -44,26 +43,26 @@ beforeEach(() => {
 })
 
 // ---------------------------------------------------------------------------
-// too-many-alternatives
+// no-recipe
 // ---------------------------------------------------------------------------
 
-describe('WarningsPopover — too-many-alternatives', () => {
+describe('WarningsPopover — no-recipe', () => {
   beforeEach(() => {
-    setupWithWarnings({ warnings: [{ type: 'too-many-alternatives', recipeIds: ['smelt-a', 'smelt-b'] }] })
+    setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
     render(<WarningsPopover />)
     openPopover()
   })
 
-  it('shows title "Ambiguous production split"', () => {
-    expect(screen.getByText(/Ambiguous production split/i)).toBeInTheDocument()
+  it('shows title "No recipe in plan"', () => {
+    expect(screen.getByText(/No recipe in plan/i)).toBeInTheDocument()
   })
 
-  it('body contains recipe names', () => {
-    expect(screen.getByText(/Smelt A.*Smelt B/i)).toBeInTheDocument()
+  it('body contains the item name', () => {
+    expect(screen.getByText(/Iron Plate/i)).toBeInTheDocument()
   })
 
-  it('hint mentions pinning', () => {
-    expect(screen.getByText(/pin one recipe/i)).toBeInTheDocument()
+  it('hint mentions adding a recipe node', () => {
+    expect(screen.getByText(/add a recipe node/i)).toBeInTheDocument()
   })
 })
 

@@ -96,6 +96,30 @@ describe('solve', () => {
 // not change solver output. Subplans are a UI/persistence grouping only.
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// no-recipe warning
+// ---------------------------------------------------------------------------
+
+describe('solve — no-recipe warning', () => {
+  it('emits no-recipe warning when a goal item has no producer recipe in the plan', () => {
+    const gd = makeGameData({ recipes: { 'iron-plate': ironRecipe } })
+    // Goal for copper-plate but no recipe node that produces it.
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'copper-plate', rate: 60 }],
+      nodes: [planNode('n1', 'iron-plate')],
+    }
+    const result = solve(plan, gd)
+    const w = result.warnings.filter(w => w.type === 'no-recipe')
+    expect(w).toHaveLength(1)
+    if (w[0]?.type === 'no-recipe') expect(w[0].itemId).toBe('copper-plate')
+  })
+
+  it('does not emit no-recipe when a recipe node exists for the goal', () => {
+    const result = solve(simplePlan, simpleGameData)
+    expect(result.warnings.some(w => w.type === 'no-recipe')).toBe(false)
+  })
+})
+
 describe('flattenBlock + solve(block) — subplan grouping is solver-transparent', () => {
   it('a flat block and a block with the same recipe wrapped in a subplan produce identical throughput', () => {
     const ironNode = planNode('n1', 'iron-plate')

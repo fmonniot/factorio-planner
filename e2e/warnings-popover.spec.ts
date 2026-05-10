@@ -56,9 +56,9 @@ test.describe('Warnings popover', () => {
     await expect(page.getByText('Solver warnings')).not.toBeVisible()
   })
 
-  test('duplicate-recipe warning badge is red (critical)', async ({ page }) => {
-    // Critical warnings (duplicate-recipe) make the badge red, not yellow.
+  test('duplicate-recipe warning badge is yellow (non-critical)', async ({ page }) => {
+    // duplicate-recipe is a non-critical warning — badge should be yellow.
     const badge = page.getByRole('button', { name: /warning/ })
-    await expect(badge).toHaveClass(/text-red-400/)
+    await expect(badge).toHaveClass(/text-yellow-400/)
   })
 })

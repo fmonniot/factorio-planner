@@ -47,15 +47,10 @@ export interface UnsatisfiedItem {
 }
 
 export type SolverWarning =
-  | { type: 'cycle-detected'; recipeIds: string[] }
-  | { type: 'underdetermined'; freeVariables: string[] }
   | { type: 'no-recipe'; itemId: string }
-  | { type: 'productivity-not-allowed'; recipeId: string }
   | { type: 'duplicate-recipe'; recipeId: string; count: number }
-  // v2-only warning types
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
-  | { type: 'too-many-alternatives'; recipeIds: string[] }
 
 export interface SolverResult {
   nodes: SolvedNode[]
