@@ -28439,7 +28439,7 @@
   "recipes": {
     "recipe-unknown": {
       "id": "recipe-unknown",
-      "name": "recipe-unknown",
+      "name": "Unknown recipe",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -28854,7 +28854,7 @@
     },
     "basic-oil-processing": {
       "id": "basic-oil-processing",
-      "name": "basic-oil-processing",
+      "name": "Basic oil processing",
       "category": "oil-processing",
       "craftingTime": 5,
       "ingredients": [
@@ -28882,7 +28882,7 @@
     },
     "advanced-oil-processing": {
       "id": "advanced-oil-processing",
-      "name": "advanced-oil-processing",
+      "name": "Advanced oil processing",
       "category": "oil-processing",
       "craftingTime": 5,
       "ingredients": [
@@ -28924,7 +28924,7 @@
     },
     "coal-liquefaction": {
       "id": "coal-liquefaction",
-      "name": "coal-liquefaction",
+      "name": "Coal liquefaction",
       "category": "oil-processing",
       "craftingTime": 5,
       "ingredients": [
@@ -28972,7 +28972,7 @@
     },
     "heavy-oil-cracking": {
       "id": "heavy-oil-cracking",
-      "name": "heavy-oil-cracking",
+      "name": "Heavy oil cracking to light oil",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -29005,7 +29005,7 @@
     },
     "light-oil-cracking": {
       "id": "light-oil-cracking",
-      "name": "light-oil-cracking",
+      "name": "Light oil cracking to petroleum gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -29109,7 +29109,7 @@
     },
     "solid-fuel-from-light-oil": {
       "id": "solid-fuel-from-light-oil",
-      "name": "solid-fuel-from-light-oil",
+      "name": "Solid fuel from light oil",
       "category": "chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -29137,7 +29137,7 @@
     },
     "solid-fuel-from-petroleum-gas": {
       "id": "solid-fuel-from-petroleum-gas",
-      "name": "solid-fuel-from-petroleum-gas",
+      "name": "Solid fuel from petroleum gas",
       "category": "chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -29165,7 +29165,7 @@
     },
     "solid-fuel-from-heavy-oil": {
       "id": "solid-fuel-from-heavy-oil",
-      "name": "solid-fuel-from-heavy-oil",
+      "name": "Solid fuel from heavy oil",
       "category": "chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -35992,7 +35992,7 @@
     },
     "uranium-processing": {
       "id": "uranium-processing",
-      "name": "uranium-processing",
+      "name": "Uranium processing",
       "category": "centrifuging",
       "craftingTime": 12,
       "ingredients": [
@@ -36026,7 +36026,7 @@
     },
     "kovarex-enrichment-process": {
       "id": "kovarex-enrichment-process",
-      "name": "kovarex-enrichment-process",
+      "name": "Kovarex enrichment process",
       "category": "centrifuging",
       "craftingTime": 60,
       "ingredients": [
@@ -36099,7 +36099,7 @@
     },
     "nuclear-fuel-reprocessing": {
       "id": "nuclear-fuel-reprocessing",
-      "name": "nuclear-fuel-reprocessing",
+      "name": "Nuclear fuel reprocessing",
       "category": "centrifuging",
       "craftingTime": 60,
       "ingredients": [
@@ -41449,7 +41449,7 @@
     },
     "bob-oil-processing": {
       "id": "bob-oil-processing",
-      "name": "bob-oil-processing",
+      "name": "Crude oil processing",
       "category": "oil-processing",
       "craftingTime": 5,
       "ingredients": [
@@ -43075,7 +43075,7 @@
     },
     "nullius-hydrogen-chloride-electrolysis": {
       "id": "nullius-hydrogen-chloride-electrolysis",
-      "name": "nullius-hydrogen-chloride-electrolysis",
+      "name": "Hydrogen chloride electrolysis",
       "category": "nullius-electrolysis",
       "craftingTime": 1,
       "ingredients": [
@@ -44044,7 +44044,7 @@
     },
     "nullius-saline-electrolysis": {
       "id": "nullius-saline-electrolysis",
-      "name": "nullius-saline-electrolysis",
+      "name": "Saline electrolysis",
       "category": "nullius-electrolysis",
       "craftingTime": 1,
       "ingredients": [
@@ -44097,7 +44097,7 @@
     },
     "nullius-water-electrolysis": {
       "id": "nullius-water-electrolysis",
-      "name": "nullius-water-electrolysis",
+      "name": "Water electrolysis",
       "category": "nullius-electrolysis",
       "craftingTime": 1,
       "ingredients": [
@@ -44140,7 +44140,7 @@
     },
     "nullius-pressure-water-electrolysis": {
       "id": "nullius-pressure-water-electrolysis",
-      "name": "nullius-pressure-water-electrolysis",
+      "name": "Water electrolysis (pressurized)",
       "category": "nullius-electrolysis",
       "craftingTime": 1,
       "ingredients": [
@@ -44312,7 +44312,7 @@
     },
     "nullius-brine-electrolysis": {
       "id": "nullius-brine-electrolysis",
-      "name": "nullius-brine-electrolysis",
+      "name": "Brine electrolysis",
       "category": "nullius-electrolysis",
       "craftingTime": 1,
       "ingredients": [
@@ -44868,7 +44868,7 @@
     },
     "nullius-legacy-lithium-chloride": {
       "id": "nullius-legacy-lithium-chloride",
-      "name": "nullius-legacy-lithium-chloride",
+      "name": "Lithium chloride",
       "category": "nullius-water-treatment",
       "craftingTime": 32,
       "ingredients": [
@@ -44916,7 +44916,7 @@
     },
     "nullius-legacy-boxed-lithium-chloride": {
       "id": "nullius-legacy-boxed-lithium-chloride",
-      "name": "nullius-legacy-boxed-lithium-chloride",
+      "name": "nullius-box-lithium-chloride",
       "category": "nullius-water-treatment",
       "craftingTime": 160,
       "ingredients": [
@@ -45052,7 +45052,7 @@
     },
     "nullius-air-separation-1": {
       "id": "nullius-air-separation-1",
-      "name": "nullius-air-separation-1",
+      "name": "Air separation 1",
       "category": "distillation",
       "craftingTime": 1,
       "ingredients": [
@@ -45089,7 +45089,7 @@
     },
     "nullius-air-separation-2": {
       "id": "nullius-air-separation-2",
-      "name": "nullius-air-separation-2",
+      "name": "Air separation 2",
       "category": "distillation",
       "craftingTime": 1,
       "ingredients": [
@@ -45131,7 +45131,7 @@
     },
     "nullius-pressure-air-separation": {
       "id": "nullius-pressure-air-separation",
-      "name": "nullius-pressure-air-separation",
+      "name": "Air separation (pressurized)",
       "category": "distillation",
       "craftingTime": 2,
       "ingredients": [
@@ -45173,7 +45173,7 @@
     },
     "nullius-oxygen-separation": {
       "id": "nullius-oxygen-separation",
-      "name": "nullius-oxygen-separation",
+      "name": "Oxygenated air separation",
       "category": "distillation",
       "craftingTime": 4,
       "ingredients": [
@@ -45215,7 +45215,7 @@
     },
     "nullius-pressure-oxygen-separation": {
       "id": "nullius-pressure-oxygen-separation",
-      "name": "nullius-pressure-oxygen-separation",
+      "name": "Oxygenated air separation (pressurized)",
       "category": "distillation",
       "craftingTime": 3,
       "ingredients": [
@@ -45300,7 +45300,7 @@
     },
     "nullius-residual-separation": {
       "id": "nullius-residual-separation",
-      "name": "nullius-residual-separation",
+      "name": "Residual separation",
       "category": "distillation",
       "craftingTime": 5,
       "ingredients": [
@@ -45342,7 +45342,7 @@
     },
     "nullius-pressure-residual-separation": {
       "id": "nullius-pressure-residual-separation",
-      "name": "nullius-pressure-residual-separation",
+      "name": "Residual separation (pressurized)",
       "category": "distillation",
       "craftingTime": 10,
       "ingredients": [
@@ -45384,7 +45384,7 @@
     },
     "nullius-trace-separation": {
       "id": "nullius-trace-separation",
-      "name": "nullius-trace-separation",
+      "name": "Trace separation",
       "category": "distillation",
       "craftingTime": 2,
       "ingredients": [
@@ -45426,7 +45426,7 @@
     },
     "nullius-pressure-trace-separation": {
       "id": "nullius-pressure-trace-separation",
-      "name": "nullius-pressure-trace-separation",
+      "name": "Trace separation (pressurized)",
       "category": "distillation",
       "craftingTime": 10,
       "ingredients": [
@@ -45700,7 +45700,7 @@
     },
     "nullius-pressure-carbon-monoxide": {
       "id": "nullius-pressure-carbon-monoxide",
-      "name": "nullius-pressure-carbon-monoxide",
+      "name": "Carbon monoxide (pressurized)",
       "category": "basic-chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -45785,7 +45785,7 @@
     },
     "nullius-pressure-carbon-dioxide": {
       "id": "nullius-pressure-carbon-dioxide",
-      "name": "nullius-pressure-carbon-dioxide",
+      "name": "Carbon dioxide (pressurized)",
       "category": "basic-chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -45870,7 +45870,7 @@
     },
     "nullius-pressure-monoxide-to-graphite": {
       "id": "nullius-pressure-monoxide-to-graphite",
-      "name": "nullius-pressure-monoxide-to-graphite",
+      "name": "Graphite (pressurized)",
       "category": "basic-chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -46255,7 +46255,7 @@
     },
     "nullius-pressure-alkene-synthesis": {
       "id": "nullius-pressure-alkene-synthesis",
-      "name": "nullius-pressure-alkene-synthesis",
+      "name": "Alkene synthesis (pressurized)",
       "category": "distillation",
       "craftingTime": 1,
       "ingredients": [
@@ -46349,7 +46349,7 @@
     },
     "nullius-pressure-methane": {
       "id": "nullius-pressure-methane",
-      "name": "nullius-pressure-methane",
+      "name": "Methane (pressurized)",
       "category": "basic-chemistry",
       "craftingTime": 1,
       "ingredients": [
@@ -47963,7 +47963,7 @@
     },
     "nullius-methane-to-graphite": {
       "id": "nullius-methane-to-graphite",
-      "name": "nullius-methane-to-graphite",
+      "name": "Methane pyrolysis",
       "category": "wet-smelting",
       "craftingTime": 1,
       "ingredients": [
@@ -47996,7 +47996,7 @@
     },
     "nullius-pressure-methane-to-graphite": {
       "id": "nullius-pressure-methane-to-graphite",
-      "name": "nullius-pressure-methane-to-graphite",
+      "name": "Methane pyrolysis (pressurized)",
       "category": "wet-smelting",
       "craftingTime": 1,
       "ingredients": [
@@ -48359,7 +48359,7 @@
     },
     "nullius-canister-emptying": {
       "id": "nullius-canister-emptying",
-      "name": "nullius-canister-emptying",
+      "name": "Canister emptying",
       "category": "nullius-unbarrel",
       "craftingTime": 0.2,
       "ingredients": [
@@ -48998,7 +48998,7 @@
     },
     "nullius-legacy-rocket-fuel": {
       "id": "nullius-legacy-rocket-fuel",
-      "name": "nullius-legacy-rocket-fuel",
+      "name": "Solid rocket fuel",
       "category": "basic-chemistry",
       "craftingTime": 40,
       "ingredients": [
@@ -49076,7 +49076,7 @@
     },
     "nullius-legacy-boxed-rocket-fuel": {
       "id": "nullius-legacy-boxed-rocket-fuel",
-      "name": "nullius-legacy-boxed-rocket-fuel",
+      "name": "nullius-box-rocket-fuel",
       "category": "basic-chemistry",
       "craftingTime": 200,
       "ingredients": [
@@ -50756,7 +50756,7 @@
     },
     "nullius-pressure-bpa": {
       "id": "nullius-pressure-bpa",
-      "name": "nullius-pressure-bpa",
+      "name": "BPA (pressurized)",
       "category": "basic-chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -51596,7 +51596,7 @@
     },
     "nullius-fusion-recycling": {
       "id": "nullius-fusion-recycling",
-      "name": "nullius-fusion-recycling",
+      "name": "Spent fusion cell recycling",
       "category": "basic-chemistry",
       "craftingTime": 15,
       "ingredients": [
@@ -51699,7 +51699,7 @@
     },
     "nullius-breeder-recycling": {
       "id": "nullius-breeder-recycling",
-      "name": "nullius-breeder-recycling",
+      "name": "Spent breeder cell recycling",
       "category": "distillation",
       "craftingTime": 20,
       "ingredients": [
@@ -59441,7 +59441,7 @@
     },
     "nullius-legacy-empty-canister": {
       "id": "nullius-legacy-empty-canister",
-      "name": "nullius-legacy-empty-canister",
+      "name": "Empty canister",
       "category": "small-crafting",
       "craftingTime": 7,
       "ingredients": [
@@ -59484,7 +59484,7 @@
     },
     "nullius-legacy-boxed-canister": {
       "id": "nullius-legacy-boxed-canister",
-      "name": "nullius-legacy-boxed-canister",
+      "name": "nullius-box-canister",
       "category": "large-assembly",
       "craftingTime": 35,
       "ingredients": [
@@ -62519,7 +62519,7 @@
     },
     "nullius-legacy-robot-frame-1": {
       "id": "nullius-legacy-robot-frame-1",
-      "name": "nullius-legacy-robot-frame-1",
+      "name": "Robot frame 1",
       "category": "tiny-assembly",
       "craftingTime": 12,
       "ingredients": [
@@ -62574,7 +62574,7 @@
     },
     "nullius-legacy-boxed-robot-frame-1": {
       "id": "nullius-legacy-boxed-robot-frame-1",
-      "name": "nullius-legacy-boxed-robot-frame-1",
+      "name": "nullius-box-robot-frame-1",
       "category": "medium-only-assembly",
       "craftingTime": 60,
       "ingredients": [
@@ -62729,7 +62729,7 @@
     },
     "nullius-legacy-robot-frame-2": {
       "id": "nullius-legacy-robot-frame-2",
-      "name": "nullius-legacy-robot-frame-2",
+      "name": "Robot frame 2",
       "category": "tiny-assembly",
       "craftingTime": 15,
       "ingredients": [
@@ -62779,7 +62779,7 @@
     },
     "nullius-legacy-boxed-robot-frame-2": {
       "id": "nullius-legacy-boxed-robot-frame-2",
-      "name": "nullius-legacy-boxed-robot-frame-2",
+      "name": "nullius-box-robot-frame-2",
       "category": "medium-only-assembly",
       "craftingTime": 75,
       "ingredients": [
@@ -64078,7 +64078,7 @@
     },
     "nullius-fission-recycling": {
       "id": "nullius-fission-recycling",
-      "name": "nullius-fission-recycling",
+      "name": "Spent fission cell recycling",
       "category": "ore-flotation",
       "craftingTime": 4,
       "ingredients": [
@@ -64624,7 +64624,7 @@
     },
     "nullius-legacy-small-assembler-1": {
       "id": "nullius-legacy-small-assembler-1",
-      "name": "nullius-legacy-small-assembler-1",
+      "name": "Small assembler 1",
       "category": "medium-crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -64719,7 +64719,7 @@
     },
     "nullius-legacy-small-assembler-2": {
       "id": "nullius-legacy-small-assembler-2",
-      "name": "nullius-legacy-small-assembler-2",
+      "name": "Small assembler 2",
       "category": "medium-crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -65147,7 +65147,7 @@
     },
     "nullius-legacy-small-miner-1": {
       "id": "nullius-legacy-small-miner-1",
-      "name": "nullius-legacy-small-miner-1",
+      "name": "Small miner 1",
       "category": "medium-crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -66080,7 +66080,7 @@
     },
     "nullius-legacy-crusher-3": {
       "id": "nullius-legacy-crusher-3",
-      "name": "nullius-legacy-crusher-3",
+      "name": "Crusher 3",
       "category": "large-crafting",
       "craftingTime": 30,
       "ingredients": [
@@ -67703,7 +67703,7 @@
     },
     "nullius-legacy-large-beacon-2": {
       "id": "nullius-legacy-large-beacon-2",
-      "name": "nullius-legacy-large-beacon-2",
+      "name": "Large beacon 2",
       "category": "large-crafting",
       "craftingTime": 120,
       "ingredients": [
@@ -72938,7 +72938,7 @@
     },
     "nullius-legacy-extractor-2": {
       "id": "nullius-legacy-extractor-2",
-      "name": "nullius-legacy-extractor-2",
+      "name": "Extractor 2",
       "category": "huge-crafting",
       "craftingTime": 75,
       "ingredients": [
@@ -74305,7 +74305,7 @@
     },
     "nullius-legacy-barrel-pump-2": {
       "id": "nullius-legacy-barrel-pump-2",
-      "name": "nullius-legacy-barrel-pump-2",
+      "name": "Barrel pump 2",
       "category": "medium-crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -74409,7 +74409,7 @@
     },
     "nullius-legacy-nanofabricator-1": {
       "id": "nullius-legacy-nanofabricator-1",
-      "name": "nullius-legacy-nanofabricator-1",
+      "name": "Nanofabricator 1",
       "category": "huge-crafting",
       "craftingTime": 40,
       "ingredients": [
@@ -74517,7 +74517,7 @@
     },
     "nullius-legacy-nanofabricator-2": {
       "id": "nullius-legacy-nanofabricator-2",
-      "name": "nullius-legacy-nanofabricator-2",
+      "name": "Nanofabricator 2",
       "category": "huge-crafting",
       "craftingTime": 90,
       "ingredients": [
@@ -76323,7 +76323,7 @@
     },
     "nullius-legacy-chassis-5": {
       "id": "nullius-legacy-chassis-5",
-      "name": "nullius-legacy-chassis-5",
+      "name": "Chassis 5",
       "category": "hand-casting",
       "craftingTime": 250,
       "ingredients": [
@@ -78437,7 +78437,7 @@
     },
     "nullius-legacy-repair-pack": {
       "id": "nullius-legacy-repair-pack",
-      "name": "nullius-legacy-repair-pack",
+      "name": "Repair pack",
       "category": "small-crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -78490,7 +78490,7 @@
     },
     "nullius-legacy-boxed-repair-pack": {
       "id": "nullius-legacy-boxed-repair-pack",
-      "name": "nullius-legacy-boxed-repair-pack",
+      "name": "nullius-box-repair-pack",
       "category": "large-assembly",
       "craftingTime": 30,
       "ingredients": [
@@ -78772,7 +78772,7 @@
     },
     "nullius-legacy-levitation-field-2": {
       "id": "nullius-legacy-levitation-field-2",
-      "name": "nullius-legacy-levitation-field-2",
+      "name": "nullius-levitation-field-2",
       "category": "nanotechnology",
       "craftingTime": 20,
       "ingredients": [
@@ -79085,7 +79085,7 @@
     },
     "nullius-legacy-leg-augmentation-1": {
       "id": "nullius-legacy-leg-augmentation-1",
-      "name": "nullius-legacy-leg-augmentation-1",
+      "name": "nullius-leg-augmentation-1",
       "category": "medium-crafting",
       "craftingTime": 15,
       "ingredients": [
@@ -79642,7 +79642,7 @@
     },
     "nullius-legacy-locomotive-1": {
       "id": "nullius-legacy-locomotive-1",
-      "name": "nullius-legacy-locomotive-1",
+      "name": "Locomotive 1",
       "category": "large-crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -79753,7 +79753,7 @@
     },
     "nullius-legacy-locomotive-2": {
       "id": "nullius-legacy-locomotive-2",
-      "name": "nullius-legacy-locomotive-2",
+      "name": "Locomotive 2",
       "category": "huge-crafting",
       "craftingTime": 20,
       "ingredients": [
@@ -79851,7 +79851,7 @@
     },
     "nullius-legacy-locomotive-3": {
       "id": "nullius-legacy-locomotive-3",
-      "name": "nullius-legacy-locomotive-3",
+      "name": "Locomotive 3",
       "category": "huge-crafting",
       "craftingTime": 40,
       "ingredients": [
@@ -80006,7 +80006,7 @@
     },
     "nullius-legacy-cargo-wagon-1": {
       "id": "nullius-legacy-cargo-wagon-1",
-      "name": "nullius-legacy-cargo-wagon-1",
+      "name": "Cargo wagon 1",
       "category": "large-crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -80363,7 +80363,7 @@
     },
     "nullius-legacy-construction-bot-1": {
       "id": "nullius-legacy-construction-bot-1",
-      "name": "nullius-legacy-construction-bot-1",
+      "name": "Construction bot 1",
       "category": "tiny-crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -80403,7 +80403,7 @@
     },
     "nullius-legacy-boxed-construction-bot-1": {
       "id": "nullius-legacy-boxed-construction-bot-1",
-      "name": "nullius-legacy-boxed-construction-bot-1",
+      "name": "nullius-box-construction-bot-1",
       "category": "medium-only-assembly",
       "craftingTime": 25,
       "ingredients": [
@@ -80533,7 +80533,7 @@
     },
     "nullius-legacy-construction-bot-2": {
       "id": "nullius-legacy-construction-bot-2",
-      "name": "nullius-legacy-construction-bot-2",
+      "name": "Construction bot 2",
       "category": "tiny-crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -80573,7 +80573,7 @@
     },
     "nullius-legacy-boxed-construction-bot-2": {
       "id": "nullius-legacy-boxed-construction-bot-2",
-      "name": "nullius-legacy-boxed-construction-bot-2",
+      "name": "nullius-box-construction-bot-2",
       "category": "medium-only-assembly",
       "craftingTime": 30,
       "ingredients": [
@@ -80703,7 +80703,7 @@
     },
     "nullius-legacy-construction-bot-3": {
       "id": "nullius-legacy-construction-bot-3",
-      "name": "nullius-legacy-construction-bot-3",
+      "name": "Construction bot 3",
       "category": "tiny-crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -80748,7 +80748,7 @@
     },
     "nullius-legacy-boxed-construction-bot-3": {
       "id": "nullius-legacy-boxed-construction-bot-3",
-      "name": "nullius-legacy-boxed-construction-bot-3",
+      "name": "nullius-box-construction-bot-3",
       "category": "medium-only-assembly",
       "craftingTime": 40,
       "ingredients": [
@@ -80883,7 +80883,7 @@
     },
     "nullius-legacy-construction-bot-4": {
       "id": "nullius-legacy-construction-bot-4",
-      "name": "nullius-legacy-construction-bot-4",
+      "name": "Construction bot 4",
       "category": "tiny-crafting",
       "craftingTime": 25,
       "ingredients": [
@@ -80923,7 +80923,7 @@
     },
     "nullius-legacy-boxed-construction-bot-4": {
       "id": "nullius-legacy-boxed-construction-bot-4",
-      "name": "nullius-legacy-boxed-construction-bot-4",
+      "name": "nullius-box-construction-bot-4",
       "category": "medium-only-assembly",
       "craftingTime": 125,
       "ingredients": [
@@ -81043,7 +81043,7 @@
     },
     "nullius-legacy-logistic-bot-1": {
       "id": "nullius-legacy-logistic-bot-1",
-      "name": "nullius-legacy-logistic-bot-1",
+      "name": "Logistic bot 1",
       "category": "tiny-crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -81083,7 +81083,7 @@
     },
     "nullius-legacy-boxed-logistic-bot-1": {
       "id": "nullius-legacy-boxed-logistic-bot-1",
-      "name": "nullius-legacy-boxed-logistic-bot-1",
+      "name": "nullius-box-logistic-bot-1",
       "category": "medium-only-assembly",
       "craftingTime": 25,
       "ingredients": [
@@ -81213,7 +81213,7 @@
     },
     "nullius-legacy-logistic-bot-2": {
       "id": "nullius-legacy-logistic-bot-2",
-      "name": "nullius-legacy-logistic-bot-2",
+      "name": "Logistic bot 2",
       "category": "tiny-crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -81253,7 +81253,7 @@
     },
     "nullius-legacy-boxed-logistic-bot-2": {
       "id": "nullius-legacy-boxed-logistic-bot-2",
-      "name": "nullius-legacy-boxed-logistic-bot-2",
+      "name": "nullius-box-logistic-bot-2",
       "category": "medium-only-assembly",
       "craftingTime": 30,
       "ingredients": [
@@ -81383,7 +81383,7 @@
     },
     "nullius-legacy-logistic-bot-3": {
       "id": "nullius-legacy-logistic-bot-3",
-      "name": "nullius-legacy-logistic-bot-3",
+      "name": "Logistic bot 3",
       "category": "tiny-crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -81428,7 +81428,7 @@
     },
     "nullius-legacy-boxed-logistic-bot-3": {
       "id": "nullius-legacy-boxed-logistic-bot-3",
-      "name": "nullius-legacy-boxed-logistic-bot-3",
+      "name": "nullius-box-logistic-bot-3",
       "category": "medium-only-assembly",
       "craftingTime": 40,
       "ingredients": [
@@ -81563,7 +81563,7 @@
     },
     "nullius-legacy-logistic-bot-4": {
       "id": "nullius-legacy-logistic-bot-4",
-      "name": "nullius-legacy-logistic-bot-4",
+      "name": "Logistic bot 4",
       "category": "tiny-crafting",
       "craftingTime": 25,
       "ingredients": [
@@ -81603,7 +81603,7 @@
     },
     "nullius-legacy-boxed-logistic-bot-4": {
       "id": "nullius-legacy-boxed-logistic-bot-4",
-      "name": "nullius-legacy-boxed-logistic-bot-4",
+      "name": "nullius-box-logistic-bot-4",
       "category": "medium-only-assembly",
       "craftingTime": 125,
       "ingredients": [
@@ -81695,7 +81695,7 @@
     },
     "nullius-legacy-car-1": {
       "id": "nullius-legacy-car-1",
-      "name": "nullius-legacy-car-1",
+      "name": "Car 1",
       "category": "large-fluid-assembly",
       "craftingTime": 10,
       "ingredients": [
@@ -92937,7 +92937,7 @@
     },
     "nullius-legacy-demolition-drone": {
       "id": "nullius-legacy-demolition-drone",
-      "name": "nullius-legacy-demolition-drone",
+      "name": "Demolition drone",
       "category": "small-crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -93066,7 +93066,7 @@
     },
     "nullius-legacy-excavation-drone": {
       "id": "nullius-legacy-excavation-drone",
-      "name": "nullius-legacy-excavation-drone",
+      "name": "Excavation drone (deep)",
       "category": "small-crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -93398,7 +93398,7 @@
     },
     "nullius-legacy-android-1": {
       "id": "nullius-legacy-android-1",
-      "name": "nullius-legacy-android-1",
+      "name": "Character",
       "category": "nanotechnology",
       "craftingTime": 250,
       "ingredients": [
@@ -93530,7 +93530,7 @@
     },
     "nullius-legacy-android-2": {
       "id": "nullius-legacy-android-2",
-      "name": "nullius-legacy-android-2",
+      "name": "Android 2",
       "category": "nanotechnology",
       "craftingTime": 400,
       "ingredients": [
@@ -97297,7 +97297,7 @@
     },
     "nullius-legacy-rail-signal": {
       "id": "nullius-legacy-rail-signal",
-      "name": "nullius-legacy-rail-signal",
+      "name": "Rail signal",
       "category": "small-crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -97387,7 +97387,7 @@
     },
     "nullius-legacy-boxed-rail-signal": {
       "id": "nullius-legacy-boxed-rail-signal",
-      "name": "nullius-legacy-boxed-rail-signal",
+      "name": "nullius-box-rail-signal",
       "category": "large-assembly",
       "craftingTime": 15,
       "ingredients": [
@@ -99783,7 +99783,7 @@
     },
     "nullius-void-energy": {
       "id": "nullius-void-energy",
-      "name": "nullius-void-energy",
+      "name": "Power sink",
       "category": "nullius-power-sink",
       "craftingTime": 2.5,
       "ingredients": [
@@ -126371,13 +126371,13 @@
   "itemGroups": {
     "logistics": {
       "id": "logistics",
-      "name": "logistics",
+      "name": "Logistics",
       "order": "b",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-logistics.png"
     },
     "production": {
       "id": "production",
-      "name": "production",
+      "name": "Production",
       "order": "c",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-production.png"
     },
@@ -126389,97 +126389,97 @@
     },
     "combat": {
       "id": "combat",
-      "name": "combat",
+      "name": "Equipment & Combat",
       "order": "e",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-combat.png"
     },
     "fluids": {
       "id": "fluids",
-      "name": "fluids",
+      "name": "Fluids",
       "order": "i",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-fluids.png"
     },
     "signals": {
       "id": "signals",
-      "name": "signals",
+      "name": "Signals",
       "order": "n",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-signals.png"
     },
     "enemies": {
       "id": "enemies",
-      "name": "enemies",
+      "name": "Enemies",
       "order": "h",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-enemies.png"
     },
     "environment": {
       "id": "environment",
-      "name": "environment",
+      "name": "Environment",
       "order": "l",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-environment.png"
     },
     "tiles": {
       "id": "tiles",
-      "name": "tiles",
+      "name": "Tiles",
       "order": "i",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-tiles.png"
     },
     "effects": {
       "id": "effects",
-      "name": "effects",
+      "name": "Effects",
       "order": "y",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-effects.png"
     },
     "other": {
       "id": "other",
-      "name": "other",
+      "name": "Unsorted",
       "order": "z",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-other.png"
     },
     "helmod": {
       "id": "helmod",
-      "name": "helmod",
+      "name": "Helmod",
       "order": "zzzz",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-helmod.png"
     },
     "bob-logistics": {
       "id": "bob-logistics",
-      "name": "bob-logistics",
+      "name": "Advanced Logistics",
       "order": "aaa-a",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-bob-logistics.png"
     },
     "ee-tools": {
       "id": "ee-tools",
-      "name": "ee-tools",
+      "name": "Testing Tools",
       "order": "zzzzz",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-ee-tools.png"
     },
     "drones": {
       "id": "drones",
-      "name": "drones",
+      "name": "Drones",
       "order": "fb",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-drones.png"
     },
     "equipment": {
       "id": "equipment",
-      "name": "equipment",
+      "name": "Equipment",
       "order": "fc",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-equipment.png"
     },
     "metallurgy": {
       "id": "metallurgy",
-      "name": "metallurgy",
+      "name": "Metallurgy",
       "order": "fm",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-metallurgy.png"
     },
     "chemistry": {
       "id": "chemistry",
-      "name": "chemistry",
+      "name": "Chemistry",
       "order": "d",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-chemistry.png"
     },
     "biology": {
       "id": "biology",
-      "name": "biology",
+      "name": "Biology",
       "order": "h",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-biology.png"
     },
@@ -126491,37 +126491,37 @@
     },
     "unused": {
       "id": "unused",
-      "name": "unused",
+      "name": "Unused",
       "order": "x",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-unused.png"
     },
     "barreling": {
       "id": "barreling",
-      "name": "barreling",
+      "name": "Barreling",
       "order": "lb",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-barreling.png"
     },
     "unbarreling": {
       "id": "unbarreling",
-      "name": "unbarreling",
+      "name": "Unbarreling",
       "order": "lc",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-unbarreling.png"
     },
     "boxed": {
       "id": "boxed",
-      "name": "boxed",
+      "name": "Boxed",
       "order": "kb",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-boxed.png"
     },
     "boxing": {
       "id": "boxing",
-      "name": "boxing",
+      "name": "Boxing",
       "order": "kc",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-boxing.png"
     },
     "unboxing": {
       "id": "unboxing",
-      "name": "unboxing",
+      "name": "Unboxing",
       "order": "kd",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/nullius/icons/group-unboxing.png"
     }

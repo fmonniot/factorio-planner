@@ -254,25 +254,12 @@ function buildLocaleMap(resolvers) {
  * We only handle the simple single-key case; complex format strings fall back
  * to the prototype's internal name.
  */
-function resolveLocale(localised, fallback, localeMap) {
+function resolveLocale(localised, fallback, localeMap, ...scopes) {
   if (!localised) {
-    // TODO There is probably a better way. Should lookup how factorio itself do it.
-    const itemName = localeMap["item-name." + fallback]
-    if (itemName) {
-      return itemName
+    for (const scope of scopes) {
+      const val = localeMap[scope + '.' + fallback]
+      if (val) return val
     }
-
-    const entityName = localeMap["entity-name." + fallback]
-    if (entityName) {
-      return entityName
-    }
-
-    const fluidName = localeMap["fluid-name." + fallback]
-    if (fluidName) {
-      return fluidName
-    }
-
-    console.log("item '", fallback, "' doesn't have a localised key nor a scope key")
     return fallback
   }
   if (typeof localised === 'string') return localised || fallback
@@ -485,7 +472,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
     for (const proto of Object.values(table)) {
       items[proto.name] = {
         id:        proto.name,
-        name:      resolveLocale(proto.localised_name, proto.name, localeMap),
+        name:      resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name', 'entity-name'),
         type:      'item',
         iconPath:  await resolveIcon(proto, proto.name),
         hidden:    proto.hidden ?? false,
@@ -499,7 +486,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
   for (const proto of Object.values(raw.fluid ?? {})) {
     items[proto.name] = {
       id:       proto.name,
-      name:     resolveLocale(proto.localised_name, proto.name, localeMap),
+      name:     resolveLocale(proto.localised_name, proto.name, localeMap, 'fluid-name'),
       type:     'fluid',
       iconPath: await resolveIcon(proto, proto.name),
       hidden:   proto.hidden ?? false,
@@ -520,7 +507,7 @@ async function exportItemGroups(raw, localeMap, resolveIcon) {
   for (const proto of Object.values(raw['item-group'] ?? {})) {
     groups[proto.name] = {
       id:       proto.name,
-      name:     resolveLocale(proto.localised_name, proto.name, localeMap),
+      name:     resolveLocale(proto.localised_name, proto.name, localeMap, 'item-group-name'),
       order:    proto.order ?? '',
       iconPath: await resolveIcon(proto, `group-${proto.name}`),
     }
@@ -561,7 +548,7 @@ async function exportMachines(raw, localeMap, resolveIcon) {
 
       machines[proto.name] = {
         id:                proto.name,
-        name:              resolveLocale(proto.localised_name, proto.name, localeMap),
+        name:              resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name'),
         type:              machineType,
         craftingSpeed:     proto.crafting_speed ?? 1,
         energyUsageKw:     parseEnergyKw(proto.energy_usage),
@@ -634,9 +621,19 @@ function exportRecipes(raw, localeMap, categoryMap) {
       subgroup = lookupItemSubgroup(fallbackId)
     }
 
+    // Replicate Factorio's recipe name resolution:
+    // 1. explicit localised_name, 2. recipe-name locale key, 3. main product name
+    let recipeName = resolveLocale(proto.localised_name, proto.name, localeMap, 'recipe-name')
+    if (recipeName === proto.name) {
+      const mpId = typeof mainProduct === 'string' && mainProduct !== '' ? mainProduct : null
+      if (mpId) {
+        recipeName = resolveLocale(null, mpId, localeMap, 'item-name', 'entity-name', 'fluid-name')
+      }
+    }
+
     const entry = {
       id:               proto.name,
-      name:             resolveLocale(proto.localised_name, proto.name, localeMap),
+      name:             recipeName,
       category,
       craftingTime:     proto.energy_required ?? 0.5,
       ingredients,
@@ -671,7 +668,7 @@ async function exportModules(raw, localeMap, resolveIcon) {
 
     modules[proto.name] = {
       id:                  proto.name,
-      name:                resolveLocale(proto.localised_name, proto.name, localeMap),
+      name:                resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name'),
       category:            proto.category ?? 'unknown',
       tier:                proto.tier ?? 0,
       effects,
@@ -701,7 +698,7 @@ async function exportBeacons(raw, localeMap, resolveIcon) {
 
     beacons[proto.name] = {
       id:                     proto.name,
-      name:                   resolveLocale(proto.localised_name, proto.name, localeMap),
+      name:                   resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name'),
       iconPath:               await resolveIcon(proto, proto.name),
       hidden:                 proto.hidden ?? false,
       moduleSlots:            proto.module_slots ?? 0,
