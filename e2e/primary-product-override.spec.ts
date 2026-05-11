@@ -31,7 +31,7 @@ test.describe('Primary product override', () => {
     await overlay.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-brine-electrolysis"]').click()
 
     // Wait for the row to appear.
-    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="nullius-brine-electrolysis"]') }).first()
+    const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Brine electrolysis"]') }).first()
     await expect(row).toBeVisible()
 
     // By default Hydrogen is primary — it appears in the Products column.
