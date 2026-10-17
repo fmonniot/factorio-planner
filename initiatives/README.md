@@ -20,7 +20,6 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
-| Documentation cleanup       | Active   | [docs-cleanup/](docs-cleanup/)                         |
 | Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |
 | LP solver v2                | Shipped  | [archive/lp-solver/](archive/lp-solver/)               |
 | Factory-planner UI redesign | Shipped  | [archive/ui-redesign/](archive/ui-redesign/)           |
@@ -28,6 +27,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Edit Machine modal          | Shipped  | [archive/edit-machine-modal/](archive/edit-machine-modal/) |
 | Edit Beacon modal           | Shipped  | [archive/edit-beacon-modal/](archive/edit-beacon-modal/) |
 | Flatten subplans            | Shipped  | [archive/flatten-subplans/](archive/flatten-subplans/) |
+| Documentation cleanup       | Shipped  | [archive/docs-cleanup/](archive/docs-cleanup/)         |
 
 Phases 0–5 (ground-truth data and test corpus, scaffold, first solver, state
 and persistence, first UI) predate initiative folders and are recorded only in
