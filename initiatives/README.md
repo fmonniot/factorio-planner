@@ -18,6 +18,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Roadmap                     | —        | [roadmap.md](roadmap.md)                               |
+| Documentation cleanup       | Active   | [docs-cleanup/](docs-cleanup/)                         |
 | Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |
 | LP solver v2                | Shipped  | [archive/lp-solver/](archive/lp-solver/)               |
 | Factory-planner UI redesign | Shipped  | [archive/ui-redesign/](archive/ui-redesign/)           |
