@@ -37,6 +37,12 @@ Update the step checklist below as steps start (`[~]`) and finish (`[x]`).
 
 ## Steps
 
+Steps 3–5 run in parallel by sub-agents with disjoint file ownership
+(3+5 / 4a data-model+ui / 4b solver, corpus, overview, tech-stack, README,
+deletions). They leave changes uncommitted and write
+`step-3-5-notes.md`, `step-4a-notes.md`, `step-4b-notes.md`; the parent
+session reviews and commits one commit per step.
+
 - [x] **1. Audit (read-only).** Check every doc against the code. Output:
   `audit.md` — one list of findings, each tagged `outdated` / `wrong` /
   `duplicated` / `misplaced` / `broken-link`, with file:line and the
@@ -44,14 +50,14 @@ Update the step checklist below as steps start (`[~]`) and finish (`[x]`).
 - [x] **2. Structure decisions.** Using the audit, fix the target layout:
   final list of spec files, where the merged backlog lives, what the slim
   `CLAUDE.md` contains. Output: `structure.md`.
-- [ ] **3. Agent-facing docs.** Write the slim `CLAUDE.md`, remove
+- [x] **3. Agent-facing docs.** Write the slim `CLAUDE.md`, remove
   `AGENTS.md` + symlink, delete the `state-bug-fix` skill, fix references to
   `AGENTS.md` elsewhere (README, spec, initiatives).
-- [ ] **4. Specs.** Rewrite `spec/ui.md` for the table UI; delete
+- [x] **4. Specs.** Rewrite `spec/ui.md` for the table UI; delete
   `spec/lua-export.md`; fix `overview.md`, `tech-stack.md`, and whatever the
   audit flags in `solver.md`, `data-model.md`, `data-analysis.md`,
   `test-corpus.md`, `solver-chains/`.
-- [ ] **5. Status reconciliation.** Merge `TODO.md` + roadmap into one
+- [x] **5. Status reconciliation.** Merge `TODO.md` + roadmap into one
   backlog; correct Phase 6/7 status against shipped features; fix broken
   links; close the "Review project management" TODO item.
 - [ ] **6. Guard (optional).** Script / CI step that fails on dead relative

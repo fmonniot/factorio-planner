@@ -1,13 +1,15 @@
 # Initiatives
 
-Time-bound work — roadmap, active initiatives, and archived shipped ones.
+Time-bound work — the backlog, active initiatives, and archived shipped ones.
 For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 
 ## Conventions
 
 1. `spec/` is timeless; `initiatives/` is time-bound. Phases, tickets, status
    markers belong here.
-2. Each initiative gets its own folder with a primary design/plan doc.
+2. Small or not-yet-designed work is a line in [backlog.md](backlog.md). Work
+   that needs a design doc gets its own folder with a primary design/plan doc,
+   linked from the backlog.
 3. The first non-heading line of that doc is `Status: Active | Future | Blocked — <reason>`.
 4. When an initiative ships, run `git mv initiatives/<name> initiatives/archive/<name>`.
    No rewriting. Location implies status.
@@ -17,7 +19,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
-| Roadmap                     | —        | [roadmap.md](roadmap.md)                               |
+| Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Documentation cleanup       | Active   | [docs-cleanup/](docs-cleanup/)                         |
 | Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |
 | LP solver v2                | Shipped  | [archive/lp-solver/](archive/lp-solver/)               |
@@ -27,5 +29,10 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Edit Beacon modal           | Shipped  | [archive/edit-beacon-modal/](archive/edit-beacon-modal/) |
 | Flatten subplans            | Shipped  | [archive/flatten-subplans/](archive/flatten-subplans/) |
 
+Phases 0–5 (ground-truth data and test corpus, scaffold, first solver, state
+and persistence, first UI) predate initiative folders and are recorded only in
+`git log`. Their solver and UI were later replaced by the LP solver v2 and UI
+redesign initiatives above.
+
 Outstanding work not yet promoted into its own folder lives in
-[roadmap.md](roadmap.md) (Phases 6 and 7).
+[backlog.md](backlog.md).
