@@ -26,6 +26,7 @@ npm run dev        # start Vite dev server
 npm run build      # type-check + bundle; postbuild runs scripts/build-icons.mjs (WebP + PNG optimisation in dist/)
 npm run preview    # serve the production build
 npm run lint       # ESLint
+npm run lint:docs  # broken relative links / repo paths in Markdown
 npm test           # unit + e2e (test:unit then test:e2e)
 npm run test:unit  # Vitest, all projects, once
 npm run test:watch # Vitest in watch mode
@@ -34,7 +35,7 @@ npm run test:e2e   # Playwright; starts the dev server itself
 
 On a fresh checkout, run `npx playwright install chromium` before the e2e tests.
 
-CI (`.github/workflows/test.yml`) runs lint, unit, e2e and build on every pull request and on `v*` tags.
+CI (`.github/workflows/test.yml`) runs lint, doc-link check, unit, e2e and build on every pull request and on `v*` tags.
 
 To regenerate game data, follow [README.md — Exporting game data](README.md#exporting-game-data).
 

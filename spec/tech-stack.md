@@ -93,6 +93,6 @@ Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-pla
 
 GitHub Actions, Node 22 (`.github/workflows/`):
 
-- **`test.yml`** runs on every pull request, on `v*` tag pushes, and as a reusable workflow: `npm ci` → `npm run lint` → `npm run test:unit` → Playwright chromium install → `npm run test:e2e` → `npm run build`. It does not run on pushes to `main`.
+- **`test.yml`** runs on every pull request, on `v*` tag pushes, and as a reusable workflow: `npm ci` → `npm run lint` → `npm run lint:docs` → `npm run test:unit` → Playwright chromium install → `npm run test:e2e` → `npm run build`. It does not run on pushes to `main`.
 - **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): it calls `test.yml`, then builds and deploys `dist/` to GitHub Pages.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly npm update PRs, grouping React and Vitest packages.

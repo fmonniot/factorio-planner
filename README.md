@@ -55,6 +55,7 @@ npm run test:unit  # unit tests only (Vitest)
 npm run test:watch # unit tests in watch mode
 npm run test:e2e   # Playwright e2e only (starts the dev server)
 npm run lint
+npm run lint:docs  # check Markdown links and repo paths
 npm run build      # type-check, production bundle, then icon optimisation (postbuild)
 npm run preview    # serve the production build
 ```
@@ -95,12 +96,13 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
+| `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
 | `scripts/__tests__/` | Golden-image tests for the icon compositor |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures |
 | `spec/` | How the system works today |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
-| `.github/workflows/` | CI (lint, unit, e2e, build on PRs) and GitHub Pages deploy on release |
+| `.github/workflows/` | CI (lint, doc links, unit, e2e, build on PRs) and GitHub Pages deploy on release |
 | `CLAUDE.md` | Project conventions for AI coding agents |
 
 Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), which holds the project conventions.

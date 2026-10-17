@@ -60,9 +60,9 @@ session reviews and commits one commit per step.
 - [x] **5. Status reconciliation.** Merge `TODO.md` + roadmap into one
   backlog; correct Phase 6/7 status against shipped features; fix broken
   links; close the "Review project management" TODO item.
-- [ ] **6. Guard (optional).** Script / CI step that fails on dead relative
+- [x] **6. Guard (optional).** Script / CI step that fails on dead relative
   links and on `src/…` / `scripts/…` paths in Markdown that do not exist.
-- [ ] **7. Ship.** Open PR; on merge, `git mv` this folder to
+- [~] **7. Ship.** Open PR; on merge, `git mv` this folder to
   `initiatives/archive/docs-cleanup` and update `initiatives/README.md`.
 
 ## Known findings from the initial scan
