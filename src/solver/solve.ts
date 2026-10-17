@@ -37,12 +37,13 @@ const BC_BONUS = -0.01
  * LP formulation:
  *   Variables:
  *     x_j ≥ 0  for each recipe j (throughput)
- *     s_i ≥ 0  for each goal/intermediate item i (external import slack)
+ *     s_i ≥ 0  for each intermediate item i not in noImportItems (external import slack)
  *   Constraints:
- *     - Goal items:         Σ S_ij * x_j + s_i ≥ d_i
+ *     - Goal items:         Σ S_ij * x_j ≥ d_i        (hard, no slack)
  *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
  *     - Pinned recipes:     x_j = rate  (equality)
- *   Objective: minimize Σ x_j + BIG_M * Σ s_i
+ *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i
+ *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes
  *
  * Slack s_i represents external import required for item i to balance.
  * BIG_M ensures the LP only uses slack when the network is genuinely infeasible.

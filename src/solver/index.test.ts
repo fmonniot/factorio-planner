@@ -90,13 +90,6 @@ describe('solve', () => {
 })
 
 // ---------------------------------------------------------------------------
-// flattenBlock + wrap-in-subplan parity
-//
-// Regression: moving a recipe into a subplan (purely for organisation) must
-// not change solver output. Subplans are a UI/persistence grouping only.
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // no-recipe warning
 // ---------------------------------------------------------------------------
 
@@ -119,6 +112,13 @@ describe('solve — no-recipe warning', () => {
     expect(result.warnings.some(w => w.type === 'no-recipe')).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// flattenBlock + wrap-in-subplan parity
+//
+// Regression: moving a recipe into a subplan (purely for organisation) must
+// not change solver output. Subplans are a UI/persistence grouping only.
+// ---------------------------------------------------------------------------
 
 describe('flattenBlock + solve(block) — subplan grouping is solver-transparent', () => {
   it('a flat block and a block with the same recipe wrapped in a subplan produce identical throughput', () => {

@@ -202,8 +202,8 @@ describe('parseGameData', () => {
     expect(data.recipes['oil-processing'].mainProduct).toBeNull()
   })
 
-  it('normalises mainProduct="" (Lua export sentinel) to null', () => {
-    // The Lua exporter emits "" when main_product is explicitly empty (multi-output).
+  it('normalises mainProduct="" (explicit multi-output sentinel) to null', () => {
+    // build-game-data.js emits "" when main_product is explicitly empty (multi-output).
     const gd = minimalGameData()
     ;(gd.recipes['iron-plate-recipe'] as Record<string, unknown>).mainProduct = ''
     const data = parseGameData(gd)

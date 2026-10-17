@@ -11,8 +11,8 @@ interface SolverPlan {
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
- * RecipeNode (skipping SubPlanNode handles, which are pure UI grouping), and
- * surface block-level goals + noImportItems.
+ * node, and surface block-level goals + noImportItems. SubPlanNode handles
+ * are pure UI grouping; solve() skips them by filtering on kind.
  */
 export function flattenBlock(block: Block): SolverPlan {
   const nodes: RecipeNode[] = []
