@@ -1,6 +1,6 @@
 # Initiative: Documentation cleanup
 
-Status: Active
+Status: Shipped — PR #76 merged; folder archived in #77
 
 Branch: `docs/cleanup`. One commit per step, one PR at the end.
 
@@ -62,7 +62,7 @@ session reviews and commits one commit per step.
   links; close the "Review project management" TODO item.
 - [x] **6. Guard (optional).** Script / CI step that fails on dead relative
   links and on `src/…` / `scripts/…` paths in Markdown that do not exist.
-- [~] **7. Ship.** PR #76 opened 2026-10-17; on merge, `git mv` this folder to
+- [x] **7. Ship.** PR #76 opened 2026-10-17; on merge, `git mv` this folder to
   `initiatives/archive/docs-cleanup` and update `initiatives/README.md`.
 
 ## Known findings from the initial scan

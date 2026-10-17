@@ -104,7 +104,7 @@ initiatives existed" row to `initiatives/README.md` instead.
 
 Files to update after the merge: `README.md:39,93,99`;
 `initiatives/README.md:3,20,31`; the new `CLAUDE.md` (replaces
-`AGENTS.md:41-42,165,171,215`); the `docs-cleanup/plan.md` D5 row.
+`AGENTS.md:41-42,165,171,215`); the `archive/docs-cleanup/plan.md` D5 row.
 `initiatives/archive/reorder-recipes-dnd/plan.md:15` links `../../TODO.md` —
 archive, leave.
 
@@ -231,7 +231,7 @@ pass for bare file names (`Foo.tsx`, `bar.ts`) that match no tracked file.
 | spec/solver-chains/README.md:49-52 | `my-item.md`, `my-item.fixture.json` | Placeholders in an example — not broken. |
 | .claude/skills/state-bug-fix/SKILL.md:27-29 | `src/components/TreeView.tsx`, `src/solver/reduce.ts` | Gone. Whole skill is deleted under D2. |
 | .claude/skills/state-bug-fix/references/project-architecture.md:15-21, 99, 135-136 | `reduce.ts`, `pin.ts`, `subplan.ts`, `TreeView.tsx`, `RecipeCard.tsx` | Gone. Deleted under D2. |
-| initiatives/docs-cleanup/plan.md:58, 77 | `initiatives/archive/docs-cleanup`, `initiatives/visual-parity/tickets.md` | Intentional (future path / quoting a finding). Not broken. |
+| initiatives/archive/docs-cleanup/plan.md:58, 77 | `initiatives/archive/docs-cleanup`, `initiatives/visual-parity/tickets.md` | Intentional (future path / quoting a finding). Not broken. |
 
 No broken relative links found in `README.md`, `initiatives/README.md`,
 `spec/*.md` (other than the above). Content-level staleness in `spec/ui.md`
@@ -273,7 +273,7 @@ All tracked occurrences (`git grep AGENTS`), excluding `AGENTS.md` itself
 | spec/data-analysis.md:4 | "see AGENTS.md for how to regenerate" | Point to `README.md#exporting-game-data` (README:64 has the procedure) or the new `CLAUDE.md`. |
 | spec/test-corpus.md:4 | "see AGENTS.md for how to regenerate" | Same. |
 | TODO.md:34 | "Review project management … `AGENTS.md`" | Item closes in step 5; file disappears with D5. |
-| initiatives/docs-cleanup/plan.md:32, 46, 47, 64 | Decision/step text | Intentional. |
+| initiatives/archive/docs-cleanup/plan.md:32, 46, 47, 64 | Decision/step text | Intentional. |
 | initiatives/archive/flatten-subplans/plan.md:145 | `[AGENTS.md](AGENTS.md)` | Archive (leave). |
 
 No references in `README.md`, `.github/`, `.claude/`, `package.json` or source.
