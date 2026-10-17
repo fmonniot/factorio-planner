@@ -10,58 +10,62 @@ Tell it what you want to produce and how fast. It works out every recipe, interm
 
 ### 1. Pick a game data set
 
-The selector at the top right chooses which recipes and machines the planner knows about. **Nullius** is the default. A Seablock set is also bundled. You can load your own with **Upload file…**, using a JSON export in the same format (see [Exporting game data](#exporting-game-data)).
+The selector at the top right chooses which recipes and machines the planner knows about. Nothing is loaded on your first visit: pick **Nullius** (listed first, and the best-tested set) or **Seablock**, both bundled with the app. You can also load your own with **Upload file…**, using a JSON export in the same format (see [Exporting game data](#exporting-game-data)). Your choice is remembered for the next visit.
 
 ### 2. Set your goals
 
-In the summary panel, use **Add goal** to pick an item and enter a target rate. Click a rate to edit it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
+In the **Products** pane of the summary panel, use the **+** button (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
 
 ### 3. Read and shape the production table
 
 Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there:
 
-- **Choose another recipe** for an item when alternatives exist, using the recipe picker.
+- **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
 - **Click an ingredient** to find or add a recipe that produces it.
-- **Choose what a byproduct does.** Click a product to make it the recipe's primary output, or toggle its policy. A recipe can also be marked as "only run to absorb byproduct", so it soaks up surplus from other recipes without ever importing its own inputs.
-- **Lock an item** in the summary so the solver never imports it. Whatever it would have needed from outside then shows up as a shortfall.
+- **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
+- **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs.
+- **Lock an item** by clicking it in the summary's **Ingredients** pane so the solver never imports it (click the locked chip to unlock). Whatever it would have needed from outside then shows up as a shortfall.
 - **Group recipes into subfactories** with "Wrap in subfactory", and drag rows to reorder them, including between groups.
 
-If the plan can't be solved cleanly (a shortfall, a bad pin, too many ways to satisfy a constraint), a warnings indicator in the footer lists what the solver found.
+If the plan can't be solved cleanly (a goal with no recipe, the same recipe added twice, conflicting pins, or surplus that nothing consumes), a warnings indicator appears in the summary header, next to the /sec · /min toggle, and lists what the solver found.
 
 ### 4. Work with several blocks
 
-A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one, and click a block's name to rename it. Use blocks for independent production lines, for example one per science pack.
+A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename** and **Delete**. Use blocks for independent production lines, for example one per science pack.
 
 ### Saving and sharing
 
-Your plan is saved in your browser's local storage as you work. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [roadmap](initiatives/roadmap.md).
+Your plan is saved in your browser's local storage as you work. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
-For each plan, the planner builds a net-flow matrix of items against recipes and solves it as a small linear program in the browser (with [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver)). Goals are hard constraints. Intermediates may be imported, but at a heavy penalty, so the solver prefers to produce them. The result is turned into machine counts and power draw per recipe. [spec/solver.md](spec/solver.md) has the full formulation.
+For each block, the planner builds a net-flow matrix of items against recipes and solves it as a small linear program in the browser (with [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver)). Goals are hard constraints. Intermediates may be imported, but at a heavy penalty, so the solver prefers to produce them. The result is turned into machine counts and power draw per recipe. [spec/solver.md](spec/solver.md) has the full formulation.
 
 ## Development
 
-You need Node.js 22 or newer.
+You need Node.js 22 (the version CI uses) or newer.
 
 ```sh
 npm install
 npm run dev        # start the dev server
 npm test           # unit tests + Playwright e2e
-npm run test:unit  # unit tests only
+npm run test:unit  # unit tests only (Vitest)
+npm run test:watch # unit tests in watch mode
+npm run test:e2e   # Playwright e2e only (starts the dev server)
 npm run lint
-npm run build      # type-check and production bundle
+npm run build      # type-check, production bundle, then icon optimisation (postbuild)
+npm run preview    # serve the production build
 ```
 
 The e2e tests use Playwright. On a fresh checkout, run `npx playwright install chromium` first.
 
-The stack is React 19, TypeScript, Vite, Zustand, Zod and Tailwind. The reasoning behind those choices is in [spec/tech-stack.md](spec/tech-stack.md).
+The stack is React, TypeScript, Vite, Zustand, Zod and Tailwind. The reasoning behind those choices is in [spec/tech-stack.md](spec/tech-stack.md).
 
 ### Exporting game data
 
-The planner is data-driven. The recipes, machines and icons it shows come from a JSON file generated from a real Factorio install with the target mods enabled. The Nullius export in `public/data/nullius/` is committed. To regenerate it or build one for another mod set:
+The planner is data-driven. The recipes, machines and icons it shows come from a JSON file generated from a real Factorio install with the target mods enabled. The Nullius export in `public/data/nullius/` and the Seablock export in `public/data/kompetenz-seablock/` are committed. To regenerate it or build one for another mod set:
 
 ```sh
 # 1. Dump Factorio's prototype data with the mods active
@@ -82,18 +86,25 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 
 | Path | What's there |
 |---|---|
-| `src/solver/` | The LP-based production solver |
-| `src/store/` | Zustand stores: plan, game data, solver result, persistence, UI |
-| `src/components/` | React UI; `factory/` holds the production table |
-| `src/data/` | Zod schemas and the game data loader |
-| `scripts/` | Game data export and icon tooling |
-| `e2e/` | Playwright specs |
+| `src/main.tsx` | Entry point: restores saved state, wires persistence and the debounced auto-solve, mounts the UI |
+| `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `index.ts`) |
+| `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI |
+| `src/components/` | React UI; `factory/` holds the summary panel and the production table |
+| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types and the game data loader |
+| `src/utils/` | Small helpers (icon URLs) |
+| `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
+| `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
+| `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
+| `scripts/__tests__/` | Golden-image tests for the icon compositor |
+| `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
+| `e2e/` | Playwright specs and fixtures |
 | `spec/` | How the system works today |
-| `initiatives/` | Roadmap and in-flight or finished work |
-| `TODO.md` | Small items and known bugs |
+| `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
+| `.github/workflows/` | CI (lint, unit, e2e, build on PRs) and GitHub Pages deploy on release |
+| `CLAUDE.md` | Project conventions for AI coding agents |
 
 Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), which holds the project conventions.
 
 ## Status
 
-The planner is usable but still early. Known gaps include importing plans, sharing by URL, switching game data sets without stale plan state, and filtering recipes by tech progression. [TODO.md](TODO.md) tracks small items and bugs, and [initiatives/roadmap.md](initiatives/roadmap.md) tracks larger work.
+The planner is usable but still early. Known gaps include importing plans, sharing by URL, switching game data sets without stale plan state, and filtering recipes by tech progression. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.

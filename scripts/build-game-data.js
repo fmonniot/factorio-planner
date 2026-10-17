@@ -3,7 +3,7 @@
  * build-game-data.js
  *
  * Converts a `factorio --dump-data` JSON dump into the game-data.json bundle
- * consumed by the factorio-planner web app.  Replaces the runtime Lua mod.
+ * consumed by the factorio-planner web app.
  *
  * Usage:
  *   node scripts/build-game-data.js \
@@ -351,7 +351,7 @@ function makeIconResolver(resolvers, iconsOut) {
 }
 
 // ---------------------------------------------------------------------------
-// Energy parsing — mirrors the Lua parse_energy_kw helper
+// Energy parsing — energy strings (W/kW/MW/GW/TW) to kW
 // ---------------------------------------------------------------------------
 
 function parseEnergyKw(s) {
@@ -445,7 +445,7 @@ function resolveMainProduct(proto, products) {
   const mp = proto.main_product
   if (mp === '') return ''          // explicit multi-output → loader normalises to null
   if (typeof mp === 'string' && mp !== '') return mp
-  // main_product absent: infer from products (matches runtime Lua behaviour)
+  // main_product absent: a single-product recipe's product is its main product
   if (mp == null && products.length === 1) return products[0].itemId
   return undefined   // omit field for true multi-output with no declared primary
 }

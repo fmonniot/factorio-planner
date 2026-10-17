@@ -5,9 +5,10 @@ import { z } from 'zod'
 // ---------------------------------------------------------------------------
 
 /**
- * Lua's game.table_to_json serialises empty Lua tables as {} (object) rather
- * than [] (array). This preprocessor normalises empty objects to empty arrays
- * before Zod validates the array schema, so the rest of the schema stays clean.
+ * Factorio serialises empty Lua tables as {} (object) rather than [] (array),
+ * and older or hand-made exports may carry that shape through. This
+ * preprocessor normalises empty objects to empty arrays before Zod validates
+ * the array schema, so the rest of the schema stays clean.
  */
 function luaArray<T extends z.ZodTypeAny>(itemSchema: T) {
   return z.preprocess(
@@ -65,8 +66,8 @@ export const RecipeSchema = z.object({
   madeIn: luaArray(z.string()),
   allowProductivity: z.boolean(),
   hidden: z.boolean().default(false),
-  // null = explicitly multi-output with no primary (main_product = "" in Lua export)
-  // The Lua exporter emits "" for the multi-output case; we normalise to null here.
+  // null = explicitly multi-output with no primary (main_product = "" in the prototype).
+  // build-game-data.js emits "" for the multi-output case; we normalise to null here.
   mainProduct: z.preprocess(
     v => (v === '' ? null : v),
     z.string().nullable().optional(),
@@ -100,8 +101,8 @@ export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
   type: z.enum(['assembling-machine', 'furnace', 'rocket-silo']),
-  // Older exports (produced before the Lua script used get_crafting_speed())
-  // omit this field. Default to 1 so they still load; re-export to get real values.
+  // Some older exports omit this field. Default to 1 so they still load;
+  // re-export to get real values.
   craftingSpeed: z.number().positive().default(1),
   energyUsageKw: z.number().nonnegative(),
   energyType: z.enum(['electric', 'burner', 'heat', 'void']),
