@@ -1,9 +1,23 @@
 # Solver Test Corpus
 
-Six recipe chains of increasing complexity, all using real Nullius recipes verified
-against the raw `factorio --dump-data` output (see AGENTS.md for how to regenerate).
+Six recipe chains of increasing complexity, all using recipes from the committed
+Nullius export (`public/data/nullius/game-data.json`; see the README section
+"Exporting game data" for how to regenerate it).
+
+These cases are the ground truth for the solver's expected output. They are not
+currently automated as tests; any solver change should be checked against them by
+hand or by a throwaway probe.
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
+Real default machines have other speeds (e.g. the default `centrifuging` machine),
+so to reproduce the machine counts with real data, override each node's `machineId`
+with a speed-1 machine (or compare throughput only).
+
+Cases 4–6 use `kovarex-enrichment-process` and `uranium-processing`, which are
+base-game recipes marked `hidden: true` in the Nullius export — Nullius players
+cannot use them. They are kept because their properties (a cycle, probability
+outputs, `ignoredByProductivity`) exercise the solver; they are valid as solver
+cases.
 
 Formula: `machineCount = throughput_exec_per_min × craftingTime_s / 60`
 
@@ -15,7 +29,8 @@ Raw resources confirmed: `iron-ore` has no non-packaging non-hidden producer;
 ## Case 1 — Linear chain with byproduct
 
 **Exercises:** basic stoichiometry, multi-step chain, byproduct on intermediate recipe
-(gravel) with feed-back policy defaulting to discard since nothing demands it.
+(gravel). Nothing consumes gravel, so it is classified as `byproduct` and excluded
+from the LP rows.
 
 **Goal:** 60 `nullius-iron-plate` / min
 
@@ -23,26 +38,26 @@ Raw resources confirmed: `iron-ore` has no non-packaging non-hidden producer;
 
 | Recipe | Category | Time | Ingredients | Products |
 |---|---|---|---|---|
-| `nullius-iron-ingot-1` | dry-smelting | 8s | 5 iron-ore | 2 nullius-iron-ingot + 1 nullius-gravel |
-| `nullius-iron-plate-1` | machine-casting | 3s | 4 nullius-iron-ingot | 3 nullius-iron-plate |
+| `nullius-iron-ingot` | dry-smelting | 8s | 5 iron-ore | 2 nullius-iron-ingot + 1 nullius-gravel |
+| `nullius-iron-plate` | machine-casting | 3s | 4 nullius-iron-ingot | 3 nullius-iron-plate |
 
 ### Expected solver output
 
 | Recipe | Throughput (exec/min) | Machine count (exact) |
 |---|---|---|
-| `nullius-iron-plate-1` | 20 | 1.000 |
-| `nullius-iron-ingot-1` | 40 | 5.333 |
+| `nullius-iron-plate` | 20 | 1.000 |
+| `nullius-iron-ingot` | 40 | 5.333 |
 
 Raw resources: **iron-ore 200 / min**
-Byproduct surplus: **nullius-gravel 40 / min** (no demand, fed-back but discarded)
+Byproduct surplus: **nullius-gravel 40 / min** (classified as byproduct: no consumer, excluded from LP rows)
 
 ### Derivation
 
 ```
-nullius-iron-plate-1: 60/min ÷ 3 plates/exec = 20 exec/min
+nullius-iron-plate: 60/min ÷ 3 plates/exec = 20 exec/min
   → nullius-iron-ingot demand: 20 × 4 = 80/min
 
-nullius-iron-ingot-1: 80/min ÷ 2 ingots/exec = 40 exec/min
+nullius-iron-ingot: 80/min ÷ 2 ingots/exec = 40 exec/min
   → iron-ore: 40 × 5 = 200/min (raw resource)
   → nullius-gravel: 40 × 1 = 40/min (byproduct, no consumer)
 ```
@@ -60,9 +75,9 @@ recipes; solver must sum demands correctly before determining upstream throughpu
 
 | Recipe | Category | Time | Ingredients | Products |
 |---|---|---|---|---|
-| `nullius-iron-ingot-1` | dry-smelting | 8s | 5 iron-ore | 2 nullius-iron-ingot + 1 nullius-gravel |
-| `nullius-iron-plate-1` | machine-casting | 3s | 4 nullius-iron-ingot | 3 nullius-iron-plate |
-| `nullius-iron-rod-1` | machine-casting | 4s | 4 nullius-iron-ingot | 5 nullius-iron-rod |
+| `nullius-iron-ingot` | dry-smelting | 8s | 5 iron-ore | 2 nullius-iron-ingot + 1 nullius-gravel |
+| `nullius-iron-plate` | machine-casting | 3s | 4 nullius-iron-ingot | 3 nullius-iron-plate |
+| `nullius-iron-rod` | machine-casting | 4s | 4 nullius-iron-ingot | 5 nullius-iron-rod |
 | `nullius-iron-gear` | small-crafting | 4s | 2 nullius-iron-plate + 1 nullius-iron-rod | 2 nullius-iron-gear |
 
 ### Expected solver output
@@ -70,9 +85,9 @@ recipes; solver must sum demands correctly before determining upstream throughpu
 | Recipe | Throughput (exec/min) | Machine count (exact) |
 |---|---|---|
 | `nullius-iron-gear` | 15 | 1.000 |
-| `nullius-iron-plate-1` | 10 | 0.500 |
-| `nullius-iron-rod-1` | 3 | 0.200 |
-| `nullius-iron-ingot-1` | 26 | 3.467 |
+| `nullius-iron-plate` | 10 | 0.500 |
+| `nullius-iron-rod` | 3 | 0.200 |
+| `nullius-iron-ingot` | 26 | 3.467 |
 
 Raw resources: **iron-ore 130 / min**
 Byproduct surplus: **nullius-gravel 26 / min**
@@ -84,14 +99,14 @@ nullius-iron-gear: 30/min ÷ 2 gears/exec = 15 exec/min
   → nullius-iron-plate demand: 15 × 2 = 30/min
   → nullius-iron-rod demand:   15 × 1 = 15/min
 
-nullius-iron-plate-1: 30/min ÷ 3 plates/exec = 10 exec/min
+nullius-iron-plate: 30/min ÷ 3 plates/exec = 10 exec/min
   → ingot demand from plates: 10 × 4 = 40/min
 
-nullius-iron-rod-1: 15/min ÷ 5 rods/exec = 3 exec/min
+nullius-iron-rod: 15/min ÷ 5 rods/exec = 3 exec/min
   → ingot demand from rods: 3 × 4 = 12/min
 
 Total ingot demand: 40 + 12 = 52/min
-nullius-iron-ingot-1: 52/min ÷ 2 ingots/exec = 26 exec/min
+nullius-iron-ingot: 52/min ÷ 2 ingots/exec = 26 exec/min
   → iron-ore: 26 × 5 = 130/min (raw)
   → gravel:   26 × 1 = 26/min (byproduct)
 ```
@@ -101,7 +116,8 @@ nullius-iron-ingot-1: 52/min ÷ 2 ingots/exec = 26 exec/min
 ## Case 3 — Multi-output recipe
 
 **Exercises:** one recipe producing three outputs; only one is a stated goal;
-remaining outputs are byproduct surplus under feed-back policy.
+remaining outputs have no consumer, so they are classified as `byproduct` and
+excluded from the LP rows.
 
 **Goal:** 660 `nullius-nitrogen` / min
 
@@ -159,7 +175,9 @@ Net per execution: **+1 U-235, −3 U-238**
 |---|---|---|
 | `kovarex-enrichment-process` | 5 | 5.000 |
 
-Raw resources: **uranium-238 15 / min**
+External import: **uranium-238 15 / min** — reported in `unsatisfied` through
+intermediate slack, not the raw-consumption pass: Kovarex both produces and consumes
+U-238, so it is classified as an `intermediate`.
 
 ### Derivation
 
@@ -168,7 +186,7 @@ Net U-235 per exec: 41 − 40 = +1
 Throughput: 5/min ÷ 1/exec = 5 exec/min
 
 Net U-238 per exec: 2 − 5 = −3
-U-238 raw demand: 5 × 3 = 15/min
+U-238 import (slack): 5 × 3 = 15/min
 ```
 
 ### Why this tests the solver
@@ -248,13 +266,13 @@ Net per execution: **U-235 +1.40, U-238 −3.00**
 |---|---|---|
 | `kovarex-enrichment-process` | ≈3.571 | ≈3.571 |
 
-Raw resources: **uranium-238 ≈ 10.714 / min**
+External import: **uranium-238 ≈ 10.714 / min** (intermediate slack, as in Case 4)
 
 ### Derivation
 
 ```
 Throughput: 5/min ÷ 1.40 net U-235/exec ≈ 3.571 exec/min
-U-238 raw:  3.571 × 3 ≈ 10.714/min
+U-238 import (slack): 3.571 × 3 ≈ 10.714/min
 ```
 
 Compared to Case 4 (no modules): throughput 5.000 → 3.571 (−29%),

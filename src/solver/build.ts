@@ -28,7 +28,8 @@ export interface ClassifiedSystem {
 }
 
 /**
- * Compute the effective product amount accounting for probability only.
+ * Compute the effective product amount accounting for probability and
+ * productivity (only the amount above ignoredByProductivity scales).
  */
 export function effectiveProductAmount(
   amount: number,

@@ -14,7 +14,7 @@ import type { GameData, GameRecipeNode, Machine } from '../data/types'
 // Example: 4 prod-3 modules with +10% productivity each = +40% total bonus.
 //
 // Productivity adjusts the stoichiometry matrix before solving (handled by
-// buildStoichiometryMatrix via productivityMap).
+// buildClassifiedSystem via productivityMap).
 //
 // Speed and consumption are applied post-solve to compute machine counts
 // and power draw.

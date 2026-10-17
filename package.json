@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "postbuild": "node scripts/build-icons.mjs",
     "lint": "eslint .",
+    "lint:docs": "node scripts/check-doc-links.mjs",
     "preview": "vite preview",
     "test": "npm run test:unit && npm run test:e2e",
     "test:unit": "vitest run",

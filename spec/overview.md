@@ -2,17 +2,16 @@
 
 ## Goal
 
-A web-based production planner for Factorio, targeting the **Nullius** overhaul mod. Given a set of desired output rates, it computes the full production chain: every recipe, intermediate product, raw resource, machine count, and power draw required to satisfy those goals — including cycles and multi-output recipes.
+A web-based production planner for Factorio, built first for the **Nullius** overhaul mod. Given a set of desired output rates, it computes the full production chain: every recipe, intermediate product, raw resource, machine count, and power draw required to satisfy those goals — including cycles and multi-output recipes.
 
-The UI follows helmod's general approach: a panel-based layout where users build up a list of production goals and inspect the resulting tree interactively.
+The UI is a flat production table: the user sets goals for a block, adds recipes as rows (optionally grouped into collapsible sub-factories), and reads the solved rates, machine counts and imports directly in the table and the summary panes above it. See [ui.md](ui.md).
 
 ## Scope
 
-**v1 target: Nullius mod (Factorio 2.0).** The app is data-driven and not hardcoded to Nullius, but the only tested and supported dataset for the first release is the Nullius export. Vanilla and other mods are explicitly deferred.
+**Factorio 2.0, Nullius first.** The app is data-driven and not hardcoded to any mod. Two datasets are bundled and selectable: **Nullius** (the primary, tested dataset — e2e tests use it) and **Seablock** (bundled, best-effort). Any other mod set can be loaded by uploading a `game-data.json` produced by `scripts/build-game-data.js`.
 
-## Non-Goals (v1)
+## Non-Goals
 
-- Vanilla Factorio or any mod other than Nullius
 - Factorio 1.1 support — target is 2.0 only
 - Belt/logistics network layout or spatial planning
 - Multiplayer or shared editing sessions
@@ -21,7 +20,7 @@ The UI follows helmod's general approach: a panel-based layout where users build
 
 ## Design Principles
 
-- **Client-side only.** No backend. The solver runs in the browser; plans are stored in localStorage and shareable via URL.
-- **Data-agnostic.** The app works off a game data JSON bundle. The Nullius bundle is the default; other mod sets can be imported.
-- **Solver-first.** The matrix solver is the core of the app. The UI is built to expose and override its outputs, not to replace it with manual calculations.
+- **Client-side only.** No backend. The solver runs in the browser; plans are stored in localStorage, and an uploaded custom game-data file is stored in IndexedDB. Plans can be exported as JSON.
+- **Data-agnostic.** The app works off a game data JSON bundle. Nothing is loaded until the user picks a dataset (bundled Nullius or Seablock, or an uploaded file); the choice is remembered for later visits.
+- **Solver-first.** The LP solver is the core of the app. The UI is built to expose and override its outputs, not to replace it with manual calculations.
 - **Progressive complexity.** Basic use (add item, see machine count) should require zero configuration. Advanced use (modules, beacons, alternate recipes, byproduct routing) should be accessible but not mandatory.

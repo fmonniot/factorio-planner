@@ -1,228 +1,440 @@
 # Data Model
 
-All types are defined in TypeScript. The game data bundle is a single JSON file
-produced by the Lua export script. Field names and shapes are grounded in the
-analysis of real `data.raw` output — see `spec/data-analysis.md` for findings.
+`src/data/schema.ts` is the source of truth. Every game-data and plan type is
+declared as a Zod schema and the TypeScript type is derived from it with
+`z.output<typeof FooSchema>`. `src/data/types.ts` re-exports those types and adds
+the transient solver types, which have no schema. This document mirrors both files;
+if they disagree, the code wins and this file should be fixed.
+
+The shapes below are the **parsed** (output) types: defaults are already applied
+and preprocessors have already run.
 
 ---
 
-## Game Data (static, loaded at startup)
+## Game data
+
+A game-data bundle is a single JSON file. It is produced offline by
+`scripts/build-game-data.js` from the raw prototype dump that `factorio --dump-data`
+writes (see the README for the commands). The app loads it at runtime through
+`parseGameData` / `loadGameDataFromJson` (`src/data/loader.ts`), which validate it
+against `GameDataSchema` and throw `GameDataLoadError` on failure.
+
+Bundles for Nullius and Kompetenz Seablock are committed under `public/data/`;
+the user can also upload a custom bundle (see [ui.md](ui.md)).
+
+### GameData (root)
+
+```ts
+interface GameData {
+  factorioVersion: string                     // base game version, e.g. "2.0.76"
+  modSet: Record<string, string>              // enabled mod name -> version (includes "base")
+  items: Record<string, Item>                 // items AND fluids, keyed by id
+  recipes: Record<string, Recipe>
+  machines: Record<string, Machine>
+  modules: Record<string, Module>
+  beacons: Record<string, BeaconEntity>       // default {}
+  defaultMachines: Record<string, string>     // recipe category -> machine id
+  itemGroups: Record<string, ItemGroup>       // default {}
+  itemSubgroups: Record<string, ItemSubgroup> // default {}
+}
+```
+
+`defaultMachines` maps each recipe category to the machine with the highest
+`craftingSpeed` among the machines that list that category (ties keep the first
+one found). It is used whenever a node has no `machineId` override.
 
 ### Item
 
+Items and fluids share one record, distinguished by `type`.
+
 ```ts
 interface Item {
-  id: string;           // internal name, e.g. "iron-plate"
-  name: string;         // display name (localised_name resolved to English, or id fallback)
-  type: "item" | "fluid";
-  iconPath: string;     // relative path to the icon PNG within the export directory
-  stackSize?: number;   // undefined for fluids
+  id: string            // prototype name, e.g. "iron-plate"
+  name: string          // English display name (locale resolved; falls back to id)
+  type: 'item' | 'fluid'
+  iconPath: string      // see "Icon paths" below
+  hidden: boolean       // default false
+  stackSize?: number    // positive int; absent for fluids
+  subgroup: string      // item-subgroup id; default ''
+  order: string         // Factorio sort key; default ''
 }
 ```
+
+The build script exports every item-like prototype type (`item`, `tool`, `armor`,
+`ammo`, `capsule`, `module`, …) as `type: 'item'`, plus every `fluid`.
 
 ### Recipe
 
 ```ts
 interface Recipe {
-  id: string;
-  name: string;         // display name
-  category: string;     // open string — "crafting", "smelting", "oil-processing", etc.
-                        // absent in data.raw means "crafting" (default)
-  craftingTime: number; // seconds at crafting_speed=1 (data.raw: energy_required, default 0.5)
-  ingredients: Ingredient[];
-  products: Product[];
-  madeIn: string[];     // machine ids whose crafting_categories include this recipe's category
-  allowProductivity: boolean;  // whether productivity modules may be applied
-  mainProduct?: string; // item id of the primary output; absent = single-product recipe;
-                        // null = explicitly multi-output with no primary (main_product="")
+  id: string
+  name: string               // display name, see below
+  category: string           // open string; absent in the dump means "crafting"
+  craftingTime: number       // seconds at crafting speed 1 (dump: energy_required, default 0.5); > 0
+  ingredients: Ingredient[]
+  products: Product[]
+  madeIn: string[]           // ids of machines whose craftingCategories include `category`, sorted
+  allowProductivity: boolean // dump: allow_productivity, default false
+  hidden: boolean            // default false
+  mainProduct?: string | null
+  subgroup: string           // default ''
+  order: string              // default ''
 }
 
 interface Ingredient {
-  itemId: string;
-  type: "item" | "fluid";
-  amount: number;
-  // Fluid temperature constraints — informational, not used by solver in v1
-  minimumTemperature?: number;
-  maximumTemperature?: number;
+  itemId: string
+  type: 'item' | 'fluid'
+  amount: number                // > 0
+  minimumTemperature?: number   // informational; not used by the solver
+  maximumTemperature?: number
 }
 
 interface Product {
-  itemId: string;
-  type: "item" | "fluid";
-  amount: number;
-  probability?: number;           // 0–1, defaults to 1; if < 1 item may not appear
-  // Amount range for variable-yield products (rarely used; average = (min+max)/2)
-  amountMin?: number;
-  amountMax?: number;
-  // Productivity exclusion: this many units are "fixed" and do not benefit from
-  // productivity bonuses. Only the amount above this threshold scales with productivity.
-  // Used by Kovarex enrichment (U-235 input/output).
-  ignoredByProductivity?: number;
+  itemId: string
+  type: 'item' | 'fluid'
+  amount: number                // >= 0; the only amount the solver reads
+  probability?: number          // 0–1; absent means 1
+  amountMin?: number            // informational, see below
+  amountMax?: number
+  ignoredByProductivity?: number
 }
 ```
+
+`ingredients`, `products` and `madeIn` (and `Module.limitation` /
+`limitationBlacklist`) accept an empty object `{}` as an empty array. This is a
+compatibility shim for bundles that serialised empty tables as objects.
+
+**Recipe name.** The build script uses, in order: the recipe's `localised_name`,
+its `recipe-name` locale key, then the display name of its main product.
+
+**Recipe subgroup.** When the recipe has no `subgroup`, the build script uses the
+subgroup of its main product (or of its single product).
+
+**`mainProduct`.** Resolved at build time:
+
+| Dump `main_product` | Products | Exported `mainProduct` | Parsed value |
+|---|---|---|---|
+| non-empty string | any | that item id | that item id |
+| absent | exactly one | that product's id | that product's id |
+| `""` (explicitly none) | several | `""` | `null` (schema preprocess maps `""` → `null`) |
+| absent | zero or several | field omitted | `undefined` |
+
+So `null` means "explicitly multi-output, no primary" and `undefined` means "no
+declared primary". Consumers fall back to the first product:
+`node.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId`
+(see `primaryProduct` on `GameRecipeNode`).
+
+**Product amounts.** For a product given as a range, the build script sets
+`amount = amount ?? amount_max ?? 0` and copies `amount_min` / `amount_max` into
+`amountMin` / `amountMax`. The solver only reads `amount`, so a range product is
+treated as yielding its maximum. The Nullius bundle has no range products.
+
+**Probability.** The solver multiplies `amount` by `probability` (expected value).
+
+**`ignoredByProductivity`.** That many units of the product do not benefit from
+productivity bonuses; only `amount − ignoredByProductivity` scales. In Nullius this
+appears on Kovarex enrichment and coal liquefaction. See [solver.md](solver.md) for
+the effective-amount formula.
+
+**`allowProductivity`.** The solver does not check it: `computeNodeEffects` applies
+whatever productivity the node's modules and beacon provide. The machine and beacon
+modals zero productivity in their "Recipe effects" panel when the recipe disallows
+it, but they do not stop the user from adding productivity modules.
 
 ### Machine
 
 ```ts
 interface Machine {
-  id: string;
-  name: string;
-  type: "assembling-machine" | "furnace" | "rocket-silo";
-  craftingSpeed: number;          // multiplier on craftingTime; 1.0 = base speed
-  energyUsageKw: number;          // kW at full load (parsed from "150kW" / "9.75MW" string)
-  energyType: "electric" | "burner" | "heat" | "void";
-  drainKw: number;                // kW idle drain; 0 for non-electric or when absent
-  moduleSlots: number;            // 0 when the field is absent in data.raw
-  allowedEffects: EffectName[];   // which module effects this machine accepts
-  craftingCategories: string[];   // recipe categories this machine can execute
-  iconPath: string;
+  id: string
+  name: string
+  type: 'assembling-machine' | 'furnace' | 'rocket-silo'
+  craftingSpeed: number          // > 0; default 1 when absent
+  energyUsageKw: number          // kW at full load
+  energyType: 'electric' | 'burner' | 'heat' | 'void'
+  drainKw: number                // idle drain in kW; 0 when absent
+  moduleSlots: number            // int >= 0; dump absence means 0
+  allowedEffects: EffectName[]   // sorted
+  craftingCategories: string[]   // sorted
+  iconPath: string
+  hidden: boolean                // default false
 }
 
-type EffectName = "speed" | "productivity" | "consumption" | "pollution" | "quality";
+type EffectName = 'speed' | 'productivity' | 'consumption' | 'pollution' | 'quality'
 ```
+
+Only the three prototype types above are exported as machines. `energyType` comes
+from `energy_source.type`; anything other than electric, burner or heat becomes
+`'void'`. Energy strings in the dump (`"75kW"`, `"9.75MW"`) are parsed to kW; the
+parser accepts W, kW, MW, GW and TW suffixes, and a bare number is read as watts.
 
 ### Module
 
 ```ts
 interface Module {
-  id: string;
-  name: string;
-  category: string;   // "speed" | "productivity" | "efficiency" | etc. (open string)
-  tier: number;
-  effects: Partial<Record<EffectName, number>>;  // additive fraction, e.g. 0.2 = +20%
-  // Recipe restriction. Empty = unrestricted (applies to all allowed recipes).
-  limitation: string[];           // recipe ids this module IS restricted to
-  limitationBlacklist: string[];  // recipe ids this module is excluded from
+  id: string
+  name: string
+  category: string                               // open string; 'unknown' when absent
+  tier: number                                   // int >= 0
+  effects: Partial<Record<EffectName, number>>   // additive fraction, e.g. 0.2 = +20%
+  limitation: string[]                           // recipe ids the module is restricted to
+  limitationBlacklist: string[]                  // recipe ids the module is excluded from
+  iconPath: string                               // default ''
 }
 ```
 
-### GameData (root bundle)
+Effects may be negative (Nullius speed modules carry a negative `quality`). The
+build script always emits `limitation` and `limitationBlacklist` as empty arrays,
+so in practice every module is unrestricted; the UI still honours them if present.
+
+### BeaconEntity
 
 ```ts
-interface GameData {
-  // Game/mod version information
-  factorioVersion: string;        // e.g. "2.0.28"
-  modSet: Record<string, string>; // { mod_name: version } for all active mods
-
-  items: Record<string, Item>;
-  recipes: Record<string, Recipe>;
-  machines: Record<string, Machine>;
-  modules: Record<string, Module>;
-
-  // Suggested default machine per recipe category.
-  // Populated by the export script based on the "best" available machine
-  // (typically the highest tier) for each category.
-  defaultMachines: Record<string, string>;  // category -> machine id
+interface BeaconEntity {
+  id: string
+  name: string
+  iconPath: string
+  hidden: boolean                 // default false
+  moduleSlots: number             // int >= 0
+  distributionEfficiency: number  // >= 0 (dump: distribution_effectivity, default 0)
+  allowedEffects: EffectName[]    // dump absence means "all five effects"
 }
 ```
+
+### ItemGroup and ItemSubgroup
+
+Used by the item and recipe pickers to lay out tabs (groups) and rows (subgroups).
+
+```ts
+interface ItemGroup {
+  id: string
+  name: string
+  order: string      // default ''
+  iconPath: string   // default ''
+}
+
+interface ItemSubgroup {
+  id: string
+  group: string      // ItemGroup id; default ''
+  order: string      // default ''
+}
+```
+
+### Icon paths
+
+Every `iconPath` is written by the build script as the path of the PNG it
+extracted (and composited, for layered icons) into the icons output directory.
+Because that directory is resolved to an absolute path, the committed bundles
+contain absolute filesystem paths of the form
+`/<…>/public/data/<dataset>/icons/<id>.png`. An empty string means no icon could
+be resolved.
+
+`src/utils/iconUrl.ts` turns that into a URL: it keeps everything after
+`/public/` and prefixes Vite's `BASE_URL`. `iconUrlWebp` swaps `.png` for `.webp`;
+the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
+
+### What the build script leaves out
+
+- Recipes with `parameter: true` (blueprint parameter slots) are skipped.
+- Quality is ignored: no quality tiers, `allow_quality`, or per-item quality.
+  Nullius does not implement quality tiers. The `quality` effect name is kept so
+  module effects parse, but the solver ignores it.
+- `fluidbox_index` (physical fluid port routing) and `ignored_by_stats`
+  (production-statistics display flag) are dropped; neither affects flow rates.
+- `allow_decomposition` (recycling) is not exported.
+- Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
+  machines only report `energyUsageKw`.
+
+### Source-data notes
+
+Things to keep in mind when reading a bundle:
+
+- Recipe categories are open strings, not an enum (Nullius defines dozens of
+  custom ones). They are matched to machines through `craftingCategories`.
+- Some recipes have an empty `madeIn` (no exported machine handles their
+  category), and many are `hidden`. The recipe picker hides hidden recipes unless
+  "Hidden recipes" is ticked.
+- Approximate size of the committed Nullius bundle, for orientation only (it
+  changes with every re-export): ~2,400 recipes, ~2,850 items and fluids, 136
+  machines, a few dozen modules, ~20 beacons.
 
 ---
 
-## Plan (user data, persisted)
+## App state (persisted)
 
-A plan is the unit of user work. It is serialized to JSON for export and URL sharing.
+The user's work is an `AppState`. It is saved to `localStorage` under
+`factorio-planner:app-state` on every change, restored at startup through
+`parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
+data), and downloaded as JSON by the "Export plan" button.
 
-### ProductionGoal
+```
+AppState
+└── blocks: Block[]
+    └── rootPlan: SubPlan
+        ├── nodes: RecipeNode[]      (GameRecipeNode | SubPlanNode, in display order)
+        └── subPlans: SubPlan[]      (recursive)
+```
+
+### AppState
 
 ```ts
-interface ProductionGoal {
-  id: string;       // stable uuid
-  itemId: string;
-  rate: number;     // items per minute
+interface AppState {
+  blocks: Block[]
+  activeBlockId: string
 }
 ```
+
+### Block
+
+A block is one independent factory (one tab in the UI). The solver solves each
+block as a single LP.
+
+```ts
+interface Block {
+  id: string
+  name: string
+  gameDataVersion: string    // reserved; new blocks get '' and nothing sets it
+  goals: ProductionGoal[]    // default []
+  noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
+  rootPlan: SubPlan
+}
+
+interface ProductionGoal {
+  id: string        // uuid
+  itemId: string
+  rate: number      // > 0, items per minute
+}
+```
+
+**Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`:
+older plans stored `goals` and `noImportItems` on each sub-plan. The migration
+walks the tree, hoists them to the block (goals deduplicated by `itemId` with
+rates summed; non-positive rates dropped; no-import items deduplicated), and strips
+them from the sub-plans. Block-level values already present on the input win.
+
+### SubPlan
+
+```ts
+interface SubPlan {
+  id: string
+  name: string
+  nodes: RecipeNode[]
+  subPlans: SubPlan[]
+  createdAt: string   // ISO datetime
+  updatedAt: string   // ISO datetime
+}
+```
+
+Sub-plans are UI grouping only (the "sub-factories" in the production table).
+They carry no goals and no solver semantics: `flattenBlock`
+(`src/solver/index.ts`) collects every node in the tree into one flat list before
+solving. A new block's root sub-plan is named `"Main"`.
+
+A nested sub-plan is referenced twice: the `SubPlan` object lives in its parent's
+`subPlans`, and a `SubPlanNode` in the parent's `nodes` marks where the group is
+displayed in the row order.
 
 ### RecipeNode
 
-One node in the solved production tree. Corresponds to one recipe running at a computed rate.
+A discriminated union on `kind`. Nodes are authored by the user (added through the
+recipe picker); the solver never creates or removes them.
 
 ```ts
-interface RecipeNode {
-  id: string;
-  recipeId: string;
+type RecipeNode = GameRecipeNode | SubPlanNode
 
-  // User overrides (all optional — absent means use plan/global defaults)
-  machineId?: string;             // overrides default machine for this recipe's category
-  modules: ModuleConfig[];        // per-node module configuration; enforced against moduleSlots
-  beaconConfig?: BeaconConfig;
-  pinnedRate?: number;            // if set, solver treats this throughput as fixed
-
-  // Per-product byproduct policy. Default: "feed-back".
-  // Only needs an entry when the user has changed a product away from the default.
-  byproductPolicy: Record<string, "discard" | "feed-back">;
+interface GameRecipeNode {
+  kind: 'game-recipe'
+  id: string
+  recipeId: string
+  machineId?: string            // overrides defaultMachines[recipe.category]
+  modules: ModuleConfig[]
+  beaconConfig?: BeaconConfig
+  pinnedRate?: number           // > 0; fixes the recipe's executions per minute
+  byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
+  primaryProduct?: string       // which output the UI treats as the product
+  byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
 }
 
+interface SubPlanNode {
+  kind: 'subplan'
+  id: string
+  subPlanId: string             // id of a SubPlan in the parent's subPlans
+}
+```
+
+- **Legacy nodes.** `RecipeNodeSchema` injects `kind: 'game-recipe'` into any
+  node that has no `kind`, so plans saved before sub-plans existed still load.
+- **`pinnedRate`.** The solver uses it as an equality constraint on the recipe's
+  throughput (executions per minute). The preprocess coerces `0` to `undefined`
+  so a plan saved with a zero pin still loads.
+- **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
+  [solver.md](solver.md) for how `'discard'` is applied.
+- **`primaryProduct`.** Display-only override of the recipe's main product: it
+  decides which output appears in the row's Products cell (the rest go to
+  Byproducts) and which icon represents the recipe. The solver ignores it.
+- **`byproductConsumer`.** See [solver.md](solver.md). The UI hides the pin
+  control on such nodes.
+
+### ModuleConfig and BeaconConfig
+
+```ts
 interface ModuleConfig {
-  moduleId: string;
-  count: number;
+  moduleId: string
+  count: number                   // int > 0
 }
 
 interface BeaconConfig {
-  moduleId: string;
-  beaconCount: number;
-  modulesPerBeacon: number;             // typically 2
-  distributionEfficiency: number;       // fraction of beacons affecting this machine, 0–1
+  beaconId?: string               // BeaconEntity id; absent on configs made without beacon data
+  moduleId: string
+  beaconCount: number             // int >= 0
+  modulesPerBeacon: number        // int > 0
+  distributionEfficiency: number  // >= 0
 }
 ```
 
-### Plan
-
-```ts
-interface Plan {
-  id: string;
-  name: string;
-  gameDataVersion: string;        // factorioVersion from the loaded GameData
-  goals: ProductionGoal[];
-  nodes: RecipeNode[];            // one per active recipe; populated/updated on solve
-  createdAt: string;              // ISO timestamp
-  updatedAt: string;
-}
-```
+The total module count on a node is kept within the machine's `moduleSlots` by the
+UI, not by the schema. When `beaconId` is set, the beacon modal copies the
+entity's `moduleSlots` and `distributionEfficiency` into the config; the solver
+reads only the config fields.
 
 ---
 
-## Solver State
+## Solver state (transient)
 
-Transient, not persisted. Produced by the solver and consumed by the UI.
+Defined in `src/data/types.ts`. Not persisted and not validated by Zod; produced
+by `solve()` and held in `solverStore`. All rates are per minute.
 
 ```ts
 interface SolverResult {
-  nodes: SolvedNode[];
-  unsatisfied: UnsatisfiedItem[];   // items with no producing recipe (raw resources)
-  warnings: SolverWarning[];
+  nodes: SolvedNode[]
+  unsatisfied: UnsatisfiedItem[]
+  warnings: SolverWarning[]
 }
 
 interface SolvedNode {
-  recipeNodeId: string;
-  inputRates: Record<string, number>;    // itemId -> items/min consumed
-  outputRates: Record<string, number>;   // itemId -> items/min produced (gross, before byproduct policy)
-  throughput: number;                    // recipe executions/min
-  machineCountExact: number;
-  machineCountCeil: number;
-  powerKw: number;
+  recipeNodeId: string                 // GameRecipeNode.id
+  inputRates: Record<string, number>   // itemId -> items/min consumed
+  outputRates: Record<string, number>  // itemId -> items/min produced (gross)
+  throughput: number                   // recipe executions/min
+  machineCountExact: number
+  machineCountCeil: number
+  powerKw: number
 }
 
 interface UnsatisfiedItem {
-  itemId: string;
-  rate: number;                     // items/min that must come from outside (miners, imports)
+  itemId: string
+  rate: number   // items/min that must come from outside the block
 }
 
 type SolverWarning =
-  | { type: "cycle-detected"; recipeIds: string[] }
-  | { type: "underdetermined"; freeVariables: string[] }
-  | { type: "no-recipe"; itemId: string }
-  | { type: "productivity-not-allowed"; recipeId: string };
+  | { type: 'no-recipe'; itemId: string }
+  | { type: 'duplicate-recipe'; recipeId: string; count: number }
+  | { type: 'infeasible-pins'; recipeIds: string[] }
+  | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
 ```
 
----
+`unsatisfied` lists, in this order: goal shortfalls, intermediate slack (items the
+LP had to import to balance), and raw-resource consumption. The UI shows it as the
+Ingredients pane.
 
-## Known Omissions (v1)
-
-These fields exist in `data.raw` but are intentionally excluded from the v1 model:
-
-- **`fluidbox_index`** on ingredients/products — physical fluid port routing; irrelevant to flow-rate solver
-- **`ignored_by_stats`** — cosmetic UI flag; no effect on calculations
-- **`quality`** — quality tier on items; all items treated as normal quality
-- **`allow_quality`** on recipes — quality upgrade mechanics ignored
-- **`allow_decomposition`** — recycling recipes; out of scope
-- **`parameter: true`** recipes — blueprint parameter slots; filtered out during import
+What triggers each warning is described in [solver.md](solver.md); how the UI
+presents them is in [ui.md](ui.md).

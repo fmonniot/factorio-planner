@@ -1,139 +1,323 @@
-# UI Specification
+# UI
 
-The UI is inspired by helmod: panel-based, information-dense, and structured around recipe nodes. It is not a visual flow editor — the layout is computed, not freeform.
+The app is a single screen built around a production table. There is no router
+and no backend: all state lives in Zustand stores and the browser.
+
+Components live in `src/components/` (shared pieces and pickers) and
+`src/components/factory/` (the screen itself). This file names the component
+behind each feature so you can find it.
+
+---
+
+## Startup
+
+`src/main.tsx`, in order:
+
+1. Restores the saved `AppState` from `localStorage` (`loadPersistedAppState`,
+   `src/store/persistence.ts`) and the rate unit (`loadPersistedUiState`,
+   `src/store/uiStore.ts`). Invalid saved state is ignored and the default state
+   (one empty block named "Factory") is used.
+2. Starts auto-saving both on every change.
+3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
+   block store or the game data schedules a re-solve of the **active block**
+   after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
+   result without calling the solver.
+4. Mounts `FactoryShell`.
+
+Game data is not loaded at startup unless a dataset was chosen in an earlier
+session (see [Game data selector](#game-data-selector)).
 
 ---
 
 ## Layout
 
-```
-┌──────────────────────────────────────────────────────────────────┐
-│ HEADER: plan name  |  [New] [Open] [Import] [Export]  |  [⚙ Settings] │
-├──────────────┬───────────────────────────────────────────────────┤
-│  GOALS       │  PRODUCTION TREE                                  │
-│  ─────────   │                                                   │
-│  [+ Add]     │  (recipe cards, see below)                        │
-│              │                                                   │
-│  🟩 Green    │                                                   │
-│     Circuit  │                                                   │
-│     60/min   │                                                   │
-│  🔩 Iron Gear│                                                   │
-│     30/min   │                                                   │
-│              │                                                   │
-├──────────────┴───────────────────────────────────────────────────┤
-│  SUMMARY: 42 machines  |  1.2 MW  |  Raw: iron-ore 180/min  ...  │
-└──────────────────────────────────────────────────────────────────┘
-```
-
-### Panels
-
-**Goals Panel (left sidebar)**
-- Fixed-width sidebar listing active production goals.
-- Each goal shows item icon, name, rate (editable inline), and a remove button.
-- "Add goal" opens the item picker.
-- Clicking a goal highlights its root node in the tree.
-
-**Production Tree (main area)**
-- Scrollable canvas displaying recipe nodes in a top-down tree.
-- Default layout: each level of the dependency tree is a horizontal row of cards.
-- Nodes that supply multiple consumers are shown once; their edges fan out to each consumer.
-- View toggle: Tree | Table | (future: Sankey).
-
-**Summary Bar (bottom)**
-- Total machine count, total power draw (MW), list of raw resource rates.
-- Clicking a raw resource scrolls to the nodes consuming it.
-
----
-
-## Recipe Card
-
-The primary UI atom. One card per `RecipeNode` in the solved plan.
+`FactoryShell` stacks three regions full-height:
 
 ```
-┌────────────────────────────────────────────────────┐
-│ [icon] Electronic Circuit          [▼ alt recipe]  │
-│ ──────────────────────────────────────────────────  │
-│  Rate:      60.0 /min     [🔒 pin]                  │
-│  Machines:  3.0  → 3 × [Assembler 3 ▼]             │
-│  Power:     0.45 MW                                 │
-│ ──────────────────────────────────────────────────  │
-│  Modules: [Speed 3 ×4 ▼]  Beacons: [configure]     │
-│ ──────────────────────────────────────────────────  │
-│  Inputs:                                            │
-│    🔩 Iron Plate    120/min  (from Iron Smelting)   │
-│    🔵 Copper Cable  180/min  (from Copper Drawing)  │
-└────────────────────────────────────────────────────┘
+┌ TopBar ──────────────────────────────────────────────────────────────────┐
+│ [▣][▣][+] Block name                         [Export plan] [Nullius ▾]   │
+├ FactorySummary ──────────────────────────────────────────────────────────┤
+│ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
+│ ┌ PRODUCTS ─────────────┐ ┌ BYPRODUCTS ─────────┐ ┌ INGREDIENTS ────────┐ │
+│ │ [icon 60 → 58.2 /m] + │ │ [icon 12 /m]        │ │ [icon 30 /m] [🔒]   │ │
+│ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
+├ ProductionTable ─────────────────────────────────────────────────────────┤
+│    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
+│ ▲▼ │ ▶ Smelting  3 recipes  ×                                            │
+│ ▲▼ │ ♻ 📍 ⊞ × [icon] │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
+│ + Add recipe                                                              │
+└──────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Card Elements
-
-- **Header**: item icon, recipe name, optional alternate-recipe dropdown (shown only if alternatives exist).
-- **Rate**: computed items/min. Editable to pin the rate (locks this node as a free variable for the solver). Pin indicator shown when active.
-- **Machines**: exact count (e.g. `3.0`) and ceiling (e.g. `3 ×`). Machine type is a dropdown filtered to machines that support the recipe's category.
-- **Power**: total kW for this node including drain.
-- **Modules**: per-node module configuration (slot count enforced). Optional — collapses when no modules set.
-- **Beacons**: opens a popover for beacon/module/count configuration.
-- **Inputs**: each ingredient with its rate and the name of the upstream recipe card providing it. Clicking an input scrolls to its source card.
-
-### Card States
-
-- **Normal**: default
-- **Highlighted**: when its goal is selected in the Goals panel
-- **Warning**: solver warning on this node (underdetermined, cycle) — amber border + tooltip
-- **Pinned**: rate is user-overridden — blue border
-- **Rate changed**: node's computed rate changed from the previous solve (e.g. because a newly added recipe's byproduct now covers some of its demand) — briefly animated, then settled. Prevents silent re-routing surprises caused by the feed-back byproduct default.
+The layout is designed for desktop widths; there is no mobile layout.
 
 ---
 
-## Item Picker
+## TopBar
 
-Used to add goals and to select alternate items/machines/modules.
+`TopBar.tsx` is one row: block tabs on the left, plan export and game-data
+selector on the right.
 
-- Modal dialog with search input (fuzzy search on item name and id).
-- Results show item icon + name + type (item/fluid).
-- For adding a goal: after picking the item, a rate input appears inline.
-- Keyboard-navigable; Enter selects.
+### Block tabs
+
+`BlockTabs.tsx`. One square tab per block, showing the icon of the block's first
+goal (or `?` when it has none); the full name is the tab's tooltip. The active
+block's name is printed after the tabs.
+
+- Click a tab to make that block active. Only the active block is shown and
+  solved.
+- `+` adds a new empty block named "Block N" and activates it.
+- Right-click a tab for a small menu: **Rename** (browser prompt) and **Delete**.
+  Delete is disabled when only one block remains; deleting the active block
+  activates the first remaining one.
+
+### Export plan
+
+`ExportPlanButton` (in `GameDataSelector.tsx`) downloads the current `AppState`
+(`{ blocks, activeBlockId }`) as `factorio-plan-YYYY-MM-DD.json`. There is no
+import button; a saved file is the same shape the app keeps in `localStorage`.
+
+### Game data selector
+
+`GameDataSelector` (in `GameDataSelector.tsx`) is a dropdown with:
+
+- the bundled datasets, **Nullius** and **Seablock** (served from
+  `public/data/<dataset>/game-data.json`);
+- **Upload file…**, which opens a file chooser for a custom `game-data.json`;
+- the name of the uploaded file, once there is one.
+
+Picking a bundled dataset remembers the choice in `localStorage` and clears any
+stored upload. An uploaded file is stored in IndexedDB (database
+`factorio-planner`) and reloaded on the next visit. With neither, the dropdown
+shows "Select game data…" and nothing is loaded. A "Loading…" or "Error loading
+data" label appears next to the dropdown while loading or after a validation
+failure (the tooltip carries the error message).
+
+Plans are not tied to a dataset: switching datasets keeps every block, and nodes
+whose recipe is missing from the new data are simply not rendered.
 
 ---
 
-## Table View
+## FactorySummary
 
-Flat list of all recipe nodes, sortable by:
-- Recipe name
-- Rate (executions/min)
-- Machine count
-- Power (kW)
+`FactorySummary.tsx` is the summary strip for the active block.
 
-Each row has the same inline-edit affordances as the tree card (machine picker, module config, pin toggle). Useful for large plans where the tree becomes wide.
+### Header row
+
+- **Block name** — click to edit inline; Enter or blur saves, Escape cancels.
+- **Warnings** — `WarningsPopover` (see below), shown only when the last solve
+  produced warnings.
+- **Rate unit toggle** — `/sec · /min`, stored in `uiStore` and persisted. The
+  default is `/min`. It changes how every rate in the summary and the table is
+  displayed; stored values are always per minute.
+
+### Products pane
+
+One `GoalTile` per block goal: item icon, target rate, `→` actual rate, unit.
+
+- The target is clickable and edits inline (in the current display unit).
+- The actual rate is the item's net balance across all solved nodes; it appears
+  once the solver has a result.
+- `×` (on hover) removes the goal.
+- `+` opens the [item picker](#item-picker) to add a goal.
+
+### Byproducts pane
+
+Every item with a positive net balance that is not a goal, as `ItemTile`s.
+
+### Ingredients pane
+
+The solver's `unsatisfied` list: everything the block must import (goal
+shortfalls, intermediate slack, raw resources), as `ItemTile`s.
+
+- Clicking a tile adds the item to the block's `noImportItems`, which forbids
+  the solver from importing it.
+- Each no-import item is shown after the tiles as a dimmed chip with a 🔒; click
+  it to allow imports again.
+
+### Warnings popover
+
+`WarningsPopover.tsx`. A `⚠ N warnings` button, yellow, or red when any warning is
+`infeasible-pins`. Clicking it opens a list where each warning has a title, an
+explanation naming the items or recipes involved, and a hint:
+
+| Warning | Title |
+|---|---|
+| `no-recipe` | No recipe in plan |
+| `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe and removes the others |
+| `infeasible-pins` | Pinned rate is impossible |
+| `overconstrained` | Recipe network can't fully balance |
+
+The popover closes on Escape or a click outside.
 
 ---
 
-## Settings Panel
+## ProductionTable
 
-Accessible via the settings icon in the header.
+`ProductionTable.tsx` renders the active block's recipe tree.
 
-- **Default machine per category** — set global defaults used for new nodes.
-- **Default module configuration** — applied to all new nodes.
-- **Rate unit** — items/min, items/sec, items/tick.
-- **Game data** — current loaded bundle version; button to import a custom bundle (JSON file).
-- **Plan management** — list saved plans in localStorage, rename, delete.
+- Without game data: "Load game data to begin".
+- With no nodes: "No recipes yet" and a `+ Add recipe` link.
+- Otherwise: a table with a sticky header — reorder, Recipe, Machine, Beacon,
+  Products, Byproducts, Ingredients — and a `+ Add recipe` footer.
+
+`+ Add recipe` opens the [recipe picker](#recipe-picker); the chosen recipe is
+appended to the block's root plan as a new node with default settings.
+
+Row order is the order of the nodes in each sub-plan. The table is not sortable;
+the user arranges rows by drag-and-drop or the ▲/▼ buttons.
+
+### Recipe rows
+
+`RecipeRow.tsx`, one per `GameRecipeNode`. Rows inside a sub-factory are indented
+by depth. Nodes whose recipe does not exist in the loaded data render nothing.
+
+**Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends).
+
+**Recipe cell.** Hover reveals the action buttons, which stay visible when active:
+
+- ♻ **Byproduct consumer** toggle — "Only run to absorb byproduct from other
+  recipes" (sets `byproductConsumer`; green when on).
+- 📍/📌 **Pin** — pins the recipe at its current throughput (at least 1); hidden on
+  byproduct-consumer rows. While pinned, the Products cell becomes a number input
+  for the pinned rate.
+- ⊞ **Wrap in subfactory** — prompts for a name (defaults to the recipe name) and
+  replaces the row with a new sub-factory containing just this node.
+- × **Remove**.
+
+Then the recipe icon: the icon of the primary product (falls back to the first two
+letters of the recipe name), with the recipe name as tooltip.
+
+**Machine cell.** `MachineCell` (machine icon with the rounded-up machine count)
+and, when the machine has module slots, `ModuleCell` (first module's icon, or
+`+`, with a `used/total` slot badge). Both open the
+[Edit machine modal](#edit-machine-modal).
+
+**Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
+button creates one — the first non-hidden beacon type by name, the first module by
+name, 4 beacons — and opens the [Edit beacon modal](#edit-beacon-modal). With a
+beacon, it shows the beacon icon and `N×`; click to edit.
+
+**Products cell.** The output that counts as the primary product
+(`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an
+`ItemTile` with its rate.
+
+**Byproducts cell.** Every other output. On multi-output recipes, clicking a
+byproduct makes it the primary product (it swaps places with the current one).
+
+**Ingredients cell.** Every input with its rate. Clicking one opens the recipe
+picker filtered to recipes producing that item; the chosen recipe is added to the
+same sub-plan as the clicked row. A ⚡ tile at the end shows the row's power draw
+(auto-scaled W / kW / MW / GW) when it is above zero.
+
+Rates come from the last solve; before a solve (or for a row the solver did not
+reach) the rate cells are empty and the machine count is 0.
+
+### Sub-factory rows
+
+A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count,
+and × to remove the sub-factory **with all its contents**. Expanding shows its
+nodes indented beneath it (including nested sub-factories); an empty expanded
+group shows a "Drop here" target. Expanded/collapsed state is not saved.
+
+Sub-factories exist only to organise the table; the solver ignores the grouping.
+There is no UI to rename a sub-factory after creating it.
+
+### Drag and drop
+
+Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop.
+`RecipeDnd.tsx` holds the drag state in a context; the drop logic is in
+`RecipeRow` and `ProductionTable`.
+
+- Dropping on the top or bottom half of a recipe row inserts before or after it
+  (a blue line marks the spot).
+- Dropping on a collapsed sub-factory row appends into it; on an expanded one, the
+  top half inserts before the group and the bottom half appends into it.
+- An empty expanded sub-factory accepts drops on its "Drop here" row.
+- While dragging, a "Drop here to append" row at the end of the table appends to
+  the root plan.
+- A sub-factory cannot be dropped inside itself or its descendants.
 
 ---
 
-## Import / Export
+## Modals and pickers
 
-- **Export plan**: downloads a `.json` file of the `Plan` object.
-- **Import plan**: file picker that loads a previously exported plan.
-- **Share URL**: serializes the plan to a compressed base64 query parameter (`?plan=...`). Long plans may exceed URL length limits — a warning is shown in that case.
-- **Import game data**: loads a custom `GameData` JSON bundle (for mods). The bundle replaces the active game data for the current session; the user is warned that existing nodes referencing removed recipes will be invalidated.
+Modals (`Modal.tsx`, and the pickers' own frame) are centred over a dimmed
+backdrop and close on Escape or a click on the backdrop.
+
+### Item picker
+
+`ItemPicker.tsx`, items mode (`source="items"`), used to add a goal.
+
+- Search box (case-insensitive substring match on display name or id).
+- **Amount** field in items per minute, default 60 (always /min, regardless of the
+  rate-unit toggle).
+- Item-group tabs, then items of the selected group in rows by subgroup, sorted by
+  Factorio `order`. Hidden items are never shown.
+- Clicking an item adds it as a goal immediately when the amount is valid;
+  **Submit** does the same for the last clicked item.
+
+### Recipe picker
+
+The same component in recipes mode (`source="recipes"`).
+
+- Search box (substring on recipe name or id) and a **Hidden recipes** checkbox
+  (hidden recipes are excluded by default).
+- Item-group tabs (only when results span more than one group), then recipe
+  slots in subgroup rows. Each slot shows the icon of the recipe's main product.
+- Hovering or focusing a slot shows a side panel with the recipe's ingredients,
+  crafting time, products (with probability) and the machines that can make it.
+- When opened from an ingredient, only recipes producing that item are listed and
+  the subtitle reads "Choose a recipe to produce '…'".
+- Clicking a slot adds the recipe and closes the picker.
+
+### Edit machine modal
+
+`EditMachineModal.tsx`, opened from the Machine cell.
+
+- **Machine** — the current machine; clicking it lists **Default** (use the
+  category's default machine) and every non-hidden machine that can craft the
+  recipe's category. The same list has an **Alternate recipe** section: other
+  non-hidden recipes that produce the current recipe's main product. Choosing one
+  swaps the row's recipe and resets its machine, modules, beacon, pin and other
+  settings.
+- **Modules** (only when the machine has slots) — each configured module with −/+
+  counts, and an "add module" dropdown. Only modules whose effects the machine
+  allows (and whose recipe limitations permit the recipe) are offered; the total
+  never exceeds the machine's slots.
+- **Effects** — "Module effects" (raw totals) and "Recipe effects" (after the
+  machine's allowed effects, and with productivity zeroed if the recipe disallows
+  it). Quality is listed only when relevant.
+
+### Edit beacon modal
+
+`BeaconModal.tsx`, opened from the Beacon cell.
+
+- **Beacon** — beacon type (non-hidden beacons; picking one copies its module
+  slots and distribution efficiency into the config) and **Amount** (beacon
+  count). When the data has no beacon entities, editable "Modules/beacon" and
+  "Efficiency" fields appear instead.
+- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal.
+- **Module** — the module placed in every beacon slot.
+- **Remove beacon**.
 
 ---
 
-## Responsive Behavior
+## Shared pieces
 
-The layout is designed for desktop (1280px+). On smaller screens:
-- Goals panel collapses to an icon-only rail; tap to expand as an overlay.
-- Summary bar collapses to a single summary line with a tap-to-expand drawer.
-- Recipe cards in tree view switch to a compact single-column list.
+- `ItemTile.tsx` — the coloured rate tile used everywhere (variants product,
+  byproduct, ingredient, electricity), plus `fmtRate` and `fmtPower`. Rates show
+  0–2 decimals depending on magnitude.
+- `Icon.tsx` — renders an `iconPath` as a `<picture>` with a WebP source and PNG
+  fallback, via `src/utils/iconUrl.ts` (see [data-model.md](data-model.md#icon-paths)).
+- `Modal.tsx` — the modal frame.
 
-Full mobile editing is not a goal for v1.
+---
+
+## Not in the UI
+
+Some store capabilities have no UI: undo/redo (`blockStore` keeps a per-block
+history), renaming a sub-factory, and the per-product `byproductPolicy`
+(`'discard'`). There is no plan import, URL sharing, settings panel, totals bar,
+or responsive layout. Planned work lives in
+[initiatives/backlog.md](../initiatives/backlog.md).
