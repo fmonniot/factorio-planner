@@ -35,11 +35,11 @@ Update the step checklist below as steps start (`[~]`) and finish (`[x]`).
 
 ## Steps
 
-- [~] **1. Audit (read-only).** Check every doc against the code. Output:
+- [x] **1. Audit (read-only).** Check every doc against the code. Output:
   `audit.md` — one list of findings, each tagged `outdated` / `wrong` /
   `duplicated` / `misplaced` / `broken-link`, with file:line and the
   proposed fix. Includes the D4 report on `spec/solver-chains/`.
-- [ ] **2. Structure decisions.** Using the audit, fix the target layout:
+- [~] **2. Structure decisions.** Using the audit, fix the target layout:
   final list of spec files, where the merged backlog lives, what the slim
   `CLAUDE.md` contains. Output: `structure.md`.
 - [ ] **3. Agent-facing docs.** Write the slim `CLAUDE.md`, remove
