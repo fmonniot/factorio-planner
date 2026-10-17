@@ -21,16 +21,16 @@ test.describe('ingredient click adds to correct subgroup', () => {
     const subgroupBadge = page.locator('main button', { hasText: 'Acid Sub' }).locator('span', { hasText: /recipe/ })
     await expect(subgroupBadge).toHaveText('1 recipe')
 
-    // Find an ingredient tile belonging to the subgroup recipe (appears after expanding).
-    // All ingredient tiles match [title$="Find producer recipe"]; the subgroup recipe's
-    // tiles appear after the subgroup header row in DOM order, so we take the last one
-    // (root recipe tiles come first in the DOM).
-    const ingredientTiles = page.locator('main button[title$="Find producer recipe"]')
-    const tileCount = await ingredientTiles.count()
-    expect(tileCount).toBeGreaterThan(0)
-
-    // Click the last ingredient tile — it belongs to the subgroup recipe (deepest in DOM).
-    await ingredientTiles.last().click()
+    // Scope to the row right after the subgroup header: that is the subgroup's recipe row.
+    // Its ingredient tiles only render once the solver result lands, so rely on
+    // auto-waiting (a one-shot count()/last() can run before then, or while only the
+    // root recipe's tiles exist, and pick the wrong tile).
+    const subgroupRecipeRow = page
+      .locator('main tr', { has: page.locator('button', { hasText: 'Acid Sub' }) })
+      .locator('xpath=following-sibling::tr[1]')
+    const ingredientTile = subgroupRecipeRow.locator('button[title$="Find producer recipe"]').first()
+    await expect(ingredientTile).toBeVisible({ timeout: 10000 })
+    await ingredientTile.click()
 
     // Picker opens.
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
