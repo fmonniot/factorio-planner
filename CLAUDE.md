@@ -91,9 +91,9 @@ Two locations, two purposes. Follow these rules when adding or editing docs:
    - `Status: Active` — work in progress
    - `Status: Future` — design exists, no implementation yet
    - `Status: Blocked — <reason>` — waiting on external work
-   - `Status: Shipped` — done and merged; set when the folder moves to `archive/`. Older archived folders predate this badge and are left as is.
+   - `Status: Shipped` — optional once archived (the location already implies it)
 
-4. **When an initiative ships, move the folder to `initiatives/archive/`.** Run `git mv initiatives/<name> initiatives/archive/<name>`, set the status badge to `Status: Shipped`, mark remaining steps done, and update in-folder references to the old path so the link check stays green. Do not otherwise rewrite or split the documents — they stay a historical record.
+4. **When an initiative ships, move the folder to `initiatives/archive/`.** Run `git mv initiatives/<name> initiatives/archive/<name>` and fix in-folder references to the old path so the link check stays green. Don't otherwise rewrite the documents; setting `Status: Shipped` is optional.
 
 5. **Update `initiatives/README.md` whenever a folder is added, archived, or its status changes.** The README is the only initiative index; nothing else should claim that role.
 
@@ -113,5 +113,5 @@ After changing source files, update the relevant docs so that a new session can 
 | File or directory added/removed/renamed | README [repository map](README.md#repository-map) |
 | Technology or tooling change | [spec/tech-stack.md](spec/tech-stack.md); Commands section in this file |
 | Backlog item done | Remove it from [initiatives/backlog.md](initiatives/backlog.md) (or update its `[~]` note) |
-| Initiative shipped | `git mv initiatives/<name> initiatives/archive/<name>`, set `Status: Shipped`, fix in-folder paths, update [initiatives/README.md](initiatives/README.md) |
+| Initiative shipped | `git mv initiatives/<name> initiatives/archive/<name>`, fix in-folder paths, update [initiatives/README.md](initiatives/README.md) |
 | New corpus case added | [spec/test-corpus.md](spec/test-corpus.md) |

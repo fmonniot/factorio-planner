@@ -10,10 +10,9 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 2. Small or not-yet-designed work is a line in [backlog.md](backlog.md). Work
    that needs a design doc gets its own folder with a primary design/plan doc,
    linked from the backlog.
-3. The first non-heading line of that doc is `Status: Active | Future | Blocked — <reason> | Shipped`.
-4. When an initiative ships, run `git mv initiatives/<name> initiatives/archive/<name>`,
-   set `Status: Shipped`, mark remaining steps done and fix in-folder references to
-   the old path. Do not otherwise rewrite the documents.
+3. The first non-heading line of that doc is `Status: Active | Future | Blocked — <reason>` (`Shipped` is optional once archived).
+4. When an initiative ships, run `git mv initiatives/<name> initiatives/archive/<name>`
+   and fix in-folder references to the old path. Do not otherwise rewrite the documents.
 5. Update this README whenever a folder is added, archived, or changes status.
 
 ## Index
