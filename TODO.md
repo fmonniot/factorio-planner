@@ -29,6 +29,6 @@ is now covered by [initiatives/visual-parity/tickets.md](initiatives/visual-pari
 
 ## Docs / project management
 
-- [ ] **Usage README:** Write a README covering how to use the planner.
+- [x] **Usage README:** Write a README covering how to use the planner.
 
 - [ ] **Review project management:** Double-check the current setup (`spec/`, `initiatives/`, `TODO.md`, `AGENTS.md`) and consider an overhaul based on what has been learned since it was put in place.
