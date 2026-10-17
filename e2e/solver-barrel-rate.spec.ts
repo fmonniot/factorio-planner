@@ -20,7 +20,9 @@ test('solver does not produce astronomical rates when the same recipe appears tw
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 5000 })
 
   // Collect all rate texts rendered in the table (/m = /min or /sec suffix).
+  // count() does not auto-wait, so wait for the first rate to render before sampling.
   const rateLocator = page.locator('main table').getByText(/\/m/)
+  await expect(rateLocator.first()).toBeVisible({ timeout: 5000 })
   const count = await rateLocator.count()
   expect(count).toBeGreaterThan(0)
 
