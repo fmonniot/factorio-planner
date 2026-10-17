@@ -30,8 +30,10 @@ Update the step checklist below as steps start (`[~]`) and finish (`[x]`).
 | D1 | Lua exporter | Gone for good — the `--dump-data` export has everything. Delete `spec/lua-export.md` and every reference to the Lua mod. |
 | D2 | `.claude/skills/state-bug-fix/` | Drop it entirely. A replacement, if wanted, is written from scratch later (not in this initiative). |
 | D3 | `AGENTS.md` scope | Cut hard to quirks, commands and pointers into `spec/`. Consolidate on a real `CLAUDE.md` file; remove `AGENTS.md` and the symlink. |
-| D4 | `spec/solver-chains/` | Undecided — audit checks them against current fixtures/solver and reports keep / update / delete. |
-| D5 | `TODO.md` vs `initiatives/roadmap.md` | Merge into one backlog (location decided in step 2). |
+| D4 | `spec/solver-chains/` | Delete, with the unused fixtures and `scripts/trace-recipe-chain.js` (R1). |
+| D5 | `TODO.md` vs `initiatives/roadmap.md` | Merge into `initiatives/backlog.md`; drop the Shipped table (R3). |
+| D6 | `spec/data-analysis.md` | Fold still-true facts into `data-model.md`, then delete (R2). |
+| D7 | Code issues found by the audit | Record in the backlog only; this branch stays docs-only (plus the R1 deletions). |
 
 ## Steps
 
@@ -39,7 +41,7 @@ Update the step checklist below as steps start (`[~]`) and finish (`[x]`).
   `audit.md` — one list of findings, each tagged `outdated` / `wrong` /
   `duplicated` / `misplaced` / `broken-link`, with file:line and the
   proposed fix. Includes the D4 report on `spec/solver-chains/`.
-- [~] **2. Structure decisions.** Using the audit, fix the target layout:
+- [x] **2. Structure decisions.** Using the audit, fix the target layout:
   final list of spec files, where the merged backlog lives, what the slim
   `CLAUDE.md` contains. Output: `structure.md`.
 - [ ] **3. Agent-facing docs.** Write the slim `CLAUDE.md`, remove
