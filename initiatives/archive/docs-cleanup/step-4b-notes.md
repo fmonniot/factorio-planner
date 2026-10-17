@@ -15,7 +15,7 @@ unstaged.
 
 Pre-deletion grep (excluding `node_modules`, `dist`, `.git`, `initiatives/archive`):
 the only references were inside the deleted files themselves and in
-`initiatives/docs-cleanup/` (intentional history). Nothing in `package.json`,
+`initiatives/archive/docs-cleanup/` (intentional history). Nothing in `package.json`,
 `vitest.config.ts`, `playwright.config.ts`, tests or e2e imports the fixtures or
 the trace script.
 
@@ -125,7 +125,7 @@ Dependabot).
   \"\" …" (comment-only).
 - `spec/data-analysis.md:14,20,122` — Lua mentions; file is being folded into
   data-model.md and deleted by another agent.
-- `initiatives/docs-cleanup/*` mention deleted paths as history — intentional.
+- `initiatives/archive/docs-cleanup/*` mention deleted paths as history — intentional.
 - Code comments flagged by audit B, not in my ownership: `src/solver/solve.ts:40,42,45`
   (`solveLP` docstring says goals have slack, omits BC_BONUS);
   `src/solver/effects.ts:17` (`buildStoichiometryMatrix` → `buildClassifiedSystem`);

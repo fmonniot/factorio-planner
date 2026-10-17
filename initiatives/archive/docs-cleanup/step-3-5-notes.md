@@ -63,4 +63,4 @@ Nothing committed; all moves/deletes staged with `git mv` / `git rm`.
   rewritten.
 - `initiatives/archive/reorder-recipes-dnd/plan.md:15` links `../../TODO.md` —
   archive, left as-is.
-- `docs-cleanup/plan.md` step checkboxes not updated by me (not in my scope).
+- `archive/docs-cleanup/plan.md` step checkboxes not updated by me (not in my scope).

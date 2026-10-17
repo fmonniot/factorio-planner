@@ -19,7 +19,7 @@ spec/
 initiatives/
   README.md               index; remove Roadmap row, add Backlog row; one "Before initiatives existed" row for phases 0–5
   backlog.md              git mv from roadmap.md; folds in TODO.md (draft in appendix C) + code issues from audit.md
-  docs-cleanup/           this initiative
+  archive/docs-cleanup/   this initiative (archived after #76 merged)
   archive/                untouched (broken links there are left as-is)
 ```
 
@@ -72,7 +72,7 @@ solver.md), game data export (→ README), "not yet implemented" (→ backlog).
 - `spec/test-corpus.md:4` — "see AGENTS.md" → README "Exporting game data".
 - `README.md:39,93,99` — roadmap/TODO links → `initiatives/backlog.md`.
 - `initiatives/README.md:3,20,31` — roadmap → backlog.
-- `docs-cleanup/plan.md` — mentions of AGENTS.md are intentional history.
+- `archive/docs-cleanup/plan.md` — mentions of AGENTS.md are intentional history.
 
 ## Step ordering
 
