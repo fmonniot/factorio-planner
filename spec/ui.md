@@ -101,7 +101,8 @@ marked and keep solving.
 The horizon also gates machines, beacons and modules (rules in
 [data-model.md](data-model.md#technology)): the machine, module and beacon pickers
 list only available ones, and a row without an explicit machine uses the horizon's
-default machine. A machine, module or beacon already chosen but outside the horizon
+default machine. A hidden machine, beacon or module that no non-hidden recipe makes is
+never available under a horizon. A machine, module or beacon already chosen but outside the horizon
 is kept and marked with an amber ring (`data-beyond-horizon`) or a "Beyond research
 horizon" label. When no machine of a recipe's category is inside the horizon, the row
 has no machine: its machine count and power are 0 and the row is flagged (see
@@ -312,9 +313,14 @@ and, when the machine has module slots, `ModuleCell` (first module's icon, or
 [Edit machine modal](#edit-machine-modal). An explicit machine outside the research
 horizon gets an amber ring and the title "<name> (beyond research horizon)". When no
 machine is inside the horizon the cell shows the `?` placeholder with count 0, an amber
-ring, and the title "No machine within research horizon". `ModuleCell` also renders
-(with title "Modules without a machine" and a `n/0` badge) when modules are configured
-but the row has no slots; it is ringed when a module is outside the horizon.
+ring, and the title "No machine within research horizon". `ModuleCell` renders whenever the machine has
+slots or modules are configured, so leftover modules stay visible. It is ringed (amber)
+in three cases, each with its own title: the row has no machine in the horizon ("Modules
+without a machine", `data-beyond-horizon`); a module is outside the horizon ("Edit modules
+(beyond research horizon)", `data-beyond-horizon`); or the modules outnumber the slots
+(`data-over-slots`, "Edit modules (more modules than slots)", or "Edit modules (this machine has
+no module slots)" for a real machine with 0 slots). The plan and the solver are untouched:
+the solver applies every configured module, so the flag is the only sign of an overfilled row.
 
 **Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
 button creates one — the first non-hidden beacon type by name, the first module by
@@ -323,7 +329,7 @@ beacon, it shows the beacon icon and `N×`; click to edit. The beacon and module
 are the first ones inside the research horizon. The `+` is disabled, with a title giving
 the reason, when the row has no machine within the horizon ("No machine within research
 horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or
-no module is ("No module within the research horizon"). A configured beacon whose type or
+no module is ("No module within the research horizon"; only when a horizon is active). A configured beacon whose type or
 module is outside the horizon gets an amber ring.
 
 **Products cell.** The output that counts as the primary product
@@ -443,8 +449,8 @@ The same component in recipes mode (`source="recipes"`).
   count). When the data has no beacon entities, editable "Modules/beacon" and
   "Efficiency" fields appear instead.
 - **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
-  the row has no machine within the horizon, a note says beacon effects do not apply
-  to machines here.
+  the row has no machine within the horizon, a note says the row's machine count and
+  power are 0 while module and beacon productivity still applies to the output rates.
 - **Module** — the module placed in every beacon slot (modules inside the research
   horizon are offered).
 - **Remove beacon**.

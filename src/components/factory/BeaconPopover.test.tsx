@@ -192,7 +192,7 @@ describe('BeaconModal — research horizon', () => {
     expect(screen.queryByTestId('beyond-horizon')).not.toBeInTheDocument()
   })
 
-  it('notes that beacon effects do not apply when no machine is within the horizon', () => {
+  it('notes that the row has no machine but productivity still applies when none is within the horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     const gd = horizonData()
     gd.technologies.base.unlockedRecipes = ['iron-plate']
@@ -201,7 +201,9 @@ describe('BeaconModal — research horizon', () => {
       <BeaconModal nodeId="n1" beacon={beaconWithEntity} recipeId="iron-plate" machineId={undefined}
         recipeCategory="crafting" gameData={gd} onClose={() => {}} />,
     )
-    expect(screen.getByTestId('no-machine-in-horizon')).toBeVisible()
+    expect(screen.getByTestId('no-machine-in-horizon')).toHaveTextContent(
+      'No machine within research horizon: machine count and power are 0 for this row. Module and beacon productivity still applies to the output rates.',
+    )
     const recipeEffects = screen.getByText('Recipe effects').parentElement!
     expect(recipeEffects).toHaveTextContent('No active effects')
   })
@@ -249,5 +251,15 @@ describe('BeaconCell — research horizon', () => {
     fireEvent.click(screen.getByLabelText('Add beacon'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(updated.kind === 'game-recipe' && updated.beaconConfig?.beaconId).toBe('beacon')
+  })
+
+  it('does not blame a horizon when the data has no modules and no horizon is set', () => {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    const gd = horizonData()
+    gd.modules = {}
+    renderCell(gd)
+    const btn = screen.getByLabelText('Add beacon')
+    expect(btn).not.toBeDisabled()
+    expect(btn).toHaveAttribute('title', 'Add beacon')
   })
 })

@@ -258,11 +258,11 @@ describe('wireSolver — several blocks', () => {
 })
 
 describe('wireSolver — research horizon machines', () => {
-  const plate = {
+  const plate = () => ({
     id: 'plate', name: 'plate', category: 'crafting', craftingTime: 1,
     ingredients: [], products: [{ itemId: 'plate', type: 'item', amount: 1 }],
     madeIn: [], allowProductivity: false, hidden: false, subgroup: '', order: '',
-  }
+  })
   const machine = (id: string, craftingSpeed: number, category = 'crafting') => ({
     id, name: id, type: 'assembling-machine', craftingSpeed, energyUsageKw: 100, energyType: 'electric',
     drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: [category], iconPath: '', hidden: false,
@@ -277,8 +277,8 @@ describe('wireSolver — research horizon machines', () => {
     loadGameData({
       items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
       recipes: {
-        plate, 'r-am1': { ...plate, id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
-        'r-am2': { ...plate, id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
+        plate: plate(), 'r-am1': { ...plate(), id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
+        'r-am2': { ...plate(), id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
       } as unknown as GameData['recipes'],
       machines: { am1: machine('am1', 1), am2: machine('am2', 2) } as unknown as GameData['machines'],
       defaultMachines: { crafting: 'am2' },
@@ -317,8 +317,8 @@ describe('wireSolver — research horizon machines', () => {
     loadGameData({
       items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
       recipes: {
-        plate, 'r-am1': { ...plate, id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
-        'r-am2': { ...plate, id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
+        plate: plate(), 'r-am1': { ...plate(), id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
+        'r-am2': { ...plate(), id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
       } as unknown as GameData['recipes'],
       machines: { am1: machine('am1', 1), am2: machine('am2', 2) } as unknown as GameData['machines'],
       defaultMachines: { crafting: 'am2' },

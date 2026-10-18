@@ -202,7 +202,7 @@ export function RecipeRow({
   const recipe = gameData.recipes[planNode.recipeId]
   if (!recipe) return null
 
-  const { machine } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
+  const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
   const isMultiOutput = recipe.products.length > 1
@@ -325,6 +325,7 @@ export function RecipeRow({
             modules={planNode.modules}
             machineSlots={machine?.moduleSlots ?? 0}
             gameData={gameData}
+            noMachine={noMachineInHorizon}
             onOpenEdit={() => setEditMachineOpen(true)}
           />
         </div>

@@ -150,6 +150,7 @@ beforeEach(() => {
     blocks: [{ ...block, rootPlan }],
     activeBlockId: block.id,
     history: {},
+    horizonTechnologyIds: [],
   })
 })
 

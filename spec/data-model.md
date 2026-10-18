@@ -274,7 +274,11 @@ Machines, beacons and modules are gated through the items that make them. An ite
 no known placing item (never gated) or at least one placing item is obtainable; the placing
 items of an entity are the items whose `placeResult` names it, or, when no item in the bundle
 has `placeResult`, the item with the same id as the entity. A module is available if its id is
-not an item or that item is obtainable. No limit means everything is available.
+not an item or that item is obtainable. For machines, beacons and modules (not for goal
+items), a hidden item that no non-hidden recipe makes is never obtainable, so a hidden machine,
+beacon or module of that kind is unavailable under every horizon; an entity with no placing item
+at all is still never gated. A hidden machine is never the horizon's default machine, even when
+it is the static default. No limit means everything is available.
 
 A row without an explicit machine uses the horizon's default machine for its recipe
 category: the category's static `defaultMachines` entry if that machine is available, else the
@@ -329,7 +333,7 @@ Things to keep in mind when reading a bundle:
 - Some recipes have an empty `madeIn` (no exported machine handles their
   category), and many are `hidden`. The recipe picker hides hidden recipes unless
   "Hidden recipes" is ticked.
-- A bundle may lack `placeResult` (Seablock today): machines and beacons are then
+- A bundle may lack `placeResult`: machines and beacons are then
   matched to the item with the same id, and an entity without such an item is never
   gated. `--patch-technologies` also writes `placeResult`. Nullius has no technology
   data, so its horizon never applies.

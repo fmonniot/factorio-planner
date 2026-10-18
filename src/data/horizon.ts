@@ -87,41 +87,76 @@ export function placingItemIds(gameData: GameData): Map<string, string[]> {
   return placers
 }
 
-/** An entity with no known placing item is never gated. */
+/**
+ * Items an entity may be built or inserted from under a horizon: the offered items
+ * (`itemIds`), minus hidden items that no non-hidden recipe makes. A hidden item
+ * nothing craftable produces is never obtainable, however `availableItemIds` treats it.
+ */
+function obtainableItemIds(gameData: GameData, itemIds: ReadonlySet<string>): Set<string> {
+  const craftable = new Set<string>()
+  for (const r of Object.values(gameData.recipes)) {
+    if (r.hidden) continue
+    for (const p of r.products) craftable.add(p.itemId)
+  }
+  const result = new Set<string>()
+  for (const id of itemIds) {
+    const item = gameData.items[id]
+    if (item?.hidden && !craftable.has(id)) continue
+    result.add(id)
+  }
+  return result
+}
+
+/**
+ * An entity with no known placing item is never gated; otherwise one of its placing
+ * items must be obtainable (see `obtainableItemIds`).
+ */
 function entityAvailable(
   placers: ReadonlyMap<string, string[]>,
   entityId: string,
-  itemIds: ReadonlySet<string>,
+  obtainable: ReadonlySet<string>,
 ): boolean {
   const items = placers.get(entityId)
-  return !items || items.some(id => itemIds.has(id))
+  return !items || items.some(id => obtainable.has(id))
 }
 
-/** Machines (hidden ones included) whose placing item is obtainable; null = no limit. */
-export function availableMachineIds(gameData: GameData, itemIds: ReadonlySet<string> | null): Set<string> | null {
+/**
+ * Machines (hidden ones included) whose placing item is obtainable; null = no limit.
+ * `placers` lets a caller that already built `placingItemIds` reuse it.
+ */
+export function availableMachineIds(
+  gameData: GameData,
+  itemIds: ReadonlySet<string> | null,
+  placers: ReadonlyMap<string, string[]> = placingItemIds(gameData),
+): Set<string> | null {
   if (!itemIds) return null
-  const placers = placingItemIds(gameData)
-  return new Set(Object.keys(gameData.machines).filter(id => entityAvailable(placers, id, itemIds)))
+  const obtainable = obtainableItemIds(gameData, itemIds)
+  return new Set(Object.keys(gameData.machines).filter(id => entityAvailable(placers, id, obtainable)))
 }
 
 /** Beacons whose placing item is obtainable; null = no limit. */
-export function availableBeaconIds(gameData: GameData, itemIds: ReadonlySet<string> | null): Set<string> | null {
+export function availableBeaconIds(
+  gameData: GameData,
+  itemIds: ReadonlySet<string> | null,
+  placers: ReadonlyMap<string, string[]> = placingItemIds(gameData),
+): Set<string> | null {
   if (!itemIds) return null
-  const placers = placingItemIds(gameData)
-  return new Set(Object.keys(gameData.beacons).filter(id => entityAvailable(placers, id, itemIds)))
+  const obtainable = obtainableItemIds(gameData, itemIds)
+  return new Set(Object.keys(gameData.beacons).filter(id => entityAvailable(placers, id, obtainable)))
 }
 
 /** Modules that are obtainable (a module id that is not an item is never gated); null = no limit. */
 export function availableModuleIds(gameData: GameData, itemIds: ReadonlySet<string> | null): Set<string> | null {
   if (!itemIds) return null
+  const obtainable = obtainableItemIds(gameData, itemIds)
   return new Set(
-    Object.keys(gameData.modules).filter(id => !(id in gameData.items) || itemIds.has(id)),
+    Object.keys(gameData.modules).filter(id => !(id in gameData.items) || obtainable.has(id)),
   )
 }
 
 /**
  * Default machine per category under a horizon: the static default when it is
- * available, else the fastest available non-hidden machine of the category, else
+ * available and not hidden, else the fastest available non-hidden machine of the category, else
  * no key (every reader treats a missing default as "no machine"). Returns
  * `gameData.defaultMachines` itself when there is no limit.
  */
@@ -132,7 +167,7 @@ export function horizonDefaultMachines(
   if (!machineIds) return gameData.defaultMachines
   const result: Record<string, string> = {}
   for (const [category, staticId] of Object.entries(gameData.defaultMachines)) {
-    if (machineIds.has(staticId)) {
+    if (machineIds.has(staticId) && !gameData.machines[staticId]?.hidden) {
       result[category] = staticId
       continue
     }
@@ -160,12 +195,13 @@ export interface Horizon {
 export function computeHorizon(gameData: GameData, targetIds: readonly string[]): Horizon {
   const recipeIds = availableRecipeIds(gameData, targetIds)
   const itemIds = availableItemIds(gameData, recipeIds)
-  const machineIds = availableMachineIds(gameData, itemIds)
+  const placers = placingItemIds(gameData)
+  const machineIds = availableMachineIds(gameData, itemIds, placers)
   return {
     recipeIds,
     itemIds,
     machineIds,
-    beaconIds: availableBeaconIds(gameData, itemIds),
+    beaconIds: availableBeaconIds(gameData, itemIds, placers),
     moduleIds: availableModuleIds(gameData, itemIds),
     defaultMachines: horizonDefaultMachines(gameData, machineIds),
   }

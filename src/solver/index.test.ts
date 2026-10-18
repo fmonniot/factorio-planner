@@ -447,20 +447,20 @@ describe('solveAll', () => {
 })
 
 describe('solve — a node with no resolvable machine', () => {
-  const machine = {
+  const machine = () => ({
     id: 'asm', name: 'asm', type: 'assembling-machine' as const, craftingSpeed: 2, energyUsageKw: 100,
     energyType: 'electric' as const, drainKw: 0, moduleSlots: 2, allowedEffects: ['speed' as const],
     craftingCategories: ['crafting'], iconPath: '', hidden: false,
-  }
-  const speedModule = {
+  })
+  const speedModule = () => ({
     id: 'speed', name: 'speed', category: 'speed', tier: 1, effects: { speed: 0.5 },
     limitation: [], limitationBlacklist: [], iconPath: '',
-  }
+  })
   function data(withDefault: boolean): GameData {
     return makeGameData({
-      recipes: { 'iron-plate': ironRecipe },
-      machines: { asm: machine },
-      modules: { speed: speedModule },
+      recipes: { 'iron-plate': structuredClone(ironRecipe) },
+      machines: { asm: machine() },
+      modules: { speed: speedModule() },
       defaultMachines: withDefault ? { crafting: 'asm' } : {},
     })
   }

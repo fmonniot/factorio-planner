@@ -162,26 +162,38 @@ interface ModuleCellProps {
   modules: ModuleConfig[]
   machineSlots: number
   gameData: GameData
+  /** The row has no machine at all (the research horizon removed its default). */
+  noMachine?: boolean
   onOpenEdit: () => void
 }
 
-export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: ModuleCellProps) {
+export function ModuleCell({ modules, machineSlots, gameData, noMachine = false, onOpenEdit }: ModuleCellProps) {
   const horizon = useHorizon(gameData)
   if (machineSlots === 0 && modules.length === 0) return null
 
-  const withoutMachine = machineSlots === 0
-  const flagged = withoutMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
-
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
+  const beyondHorizon = noMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
+  const overSlots = !noMachine && usedSlots > machineSlots
+
+  const title = noMachine
+    ? 'Modules without a machine'
+    : beyondHorizon
+      ? 'Edit modules (beyond research horizon)'
+      : overSlots
+        ? machineSlots === 0
+          ? 'Edit modules (this machine has no module slots)'
+          : 'Edit modules (more modules than slots)'
+        : 'Edit modules'
   const firstModule = modules[0] ? gameData.modules[modules[0].moduleId] : undefined
 
   return (
     <button
       type="button"
       onClick={onOpenEdit}
-      className={`relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${flagged ? 'ring-1 ring-amber-500' : ''}`}
-      title={withoutMachine ? 'Modules without a machine' : flagged ? 'Edit modules (beyond research horizon)' : 'Edit modules'}
-      data-beyond-horizon={flagged ? 'true' : undefined}
+      className={`relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${beyondHorizon || overSlots ? 'ring-1 ring-amber-500' : ''}`}
+      title={title}
+      data-beyond-horizon={beyondHorizon ? 'true' : undefined}
+      data-over-slots={overSlots ? 'true' : undefined}
     >
       {firstModule?.iconPath ? (
         <Icon

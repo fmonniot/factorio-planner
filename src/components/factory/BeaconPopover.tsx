@@ -62,7 +62,8 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
   if (!beacon) {
     const noBeacon =
       nonHiddenBeacons.length > 0 && !nonHiddenBeacons.some(b => withinHorizon(horizon.beaconIds, b.id))
-    const noModule = !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
+    const noModule =
+      horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
     const disabledTitle = row.noMachineInHorizon
       ? 'No machine within research horizon'
       : noBeacon

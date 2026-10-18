@@ -274,6 +274,64 @@ describe('availableBeaconIds / availableModuleIds', () => {
   })
 })
 
+describe('hidden never-craftable items', () => {
+  function withHidden(): GameData {
+    const d = makeEquipmentData()
+    d.items['hidden-am'] = { ...item('hidden-am', 'hidden-am'), hidden: true }
+    d.items['hidden-craftable-am'] = { ...item('hidden-craftable-am', 'hidden-craftable-am'), hidden: true }
+    d.items['hidden-mod'] = { ...item('hidden-mod'), hidden: true }
+    d.recipes['r-hidden-craftable'] = makeRecipe('r-hidden-craftable', 'hidden-craftable-am')
+    d.startingRecipes.push('r-hidden-craftable')
+    d.machines['hidden-am'] = machine('hidden-am', 'crafting', 5, true)
+    d.machines['hidden-craftable-am'] = machine('hidden-craftable-am', 'crafting', 0.4, true)
+    d.modules['hidden-mod'] = {
+      id: 'hidden-mod', name: 'Hidden', category: 'speed', tier: 1, effects: { speed: 0.2 },
+      limitation: [], limitationBlacklist: [], iconPath: '',
+    }
+    return d
+  }
+
+  it('makes a machine whose hidden placing item no non-hidden recipe crafts unavailable', () => {
+    const d = withHidden()
+    const ids = computeHorizon(d, ['x']).machineIds!
+    expect(ids.has('hidden-am')).toBe(false)
+    expect(ids.has('hidden-craftable-am')).toBe(true)
+    expect(ids.has('orphan'), 'an entity with no placing item is never gated').toBe(true)
+  })
+  it('makes a hidden never-craftable module unavailable', () => {
+    const d = withHidden()
+    const ids = computeHorizon(d, ['x']).moduleIds!
+    expect(ids.has('hidden-mod')).toBe(false)
+    expect(availableModuleIds(d, null)).toBeNull()
+  })
+  it('makes a hidden never-craftable beacon unavailable', () => {
+    const d = withHidden()
+    d.items['hidden-beacon-item'] = { ...item('hidden-beacon-item', 'hidden-beacon'), hidden: true }
+    d.beacons['hidden-beacon'] = { ...d.beacons.beacon, id: 'hidden-beacon' }
+    expect(computeHorizon(d, ['x']).beaconIds!.has('hidden-beacon')).toBe(false)
+  })
+  it('does not change which items are offered as goals', () => {
+    const d = withHidden()
+    expect(computeHorizon(d, ['x']).itemIds!.has('hidden-am')).toBe(true)
+  })
+  it('replaces a hidden static default with the fastest available visible machine', () => {
+    const d = withHidden()
+    d.machines['hidden-am'].hidden = true
+    d.defaultMachines.crafting = 'hidden-am'
+    d.items['hidden-am'].hidden = false
+    // the item is visible and offered (so the machine is "available") but the machine itself is hidden
+    const h = computeHorizon(d, ['x'])
+    expect(h.machineIds!.has('hidden-am')).toBe(true)
+    expect(h.defaultMachines.crafting).toBe('am1')
+    expect(horizonDefaultMachines(d, null)).toBe(d.defaultMachines)
+  })
+  it('never keeps an unavailable hidden static default either', () => {
+    const d = withHidden()
+    d.defaultMachines.crafting = 'hidden-am'
+    expect(computeHorizon(d, ['x']).defaultMachines.crafting).toBe('am1')
+  })
+})
+
 describe('horizonDefaultMachines', () => {
   it('returns the static map itself without a limit', () => {
     const d = makeEquipmentData()

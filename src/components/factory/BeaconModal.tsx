@@ -241,7 +241,7 @@ export function BeaconModal({
         </div>
         {row.noMachineInHorizon && (
           <div data-testid="no-machine-in-horizon" className="text-xs text-amber-400">
-            No machine within research horizon: beacon effects do not apply to machines here.
+            No machine within research horizon: machine count and power are 0 for this row. Module and beacon productivity still applies to the output rates.
           </div>
         )}
 
