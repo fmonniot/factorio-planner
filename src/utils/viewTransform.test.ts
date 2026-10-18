@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { zoomAt, panBy, fitTransform, transformCss, MAX_SCALE, MIN_SCALE } from './viewTransform'
+import { zoomAt, panBy, fitTransform, transformCss, MAX_SCALE, MIN_SCALE, FIT_MIN_SCALE, wheelZoomFactor } from './viewTransform'
 
 describe('zoomAt', () => {
   it('keeps the content point under the cursor fixed', () => {
@@ -27,6 +27,13 @@ describe('fitTransform', () => {
     expect(fitTransform(1000, 500, 524, 524, 12)).toEqual({ x: 12, y: 137, scale: 0.5 })
   })
 
+  it('goes below MIN_SCALE so a very wide tree still fits', () => {
+    const t = fitTransform(14816, 1000, 1280, 800)
+    expect(t.scale).toBeLessThan(MIN_SCALE)
+    expect(t.scale).toBeGreaterThanOrEqual(FIT_MIN_SCALE)
+    expect(t.x).toBeGreaterThanOrEqual(0)
+  })
+
   it('never scales above 1', () => {
     expect(fitTransform(100, 100, 1000, 1000).scale).toBe(1)
   })
@@ -39,5 +46,23 @@ describe('panBy and transformCss', () => {
 
   it('formats the CSS transform', () => {
     expect(transformCss({ x: 5, y: -6, scale: 1.25 })).toBe('translate(5px, -6px) scale(1.25)')
+  })
+})
+
+describe('wheelZoomFactor', () => {
+  it('treats a line-mode notch like a larger pixel delta', () => {
+    expect(wheelZoomFactor(3, 1)).toBeCloseTo(wheelZoomFactor(48, 0))
+    expect(wheelZoomFactor(3, 1)).toBeLessThan(wheelZoomFactor(3, 0))
+  })
+
+  it('zooms out for positive deltas and in for negative', () => {
+    expect(wheelZoomFactor(100)).toBeLessThan(1)
+    expect(wheelZoomFactor(-100)).toBeGreaterThan(1)
+    expect(wheelZoomFactor(0)).toBe(1)
+  })
+
+  it('clamps huge deltas per event', () => {
+    expect(wheelZoomFactor(100000, 0)).toBe(wheelZoomFactor(200, 0))
+    expect(wheelZoomFactor(-5, 2)).toBe(wheelZoomFactor(-200, 0))
   })
 })

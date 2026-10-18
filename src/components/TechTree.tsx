@@ -6,7 +6,7 @@ import { hasTechnologies } from '../data/horizon'
 import { layoutTechTree, techStates, CARD_W, CARD_H } from '../data/techTree'
 import type { TechState } from '../data/techTree'
 import {
-  zoomAt, panBy, fitTransform, centerOn, transformCss, ZOOM_STEP,
+  zoomAt, panBy, fitTransform, centerOn, transformCss, wheelZoomFactor, ZOOM_STEP,
 } from '../utils/viewTransform'
 import type { ViewTransform } from '../utils/viewTransform'
 import { Modal } from './Modal'
@@ -55,7 +55,14 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       data-target={isTarget ? 'true' : 'false'}
       aria-pressed={isTarget}
       title={tech.name}
-      onClick={() => { if (!movedRef.current) onToggle(tech.id) }}
+      onClick={e => {
+        // A drag that ended on this card suppresses its click; the flag is
+        // consumed here so later (keyboard) activations are not ignored.
+        // Keyboard activation (detail 0) is never a drag.
+        const wasDrag = movedRef.current && e.detail !== 0
+        movedRef.current = false
+        if (!wasDrag) onToggle(tech.id)
+      }}
       style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
       className={`absolute flex items-center gap-2 px-2 rounded border text-left text-gray-100 ${CARD_CLASS[state]} ${isTarget ? 'ring-2 ring-amber-300' : ''}`}
     >
@@ -104,7 +111,7 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
   const [view, setView] = useState<ViewTransform>({ x: 24, y: 24, scale: 1 })
   const viewportRef = useRef<HTMLDivElement>(null)
   const movedRef = useRef(false)
-  const dragRef = useRef<{ x: number; y: number; startX: number; startY: number; captured: boolean } | null>(null)
+  const dragRef = useRef<{ x: number; y: number; startX: number; startY: number; captured: boolean; pointerId: number } | null>(null)
 
   // Open centred on the furthest target.
   useLayoutEffect(() => {
@@ -128,7 +135,7 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
     function onWheel(e: WheelEvent) {
       e.preventDefault()
       const rect = vp!.getBoundingClientRect()
-      const factor = Math.exp(-e.deltaY * 0.0015)
+      const factor = wheelZoomFactor(e.deltaY, e.deltaMode)
       setView(t => zoomAt(t, factor, e.clientX - rect.left, e.clientY - rect.top))
     }
     vp.addEventListener('wheel', onWheel, { passive: false })
@@ -136,14 +143,16 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
   }, [])
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (e.button !== 0) return
+    if (e.button !== 0 || dragRef.current) return
     movedRef.current = false
-    dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, captured: false }
+    dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, captured: false, pointerId: e.pointerId }
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
     const drag = dragRef.current
-    if (!drag) return
+    if (!drag || e.pointerId !== drag.pointerId) return
+    // Button released outside the viewport before capture started.
+    if (e.buttons === 0 && e.pointerType === 'mouse') { endDrag(e); return }
     if (!movedRef.current && Math.hypot(e.clientX - drag.startX, e.clientY - drag.startY) > DRAG_THRESHOLD) {
       movedRef.current = true
       // Capture only once dragging, so a plain click still reaches the card.
@@ -159,8 +168,11 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
   }
 
   function endDrag(e: React.PointerEvent<HTMLDivElement>) {
+    if (dragRef.current && e.pointerId !== dragRef.current.pointerId) return
     if (dragRef.current?.captured) e.currentTarget.releasePointerCapture?.(e.pointerId)
     dragRef.current = null
+    // The click that follows a drag's pointerup fires before this timer; after that the flag is stale.
+    setTimeout(() => { movedRef.current = false }, 0)
   }
 
   function zoomBy(factor: number) {
@@ -176,9 +188,11 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
     setView(fitTransform(layout.width, layout.height, vp.clientWidth, vp.clientHeight))
   }
 
+  // Reads the store at call time so the callback keeps one identity and TechCard's memo holds.
   const onToggle = useCallback((id: string) => {
-    setTargets(targets.includes(id) ? targets.filter(t => t !== id) : [...targets, id])
-  }, [targets, setTargets])
+    const { horizonTechnologyIds: current, setHorizonTechnologyIds } = useBlockStore.getState()
+    setHorizonTechnologyIds(current.includes(id) ? current.filter(t => t !== id) : [...current, id])
+  }, [])
 
   // Keyed so that panning (which only changes `view`) does not re-render the cards.
   const content = useMemo(() => (
@@ -248,6 +262,9 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
         onPointerMove={onPointerMove}
         onPointerUp={endDrag}
         onPointerCancel={endDrag}
+        // Focusing an off-screen card scrolls this overflow-hidden box natively; that
+        // offset is outside `view`, so undo it.
+        onScroll={e => { e.currentTarget.scrollLeft = 0; e.currentTarget.scrollTop = 0 }}
       >
         <div
           data-testid="tech-tree-canvas"

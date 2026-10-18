@@ -248,3 +248,18 @@ describe('golden images', () => {
     expect(diff).toBeLessThanOrEqual(2)
   })
 })
+
+describe('compositeIconLayers expectedSize', () => {
+  it('draws unscaled layers at half the expected size, not half the canvas', async () => {
+    const red = await solidPng(255, 0, 0, 255, 64)
+    const resolvers = mockResolver('test', { 'a.png': red })
+    const layers = [{ icon: '__test__/a.png', icon_size: 64 }]
+    // Canvas 128, expected 64: the layer is 32 px, so (4, 4) is empty and (64, 64) is filled.
+    const buf = await compositeIconLayers(layers, resolvers, 128, 64)
+    expect((await pixel(buf, 4, 4)).a).toBe(0)
+    expect((await pixel(buf, 64, 64)).a).toBe(255)
+    // Default expectedSize = canvas: the layer is 64 px, so (40, 40) is filled.
+    const buf2 = await compositeIconLayers(layers, resolvers, 128)
+    expect((await pixel(buf2, 40, 40)).a).toBe(255)
+  })
+})

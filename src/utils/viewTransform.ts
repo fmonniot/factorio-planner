@@ -4,6 +4,8 @@
 export interface ViewTransform { x: number; y: number; scale: number }
 
 export const MIN_SCALE = 0.1
+/** Floor for Fit only, so the whole tree fits even in a small window. */
+export const FIT_MIN_SCALE = 0.02
 export const MAX_SCALE = 2
 export const ZOOM_STEP = 1.25
 
@@ -22,9 +24,9 @@ export function panBy(t: ViewTransform, dx: number, dy: number): ViewTransform {
   return { x: t.x + dx, y: t.y + dy, scale: t.scale }
 }
 
-/** Fit a cw × ch content into a vw × vh viewport, centred, never enlarged above 1. */
+/** Fit a cw × ch content into a vw × vh viewport, centred, never enlarged above 1 or shrunk below FIT_MIN_SCALE. */
 export function fitTransform(cw: number, ch: number, vw: number, vh: number, padding = 24): ViewTransform {
-  const scale = clampScale(Math.min((vw - 2 * padding) / cw, (vh - 2 * padding) / ch, 1))
+  const scale = Math.min(1, Math.max(FIT_MIN_SCALE, Math.min((vw - 2 * padding) / cw, (vh - 2 * padding) / ch)))
   return { x: (vw - cw * scale) / 2, y: (vh - ch * scale) / 2, scale }
 }
 
@@ -35,4 +37,13 @@ export function centerOn(px: number, py: number, vw: number, vh: number, scale: 
 
 export function transformCss(t: ViewTransform): string {
   return `translate(${t.x}px, ${t.y}px) scale(${t.scale})`
+}
+
+/**
+ * Zoom factor for a wheel event. `deltaY` is normalised to pixels by `deltaMode`
+ * (0 pixel, 1 line = 16 px, 2 page = 400 px) and clamped to ±200 px per event.
+ */
+export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
+  const px = deltaY * (deltaMode === 1 ? 16 : deltaMode === 2 ? 400 : 1)
+  return Math.exp(-Math.max(-200, Math.min(200, px)) * 0.0015)
 }

@@ -123,8 +123,11 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   chain. **Clear horizon** empties the targets.
 - **Pan and zoom** (maths in `src/utils/viewTransform.ts`): drag the background to
   pan (a drag longer than 4 px never counts as a click), mouse wheel to zoom around
-  the cursor, **+** / **−** to zoom around the centre (scale 0.1 to 2), **Fit** to
-  show the whole tree. The modal opens centred on the furthest target, if any.
+  the cursor (wheel deltas are normalised by `deltaMode` and clamped per event),
+  **+** / **−** to zoom around the centre (scale 0.1 to 2), **Fit** to show the
+  whole tree (it may go down to scale 0.02, below the zoom buttons' floor, so a very
+  wide tree still fits). The viewport never scrolls natively: focusing an off-screen
+  card does not move the view. The modal opens centred on the furthest target, if any.
 
 ### Export plan
 

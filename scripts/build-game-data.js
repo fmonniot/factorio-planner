@@ -46,7 +46,7 @@ import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
 import sharp from 'sharp'
-import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
+import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
@@ -242,10 +242,8 @@ function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
       const outName = id + '.png'
       const outPath = join(iconsOut, outName)
       if (!written.has(outName)) {
-        // Layers may carry their own icon_size (technologies do) and be larger than
-        // the 64 px default canvas; the canvas then grows to the largest layer.
-        const outputSize = proto.icon_size ?? Math.max(64, ...proto.icons.map(l => Math.round((l.icon_size ?? 0) * (l.scale ?? 0))))
-        const raw = await compositeIconLayers(proto.icons, resolvers, outputSize)
+        const { outputSize, expectedSize } = iconCanvasSize(proto)
+        const raw = await compositeIconLayers(proto.icons, resolvers, outputSize, expectedSize)
         if (!raw) return ''
         let buf = await normalizeIcon(raw, outputSize)
         if (outputSize > maxSize) buf = await sharp(buf).resize(maxSize, maxSize).png().toBuffer()

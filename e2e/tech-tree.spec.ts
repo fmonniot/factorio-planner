@@ -98,6 +98,32 @@ test.describe('Technology tree', () => {
     await expect(card(page, 'electronics')).toHaveAttribute('data-target', 'true')
   })
 
+  test('keyboard activation still works after a drag', async ({ page }) => {
+    await openTree(page)
+    const box = (await viewport(page).boundingBox())!
+    const x = box.x + box.width - 20
+    const y = box.y + box.height - 20
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x - 80, y, { steps: 4 })
+    await page.mouse.up()
+    await card(page, 'electronics').focus()
+    await page.keyboard.press('Enter')
+    await expect(card(page, 'electronics')).toHaveAttribute('data-target', 'true')
+  })
+
+  test('hovering after releasing outside the viewport does not pan', async ({ page }) => {
+    await openTree(page)
+    const box = (await viewport(page).boundingBox())!
+    await page.mouse.move(box.x + 10, box.y + 10)
+    await page.mouse.down()
+    await page.mouse.move(box.x + 10, box.y - 60) // above the viewport, one move
+    await page.mouse.up()
+    const before = await transform(page)
+    await page.mouse.move(box.x + 200, box.y + 200, { steps: 5 })
+    expect(await transform(page)).toBe(before)
+  })
+
   test('closes on a backdrop click', async ({ page }) => {
     await openTree(page)
     await page.mouse.click(2, 2)
