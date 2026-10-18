@@ -2,6 +2,9 @@ import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import { parseAppState } from '../data/loader'
 import { AppStateLoadError } from '../data/loader'
+import { planStorageKey, CUSTOM_PLAN_KEY_PREFIX } from './sourceId'
+
+export { planStorageKey }
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -10,15 +13,8 @@ import { AppStateLoadError } from '../data/loader'
 /** Pre-per-data-set key; adopted once by the first data set activated, then deleted. */
 export const LEGACY_APP_STATE_STORAGE_KEY = 'factorio-planner:app-state'
 
-const PLAN_KEY_PREFIX = 'factorio-planner:app-state:'
-
-/**
- * Storage key of the plan belonging to a data set. Trailing slashes are
- * dropped so `kompetenz-seablock/` and `kompetenz-seablock` share a plan.
- */
-export function planStorageKey(sourceId: string): string {
-  return PLAN_KEY_PREFIX + sourceId.replace(/\/+$/, '')
-}
+/** Suffix of the key an unreadable stored plan is moved to, so it stays recoverable. */
+const CORRUPT_SUFFIX = ':corrupt'
 
 /** Key the autosave writes to; null until a data set has been loaded. */
 let activeKey: string | null = null
@@ -94,30 +90,70 @@ function resetToEmptyPlan(): void {
   useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id })
 }
 
+/** Copy an unreadable stored value to `<key>:corrupt` and drop the original. */
+function quarantine(key: string, raw: string): void {
+  try {
+    localStorage.setItem(key + CORRUPT_SUFFIX, raw)
+    localStorage.removeItem(key)
+  } catch {
+    // Storage full or unavailable — nothing more we can do.
+  }
+}
+
+/**
+ * Remove the plans stored for custom uploads, except the one under
+ * `keepKey`. Only one upload exists at a time, so its predecessors' plans
+ * can never be reached again.
+ */
+export function removeCustomPlans(keepKey?: string): void {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key !== null && key.startsWith(CUSTOM_PLAN_KEY_PREFIX) && key !== keepKey) keys.push(key)
+    }
+    for (const key of keys) localStorage.removeItem(key)
+  } catch {
+    // localStorage unavailable — ignore.
+  }
+}
+
 /**
  * Make `sourceId`'s plan the active one: later autosaves write to its key,
  * and the block store is replaced by the stored plan (or an empty one if none
  * exists or it is unreadable). Does nothing if that data set is already active.
  *
  * The key is switched before the store is replaced, so the previous data
- * set's plan is never written under the new key.
+ * set's plan is never written under the new key. An unreadable stored plan is
+ * moved to `<key>:corrupt` before the empty plan is autosaved over it.
  */
 export function activatePlan(sourceId: string): void {
   const key = planStorageKey(sourceId)
   if (key === activeKey) return
   activeKey = key
+  // Only one custom upload exists at a time; drop plans of replaced ones.
+  if (key.startsWith(CUSTOM_PLAN_KEY_PREFIX)) removeCustomPlans(key)
 
-  const result = loadPersistedAppState(sourceId)
-  if (result.type === 'ok') return
+  let raw: string | null
+  try {
+    raw = localStorage.getItem(key)
+  } catch {
+    raw = null // localStorage unavailable: nothing to restore or protect.
+  }
 
-  if (result.type === 'missing') {
+  if (raw !== null) {
+    if (applyRawAppState(raw, 'Malformed JSON in localStorage').type === 'ok') return
+    quarantine(key, raw)
+  } else {
     // One-time migration of the pre-per-data-set plan.
     try {
       const legacy = localStorage.getItem(LEGACY_APP_STATE_STORAGE_KEY)
       if (legacy !== null) {
-        const adopted = applyRawAppState(legacy, 'Malformed legacy plan')
-        localStorage.removeItem(LEGACY_APP_STATE_STORAGE_KEY)
-        if (adopted.type === 'ok') return
+        if (applyRawAppState(legacy, 'Malformed legacy plan').type === 'ok') {
+          localStorage.removeItem(LEGACY_APP_STATE_STORAGE_KEY)
+          return
+        }
+        quarantine(LEGACY_APP_STATE_STORAGE_KEY, legacy)
       }
     } catch {
       // localStorage unavailable — fall through to an empty plan.

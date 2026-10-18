@@ -6,6 +6,7 @@ import {
   loadPersistedAppState,
   activatePlan,
   initAppStatePersistence,
+  removeCustomPlans,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
@@ -32,6 +33,8 @@ const localStorageMock = {
   setItem: vi.fn((key: string, value: string) => { store[key] = value }),
   removeItem: vi.fn((key: string) => { delete store[key] }),
   clear: vi.fn(() => { for (const k in store) delete store[k] }),
+  key: vi.fn((i: number) => Object.keys(store)[i] ?? null),
+  get length() { return Object.keys(store).length },
 }
 Object.defineProperty(globalThis, 'localStorage', {
   value: localStorageMock,
@@ -253,6 +256,39 @@ describe('switching data sets', () => {
     useGameDataStore.setState({ status: loadedStatus('seablock') })
     expect(useBlockStore.getState().blocks[0].goals).toEqual([])
   })
+
+  it('keeps an unreadable stored plan under :corrupt instead of overwriting it', () => {
+    localStorageMock.setItem(planStorageKey('seablock'), 'not json')
+    useGameDataStore.setState({ status: loadedStatus('seablock') })
+    expect(store[planStorageKey('seablock') + ':corrupt'], 'raw value is recoverable').toBe('not json')
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    expect(store[planStorageKey('seablock') + ':corrupt']).toBe('not json')
+    expect(store[planStorageKey('seablock')]).toContain('iron-plate')
+  })
+})
+
+describe('custom plans', () => {
+  let unsub: () => void
+  beforeEach(() => { unsub = initAppStatePersistence() })
+  afterEach(() => { unsub() })
+
+  it('removeCustomPlans drops custom plans but keeps bundled ones and the excepted key', () => {
+    storePlan('nullius', 'N')
+    storePlan('custom:a.json#1', 'A')
+    storePlan('custom:b.json#2', 'B')
+    removeCustomPlans(planStorageKey('custom:b.json#2'))
+    expect(store[planStorageKey('nullius')]).toBeDefined()
+    expect(store[planStorageKey('custom:a.json#1')]).toBeUndefined()
+    expect(store[planStorageKey('custom:b.json#2')]).toBeDefined()
+    removeCustomPlans()
+    expect(store[planStorageKey('custom:b.json#2')]).toBeUndefined()
+  })
+
+  it('activating a new upload drops the plan of the replaced one', () => {
+    storePlan('custom:a.json#1', 'A')
+    useGameDataStore.setState({ status: loadedStatus('custom:b.json#2') })
+    expect(store[planStorageKey('custom:a.json#1')]).toBeUndefined()
+  })
 })
 
 describe('legacy plan migration', () => {
@@ -274,6 +310,16 @@ describe('legacy plan migration', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     expect(useBlockStore.getState().blocks[0].name).toBe('Own plan')
     expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeDefined()
+    unsub()
+  })
+
+  it('moves an unreadable legacy plan to :corrupt instead of deleting it', () => {
+    const unsub = initAppStatePersistence()
+    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, 'not json')
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeUndefined()
+    expect(store[LEGACY_APP_STATE_STORAGE_KEY + ':corrupt']).toBe('not json')
+    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
     unsub()
   })
 })

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { GameData } from '../data/types'
 import { loadGameDataFromJson, GameDataLoadError } from '../data/loader'
+import { customPlanSourceId, customFilename, customSourceId } from './sourceId'
 
 // ---------------------------------------------------------------------------
 // State
@@ -20,13 +21,15 @@ export interface GameDataStoreState {
    * Updates status to 'loaded' on success or 'error' on validation failure.
    *
    * `sourceId` identifies the data set (e.g. `nullius`, `custom:<filename>`);
-   * it keys the persisted plan, see persistence.ts.
+   * it keys the persisted plan, see persistence.ts. For a custom id the
+   * stored `status.sourceId` additionally carries a mod set fingerprint
+   * (see `customPlanSourceId`).
    */
   importGameData: (json: string, sourceId: string) => void
 
   /**
    * Import game data from a File object selected by the user. The source id
-   * is `custom:<filename>`.
+   * is `custom:<filename>` plus a mod set fingerprint.
    * Returns a promise that resolves when the file has been read and parsed.
    */
   importGameDataFile: (file: File) => Promise<void>
@@ -56,6 +59,12 @@ function errorStatus(err: unknown): GameDataStatus {
   return { type: 'error', message: String(err) }
 }
 
+/** Source id recorded in the loaded status; custom ids gain a mod set fingerprint. */
+function loadedSourceId(sourceId: string, gameData: GameData): string {
+  const filename = customFilename(sourceId)
+  return filename === null ? sourceId : customPlanSourceId(filename, gameData.modSet)
+}
+
 /** Bumped on every async import so a stale in-flight response can be ignored (last request wins). */
 let latestRequest = 0
 
@@ -67,7 +76,7 @@ export const useGameDataStore = create<GameDataStoreState>((set) => ({
     latestRequest++
     try {
       const gameData = loadGameDataFromJson(json)
-      set({ status: { type: 'loaded', gameData, sourceId } })
+      set({ status: { type: 'loaded', gameData, sourceId: loadedSourceId(sourceId, gameData) } })
     } catch (err) {
       set({ status: errorStatus(err) })
     }
@@ -80,7 +89,7 @@ export const useGameDataStore = create<GameDataStoreState>((set) => ({
       const json = await file.text()
       const gameData = loadGameDataFromJson(json)
       if (request !== latestRequest) return
-      set({ status: { type: 'loaded', gameData, sourceId: `custom:${file.name}` } })
+      set({ status: { type: 'loaded', gameData, sourceId: loadedSourceId(customSourceId(file.name), gameData) } })
     } catch (err) {
       if (request !== latestRequest) return
       set({ status: errorStatus(err) })

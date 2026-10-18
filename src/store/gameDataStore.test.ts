@@ -79,7 +79,20 @@ describe('importGameDataFile', () => {
     const gameData = selectGameData(useGameDataStore.getState())
     expect(gameData?.factorioVersion).toBe('2.0.1')
     const { status } = useGameDataStore.getState()
-    expect(status.type === 'loaded' && status.sourceId).toBe('custom:game-data.json')
+    expect(status.type === 'loaded' && status.sourceId).toMatch(/^custom:game-data\.json#[0-9a-f]{8}$/)
+  })
+
+  it('gives same-named uploads with different mod sets different source ids', async () => {
+    const ids: string[] = []
+    const modSets: Record<string, string>[] = [{ base: '2.0.0' }, { base: '2.0.0', nullius: '1.0' }]
+    for (const modSet of modSets) {
+      const file = new File([makeGameDataJson({ modSet })], 'game-data.json')
+      await useGameDataStore.getState().importGameDataFile(file)
+      const { status } = useGameDataStore.getState()
+      if (status.type === 'loaded') ids.push(status.sourceId)
+    }
+    expect(ids).toHaveLength(2)
+    expect(ids[0], 'fingerprint must depend on the mod set').not.toBe(ids[1])
   })
 
   it('transitions to error after reading an invalid File', async () => {

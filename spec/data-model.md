@@ -263,7 +263,10 @@ Things to keep in mind when reading a bundle:
 
 The user's work is an `AppState`. It is saved to `localStorage` on every change under
 `factorio-planner:app-state:<sourceId>`, one key per game data set (`nullius`,
-`kompetenz-seablock`, `custom:<filename>`; trailing slashes dropped). The plan is
+`kompetenz-seablock`, `custom:<filename>#<modSet fingerprint>`; trailing slashes
+dropped). An unreadable stored plan is kept under `<key>:corrupt`. The pre-per-data-set
+key `factorio-planner:app-state` is adopted once by the first data set without a plan
+and then removed (see [ui.md](ui.md#game-data-selector)). The plan is
 restored through
 `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
 data), and downloaded as JSON by the "Export plan" button.

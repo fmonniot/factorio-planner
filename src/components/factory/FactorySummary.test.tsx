@@ -67,6 +67,19 @@ describe('FactorySummary — pane labels', () => {
   })
 })
 
+describe('FactorySummary — without loaded game data', () => {
+  it.each([
+    ['empty', { type: 'empty' as const }],
+    ['loading', { type: 'loading' as const }],
+    ['error', { type: 'error' as const, message: 'boom' }],
+  ])('renders nothing editable while %s', (_name, status) => {
+    useGameDataStore.setState({ status })
+    render(<FactorySummary />)
+    expect(screen.queryByText('Products'), 'summary must be hidden').not.toBeInTheDocument()
+    expect(screen.queryByTitle('Add goal')).not.toBeInTheDocument()
+  })
+})
+
 describe('FactorySummary — rate unit toggle', () => {
   it('toggling /sec changes rateUnit in uiStore', () => {
     render(<FactorySummary />)

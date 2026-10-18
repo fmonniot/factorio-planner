@@ -1,8 +1,9 @@
 import { type Page } from '@playwright/test'
 import fs from 'fs'
+import { planStorageKey } from '../../src/store/sourceId'
 
 // Plans are stored per data set (see src/store/persistence.ts).
-const APP_STATE_KEY = 'factorio-planner:app-state:nullius'
+const APP_STATE_KEY = planStorageKey('nullius')
 const GAME_DATA_KEY = 'factorio-planner:game-data-source'
 
 /**

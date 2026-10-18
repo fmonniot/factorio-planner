@@ -55,4 +55,12 @@ test.describe('per-data-set plans', () => {
     await expect(page.locator('main')).toContainText('250')
     await expect(page.locator('main')).not.toContainText('375')
   })
+
+  test('plan editing is disabled until game data is loaded', async ({ page }) => {
+    await expect(page.getByTitle('Add block')).toBeDisabled()
+    await expect(page.getByTitle('Add goal')).not.toBeVisible()
+    await selectDataset(page, 'nullius')
+    await expect(page.getByTitle('Add block')).toBeEnabled()
+    await expect(page.getByTitle('Add goal')).toBeVisible()
+  })
 })
