@@ -58,8 +58,8 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` is one row: block tabs on the left, the horizon button, plan export
-and game-data selector on the right.
+`TopBar.tsx` is one row: block tabs on the left, the horizon button, the tech tree button,
+plan export and game-data selector on the right.
 
 ### Block tabs
 
@@ -97,6 +97,34 @@ The targets and all their prerequisites define the horizon (rule in
 [data-model.md](data-model.md#technology)). It belongs to the plan, so it is saved
 per data set and included in the export. Recipes already in the plan are not
 marked and keep solving.
+
+### Technology tree
+
+`TechTreeButton` (in `TechTree.tsx`, labelled **Tech tree**) sits next to the horizon
+button and is hidden unless the loaded data set has technology data. It opens a
+near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
+
+- **Layout** (`src/data/techTree.ts`): one column per prerequisite depth (the longest
+  chain of prerequisites), so a technology is always to the right of its prerequisites.
+  Rows within a column are ordered by a barycenter heuristic to reduce crossings;
+  columns are top-aligned. One curved edge links each prerequisite to its dependent.
+- **Cards**: icon (a letter placeholder when the bundle has none), name, and the
+  cost: one chip per science pack (the pack's item icon, tooltip `<pack> ×amount`)
+  followed by `×count · time s` (`×?` for a formula count). A research-trigger
+  technology shows "Trigger"; a bundle without cost data shows nothing.
+- **States**, derived from the plan's research horizon: *researched* (a target or
+  one of its prerequisites; green), *available* (all prerequisites researched; amber),
+  *locked* (gray, dimmed). Edges take the colour of their dependent's state. With no
+  horizon nothing is researched and the roots are available; the header says
+  "No horizon: every recipe is offered. Click a technology to research up to it."
+  Otherwise it reads "Horizon: N targets".
+- **Click** a card to toggle it as a horizon target, like the Research horizon modal;
+  targets get a ring. Adding a locked technology researches its whole prerequisite
+  chain. **Clear horizon** empties the targets.
+- **Pan and zoom** (maths in `src/utils/viewTransform.ts`): drag the background to
+  pan (a drag longer than 4 px never counts as a click), mouse wheel to zoom around
+  the cursor, **+** / **−** to zoom around the centre (scale 0.1 to 2), **Fit** to
+  show the whole tree. The modal opens centred on the furthest target, if any.
 
 ### Export plan
 
@@ -393,6 +421,8 @@ The same component in recipes mode (`source="recipes"`).
 - `Icon.tsx` — renders an `iconPath` as a `<picture>` with a WebP source and PNG
   fallback, via `src/utils/iconUrl.ts` (see [data-model.md](data-model.md#icon-paths)).
 - `Modal.tsx` — the modal frame.
+- `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
+  centre) used by the technology tree.
 
 ---
 

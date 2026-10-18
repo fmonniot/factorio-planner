@@ -28,8 +28,8 @@ function makeGameData(withTechnologies = true): GameData {
     itemSubgroups: {},
     technologies: withTechnologies
       ? {
-          electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: ['circuit'] },
-          'rocket-silo': { id: 'rocket-silo', name: 'Rocket silo', prerequisites: ['electronics'], unlockedRecipes: ['rocket'] },
+          electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: ['circuit'], iconPath: '' },
+          'rocket-silo': { id: 'rocket-silo', name: 'Rocket silo', prerequisites: ['electronics'], unlockedRecipes: ['rocket'], iconPath: '' },
         }
       : {},
     startingRecipes: ['start'],

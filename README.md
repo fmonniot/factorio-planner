@@ -41,6 +41,8 @@ Blocks can also feed one another. Right-click an item in a block's **Ingredients
 
 **Horizon** in the top bar limits the recipes the pickers offer, and the products you can add as goals, to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Hidden recipes are ignored when deciding which goals are offered. Use it to plan the first science packs without being offered space-science recipes. Recipes and goals already in your plan keep working. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
 
+**Tech tree** opens the technology tree: cards with icons and research cost in columns by prerequisite depth, coloured researched, available or locked from your horizon. Drag to pan, scroll to zoom, **Fit** shows everything. Click a technology to research up to it (it becomes a horizon target, with all its prerequisites); click again to remove it, or use **Clear horizon**.
+
 ### Saving and sharing
 
 Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
@@ -87,7 +89,7 @@ node scripts/build-game-data.js \
   --output    public/data/nullius/game-data.json
 ```
 
-To add technology data to an existing bundle without re-exporting recipes and icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode:
+To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode:
 
 ```sh
 node scripts/build-game-data.js --patch-technologies \
@@ -107,8 +109,8 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI |
 | `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) |
-| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types and the game data loader |
-| `src/utils/` | Small helpers (icon URLs) |
+| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules and the technology-tree layout |
+| `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |

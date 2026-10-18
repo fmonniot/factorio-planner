@@ -15,10 +15,46 @@ export function luaList(v) {
 }
 
 /**
+ * Research cost of a technology: the science packs per unit, the unit count and
+ * the seconds per unit. Null when the technology has no `unit` (it is completed
+ * by a research trigger, not in a lab). `count` is null for a `count_formula`.
+ * @returns {{ingredients:{itemId:string,amount:number}[], count:number|null, time:number} | null}
+ */
+export function technologyCost(proto) {
+  const unit = proto.unit
+  if (!unit || typeof unit !== 'object') return null
+  const ingredients = luaList(unit.ingredients)
+    .map(i => (Array.isArray(i) ? { itemId: i[0], amount: i[1] } : { itemId: i.name, amount: i.amount }))
+    .filter(i => typeof i.itemId === 'string' && typeof i.amount === 'number' && i.amount > 0)
+  return {
+    ingredients,
+    count: typeof unit.count === 'number' && unit.count > 0 ? unit.count : null,
+    time: typeof unit.time === 'number' && unit.time >= 0 ? unit.time : 0,
+  }
+}
+
+/**
+ * Add the `iconPath` of each technology, resolved from its prototype. Returns a
+ * new record; the input is not modified.
+ * @param technologies  the `technologies` record of exportTechnologies
+ * @param raw           data.raw
+ * @param resolveIcon   async (proto, id) => public URL, or '' when there is no icon
+ */
+export async function attachTechnologyIcons(technologies, raw, resolveIcon) {
+  const out = {}
+  for (const [id, t] of Object.entries(technologies)) {
+    const proto = raw.technology?.[id]
+    out[id] = { ...t, iconPath: proto ? await resolveIcon(proto, id) : '' }
+  }
+  return out
+}
+
+/**
  * @param raw          data.raw
  * @param recipeIds    Set<string> of the recipe ids in the bundle
  * @param resolveName  (proto) => string  display name of a technology
- * @returns {{ technologies: Record<string,{id:string,name:string,prerequisites:string[],unlockedRecipes:string[]}>,
+ * @returns {{ technologies: Record<string,{id:string,name:string,prerequisites:string[],unlockedRecipes:string[],
+ *               cost:ReturnType<typeof technologyCost>}>,
  *             startingRecipes: string[] }}
  */
 export function exportTechnologies(raw, recipeIds, resolveName) {
@@ -61,6 +97,7 @@ export function exportTechnologies(raw, recipeIds, resolveName) {
       name: resolveName(proto),
       prerequisites: luaList(proto.prerequisites).filter(p => p in researchable),
       unlockedRecipes: unlocked,
+      cost: technologyCost(proto),
     }
   }
 
