@@ -61,7 +61,7 @@ import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compo
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
-import { ALL_EFFECTS, exportExtraction, isExtractionCategory } from './extraction.js'
+import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
 import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -243,7 +243,7 @@ const MOD_PATH_RE = /^__([^_]+(?:_[^_]+)*)__\/(.+)$/
  * Returns the public URL string (e.g. "/data/nullius/icons/iron-plate.png")
  * or "" if the icon cannot be found.
  */
-function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
+function makeIconResolver(resolvers, iconsOut, maxSize = Infinity, { keepExisting = false } = {}) {
   mkdirSync(iconsOut, { recursive: true })
 
   // Map from output filename -> already written (deduplicate).
@@ -256,7 +256,7 @@ function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
     if (Array.isArray(proto.icons) && proto.icons.length > 0) {
       const outName = id + '.png'
       const outPath = join(iconsOut, outName)
-      if (!written.has(outName)) {
+      if (!written.has(outName) && !(keepExisting && existsSync(outPath))) {
         const { outputSize, expectedSize } = iconCanvasSize(proto)
         const raw = await compositeIconLayers(proto.icons, resolvers, outputSize, expectedSize)
         if (!raw) return ''
@@ -277,7 +277,7 @@ function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
     const outName  = id + '.png'
     const outPath  = join(iconsOut, outName)
 
-    if (!written.has(outName)) {
+    if (!written.has(outName) && !(keepExisting && existsSync(outPath))) {
       const raw = await compositeIconLayers(
         [{ icon: iconPath, icon_size: iconSize, scale: 1 }],
         resolvers,
@@ -621,23 +621,6 @@ async function exportBeacons(raw, localeMap, resolveIcon) {
 // Default machines
 // ---------------------------------------------------------------------------
 
-function computeDefaultMachines(machines, categoryMap) {
-  const defaults = {}
-  for (const [cat, machineIds] of Object.entries(categoryMap)) {
-    let bestId    = null
-    let bestSpeed = -1
-    for (const mid of machineIds) {
-      const speed = machines[mid]?.craftingSpeed ?? 0
-      if (speed > bestSpeed) {
-        bestSpeed = speed
-        bestId    = mid
-      }
-    }
-    if (bestId) defaults[cat] = bestId
-  }
-  return defaults
-}
-
 /**
  * Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
  * The base game version is not present in mod-list.json, so we fetch it by running the binary.
@@ -749,10 +732,6 @@ function patchNames(existing, raw, localeMap) {
   const patchSection = (section, lookup) => {
     const out = {}
     for (const [id, entry] of Object.entries(existing[section] ?? {})) {
-      if (entry.extraction) {
-        out[id] = entry
-        continue
-      }
       const name = lookup(id, entry)
       if (name === undefined) {
         missing++
@@ -788,7 +767,19 @@ function patchNames(existing, raw, localeMap) {
     const proto = raw[entry.type]?.[id]
     return proto && entityName(proto, localeMap)
   })
-  bundle.recipes = patchSection('recipes', (id) => {
+  bundle.recipes = patchSection('recipes', (id, entry) => {
+    if (entry.extraction) {
+      // Generated names: "<resource> (mining)" and "<fluid> (offshore pump)".
+      if (id.startsWith('mining:')) {
+        const resource = raw.resource?.[id.slice('mining:'.length)]
+        return resource && `${entityName(resource, localeMap)} (mining)`
+      }
+      if (id.startsWith('offshore:')) {
+        const fluid = raw.fluid?.[id.slice('offshore:'.length)]
+        return fluid && `${fluidName(fluid, localeMap)} (offshore pump)`
+      }
+      return undefined
+    }
     const proto = raw.recipe?.[id]
     if (!proto) return undefined
     const mainProduct = resolveMainProduct(proto, extractProducts(proto))
@@ -817,7 +808,8 @@ function patchNames(existing, raw, localeMap) {
 if (args.patchNames) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
-  const recipeIds = Object.keys(existing.recipes)
+  // Extraction recipes are generated, so they are never in the dump's recipe table.
+  const recipeIds = Object.entries(existing.recipes).filter(([, r]) => !r.extraction).map(([id]) => id)
   const missingRecipes = recipeIds.filter(id => !raw.recipe?.[id]).length
   if (missingRecipes > recipeIds.length * 0.01) {
     process.stderr.write(
@@ -841,7 +833,7 @@ if (args.patchExtraction) {
   const extraction = await exportExtraction(raw, {
     entityName: p => entityName(p, localeMap),
     fluidName: p => fluidName(p, localeMap),
-    resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons')),
+    resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons'), Infinity, { keepExisting: true }),
     itemSubtypes: ITEM_SUBTYPES,
   })
   // Drop what an earlier run generated, so re-running is safe.

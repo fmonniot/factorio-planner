@@ -39,6 +39,17 @@ export function offshorePumpFluids(proto, raw) {
   return [...fluids].sort()
 }
 
+/**
+ * Mean of a ranged product (amount_min..amount_max), used when `amount` is absent.
+ * The solver reads only `amount` and `probability`, so the range collapses to its expected value.
+ * A lone amount_max (or amount_min) is used as is.
+ */
+function expectedAmount(prod) {
+  const { amount_min: min, amount_max: max } = prod
+  if (min != null && max != null) return (min + max) / 2
+  return max ?? min ?? 0
+}
+
 /** Normalise one `minable.results` entry like a recipe product (see normaliseProduct in build-game-data.js). */
 function resourceProduct(prod) {
   if (Array.isArray(prod)) {
@@ -47,7 +58,7 @@ function resourceProduct(prod) {
   return {
     itemId:                prod.name,
     type:                  prod.type ?? 'item',
-    amount:                prod.amount ?? prod.amount_max ?? 0,
+    amount:                prod.amount ?? expectedAmount(prod),
     probability:           prod.probability,
     amountMin:             prod.amount_min,
     amountMax:             prod.amount_max,
@@ -66,10 +77,37 @@ function resourceProducts(minable) {
 function machineEnergy(proto) {
   const energyType = inferEnergyType(proto)
   return {
-    energyUsageKw: proto.energy_source?.type === 'void' ? 0 : parseEnergyKw(proto.energy_usage),
+    energyUsageKw: energyType === 'void' ? 0 : parseEnergyKw(proto.energy_usage),
     energyType,
     drainKw:       parseEnergyKw(proto.energy_source?.drain),
   }
+}
+
+/**
+ * Default machine per category: the fastest one. For generated extraction
+ * categories hidden machines are skipped unless every candidate is hidden;
+ * other categories ignore `hidden` so existing bundles stay unchanged.
+ */
+export function computeDefaultMachines(machines, categoryMap) {
+  const defaults = {}
+  for (const [cat, machineIds] of Object.entries(categoryMap)) {
+    let candidates = machineIds
+    if (isExtractionCategory(cat)) {
+      const visible = machineIds.filter(id => !machines[id]?.hidden)
+      if (visible.length > 0) candidates = visible
+    }
+    let bestId    = null
+    let bestSpeed = -1
+    for (const mid of candidates) {
+      const speed = machines[mid]?.craftingSpeed ?? 0
+      if (speed > bestSpeed) {
+        bestSpeed = speed
+        bestId    = mid
+      }
+    }
+    if (bestId) defaults[cat] = bestId
+  }
+  return defaults
 }
 
 /**
@@ -111,7 +149,12 @@ export async function exportExtraction(raw, opts) {
     const ingredients = []
     if (requiresFluid) {
       const amount = (minable.fluid_amount ?? 0) / 10
-      if (amount > 0) ingredients.push({ itemId: minable.required_fluid, type: 'fluid', amount })
+      if (!(amount > 0)) {
+        // A fluid-requiring recipe without its fluid would be wrong, so leave the resource out.
+        console.warn(`[extraction] skipping resource ${resource.name}: required_fluid ${minable.required_fluid} has no positive fluid_amount`)
+        continue
+      }
+      ingredients.push({ itemId: minable.required_fluid, type: 'fluid', amount })
     }
 
     const capable = drills.filter(d =>

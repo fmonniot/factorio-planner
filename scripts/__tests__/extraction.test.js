@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { exportExtraction, isExtractionCategory, offshorePumpFluids, ALL_EFFECTS } from '../extraction.js'
+import { exportExtraction, computeDefaultMachines, isExtractionCategory, offshorePumpFluids, ALL_EFFECTS } from '../extraction.js'
 
 // Each call returns a fresh dump.
 function makeRaw() {
@@ -244,5 +244,80 @@ describe('isExtractionCategory', () => {
     expect(isExtractionCategory('offshore:water')).toBe(true)
     expect(isExtractionCategory('crafting')).toBe(false)
     expect(isExtractionCategory('smelting')).toBe(false)
+  })
+})
+
+describe('exportExtraction — edge cases', () => {
+  it('skips a fluid-requiring resource without a positive fluid_amount, with a warning', async () => {
+    const raw = makeRaw()
+    raw.resource['bad-acid'] = {
+      name: 'bad-acid',
+      minable: { mining_time: 1, result: 'iron-ore', required_fluid: 'sulfuric-acid' },
+    }
+    raw.resource['zero-acid'] = {
+      name: 'zero-acid',
+      minable: { mining_time: 1, result: 'iron-ore', required_fluid: 'sulfuric-acid', fluid_amount: 0 },
+    }
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { recipes } = await exportExtraction(raw, makeOpts())
+    expect(recipes).not.toHaveProperty('mining:bad-acid')
+    expect(recipes).not.toHaveProperty('mining:zero-acid')
+    expect(warn).toHaveBeenCalledTimes(2)
+    warn.mockRestore()
+  })
+
+  it('exports no power for a drill whose energy source type maps to void', async () => {
+    const raw = makeRaw()
+    raw['mining-drill']['fluid-drill'] = {
+      name: 'fluid-drill',
+      mining_speed: 1,
+      resource_categories: ['basic-solid'],
+      energy_usage: '200kW',
+      energy_source: { type: 'fluid' },
+    }
+    const { machines } = await exportExtraction(raw, makeOpts())
+    expect(machines['fluid-drill'].energyType).toBe('void')
+    expect(machines['fluid-drill'].energyUsageKw).toBe(0)
+  })
+
+  it('uses the expected value of a ranged product, and amount when given', async () => {
+    const raw = makeRaw()
+    raw.resource['ranged'] = {
+      name: 'ranged',
+      minable: { mining_time: 1, results: [
+        { name: 'iron-ore', amount_min: 1, amount_max: 3, probability: 0.5 },
+        { name: 'uranium-ore', amount: 4, amount_min: 1, amount_max: 9 },
+        { name: 'only-max', amount_max: 5 },
+      ] },
+    }
+    const { recipes } = await exportExtraction(raw, makeOpts())
+    const [a, b, c] = recipes['mining:ranged'].products
+    expect(a).toMatchObject({ amount: 2, probability: 0.5, amountMin: 1, amountMax: 3 })
+    expect(b.amount).toBe(4)
+    expect(c.amount).toBe(5)
+  })
+})
+
+describe('computeDefaultMachines', () => {
+  const machines = {
+    fast: { craftingSpeed: 10, hidden: true },
+    slow: { craftingSpeed: 1, hidden: false },
+    allHiddenA: { craftingSpeed: 2, hidden: true },
+    allHiddenB: { craftingSpeed: 3, hidden: true },
+  }
+
+  it('prefers visible machines in extraction categories', () => {
+    const d = computeDefaultMachines(machines, { 'mining:basic-solid': ['fast', 'slow'] })
+    expect(d['mining:basic-solid']).toBe('slow')
+  })
+
+  it('falls back to hidden machines when all are hidden', () => {
+    const d = computeDefaultMachines(machines, { 'mining:x': ['allHiddenA', 'allHiddenB'] })
+    expect(d['mining:x']).toBe('allHiddenB')
+  })
+
+  it('ignores hidden for other categories', () => {
+    const d = computeDefaultMachines(machines, { crafting: ['fast', 'slow'] })
+    expect(d.crafting).toBe('fast')
   })
 })

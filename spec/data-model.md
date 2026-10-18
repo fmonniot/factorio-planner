@@ -86,7 +86,7 @@ interface Recipe {
   mainProduct?: string | null
   subgroup: string           // default ''
   order: string              // default ''
-  extraction?: true          // set on mining and offshore-pump recipes; always inside the research horizon
+  extraction?: boolean        // set on mining and offshore-pump recipes; always inside the research horizon
 }
 
 interface Ingredient {
@@ -294,16 +294,16 @@ The build script turns resources and offshore pumps into ordinary recipes so the
 **Mining recipe**, one per resource that at least one exported drill can mine:
 
 - `id` `mining:<resource name>`; `name` `<resource name> (mining)`; `category` `mining:<resource category>` (the default resource category is `basic-solid`), or `mining-with-fluid:<resource category>` when the resource has a `required_fluid`.
-- `craftingTime` is `minable.mining_time` (resources without `minable` or with a non-positive time are skipped). `products` come from `minable.results`, normalised like recipe products, or from `minable.result` with `minable.count` (default 1).
-- `ingredients` is empty, or the required fluid with amount `fluid_amount / 10`.
+- `craftingTime` is `minable.mining_time` (resources without `minable` or with a non-positive time are skipped). `products` come from `minable.results`, normalised like recipe products (a ranged `amount_min`/`amount_max` product without `amount` becomes its mean, because the solver reads only `amount` and `probability`), or from `minable.result` with `minable.count` (default 1).
+- `ingredients` is empty, or the required fluid with amount `fluid_amount / 10`. A resource with `required_fluid` but no positive `fluid_amount` is skipped with a warning.
 - `madeIn` lists the drills whose `resource_categories` include the category; for a fluid-requiring resource, only drills with an input fluid box. `allowProductivity` is true.
 - `hidden` when the resource is hidden or every drill in `madeIn` is hidden. `subgroup` is the main product's, `order` the resource's.
 
-**Drill machine** (`type: 'mining-drill'`), only for drills that can mine an exported resource: `craftingSpeed` is `mining_speed`, `craftingCategories` are `mining:<c>` for each resource category plus `mining-with-fluid:<c>` when the drill has an input fluid box. `allowedEffects` is every effect when the prototype has no `allowed_effects` (vanilla drills accept modules), otherwise the listed ones (`{}` means none). Energy follows the other machines; a `void` energy source is 0 kW.
+**Drill machine** (`type: 'mining-drill'`), only for drills that can mine an exported resource: `craftingSpeed` is `mining_speed`, `craftingCategories` are `mining:<c>` for each resource category plus `mining-with-fluid:<c>` when the drill has an input fluid box. `allowedEffects` is every effect when the prototype has no `allowed_effects` (vanilla drills accept modules), otherwise the listed ones (`{}` means none). Energy follows the other machines; an energy type of `void` (including any unrecognised source type) is 0 kW.
 
 **Offshore pump** (`type: 'offshore-pump'`): the fluids a pump makes are its `fluid_box.filter`, else its `fluid`, else the distinct fluids of the tiles. `craftingSpeed` is `pumping_speed`, `craftingCategories` are `offshore:<fluid>`. Each fluid gets one recipe `offshore:<fluid>` named `<fluid> (offshore pump)` with `craftingTime` 1 and one product of 60 units, so a pump makes `60 x pumping_speed` per second (1200/s at speed 20, as in Factorio 2.0).
 
-`defaultMachines` for these categories is the fastest machine, as for any other category.
+`defaultMachines` for these categories is the fastest machine, as for any other category, except that hidden machines are skipped unless every machine of the category is hidden.
 
 ### Icon paths
 
@@ -355,7 +355,7 @@ Things to keep in mind when reading a bundle:
   matched to the item with the same id, and an entity without such an item is never
   gated. `--patch-technologies` also writes `placeResult`. Nullius has no technology
   data, so its horizon never applies.
-- A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories. Nullius has not been patched yet and still needs a re-dump with its mod set.
+- A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories.
 - Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node
