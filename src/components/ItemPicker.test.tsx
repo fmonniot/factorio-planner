@@ -217,6 +217,15 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     expect(slotIds()).not.toContain('boil-water')
   })
 
+  it('exempts hidden recipes from the horizon', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).not.toContain('secret-recipe')
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    expect(slotIds()).toContain('secret-recipe')
+  })
+
   it('offers every non-hidden recipe without technology data', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)

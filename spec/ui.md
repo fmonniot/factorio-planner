@@ -341,7 +341,8 @@ The same component in recipes mode (`source="recipes"`).
   crafting time, products (with probability) and the machines that can make it.
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
-- Recipes outside the [research horizon](#research-horizon) are left out. When
+- Non-hidden recipes outside the [research horizon](#research-horizon) are left out
+  (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
   (N outside it)".
 - Clicking a slot adds the recipe and closes the picker.

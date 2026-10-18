@@ -71,7 +71,7 @@ function HorizonModal({ gameData, onClose }: { gameData: GameData; onClose: () =
           })}
           <button
             type="button"
-            disabled={validTargets.length === 0}
+            disabled={targets.length === 0}
             onClick={() => setTargets([])}
             className="ml-auto text-xs text-gray-400 hover:text-gray-100 disabled:opacity-40 disabled:hover:text-gray-400"
           >Clear</button>

@@ -242,7 +242,9 @@ A plan's research horizon is `AppState.horizonTechnologyIds`: the technologies i
 targets. A recipe is inside the horizon if it is a starting recipe or is unlocked
 by a targeted technology or any of its prerequisites (followed transitively).
 Recipes that are neither starting recipes nor unlocked by any exported technology
-(for example ones only a script unlocks) are outside every horizon. No targets,
+(for example ones only a script unlocks) are outside every horizon. The horizon
+applies only to non-hidden recipes: hidden recipes are not part of research
+progression and are shown whenever "Hidden recipes" is ticked. No targets,
 or no technology data in the bundle, means no limit.
 
 ### Icon paths
@@ -270,7 +272,8 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
   machines only report `energyUsageKw`.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
-  to them. Effects other than `unlock-recipe`, research cost, triggers and time,
+  to them, and so is every technology that has a disabled prerequisite (transitively),
+  since it can never be researched. Effects other than `unlock-recipe`, research cost, triggers and time,
   and technology icons are not exported. Technologies that unlock nothing and are
   nobody's prerequisite (bonus and infinite upgrades) are dropped too.
 

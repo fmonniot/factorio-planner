@@ -49,11 +49,34 @@ describe('exportTechnologies — technologies', () => {
   it('drops disabled technologies and references to them', () => {
     const raw = makeRaw()
     raw.technology.secret = { name: 'secret', enabled: false, effects: [{ type: 'unlock-recipe', recipe: 'gear' }] }
-    raw.technology.electronics.prerequisites = ['secret']
+    raw.technology.radar.prerequisites = ['secret']
     const { technologies } = exportTechnologies(raw, ids, resolveName)
     expect(technologies.secret).toBeUndefined()
-    expect(technologies.electronics.prerequisites).toEqual([])
+    expect(technologies.radar).toBeUndefined()
     expect(Object.values(technologies).flatMap(t => t.unlockedRecipes)).not.toContain('gear')
+  })
+
+  it('drops technologies with a disabled prerequisite, directly and transitively', () => {
+    const raw = makeRaw()
+    raw.technology.secret = { name: 'secret', enabled: false, effects: [] }
+    raw.technology.electronics.prerequisites = ['secret']
+    raw.technology.radar.prerequisites = ['electronics']
+    raw.technology.other = { name: 'other', effects: [{ type: 'unlock-recipe', recipe: 'gear' }] }
+    const { technologies } = exportTechnologies(raw, ids, resolveName)
+    expect(technologies.electronics).toBeUndefined()
+    expect(technologies.radar).toBeUndefined()
+    expect(Object.values(technologies).flatMap(t => t.unlockedRecipes)).toEqual(['gear'])
+    for (const t of Object.values(technologies)) {
+      expect(t.prerequisites).not.toContain('electronics')
+      expect(t.prerequisites).not.toContain('radar')
+    }
+  })
+
+  it('terminates on prerequisite cycles', () => {
+    const raw = makeRaw()
+    raw.technology.electronics.prerequisites = ['radar']
+    raw.technology.radar.prerequisites = ['electronics']
+    expect(() => exportTechnologies(raw, ids, resolveName)).not.toThrow()
   })
 
   it('keeps a non-unlocking prerequisite of an unlocking technology but drops a non-unlocking leaf', () => {
@@ -96,5 +119,11 @@ describe('exportTechnologies — startingRecipes', () => {
   it('counts a missing enabled flag as starting, excludes enabled:false and unknown ids, and sorts', () => {
     const { startingRecipes } = exportTechnologies(makeRaw(), ids, resolveName)
     expect(startingRecipes).toEqual(['gear', 'iron-plate'])
+  })
+
+  it('does not count a bundle recipe that is absent from the dump', () => {
+    const raw = makeRaw()
+    const { startingRecipes } = exportTechnologies(raw, new Set([...ids, 'ghost']), resolveName)
+    expect(startingRecipes).not.toContain('ghost')
   })
 })

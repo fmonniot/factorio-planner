@@ -188,13 +188,14 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
   const available = useAvailableRecipeIds()
 
   // Recipes that pass all filters (hidden toggle, item filter, search, research
-  // horizon), and how many the horizon alone removed.
+  // horizon; hidden recipes are exempt), and how many the horizon alone removed.
   const { filteredRecipes, outsideHorizonCount } = useMemo(() => {
     const matching = Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
       .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
       .filter(r => matchesRecipe(query, r))
-    const inside = available ? matching.filter(r => available.has(r.id)) : matching
+    // Hidden recipes are never part of research progression: the horizon only applies to the others.
+    const inside = available ? matching.filter(r => r.hidden || available.has(r.id)) : matching
     return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
   }, [gameData, showHidden, filterByItemId, query, available])
 

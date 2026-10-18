@@ -22,10 +22,29 @@ export function luaList(v) {
  *             startingRecipes: string[] }}
  */
 export function exportTechnologies(raw, recipeIds, resolveName) {
-  // 1. Researchable technologies only; disabled ones are dropped completely.
+  // 1. Researchable technologies only. A technology is not researchable if it is
+  // disabled or has a prerequisite that is not researchable (transitively); those
+  // are dropped completely.
+  const protos = raw.technology ?? {}
+  const state = new Map() // id -> true (researchable) | false | 'visiting'
+  function isResearchable(id) {
+    const known = state.get(id)
+    if (known === true || known === false) return known
+    if (known === 'visiting') return true // cycle: decided by the other prerequisites
+    const proto = protos[id]
+    if (!proto) return true // unknown prerequisite: ignored, as before
+    if (proto.enabled === false) {
+      state.set(id, false)
+      return false
+    }
+    state.set(id, 'visiting')
+    const ok = luaList(proto.prerequisites).every(isResearchable)
+    state.set(id, ok)
+    return ok
+  }
   const researchable = {}
-  for (const [id, proto] of Object.entries(raw.technology ?? {})) {
-    if (proto.enabled !== false) researchable[id] = proto
+  for (const [id, proto] of Object.entries(protos)) {
+    if (isResearchable(id)) researchable[id] = proto
   }
 
   // 2. Per technology: the bundle recipes it unlocks and its researchable prerequisites.
@@ -61,7 +80,7 @@ export function exportTechnologies(raw, recipeIds, resolveName) {
 
   // 4. Recipes available at game start.
   const startingRecipes = [...recipeIds]
-    .filter(id => raw.recipe?.[id]?.enabled !== false)
+    .filter(id => raw.recipe?.[id] && raw.recipe[id].enabled !== false)
     .sort()
 
   return { technologies, startingRecipes }

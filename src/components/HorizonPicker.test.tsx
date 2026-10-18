@@ -89,6 +89,15 @@ describe('HorizonButton', () => {
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
   })
 
+  it('Clear removes stale target ids that match no technology', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['gone'] })
+    render(<HorizonButton />)
+    fireEvent.click(screen.getByRole('button', { name: 'Horizon: none' }))
+    expect(screen.getByRole('button', { name: 'Clear' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
+  })
+
   it('updates the recipe count', () => {
     render(<HorizonButton />)
     fireEvent.click(screen.getByRole('button', { name: 'Horizon: none' }))
