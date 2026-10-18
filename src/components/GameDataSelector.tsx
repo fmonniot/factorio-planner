@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
-import { customSourceId, customFilename } from '../store/sourceId'
+import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
 import { removeCustomPlans } from '../store/persistence'
 
 // ---------------------------------------------------------------------------
@@ -10,10 +10,28 @@ import { removeCustomPlans } from '../store/persistence'
 
 const SERVER_DATASETS = [
   { id: 'nullius', label: 'Nullius', url: `${import.meta.env.BASE_URL}data/nullius/game-data.json` },
-  { id: 'kompetenz-seablock/', label: 'Seablock', url: `${import.meta.env.BASE_URL}data/kompetenz-seablock//game-data.json` },
+  { id: 'kompetenz-seablock', label: 'Seablock', url: `${import.meta.env.BASE_URL}data/kompetenz-seablock/game-data.json` },
 ] as const
 
 const STORAGE_KEY = 'factorio-planner:game-data-source'
+
+/**
+ * The persisted data set id. Older versions stored `kompetenz-seablock/`; that
+ * value is normalised and rewritten so it no longer matches nothing.
+ */
+function readPersistedDatasetId(): string | null {
+  const stored = localStorage.getItem(STORAGE_KEY)
+  if (stored === null) return null
+  const normalized = normalizeDatasetId(stored)
+  if (normalized !== stored) {
+    try {
+      localStorage.setItem(STORAGE_KEY, normalized)
+    } catch {
+      // Quota full or storage blocked: the normalised id is still usable.
+    }
+  }
+  return normalized
+}
 
 // ---------------------------------------------------------------------------
 // IndexedDB helpers for custom uploaded game data
@@ -74,11 +92,11 @@ export function GameDataSelector() {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [selectedValue, setSelectedValue] = useState<string>(() => {
-    return localStorage.getItem(STORAGE_KEY) ?? ''
+    return readPersistedDatasetId() ?? ''
   })
 
   useEffect(() => {
-    const persisted = localStorage.getItem(STORAGE_KEY)
+    const persisted = readPersistedDatasetId()
     if (persisted) {
       const dataset = SERVER_DATASETS.find(d => d.id === persisted)
       if (dataset) {

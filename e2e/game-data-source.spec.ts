@@ -107,6 +107,19 @@ test.describe('game data source selector', () => {
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   })
 
+  test('legacy stored kompetenz-seablock/ still loads Seablock', async ({ page }) => {
+    await page.evaluate(
+      ([key, value]) => localStorage.setItem(key, value),
+      [STORAGE_KEY, 'kompetenz-seablock/'] as [string, string],
+    )
+    await page.reload()
+    await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock')
+    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Error loading data')).not.toBeVisible()
+    const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
+    expect(stored).toBe('kompetenz-seablock')
+  })
+
   test('upload custom file — select shows filename, saved to IndexedDB', async ({ page }) => {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(GAME_DATA_PATH)

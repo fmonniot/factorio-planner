@@ -102,7 +102,7 @@ Each data set has its own plan. When a data set finishes loading and differs fro
 the previous one, the plan stored for it replaces the one on screen (or an empty
 "Factory" block if it has none); switching back restores the earlier plan. The
 plan is identified by the loaded source id: the dropdown value for a bundled
-dataset (trailing slashes ignored), or `custom:<filename>#<fingerprint>` for an
+dataset, or `custom:<filename>#<fingerprint>` for an
 upload, where the fingerprint is a short hash of the data's `modSet`, so uploads
 with different names or different mod sets do not share a plan (two files with the
 same name and the same mod set do; the dropdown still shows `custom:<filename>`).
@@ -112,6 +112,10 @@ current plan untouched.
 Only one upload exists at a time, so its plan does too: activating an upload
 removes the plans of earlier uploads, and picking a bundled dataset (which clears
 the stored upload) removes every upload plan.
+
+Legacy data-set id. A `kompetenz-seablock/` value stored in `localStorage` by
+older versions is normalised to `kompetenz-seablock` and rewritten on load; if the
+rewrite fails (quota full, storage blocked) the normalised id is still used.
 
 A stored plan that fails validation is not overwritten: its raw value is first
 copied to `<key>:corrupt` (e.g. `factorio-planner:app-state:nullius:corrupt`), and
