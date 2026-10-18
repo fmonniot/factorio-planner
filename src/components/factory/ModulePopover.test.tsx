@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ModulePopover, isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
+import { ModulePopover, ModuleCell, isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, GameRecipeNode, RecipeNode } from '../../data/types'
 
@@ -122,5 +122,22 @@ describe('ModulePopover', () => {
     if (updatedNode.kind === 'game-recipe') {
       expect(updatedNode.modules[0].count).toBe(1)
     }
+  })
+})
+
+describe('ModuleCell', () => {
+  const gameData = {
+    items: {}, recipes: {}, machines: {}, beacons: {}, defaultMachines: {}, technologies: {},
+    startingRecipes: [], modules: { 'speed-3': speedModule },
+  } as unknown as GameData
+
+  it('renders the slot text with zero slots when a module is configured', () => {
+    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={gameData} onOpenEdit={() => {}} />)
+    expect(screen.getByText('1/0')).toBeInTheDocument()
+  })
+
+  it('renders nothing with zero slots and no modules', () => {
+    const { container } = render(<ModuleCell modules={[]} machineSlots={0} gameData={gameData} onOpenEdit={() => {}} />)
+    expect(container).toBeEmptyDOMElement()
   })
 })

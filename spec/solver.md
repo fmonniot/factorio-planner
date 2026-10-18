@@ -175,7 +175,7 @@ Wrapping a recipe into a sub-plan for organisation has no effect on its computed
 
 ## Machine count and power
 
-Machine resolution per node: `planNode.machineId ?? gameData.defaultMachines[recipe.category]`. If no machine is found, machine count and power are 0.
+Machine resolution per node: `planNode.machineId ?? <default machine for recipe.category>`. `wireSolver` supplies the research horizon's `defaultMachines` (identical to `gameData.defaultMachines` when there is no limit; see [data-model.md](data-model.md#technology)), so a category with no machine inside the horizon has no default. If no machine is found, machine count and power are 0; throughput, input and output rates and connection flows do not depend on the machine and are unchanged. Module and beacon effects still apply to the LP on such a node. No warning is emitted; the UI flags the row.
 
 Effects (`computeNodeEffects`) are additive per effect type (productivity, speed, consumption):
 

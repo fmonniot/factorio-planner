@@ -43,6 +43,7 @@ const mockGameData: GameData = {
   },
   modules: {},
   defaultMachines: { smelting: 'electric-furnace' },
+  beacons: {},
   technologies: {},
   startingRecipes: [],
 } as unknown as GameData

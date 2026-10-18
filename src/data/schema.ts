@@ -36,6 +36,8 @@ export const ItemSchema = z.object({
   stackSize: z.number().int().positive().optional(),
   subgroup: z.string().default(''),
   order: z.string().default(''),
+  /** Id of the machine or beacon this item places (prototype `place_result`); only set when it names a machine or beacon in the bundle. */
+  placeResult: z.string().optional(),
 })
 
 export const IngredientSchema = z.object({

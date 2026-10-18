@@ -3,6 +3,8 @@ import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../
 import { useBlockStore } from '../../store/blockStore'
 import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
+import { useHorizon } from '../../store/horizon'
+import { resolveRowMachine } from '../../data/horizon'
 import { ItemTile, fmtRate } from './ItemTile'
 import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
@@ -59,6 +61,7 @@ export function RecipeRow({
   const removeNode = useBlockStore(s => s.removeNode)
   const removeSubPlan = useBlockStore(s => s.removeSubPlan)
   const rateUnit = useUiStore(s => s.rateUnit)
+  const horizon = useHorizon(gameData)
 
   const { dragging, beginDrag, endDrag } = useRecipeDnd()
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
@@ -199,8 +202,7 @@ export function RecipeRow({
   const recipe = gameData.recipes[planNode.recipeId]
   if (!recipe) return null
 
-  const resolvedMachineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
-  const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
+  const { machine } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
   const isMultiOutput = recipe.products.length > 1

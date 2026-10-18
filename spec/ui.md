@@ -98,6 +98,15 @@ The targets and all their prerequisites define the horizon (rule in
 per data set and included in the export. Recipes already in the plan are not
 marked and keep solving.
 
+The horizon also gates machines, beacons and modules (rules in
+[data-model.md](data-model.md#technology)): the machine, module and beacon pickers
+list only available ones, and a row without an explicit machine uses the horizon's
+default machine. A machine, module or beacon already chosen but outside the horizon
+is kept and marked with an amber ring (`data-beyond-horizon`) or a "Beyond research
+horizon" label. When no machine of a recipe's category is inside the horizon, the row
+has no machine: its machine count and power are 0 and the row is flagged (see
+[Machine cell](#production-table)); recipe throughput and rates are unaffected.
+
 ### Technology tree
 
 `TechTreeButton` (in `TechTree.tsx`, labelled **Tech tree**) sits next to the horizon
@@ -300,12 +309,22 @@ an item.
 **Machine cell.** `MachineCell` (machine icon with the rounded-up machine count)
 and, when the machine has module slots, `ModuleCell` (first module's icon, or
 `+`, with a `used/total` slot badge). Both open the
-[Edit machine modal](#edit-machine-modal).
+[Edit machine modal](#edit-machine-modal). An explicit machine outside the research
+horizon gets an amber ring and the title "<name> (beyond research horizon)". When no
+machine is inside the horizon the cell shows the `?` placeholder with count 0, an amber
+ring, and the title "No machine within research horizon". `ModuleCell` also renders
+(with title "Modules without a machine" and a `n/0` badge) when modules are configured
+but the row has no slots; it is ringed when a module is outside the horizon.
 
 **Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
 button creates one — the first non-hidden beacon type by name, the first module by
 name, 4 beacons — and opens the [Edit beacon modal](#edit-beacon-modal). With a
-beacon, it shows the beacon icon and `N×`; click to edit.
+beacon, it shows the beacon icon and `N×`; click to edit. The beacon and module chosen
+are the first ones inside the research horizon. The `+` is disabled, with a title giving
+the reason, when the row has no machine within the horizon ("No machine within research
+horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or
+no module is ("No module within the research horizon"). A configured beacon whose type or
+module is outside the horizon gets an amber ring.
 
 **Products cell.** The output that counts as the primary product
 (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an
@@ -394,16 +413,22 @@ The same component in recipes mode (`source="recipes"`).
 `EditMachineModal.tsx`, opened from the Machine cell.
 
 - **Machine** — the current machine; clicking it lists **Default** (use the
-  category's default machine) and every non-hidden machine that can craft the
-  recipe's category. The same list has an **Alternate recipe** section: other
+  category's default machine) and every non-hidden machine inside the research
+  horizon that can craft the recipe's category. When none is, the list shows "No
+  machine for this recipe within the research horizon. Widen the horizon to choose
+  one." The current-machine label reads "No machine within research horizon" in amber
+  when the row has no machine, and carries a "Beyond research horizon" marker for an
+  explicit machine outside the horizon. The same list has an **Alternate recipe** section: other
   non-hidden recipes inside the research horizon that produce the current recipe's
   main product. Choosing one
   swaps the row's recipe and resets its machine, modules, beacon, pin and other
   settings.
-- **Modules** (only when the machine has slots) — each configured module with −/+
-  counts, and an "add module" dropdown. Only modules whose effects the machine
-  allows (and whose recipe limitations permit the recipe) are offered; the total
-  never exceeds the machine's slots.
+- **Modules** (when the machine has slots or modules are configured) — each configured
+  module with −/+ counts, and an "add module" dropdown. Only modules inside the
+  research horizon whose effects the machine allows (and whose recipe limitations
+  permit the recipe) are offered; the total never exceeds the machine's slots. A
+  configured module outside the horizon carries a "Beyond research horizon" marker.
+  Without a machine, modules can be removed but not added.
 - **Effects** — "Module effects" (raw totals) and "Recipe effects" (after the
   machine's allowed effects, and with productivity zeroed if the recipe disallows
   it). Quality is listed only when relevant.
@@ -412,12 +437,16 @@ The same component in recipes mode (`source="recipes"`).
 
 `BeaconModal.tsx`, opened from the Beacon cell.
 
-- **Beacon** — beacon type (non-hidden beacons; picking one copies its module
+- **Beacon** — beacon type (non-hidden beacons inside the research horizon, the
+  configured one marked "Beyond research horizon" when outside; picking one copies its module
   slots and distribution efficiency into the config) and **Amount** (beacon
   count). When the data has no beacon entities, editable "Modules/beacon" and
   "Efficiency" fields appear instead.
-- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal.
-- **Module** — the module placed in every beacon slot.
+- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
+  the row has no machine within the horizon, a note says beacon effects do not apply
+  to machines here.
+- **Module** — the module placed in every beacon slot (modules inside the research
+  horizon are offered).
 - **Remove beacon**.
 
 ---

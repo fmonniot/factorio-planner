@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { useHorizon } from '../../store/horizon'
+import { withinHorizon } from '../../data/horizon'
 import { Popover } from './Popover'
 import { Icon } from '../Icon'
 
@@ -164,7 +166,11 @@ interface ModuleCellProps {
 }
 
 export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: ModuleCellProps) {
-  if (machineSlots === 0) return null
+  const horizon = useHorizon(gameData)
+  if (machineSlots === 0 && modules.length === 0) return null
+
+  const withoutMachine = machineSlots === 0
+  const flagged = withoutMachine || modules.some(m => !withinHorizon(horizon.moduleIds, m.moduleId))
 
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
   const firstModule = modules[0] ? gameData.modules[modules[0].moduleId] : undefined
@@ -173,8 +179,9 @@ export function ModuleCell({ modules, machineSlots, gameData, onOpenEdit }: Modu
     <button
       type="button"
       onClick={onOpenEdit}
-      className="relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
-      title="Edit modules"
+      className={`relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${flagged ? 'ring-1 ring-amber-500' : ''}`}
+      title={withoutMachine ? 'Modules without a machine' : flagged ? 'Edit modules (beyond research horizon)' : 'Edit modules'}
+      data-beyond-horizon={flagged ? 'true' : undefined}
     >
       {firstModule?.iconPath ? (
         <Icon

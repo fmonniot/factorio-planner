@@ -231,6 +231,8 @@ export function solveBlock(
     const effects = nodeEffectsMap.get(planNode.recipeId)!
     const prodBonus = productivityMap.get(planNode.recipeId) ?? 0
 
+    // A missing default (no machine for the category, or none within the research horizon) leaves
+    // count and power at 0; rates do not depend on the machine.
     const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
     const machine = machineId ? gameData.machines[machineId] : undefined
 

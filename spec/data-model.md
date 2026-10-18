@@ -59,8 +59,13 @@ interface Item {
   stackSize?: number    // positive int; absent for fluids
   subgroup: string      // item-subgroup id; default ''
   order: string         // Factorio sort key; default ''
+  placeResult?: string  // id of the machine or beacon this item places (prototype `place_result`)
 }
 ```
+
+`placeResult` is set only when it names a machine or beacon in the bundle; the
+research horizon uses it to gate machines and beacons (see
+[Technology](#technology)). Several items can place the same entity.
 
 The build script exports every item-like prototype type (`item`, `tool`, `armor`,
 `ammo`, `capsule`, `module`, …) as `type: 'item'`, plus every `fluid`.
@@ -264,6 +269,20 @@ resource) or at least one non-hidden recipe producing it is inside the horizon.
 Hidden recipes are ignored: an item only hidden recipes produce is always offered,
 and a hidden recipe does not keep an item whose non-hidden producers are all outside.
 
+Machines, beacons and modules are gated through the items that make them. An item is
+*obtainable* under a horizon by the rule above. A machine or beacon is available if it has
+no known placing item (never gated) or at least one placing item is obtainable; the placing
+items of an entity are the items whose `placeResult` names it, or, when no item in the bundle
+has `placeResult`, the item with the same id as the entity. A module is available if its id is
+not an item or that item is obtainable. No limit means everything is available.
+
+A row without an explicit machine uses the horizon's default machine for its recipe
+category: the category's static `defaultMachines` entry if that machine is available, else the
+fastest available non-hidden machine of the category (first one wins a tie), else none (the
+category has no entry). A category the data has no default for at all is not affected. Machine,
+module and beacon choices already stored in the plan are never rewritten when the horizon
+narrows; they are kept and flagged in the UI.
+
 ### Icon paths
 
 Every `iconPath` is written by the build script as the path of the PNG it
@@ -292,6 +311,8 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - `allow_decomposition` (recycling) is not exported.
 - Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
   machines only report `energyUsageKw`.
+- `place_result` is kept only as `Item.placeResult`, and only when it names an
+  exported machine or beacon; miners, pumps and other entities are not recorded.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
   to them, and so is every technology that has a disabled prerequisite (transitively),
   since it can never be researched. Effects other than `unlock-recipe` and research
@@ -308,6 +329,10 @@ Things to keep in mind when reading a bundle:
 - Some recipes have an empty `madeIn` (no exported machine handles their
   category), and many are `hidden`. The recipe picker hides hidden recipes unless
   "Hidden recipes" is ticked.
+- A bundle may lack `placeResult` (Seablock today): machines and beacons are then
+  matched to the item with the same id, and an entity without such an item is never
+  gated. `--patch-technologies` also writes `placeResult`. Nullius has no technology
+  data, so its horizon never applies.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node
   scripts/build-game-data.js --patch-technologies` adds it to an existing bundle

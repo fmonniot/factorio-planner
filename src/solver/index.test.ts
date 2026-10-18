@@ -445,3 +445,53 @@ describe('solveAll', () => {
     expect(flowOf(all, 'c1').rate).toBe(0)
   })
 })
+
+describe('solve — a node with no resolvable machine', () => {
+  const machine = {
+    id: 'asm', name: 'asm', type: 'assembling-machine' as const, craftingSpeed: 2, energyUsageKw: 100,
+    energyType: 'electric' as const, drainKw: 0, moduleSlots: 2, allowedEffects: ['speed' as const],
+    craftingCategories: ['crafting'], iconPath: '', hidden: false,
+  }
+  const speedModule = {
+    id: 'speed', name: 'speed', category: 'speed', tier: 1, effects: { speed: 0.5 },
+    limitation: [], limitationBlacklist: [], iconPath: '',
+  }
+  function data(withDefault: boolean): GameData {
+    return makeGameData({
+      recipes: { 'iron-plate': ironRecipe },
+      machines: { asm: machine },
+      modules: { speed: speedModule },
+      defaultMachines: withDefault ? { crafting: 'asm' } : {},
+    })
+  }
+
+  it('has zero machine count and power and unchanged rates', () => {
+    const withMachine = solve(simplePlan, data(true)).nodes[0]
+    const result = solve(simplePlan, data(false))
+    const n = result.nodes[0]
+    expect(withMachine.machineCountExact).toBeGreaterThan(0)
+    expect(n.machineCountExact).toBe(0)
+    expect(n.machineCountCeil).toBe(0)
+    expect(n.powerKw).toBe(0)
+    expect(Number.isFinite(n.machineCountExact), 'no NaN').toBe(true)
+    expect(n.throughput).toBe(withMachine.throughput)
+    expect(n.inputRates).toEqual(withMachine.inputRates)
+    expect(n.outputRates).toEqual(withMachine.outputRates)
+    const reference = solve(simplePlan, data(true))
+    expect(result.unsatisfied).toEqual(reference.unsatisfied)
+    expect(result.warnings).toEqual(reference.warnings)
+  })
+
+  it('stays at zero with a speed module and a beacon', () => {
+    const node: RecipeNode = {
+      ...(planNode('n1', 'iron-plate') as GameRecipeNode),
+      modules: [{ moduleId: 'speed', count: 1 }],
+      beaconConfig: { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 },
+    }
+    const n = solve({ goals: [ironGoal], nodes: [node] }, data(false)).nodes[0]
+    expect(n.machineCountExact).toBe(0)
+    expect(n.machineCountCeil).toBe(0)
+    expect(n.powerKw).toBe(0)
+    expect(Number.isFinite(n.machineCountExact), 'no NaN').toBe(true)
+  })
+})

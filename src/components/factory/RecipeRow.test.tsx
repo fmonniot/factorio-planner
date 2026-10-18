@@ -109,6 +109,9 @@ const mockGameData: GameData = {
   },
   modules: {},
   defaultMachines: { smelting: 'electric-furnace' },
+  beacons: {},
+  technologies: {},
+  startingRecipes: [],
 } as unknown as GameData
 
 // ---------------------------------------------------------------------------
@@ -674,5 +677,89 @@ describe('RecipeRow context menu', () => {
     renderRow()
     fireEvent.contextMenu(screen.getByText('⚡'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Research horizon: machine and module cells
+// ---------------------------------------------------------------------------
+
+function makeHorizonGameData(): GameData {
+  const base = structuredClone(mockGameData)
+  const machine = (id: string, name: string, craftingSpeed: number) => ({
+    ...base.machines['electric-furnace'], id, name, craftingSpeed,
+  })
+  const placer = (id: string) => ({ id, name: id, type: 'item', iconPath: '', hidden: false, placeResult: id })
+  const maker = (id: string, itemId: string) => ({
+    ...base.recipes['iron-plate'], id, name: id, ingredients: [],
+    products: [{ itemId, type: 'item', amount: 1 }], mainProduct: itemId,
+  })
+  return {
+    ...base,
+    items: { ...base.items, 'furnace-1': placer('furnace-1'), 'electric-furnace': placer('electric-furnace'), 'speed-1': placer('speed-1') } as unknown as GameData['items'],
+    recipes: { ...base.recipes, 'r-f1': maker('r-f1', 'furnace-1'), 'r-ef': maker('r-ef', 'electric-furnace'), 'r-speed': maker('r-speed', 'speed-1') } as unknown as GameData['recipes'],
+    machines: {
+      'furnace-1': machine('furnace-1', 'Furnace 1', 1),
+      'electric-furnace': machine('electric-furnace', 'Electric Furnace', 2),
+    } as unknown as GameData['machines'],
+    modules: {
+      'speed-1': { id: 'speed-1', name: 'Speed 1', category: 'speed', tier: 1, effects: { speed: 0.2 }, limitation: [], limitationBlacklist: [], iconPath: '' },
+    },
+    technologies: {
+      base: { id: 'base', name: 'Base', prerequisites: [], unlockedRecipes: ['iron-plate', 'r-f1'], iconPath: '' },
+      none: { id: 'none', name: 'None', prerequisites: [], unlockedRecipes: ['iron-plate'], iconPath: '' },
+      late: { id: 'late', name: 'Late', prerequisites: ['base'], unlockedRecipes: ['r-ef', 'r-speed'], iconPath: '' },
+    },
+  }
+}
+
+describe('RecipeRow — research horizon', () => {
+  it('uses the horizon default machine without flagging it', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['base'] })
+    renderRow({ gameData: makeHorizonGameData() })
+    expect(screen.getByTitle('Furnace 1')).not.toHaveAttribute('data-beyond-horizon')
+  })
+
+  it('flags an explicit machine outside the horizon', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['base'] })
+    renderRow({
+      gameData: makeHorizonGameData(),
+      planNode: { ...ironPlateRecipeNode, machineId: 'electric-furnace' } as RecipeNode,
+    })
+    const cell = screen.getByTitle(/ \(beyond research horizon\)$/)
+    expect(cell).toHaveAttribute('data-beyond-horizon', 'true')
+    expect(cell).toHaveAttribute('title', 'Electric Furnace (beyond research horizon)')
+  })
+
+  describe('no machine within the horizon', () => {
+    function noMachineData(): GameData {
+      const d = makeHorizonGameData()
+      d.technologies.base.unlockedRecipes = ['iron-plate']
+      d.technologies.late.unlockedRecipes = ['r-f1', 'r-ef', 'r-speed']
+      return d
+    }
+    beforeEach(() => useBlockStore.setState({ horizonTechnologyIds: ['base'] }))
+
+    it('flags the machine cell as having no machine', () => {
+      renderRow({ gameData: noMachineData(), solvedNode: { ...solvedNode, machineCountCeil: 0 } })
+      // The disabled beacon "+" carries the same title; the machine cell is the flagged one.
+      const cell = screen.getAllByTitle('No machine within research horizon').find(e => e.hasAttribute('data-no-machine'))
+      expect(cell).toHaveAttribute('data-beyond-horizon', 'true')
+      expect(screen.getByLabelText('Add beacon')).toBeDisabled()
+    })
+
+    it('shows configured modules even though there are no slots', () => {
+      renderRow({
+        gameData: noMachineData(),
+        planNode: { ...ironPlateRecipeNode, modules: [{ moduleId: 'speed-1', count: 1 }] } as RecipeNode,
+      })
+      expect(screen.getByTitle('Modules without a machine')).toHaveTextContent('1/0')
+    })
+
+    it('shows no module cell without modules', () => {
+      renderRow({ gameData: noMachineData() })
+      expect(screen.queryByTitle('Modules without a machine')).not.toBeInTheDocument()
+      expect(screen.queryByTitle(/Edit modules/)).not.toBeInTheDocument()
+    })
   })
 })

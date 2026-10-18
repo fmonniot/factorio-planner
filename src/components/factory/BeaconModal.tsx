@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { useHorizon } from '../../store/horizon'
+import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
@@ -54,24 +56,25 @@ export function BeaconModal({
   onClose,
 }: BeaconModalProps) {
   const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
+  const horizon = useHorizon(gameData)
 
   const [showBeaconPicker, setShowBeaconPicker] = useState(false)
   const [showModulePicker, setShowModulePicker] = useState(false)
 
   const recipe = gameData.recipes[recipeId]
-  const resolvedMachineId = machineId ?? gameData.defaultMachines[recipeCategory]
-  const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
+  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
+  const { machine } = row
 
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
   const selectedModule = gameData.modules[beacon.moduleId]
   const hasBeaconData = Object.keys(gameData.beacons).length > 0
 
   const availableBeacons = Object.values(gameData.beacons)
-    .filter(b => !b.hidden)
+    .filter(b => !b.hidden && withinHorizon(horizon.beaconIds, b.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const availableModules = Object.values(gameData.modules)
-    .filter(m => !('hidden' in m) || !(m as { hidden?: boolean }).hidden)
+    .filter(m => withinHorizon(horizon.moduleIds, m.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   function update(patch: Partial<BeaconConfig>) {
@@ -149,6 +152,12 @@ export function BeaconModal({
               </button>
               <span className="text-xs text-gray-300 flex-1">
                 {beaconEntity?.name ?? (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
+                {beacon.beaconId && !withinHorizon(horizon.beaconIds, beacon.beaconId) && (
+                  <>
+                    {' '}
+                    <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>
+                  </>
+                )}
               </span>
               <div className="flex items-center gap-1.5">
                 <span className="text-xs text-gray-500">Amount</span>
@@ -172,6 +181,8 @@ export function BeaconModal({
                 {hasBeaconData ? availableBeacons.map(b => (
                   <button
                     key={b.id}
+                    data-testid="beacon-option"
+                    data-beacon-id={b.id}
                     onClick={() => selectBeacon(b.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${b.id === beacon.beaconId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
@@ -228,6 +239,11 @@ export function BeaconModal({
           <EffectsPanel label="Beacon effects" totals={rawEffects} showQuality={showQuality} />
           <EffectsPanel label="Recipe effects" totals={recipeEffects} showQuality={showQuality} />
         </div>
+        {row.noMachineInHorizon && (
+          <div data-testid="no-machine-in-horizon" className="text-xs text-amber-400">
+            No machine within research horizon: beacon effects do not apply to machines here.
+          </div>
+        )}
 
         {/* Module section */}
         <div>
@@ -249,6 +265,12 @@ export function BeaconModal({
               </button>
               <span className="text-xs text-gray-300 flex-1">
                 {selectedModule?.name ?? beacon.moduleId}
+                {!withinHorizon(horizon.moduleIds, beacon.moduleId) && (
+                  <>
+                    {' '}
+                    <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>
+                  </>
+                )}
               </span>
             </div>
 
@@ -258,6 +280,8 @@ export function BeaconModal({
                 {availableModules.map(m => (
                   <button
                     key={m.id}
+                    data-testid="beacon-module-option"
+                    data-module-id={m.id}
                     onClick={() => selectModule(m.id)}
                     className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === beacon.moduleId ? 'text-teal-400' : 'text-gray-300'}`}
                   >
