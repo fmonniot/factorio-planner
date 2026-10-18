@@ -47,7 +47,7 @@ session (see [Game data selector](#game-data-selector)).
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
 │ ▲▼ │ ▶ Smelting  3 recipes  ×                                            │
-│ ▲▼ │ ♻ 📍 ⊞ × [icon] │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
+│ ▲▼ │ [icon]           │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
 │ + Add recipe                                                              │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -277,26 +277,25 @@ by depth. Nodes whose recipe does not exist in the loaded data render nothing.
 
 **Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends).
 
-**Recipe cell.** Hover reveals the action buttons, which stay visible when active:
+**Recipe cell.** The icon of the primary product (falls back to the first two
+letters of the recipe name), with the recipe name as tooltip. The cell has no
+buttons; the row actions are in the right-click menu below.
 
-- ♻ **Byproduct consumer** toggle — "Only run to absorb byproduct from other
-  recipes" (sets `byproductConsumer`; green when on).
-- 📍/📌 **Pin** — pins the recipe at its current throughput (at least 1); hidden on
-  byproduct-consumer rows. While pinned, the Products cell becomes a number input
-  for the pinned rate.
-- ⊞ **Wrap in subfactory** — prompts for a name (defaults to the recipe name) and
+Right-clicking anywhere in the recipe cell opens a context menu
+(`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
+clamped to the viewport) with:
+
+- **Absorb byproduct** / **Stop absorbing byproduct** — "only run to absorb
+  byproduct from other recipes" (sets `byproductConsumer`).
+- **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
+  least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
+  becomes a number input for the pinned rate.
+- **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
-- × **Remove**.
+- **Remove recipe** (red).
 
-Right-clicking anywhere in the recipe cell (the buttons and icon included) opens a
-context menu (`RowActionsMenu.tsx`, portalled to `document.body`, clamped to the
-viewport) with the same actions: **Absorb byproduct** / **Stop absorbing
-byproduct**, **Pin rate** / **Unpin rate** (omitted on byproduct-consumer rows),
-**Wrap in subfactory…** and **Remove recipe**. It closes on an outside click,
-Escape, scroll, window blur or after choosing an item. The buttons remain.
-
-Then the recipe icon: the icon of the primary product (falls back to the first two
-letters of the recipe name), with the recipe name as tooltip.
+The menu closes on an outside click, Escape, scroll, window blur or after choosing
+an item.
 
 **Machine cell.** `MachineCell` (machine icon with the rounded-up machine count)
 and, when the machine has module slots, `ModuleCell` (first module's icon, or

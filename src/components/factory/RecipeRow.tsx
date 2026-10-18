@@ -234,7 +234,6 @@ export function RecipeRow({
     if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
   }
 
-  // Same actions as the hover buttons, in the same order.
   const rowActions: RowAction[] = [
     {
       label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
@@ -276,7 +275,7 @@ export function RecipeRow({
       {/* Reorder */}
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
-      {/* Recipe icon + wrap + pin */}
+      {/* Recipe icon — row actions live in the right-click menu */}
       <td
         className="px-2 py-0.5 whitespace-nowrap"
         style={{ paddingLeft: `${8 + indentPx}px` }}
@@ -286,52 +285,6 @@ export function RecipeRow({
         }}
       >
         <div className="flex items-center gap-1">
-          {/* Byproduct-consumer toggle */}
-          <button
-            type="button"
-            onClick={handleToggleByproductConsumer}
-            title={isByproductConsumer ? 'Stop absorbing byproduct (re-enter main solve)' : 'Only run to absorb byproduct from other recipes'}
-            className={`text-sm leading-none shrink-0 transition-opacity ${
-              isByproductConsumer
-                ? 'text-emerald-400 hover:text-emerald-300'
-                : 'text-gray-700 hover:text-gray-400 opacity-0 group-hover:opacity-100'
-            }`}
-          >
-            ♻
-          </button>
-          {/* Pin toggle — hidden when byproduct consumer (throughput is derived) */}
-          {!isByproductConsumer && (
-            <button
-              type="button"
-              onClick={isPinned ? handleUnpin : handlePin}
-              title={isPinned ? 'Unpin rate' : 'Pin rate'}
-              className={`text-sm leading-none shrink-0 transition-opacity ${
-                isPinned
-                  ? 'text-yellow-400 hover:text-yellow-300'
-                  : 'text-gray-700 hover:text-gray-400 opacity-0 group-hover:opacity-100'
-              }`}
-            >
-              {isPinned ? '📌' : '📍'}
-            </button>
-          )}
-          {/* Wrap in subfactory */}
-          <button
-            type="button"
-            onClick={handleWrap}
-            className="text-gray-700 hover:text-gray-500 text-[10px] leading-none shrink-0 opacity-0 group-hover:opacity-100"
-            title="Wrap in subfactory"
-          >
-            ⊞
-          </button>
-          {/* Remove node */}
-          <button
-            type="button"
-            onClick={() => removeNode(planNode.id)}
-            title="Remove recipe"
-            className="text-gray-700 hover:text-red-400 text-sm leading-none shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
-          >
-            ×
-          </button>
           {/* Recipe icon derived from primary product */}
           {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
             <Icon

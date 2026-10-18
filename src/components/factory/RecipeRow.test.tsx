@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -252,10 +252,10 @@ describe('RecipeRow', () => {
     expect(onToggle).toHaveBeenCalled()
   })
 
-  it('× button removes a game-recipe node from the store', () => {
+  it('recipe cell has no inline action buttons (actions live in the right-click menu)', () => {
     renderRow()
-    fireEvent.click(screen.getByTitle('Remove recipe'))
-    expect(useBlockStore.getState().blocks[0].rootPlan.nodes).toHaveLength(0)
+    const cell = screen.getAllByTitle('Iron Plate')[0].closest('td')!
+    expect(within(cell).queryAllByRole('button')).toHaveLength(0)
   })
 
   it('× button fully deletes the subplan from the tree (and its node reference)', () => {
@@ -397,40 +397,34 @@ describe('T12 — Pin rate UI', () => {
     return node
   }
 
-  it('unpinned row shows 📍 with title "Pin rate"', () => {
+  it('unpinned row has no pinned input and offers "Pin rate" in the menu', () => {
     setupElectrolysis(undefined)
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    expect(screen.getByTitle('Pin rate')).toBeInTheDocument()
-    expect(screen.queryByTitle('Unpin rate')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
+    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    expect(screen.getByRole('menuitem', { name: 'Pin rate' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Unpin rate' })).not.toBeInTheDocument()
   })
 
-  it('pinned row shows 📌 with title "Unpin rate" and a pinned input', () => {
+  it('pinned row shows a pinned input and offers "Unpin rate" in the menu', () => {
     const pinned = setupElectrolysis(2)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByTitle('Unpin rate')).toBeInTheDocument()
-    expect(screen.queryByTitle('Pin rate')).not.toBeInTheDocument()
     expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Pin rate' })).not.toBeInTheDocument()
   })
 
-  it('clicking 📍 calls updateNodePinnedRate with value > 0 even when throughput is 0', () => {
+  it('pinning from the menu uses a value > 0 even when throughput is 0', () => {
     setupElectrolysis(undefined)
     const zeroThroughput: SolvedNode = { ...electrolysisSolved, throughput: 0 }
     renderRow({ planNode: electrolysisPlanNode, solvedNode: zeroThroughput })
-    fireEvent.click(screen.getByTitle('Pin rate'))
+    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
       expect(updated.pinnedRate).toBeDefined()
       expect(updated.pinnedRate!).toBeGreaterThan(0)
-    }
-  })
-
-  it('clicking 📌 calls updateNodePinnedRate with undefined', () => {
-    const pinned = setupElectrolysis(2)
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    fireEvent.click(screen.getByTitle('Unpin rate'))
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeUndefined()
     }
   })
 
@@ -563,7 +557,7 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('Pin rate pins the node and the button title switches to Unpin rate', () => {
+  it('Pin rate pins the node and the pinned input appears', () => {
     const { unmount } = renderRow()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
@@ -572,7 +566,7 @@ describe('RecipeRow context menu', () => {
     // Props are static in the harness: re-render with the updated store node.
     unmount()
     renderRow({ planNode: node })
-    expect(screen.getByTitle('Unpin rate')).toBeInTheDocument()
+    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
   })
 
   it('a pinned node offers Unpin rate', () => {
