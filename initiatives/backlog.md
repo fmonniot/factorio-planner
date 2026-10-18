@@ -53,7 +53,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
-- [ ] **Row actions on right click.** Move the four buttons at the start of every product row (absorb byproduct, pin, subfactory, delete) into a menu opened by right-clicking the recipe portion of the row, so the actions are available there too.
 - [ ] **Technology tree view.** An in-game-style tech screen: technology cards with icons and science-pack cost chips, columns by science tier, and researched / available / locked states derived from the plan's research horizon. Needs the export to keep technology icons, research cost and time (dropped today, see spec/data-model.md), a graph layout with pan and zoom.
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 

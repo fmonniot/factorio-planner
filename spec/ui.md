@@ -257,6 +257,13 @@ by depth. Nodes whose recipe does not exist in the loaded data render nothing.
   replaces the row with a new sub-factory containing just this node.
 - × **Remove**.
 
+Right-clicking anywhere in the recipe cell (the buttons and icon included) opens a
+context menu (`RowActionsMenu.tsx`, portalled to `document.body`, clamped to the
+viewport) with the same actions: **Absorb byproduct** / **Stop absorbing
+byproduct**, **Pin rate** / **Unpin rate** (omitted on byproduct-consumer rows),
+**Wrap in subfactory…** and **Remove recipe**. It closes on an outside click,
+Escape, scroll, window blur or after choosing an item. The buttons remain.
+
 Then the recipe icon: the icon of the primary product (falls back to the first two
 letters of the recipe name), with the recipe name as tooltip.
 
