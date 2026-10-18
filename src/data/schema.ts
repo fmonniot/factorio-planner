@@ -345,7 +345,6 @@ export const BlockSchema = z.preprocess(
   z.object({
     id: z.string(),
     name: z.string(),
-    gameDataVersion: z.string(),
     goals: z.array(ProductionGoalSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),

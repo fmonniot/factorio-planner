@@ -435,7 +435,7 @@ describe('parseAppState — inputConnections', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const rootPlan = () => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now })
   const blockJson = (extra: Record<string, unknown> = {}) => ({
-    id: 'b1', name: 'Block', gameDataVersion: '', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+    id: 'b1', name: 'Block', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
   })
 
   it('defaults a block saved without inputConnections to an empty list', () => {
@@ -461,10 +461,38 @@ describe('parseAppState — inputConnections', () => {
   })
 })
 
+describe('parseAppState — legacy gameDataVersion', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const rootPlan = () => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now })
+  const blockJson = (extra: Record<string, unknown> = {}) => ({
+    id: 'b1', name: 'Block', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+  })
+
+  it('accepts a block with an empty legacy gameDataVersion and strips it', () => {
+    const state = parseAppState({ blocks: [blockJson({ gameDataVersion: '' })], activeBlockId: 'b1' })
+    expect(state.blocks[0], 'legacy key is stripped').not.toHaveProperty('gameDataVersion')
+  })
+
+  it('accepts a non-empty legacy gameDataVersion', () => {
+    const state = parseAppState({ blocks: [blockJson({ gameDataVersion: '2.0.76' })], activeBlockId: 'b1' })
+    expect(state.blocks[0].name).toBe('Block')
+  })
+
+  it('accepts a block without the key', () => {
+    const state = parseAppState({ blocks: [blockJson()], activeBlockId: 'b1' })
+    expect(state.blocks[0].name).toBe('Block')
+  })
+
+  it('does not re-export the legacy key', () => {
+    const legacy = { blocks: [blockJson({ gameDataVersion: '2.0.76' })], activeBlockId: 'b1' }
+    expect(JSON.stringify(parseAppState(legacy)), 'export drops the key').not.toContain('gameDataVersion')
+  })
+})
+
 describe('parseAppState — horizonTechnologyIds', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const block = {
-    id: 'b1', name: 'Block', gameDataVersion: '', goals: [], noImportItems: [],
+    id: 'b1', name: 'Block', goals: [], noImportItems: [],
     rootPlan: { id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
   }
 

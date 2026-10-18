@@ -52,6 +52,7 @@ test.describe('Plan export', () => {
     expect(parsed.blocks.length).toBeGreaterThan(0)
 
     const block = parsed.blocks[0]
+    expect(block, 'exported block has no gameDataVersion').not.toHaveProperty('gameDataVersion')
     expect(block.goals.length).toBeGreaterThan(0)
     expect(block.goals[0].itemId).toBe('nullius-chemical-pack')
     expect(block.rootPlan.nodes.length).toBeGreaterThan(0)

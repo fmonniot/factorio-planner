@@ -123,7 +123,6 @@ export function makeEmptyBlock(name: string): Block {
   return {
     id: crypto.randomUUID(),
     name,
-    gameDataVersion: '',
     goals: [],
     noImportItems: [],
     inputConnections: [],
