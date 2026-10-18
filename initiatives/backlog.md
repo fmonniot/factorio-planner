@@ -21,6 +21,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **Absolute home paths in committed `iconPath`s.** Every `iconPath` in the bundled `game-data.json` files contains the exporting machine's absolute home directory. `scripts/build-game-data.js` should emit paths relative to the Factorio / mods directories.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
+- [ ] **Seablock science technologies show localisation keys.** In the research horizon picker (Seablock data set), about half of the science technologies display their raw key (`__ITEM__bob-advanced-logistic-science-pack__`) instead of the English name, while the others resolve (e.g. "Automation science pack"). The same placeholder appears in the horizon target chips. The localised name is not resolved for those entries in the Seablock data.
 
 ## Sharing and import
 
