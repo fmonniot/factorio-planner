@@ -74,9 +74,10 @@ interface BlockTabProps {
   blockId: string
   isActive: boolean
   onClick: () => void
+  disabled: boolean
 }
 
-function BlockTab({ blockId, isActive, onClick }: BlockTabProps) {
+function BlockTab({ blockId, isActive, onClick, disabled }: BlockTabProps) {
   const block = useBlockStore(s => s.blocks.find(b => b.id === blockId))
   const gameData = useGameDataStore(selectGameData)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -88,7 +89,7 @@ function BlockTab({ blockId, isActive, onClick }: BlockTabProps) {
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
-    setMenuOpen(true)
+    if (!disabled) setMenuOpen(true)
   }
 
   return (
@@ -97,9 +98,10 @@ function BlockTab({ blockId, isActive, onClick }: BlockTabProps) {
         title={block.name}
         onClick={onClick}
         onContextMenu={handleContextMenu}
+        disabled={disabled}
         className={`
           w-9 h-9 rounded flex items-center justify-center text-sm font-bold
-          transition-colors select-none
+          transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed
           ${isActive
             ? 'bg-gray-700 ring-2 ring-blue-500 text-gray-100'
             : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
@@ -135,6 +137,9 @@ export function BlockTabs() {
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const addBlock = useBlockStore(s => s.addBlock)
   const activeBlock = useBlockStore(selectActiveBlock)
+  // The plan on screen only belongs to the selected data set once its data has
+  // loaded; until then the tabs are read-only so no edit lands in the wrong plan.
+  const editable = useGameDataStore(s => s.status.type === 'loaded')
 
   return (
     <div className="h-10 bg-gray-900 border-b border-gray-700 flex items-center gap-1 px-3 shrink-0">
@@ -144,6 +149,7 @@ export function BlockTabs() {
           blockId={block.id}
           isActive={block.id === activeBlockId}
           onClick={() => setActiveBlock(block.id)}
+          disabled={!editable}
         />
       ))}
 
@@ -151,7 +157,8 @@ export function BlockTabs() {
       <button
         title="Add block"
         onClick={addBlock}
-        className="w-9 h-9 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors text-lg leading-none"
+        disabled={!editable}
+        className="w-9 h-9 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors text-lg leading-none disabled:opacity-40 disabled:cursor-not-allowed"
       >
         +
       </button>

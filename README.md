@@ -37,7 +37,7 @@ A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and c
 
 ### Saving and sharing
 
-Your plan is saved in your browser's local storage as you work. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
+Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
@@ -87,7 +87,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 
 | Path | What's there |
 |---|---|
-| `src/main.tsx` | Entry point: restores saved state, wires persistence and the debounced auto-solve, mounts the UI |
+| `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI |
 | `src/components/` | React UI; `factory/` holds the summary panel and the production table |
@@ -109,4 +109,4 @@ Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), w
 
 ## Status
 
-The planner is usable but still early. Known gaps include importing plans, sharing by URL, switching game data sets without stale plan state, and filtering recipes by tech progression. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.
+The planner is usable but still early. Known gaps include importing plans, sharing by URL, and filtering recipes by tech progression. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.

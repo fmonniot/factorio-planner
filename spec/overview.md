@@ -20,7 +20,7 @@ The UI is a flat production table: the user sets goals for a block, adds recipes
 
 ## Design Principles
 
-- **Client-side only.** No backend. The solver runs in the browser; plans are stored in localStorage, and an uploaded custom game-data file is stored in IndexedDB. Plans can be exported as JSON.
+- **Client-side only.** No backend. The solver runs in the browser; plans are stored in localStorage (one per game data set), and an uploaded custom game-data file is stored in IndexedDB. Plans can be exported as JSON.
 - **Data-agnostic.** The app works off a game data JSON bundle. Nothing is loaded until the user picks a dataset (bundled Nullius or Seablock, or an uploaded file); the choice is remembered for later visits.
 - **Solver-first.** The LP solver is the core of the app. The UI is built to expose and override its outputs, not to replace it with manual calculations.
 - **Progressive complexity.** Basic use (add item, see machine count) should require zero configuration. Advanced use (modules, beacons, alternate recipes, byproduct routing) should be accessible but not mandatory.

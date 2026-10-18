@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import type { GameData } from '../data/types'
 import { loadGameDataFromJson, GameDataLoadError } from '../data/loader'
+import { customPlanSourceId, customFilename, customSourceId } from './sourceId'
 
 // ---------------------------------------------------------------------------
 // State
@@ -9,7 +10,7 @@ import { loadGameDataFromJson, GameDataLoadError } from '../data/loader'
 export type GameDataStatus =
   | { type: 'empty' }
   | { type: 'loading' }
-  | { type: 'loaded'; gameData: GameData }
+  | { type: 'loaded'; gameData: GameData; sourceId: string }
   | { type: 'error'; message: string }
 
 export interface GameDataStoreState {
@@ -18,11 +19,17 @@ export interface GameDataStoreState {
   /**
    * Import game data from a raw JSON string (e.g. from a File read by the user).
    * Updates status to 'loaded' on success or 'error' on validation failure.
+   *
+   * `sourceId` identifies the data set (e.g. `nullius`, `custom:<filename>`);
+   * it keys the persisted plan, see persistence.ts. For a custom id the
+   * stored `status.sourceId` additionally carries a mod set fingerprint
+   * (see `customPlanSourceId`).
    */
-  importGameData: (json: string) => void
+  importGameData: (json: string, sourceId: string) => void
 
   /**
-   * Import game data from a File object selected by the user.
+   * Import game data from a File object selected by the user. The source id
+   * is `custom:<filename>` plus a mod set fingerprint.
    * Returns a promise that resolves when the file has been read and parsed.
    */
   importGameDataFile: (file: File) => Promise<void>
@@ -31,7 +38,7 @@ export interface GameDataStoreState {
    * Import game data by fetching a URL (e.g. a server-bundled dataset).
    * Returns a promise that resolves when the data has been fetched and parsed.
    */
-  importGameDataUrl: (url: string) => Promise<void>
+  importGameDataUrl: (url: string, sourceId: string) => Promise<void>
 
   /**
    * Clear the currently loaded game data.
@@ -43,59 +50,70 @@ export interface GameDataStoreState {
 // Store
 // ---------------------------------------------------------------------------
 
+function errorStatus(err: unknown): GameDataStatus {
+  if (err instanceof GameDataLoadError) {
+    return { type: 'error', message: err.message }
+  } else if (err instanceof SyntaxError) {
+    return { type: 'error', message: `Invalid JSON: ${err.message}` }
+  }
+  return { type: 'error', message: String(err) }
+}
+
+/** Source id recorded in the loaded status; custom ids gain a mod set fingerprint. */
+function loadedSourceId(sourceId: string, gameData: GameData): string {
+  const filename = customFilename(sourceId)
+  return filename === null ? sourceId : customPlanSourceId(filename, gameData.modSet)
+}
+
+/** Bumped on every async import so a stale in-flight response can be ignored (last request wins). */
+let latestRequest = 0
+
 export const useGameDataStore = create<GameDataStoreState>((set) => ({
   status: { type: 'empty' },
 
-  importGameData: (json) => {
+  importGameData: (json, sourceId) => {
+    // A synchronous import supersedes any in-flight async one.
+    latestRequest++
     try {
       const gameData = loadGameDataFromJson(json)
-      set({ status: { type: 'loaded', gameData } })
+      set({ status: { type: 'loaded', gameData, sourceId: loadedSourceId(sourceId, gameData) } })
     } catch (err) {
-      if (err instanceof GameDataLoadError) {
-        set({ status: { type: 'error', message: err.message } })
-      } else if (err instanceof SyntaxError) {
-        set({ status: { type: 'error', message: `Invalid JSON: ${err.message}` } })
-      } else {
-        set({ status: { type: 'error', message: String(err) } })
-      }
+      set({ status: errorStatus(err) })
     }
   },
 
   importGameDataFile: async (file) => {
+    const request = ++latestRequest
     set({ status: { type: 'loading' } })
     try {
       const json = await file.text()
       const gameData = loadGameDataFromJson(json)
-      set({ status: { type: 'loaded', gameData } })
+      if (request !== latestRequest) return
+      set({ status: { type: 'loaded', gameData, sourceId: loadedSourceId(customSourceId(file.name), gameData) } })
     } catch (err) {
-      if (err instanceof GameDataLoadError) {
-        set({ status: { type: 'error', message: err.message } })
-      } else if (err instanceof SyntaxError) {
-        set({ status: { type: 'error', message: `Invalid JSON: ${err.message}` } })
-      } else {
-        set({ status: { type: 'error', message: String(err) } })
-      }
+      if (request !== latestRequest) return
+      set({ status: errorStatus(err) })
     }
   },
 
-  importGameDataUrl: async (url) => {
+  importGameDataUrl: async (url, sourceId) => {
+    const request = ++latestRequest
     set({ status: { type: 'loading' } })
     try {
       const json = await fetch(url).then(r => r.text())
       const gameData = loadGameDataFromJson(json)
-      set({ status: { type: 'loaded', gameData } })
+      if (request !== latestRequest) return
+      set({ status: { type: 'loaded', gameData, sourceId } })
     } catch (err) {
-      if (err instanceof GameDataLoadError) {
-        set({ status: { type: 'error', message: err.message } })
-      } else if (err instanceof SyntaxError) {
-        set({ status: { type: 'error', message: `Invalid JSON: ${err.message}` } })
-      } else {
-        set({ status: { type: 'error', message: String(err) } })
-      }
+      if (request !== latestRequest) return
+      set({ status: errorStatus(err) })
     }
   },
 
-  clearGameData: () => set({ status: { type: 'empty' } }),
+  clearGameData: () => {
+    latestRequest++
+    set({ status: { type: 'empty' } })
+  },
 }))
 
 // ---------------------------------------------------------------------------

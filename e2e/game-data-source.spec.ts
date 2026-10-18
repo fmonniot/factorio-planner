@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
+import { customSourceId } from '../src/store/sourceId'
 
 const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 const STORAGE_KEY = 'factorio-planner:game-data-source'
@@ -110,7 +111,7 @@ test.describe('game data source selector', () => {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(GAME_DATA_PATH)
     const filename = path.basename(GAME_DATA_PATH)
-    await expect(gameDataSelect(page)).toHaveValue(`custom:${filename}`, { timeout: 10000 })
+    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible()
     const entry = await getIndexedDBEntry(page)
     expect(entry).not.toBeNull()
@@ -124,7 +125,7 @@ test.describe('game data source selector', () => {
     const filename = path.basename(GAME_DATA_PATH)
     await seedIndexedDB(page, json, filename)
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue(`custom:${filename}`, { timeout: 10000 })
+    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible()
   })
 
@@ -135,7 +136,7 @@ test.describe('game data source selector', () => {
     const filename = path.basename(GAME_DATA_PATH)
     await seedIndexedDB(page, json, filename)
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue(`custom:${filename}`, { timeout: 10000 })
+    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
 
     // Now switch to Nullius.
     await gameDataSelect(page).selectOption('nullius')

@@ -78,7 +78,7 @@ const fixture: GameData = {
 }
 
 beforeEach(() => {
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: fixture } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: fixture, sourceId: 'test' } })
 })
 
 // ---------------------------------------------------------------------------

@@ -13,11 +13,14 @@ behind each feature so you can find it.
 
 `src/main.tsx`, in order:
 
-1. Restores the saved `AppState` from `localStorage` (`loadPersistedAppState`,
-   `src/store/persistence.ts`) and the rate unit (`loadPersistedUiState`,
-   `src/store/uiStore.ts`). Invalid saved state is ignored and the default state
-   (one empty block named "Factory") is used.
-2. Starts auto-saving both on every change.
+1. Restores the rate unit (`loadPersistedUiState`, `src/store/uiStore.ts`). The
+   plan is not loaded yet: it belongs to a game data set, which is only known once
+   data has loaded (see [Game data selector](#game-data-selector)). Until then the
+   table shows "Load game data to begin", the summary strip is hidden and the block
+   tabs are disabled, so no edit can land in the wrong plan.
+2. Starts auto-saving (`initAppStatePersistence`, `src/store/persistence.ts`) on
+   every change, and subscribes to the game data store so the plan is swapped when
+   a data set finishes loading.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
    block store or the game data schedules a re-solve of the **active block**
    after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
@@ -70,6 +73,8 @@ block's name is printed after the tabs.
 - Right-click a tab for a small menu: **Rename** (browser prompt) and **Delete**.
   Delete is disabled when only one block remains; deleting the active block
   activates the first remaining one.
+- All of the above are disabled unless game data is loaded (not while it is empty,
+  loading or failed to load).
 
 ### Export plan
 
@@ -93,8 +98,29 @@ shows "Select game data…" and nothing is loaded. A "Loading…" or "Error load
 data" label appears next to the dropdown while loading or after a validation
 failure (the tooltip carries the error message).
 
-Plans are not tied to a dataset: switching datasets keeps every block, and nodes
-whose recipe is missing from the new data are simply not rendered.
+Each data set has its own plan. When a data set finishes loading and differs from
+the previous one, the plan stored for it replaces the one on screen (or an empty
+"Factory" block if it has none); switching back restores the earlier plan. The
+plan is identified by the loaded source id: the dropdown value for a bundled
+dataset (trailing slashes ignored), or `custom:<filename>#<fingerprint>` for an
+upload, where the fingerprint is a short hash of the data's `modSet`, so uploads
+with different names or different mod sets do not share a plan (two files with the
+same name and the same mod set do; the dropdown still shows `custom:<filename>`).
+Reloading the same data set does not reset the plan, and a failed load leaves the
+current plan untouched.
+
+Only one upload exists at a time, so its plan does too: activating an upload
+removes the plans of earlier uploads, and picking a bundled dataset (which clears
+the stored upload) removes every upload plan.
+
+A stored plan that fails validation is not overwritten: its raw value is first
+copied to `<key>:corrupt` (e.g. `factorio-planner:app-state:nullius:corrupt`), and
+the data set starts with an empty plan.
+
+**Legacy plan.** Before plans were per data set, the single plan lived under
+`factorio-planner:app-state`. The first data set activated without a plan of its
+own adopts it and the legacy key is deleted. If the legacy plan cannot be read it
+is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
 
 ---
 

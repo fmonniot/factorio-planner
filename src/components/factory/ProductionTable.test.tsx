@@ -61,7 +61,7 @@ beforeEach(() => {
     history: {},
   })
   useUiStore.setState({ rateUnit: 'min' })
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, _setStatus: () => {} })
 })
 

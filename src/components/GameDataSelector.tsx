@@ -1,6 +1,8 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
+import { customSourceId, customFilename } from '../store/sourceId'
+import { removeCustomPlans } from '../store/persistence'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -80,16 +82,20 @@ export function GameDataSelector() {
     if (persisted) {
       const dataset = SERVER_DATASETS.find(d => d.id === persisted)
       if (dataset) {
-        importUrl(dataset.url)
+        importUrl(dataset.url, dataset.id)
         return
       }
     }
+    let cancelled = false
     loadCustomData().then(entry => {
+      // Ignore the stored upload if the user already picked something meanwhile.
+      if (cancelled || useGameDataStore.getState().status.type !== 'empty') return
       if (entry) {
-        importJson(entry.json)
-        setSelectedValue(`custom:${entry.filename}`)
+        importJson(entry.json, customSourceId(entry.filename))
+        setSelectedValue(customSourceId(entry.filename))
       }
     })
+    return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -105,7 +111,8 @@ export function GameDataSelector() {
       setSelectedValue(value)
       localStorage.setItem(STORAGE_KEY, value)
       await clearCustomData()
-      importUrl(dataset.url)
+      removeCustomPlans()
+      importUrl(dataset.url, dataset.id)
     }
   }
 
@@ -116,13 +123,11 @@ export function GameDataSelector() {
     const json = await file.text()
     await saveCustomData(json, file.name)
     localStorage.removeItem(STORAGE_KEY)
-    setSelectedValue(`custom:${file.name}`)
+    setSelectedValue(customSourceId(file.name))
     importFile(file)
   }
 
-  const customFilename = selectedValue.startsWith('custom:')
-    ? selectedValue.slice('custom:'.length)
-    : null
+  const uploadedFilename = customFilename(selectedValue)
 
   return (
     <div className="flex items-center gap-2">
@@ -146,8 +151,8 @@ export function GameDataSelector() {
         ))}
         <option disabled>─────────</option>
         <option value="upload">Upload file…</option>
-        {customFilename && (
-          <option value={`custom:${customFilename}`}>{customFilename}</option>
+        {uploadedFilename && (
+          <option value={selectedValue}>{uploadedFilename}</option>
         )}
       </select>
       <input

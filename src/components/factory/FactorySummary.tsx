@@ -194,6 +194,10 @@ export function FactorySummary() {
     if (e.key === 'Escape') setEditingName(false)
   }
 
+  // The plan may not belong to the selected data set until its data has loaded,
+  // so nothing here can be edited before then.
+  if (!gameData) return null
+
   return (
     <div className="border-b border-gray-700 bg-gray-900 shrink-0">
       {/* Block name + rate unit toggle */}

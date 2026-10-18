@@ -48,7 +48,7 @@ function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
     history: {},
   })
   useUiStore.setState({ rateUnit: 'min' })
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: withSolver ? mockSolverResult : undefined,
@@ -64,6 +64,19 @@ describe('FactorySummary — pane labels', () => {
     expect(screen.getByText('Products')).toBeInTheDocument()
     expect(screen.getByText('Byproducts')).toBeInTheDocument()
     expect(screen.getByText('Ingredients')).toBeInTheDocument()
+  })
+})
+
+describe('FactorySummary — without loaded game data', () => {
+  it.each([
+    ['empty', { type: 'empty' as const }],
+    ['loading', { type: 'loading' as const }],
+    ['error', { type: 'error' as const, message: 'boom' }],
+  ])('renders nothing editable while %s', (_name, status) => {
+    useGameDataStore.setState({ status })
+    render(<FactorySummary />)
+    expect(screen.queryByText('Products'), 'summary must be hidden').not.toBeInTheDocument()
+    expect(screen.queryByTitle('Add goal')).not.toBeInTheDocument()
   })
 })
 
@@ -202,7 +215,7 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
     setupStore([ironGoal])
     // Extend game data to include steam so the tile shows the name
     const gdWithSteam = { ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }
-    useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData } })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData, sourceId: 'test' } })
     useSolverStore.setState({ status: { type: 'idle' }, lastResult: surplusResult, _setStatus: () => {} })
     render(<FactorySummary />)
     // steam has net 15 (20 produced - 5 consumed), should appear in Byproducts
