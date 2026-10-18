@@ -39,7 +39,7 @@ Blocks can also feed one another. Right-click an item in a block's **Ingredients
 
 ### 5. Plan horizon
 
-**Horizon** in the top bar limits the recipes the pickers offer, and the products you can add as goals, to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Hidden recipes are ignored when deciding which goals are offered. Use it to plan the first science packs without being offered space-science recipes. Recipes and goals already in your plan keep working. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
+**Horizon** in the top bar limits the recipes the pickers offer, and the products you can add as goals, to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Hidden recipes are ignored when deciding which goals are offered. Use it to plan the first science packs without being offered space-science recipes. The horizon also limits machines, modules, beacons and the default machine: a row without an explicit machine uses the best machine inside the horizon, and a recipe with no machine inside it shows 0 machines and no power (its rates are unchanged). Recipes, goals, machines, modules and beacons already in your plan keep working and are marked when they fall outside the horizon. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
 
 **Tech tree** opens the technology tree: cards with icons and research cost in columns by prerequisite depth, coloured researched, available or locked from your horizon. Drag to pan, scroll to zoom, **Fit** shows the whole tree. Click a technology to research up to it (it becomes a horizon target, with all its prerequisites); click again to remove it, or use **Clear horizon**.
 
@@ -97,6 +97,8 @@ node scripts/build-game-data.js --patch-technologies \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
+Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
+
 `--patch-names` works the same way but recomputes only the `name` fields (locale placeholders such as `__ITEM__x__` are expanded); it applies the same mod-set check.
 
 The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
@@ -114,10 +116,11 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |
+| `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
 | `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
-| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology export, locale resolution and bundled-name checks |
+| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology and place-result exports, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
 | `spec/` | How the system works today |

@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { useHorizon } from '../../store/horizon'
+import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Icon } from '../Icon'
 import { BeaconModal } from './BeaconModal'
 
@@ -21,14 +23,19 @@ interface BeaconCellProps {
 export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, recipeCategory }: BeaconCellProps) {
   const [open, setOpen] = useState(false)
   const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
+  const horizon = useHorizon(gameData)
+  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
+
+  const nonHiddenBeacons = Object.values(gameData.beacons).filter(b => !b.hidden)
 
   function enable() {
-    // Pick the first non-hidden beacon type, or fall back to legacy defaults.
-    const firstBeacon = Object.values(gameData.beacons)
-      .filter(b => !b.hidden)
+    // Pick the first beacon type within the horizon, or fall back to legacy defaults.
+    const firstBeacon = nonHiddenBeacons
+      .filter(b => withinHorizon(horizon.beaconIds, b.id))
       .sort((a, b) => a.name.localeCompare(b.name))[0]
 
     const firstModule = Object.values(gameData.modules)
+      .filter(m => withinHorizon(horizon.moduleIds, m.id))
       .sort((a, b) => a.name.localeCompare(b.name))[0]
 
     if (!firstModule) return
@@ -53,12 +60,24 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
   }
 
   if (!beacon) {
+    const noBeacon =
+      nonHiddenBeacons.length > 0 && !nonHiddenBeacons.some(b => withinHorizon(horizon.beaconIds, b.id))
+    const noModule =
+      horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
+    const disabledTitle = row.noMachineInHorizon
+      ? 'No machine within research horizon'
+      : noBeacon
+        ? 'No beacon within the research horizon'
+        : noModule
+          ? 'No module within the research horizon'
+          : undefined
     return (
       <button
         type="button"
         onClick={enable}
-        className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 text-gray-500 hover:text-gray-200 hover:bg-gray-700 text-xs leading-none"
-        title="Add beacon"
+        disabled={disabledTitle !== undefined}
+        className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 text-gray-500 hover:text-gray-200 hover:bg-gray-700 text-xs leading-none disabled:opacity-40 disabled:hover:bg-gray-800 disabled:hover:text-gray-500"
+        title={disabledTitle ?? 'Add beacon'}
         aria-label="Add beacon"
       >
         +
@@ -70,15 +89,19 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
   const moduleData = gameData.modules[beacon.moduleId]
   const displayIcon = beaconEntity?.iconPath ?? moduleData?.iconPath
+  const beyondHorizon =
+    (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
+    !withinHorizon(horizon.moduleIds, beacon.moduleId)
 
   return (
     <>
       <button
         type="button"
         onClick={() => setOpen(o => !o)}
-        className="relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded"
-        title="Edit beacon"
+        className={`relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${beyondHorizon ? 'ring-1 ring-amber-500' : ''}`}
+        title={beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'}
         aria-label="Edit beacon"
+        data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       >
         {displayIcon ? (
           <Icon

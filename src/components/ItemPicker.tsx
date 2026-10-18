@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { useAvailableRecipeIds } from '../store/horizon'
-import { availableItemIds } from '../data/horizon'
+import { useAvailableRecipeIds, useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
 import type { Item, Recipe, GameData } from '../data/types'
 
@@ -391,8 +390,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
   useEffect(() => { inputRef.current?.focus() }, [])
 
   // Items offered under the research horizon; null = no limit.
-  const availableRecipes = useAvailableRecipeIds()
-  const itemSet = useMemo(() => availableItemIds(gameData, availableRecipes), [gameData, availableRecipes])
+  const itemSet = useHorizon(gameData).itemIds
 
   // All non-hidden items matching the search, before the horizon is applied.
   const matching = useMemo(

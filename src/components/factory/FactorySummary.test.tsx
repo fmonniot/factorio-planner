@@ -17,6 +17,7 @@ const mockGameData: GameData = {
   },
   recipes: {},
   machines: {},
+  beacons: {},
   modules: {},
   defaultMachines: {},
   technologies: {},

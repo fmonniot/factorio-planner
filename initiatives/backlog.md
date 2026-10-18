@@ -36,7 +36,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Visual block graph.** Show blocks and their connections as a graph, and create connections from the source side.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
-- [ ] **Horizon-aware machines and modules.** Machines, modules, beacons and `defaultMachines` are not gated by research. Needs `place_result` in the export.
+- [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).
+- [ ] **Recipe picker "Made in" tooltip ignores the horizon.** It lists every machine of the category.
 - [ ] **Mining and extraction.** Model miners, pumps and other resource entities (covers the offshore-pump bug properly).
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
 - [ ] **Quality tiers.**
@@ -57,8 +58,9 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Data sets
 
+- [ ] **Patch the Seablock bundle with `placeResult`.** Run `--patch-technologies` with a matching dump so machine gating stops relying on same-id matching.
 - [ ] **Use the game's resolved names when available.** `factorio --dump-prototype-locale` writes `*-locale.json` next to the dump with Factorio's own English names; `build-game-data.js` should prefer them over its merged locale map, which ignores mod load order (e.g. tech `bob-advanced-logistic-science-pack` is exported as "Transport science pack"; in game it is "Science pack: Commercial AI implementation").
-- [ ] **Technology data for the Nullius bundle.** Patch mode now also writes research cost and technology icons. `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon. The bundle's names also contain Factorio placeholders (12 items, 12 recipes, e.g. `bob-storage-tank-2` shows `__ENTITY__storage-tank__ 2`); with a dump and mod list matching the bundle's mod set (nullius 2.0.4) run `--patch-technologies` then `--patch-names` and empty the Nullius list in `scripts/__tests__/bundle-names.test.js`.
+- [ ] **Technology data for the Nullius bundle.** Patch mode now also writes research cost and technology icons. `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon. The same patch must also write `placeResult` (Nullius needs it for machine gating; 63 of its 136 machines have no same-id item). The bundle's names also contain Factorio placeholders (12 items, 12 recipes, e.g. `bob-storage-tank-2` shows `__ENTITY__storage-tank__ 2`); with a dump and mod list matching the bundle's mod set (nullius 2.0.4) run `--patch-technologies` then `--patch-names` and empty the Nullius list in `scripts/__tests__/bundle-names.test.js`.
 - [ ] **Icon layers with `tint` alpha 0 render dark.** `compositeIconLayers` draws additive highlight/light layers (tint alpha 0) with normal `over` blending, so some icons come out almost black (e.g. technologies `advanced-material-processing-2/3/4`; about 165 bundled technologies and 397 bundled items have such layers). Predates the tech tree.
 - [~] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 

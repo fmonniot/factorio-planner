@@ -256,3 +256,81 @@ describe('wireSolver — several blocks', () => {
     expect(useSolverStore.getState().status.type).toBe('error')
   })
 })
+
+describe('wireSolver — research horizon machines', () => {
+  const plate = () => ({
+    id: 'plate', name: 'plate', category: 'crafting', craftingTime: 1,
+    ingredients: [], products: [{ itemId: 'plate', type: 'item', amount: 1 }],
+    madeIn: [], allowProductivity: false, hidden: false, subgroup: '', order: '',
+  })
+  const machine = (id: string, craftingSpeed: number, category = 'crafting') => ({
+    id, name: id, type: 'assembling-machine', craftingSpeed, energyUsageKw: 100, energyType: 'electric',
+    drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: [category], iconPath: '', hidden: false,
+  })
+  const item = (id: string, placeResult: string) =>
+    ({ id, name: id, type: 'item' as const, iconPath: '', hidden: false, subgroup: '', order: '', placeResult })
+  const tech = (id: string, unlockedRecipes: string[]) =>
+    ({ id, name: id, prerequisites: [], unlockedRecipes, iconPath: '' })
+
+  function setup() {
+    useBlockStore.getState().setHorizonTechnologyIds([])
+    loadGameData({
+      items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
+      recipes: {
+        plate: plate(), 'r-am1': { ...plate(), id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
+        'r-am2': { ...plate(), id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
+      } as unknown as GameData['recipes'],
+      machines: { am1: machine('am1', 1), am2: machine('am2', 2) } as unknown as GameData['machines'],
+      defaultMachines: { crafting: 'am2' },
+      technologies: { base: tech('base', ['plate', 'r-am1']), late: tech('late', ['r-am2']) },
+      startingRecipes: [],
+    })
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{
+        ...block,
+        goals: [{ id: 'g', itemId: 'plate', rate: 60 }],
+        rootPlan: { ...block.rootPlan, nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'plate', modules: [], byproductPolicy: {} }] },
+      }],
+    })
+    vi.runAllTimers()
+  }
+  const solvedNode = () => {
+    const { status } = useSolverStore.getState()
+    if (status.type !== 'solved') throw new Error(`status ${status.type}`)
+    return status.result.nodes[0]
+  }
+
+  it('solves rows without a machine with the horizon default machine', () => {
+    setup()
+    const full = solvedNode().machineCountExact
+    useBlockStore.getState().setHorizonTechnologyIds(['base'])
+    vi.runAllTimers()
+    expect(solvedNode().machineCountExact).toBeCloseTo(full * 2)
+    const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
+  })
+
+  it('solves a category with no machine in the horizon to zero machines', () => {
+    setup()
+    const full = solvedNode().throughput
+    loadGameData({
+      items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
+      recipes: {
+        plate: plate(), 'r-am1': { ...plate(), id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
+        'r-am2': { ...plate(), id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
+      } as unknown as GameData['recipes'],
+      machines: { am1: machine('am1', 1), am2: machine('am2', 2) } as unknown as GameData['machines'],
+      defaultMachines: { crafting: 'am2' },
+      technologies: { base: tech('base', ['plate']), late: tech('late', ['r-am1', 'r-am2']) },
+      startingRecipes: [],
+    })
+    useBlockStore.getState().setHorizonTechnologyIds(['base'])
+    vi.runAllTimers()
+    const n = solvedNode()
+    expect(useSolverStore.getState().status.type).toBe('solved')
+    expect(n.machineCountCeil).toBe(0)
+    expect(n.powerKw).toBe(0)
+    expect(n.throughput).toBe(full)
+  })
+})

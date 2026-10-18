@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
-import { useAvailableRecipeIds } from '../../store/horizon'
+import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
+import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
@@ -124,12 +125,13 @@ export function EditMachineModal({
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
   const available = useAvailableRecipeIds()
+  const horizon = useHorizon(gameData)
 
   const [showMachinePicker, setShowMachinePicker] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
 
-  const resolvedMachineId = machineId ?? gameData.defaultMachines[recipeCategory]
-  const machine = resolvedMachineId ? gameData.machines[resolvedMachineId] : undefined
+  const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
+  const { machine } = row
   const recipe = gameData.recipes[recipeId]
 
   const machineSlots = machine?.moduleSlots ?? 0
@@ -138,7 +140,7 @@ export function EditMachineModal({
 
   // Available machines for this recipe category
   const availableMachines = Object.values(gameData.machines)
-    .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory))
+    .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory) && withinHorizon(horizon.machineIds, m.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 
   // Alternate recipes
@@ -155,7 +157,8 @@ export function EditMachineModal({
     m =>
       machine &&
       isModuleAllowedInMachine(m, machine) &&
-      isModuleAllowedForRecipe(m, recipeId),
+      isModuleAllowedForRecipe(m, recipeId) &&
+      withinHorizon(horizon.moduleIds, m.id),
   )
   const existingIds = new Set(modules.map(m => m.moduleId))
   const addableModules = allowedModules.filter(m => !existingIds.has(m.id))
@@ -236,7 +239,21 @@ export function EditMachineModal({
             ) : (
               <span className="w-[30px] h-[30px] bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400 shrink-0">?</span>
             )}
-            <span className="flex-1 text-left">{machine?.name ?? 'Default'}</span>
+            {row.noMachineInHorizon ? (
+              <span data-testid="no-machine-in-horizon" className="flex-1 text-left text-amber-400">
+                No machine within research horizon
+              </span>
+            ) : (
+              <span className="flex-1 text-left">
+                {machine?.name ?? 'Default'}
+                {row.beyondHorizon && (
+                  <>
+                    {' '}
+                    <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>
+                  </>
+                )}
+              </span>
+            )}
             <span className="text-gray-500 text-xs">×{machineCountCeil} machines</span>
             <span className="text-gray-500 text-xs">▾</span>
           </button>
@@ -250,9 +267,16 @@ export function EditMachineModal({
               >
                 Default
               </button>
+              {availableMachines.length === 0 && (
+                <div data-testid="machine-picker-empty" className="px-2 py-1 text-xs text-gray-500 italic">
+                  No machine for this recipe within the research horizon. Widen the horizon to choose one.
+                </div>
+              )}
               {availableMachines.map(m => (
                 <button
                   key={m.id}
+                  data-testid="machine-option"
+                  data-machine-id={m.id}
                   onClick={() => selectMachine(m.id)}
                   className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
                 >
@@ -281,7 +305,7 @@ export function EditMachineModal({
         </div>
 
         {/* Modules section */}
-        {machineSlots > 0 && (
+        {(machineSlots > 0 || modules.length > 0) && (
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <div className="text-[10px] uppercase tracking-wide text-gray-500">Modules</div>
@@ -301,6 +325,9 @@ export function EditMachineModal({
                     <span className="flex-1 text-xs text-gray-300 truncate" title={mod?.name ?? mc.moduleId}>
                       {mod?.name ?? mc.moduleId}
                     </span>
+                    {!withinHorizon(horizon.moduleIds, mc.moduleId) && (
+                      <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>
+                    )}
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => adjustCount(mc.moduleId, -1)}

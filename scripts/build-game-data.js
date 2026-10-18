@@ -28,6 +28,8 @@
  *   node scripts/build-game-data.js --patch-technologies \
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
+ * It also sets `placeResult` on the items that place a machine or beacon of the
+ * bundle (the research horizon uses it to gate machines and beacons).
  *
  * Names patch mode: recompute only the `name` fields of an existing bundle
  * (locale placeholders such as `__ITEM__x__` are expanded). Same mod-set check:
@@ -48,6 +50,7 @@ import { execSync } from 'node:child_process'
 import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
+import { attachPlaceResults } from './place-results.js'
 import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -858,11 +861,15 @@ if (args.patchTechnologies) {
   const technologies = await attachTechnologyIcons(
     exported.technologies, raw, makeIconResolver(resolvers, techIconsOut, 128),
   )
-  writeFileSync(outputPath, JSON.stringify({ ...existing, technologies, startingRecipes }, null, 2))
+  const { items, count: placeResultCount } = attachPlaceResults(
+    existing.items, raw, ITEM_SUBTYPES,
+    new Set([...Object.keys(existing.machines), ...Object.keys(existing.beacons ?? {})]),
+  )
+  writeFileSync(outputPath, JSON.stringify({ ...existing, items, technologies, startingRecipes }, null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: technologies=${Object.keys(technologies).length} ` +
     `technologyIcons=${Object.values(technologies).filter(t => t.iconPath).length} ` +
-    `startingRecipes=${startingRecipes.length}\n`
+    `startingRecipes=${startingRecipes.length} placeResults=${placeResultCount}\n`
   )
   process.exit(0)
 }
@@ -886,6 +893,9 @@ const modules = await exportModules(raw, localeMap, resolveIcon)
 process.stderr.write(`[build-game-data] Exporting beacons...\n`)
 const beacons = await exportBeacons(raw, localeMap, resolveIcon)
 
+const placeable = new Set([...Object.keys(machines), ...Object.keys(beacons)])
+const { items: placedItems, count: placeResultCount } = attachPlaceResults(items, raw, ITEM_SUBTYPES, placeable)
+
 process.stderr.write(`[build-game-data] Exporting item groups...\n`)
 const itemGroups    = await exportItemGroups(raw, localeMap, resolveIcon)
 const itemSubgroups = exportItemSubgroups(raw)
@@ -904,7 +914,7 @@ const technologies = await attachTechnologyIcons(
 const output = {
   factorioVersion,
   modSet,
-  items,
+  items: placedItems,
   recipes,
   machines,
   modules,
@@ -925,6 +935,7 @@ process.stderr.write(
   `items=${count(items)} recipes=${count(recipes)} ` +
   `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)} ` +
   `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)} ` +
-  `technologies=${count(technologies)} startingRecipes=${startingRecipes.length}\n` +
+  `technologies=${count(technologies)} startingRecipes=${startingRecipes.length} ` +
+  `placeResults=${placeResultCount}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )
