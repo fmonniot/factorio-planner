@@ -27,6 +27,16 @@ async function pickerRecipeIds(page: Page): Promise<string[]> {
   return ids.sort()
 }
 
+async function pickerGoalItemIds(page: Page): Promise<string[]> {
+  await page.getByTitle('Add goal').click()
+  await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
+  const ids = await page.locator('[data-testid="item-slot"]').evaluateAll(
+    els => els.map(e => e.getAttribute('data-item-id') ?? ''),
+  )
+  await page.getByRole('button', { name: 'Close' }).click()
+  return ids.sort()
+}
+
 test.describe('Plan horizon', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
@@ -49,6 +59,20 @@ test.describe('Plan horizon', () => {
     await page.getByRole('button', { name: 'Done' }).click()
     await expect(horizonButton(page)).toHaveText('Horizon: Electronics')
     expect(await pickerRecipeIds(page)).toEqual(['electronic-circuit', 'iron-gear-wheel', 'iron-plate'])
+  })
+
+  test('setting a horizon limits the goal picker', async ({ page }) => {
+    await upload(page)
+    await horizonButton(page).click()
+    await tech(page, 'electronics').click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    expect(await pickerGoalItemIds(page)).toEqual(['electronic-circuit', 'iron-gear-wheel', 'iron-ore', 'iron-plate'])
+
+    await horizonButton(page).click()
+    await page.getByRole('button', { name: 'Clear' }).click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(horizonButton(page)).toHaveText('Horizon: none')
+    expect(await pickerGoalItemIds(page)).toHaveLength(6)
   })
 
   test('changing and clearing the target', async ({ page }) => {

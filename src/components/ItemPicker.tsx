@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useAvailableRecipeIds } from '../store/horizon'
+import { availableItemIds } from '../data/horizon'
 import { Icon } from './Icon'
 import type { Item, Recipe, GameData } from '../data/types'
 
@@ -389,11 +390,20 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  // All non-hidden items matching the search.
-  const filteredItems = useMemo(
+  // Items offered under the research horizon; null = no limit.
+  const availableRecipes = useAvailableRecipeIds()
+  const itemSet = useMemo(() => availableItemIds(gameData, availableRecipes), [gameData, availableRecipes])
+
+  // All non-hidden items matching the search, before the horizon is applied.
+  const matching = useMemo(
     () => Object.values(gameData.items).filter(it => !it.hidden && matchesItem(query, it)),
     [gameData, query],
   )
+  const filteredItems = useMemo(
+    () => (itemSet ? matching.filter(it => itemSet.has(it.id)) : matching),
+    [matching, itemSet],
+  )
+  const outsideHorizonCount = matching.length - filteredItems.length
 
   // Groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {
@@ -533,7 +543,11 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
       {/* Slot grid */}
       <div className="overflow-y-auto flex-1 p-2 space-y-2">
         {subgroupRows.length === 0 && (
-          <div className="px-2 py-3 text-gray-500 text-sm">No items match</div>
+          <div className="px-2 py-3 text-gray-500 text-sm">
+            {outsideHorizonCount > 0
+              ? `No items match within the research horizon (${outsideHorizonCount} outside it)`
+              : 'No items match'}
+          </div>
         )}
         {subgroupRows.map(([sgId, items]) => (
           <div

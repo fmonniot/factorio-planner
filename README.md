@@ -39,7 +39,7 @@ Blocks can also feed one another. Right-click an item in a block's **Ingredients
 
 ### 5. Plan horizon
 
-**Horizon** in the top bar limits the recipes the pickers offer to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Use it to plan the first science packs without being offered space-science recipes. Recipes already in your plan keep working. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
+**Horizon** in the top bar limits the recipes the pickers offer, and the products you can add as goals, to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Hidden recipes are ignored when deciding which goals are offered. Use it to plan the first science packs without being offered space-science recipes. Recipes and goals already in your plan keep working. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
 
 ### Saving and sharing
 
