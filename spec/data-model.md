@@ -247,6 +247,10 @@ applies only to non-hidden recipes: hidden recipes are not part of research
 progression and are shown whenever "Hidden recipes" is ticked. No targets,
 or no technology data in the bundle, means no limit.
 
+An item is offered as a goal under a horizon if no recipe produces it (a raw
+resource) or at least one recipe producing it is inside the horizon (hidden
+recipes count as inside).
+
 ### Icon paths
 
 Every `iconPath` is written by the build script as the path of the PNG it

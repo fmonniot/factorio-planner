@@ -79,8 +79,8 @@ block's name is printed after the tabs.
 
 ### Research horizon
 
-`HorizonButton` (in `HorizonPicker.tsx`) limits the recipes the pickers offer to
-those researched up to a chosen point. It is hidden unless the loaded data set has
+`HorizonButton` (in `HorizonPicker.tsx`) limits the recipes the pickers offer, and the
+items the goal picker offers, to those researched up to a chosen point. It is hidden unless the loaded data set has
 technology data. The label reads `Horizon: none`, `Horizon: <technology>` or
 `Horizon: N technologies`.
 
@@ -326,6 +326,10 @@ backdrop and close on Escape or a click on the backdrop.
   rate-unit toggle).
 - Item-group tabs, then items of the selected group in rows by subgroup, sorted by
   Factorio `order`. Hidden items are never shown.
+- With a research horizon, items produced only by recipes outside it are not
+  offered; items no recipe produces (raw resources) are always offered. An empty
+  result caused by the horizon reads "No items match within the research horizon
+  (N outside it)". Goals already set are unaffected.
 - Clicking an item adds it as a goal immediately when the amount is valid;
   **Submit** does the same for the last clicked item.
 

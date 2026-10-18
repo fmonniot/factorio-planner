@@ -34,3 +34,23 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   }
   return available
 }
+
+/**
+ * Items a research horizon leaves offered as goals: those no recipe produces
+ * (raw resources, whose extraction is not modelled) and those with at least one
+ * producing recipe inside the horizon (hidden recipes are always inside). Returns
+ * null (= no limit) when `recipeIds` is null.
+ */
+export function availableItemIds(gameData: GameData, recipeIds: ReadonlySet<string> | null): Set<string> | null {
+  if (!recipeIds) return null
+  const produced = new Set<string>()
+  const reachable = new Set<string>()
+  for (const r of Object.values(gameData.recipes)) {
+    const inside = r.hidden || recipeIds.has(r.id)
+    for (const p of r.products) {
+      produced.add(p.itemId)
+      if (inside) reachable.add(p.itemId)
+    }
+  }
+  return new Set(Object.keys(gameData.items).filter(id => !produced.has(id) || reachable.has(id)))
+}

@@ -19,6 +19,8 @@ const mockGameData: GameData = {
   machines: {},
   modules: {},
   defaultMachines: {},
+  technologies: {},
+  startingRecipes: [],
 } as unknown as GameData
 
 // goal.rate is items/min; solver outputs are also items/min

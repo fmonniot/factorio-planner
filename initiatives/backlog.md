@@ -37,7 +37,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Visual block graph.** Show blocks and their connections as a graph, and create connections from the source side.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
-- [ ] **Horizon-aware goal picker.** The research horizon only limits the recipe picker and the alternate-recipe list; the goal (item) picker still offers every item.
 - [ ] **Horizon-aware machines and modules.** Machines, modules, beacons and `defaultMachines` are not gated by research. Needs `place_result` in the export.
 - [ ] **Mining and extraction.** Model miners, pumps and other resource entities (covers the offshore-pump bug properly).
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.

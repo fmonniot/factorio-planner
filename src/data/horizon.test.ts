@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { hasTechnologies, technologyClosure, availableRecipeIds } from './horizon'
+import { hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds } from './horizon'
 import type { GameData } from './types'
 
 function tech(id: string, prerequisites: string[] = [], unlockedRecipes: string[] = []) {
@@ -84,5 +84,54 @@ describe('availableRecipeIds', () => {
     const gd = makeGameData()
     gd.recipes['orphan'] = {} as never
     expect(availableRecipeIds(gd, ['c'])!.has('orphan')).toBe(false)
+  })
+})
+
+describe('availableItemIds', () => {
+  function item(id: string) {
+    return { id, name: id, type: 'item' as const, iconPath: '', hidden: false, subgroup: 'sg', order: 'a' }
+  }
+  function recipe(id: string, products: string[], hidden = false) {
+    return {
+      id, name: id, category: 'crafting', craftingTime: 1,
+      ingredients: [],
+      products: products.map(itemId => ({ itemId, type: 'item' as const, amount: 1 })),
+      madeIn: [], allowProductivity: false, hidden,
+      mainProduct: null, subgroup: 'sg', order: 'a',
+    }
+  }
+  function makeItemsData(): GameData {
+    const data = makeGameData()
+    data.items = Object.fromEntries(['raw', 'inside', 'outside', 'mixed', 'secret'].map(id => [id, item(id)]))
+    data.recipes = Object.fromEntries([
+      recipe('r-inside', ['inside']),
+      recipe('r-outside', ['outside']),
+      recipe('r-mixed-in', ['mixed']),
+      recipe('r-mixed-out', ['mixed']),
+      recipe('r-secret', ['secret'], true),
+    ].map(r => [r.id, r]))
+    return data
+  }
+
+  it('returns null when there is no recipe limit', () => {
+    expect(availableItemIds(makeItemsData(), null)).toBeNull()
+  })
+
+  it('keeps raw items that no recipe produces', () => {
+    expect(availableItemIds(makeItemsData(), new Set())?.has('raw')).toBe(true)
+  })
+
+  it('drops items whose only producers are outside the horizon', () => {
+    const ids = availableItemIds(makeItemsData(), new Set(['r-inside', 'r-mixed-in']))!
+    expect(ids.has('inside')).toBe(true)
+    expect(ids.has('outside')).toBe(false)
+  })
+
+  it('keeps items with at least one producer inside the horizon', () => {
+    expect(availableItemIds(makeItemsData(), new Set(['r-mixed-in']))?.has('mixed')).toBe(true)
+  })
+
+  it('keeps items produced by a hidden recipe', () => {
+    expect(availableItemIds(makeItemsData(), new Set())?.has('secret')).toBe(true)
   })
 })

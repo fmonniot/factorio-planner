@@ -248,6 +248,63 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Items mode — research horizon
+// ---------------------------------------------------------------------------
+
+describe('ItemPicker — items mode with a research horizon', () => {
+  function loadWithTechnologies() {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithTechnologies(), sourceId: 'test' } })
+  }
+
+  function slotIds() {
+    return screen.getAllByTestId('item-slot').map(s => s.getAttribute('data-item-id'))
+  }
+
+  function openFluidsTab() {
+    fireEvent.click(screen.getAllByTestId('item-group-tab').find(t => t.getAttribute('data-group-id') === 'fluids')!)
+  }
+
+  it('offers raw items and in-horizon products but not items produced only outside it', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'copper-plate', 'iron-ore']))
+    expect(slotIds()).not.toContain('water')
+    const tabs = screen.getAllByTestId('item-group-tab')
+    expect(tabs.map(t => t.getAttribute('data-group-id'))).toEqual(['intermediates'])
+  })
+
+  it('offers water once its producing recipe is inside the horizon', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['boiling'] })
+    render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
+    openFluidsTab()
+    expect(slotIds()).toContain('water')
+  })
+
+  it('offers every non-hidden item without targets', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
+    openFluidsTab()
+    expect(slotIds()).toContain('water')
+  })
+
+  it('offers every non-hidden item without technology data', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
+    openFluidsTab()
+    expect(slotIds()).toContain('water')
+  })
+
+  it('explains an empty result caused by the horizon', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="items" initialQuery="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('No items match within the research horizon (1 outside it)')).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Items mode
 // ---------------------------------------------------------------------------
 
