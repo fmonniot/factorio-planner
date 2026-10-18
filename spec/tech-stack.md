@@ -44,7 +44,7 @@ The solver runs entirely in the browser with no server round-trip. This keeps th
 
 Tailwind's utility classes enable fast iteration without maintaining a parallel CSS file. The design is information-dense, and Tailwind's spacing/color system handles that well.
 
-Component library: none. The production table, popovers, modals and the item picker are custom components. So is the technology tree: hand-written pan/zoom (`src/utils/viewTransform.ts`) and column layout (`src/data/techTree.ts`), with no graph-layout library.
+Component library: none. The production table, popovers, modals and the item picker are custom components. So is the technology tree: hand-written pan/zoom (`src/utils/viewTransform.ts`) and column layout (`src/data/techTree.ts`), with no graph-layout library. The block graph is the same: a layered layout (`src/utils/blockGraphLayout.ts`), SVG edges and native scrolling.
 
 ---
 

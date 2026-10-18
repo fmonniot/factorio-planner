@@ -364,13 +364,17 @@ describe('toggleNoImportItem', () => {
 describe('input connections', () => {
   let sourceId: string
   let activeId: string
+  let thirdId: string
+  const otherId = () => thirdId
 
   beforeEach(() => {
     const active = makeEmptyBlock('Consumer')
     const source = makeEmptyBlock('Source')
+    const third = makeEmptyBlock('Other')
     sourceId = source.id
     activeId = active.id
-    useBlockStore.setState({ blocks: [active, source], activeBlockId: active.id, history: {} })
+    thirdId = third.id
+    useBlockStore.setState({ blocks: [active, source, third], activeBlockId: active.id, history: {} })
   })
 
   const active = () => useBlockStore.getState().blocks.find(b => b.id === activeId)!
@@ -462,6 +466,48 @@ describe('input connections', () => {
     store().addInputConnection('plate', sourceId)
     store().undo()
     useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== sourceId) }))
+    store().redo()
+    expect(active().inputConnections).toEqual([])
+  })
+
+  it('addInputConnection can target a block that is not active', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId, otherId())
+    const other = useBlockStore.getState().blocks.find(b => b.id === otherId())!
+    expect(other.inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId }])
+    expect(active().inputConnections).toEqual([])
+    expect(useBlockStore.getState().activeBlockId).toBe(activeId)
+    expect(useBlockStore.getState().history[otherId()].undoStack).toHaveLength(1)
+  })
+
+  it('addInputConnection ignores an unknown target block', () => {
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().addInputConnection('plate', sourceId, 'ghost')
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('removeInputConnection can target a block that is not active and its undo lives there', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId, otherId())
+    const other = () => useBlockStore.getState().blocks.find(b => b.id === otherId())!
+    useBlockStore.getState().removeInputConnection(other().inputConnections[0].id, otherId())
+    expect(other().inputConnections).toEqual([])
+    useBlockStore.getState().setActiveBlock(otherId())
+    useBlockStore.getState().undo()
+    expect(other().inputConnections).toHaveLength(1)
+  })
+
+  it('ignores a connection for a goal item of the target', () => {
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().addInputConnection('plate', sourceId)
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('redo of an add is dropped when the item has since become a goal of the target', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().undo()
+    store().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    store().undo()
     store().redo()
     expect(active().inputConnections).toEqual([])
   })

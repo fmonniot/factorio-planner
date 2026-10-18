@@ -22,7 +22,7 @@ behind each feature so you can find it.
    every change, and subscribes to the game data store so the plan is swapped when
    a data set finishes loading.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
-   block store or the game data schedules a re-solve of the **active block**
+   block store or the game data schedules a re-solve of **every block**
    after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
    result without calling the solver.
 4. Mounts `FactoryShell`.
@@ -38,7 +38,7 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣][▣][+] Block name                         [Export plan] [Nullius ▾]   │
+│ [▣][▣][+] Block name          [Block graph] [Export plan] [Nullius ▾]   │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS ─────────────┐ ┌ BYPRODUCTS ─────────┐ ┌ INGREDIENTS ────────┐ │
@@ -58,8 +58,8 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` is one row: block tabs on the left, the horizon button, the tech tree button,
-plan export and game-data selector on the right.
+`TopBar.tsx` is one row: block tabs on the left; on the right the block graph button, the
+horizon button, the tech tree button, plan export and game-data selector.
 
 ### Block tabs
 
@@ -76,6 +76,31 @@ block's name is printed after the tabs.
   activates the first remaining one.
 - All of the above are disabled unless game data is loaded (not while it is empty,
   loading or failed to load).
+
+### Block graph
+
+`BlockGraph.tsx`. The **Block graph** button (hidden until game data is loaded) opens a
+near-full-screen modal showing every block and the connections between them, like the
+[technology tree](#technology-tree) but without pan or zoom: the viewport scrolls natively.
+
+- **Layout** (`src/utils/blockGraphLayout.ts`). A block's column is the longest chain of
+  sources feeding it (sources on the left); rows follow one barycenter pass (the mean row of a
+  block's sources, ties by plan order). Positions are recomputed on every change and never saved.
+- **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
+  block has a teal ring. Clicking a node makes that block active and closes the graph.
+- **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
+  then ok, then not used, then cycle, which is dashed). Each connection is a chip at the middle
+  of the edge: item icon, delivered rate (`—` before the first solve) and `×`, which removes the
+  connection at once; it is undoable in the consumer's history. Titles match the
+  [Ingredients chips](#ingredients-pane). Connections whose source was deleted and
+  self-connections are not drawn; they stay visible and removable in the Ingredients pane.
+- **Connecting from the source side.** The `→` handle on a node (disabled with a single block)
+  starts connect mode: blocks that import something the source still has left to offer are
+  highlighted, the others are dimmed with a reason ("Would create a cycle" or "Nothing to send").
+  Clicking a highlighted block opens a menu "Send to <block>" with one entry per item, showing
+  what the source offers and the target needs; choosing one adds the connection to the target.
+  The same rules as the Ingredients menu apply (`src/store/connections.ts`). **Cancel**, the
+  handle again or a click on the background leaves connect mode; Escape closes the whole graph.
 
 ### Research horizon
 
@@ -235,7 +260,8 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
   rate minus what it already delivers to other blocks; sources with nothing left
   are not listed),
   excluding blocks already connected for that item and blocks that would close a
-  cycle. Choosing one adds a connection to the active block. With no candidate
+  cycle. Choosing one adds a connection to the active block. Connections can also be made
+  from the source side in the [block graph](#block-graph). With no candidate
   the menu reads "No other block produces this item". It closes on Escape or a
   click outside.
 - Connections come first, as `ConnectionChip`s: item icon, `delivered/needed`,
@@ -469,6 +495,8 @@ The same component in recipes mode (`source="recipes"`).
 - `Modal.tsx` — the modal frame.
 - `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
   centre) used by the technology tree.
+- `src/utils/blockGraphLayout.ts` — layered layout of the blocks and their
+  connections, used by the block graph.
 
 ---
 
