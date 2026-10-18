@@ -37,6 +37,8 @@ A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and c
 
 Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes next to the product. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Remove a connection with the **×** on its chip.
 
+The **Block graph** button in the top bar shows all blocks and their connections. Click a block to open it. To connect from the supplying side, click the **→** on the source block, then the block that should receive the item, then the item; the **×** on an edge label removes that connection.
+
 ### 5. Plan horizon
 
 **Horizon** in the top bar limits the recipes the pickers offer, and the products you can add as goals, to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Hidden recipes are ignored when deciding which goals are offered. Use it to plan the first science packs without being offered space-science recipes. The horizon also limits machines, modules, beacons and the default machine: a row without an explicit machine uses the best machine inside the horizon, and a recipe with no machine inside it shows 0 machines and no power (its rates are unchanged). Recipes, goals, machines, modules and beacons already in your plan keep working and are marked when they fall outside the horizon. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
@@ -111,10 +113,10 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 |---|---|
 | `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
-| `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI |
-| `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) |
+| `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI, and the connection rules (`connections.ts`) |
+| `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`) |
 | `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules and the technology-tree layout |
-| `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths) |
+| `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |
@@ -126,7 +128,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
 | `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology, extraction and place-result exports, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
-| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
+| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-graph.spec.ts` the block graph) |
 | `spec/` | How the system works today |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `.github/workflows/` | CI (lint, doc links, unit, e2e, build on PRs) and GitHub Pages deploy on release |

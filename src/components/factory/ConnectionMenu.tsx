@@ -3,8 +3,7 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { wouldCreateCycle } from '../../solver/blockGraph'
-import { netBalance, FLOW_TOLERANCE } from '../../solver/index'
+import { sourceCandidates } from '../../store/connections'
 import { Icon } from '../Icon'
 import { fmtRate } from './ItemTile'
 import type { BlockConnection, ConnectionFlow, Item } from '../../data/types'
@@ -49,23 +48,10 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
     }
   }, [])
 
-  const active = blocks.find(b => b.id === activeBlockId)
   const itemName = gameData?.items[itemId]?.name ?? itemId
   const unit = rateUnit === 'min' ? '/m' : '/s'
 
-  const candidates = blocks
-    .filter(b => b.id !== activeBlockId)
-    .filter(b => !active?.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === b.id))
-    .filter(b => !wouldCreateCycle(blocks, b.id, activeBlockId))
-    .map(b => {
-      // What is left after the deliveries to the source's other consumers.
-      const taken = flows
-        .filter(f => f.fromBlockId === b.id && f.itemId === itemId)
-        .reduce((sum, f) => sum + f.rate, 0)
-      const offered = (netBalance(results[b.id]?.nodes ?? []).get(itemId) ?? 0) - taken
-      return { block: b, offered }
-    })
-    .filter(({ offered }) => offered > FLOW_TOLERANCE)
+  const candidates = sourceCandidates(blocks, activeBlockId, itemId, results, flows)
 
   return (
     <div

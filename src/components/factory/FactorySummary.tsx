@@ -10,6 +10,7 @@ import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { WarningsPopover } from './WarningsPopover'
+import { isGoalItem } from '../../store/connections'
 import { ConnectionMenu, ConnectionChip, ExportChip } from './ConnectionMenu'
 import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
@@ -334,7 +335,7 @@ export function FactorySummary() {
             )
           })}
           {ingredientItems.map(({ itemId, rate }) => {
-            const connectable = !goalIds.has(itemId)
+            const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
             return (
             <span key={itemId} className="relative inline-flex">
               <ItemTile

@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { wouldCreateCycle } from '../solver/blockGraph'
+import { canConnect } from './connections'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -16,13 +16,6 @@ interface Command {
    */
   canApply?: (blocks: Block[], block: Block) => boolean
   canUndo?: (blocks: Block[], block: Block) => boolean
-}
-
-/** Can `block` receive `itemId` from `fromBlockId`: source exists, no duplicate, no cycle. */
-function canConnect(blocks: Block[], block: Block, itemId: string, fromBlockId: string): boolean {
-  if (!blocks.some(b => b.id === fromBlockId)) return false
-  if (block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === fromBlockId)) return false
-  return !wouldCreateCycle(blocks, fromBlockId, block.id)
 }
 
 interface BlockHistory {
@@ -159,9 +152,9 @@ export interface BlockStoreState {
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
 
-  // Inbound connections (block-level; the active block receives itemId from fromBlockId)
-  addInputConnection: (itemId: string, fromBlockId: string) => void
-  removeInputConnection: (connectionId: string) => void
+  // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
+  addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string) => void
+  removeInputConnection: (connectionId: string, toBlockId?: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -191,14 +184,16 @@ export interface BlockStoreState {
 }
 
 // ---------------------------------------------------------------------------
-// applyCommand — applies a command to the active block and pushes to history
+// applyCommand — applies a command to a block (default: the active one) and
+// pushes to that block's history
 // ---------------------------------------------------------------------------
 
 function applyCommand(
   state: BlockStoreState,
   cmd: Command,
+  blockId: string = state.activeBlockId,
 ): Partial<BlockStoreState> {
-  const block = state.blocks.find(b => b.id === state.activeBlockId)
+  const block = state.blocks.find(b => b.id === blockId)
   if (!block) return {}
 
   const newBlock = cmd.apply(block)
@@ -422,9 +417,10 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       return applyCommand(state, cmd)
     }),
 
-  addInputConnection: (itemId, fromBlockId) =>
+  addInputConnection: (itemId, fromBlockId, toBlockId) =>
     set(state => {
-      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const targetId = toBlockId ?? state.activeBlockId
+      const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
       // The id is fixed here so redo restores the same connection.
@@ -435,12 +431,13 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         // Redo after other blocks changed may no longer be legal.
         canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
       }
-      return applyCommand(state, cmd)
+      return applyCommand(state, cmd, targetId)
     }),
 
-  removeInputConnection: (connectionId) =>
+  removeInputConnection: (connectionId, toBlockId) =>
     set(state => {
-      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const targetId = toBlockId ?? state.activeBlockId
+      const block = state.blocks.find(b => b.id === targetId)
       const index = block?.inputConnections.findIndex(c => c.id === connectionId) ?? -1
       if (!block || index < 0) return state
       const target = block.inputConnections[index]
@@ -454,7 +451,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         // Undoing a removal re-adds the edge, which may close a cycle by now.
         canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
       }
-      return applyCommand(state, cmd)
+      return applyCommand(state, cmd, targetId)
     }),
 
   // ── Nodes ─────────────────────────────────────────────────────────────────
