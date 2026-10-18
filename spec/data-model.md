@@ -52,7 +52,7 @@ Items and fluids share one record, distinguished by `type`.
 ```ts
 interface Item {
   id: string            // prototype name, e.g. "iron-plate"
-  name: string          // English display name (locale resolved; falls back to id)
+  name: string          // English display name (locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
   type: 'item' | 'fluid'
   iconPath: string      // see "Icon paths" below
   hidden: boolean       // default false
@@ -107,7 +107,7 @@ interface Product {
 compatibility shim for bundles that serialised empty tables as objects.
 
 **Recipe name.** The build script uses, in order: the recipe's `localised_name`,
-its `recipe-name` locale key, then the display name of its main product.
+its `recipe-name` locale key, then the display name of its main product. A locale value whose placeholders cannot be resolved counts as missing.
 
 **Recipe subgroup.** When the recipe has no `subgroup`, the build script uses the
 subgroup of its main product (or of its single product).

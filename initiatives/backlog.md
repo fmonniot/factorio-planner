@@ -21,7 +21,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **Absolute home paths in committed `iconPath`s.** Every `iconPath` in the bundled `game-data.json` files contains the exporting machine's absolute home directory. `scripts/build-game-data.js` should emit paths relative to the Factorio / mods directories.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
-- [ ] **Seablock science technologies show localisation keys.** In the research horizon picker (Seablock data set), about half of the science technologies display their raw key (`__ITEM__bob-advanced-logistic-science-pack__`) instead of the English name, while the others resolve (e.g. "Automation science pack"). The same placeholder appears in the horizon target chips. The localised name is not resolved for those entries in the Seablock data.
 
 ## Sharing and import
 
@@ -59,7 +58,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Data sets
 
-- [ ] **Technology data for the Nullius bundle.** `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon.
+- [ ] **Use the game's resolved names when available.** `factorio --dump-prototype-locale` writes `*-locale.json` next to the dump with Factorio's own English names; `build-game-data.js` should prefer them over its merged locale map, which ignores mod load order (e.g. tech `bob-advanced-logistic-science-pack` is exported as "Transport science pack"; in game it is "Science pack: Commercial AI implementation").
+- [ ] **Technology data for the Nullius bundle.** `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon. The bundle's names also contain Factorio placeholders (12 items, 12 recipes, e.g. `bob-storage-tank-2` shows `__ENTITY__storage-tank__ 2`); with a dump and mod list matching the bundle's mod set (nullius 2.0.4) run `--patch-technologies` then `--patch-names` and empty the Nullius list in `scripts/__tests__/bundle-names.test.js`.
 - [~] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
 ## Tests and tooling

@@ -95,6 +95,8 @@ node scripts/build-game-data.js --patch-technologies \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
+`--patch-names` works the same way but recomputes only the `name` fields (locale placeholders such as `__ITEM__x__` are expanded); it applies the same mod-set check.
+
 The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
 
 ### Repository map
@@ -109,10 +111,11 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/utils/` | Small helpers (icon URLs) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
+| `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |
 | `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
-| `scripts/__tests__/` | Tests for the icon compositor (golden images) and the technology export |
+| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology export, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
 | `spec/` | How the system works today |
