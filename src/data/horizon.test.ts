@@ -405,3 +405,49 @@ describe('computeHorizon', () => {
     expect([h.recipeIds, h.itemIds, h.machineIds, h.beaconIds, h.moduleIds]).toEqual([null, null, null, null, null])
   })
 })
+
+// ---------------------------------------------------------------------------
+// Extraction recipes
+// ---------------------------------------------------------------------------
+
+describe('extraction recipes', () => {
+  function makeExtractionData(): GameData {
+    const d = makeEquipmentData()
+    d.items['iron-ore'] = item('iron-ore')
+    d.items['drill-item'] = item('drill-item', 'drill')
+    d.recipes['r-drill'] = makeRecipe('r-drill', 'drill-item')
+    d.technologies.b.unlockedRecipes.push('r-drill')
+    d.recipes['mining:iron-ore'] = { ...makeRecipe('mining:iron-ore', 'iron-ore'), category: 'mining:basic-solid', extraction: true }
+    d.machines.drill = { ...machine('drill', 'mining:basic-solid', 0.5), type: 'mining-drill' }
+    d.defaultMachines['mining:basic-solid'] = 'drill'
+    return d
+  }
+
+  it('availableRecipeIds includes an extraction recipe no technology unlocks', () => {
+    const d = makeExtractionData()
+    expect(availableRecipeIds(d, ['x'])!.has('mining:iron-ore')).toBe(true)
+  })
+  it('availableRecipeIds stays null without technology data', () => {
+    const d = makeExtractionData()
+    d.technologies = {}
+    expect(availableRecipeIds(d, ['x'])).toBeNull()
+  })
+  it('availableItemIds keeps an ore only an extraction recipe produces', () => {
+    const d = makeExtractionData()
+    expect(computeHorizon(d, ['x']).itemIds!.has('iron-ore')).toBe(true)
+  })
+  it('availableMachineIds gates a drill through its placing item', () => {
+    const d = makeExtractionData()
+    expect(availableMachineIds(d, computeHorizon(d, ['a']).itemIds)!.has('drill')).toBe(false)
+    expect(availableMachineIds(d, computeHorizon(d, ['b']).itemIds)!.has('drill')).toBe(true)
+  })
+  it('resolveRowMachine reports noMachineInHorizon while the drill item is outside the horizon', () => {
+    const d = makeExtractionData()
+    const early = computeHorizon(d, ['a'])
+    expect(resolveRowMachine(d, early, 'mining:basic-solid', undefined).noMachineInHorizon).toBe(true)
+    const later = computeHorizon(d, ['b'])
+    const row = resolveRowMachine(d, later, 'mining:basic-solid', undefined)
+    expect(row.noMachineInHorizon).toBe(false)
+    expect(row.machineId).toBe('drill')
+  })
+})

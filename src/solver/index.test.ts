@@ -494,3 +494,100 @@ describe('solve — a node with no resolvable machine', () => {
     expect(Number.isFinite(n.machineCountExact), 'no NaN').toBe(true)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Extraction recipes (mining drills, offshore pumps)
+// ---------------------------------------------------------------------------
+
+describe('solve — extraction recipes', () => {
+  const drill = () => ({
+    id: 'drill', name: 'drill', type: 'mining-drill' as const, craftingSpeed: 0.5, energyUsageKw: 90,
+    energyType: 'electric' as const, drainKw: 0, moduleSlots: 0, allowedEffects: [],
+    craftingCategories: ['mining:basic-solid', 'mining-with-fluid:basic-solid'], iconPath: '', hidden: false,
+  })
+  const pump = () => ({
+    id: 'pump', name: 'pump', type: 'offshore-pump' as const, craftingSpeed: 20, energyUsageKw: 0,
+    energyType: 'void' as const, drainKw: 0, moduleSlots: 0, allowedEffects: [],
+    craftingCategories: ['offshore:water'], iconPath: '', hidden: false,
+  })
+  const extraction = (
+    id: string,
+    category: string,
+    craftingTime: number,
+    ingredients: GameData['recipes'][string]['ingredients'],
+    products: GameData['recipes'][string]['products'],
+  ) => ({ ...recipe(id, craftingTime, ingredients, products), category, extraction: true })
+
+  function extractionData(): GameData {
+    return makeGameData({
+      recipes: {
+        'iron-plate': recipe('iron-plate', 1, [product('iron-ore', 1)], [product('iron-plate', 1)]),
+        'mining:iron-ore': extraction('mining:iron-ore', 'mining:basic-solid', 1, [], [product('iron-ore', 1)]),
+        'mining:uranium-ore': extraction(
+          'mining:uranium-ore', 'mining-with-fluid:basic-solid', 2,
+          [{ itemId: 'sulfuric-acid', type: 'fluid', amount: 1 }], [product('uranium-ore', 1)],
+        ),
+        'offshore:water': extraction(
+          'offshore:water', 'offshore:water', 1, [], [{ itemId: 'water', type: 'fluid', amount: 60 }],
+        ),
+      },
+      machines: { drill: drill(), pump: pump() },
+      defaultMachines: {
+        'mining:basic-solid': 'drill',
+        'mining-with-fluid:basic-solid': 'drill',
+        'offshore:water': 'pump',
+      },
+    })
+  }
+
+  const node = (result: ReturnType<typeof solve>, id: string) => result.nodes.find(n => n.recipeNodeId === id)!
+
+  it('mines the ore a smelting row needs, so it is no longer imported', () => {
+    const plan = { goals: [ironGoal], nodes: [planNode('smelt', 'iron-plate'), planNode('mine', 'mining:iron-ore')] }
+    const result = solve(plan, extractionData())
+    expect(node(result, 'mine').throughput).toBeCloseTo(60, 4)
+    expect(node(result, 'mine').machineCountExact).toBeCloseTo(2, 4)
+    expect(rate(result.unsatisfied, 'iron-ore')).toBe(0)
+    expect(result.warnings.some(w => w.type === 'no-recipe')).toBe(false)
+  })
+
+  it('keeps an ore without a mining row raw', () => {
+    const plan = { goals: [ironGoal], nodes: [planNode('smelt', 'iron-plate')] }
+    const result = solve(plan, extractionData())
+    expect(rate(result.unsatisfied, 'iron-ore')).toBeCloseTo(60, 4)
+  })
+
+  it('sizes an offshore pump from its pumping speed', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'water', rate: 72000 }],
+      nodes: [planNode('pump', 'offshore:water')],
+    }
+    const n = node(solve(plan, extractionData()), 'pump')
+    expect(n.machineCountExact).toBeCloseTo(1, 4)
+    expect(n.powerKw).toBe(0)
+  })
+
+  it('treats the fluid a mining recipe needs as a raw input', () => {
+    const plan = {
+      goals: [{ id: 'g1', itemId: 'uranium-ore', rate: 30 }],
+      nodes: [planNode('mine', 'mining:uranium-ore')],
+    }
+    const result = solve(plan, extractionData())
+    expect(rate(result.unsatisfied, 'sulfuric-acid')).toBeCloseTo(30, 4)
+    expect(node(result, 'mine').machineCountExact).toBeCloseTo(2, 4)
+  })
+
+  it('does not import a locked ore that has a mining row', () => {
+    const plan = {
+      goals: [ironGoal],
+      nodes: [planNode('smelt', 'iron-plate'), { ...(planNode('mine', 'mining:iron-ore') as GameRecipeNode), pinnedRate: 30 }],
+      noImportItems: ['iron-ore'],
+    }
+    const result = solve(plan, extractionData())
+    // The pin cannot meet the goal without importing ore, so the solver reports it
+    // as infeasible and mines the ore itself instead of importing it.
+    expect(result.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['mining:iron-ore'] })
+    expect(node(result, 'mine').throughput).toBeCloseTo(60, 4)
+    expect(rate(result.unsatisfied, 'iron-ore')).toBe(0)
+  })
+})

@@ -269,6 +269,27 @@ describe('parseGameData — technology cost and icon', () => {
   })
 })
 
+describe('parseGameData — extraction', () => {
+  it('keeps a mining drill machine and the extraction flag of a recipe', () => {
+    const gd = minimalGameData() as unknown as Record<string, Record<string, unknown>>
+    gd.machines['electric-mining-drill'] = {
+      ...minimalMachine, id: 'electric-mining-drill', type: 'mining-drill', craftingCategories: ['mining:basic-solid'],
+    }
+    gd.recipes['mining:iron-ore'] = {
+      ...minimalRecipe, id: 'mining:iron-ore', category: 'mining:basic-solid', ingredients: [],
+      products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }], madeIn: ['electric-mining-drill'], extraction: true,
+    }
+    const data = parseGameData(gd)
+    expect(data.machines['electric-mining-drill'].type).toBe('mining-drill')
+    expect(data.recipes['mining:iron-ore'].extraction).toBe(true)
+  })
+
+  it('leaves extraction undefined on a recipe without the flag', () => {
+    const data = parseGameData(minimalGameData())
+    expect(data.recipes['iron-plate-recipe'].extraction).toBeUndefined()
+  })
+})
+
 describe('parseGameData — validation errors', () => {
   it('throws GameDataLoadError for non-object input', () => {
     expect(() => parseGameData('not an object')).toThrow(GameDataLoadError)

@@ -37,6 +37,15 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Extraction patch mode: add the mining and offshore-pump recipes and the
+ * drills and pumps that run them to an existing bundle (same mod-set check).
+ * Safe to re-run. It also refreshes `placeResult` on the items (so drills and
+ * pumps are gated by the research horizon) and the default machines of the
+ * generated categories:
+ *   node scripts/build-game-data.js --patch-extraction \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -51,6 +60,8 @@ import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
+import { parseEnergyKw, inferEnergyType } from './energy.js'
+import { ALL_EFFECTS, exportExtraction, isExtractionCategory } from './extraction.js'
 import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -82,6 +93,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--output')      args.output      = argv[++i]
     else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
     else if (argv[i] === '--patch-names') args.patchNames = true
+    else if (argv[i] === '--patch-extraction') args.patchExtraction = true
   }
   return args
 }
@@ -280,37 +292,6 @@ function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
 
     return `${publicUrl}/${outName}`
   }
-}
-
-// ---------------------------------------------------------------------------
-// Energy parsing — energy strings (W/kW/MW/GW/TW) to kW
-// ---------------------------------------------------------------------------
-
-function parseEnergyKw(s) {
-  if (s == null) return 0
-  if (typeof s === 'number') return s / 1000
-  if (typeof s !== 'string' || s === '') return 0
-  const m = s.match(/^([\d.]+)\s*([kKmMgGtT]?[wW])/)
-  if (!m) return 0
-  const num = parseFloat(m[1])
-  const u   = m[2].toUpperCase()
-  if (u === 'KW') return num
-  if (u === 'MW') return num * 1000
-  if (u === 'GW') return num * 1_000_000
-  if (u === 'TW') return num * 1_000_000_000
-  return num / 1000 // plain W
-}
-
-// ---------------------------------------------------------------------------
-// Energy type inference
-// ---------------------------------------------------------------------------
-
-function inferEnergyType(proto) {
-  const t = proto.energy_source?.type
-  if (t === 'electric') return 'electric'
-  if (t === 'burner')   return 'burner'
-  if (t === 'heat')     return 'heat'
-  return 'void'
 }
 
 // ---------------------------------------------------------------------------
@@ -613,8 +594,6 @@ async function exportModules(raw, localeMap, resolveIcon) {
 // Beacons
 // ---------------------------------------------------------------------------
 
-const ALL_EFFECTS = ['consumption', 'pollution', 'productivity', 'quality', 'speed']
-
 async function exportBeacons(raw, localeMap, resolveIcon) {
   const beacons = {}
 
@@ -734,6 +713,13 @@ process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap)
 
 const { modSet, factorioVersion } = computeModSet()
 
+/** Warn about ids of `added` that already exist in `target` (Object.assign would overwrite them). */
+function warnCollisions(target, added) {
+  for (const id of Object.keys(added)) {
+    if (id in target) process.stderr.write(`[warn] extraction id collides with an existing entry and replaces it: ${id}\n`)
+  }
+}
+
 /** Exit with the printed diff if the bundle's mod set differs from the dump's (ignoring `base`). */
 function assertSameModSet(existing, modSet) {
   const diffs = []
@@ -763,6 +749,10 @@ function patchNames(existing, raw, localeMap) {
   const patchSection = (section, lookup) => {
     const out = {}
     for (const [id, entry] of Object.entries(existing[section] ?? {})) {
+      if (entry.extraction) {
+        out[id] = entry
+        continue
+      }
       const name = lookup(id, entry)
       if (name === undefined) {
         missing++
@@ -845,6 +835,40 @@ if (args.patchNames) {
   process.exit(0)
 }
 
+if (args.patchExtraction) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const extraction = await exportExtraction(raw, {
+    entityName: p => entityName(p, localeMap),
+    fluidName: p => fluidName(p, localeMap),
+    resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons')),
+    itemSubtypes: ITEM_SUBTYPES,
+  })
+  // Drop what an earlier run generated, so re-running is safe.
+  const recipes = Object.fromEntries(Object.entries(existing.recipes).filter(([, r]) => r.extraction !== true))
+  const machines = Object.fromEntries(
+    Object.entries(existing.machines).filter(([, m]) => m.type !== 'mining-drill' && m.type !== 'offshore-pump'),
+  )
+  warnCollisions(machines, extraction.machines)
+  warnCollisions(recipes, extraction.recipes)
+  Object.assign(machines, extraction.machines)
+  Object.assign(recipes, extraction.recipes)
+  const defaultMachines = Object.fromEntries(
+    Object.entries(existing.defaultMachines).filter(([category]) => !isExtractionCategory(category)),
+  )
+  Object.assign(defaultMachines, computeDefaultMachines(machines, buildCategoryMap(extraction.machines)))
+  const { items, count: placeResultCount } = attachPlaceResults(
+    existing.items, raw, ITEM_SUBTYPES,
+    new Set([...Object.keys(machines), ...Object.keys(existing.beacons ?? {})]),
+  )
+  writeFileSync(outputPath, JSON.stringify({ ...existing, items, recipes, machines, defaultMachines }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: extractionRecipes=${Object.keys(extraction.recipes).length} ` +
+    `extractionMachines=${Object.keys(extraction.machines).length} placeResults=${placeResultCount}\n`
+  )
+  process.exit(0)
+}
+
 if (args.patchTechnologies) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
@@ -879,6 +903,16 @@ const resolveIcon = makeIconResolver(resolvers, iconsOut)
 process.stderr.write(`[build-game-data] Exporting machines...\n`)
 const machines = await exportMachines(raw, localeMap, resolveIcon)
 
+process.stderr.write(`[build-game-data] Exporting extraction recipes and machines...\n`)
+const extraction = await exportExtraction(raw, {
+  entityName: p => entityName(p, localeMap),
+  fluidName: p => fluidName(p, localeMap),
+  resolveIcon,
+  itemSubtypes: ITEM_SUBTYPES,
+})
+warnCollisions(machines, extraction.machines)
+Object.assign(machines, extraction.machines)
+
 const categoryMap = buildCategoryMap(machines)
 
 process.stderr.write(`[build-game-data] Exporting items...\n`)
@@ -886,6 +920,8 @@ const items = await exportItems(raw, localeMap, resolveIcon)
 
 process.stderr.write(`[build-game-data] Exporting recipes...\n`)
 const recipes = exportRecipes(raw, localeMap, categoryMap)
+warnCollisions(recipes, extraction.recipes)
+Object.assign(recipes, extraction.recipes)
 
 process.stderr.write(`[build-game-data] Exporting modules...\n`)
 const modules = await exportModules(raw, localeMap, resolveIcon)
@@ -936,6 +972,7 @@ process.stderr.write(
   `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)} ` +
   `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)} ` +
   `technologies=${count(technologies)} startingRecipes=${startingRecipes.length} ` +
-  `placeResults=${placeResultCount}\n` +
+  `placeResults=${placeResultCount} ` +
+  `extractionRecipes=${count(extraction.recipes)}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )
