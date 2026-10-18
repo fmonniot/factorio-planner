@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { useAvailableRecipeIds } from '../../store/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
@@ -122,6 +123,7 @@ export function EditMachineModal({
   const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
+  const available = useAvailableRecipeIds()
 
   const [showMachinePicker, setShowMachinePicker] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
@@ -143,7 +145,8 @@ export function EditMachineModal({
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
   const altRecipes = primaryItemId
     ? Object.values(gameData.recipes).filter(
-        r => !r.hidden && r.id !== recipeId && r.products.some(p => p.itemId === primaryItemId)
+        r => !r.hidden && r.id !== recipeId && r.products.some(p => p.itemId === primaryItemId) &&
+          (available === null || available.has(r.id))
       )
     : []
 

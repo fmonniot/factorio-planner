@@ -58,8 +58,8 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` is one row: block tabs on the left, plan export and game-data
-selector on the right.
+`TopBar.tsx` is one row: block tabs on the left, the horizon button, plan export
+and game-data selector on the right.
 
 ### Block tabs
 
@@ -77,10 +77,31 @@ block's name is printed after the tabs.
 - All of the above are disabled unless game data is loaded (not while it is empty,
   loading or failed to load).
 
+### Research horizon
+
+`HorizonButton` (in `HorizonPicker.tsx`) limits the recipes the pickers offer to
+those researched up to a chosen point. It is hidden unless the loaded data set has
+technology data. The label reads `Horizon: none`, `Horizon: <technology>` or
+`Horizon: N technologies`.
+
+Clicking it opens the **Research horizon** modal:
+
+- Target chips (× removes one) and a **Clear** button. With no targets: "No limit:
+  every recipe is offered."
+- A line "N of M recipes available" (M counts non-hidden recipes).
+- A search box and a scrollable list of every exported technology, sorted by name;
+  clicking one adds or removes it as a target immediately.
+- **Done** closes the modal.
+
+The targets and all their prerequisites define the horizon (rule in
+[data-model.md](data-model.md#technology)). It belongs to the plan, so it is saved
+per data set and included in the export. Recipes already in the plan are not
+marked and keep solving.
+
 ### Export plan
 
 `ExportPlanButton` (in `GameDataSelector.tsx`) downloads the current `AppState`
-(`{ blocks, activeBlockId }`) as `factorio-plan-YYYY-MM-DD.json`. There is no
+(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-YYYY-MM-DD.json`. There is no
 import button; a saved file is the same shape the app keeps in `localStorage`.
 
 ### Game data selector
@@ -320,6 +341,10 @@ The same component in recipes mode (`source="recipes"`).
   crafting time, products (with probability) and the machines that can make it.
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
+- Non-hidden recipes outside the [research horizon](#research-horizon) are left out
+  (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
+  that empties the list, it reads "No recipes match within the research horizon
+  (N outside it)".
 - Clicking a slot adds the recipe and closes the picker.
 
 ### Edit machine modal
@@ -329,7 +354,8 @@ The same component in recipes mode (`source="recipes"`).
 - **Machine** — the current machine; clicking it lists **Default** (use the
   category's default machine) and every non-hidden machine that can craft the
   recipe's category. The same list has an **Alternate recipe** section: other
-  non-hidden recipes that produce the current recipe's main product. Choosing one
+  non-hidden recipes inside the research horizon that produce the current recipe's
+  main product. Choosing one
   swaps the row's recipe and resets its machine, modules, beacon, pin and other
   settings.
 - **Modules** (only when the machine has slots) — each configured module with −/+

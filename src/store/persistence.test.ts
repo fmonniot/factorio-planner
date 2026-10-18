@@ -52,6 +52,7 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
+    horizonTechnologyIds: [],
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
@@ -264,6 +265,36 @@ describe('switching data sets', () => {
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     expect(store[planStorageKey('seablock') + ':corrupt']).toBe('not json')
     expect(store[planStorageKey('seablock')]).toContain('iron-plate')
+  })
+})
+
+describe('research horizon', () => {
+  let unsub: () => void
+  beforeEach(() => { unsub = initAppStatePersistence() })
+  afterEach(() => { unsub() })
+
+  it('autosaves when only the horizon changes', () => {
+    activatePlan('nullius')
+    vi.clearAllMocks()
+    useBlockStore.getState().setHorizonTechnologyIds(['x'])
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      KEY,
+      expect.stringContaining('"horizonTechnologyIds":["x"]'),
+    )
+  })
+
+  it('restores a stored horizon on activation', () => {
+    const block = makeEmptyBlock('Stored')
+    localStorageMock.setItem(KEY, JSON.stringify({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['y'] }))
+    activatePlan('nullius')
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['y'])
+  })
+
+  it('resets the horizon when the stored plan is corrupt', () => {
+    useBlockStore.getState().setHorizonTechnologyIds(['z'])
+    localStorageMock.setItem(KEY, 'not json')
+    activatePlan('nullius')
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
   })
 })
 

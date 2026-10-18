@@ -14,6 +14,7 @@ export type {
   BeaconEntity,
   ItemGroup,
   ItemSubgroup,
+  Technology,
   GameData,
   ProductionGoal,
   ModuleConfig,

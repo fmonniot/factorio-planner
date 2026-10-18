@@ -135,6 +135,13 @@ export const BeaconEntitySchema = z.object({
   allowedEffects: z.array(EffectNameSchema),
 })
 
+export const TechnologySchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  prerequisites: luaArray(z.string()),
+  unlockedRecipes: luaArray(z.string()),
+})
+
 export const GameDataSchema = z.object({
   factorioVersion: z.string(),
   modSet: z.record(z.string(), z.string()),
@@ -146,6 +153,9 @@ export const GameDataSchema = z.object({
   defaultMachines: z.record(z.string(), z.string()),
   itemGroups: z.record(z.string(), ItemGroupSchema).default({}),
   itemSubgroups: z.record(z.string(), ItemSubgroupSchema).default({}),
+  technologies: z.record(z.string(), TechnologySchema).default({}),
+  /** Recipes available without research (dump: recipe.enabled !== false). */
+  startingRecipes: luaArray(z.string()).default([]),
 })
 
 // ---------------------------------------------------------------------------
@@ -331,6 +341,8 @@ export const BlockSchema = z.preprocess(
 export const AppStateSchema = z.object({
   blocks: z.array(BlockSchema),
   activeBlockId: z.string(),
+  /** Technologies the plan targets; their prerequisites are implied. Empty = no limit. */
+  horizonTechnologyIds: z.array(z.string()).default([]),
 })
 
 // ---------------------------------------------------------------------------
@@ -355,6 +367,7 @@ export type Module = z.output<typeof ModuleSchema>
 export type BeaconEntity = z.output<typeof BeaconEntitySchema>
 export type ItemGroup = z.output<typeof ItemGroupSchema>
 export type ItemSubgroup = z.output<typeof ItemSubgroupSchema>
+export type Technology = z.output<typeof TechnologySchema>
 export type GameData = z.output<typeof GameDataSchema>
 
 export type ProductionGoal = z.output<typeof ProductionGoalSchema>

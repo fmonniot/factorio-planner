@@ -21,6 +21,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **Absolute home paths in committed `iconPath`s.** Every `iconPath` in the bundled `game-data.json` files contains the exporting machine's absolute home directory. `scripts/build-game-data.js` should emit paths relative to the Factorio / mods directories.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
+- [ ] **Seablock science technologies show localisation keys.** In the research horizon picker (Seablock data set), about half of the science technologies display their raw key (`__ITEM__bob-advanced-logistic-science-pack__`) instead of the English name, while the others resolve (e.g. "Automation science pack"). The same placeholder appears in the horizon target chips. The localised name is not resolved for those entries in the Seablock data.
 
 ## Sharing and import
 
@@ -36,7 +37,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Visual block graph.** Show blocks and their connections as a graph, and create connections from the source side.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
-- [ ] **Plan horizon.** Limit available recipes by technology so the player decides how far ahead they plan (e.g. hide space-science-gated recipes while planning the first science packs). Needs technology data in the export.
+- [ ] **Horizon-aware goal picker.** The research horizon only limits the recipe picker and the alternate-recipe list; the goal (item) picker still offers every item.
+- [ ] **Horizon-aware machines and modules.** Machines, modules, beacons and `defaultMachines` are not gated by research. Needs `place_result` in the export.
 - [ ] **Mining and extraction.** Model miners, pumps and other resource entities (covers the offshore-pump bug properly).
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
 - [ ] **Quality tiers.**
@@ -57,6 +59,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Data sets
 
+- [ ] **Technology data for the Nullius bundle.** `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon.
 - [~] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
 ## Tests and tooling

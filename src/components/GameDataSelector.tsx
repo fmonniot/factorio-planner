@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
-import { useBlockStore } from '../store/blockStore'
+import { useBlockStore, selectAppState } from '../store/blockStore'
 import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
 import { removeCustomPlans } from '../store/persistence'
 
@@ -190,8 +190,7 @@ export function GameDataSelector() {
 
 export function ExportPlanButton() {
   function handleExport() {
-    const { blocks, activeBlockId } = useBlockStore.getState()
-    const json = JSON.stringify({ blocks, activeBlockId }, null, 2)
+    const json = JSON.stringify(selectAppState(useBlockStore.getState()), null, 2)
     const blob = new Blob([json], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')

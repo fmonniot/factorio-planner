@@ -41,6 +41,8 @@ const mockGameData: GameData = {
   defaultMachines: {},
   itemGroups: {},
   itemSubgroups: {},
+  technologies: {},
+  startingRecipes: [],
 }
 
 const beacon: BeaconConfig = {
