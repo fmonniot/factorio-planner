@@ -27,6 +27,12 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Names patch mode: recompute only the `name` fields of an existing bundle
+ * (locale placeholders such as `__ITEM__x__` are expanded). Same mod-set check:
+ *   node scripts/build-game-data.js --patch-names \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -39,6 +45,7 @@ import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
 import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies } from './technologies.js'
+import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -68,6 +75,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--icons-out')   args.iconsOut    = argv[++i]
     else if (argv[i] === '--output')      args.output      = argv[++i]
     else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
+    else if (argv[i] === '--patch-names') args.patchNames = true
   }
   return args
 }
@@ -197,117 +205,6 @@ function buildResolverMap(factorioDir, modsDir) {
   }
 
   return map
-}
-
-// ---------------------------------------------------------------------------
-// Locale parsing
-// ---------------------------------------------------------------------------
-
-/**
- * Parse a Factorio locale .cfg file into a flat key→value map.
- * Format:
- *   [section-name]
- *   key=Value string
- */
-function parseCfg(text) {
-  const out = {}
-  let section = ''
-  for (const rawLine of text.split('\n')) {
-    const line = rawLine.trim()
-    if (!line || line.startsWith('#') || line.startsWith(';')) continue
-    if (line.startsWith('[') && line.endsWith(']')) {
-      section = line.slice(1, -1)
-      continue
-    }
-    const eq = line.indexOf('=')
-    if (eq < 0) continue
-    const key = line.slice(0, eq).trim()
-    const val = line.slice(eq + 1) // preserve trailing spaces in values
-    out[section + '.' + key] = val
-  }
-  return out
-}
-
-/**
- * Build a merged locale map from all mods.
- * @param {Record<string, object>} resolvers
- * @returns {Record<string, string>}
- */
-function buildLocaleMap(resolvers) {
-  const locale = {}
-  for (const [modName, resolver] of Object.entries(resolvers)) {
-    let files
-    try {
-      files = resolver.listFiles('locale/en/')
-    } catch {
-      continue
-    }
-    for (const filePath of files) {
-      if (!filePath.endsWith('.cfg')) continue
-      const buf = resolver.readFile(filePath)
-      if (!buf) continue
-      const entries = parseCfg(buf.toString('utf8'))
-      Object.assign(locale, entries)
-    }
-  }
-  return locale
-}
-
-/**
- * Resolve a Factorio LocalisedString to English.
- * A LocalisedString is either:
- *   - a plain string  → return as-is
- *   - an array        → first element is a locale key, rest are positional args
- *     e.g. ["item-name.iron-plate"]  or  ["format", arg1, arg2]
- *
- * We only handle the simple single-key case; complex format strings fall back
- * to the prototype's internal name.
- */
-function resolveLocale(localised, fallback, localeMap, ...scopes) {
-  if (!localised) {
-    for (const scope of scopes) {
-      const val = localeMap[scope + '.' + fallback]
-      if (val) return val
-    }
-    return fallback
-  }
-  if (typeof localised === 'string') return localised || fallback
-
-  if (Array.isArray(localised)) {
-    const [key, ...rest] = localised
-    if (typeof key === 'string' && key !== '' && rest.length === 0) {
-      return localeMap[key] ?? fallback
-    }
-    // Simple concatenation case: ["", part1, part2, ...]
-    if (key === '') {
-      return rest.map(p => resolveLocale(p, '', localeMap)).join('') || fallback
-    }
-    // Format string with args — do a basic positional substitution.
-    const template = localeMap[key]
-    if (!template) return fallback
-    return template.replace(/__(\d+)__/g, (_, n) => {
-      const arg = rest[parseInt(n, 10) - 1]
-      return arg != null ? resolveLocale(arg, '', localeMap) : `__${n}__`
-    })
-  }
-
-  return fallback
-}
-
-/**
- * Display name of a technology. Leveled technologies ("mining-productivity-2")
- * usually share one localised name keyed by the base id, so fall back to
- * "<base name> <level>".
- */
-function resolveTechnologyName(proto, localeMap) {
-  const name = resolveLocale(proto.localised_name, proto.name, localeMap, 'technology-name')
-  if (name !== proto.name) return name
-  const m = proto.name.match(/^(.*)-(\d+)$/)
-  if (m) {
-    const base = resolveLocale(null, m[1], localeMap, 'technology-name')
-    if (base !== m[1]) return `${base} ${m[2]}`
-  }
-  return proto.name
 }
 
 // ---------------------------------------------------------------------------
@@ -488,6 +385,12 @@ const ITEM_SUBTYPES = [
   'spidertron-remote',
 ]
 
+const itemName    = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name', 'entity-name')
+const fluidName   = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'fluid-name')
+const entityName  = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name')
+const moduleName  = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name')
+const groupName   = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-group-name')
+
 async function exportItems(raw, localeMap, resolveIcon) {
   const items = {}
 
@@ -497,7 +400,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
     for (const proto of Object.values(table)) {
       items[proto.name] = {
         id:        proto.name,
-        name:      resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name', 'entity-name'),
+        name:      itemName(proto, localeMap),
         type:      'item',
         iconPath:  await resolveIcon(proto, proto.name),
         hidden:    proto.hidden ?? false,
@@ -511,7 +414,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
   for (const proto of Object.values(raw.fluid ?? {})) {
     items[proto.name] = {
       id:       proto.name,
-      name:     resolveLocale(proto.localised_name, proto.name, localeMap, 'fluid-name'),
+      name:     fluidName(proto, localeMap),
       type:     'fluid',
       iconPath: await resolveIcon(proto, proto.name),
       hidden:   proto.hidden ?? false,
@@ -532,7 +435,7 @@ async function exportItemGroups(raw, localeMap, resolveIcon) {
   for (const proto of Object.values(raw['item-group'] ?? {})) {
     groups[proto.name] = {
       id:       proto.name,
-      name:     resolveLocale(proto.localised_name, proto.name, localeMap, 'item-group-name'),
+      name:     groupName(proto, localeMap),
       order:    proto.order ?? '',
       iconPath: await resolveIcon(proto, `group-${proto.name}`),
     }
@@ -573,7 +476,7 @@ async function exportMachines(raw, localeMap, resolveIcon) {
 
       machines[proto.name] = {
         id:                proto.name,
-        name:              resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name'),
+        name:              entityName(proto, localeMap),
         type:              machineType,
         craftingSpeed:     proto.crafting_speed ?? 1,
         energyUsageKw:     parseEnergyKw(proto.energy_usage),
@@ -646,19 +549,9 @@ function exportRecipes(raw, localeMap, categoryMap) {
       subgroup = lookupItemSubgroup(fallbackId)
     }
 
-    // Replicate Factorio's recipe name resolution:
-    // 1. explicit localised_name, 2. recipe-name locale key, 3. main product name
-    let recipeName = resolveLocale(proto.localised_name, proto.name, localeMap, 'recipe-name')
-    if (recipeName === proto.name) {
-      const mpId = typeof mainProduct === 'string' && mainProduct !== '' ? mainProduct : null
-      if (mpId) {
-        recipeName = resolveLocale(null, mpId, localeMap, 'item-name', 'entity-name', 'fluid-name')
-      }
-    }
-
     const entry = {
       id:               proto.name,
-      name:             recipeName,
+      name:             resolveRecipeName(proto, mainProduct, localeMap),
       category,
       craftingTime:     proto.energy_required ?? 0.5,
       ingredients,
@@ -693,7 +586,7 @@ async function exportModules(raw, localeMap, resolveIcon) {
 
     modules[proto.name] = {
       id:                  proto.name,
-      name:                resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name'),
+      name:                moduleName(proto, localeMap),
       category:            proto.category ?? 'unknown',
       tier:                proto.tier ?? 0,
       effects,
@@ -723,7 +616,7 @@ async function exportBeacons(raw, localeMap, resolveIcon) {
 
     beacons[proto.name] = {
       id:                     proto.name,
-      name:                   resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name'),
+      name:                   entityName(proto, localeMap),
       iconPath:               await resolveIcon(proto, proto.name),
       hidden:                 proto.hidden ?? false,
       moduleSlots:            proto.module_slots ?? 0,
@@ -831,8 +724,8 @@ process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap)
 
 const { modSet, factorioVersion } = computeModSet()
 
-if (args.patchTechnologies) {
-  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+/** Exit with the printed diff if the bundle's mod set differs from the dump's (ignoring `base`). */
+function assertSameModSet(existing, modSet) {
   const diffs = []
   const oldSet = existing.modSet ?? {}
   for (const name of new Set([...Object.keys(oldSet), ...Object.keys(modSet)])) {
@@ -845,6 +738,106 @@ if (args.patchTechnologies) {
     process.stderr.write(`[build-game-data] Mod set mismatch between bundle and dump:\n${diffs.join('\n')}\n`)
     process.exit(1)
   }
+}
+
+/**
+ * Recompute only the `name` of every entry in an existing bundle.
+ * Entries missing from the dump keep their name.
+ * @returns {{ bundle: object, changes: string[], changedWithoutPlaceholder: number, missing: number }}
+ */
+function patchNames(existing, raw, localeMap) {
+  const changes = []
+  let changedWithoutPlaceholder = 0
+  let missing = 0
+
+  const patchSection = (section, lookup) => {
+    const out = {}
+    for (const [id, entry] of Object.entries(existing[section] ?? {})) {
+      const name = lookup(id, entry)
+      if (name === undefined) {
+        missing++
+        out[id] = entry
+        continue
+      }
+      if (name !== entry.name) {
+        changes.push(`${section} ${id}: ${entry.name} -> ${name}`)
+        if (!RESIDUE_RE.test(entry.name)) changedWithoutPlaceholder++
+      }
+      out[id] = { ...entry, name }
+    }
+    return out
+  }
+
+  const findItemProto = (id) => {
+    for (const subtype of ITEM_SUBTYPES) {
+      if (raw[subtype]?.[id]) return raw[subtype][id]
+    }
+    return undefined
+  }
+
+  const bundle = { ...existing }
+  bundle.items = patchSection('items', (id, entry) => {
+    if (entry.type === 'fluid') {
+      const proto = raw.fluid?.[id]
+      return proto && fluidName(proto, localeMap)
+    }
+    const proto = findItemProto(id)
+    return proto && itemName(proto, localeMap)
+  })
+  bundle.machines = patchSection('machines', (id, entry) => {
+    const proto = raw[entry.type]?.[id]
+    return proto && entityName(proto, localeMap)
+  })
+  bundle.recipes = patchSection('recipes', (id) => {
+    const proto = raw.recipe?.[id]
+    if (!proto) return undefined
+    const mainProduct = resolveMainProduct(proto, extractProducts(proto))
+    return resolveRecipeName(proto, mainProduct, localeMap)
+  })
+  bundle.modules = patchSection('modules', (id) => {
+    const proto = raw.module?.[id]
+    return proto && moduleName(proto, localeMap)
+  })
+  bundle.beacons = patchSection('beacons', (id) => {
+    const proto = raw.beacon?.[id]
+    return proto && entityName(proto, localeMap)
+  })
+  bundle.itemGroups = patchSection('itemGroups', (id) => {
+    const proto = raw['item-group']?.[id]
+    return proto && groupName(proto, localeMap)
+  })
+  bundle.technologies = patchSection('technologies', (id) => {
+    const proto = raw.technology?.[id]
+    return proto && resolveTechnologyName(proto, localeMap)
+  })
+
+  return { bundle, changes, changedWithoutPlaceholder, missing }
+}
+
+if (args.patchNames) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const recipeIds = Object.keys(existing.recipes)
+  const missingRecipes = recipeIds.filter(id => !raw.recipe?.[id]).length
+  if (missingRecipes > recipeIds.length * 0.01) {
+    process.stderr.write(
+      `[build-game-data] ${missingRecipes}/${recipeIds.length} bundle recipes are missing from the dump; wrong dump?\n`
+    )
+    process.exit(1)
+  }
+  const { bundle, changes, changedWithoutPlaceholder, missing } = patchNames(existing, raw, localeMap)
+  for (const line of changes) process.stderr.write(`${line}\n`)
+  writeFileSync(outputPath, JSON.stringify(bundle, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched names in ${outputPath}: changed=${changes.length} ` +
+    `changedWithoutPlaceholder=${changedWithoutPlaceholder} missingFromDump=${missing}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchTechnologies) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
   const recipeIds = new Set(Object.keys(existing.recipes))
   const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
   if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)

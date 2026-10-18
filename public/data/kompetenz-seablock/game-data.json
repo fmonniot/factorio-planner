@@ -16300,7 +16300,7 @@
     },
     "bob-thorium-ore": {
       "id": "bob-thorium-ore",
-      "name": "__ENTITY__bob-thorium-ore__",
+      "name": "Thorium ore",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-thorium-ore.png",
       "hidden": false,
@@ -17540,7 +17540,7 @@
     },
     "cybersyn-constant-combinator": {
       "id": "cybersyn-constant-combinator",
-      "name": "__ENTITY__cybersyn-constant-combinator__",
+      "name": "Cybersyn Constant Combinator",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/cybersyn-constant-combinator.png",
       "hidden": false,
@@ -17860,7 +17860,7 @@
     },
     "bob-assembling-machine-4": {
       "id": "bob-assembling-machine-4",
-      "name": "__ENTITY__assembling-machine-4__",
+      "name": "Assembling machine 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-assembling-machine-4.png",
       "hidden": false,
@@ -17870,7 +17870,7 @@
     },
     "bob-assembling-machine-5": {
       "id": "bob-assembling-machine-5",
-      "name": "__ENTITY__assembling-machine-5__",
+      "name": "Assembling machine 5",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-assembling-machine-5.png",
       "hidden": false,
@@ -17880,7 +17880,7 @@
     },
     "bob-assembling-machine-6": {
       "id": "bob-assembling-machine-6",
-      "name": "__ENTITY__assembling-machine-6__",
+      "name": "Assembling machine 6",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-assembling-machine-6.png",
       "hidden": false,
@@ -17890,7 +17890,7 @@
     },
     "bob-electronics-machine-1": {
       "id": "bob-electronics-machine-1",
-      "name": "__ENTITY__electronics-machine-1__",
+      "name": "Electronics assembling machine 1",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electronics-machine-1.png",
       "hidden": false,
@@ -17900,7 +17900,7 @@
     },
     "bob-electronics-machine-2": {
       "id": "bob-electronics-machine-2",
-      "name": "__ENTITY__electronics-machine-2__",
+      "name": "Electronics assembling machine 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electronics-machine-2.png",
       "hidden": false,
@@ -17910,7 +17910,7 @@
     },
     "bob-electronics-machine-3": {
       "id": "bob-electronics-machine-3",
-      "name": "__ENTITY__electronics-machine-3__",
+      "name": "Electronics assembling machine 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electronics-machine-3.png",
       "hidden": false,
@@ -17920,7 +17920,7 @@
     },
     "bob-electric-furnace-2": {
       "id": "bob-electric-furnace-2",
-      "name": "__ENTITY__electric-furnace-2__",
+      "name": "Electric furnace 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-furnace-2.png",
       "hidden": false,
@@ -17930,7 +17930,7 @@
     },
     "bob-electric-furnace-3": {
       "id": "bob-electric-furnace-3",
-      "name": "__ENTITY__electric-furnace-3__",
+      "name": "Electric furnace 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-furnace-3.png",
       "hidden": false,
@@ -17940,7 +17940,7 @@
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
-      "name": "__ENTITY__electric-chemical-mixing-furnace__",
+      "name": "Electric multi-purpose furnace",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace.png",
       "hidden": false,
@@ -17950,7 +17950,7 @@
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
-      "name": "__ENTITY__electric-chemical-mixing-furnace-2__",
+      "name": "Electric multi-purpose furnace 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace-2.png",
       "hidden": false,
@@ -17990,7 +17990,7 @@
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
-      "name": "__ENTITY__centrifuge-2__",
+      "name": "Centrifuge 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-centrifuge-2.png",
       "hidden": false,
@@ -18000,7 +18000,7 @@
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
-      "name": "__ENTITY__centrifuge-3__",
+      "name": "Centrifuge 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-centrifuge-3.png",
       "hidden": false,
@@ -19080,7 +19080,7 @@
     },
     "bob-storage-tank-2": {
       "id": "bob-storage-tank-2",
-      "name": "__ENTITY__storage-tank__ 2",
+      "name": "Storage tank 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-2.png",
       "hidden": false,
@@ -19090,7 +19090,7 @@
     },
     "bob-storage-tank-3": {
       "id": "bob-storage-tank-3",
-      "name": "__ENTITY__storage-tank__ 3",
+      "name": "Storage tank 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-3.png",
       "hidden": false,
@@ -19100,7 +19100,7 @@
     },
     "bob-storage-tank-4": {
       "id": "bob-storage-tank-4",
-      "name": "__ENTITY__storage-tank__ 4",
+      "name": "Storage tank 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-4.png",
       "hidden": false,
@@ -19110,7 +19110,7 @@
     },
     "bob-storage-tank-all-corners": {
       "id": "bob-storage-tank-all-corners",
-      "name": "__ENTITY__storage-tank__ all corners",
+      "name": "Storage tank all corners",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-all-corners.png",
       "hidden": false,
@@ -19120,7 +19120,7 @@
     },
     "bob-storage-tank-all-corners-2": {
       "id": "bob-storage-tank-all-corners-2",
-      "name": "__ENTITY__storage-tank__ 2 all corners",
+      "name": "Storage tank 2 all corners",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-all-corners-2.png",
       "hidden": false,
@@ -19130,7 +19130,7 @@
     },
     "bob-storage-tank-all-corners-3": {
       "id": "bob-storage-tank-all-corners-3",
-      "name": "__ENTITY__storage-tank__ 3 all corners",
+      "name": "Storage tank 3 all corners",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-all-corners-3.png",
       "hidden": false,
@@ -19140,7 +19140,7 @@
     },
     "bob-storage-tank-all-corners-4": {
       "id": "bob-storage-tank-all-corners-4",
-      "name": "__ENTITY__storage-tank__ 4 all corners",
+      "name": "Storage tank 4 all corners",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-storage-tank-all-corners-4.png",
       "hidden": false,
@@ -19340,7 +19340,7 @@
     },
     "bob-heat-pipe-2": {
       "id": "bob-heat-pipe-2",
-      "name": "__ENTITY__heat-pipe__ 2",
+      "name": "Heat pipe 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-pipe-2.png",
       "hidden": false,
@@ -19350,7 +19350,7 @@
     },
     "bob-heat-pipe-3": {
       "id": "bob-heat-pipe-3",
-      "name": "__ENTITY__heat-pipe__ 3",
+      "name": "Heat pipe 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-pipe-3.png",
       "hidden": false,
@@ -19360,7 +19360,7 @@
     },
     "bob-heat-pipe-4": {
       "id": "bob-heat-pipe-4",
-      "name": "__ENTITY__heat-pipe__ 4",
+      "name": "Heat pipe 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-pipe-4.png",
       "hidden": false,
@@ -19450,7 +19450,7 @@
     },
     "bob-boiler-2": {
       "id": "bob-boiler-2",
-      "name": "__ENTITY__boiler__ 2",
+      "name": "Boiler 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-boiler-2.png",
       "hidden": false,
@@ -19460,7 +19460,7 @@
     },
     "bob-boiler-3": {
       "id": "bob-boiler-3",
-      "name": "__ENTITY__boiler__ 3",
+      "name": "Boiler 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-boiler-3.png",
       "hidden": false,
@@ -19470,7 +19470,7 @@
     },
     "bob-boiler-4": {
       "id": "bob-boiler-4",
-      "name": "__ENTITY__boiler__ 4",
+      "name": "Boiler 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-boiler-4.png",
       "hidden": false,
@@ -19480,7 +19480,7 @@
     },
     "bob-boiler-5": {
       "id": "bob-boiler-5",
-      "name": "__ENTITY__boiler__ 5",
+      "name": "Boiler 5",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-boiler-5.png",
       "hidden": false,
@@ -19500,7 +19500,7 @@
     },
     "bob-oil-boiler-2": {
       "id": "bob-oil-boiler-2",
-      "name": "__ENTITY__bob-oil-boiler__ 2",
+      "name": "Fluid burning boiler 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-oil-boiler-2.png",
       "hidden": false,
@@ -19510,7 +19510,7 @@
     },
     "bob-oil-boiler-3": {
       "id": "bob-oil-boiler-3",
-      "name": "__ENTITY__bob-oil-boiler__ 3",
+      "name": "Fluid burning boiler 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-oil-boiler-3.png",
       "hidden": false,
@@ -19520,7 +19520,7 @@
     },
     "bob-oil-boiler-4": {
       "id": "bob-oil-boiler-4",
-      "name": "__ENTITY__bob-oil-boiler__ 4",
+      "name": "Fluid burning boiler 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-oil-boiler-4.png",
       "hidden": false,
@@ -19700,7 +19700,7 @@
     },
     "bob-steam-engine-2": {
       "id": "bob-steam-engine-2",
-      "name": "__ENTITY__steam-engine__ 2",
+      "name": "Steam engine 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-engine-2.png",
       "hidden": false,
@@ -19710,7 +19710,7 @@
     },
     "bob-steam-engine-3": {
       "id": "bob-steam-engine-3",
-      "name": "__ENTITY__steam-engine__ 3",
+      "name": "Steam engine 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-engine-3.png",
       "hidden": false,
@@ -19720,7 +19720,7 @@
     },
     "bob-steam-engine-4": {
       "id": "bob-steam-engine-4",
-      "name": "__ENTITY__steam-engine__ 4",
+      "name": "Steam engine 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-engine-4.png",
       "hidden": false,
@@ -19730,7 +19730,7 @@
     },
     "bob-steam-engine-5": {
       "id": "bob-steam-engine-5",
-      "name": "__ENTITY__steam-engine__ 5",
+      "name": "Steam engine 5",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-engine-5.png",
       "hidden": false,
@@ -19740,7 +19740,7 @@
     },
     "bob-heat-exchanger-2": {
       "id": "bob-heat-exchanger-2",
-      "name": "__ENTITY__heat-exchanger__ 2",
+      "name": "Heat exchanger 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-exchanger-2.png",
       "hidden": false,
@@ -19750,7 +19750,7 @@
     },
     "bob-heat-exchanger-3": {
       "id": "bob-heat-exchanger-3",
-      "name": "__ENTITY__heat-exchanger__ 3",
+      "name": "Heat exchanger 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-exchanger-3.png",
       "hidden": false,
@@ -19760,7 +19760,7 @@
     },
     "bob-heat-exchanger-4": {
       "id": "bob-heat-exchanger-4",
-      "name": "__ENTITY__heat-exchanger__ 4",
+      "name": "Heat exchanger 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heat-exchanger-4.png",
       "hidden": false,
@@ -19770,7 +19770,7 @@
     },
     "bob-steam-turbine-2": {
       "id": "bob-steam-turbine-2",
-      "name": "__ENTITY__steam-turbine__ 2",
+      "name": "Steam turbine 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-turbine-2.png",
       "hidden": false,
@@ -19780,7 +19780,7 @@
     },
     "bob-steam-turbine-3": {
       "id": "bob-steam-turbine-3",
-      "name": "__ENTITY__steam-turbine__ 3",
+      "name": "Steam turbine 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steam-turbine-3.png",
       "hidden": false,
@@ -20540,7 +20540,7 @@
     },
     "bob-artillery-turret-2": {
       "id": "bob-artillery-turret-2",
-      "name": "__ITEM__artillery-turret__ MK2",
+      "name": "Artillery turret MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-turret-2.png",
       "hidden": false,
@@ -20550,7 +20550,7 @@
     },
     "bob-artillery-turret-3": {
       "id": "bob-artillery-turret-3",
-      "name": "__ITEM__artillery-turret__ MK3",
+      "name": "Artillery turret MK3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-turret-3.png",
       "hidden": true,
@@ -20680,7 +20680,7 @@
     },
     "bob-spidertron-cannon": {
       "id": "bob-spidertron-cannon",
-      "name": "__ENTITY__spidertron__ Cannon",
+      "name": "Spidertron Cannon",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-spidertron-cannon.png",
       "hidden": false,
@@ -31030,7 +31030,7 @@
     },
     "bob-artillery-wagon-cannon-2": {
       "id": "bob-artillery-wagon-cannon-2",
-      "name": "__ITEM__artillery-wagon-cannon__ 2",
+      "name": "Artillery cannon 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-wagon-cannon-2.png",
       "hidden": true,
@@ -31040,7 +31040,7 @@
     },
     "bob-artillery-wagon-cannon-3": {
       "id": "bob-artillery-wagon-cannon-3",
-      "name": "__ITEM__artillery-wagon-cannon__ 3",
+      "name": "Artillery cannon 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-wagon-cannon-3.png",
       "hidden": true,
@@ -31050,7 +31050,7 @@
     },
     "bob-spidertron-gatling-gun": {
       "id": "bob-spidertron-gatling-gun",
-      "name": "__ENTITY__spidertron__ __ITEM__bob-gatling-gun__",
+      "name": "Spidertron Gatling gun",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-spidertron-gatling-gun.png",
       "hidden": true,
@@ -31060,7 +31060,7 @@
     },
     "bob-spidertron-cannon-1": {
       "id": "bob-spidertron-cannon-1",
-      "name": "__ENTITY__spidertron__ Cannon",
+      "name": "Spidertron Cannon",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-spidertron-cannon-1.png",
       "hidden": true,
@@ -31070,7 +31070,7 @@
     },
     "bob-spidertron-cannon-2": {
       "id": "bob-spidertron-cannon-2",
-      "name": "__ENTITY__spidertron__ Cannon",
+      "name": "Spidertron Cannon",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-spidertron-cannon-2.png",
       "hidden": true,
@@ -31320,7 +31320,7 @@
     },
     "bob-artillery-wagon-2": {
       "id": "bob-artillery-wagon-2",
-      "name": "__ITEM__artillery-wagon__ MK2",
+      "name": "Artillery wagon MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-wagon-2.png",
       "hidden": false,
@@ -31330,7 +31330,7 @@
     },
     "bob-artillery-wagon-3": {
       "id": "bob-artillery-wagon-3",
-      "name": "__ITEM__artillery-wagon__ MK3",
+      "name": "Artillery wagon MK3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-artillery-wagon-3.png",
       "hidden": true,
@@ -31370,7 +31370,7 @@
     },
     "bob-heavy-spidertron": {
       "id": "bob-heavy-spidertron",
-      "name": "Heavy __ENTITY__spidertron__",
+      "name": "Heavy Spidertron",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-heavy-spidertron.png",
       "hidden": false,
@@ -31870,7 +31870,7 @@
     },
     "bob-repair-pack-2": {
       "id": "bob-repair-pack-2",
-      "name": "__ITEM__repair-pack__ 2",
+      "name": "Repair pack 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-repair-pack-2.png",
       "hidden": false,
@@ -31880,7 +31880,7 @@
     },
     "bob-repair-pack-3": {
       "id": "bob-repair-pack-3",
-      "name": "__ITEM__repair-pack__ 3",
+      "name": "Repair pack 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-repair-pack-3.png",
       "hidden": false,
@@ -31890,7 +31890,7 @@
     },
     "bob-repair-pack-4": {
       "id": "bob-repair-pack-4",
-      "name": "__ITEM__repair-pack__ 4",
+      "name": "Repair pack 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-repair-pack-4.png",
       "hidden": false,
@@ -31900,7 +31900,7 @@
     },
     "bob-repair-pack-5": {
       "id": "bob-repair-pack-5",
-      "name": "__ITEM__repair-pack__ 5",
+      "name": "Repair pack 5",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-repair-pack-5.png",
       "hidden": false,
@@ -36545,7 +36545,7 @@
     },
     "automation-science-pack": {
       "id": "automation-science-pack",
-      "name": "__ITEM__automation-science-pack__",
+      "name": "Science pack: Sacrificial electromagnet",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -36588,7 +36588,7 @@
     },
     "logistic-science-pack": {
       "id": "logistic-science-pack",
-      "name": "__ITEM__logistic-science-pack__",
+      "name": "Science pack: Single-use ATMOS set",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -36626,7 +36626,7 @@
     },
     "lab": {
       "id": "lab",
-      "name": "__ITEM__lab__",
+      "name": "Electromagnetism Lab",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -39799,7 +39799,7 @@
     },
     "chemical-science-pack": {
       "id": "chemical-science-pack",
-      "name": "__ITEM__chemical-science-pack__",
+      "name": "Science pack: Uni-lived atomic manipulator",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -39918,7 +39918,7 @@
     },
     "utility-science-pack": {
       "id": "utility-science-pack",
-      "name": "__ITEM__utility-science-pack__",
+      "name": "Science pack: Onerun Virtual Particle Forge",
       "category": "crafting",
       "craftingTime": 14,
       "ingredients": [
@@ -48837,7 +48837,7 @@
     },
     "cybersyn-constant-combinator": {
       "id": "cybersyn-constant-combinator",
-      "name": "__ENTITY__cybersyn-constant-combinator__",
+      "name": "Cybersyn Constant Combinator",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49695,7 +49695,7 @@
     },
     "bob-assembling-machine-4": {
       "id": "bob-assembling-machine-4",
-      "name": "__ENTITY__assembling-machine-4__",
+      "name": "Assembling machine 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49748,7 +49748,7 @@
     },
     "bob-assembling-machine-5": {
       "id": "bob-assembling-machine-5",
-      "name": "__ENTITY__assembling-machine-5__",
+      "name": "Assembling machine 5",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49801,7 +49801,7 @@
     },
     "bob-assembling-machine-6": {
       "id": "bob-assembling-machine-6",
-      "name": "__ENTITY__assembling-machine-6__",
+      "name": "Assembling machine 6",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49854,7 +49854,7 @@
     },
     "bob-electronics-machine-1": {
       "id": "bob-electronics-machine-1",
-      "name": "__ENTITY__electronics-machine-1__",
+      "name": "Electronics assembling machine 1",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49897,7 +49897,7 @@
     },
     "bob-electronics-machine-2": {
       "id": "bob-electronics-machine-2",
-      "name": "__ENTITY__electronics-machine-2__",
+      "name": "Electronics assembling machine 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -49950,7 +49950,7 @@
     },
     "bob-electronics-machine-3": {
       "id": "bob-electronics-machine-3",
-      "name": "__ENTITY__electronics-machine-3__",
+      "name": "Electronics assembling machine 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -50003,7 +50003,7 @@
     },
     "bob-electric-furnace-2": {
       "id": "bob-electric-furnace-2",
-      "name": "__ENTITY__electric-furnace-2__",
+      "name": "Electric furnace 2",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50051,7 +50051,7 @@
     },
     "bob-electric-furnace-3": {
       "id": "bob-electric-furnace-3",
-      "name": "__ENTITY__electric-furnace-3__",
+      "name": "Electric furnace 3",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50099,7 +50099,7 @@
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
-      "name": "__ENTITY__electric-chemical-mixing-furnace__",
+      "name": "Electric multi-purpose furnace",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50152,7 +50152,7 @@
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
-      "name": "__ENTITY__electric-chemical-mixing-furnace-2__",
+      "name": "Electric multi-purpose furnace 2",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50319,7 +50319,7 @@
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
-      "name": "__ENTITY__centrifuge-2__",
+      "name": "Centrifuge 2",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -50377,7 +50377,7 @@
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
-      "name": "__ENTITY__centrifuge-3__",
+      "name": "Centrifuge 3",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -55698,7 +55698,7 @@
     },
     "bob-storage-tank-2": {
       "id": "bob-storage-tank-2",
-      "name": "__ENTITY__storage-tank__ 2",
+      "name": "Storage tank 2",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -55741,7 +55741,7 @@
     },
     "bob-storage-tank-3": {
       "id": "bob-storage-tank-3",
-      "name": "__ENTITY__storage-tank__ 3",
+      "name": "Storage tank 3",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -55784,7 +55784,7 @@
     },
     "bob-storage-tank-4": {
       "id": "bob-storage-tank-4",
-      "name": "__ENTITY__storage-tank__ 4",
+      "name": "Storage tank 4",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -55827,7 +55827,7 @@
     },
     "bob-storage-tank-all-corners": {
       "id": "bob-storage-tank-all-corners",
-      "name": "__ENTITY__storage-tank__ all corners",
+      "name": "Storage tank all corners",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -55865,7 +55865,7 @@
     },
     "bob-storage-tank-all-corners-2": {
       "id": "bob-storage-tank-all-corners-2",
-      "name": "__ENTITY__storage-tank__ 2 all corners",
+      "name": "Storage tank 2 all corners",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -55908,7 +55908,7 @@
     },
     "bob-storage-tank-all-corners-3": {
       "id": "bob-storage-tank-all-corners-3",
-      "name": "__ENTITY__storage-tank__ 3 all corners",
+      "name": "Storage tank 3 all corners",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -55951,7 +55951,7 @@
     },
     "bob-storage-tank-all-corners-4": {
       "id": "bob-storage-tank-all-corners-4",
-      "name": "__ENTITY__storage-tank__ 4 all corners",
+      "name": "Storage tank 4 all corners",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -56619,7 +56619,7 @@
     },
     "bob-repair-pack-2": {
       "id": "bob-repair-pack-2",
-      "name": "__ITEM__repair-pack__ 2",
+      "name": "Repair pack 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -56657,7 +56657,7 @@
     },
     "bob-repair-pack-3": {
       "id": "bob-repair-pack-3",
-      "name": "__ITEM__repair-pack__ 3",
+      "name": "Repair pack 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -56700,7 +56700,7 @@
     },
     "bob-repair-pack-4": {
       "id": "bob-repair-pack-4",
-      "name": "__ITEM__repair-pack__ 4",
+      "name": "Repair pack 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -56748,7 +56748,7 @@
     },
     "bob-repair-pack-5": {
       "id": "bob-repair-pack-5",
-      "name": "__ITEM__repair-pack__ 5",
+      "name": "Repair pack 5",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57026,7 +57026,7 @@
     },
     "bob-heat-pipe-2": {
       "id": "bob-heat-pipe-2",
-      "name": "__ENTITY__heat-pipe__ 2",
+      "name": "Heat pipe 2",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -57064,7 +57064,7 @@
     },
     "bob-heat-pipe-3": {
       "id": "bob-heat-pipe-3",
-      "name": "__ENTITY__heat-pipe__ 3",
+      "name": "Heat pipe 3",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -57102,7 +57102,7 @@
     },
     "bob-heat-pipe-4": {
       "id": "bob-heat-pipe-4",
-      "name": "__ENTITY__heat-pipe__ 4",
+      "name": "Heat pipe 4",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -57514,7 +57514,7 @@
     },
     "bob-boiler-2": {
       "id": "bob-boiler-2",
-      "name": "__ENTITY__boiler__ 2",
+      "name": "Boiler 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57557,7 +57557,7 @@
     },
     "bob-boiler-3": {
       "id": "bob-boiler-3",
-      "name": "__ENTITY__boiler__ 3",
+      "name": "Boiler 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57600,7 +57600,7 @@
     },
     "bob-boiler-4": {
       "id": "bob-boiler-4",
-      "name": "__ENTITY__boiler__ 4",
+      "name": "Boiler 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57643,7 +57643,7 @@
     },
     "bob-boiler-5": {
       "id": "bob-boiler-5",
-      "name": "__ENTITY__boiler__ 5",
+      "name": "Boiler 5",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57724,7 +57724,7 @@
     },
     "bob-oil-boiler-2": {
       "id": "bob-oil-boiler-2",
-      "name": "__ENTITY__bob-oil-boiler__ 2",
+      "name": "Fluid burning boiler 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57767,7 +57767,7 @@
     },
     "bob-oil-boiler-3": {
       "id": "bob-oil-boiler-3",
-      "name": "__ENTITY__bob-oil-boiler__ 3",
+      "name": "Fluid burning boiler 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -57810,7 +57810,7 @@
     },
     "bob-oil-boiler-4": {
       "id": "bob-oil-boiler-4",
-      "name": "__ENTITY__bob-oil-boiler__ 4",
+      "name": "Fluid burning boiler 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58719,7 +58719,7 @@
     },
     "bob-steam-engine-2": {
       "id": "bob-steam-engine-2",
-      "name": "__ENTITY__steam-engine__ 2",
+      "name": "Steam engine 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58772,7 +58772,7 @@
     },
     "bob-steam-engine-3": {
       "id": "bob-steam-engine-3",
-      "name": "__ENTITY__steam-engine__ 3",
+      "name": "Steam engine 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58825,7 +58825,7 @@
     },
     "bob-steam-engine-4": {
       "id": "bob-steam-engine-4",
-      "name": "__ENTITY__steam-engine__ 4",
+      "name": "Steam engine 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58878,7 +58878,7 @@
     },
     "bob-steam-engine-5": {
       "id": "bob-steam-engine-5",
-      "name": "__ENTITY__steam-engine__ 5",
+      "name": "Steam engine 5",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58931,7 +58931,7 @@
     },
     "bob-heat-exchanger-2": {
       "id": "bob-heat-exchanger-2",
-      "name": "__ENTITY__heat-exchanger__ 2",
+      "name": "Heat exchanger 2",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -58979,7 +58979,7 @@
     },
     "bob-heat-exchanger-3": {
       "id": "bob-heat-exchanger-3",
-      "name": "__ENTITY__heat-exchanger__ 3",
+      "name": "Heat exchanger 3",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -59027,7 +59027,7 @@
     },
     "bob-heat-exchanger-4": {
       "id": "bob-heat-exchanger-4",
-      "name": "__ENTITY__heat-exchanger__ 4",
+      "name": "Heat exchanger 4",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -59075,7 +59075,7 @@
     },
     "bob-steam-turbine-2": {
       "id": "bob-steam-turbine-2",
-      "name": "__ENTITY__steam-turbine__ 2",
+      "name": "Steam turbine 2",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -59133,7 +59133,7 @@
     },
     "bob-steam-turbine-3": {
       "id": "bob-steam-turbine-3",
-      "name": "__ENTITY__steam-turbine__ 3",
+      "name": "Steam turbine 3",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -59191,7 +59191,7 @@
     },
     "bob-nuclear-reactor-2": {
       "id": "bob-nuclear-reactor-2",
-      "name": "__ENTITY__nuclear-reactor__ 2",
+      "name": "Nuclear reactor 2",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -59239,7 +59239,7 @@
     },
     "bob-nuclear-reactor-3": {
       "id": "bob-nuclear-reactor-3",
-      "name": "__ENTITY__nuclear-reactor__ 3",
+      "name": "Nuclear reactor 3",
       "category": "crafting",
       "craftingTime": 16,
       "ingredients": [
@@ -60336,7 +60336,7 @@
     },
     "bob-alien-science-pack": {
       "id": "bob-alien-science-pack",
-      "name": "__ITEM__bob-alien-science-pack__",
+      "name": "Alien science pack",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -65434,7 +65434,7 @@
     },
     "bob-artillery-turret-2": {
       "id": "bob-artillery-turret-2",
-      "name": "__ITEM__artillery-turret__ MK2",
+      "name": "Artillery turret MK2",
       "category": "crafting",
       "craftingTime": 40,
       "ingredients": [
@@ -65487,7 +65487,7 @@
     },
     "bob-artillery-turret-3": {
       "id": "bob-artillery-turret-3",
-      "name": "__ITEM__artillery-turret__ MK3",
+      "name": "Artillery turret MK3",
       "category": "crafting",
       "craftingTime": 40,
       "ingredients": [
@@ -65863,7 +65863,7 @@
     },
     "bob-artillery-wagon-2": {
       "id": "bob-artillery-wagon-2",
-      "name": "__ITEM__artillery-wagon__ MK2",
+      "name": "Artillery wagon MK2",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -65926,7 +65926,7 @@
     },
     "bob-artillery-wagon-3": {
       "id": "bob-artillery-wagon-3",
-      "name": "__ITEM__artillery-wagon__ MK3",
+      "name": "Artillery wagon MK3",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -66333,7 +66333,7 @@
     },
     "bob-spidertron-cannon": {
       "id": "bob-spidertron-cannon",
-      "name": "__ENTITY__spidertron__ Cannon",
+      "name": "Spidertron Cannon",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -66520,7 +66520,7 @@
     },
     "bob-heavy-spidertron": {
       "id": "bob-heavy-spidertron",
-      "name": "Heavy __ENTITY__spidertron__",
+      "name": "Heavy Spidertron",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -75591,7 +75591,7 @@
     },
     "angels-ore-crystal-mix6-processing": {
       "id": "angels-ore-crystal-mix6-processing",
-      "name": "__ENTITY__bob-thorium-ore__",
+      "name": "Thorium ore",
       "category": "angels-ore-sorting-4",
       "craftingTime": 1.5,
       "ingredients": [
@@ -94885,7 +94885,7 @@
     },
     "angels-solid-iron-hydroxide-smelting": {
       "id": "angels-solid-iron-hydroxide-smelting",
-      "name": "__ITEM__angels-solid-iron-hydroxide__ recycling",
+      "name": "Iron hydroxide recycling",
       "category": "angels-chemical-smelting-2",
       "craftingTime": 4,
       "ingredients": [
@@ -105943,7 +105943,7 @@
     },
     "angels-solid-sodium-hypochlorite-decomposition": {
       "id": "angels-solid-sodium-hypochlorite-decomposition",
-      "name": "__ITEM__angels-solid-sodium-hypochlorite__ decomposition",
+      "name": "Sodium hypochlorite decomposition",
       "category": "angels-chemical-smelting",
       "craftingTime": 2,
       "ingredients": [
@@ -117551,7 +117551,7 @@
     },
     "sct-waste-processing-copper": {
       "id": "sct-waste-processing-copper",
-      "name": "__ITEM__sct-waste-copperonly__ processing",
+      "name": "Coppery waste byproduct processing",
       "category": "advanced-crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -117584,7 +117584,7 @@
     },
     "sct-waste-processing-mixed": {
       "id": "sct-waste-processing-mixed",
-      "name": "__ITEM__sct-waste-ironcopper__ processing",
+      "name": "Waste byproduct processing",
       "category": "advanced-crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -117621,7 +117621,7 @@
     },
     "sct-t1-ironcore": {
       "id": "sct-t1-ironcore",
-      "name": "__ITEM__sct-t1-ironcore__",
+      "name": "Electromagnet Core",
       "category": "crafting",
       "craftingTime": 1.25,
       "ingredients": [
@@ -117654,7 +117654,7 @@
     },
     "sct-t1-magnet-coils": {
       "id": "sct-t1-magnet-coils",
-      "name": "__ITEM__sct-t1-magnet-coils__",
+      "name": "Electromagnet Coils",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -117687,7 +117687,7 @@
     },
     "sct-t2-instruments": {
       "id": "sct-t2-instruments",
-      "name": "__ITEM__sct-t2-instruments__",
+      "name": "ATMOS Instrumentation",
       "category": "crafting",
       "craftingTime": 1.5,
       "ingredients": [
@@ -117730,7 +117730,7 @@
     },
     "sct-t2-microcircuits": {
       "id": "sct-t2-microcircuits",
-      "name": "__ITEM__sct-t2-microcircuits__",
+      "name": "Microcircuits",
       "category": "crafting",
       "craftingTime": 1.5,
       "ingredients": [
@@ -117768,7 +117768,7 @@
     },
     "sct-t2-micro-wafer": {
       "id": "sct-t2-micro-wafer",
-      "name": "__ITEM__sct-t2-micro-wafer__",
+      "name": "Micro-Wafer",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -117806,7 +117806,7 @@
     },
     "sct-t2-wafer-stamp": {
       "id": "sct-t2-wafer-stamp",
-      "name": "__ITEM__sct-t2-wafer-stamp__",
+      "name": "Wafer-Stamp",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -117839,7 +117839,7 @@
     },
     "sct-t2-reaction-nodes": {
       "id": "sct-t2-reaction-nodes",
-      "name": "__ITEM__sct-t2-reaction-nodes__",
+      "name": "ATMOS Reaction Nodes",
       "category": "crafting",
       "craftingTime": 1.5,
       "ingredients": [
@@ -117877,7 +117877,7 @@
     },
     "sct-t3-femto-lasers": {
       "id": "sct-t3-femto-lasers",
-      "name": "__ITEM__sct-t3-femto-lasers__",
+      "name": "Femto Laser Array",
       "category": "crafting-with-fluid",
       "craftingTime": 3,
       "ingredients": [
@@ -117924,7 +117924,7 @@
     },
     "sct-t3-flash-fuel": {
       "id": "sct-t3-flash-fuel",
-      "name": "__ITEM__sct-t3-flash-fuel__",
+      "name": "Chemical Laser Flash Fuel",
       "category": "chemistry",
       "craftingTime": 3,
       "ingredients": [
@@ -117965,7 +117965,7 @@
     },
     "sct-t3-laser-foci": {
       "id": "sct-t3-laser-foci",
-      "name": "__ITEM__sct-t3-laser-foci__",
+      "name": "Femto Laser Foci",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -118013,7 +118013,7 @@
     },
     "sct-t3-laser-emitter": {
       "id": "sct-t3-laser-emitter",
-      "name": "__ITEM__sct-t3-laser-emitter__",
+      "name": "Femto Laser Emitter",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -118066,7 +118066,7 @@
     },
     "sct-t3-atomic-sensors": {
       "id": "sct-t3-atomic-sensors",
-      "name": "__ITEM__sct-t3-atomic-sensors__",
+      "name": "Atomic Sensors Array",
       "category": "crafting-with-fluid",
       "craftingTime": 3,
       "ingredients": [
@@ -118123,7 +118123,7 @@
     },
     "sct-mil-plating": {
       "id": "sct-mil-plating",
-      "name": "__ITEM__sct-mil-plating__",
+      "name": "Kinetic test-target plating",
       "category": "advanced-crafting",
       "craftingTime": 9,
       "ingredients": [
@@ -118176,7 +118176,7 @@
     },
     "sct-mil-subplating": {
       "id": "sct-mil-subplating",
-      "name": "__ITEM__sct-mil-subplating__",
+      "name": "Weapon testing sub-plate",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -118219,7 +118219,7 @@
     },
     "sct-mil-circuit3": {
       "id": "sct-mil-circuit3",
-      "name": "__ITEM__sct-mil-circuit3__",
+      "name": "Weapons testing module",
       "category": "advanced-crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -118272,7 +118272,7 @@
     },
     "sct-mil-circuit2": {
       "id": "sct-mil-circuit2",
-      "name": "__ITEM__sct-mil-circuit2__",
+      "name": "Weapons testing circuit",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -118325,7 +118325,7 @@
     },
     "sct-mil-circuit1": {
       "id": "sct-mil-circuit1",
-      "name": "__ITEM__sct-mil-circuit1__",
+      "name": "Weapons testing circuit board",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -118444,7 +118444,7 @@
     },
     "sct-prod-bioprocessor": {
       "id": "sct-prod-bioprocessor",
-      "name": "__ITEM__sct-prod-bioprocessor__",
+      "name": "QL Bio-processor",
       "category": "advanced-crafting",
       "craftingTime": 15,
       "ingredients": [
@@ -118492,7 +118492,7 @@
     },
     "sct-prod-baked-biopaste": {
       "id": "sct-prod-baked-biopaste",
-      "name": "__ITEM__sct-prod-baked-biopaste__",
+      "name": "Activated biopaste",
       "category": "smelting",
       "craftingTime": 5,
       "ingredients": [
@@ -118531,7 +118531,7 @@
     },
     "sct-prod-biosilicate": {
       "id": "sct-prod-biosilicate",
-      "name": "__ITEM__sct-prod-biosilicate__",
+      "name": "Bio-Silicate Extract",
       "category": "chemistry",
       "craftingTime": 5,
       "ingredients": [
@@ -118582,7 +118582,7 @@
     },
     "sct-prod-overclocker": {
       "id": "sct-prod-overclocker",
-      "name": "__ITEM__sct-prod-overclocker__",
+      "name": "Water cooled overclocked neural computer case",
       "category": "crafting-with-fluid",
       "craftingTime": 15,
       "ingredients": [
@@ -118639,7 +118639,7 @@
     },
     "sct-prod-chipcase": {
       "id": "sct-prod-chipcase",
-      "name": "__ITEM__sct-prod-chipcase__",
+      "name": "Protective chip enclosure",
       "category": "crafting-with-fluid",
       "craftingTime": 5,
       "ingredients": [
@@ -118691,7 +118691,7 @@
     },
     "sct-htech-capbank": {
       "id": "sct-htech-capbank",
-      "name": "__ITEM__sct-htech-capbank__",
+      "name": "Capacitor Bank",
       "category": "advanced-crafting",
       "craftingTime": 14,
       "ingredients": [
@@ -118744,7 +118744,7 @@
     },
     "sct-htech-injector": {
       "id": "sct-htech-injector",
-      "name": "__ITEM__sct-htech-injector__",
+      "name": "Virtual Particle Injector",
       "category": "advanced-crafting",
       "craftingTime": 7,
       "ingredients": [
@@ -118802,7 +118802,7 @@
     },
     "sct-htech-random": {
       "id": "sct-htech-random",
-      "name": "__ITEM__sct-htech-random__",
+      "name": "Heat driven mechanical random number analyzer",
       "category": "advanced-crafting",
       "craftingTime": 7,
       "ingredients": [
@@ -118845,7 +118845,7 @@
     },
     "sct-htech-thermalstore-heated": {
       "id": "sct-htech-thermalstore-heated",
-      "name": "__ITEM__sct-htech-thermalstore-heated__",
+      "name": "Heated Thermal Energy Store",
       "category": "smelting",
       "craftingTime": 10.5,
       "ingredients": [
@@ -118884,7 +118884,7 @@
     },
     "sct-htech-thermalstore": {
       "id": "sct-htech-thermalstore",
-      "name": "__ITEM__sct-htech-thermalstore__",
+      "name": "Thermal Energy Store",
       "category": "advanced-crafting",
       "craftingTime": 7,
       "ingredients": [
@@ -118927,7 +118927,7 @@
     },
     "sct-lab1-construction": {
       "id": "sct-lab1-construction",
-      "name": "__ITEM__sct-lab1-construction__",
+      "name": "Lab construction core",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -118965,7 +118965,7 @@
     },
     "sct-lab1-mechanization": {
       "id": "sct-lab1-mechanization",
-      "name": "__ITEM__sct-lab1-mechanization__",
+      "name": "Lab mechanization",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -119003,7 +119003,7 @@
     },
     "sct-lab2-construction": {
       "id": "sct-lab2-construction",
-      "name": "__ITEM__sct-lab2-construction__",
+      "name": "Advanced lab construction core",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -119041,7 +119041,7 @@
     },
     "sct-lab2-automatization": {
       "id": "sct-lab2-automatization",
-      "name": "__ITEM__sct-lab2-automatization__",
+      "name": "Lab automatization",
       "category": "crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -119079,7 +119079,7 @@
     },
     "sct-lab3-construction": {
       "id": "sct-lab3-construction",
-      "name": "__ITEM__sct-lab3-construction__",
+      "name": "Spectrum lab construction core",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -119117,7 +119117,7 @@
     },
     "sct-lab3-optics": {
       "id": "sct-lab3-optics",
-      "name": "__ITEM__sct-lab3-optics__",
+      "name": "Lab optics and analyzers",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -119155,7 +119155,7 @@
     },
     "sct-t3-sulfur-lightsource": {
       "id": "sct-t3-sulfur-lightsource",
-      "name": "__ITEM__sct-t3-sulfur-lightsource",
+      "name": "Sulfur lightsource",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119193,7 +119193,7 @@
     },
     "sct-lab4-construction": {
       "id": "sct-lab4-construction",
-      "name": "__ITEM__sct-lab4-construction__",
+      "name": "Quantum lab construction core",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -119236,7 +119236,7 @@
     },
     "sct-lab4-manipulators": {
       "id": "sct-lab4-manipulators",
-      "name": "__ITEM__sct-lab4-manipulators__",
+      "name": "Lab micromanipulators and quantum computers",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -119279,7 +119279,7 @@
     },
     "sct-lab-t2": {
       "id": "sct-lab-t2",
-      "name": "__ITEM__sct-lab-t2__",
+      "name": "Electrochemics Lab",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119322,7 +119322,7 @@
     },
     "sct-lab-t3": {
       "id": "sct-lab-t3",
-      "name": "__ITEM__sct-lab-t3__",
+      "name": "Full Spectrum Atomics Lab",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119365,7 +119365,7 @@
     },
     "sct-lab-t4": {
       "id": "sct-lab-t4",
-      "name": "__ITEM__sct-lab-t4__",
+      "name": "Quantum Interactions Lab",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119408,7 +119408,7 @@
     },
     "sct-bio-science-pack": {
       "id": "sct-bio-science-pack",
-      "name": "__ITEM__sct-bio-science-pack__",
+      "name": "Science pack: Optimized biome planner",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119446,7 +119446,7 @@
     },
     "sct-bio-ground-sample": {
       "id": "sct-bio-ground-sample",
-      "name": "__ITEM__sct-bio-ground-sample__",
+      "name": "Ground sample",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -119484,7 +119484,7 @@
     },
     "sct-bio-sample-scaffold": {
       "id": "sct-bio-sample-scaffold",
-      "name": "__ITEM__sct-bio-sample-scaffold__",
+      "name": "Protective scaffolding",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -119522,7 +119522,7 @@
     },
     "sct-bio-sample-filling": {
       "id": "sct-bio-sample-filling",
-      "name": "__ITEM__sct-bio-sample-filling__",
+      "name": "Seedling nest",
       "category": "angels-liquifying",
       "craftingTime": 2,
       "ingredients": [
@@ -119563,7 +119563,7 @@
     },
     "sct-logistic-cargo-unit": {
       "id": "sct-logistic-cargo-unit",
-      "name": "__ITEM__sct-logistic-cargo-unit__",
+      "name": "Flying cargo kit",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -119601,7 +119601,7 @@
     },
     "sct-logistic-automated-storage": {
       "id": "sct-logistic-automated-storage",
-      "name": "__ITEM__sct-logistic-automated-storage__",
+      "name": "Automated storage",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -119649,7 +119649,7 @@
     },
     "sct-logistic-unimover": {
       "id": "sct-logistic-unimover",
-      "name": "__ITEM__sct-logistic-unimover__",
+      "name": "Universal transport engine",
       "category": "crafting-with-fluid",
       "craftingTime": 2,
       "ingredients": [
@@ -119701,7 +119701,7 @@
     },
     "sct-logistic-memory-unit": {
       "id": "sct-logistic-memory-unit",
-      "name": "__ITEM__sct-logistic-memory-unit__",
+      "name": "Combined memory cells",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -136562,7 +136562,7 @@
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
-      "name": "__ENTITY__centrifuge__ 2",
+      "name": "Centrifuge 2",
       "type": "assembling-machine",
       "craftingSpeed": 2.25,
       "energyUsageKw": 750,
@@ -136585,7 +136585,7 @@
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
-      "name": "__ENTITY__centrifuge__ 3",
+      "name": "Centrifuge 3",
       "type": "assembling-machine",
       "craftingSpeed": 3.5,
       "energyUsageKw": 1050,
@@ -143035,7 +143035,7 @@
     },
     "logistic-science-pack": {
       "id": "logistic-science-pack",
-      "name": "__ITEM__logistic-science-pack__",
+      "name": "Science pack: Single-use ATMOS set",
       "prerequisites": [
         "sct-lab-t2",
         "angels-lead-smelting-1",
@@ -143311,7 +143311,7 @@
     },
     "chemical-science-pack": {
       "id": "chemical-science-pack",
-      "name": "__ITEM__chemical-science-pack__",
+      "name": "Science pack: Uni-lived atomic manipulator",
       "prerequisites": [
         "sct-lab-t3",
         "advanced-circuit",
@@ -143324,7 +143324,7 @@
     },
     "military-science-pack": {
       "id": "military-science-pack",
-      "name": "__ITEM__military-science-pack__",
+      "name": "Science pack: Ablative weapons testing kit",
       "prerequisites": [
         "explosives",
         "military-2",
@@ -143344,7 +143344,7 @@
     },
     "production-science-pack": {
       "id": "production-science-pack",
-      "name": "__ITEM__production-science-pack__",
+      "name": "Science pack: Burns-out QL Bio-processor",
       "prerequisites": [
         "processing-unit",
         "bob-silicon-processing",
@@ -143367,7 +143367,7 @@
     },
     "utility-science-pack": {
       "id": "utility-science-pack",
-      "name": "__ITEM__utility-science-pack__",
+      "name": "Science pack: Onerun Virtual Particle Forge",
       "prerequisites": [
         "sct-lab-t4",
         "angels-rubbers",
@@ -145006,7 +145006,7 @@
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
-      "name": "__ENTITY__centrifuge__ 2",
+      "name": "Centrifuge 2",
       "prerequisites": [
         "production-science-pack",
         "processing-unit",
@@ -145022,7 +145022,7 @@
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
-      "name": "__ENTITY__centrifuge__ 3",
+      "name": "Centrifuge 3",
       "prerequisites": [
         "utility-science-pack",
         "bob-centrifuge-2",
@@ -145379,7 +145379,7 @@
     },
     "logistics-0": {
       "id": "logistics-0",
-      "name": "__ITEM__prefix-black__ logistics",
+      "name": "Basic logistics",
       "prerequisites": [
         "automation-science-pack"
       ],
@@ -145488,7 +145488,7 @@
     },
     "bob-repair-pack-2": {
       "id": "bob-repair-pack-2",
-      "name": "__ITEM__repair-pack__ 2",
+      "name": "Repair pack 2",
       "prerequisites": [
         "steel-processing",
         "logistic-science-pack",
@@ -145500,7 +145500,7 @@
     },
     "bob-repair-pack-3": {
       "id": "bob-repair-pack-3",
-      "name": "__ITEM__repair-pack__ 3",
+      "name": "Repair pack 3",
       "prerequisites": [
         "bob-repair-pack-2",
         "advanced-circuit",
@@ -145514,7 +145514,7 @@
     },
     "bob-repair-pack-4": {
       "id": "bob-repair-pack-4",
-      "name": "__ITEM__repair-pack__ 4",
+      "name": "Repair pack 4",
       "prerequisites": [
         "bob-repair-pack-3",
         "processing-unit",
@@ -145527,7 +145527,7 @@
     },
     "bob-repair-pack-5": {
       "id": "bob-repair-pack-5",
-      "name": "__ITEM__repair-pack__ 5",
+      "name": "Repair pack 5",
       "prerequisites": [
         "bob-repair-pack-4",
         "production-science-pack",
@@ -145655,7 +145655,7 @@
     },
     "bob-boiler-2": {
       "id": "bob-boiler-2",
-      "name": "__ENTITY__boiler__ 2",
+      "name": "Boiler 2",
       "prerequisites": [
         "steel-processing",
         "logistic-science-pack"
@@ -145666,7 +145666,7 @@
     },
     "bob-boiler-3": {
       "id": "bob-boiler-3",
-      "name": "__ENTITY__boiler__ 3",
+      "name": "Boiler 3",
       "prerequisites": [
         "bob-boiler-2",
         "chemical-science-pack",
@@ -145681,7 +145681,7 @@
     },
     "bob-boiler-4": {
       "id": "bob-boiler-4",
-      "name": "__ENTITY__boiler__ 4",
+      "name": "Boiler 4",
       "prerequisites": [
         "bob-boiler-3",
         "production-science-pack",
@@ -145694,7 +145694,7 @@
     },
     "bob-boiler-5": {
       "id": "bob-boiler-5",
-      "name": "__ENTITY__boiler__ 5",
+      "name": "Boiler 5",
       "prerequisites": [
         "bob-boiler-4",
         "utility-science-pack",
@@ -145923,7 +145923,7 @@
     },
     "bob-heat-exchanger-1": {
       "id": "bob-heat-exchanger-1",
-      "name": "__ENTITY__heat-exchanger__ 1",
+      "name": "Heat exchanger 1",
       "prerequisites": [
         "bob-boiler-2",
         "bob-heat-pipe-1"
@@ -145934,7 +145934,7 @@
     },
     "bob-heat-exchanger-2": {
       "id": "bob-heat-exchanger-2",
-      "name": "__ENTITY__heat-exchanger__ 2",
+      "name": "Heat exchanger 2",
       "prerequisites": [
         "bob-boiler-3",
         "bob-heat-pipe-2",
@@ -145948,7 +145948,7 @@
     },
     "bob-heat-exchanger-3": {
       "id": "bob-heat-exchanger-3",
-      "name": "__ENTITY__heat-exchanger__ 3",
+      "name": "Heat exchanger 3",
       "prerequisites": [
         "bob-heat-exchanger-2",
         "bob-heat-pipe-3",
@@ -145961,7 +145961,7 @@
     },
     "bob-heat-exchanger-4": {
       "id": "bob-heat-exchanger-4",
-      "name": "__ENTITY__heat-exchanger__ 4",
+      "name": "Heat exchanger 4",
       "prerequisites": [
         "bob-heat-exchanger-3",
         "bob-heat-pipe-4",
@@ -145973,7 +145973,7 @@
     },
     "bob-steam-turbine-1": {
       "id": "bob-steam-turbine-1",
-      "name": "__ENTITY__steam-turbine__ 1",
+      "name": "Steam turbine 1",
       "prerequisites": [
         "bob-steam-engine-3",
         "chemical-science-pack",
@@ -145987,7 +145987,7 @@
     },
     "bob-steam-turbine-2": {
       "id": "bob-steam-turbine-2",
-      "name": "__ENTITY__steam-turbine__ 2",
+      "name": "Steam turbine 2",
       "prerequisites": [
         "bob-steam-turbine-1",
         "production-science-pack",
@@ -146000,7 +146000,7 @@
     },
     "bob-steam-turbine-3": {
       "id": "bob-steam-turbine-3",
-      "name": "__ENTITY__steam-turbine__ 3",
+      "name": "Steam turbine 3",
       "prerequisites": [
         "bob-steam-turbine-2",
         "utility-science-pack",
@@ -146043,7 +146043,7 @@
     },
     "bob-advanced-logistic-science-pack": {
       "id": "bob-advanced-logistic-science-pack",
-      "name": "__ITEM__bob-advanced-logistic-science-pack__",
+      "name": "Transport science pack",
       "prerequisites": [
         "processing-unit",
         "bob-brass-processing",
@@ -146061,7 +146061,7 @@
     },
     "bob-atomic-artillery-shell": {
       "id": "bob-atomic-artillery-shell",
-      "name": "__ITEM__bob-atomic-artillery-shell__",
+      "name": "Atomic artillery shell",
       "prerequisites": [
         "atomic-bomb",
         "artillery"
@@ -146200,7 +146200,7 @@
     },
     "bob-artillery-turret-2": {
       "id": "bob-artillery-turret-2",
-      "name": "__ENTITY__artillery-turret__ 2",
+      "name": "Artillery turret 2",
       "prerequisites": [
         "artillery",
         "military-4",
@@ -146264,7 +146264,7 @@
     },
     "bob-artillery-wagon-2": {
       "id": "bob-artillery-wagon-2",
-      "name": "__ENTITY__artillery-wagon__ 2",
+      "name": "Artillery wagon 2",
       "prerequisites": [
         "artillery",
         "military-4",
@@ -146332,7 +146332,7 @@
     },
     "bob-heavy-spidertron": {
       "id": "bob-heavy-spidertron",
-      "name": "Heavy __ENTITY__spidertron__",
+      "name": "Heavy Spidertron",
       "prerequisites": [
         "spidertron",
         "bob-rtg"
@@ -150960,7 +150960,7 @@
     },
     "sct-lab-t1": {
       "id": "sct-lab-t1",
-      "name": "__ITEM__sct-lab-t1__",
+      "name": "Electromagnetism Lab",
       "prerequisites": [
         "sb-startup3"
       ],
@@ -150973,7 +150973,7 @@
     },
     "sct-lab-t2": {
       "id": "sct-lab-t2",
-      "name": "__ITEM__sct-lab-t2__",
+      "name": "Electrochemics Lab",
       "prerequisites": [
         "steel-processing",
         "logistics",
@@ -150987,7 +150987,7 @@
     },
     "sct-lab-t3": {
       "id": "sct-lab-t3",
-      "name": "__ITEM__sct-lab-t3__",
+      "name": "Full Spectrum Atomics Lab",
       "prerequisites": [
         "angels-oil-processing",
         "angels-sulfur-processing-1",
@@ -151013,7 +151013,7 @@
     },
     "sct-lab-t4": {
       "id": "sct-lab-t4",
-      "name": "__ITEM__sct-lab-t4__",
+      "name": "Quantum Interactions Lab",
       "prerequisites": [
         "processing-unit",
         "uranium-processing",
@@ -151036,7 +151036,7 @@
     },
     "sct-bio-science-pack": {
       "id": "sct-bio-science-pack",
-      "name": "__ITEM__sct-bio-science-pack__",
+      "name": "Science pack: Optimized biome planner",
       "prerequisites": [
         "angels-composting",
         "angels-gardens",
@@ -151052,7 +151052,7 @@
     },
     "sct-lab-lab2": {
       "id": "sct-lab-lab2",
-      "name": "__ITEM__bob-lab-2__",
+      "name": "Lab 2",
       "prerequisites": [
         "utility-science-pack",
         "production-science-pack",
