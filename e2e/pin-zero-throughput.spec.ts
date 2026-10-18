@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { clickRowAction } from './support/rowMenu'
 
 /**
  * Regression test for two related pin bugs:
@@ -9,12 +10,12 @@ import { loadPlanFixture } from './support/loadPlan'
  *    z.number().positive() which rejects 0, so parseAppState() threw and
  *    state was silently lost on reload. Fix: treat pinnedRate: 0 as unpinned.
  *
- * 2. Pin-action bug: when throughput === 0, clicking 📍 must seed a non-zero
+ * 2. Pin-action bug: when throughput === 0, pinning from the row menu must seed a non-zero
  *    initial rate so the solver can compute a real result on the next cycle.
  *
  * Expected behaviour after the fix:
  *   - The fixture loads successfully (pinnedRate: 0 treated as unpinned).
- *   - Clicking 📍 on a 0-throughput recipe pins at a value > 0.
+ *   - Pinning a 0-throughput recipe pins at a value > 0.
  *   - The user can type a new rate into the pinned input and it sticks.
  */
 test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
@@ -28,12 +29,11 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
     .filter({ has: page.locator('[title="Saline electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
-  // Pin button (📍) should be visible on the row — not yet pinned.
-  const pinBtn = row.getByTitle('Pin rate')
-  await expect(pinBtn).toBeVisible()
+  // Not yet pinned: no pinned-rate input, and the menu offers "Pin rate".
+  await expect(row.getByLabel('Pinned rate')).not.toBeVisible()
 
-  // Click the pin button.
-  await pinBtn.click()
+  // Pin through the row menu.
+  await clickRowAction(page, row, 'Pin rate')
 
   // After clicking, the pinned input appears.
   const pinnedInput = row.getByLabel('Pinned rate')
@@ -52,7 +52,6 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
   expect(parseFloat(updatedValue)).toBeCloseTo(120, 0)
 
   // Unpin restores the static tile.
-  await row.getByTitle('Unpin rate').click()
-  await expect(row.getByTitle('Pin rate')).toBeVisible()
+  await clickRowAction(page, row, 'Unpin rate')
   await expect(row.getByLabel('Pinned rate')).not.toBeVisible()
 })

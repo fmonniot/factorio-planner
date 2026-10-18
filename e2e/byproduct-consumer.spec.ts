@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { openRowMenu, clickRowAction } from './support/rowMenu'
 
 /**
  * Three fixtures cover different aspects of the byproduct consumer feature:
@@ -60,10 +61,8 @@ test.describe('Byproduct consumer mode', () => {
     // Verify warning is present before the toggle.
     await expect(page.getByRole('button', { name: /warning/ })).toBeVisible()
 
-    // The ♻ button is opacity-0 until hover; hover the row first to reveal it.
     const row = nitricAcidRow(page)
-    await row.hover()
-    await row.getByTitle('Only run to absorb byproduct from other recipes').click()
+    await clickRowAction(page, row, 'Absorb byproduct')
 
     // The underdetermined warning should disappear (system becomes square 2×2).
     await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible({ timeout: 5000 })
@@ -90,15 +89,14 @@ test.describe('Byproduct consumer mode', () => {
 
     const row = nitricAcidRow(page)
 
-    // Toggle on (button is opacity-0 until hover).
-    await row.hover()
-    await row.getByTitle('Only run to absorb byproduct from other recipes').click()
+    // Toggle on.
+    await clickRowAction(page, row, 'Absorb byproduct')
 
     // Confirm warning gone.
     await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible({ timeout: 5000 })
 
-    // Toggle off (button is now emerald/visible, no hover needed).
-    await row.getByTitle('Stop absorbing byproduct (re-enter main solve)').click()
+    // Toggle off.
+    await clickRowAction(page, row, 'Stop absorbing byproduct')
 
     // Warning should reappear.
     const badge = page.getByRole('button', { name: /warning/ })
@@ -111,30 +109,33 @@ test.describe('Byproduct consumer mode', () => {
     await loadPlanFixture(page, ACTIVE_FIXTURE)
     await waitForRows(page)
 
-    // The "Nitric acid" row should show the active (emerald) toggle
-    // and no pin button (throughput is derived, not user-set).
+    // The "Nitric acid" row menu should offer to stop absorbing
+    // and no pin item (throughput is derived, not user-set).
     const row = nitricAcidRow(page)
-    await expect(row.getByTitle('Stop absorbing byproduct (re-enter main solve)')).toBeVisible()
-    await expect(row.getByTitle('Pin rate')).not.toBeVisible()
+    const menu = await openRowMenu(page, row)
+    await expect(menu.getByRole('menuitem', { name: 'Stop absorbing byproduct' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: /pin rate/i })).toHaveCount(0)
     // No underdetermined warning: active fixture has a square 2×2 main system.
     await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible()
   })
 
-  test('pin button is hidden when byproduct consumer is active', async ({ page }) => {
+  test('pin item is hidden when byproduct consumer is active', async ({ page }) => {
     await loadPlanFixture(page, BASE_FIXTURE)
     await waitForRows(page)
 
     const row = nitricAcidRow(page)
 
-    // Pin button should appear on hover before toggling.
-    await row.hover()
-    await expect(row.getByTitle('Pin rate')).toBeVisible()
+    // Pin item is offered before toggling.
+    const before = await openRowMenu(page, row)
+    await expect(before.getByRole('menuitem', { name: 'Pin rate' })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     // Toggle byproduct consumer on.
-    await row.getByTitle('Only run to absorb byproduct from other recipes').click()
+    await clickRowAction(page, row, 'Absorb byproduct')
 
-    // Pin button must no longer be present in the row.
-    await expect(row.getByTitle('Pin rate')).not.toBeVisible()
-    await expect(row.getByTitle('Unpin rate')).not.toBeVisible()
+    // Neither pin nor unpin may be offered any more.
+    const after = await openRowMenu(page, row)
+    await expect(after.getByRole('menuitem', { name: 'Stop absorbing byproduct' })).toBeVisible()
+    await expect(after.getByRole('menuitem', { name: /pin rate/i })).toHaveCount(0)
   })
 })

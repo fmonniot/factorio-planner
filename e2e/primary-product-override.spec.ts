@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
+import { openRowMenu } from './support/rowMenu'
 
 const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 
@@ -39,8 +40,10 @@ test.describe('Primary product override', () => {
     // title="Set as primary". No ● badge — the column position is the feedback.
     await expect(row.getByTitle(/Set as primary/).first()).toBeVisible()
 
-    // The pin button should be present on the row (not yet pinned).
-    await expect(row.getByTitle('Pin rate')).toBeVisible()
+    // The row menu offers to pin it (not yet pinned).
+    const menu = await openRowMenu(page, row)
+    await expect(menu.getByRole('menuitem', { name: 'Pin rate' })).toBeVisible()
+    await page.keyboard.press('Escape')
 
     // Count the "Set as primary" tiles before switching.
     const beforeCount = await row.getByTitle(/Set as primary/).count()
@@ -73,7 +76,8 @@ test.describe('Primary product override', () => {
     // Single-output: no "Set as primary" tiles (nothing to switch to).
     await expect(row.getByTitle(/Set as primary/)).not.toBeVisible()
 
-    // Pin button is still present.
-    await expect(row.getByTitle('Pin rate')).toBeVisible()
+    // The row menu still offers pinning.
+    const menu = await openRowMenu(page, row)
+    await expect(menu.getByRole('menuitem', { name: 'Pin rate' })).toBeVisible()
   })
 })

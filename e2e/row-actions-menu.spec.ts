@@ -3,8 +3,8 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 
 /**
- * Right-clicking the recipe cell of a row opens a menu with the same actions
- * as the hover buttons (absorb byproduct, pin, wrap, remove).
+ * Right-clicking the recipe cell of a row opens a menu with the row actions
+ * (absorb byproduct, pin, wrap, remove) — the only place they are offered.
  */
 test('right-click menu pins, dismisses with Escape and removes a recipe', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/pin-recipe-not-working.json'))
@@ -20,9 +20,11 @@ test('right-click menu pins, dismisses with Escape and removes a recipe', async 
   // Pin through the menu.
   await icon.click({ button: 'right' })
   await expect(menu).toBeVisible()
+  // The menu hugs its labels instead of stretching across the row.
+  expect((await menu.boundingBox())!.width).toBeLessThan(200)
   await menu.getByRole('menuitem', { name: 'Pin rate' }).click()
   await expect(menu).toBeHidden()
-  await expect(row.getByTitle('Unpin rate')).toBeVisible()
+  await expect(row.getByLabel('Pinned rate')).toBeVisible()
 
   // Escape dismisses.
   await icon.click({ button: 'right' })
