@@ -24,7 +24,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Sharing and import
 
 - [ ] **Import plan from JSON.** Counterpart of the existing "Export plan" button; reuse `parseAppState` (`src/data/loader.ts`) for validation.
-- [ ] **Share plan via URL.** Compressed base64 in the URL, with a size warning.
 - [ ] **Read-only shared view.** Depends on URL sharing.
 
 ## Planning features
