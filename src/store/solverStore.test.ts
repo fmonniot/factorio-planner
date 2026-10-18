@@ -46,7 +46,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, flows: [] })
   unwire = wireSolver()
 })
 
@@ -155,5 +155,82 @@ describe('selectSolverResult', () => {
     loadGameData()
     vi.runAllTimers()
     expect(selectSolverResult(useSolverStore.getState())).toBeDefined()
+  })
+})
+
+describe('wireSolver — several blocks', () => {
+  const plateRecipe = {
+    id: 'plate', name: 'plate', category: 'crafting', craftingTime: 1,
+    ingredients: [], products: [{ itemId: 'plate', type: 'item', amount: 1 }],
+    madeIn: [], allowProductivity: false, hidden: false, subgroup: '', order: '',
+  }
+  const gearRecipe = {
+    ...plateRecipe, id: 'gear', name: 'gear',
+    ingredients: [{ itemId: 'plate', type: 'item', amount: 2 }],
+    products: [{ itemId: 'gear', type: 'item', amount: 1 }],
+  }
+  const node = (id: string, recipeId: string) =>
+    ({ kind: 'game-recipe' as const, id, recipeId, modules: [], byproductPolicy: {} })
+
+  /** Plates (60/min) feeding Gears (30/min). Returns [plates, gears]. */
+  function setupTwoBlocks(activeIndex: 0 | 1) {
+    const plates = makeEmptyBlock('Plates')
+    const gears = makeEmptyBlock('Gears')
+    useBlockStore.setState({
+      blocks: [
+        { ...plates, goals: [{ id: 'gp', itemId: 'plate', rate: 60 }], rootPlan: { ...plates.rootPlan, nodes: [node('p', 'plate')] } },
+        {
+          ...gears,
+          goals: [{ id: 'gg', itemId: 'gear', rate: 30 }],
+          inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: plates.id }],
+          rootPlan: { ...gears.rootPlan, nodes: [node('g', 'gear')] },
+        },
+      ],
+      activeBlockId: [plates, gears][activeIndex].id,
+      history: {},
+    })
+    loadGameData({ recipes: { plate: plateRecipe, gear: gearRecipe } as unknown as GameData['recipes'] })
+    vi.runAllTimers()
+    return [plates, gears]
+  }
+
+  it('solves every block and keeps the active block as lastResult', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    const state = useSolverStore.getState()
+    expect(Object.keys(state.lastResults).sort()).toEqual([plates.id, gears.id].sort())
+    expect(state.flows).toHaveLength(1)
+    expect(state.flows[0]).toMatchObject({ connectionId: 'c1', status: 'ok' })
+    expect(state.flows[0].rate).toBeCloseTo(60, 4)
+    expect(state.status.type === 'solved' && state.status.result).toBe(state.lastResults[gears.id])
+  })
+
+  it('swaps lastResult when the active block changes', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    useBlockStore.getState().setActiveBlock(plates.id)
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResult).toBe(useSolverStore.getState().lastResults[plates.id])
+    expect(useSolverStore.getState().lastResult).not.toBe(useSolverStore.getState().lastResults[gears.id])
+  })
+
+  it('keeps the status solved when an inactive block fails', () => {
+    const [plates] = setupTwoBlocks(1)
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => b.id === plates.id
+        ? { ...b, rootPlan: { ...b.rootPlan, nodes: [{ ...node('p', 'plate'), modules: undefined } as never] } }
+        : b),
+    }))
+    vi.runAllTimers()
+    expect(useSolverStore.getState().status.type).toBe('solved')
+  })
+
+  it('reports an error when the active block fails', () => {
+    const [plates] = setupTwoBlocks(0)
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => b.id === plates.id
+        ? { ...b, rootPlan: { ...b.rootPlan, nodes: [{ ...node('p', 'plate'), modules: undefined } as never] } }
+        : b),
+    }))
+    vi.runAllTimers()
+    expect(useSolverStore.getState().status.type).toBe('error')
   })
 })

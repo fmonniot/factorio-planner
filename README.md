@@ -35,13 +35,15 @@ If the plan can't be solved cleanly (a goal with no recipe, the same recipe adde
 
 A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename** and **Delete**. Use blocks for independent production lines, for example one per science pack.
 
+Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes next to the product. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Remove a connection with the **×** on its chip.
+
 ### Saving and sharing
 
 Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
-For each block, the planner builds a net-flow matrix of items against recipes and solves it as a small linear program in the browser (with [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver)). Goals are hard constraints. Intermediates may be imported, but at a heavy penalty, so the solver prefers to produce them. The result is turned into machine counts and power draw per recipe. [spec/solver.md](spec/solver.md) has the full formulation.
+For each block, the planner builds a net-flow matrix of items against recipes and solves it as a small linear program in the browser (with [`javascript-lp-solver`](https://www.npmjs.com/package/javascript-lp-solver)). Goals are hard constraints. Intermediates may be imported, but at a heavy penalty, so the solver prefers to produce them. Blocks are solved in dependency order, and a block that receives an item from another block takes it only where its own recipes cannot cover the need. The result is turned into machine counts and power draw per recipe. [spec/solver.md](spec/solver.md) has the full formulation.
 
 ## Development
 
@@ -88,9 +90,9 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | Path | What's there |
 |---|---|
 | `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
-| `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `index.ts`) |
+| `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI |
-| `src/components/` | React UI; `factory/` holds the summary panel and the production table |
+| `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) |
 | `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types and the game data loader |
 | `src/utils/` | Small helpers (icon URLs) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
@@ -99,7 +101,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
 | `scripts/__tests__/` | Golden-image tests for the icon compositor |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
-| `e2e/` | Playwright specs and fixtures |
+| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
 | `spec/` | How the system works today |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `.github/workflows/` | CI (lint, doc links, unit, e2e, build on PRs) and GitHub Pages deploy on release |

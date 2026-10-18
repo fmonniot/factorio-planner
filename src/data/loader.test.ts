@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   parseGameData,
   loadGameDataFromJson,
+  parseAppState,
   GameDataLoadError,
 } from './loader'
 import { SubPlanSchema } from './schema'
@@ -376,5 +377,39 @@ describe('loadPlanFromJson', () => {
 
   it('throws ZodError for valid JSON that fails schema', () => {
     expect(() => loadPlanFromJson('[]')).toThrow(ZodError)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// AppState — block connections
+// ---------------------------------------------------------------------------
+
+describe('parseAppState — inputConnections', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const rootPlan = () => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now })
+  const blockJson = (extra: Record<string, unknown> = {}) => ({
+    id: 'b1', name: 'Block', gameDataVersion: '', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+  })
+
+  it('defaults a block saved without inputConnections to an empty list', () => {
+    const state = parseAppState({ blocks: [blockJson()], activeBlockId: 'b1' })
+    expect(state.blocks[0].inputConnections).toEqual([])
+  })
+
+  it('defaults a legacy block with per-subplan goals to an empty list', () => {
+    const legacy = blockJson({ goals: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
+    const state = parseAppState({ blocks: [legacy], activeBlockId: 'b1' })
+    expect(state.blocks[0].goals).toHaveLength(1)
+    expect(state.blocks[0].inputConnections).toEqual([])
+  })
+
+  it('round-trips connections through JSON unchanged', () => {
+    const connections = [{ id: 'c1', itemId: 'iron-plate', fromBlockId: 'b0' }]
+    const state = parseAppState({
+      blocks: [blockJson({ id: 'b0' }), blockJson({ inputConnections: connections })],
+      activeBlockId: 'b1',
+    })
+    expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+    expect(state.blocks[1].inputConnections).toEqual(connections)
   })
 })

@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
+import { buildClassifiedSystem } from './build'
+import { solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -469,5 +471,50 @@ describe('v2 solver — elastic slack on intermediates', () => {
     if (slackIdx !== -1) {
       expect(goalIdx).toBeLessThan(slackIdx)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Supply caps (items received from other blocks)
+// ---------------------------------------------------------------------------
+
+describe('solveLP — supply caps', () => {
+  function plateSystem() {
+    const gameData = makeGameData({
+      recipes: {
+        gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+        'plate-from-ingot': recipe('plate-from-ingot', 1, [item('ingot', 1)], [product('plate', 1)]),
+        'ingot-from-ore': recipe('ingot-from-ore', 1, [item('ore', 1)], [product('ingot', 1)]),
+      },
+    })
+    // Gear goal 30 needs 60 plate; the pinned recipe makes 30, leaving a deficit of 30.
+    const system = buildClassifiedSystem(
+      gameData,
+      ['gear', 'plate-from-ingot', 'ingot-from-ore'],
+      new Map([['gear', 30]]),
+    )
+    return { system, pins: new Map([['plate-from-ingot', 30]]) }
+  }
+
+  it('uses supply up to its cap and leaves the rest as slack', () => {
+    const { system, pins } = plateSystem()
+    const lp = solveLP(system, pins, new Set(), new Set(), new Map([['plate', 10]]))
+    expect(lp.supply.get('plate')).toBeCloseTo(10, 4)
+    expect(lp.slack.get('plate')).toBeCloseTo(20, 4)
+  })
+
+  it('keeps a locked item feasible when the cap covers the deficit', () => {
+    const { system, pins } = plateSystem()
+    const lp = solveLP(system, pins, new Set(), new Set(['plate']), new Map([['plate', 30]]))
+    expect(lp.feasible).toBe(true)
+    expect(lp.supply.get('plate')).toBeCloseTo(30, 4)
+    expect(lp.slack.size).toBe(0)
+  })
+
+  it('without caps reports no supply', () => {
+    const { system, pins } = plateSystem()
+    const lp = solveLP(system, pins)
+    expect(lp.supply.size).toBe(0)
+    expect(lp.slack.get('plate')).toBeCloseTo(30, 4)
   })
 })

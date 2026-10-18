@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import type { AppState, Block, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import { wouldCreateCycle } from '../solver/blockGraph'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -111,6 +112,7 @@ export function makeEmptyBlock(name: string): Block {
     gameDataVersion: '',
     goals: [],
     noImportItems: [],
+    inputConnections: [],
     rootPlan: makeEmptySubPlan('Main'),
   }
 }
@@ -141,6 +143,10 @@ export interface BlockStoreState {
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
+
+  // Inbound connections (block-level; the active block receives itemId from fromBlockId)
+  addInputConnection: (itemId: string, fromBlockId: string) => void
+  removeInputConnection: (connectionId: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -254,7 +260,12 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   removeBlock: (blockId) =>
     set(state => {
       if (state.blocks.length <= 1) return state
-      const remaining = state.blocks.filter(b => b.id !== blockId)
+      // Drop connections that read from the deleted block (not undoable, like the delete itself).
+      const remaining = state.blocks
+        .filter(b => b.id !== blockId)
+        .map(b => b.inputConnections.some(c => c.fromBlockId === blockId)
+          ? { ...b, inputConnections: b.inputConnections.filter(c => c.fromBlockId !== blockId) }
+          : b)
       const newHistory = { ...state.history }
       delete newHistory[blockId]
       if (state.activeBlockId !== blockId) {
@@ -387,6 +398,39 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
               ? b.noImportItems.filter(i => i !== itemId)
               : [...b.noImportItems, itemId],
           }
+        },
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  addInputConnection: (itemId, fromBlockId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      if (!state.blocks.some(b => b.id === fromBlockId)) return state
+      if (block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === fromBlockId)) return state
+      if (wouldCreateCycle(state.blocks, fromBlockId, block.id)) return state
+      // The id is fixed here so redo restores the same connection.
+      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
+      const cmd: Command = {
+        apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
+        undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  removeInputConnection: (connectionId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      const index = block?.inputConnections.findIndex(c => c.id === connectionId) ?? -1
+      if (!block || index < 0) return state
+      const target = block.inputConnections[index]
+      const cmd: Command = {
+        apply: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connectionId) }),
+        undo: b => {
+          const connections = [...b.inputConnections]
+          connections.splice(index, 0, target)
+          return { ...b, inputConnections: connections }
         },
       }
       return applyCommand(state, cmd)

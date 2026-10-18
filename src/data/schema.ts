@@ -306,6 +306,13 @@ function migrateBlock(input: unknown): unknown {
   }
 }
 
+export const BlockConnectionSchema = z.object({
+  id: z.string(),
+  itemId: z.string(),
+  /** Block whose net output of itemId supplies this block. */
+  fromBlockId: z.string(),
+})
+
 export const BlockSchema = z.preprocess(
   migrateBlock,
   z.object({
@@ -315,6 +322,8 @@ export const BlockSchema = z.preprocess(
     goals: z.array(ProductionGoalSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
+    /** Inbound connections: items this block receives from other blocks' output. */
+    inputConnections: z.array(BlockConnectionSchema).default([]),
     rootPlan: SubPlanSchema,
   }),
 )
@@ -355,6 +364,7 @@ export type RecipeNode = z.output<typeof RecipeNodeSchema>
 export type GameRecipeNode = z.output<typeof GameRecipeNodeSchema>
 export type SubPlanNode = z.output<typeof SubPlanNodeSchema>
 export type SubPlan = SubPlanType
+export type BlockConnection = z.output<typeof BlockConnectionSchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
 

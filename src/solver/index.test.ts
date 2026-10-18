@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { solve, flattenBlock } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, netBalance } from './index'
 import type { GameData, GameRecipeNode, ProductionGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
 function makeGameData(overrides: Partial<GameData> = {}): GameData {
@@ -68,6 +68,7 @@ function makeBlock(rootPlan: SubPlan, goals: ProductionGoal[]): Block {
     gameDataVersion: '',
     goals,
     noImportItems: [],
+    inputConnections: [],
     rootPlan,
   }
 }
@@ -161,5 +162,220 @@ describe('flattenBlock + solve(block) — subplan grouping is solver-transparent
     const plan = flattenBlock(block)
     const ids = plan.nodes.map(n => n.id).sort()
     expect(ids).toEqual(['a', 'b', 'c'])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Connections between blocks
+// ---------------------------------------------------------------------------
+
+const plateRecipe = recipe('plate', 1, [], [product('plate', 1)])
+const gearRecipe = recipe('gear', 1, [{ itemId: 'plate', type: 'item', amount: 2 }], [product('gear', 1)])
+const ingotRecipe = recipe('ingot', 1, [], [product('ingot', 1)])
+const plateFromIngotRecipe = recipe('plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 1)])
+const ingotFromOreRecipe = recipe('ingotFromOre', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('ingot', 1)])
+
+function connectionGameData(): GameData {
+  return makeGameData({
+    recipes: {
+      plate: plateRecipe,
+      gear: gearRecipe,
+      ingot: ingotRecipe,
+      plateFromIngot: plateFromIngotRecipe,
+      ingotFromOre: ingotFromOreRecipe,
+    },
+  })
+}
+
+function pinned(id: string, recipeId: string, pinnedRate: number): RecipeNode {
+  return { ...planNode(id, recipeId), pinnedRate }
+}
+
+function rate(items: { itemId: string; rate: number }[], itemId: string): number {
+  return items.find(u => u.itemId === itemId)?.rate ?? 0
+}
+
+describe('solveBlock — own production first', () => {
+  const gearGoal: ProductionGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
+
+  it('supply covers only what a pinned own recipe leaves over', () => {
+    const plan = { goals: gearGoal, nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)] }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
+    const own = result.nodes.find(n => n.recipeNodeId === 'p')!
+    expect(own.throughput).toBeCloseTo(20, 4)
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+    expect(rate(result.unsatisfied, 'plate'), 'plate is fully covered').toBe(0)
+    expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(20, 4)
+  })
+
+  it('does not take supply when the own recipe can cover the need', () => {
+    const plan = { goals: gearGoal, nodes: [planNode('g', 'gear'), planNode('p', 'plateFromIngot')] }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
+    expect(result.nodes.find(n => n.recipeNodeId === 'p')!.throughput).toBeCloseTo(50, 4)
+    expect(received.get('plate') ?? 0).toBe(0)
+    expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(50, 4)
+  })
+
+  it('keeps importing the upstream item when the own recipe needs it (supply does not replace it)', () => {
+    const plan = {
+      goals: gearGoal,
+      nodes: [planNode('g', 'gear'), planNode('p', 'plateFromIngot'), planNode('i', 'ingotFromOre')],
+      noImportItems: ['ingot'],
+    }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
+    expect(received.get('plate') ?? 0).toBe(0)
+    expect(rate(result.unsatisfied, 'ore')).toBeCloseTo(50, 4)
+    expect(rate(result.unsatisfied, 'plate')).toBe(0)
+  })
+
+  it('takes supply for an item the block cannot make and imports the rest', () => {
+    const plan = { goals: gearGoal, nodes: [planNode('g', 'gear')] }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 40]]))
+    expect(received.get('plate')).toBeCloseTo(40, 4)
+    expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(10, 4)
+  })
+
+  it('takes the deficit, not the cap, when the cap is far above the need', () => {
+    const plan = { goals: gearGoal, nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)] }
+    const { received } = solveBlock(plan, connectionGameData(), new Map([['plate', 1e6]]))
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+
+    const rawOnly = solveBlock({ goals: gearGoal, nodes: [planNode('g', 'gear')] }, connectionGameData(), new Map([['plate', 1e6]]))
+    expect(rawOnly.received.get('plate')).toBeCloseTo(50, 4)
+    expect(rawOnly.result.unsatisfied).toEqual([])
+  })
+
+  it('lets connected supply cover a locked item', () => {
+    const plan = {
+      goals: gearGoal,
+      nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)],
+      noImportItems: ['plate'],
+    }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+    expect(result.nodes.find(n => n.recipeNodeId === 'g')!.throughput).toBeCloseTo(25, 4)
+  })
+
+  it('is identical to solve() without caps', () => {
+    const plan = { goals: gearGoal, nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)] }
+    const gd = connectionGameData()
+    const { result, received } = solveBlock(plan, gd)
+    expect(result).toEqual(solve(plan, gd))
+    expect(received.size).toBe(0)
+  })
+})
+
+describe('netBalance', () => {
+  it('is produced minus consumed per item', () => {
+    const net = netBalance([
+      { inputRates: { a: 2 }, outputRates: { b: 5 } },
+      { inputRates: { b: 1 }, outputRates: { a: 1 } },
+    ])
+    expect(net.get('a')).toBe(-1)
+    expect(net.get('b')).toBe(4)
+  })
+})
+
+describe('solveAll', () => {
+  function block(id: string, goals: ProductionGoal[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
+    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), goals), id, name: id, inputConnections: connections }
+  }
+  const plateGoal = (rate: number): ProductionGoal[] => [{ id: 'gp', itemId: 'plate', rate }]
+  const gearGoal = (rate: number): ProductionGoal[] => [{ id: 'gg', itemId: 'gear', rate }]
+  const link = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
+  const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
+
+  it('feeds the consumer from the source and reports an ok flow', () => {
+    const all = solveAll([
+      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+    ], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.rate).toBeCloseTo(60, 4)
+    expect(f.available).toBeCloseTo(60, 4)
+    expect(f.status).toBe('ok')
+    expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+  })
+
+  it('marks the flow limited when the source offers less than needed', () => {
+    const all = solveAll([
+      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+    ], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.rate).toBeCloseTo(40, 4)
+    expect(f.status).toBe('limited')
+    expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+  })
+
+  it('marks the flow unused when the consumer makes the item itself', () => {
+    const all = solveAll([
+      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear'), planNode('m', 'plateFromIngot')], [link('c1', 'A')]),
+    ], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.rate).toBe(0)
+    expect(f.status).toBe('unused')
+  })
+
+  it('serves several consumers of one source in solve order', () => {
+    const all = solveAll([
+      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('B', gearGoal(15), [planNode('g', 'gear')], [link('cb', 'A')]),
+      block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'cb').rate).toBeCloseTo(30, 4)
+    expect(flowOf(all, 'cc').rate).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'cc').available).toBeCloseTo(10, 4)
+  })
+
+  it('drains several sources of one item in connection order', () => {
+    const all = solveAll([
+      block('A1', plateGoal(20), [planNode('p', 'plate')]),
+      block('A2', plateGoal(50), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A1'), link('c2', 'A2')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1').rate).toBeCloseTo(20, 4)
+    expect(flowOf(all, 'c2').rate).toBeCloseTo(40, 4)
+  })
+
+  it('solves a source listed after its consumer first', () => {
+    const all = solveAll([
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+      block('A', plateGoal(60), [planNode('p', 'plate')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1').rate).toBeCloseTo(60, 4)
+  })
+
+  it('ignores connections to a missing source', () => {
+    const all = solveAll([
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'ghost')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1')).toMatchObject({ status: 'missing-source', rate: 0, available: 0 })
+    expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(60, 4)
+  })
+
+  it('ignores connections inside a cycle but still solves both blocks', () => {
+    const all = solveAll([
+      block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'B', 'gear')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1')).toMatchObject({ status: 'cycle', rate: 0 })
+    expect(flowOf(all, 'c2')).toMatchObject({ status: 'cycle', rate: 0 })
+    expect(all.results.A.nodes).toHaveLength(1)
+    expect(all.results.B.nodes).toHaveLength(1)
+  })
+
+  it('records a failing block in errors and still solves the others', () => {
+    const broken = { ...planNode('g', 'gear'), modules: undefined } as unknown as RecipeNode
+    const all = solveAll([
+      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [broken], [link('c1', 'A')]),
+    ], connectionGameData())
+    expect(all.errors.B).toBeTruthy()
+    expect(all.errors.A).toBeUndefined()
+    expect(all.results.B).toEqual({ nodes: [], unsatisfied: [], warnings: [] })
+    expect(all.results.A.nodes).toHaveLength(1)
+    expect(flowOf(all, 'c1').rate).toBe(0)
   })
 })

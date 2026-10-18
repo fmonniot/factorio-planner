@@ -11,6 +11,8 @@ export interface LPResult {
   throughput: Map<string, number>
   /** external import required per item (itemId → rate); only entries > tolerance */
   slack: Map<string, number>
+  /** items/min taken from `supplyCaps` per item; only entries > tolerance */
+  supply: Map<string, number>
   warnings: SolverWarning[]
   /** feasible flag from the LP solver */
   feasible: boolean
@@ -38,12 +40,15 @@ const BC_BONUS = -0.01
  *   Variables:
  *     x_j ≥ 0  for each recipe j (throughput)
  *     s_i ≥ 0  for each intermediate item i not in noImportItems (external import slack)
+ *     u_i ≥ 0  for each intermediate item i with a supply cap (supply from another block)
  *   Constraints:
  *     - Goal items:         Σ S_ij * x_j ≥ d_i        (hard, no slack)
  *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
+ *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
  *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i
- *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes
+ *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes; supply u_i is free,
+ *     so it is used ahead of slack. Callers cap it at what own production can't cover.
  *
  * Slack s_i represents external import required for item i to balance.
  * BIG_M ensures the LP only uses slack when the network is genuinely infeasible.
@@ -54,6 +59,7 @@ export function solveLP(
   pinnedRates: Map<string, number> = new Map(),
   bcRecipeIds: Set<string> = new Set(),
   noImportItems: Set<string> = new Set(),
+  supplyCaps: Map<string, number> = new Map(),
 ): LPResult {
   const { S, recipes, classification } = system
   const warnings: SolverWarning[] = []
@@ -87,7 +93,11 @@ export function solveLP(
   // itemId → slack variable name (for post-solve extraction)
   const itemToSlack = new Map<string, string>()
 
-  function addConstraintWithSlack(itemId: string, rhs: number) {
+  // itemId → supply variable name (for post-solve extraction)
+  const itemToSupply = new Map<string, string>()
+
+  /** Adds the row for itemId and returns its constraint name. */
+  function addConstraintWithSlack(itemId: string, rhs: number): string {
     const rowS = S.get(itemId)
     const cName = `c${constraintIdx++}`
     constraints[cName] = { min: rhs }
@@ -99,11 +109,12 @@ export function solveLP(
     }
     // No-import items: hard constraint (no slack). LP becomes infeasible if
     // the network can't balance internally.
-    if (noImportItems.has(itemId)) return
+    if (noImportItems.has(itemId)) return cName
     // Slack variable: one per row, coefficient +1 in the row and BIG_M in objective.
     const slackName = `slack_${lpName(itemId)}`
     itemToSlack.set(itemId, slackName)
     variables[slackName] = { __obj__: BIG_M, [cName]: 1 }
+    return cName
   }
 
   // Goal constraints: Σ S_ij * x_j ≥ d_i  (hard — no slack; products must be produced internally)
@@ -121,7 +132,15 @@ export function solveLP(
 
   // Intermediate constraints: Σ S_ij * x_j + s_i ≥ 0  (elastic — slack allowed)
   for (const itemId of classification.intermediates) {
-    addConstraintWithSlack(itemId, 0)
+    const cName = addConstraintWithSlack(itemId, 0)
+    const cap = supplyCaps.get(itemId) ?? 0
+    if (cap > 0) {
+      const supplyName = `supply_${lpName(itemId)}`
+      const capName = `supcap_${lpName(itemId)}`
+      itemToSupply.set(itemId, supplyName)
+      constraints[capName] = { max: cap }
+      variables[supplyName] = { __obj__: 0, [cName]: 1, [capName]: 1 }
+    }
   }
 
   // Pinned rates: x_j = rate (equality via min + max).
@@ -170,5 +189,13 @@ export function solveLP(
     }
   }
 
-  return { throughput, slack, warnings, feasible }
+  const supply = new Map<string, number>()
+  for (const [itemId, supplyName] of itemToSupply) {
+    const val = result[supplyName]
+    if (typeof val === 'number' && val > SLACK_TOLERANCE) {
+      supply.set(itemId, val)
+    }
+  }
+
+  return { throughput, slack, supply, warnings, feasible }
 }

@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import { useSolverStore, selectSolverResult } from '../../store/solverStore'
+import { useSolverStore, selectSolverResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
@@ -10,23 +10,11 @@ import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { WarningsPopover } from './WarningsPopover'
+import { ConnectionMenu, ConnectionChip, ExportChip } from './ConnectionMenu'
+import { netBalance as computeNetBalance } from '../../solver/index'
 
-// ---------------------------------------------------------------------------
-// Net balance helper
-// ---------------------------------------------------------------------------
-
-function computeNetBalance(
-  nodes: { inputRates: Record<string, number>; outputRates: Record<string, number> }[],
-): Map<string, number> {
-  const net = new Map<string, number>()
-  for (const node of nodes) {
-    for (const [id, rate] of Object.entries(node.outputRates))
-      net.set(id, (net.get(id) ?? 0) + rate)
-    for (const [id, rate] of Object.entries(node.inputRates))
-      net.set(id, (net.get(id) ?? 0) - rate)
-  }
-  return net
-}
+/** Rates at or below this are treated as zero. */
+const FLOW_TOLERANCE = 1e-6
 
 // ---------------------------------------------------------------------------
 // GoalTile — shows target → actual with inline edit for target
@@ -160,19 +148,63 @@ export function FactorySummary() {
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
+  const blocks = useBlockStore(s => s.blocks)
+  const setActiveBlock = useBlockStore(s => s.setActiveBlock)
+  const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const allFlows = useSolverStore(selectFlows)
+  const [menuItemId, setMenuItemId] = useState<string | undefined>(undefined)
 
   const goals: ProductionGoal[] = activeBlock?.goals ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
 
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
 
-  // Byproducts: net positive balance not in goals
+  const activeBlockId = activeBlock?.id
+  const inputFlows = useMemo(
+    () => new Map(allFlows.filter(f => f.toBlockId === activeBlockId).map(f => [f.connectionId, f])),
+    [allFlows, activeBlockId],
+  )
+  // Deliveries to other blocks, by item (items/min).
+  const outputFlows = useMemo(
+    () => allFlows.filter(f => f.fromBlockId === activeBlockId && f.rate > FLOW_TOLERANCE),
+    [allFlows, activeBlockId],
+  )
+  const exportedPerMin = new Map<string, number>()
+  for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
+
+  function renderExportChips(itemId: string) {
+    return outputFlows
+      .filter(f => f.itemId === itemId)
+      .map(f => (
+        <ExportChip
+          key={f.connectionId}
+          flow={f}
+          item={gameData?.items[itemId]}
+          consumerName={blocks.find(b => b.id === f.toBlockId)?.name ?? f.toBlockId}
+          onSelectConsumer={() => setActiveBlock(f.toBlockId)}
+        />
+      ))
+  }
+
+  // Byproducts: net positive balance not in goals, minus what other blocks take
   const byproductItems = [...netBalance]
-    .filter(([id, net]) => net > 0 && !goalIds.has(id))
-    .map(([id, net]) => ({ itemId: id, ratePerMin: net }))
+    .filter(([id]) => !goalIds.has(id))
+    .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
+    .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
+  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !goalIds.has(id))
 
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
+  const importedPerMin = new Map(ingredientItems.map(u => [u.itemId, u.rate]))
+  const connections = activeBlock?.inputConnections ?? []
+  // Per item: everything this block needs from outside, whether delivered or still imported.
+  const neededPerMin = new Map<string, number>()
+  for (const c of connections) {
+    neededPerMin.set(c.itemId, importedPerMin.get(c.itemId) ?? 0)
+  }
+  for (const c of connections) {
+    neededPerMin.set(c.itemId, neededPerMin.get(c.itemId)! + (inputFlows.get(c.id)?.rate ?? 0))
+  }
 
   function handleAddGoal(itemId: string, rate: number) {
     addGoal({ id: crypto.randomUUID(), itemId, rate })
@@ -250,15 +282,17 @@ export function FactorySummary() {
         {/* Products — one GoalTile per goal */}
         <SummaryPane label="Products">
           {goals.map(goal => (
-            <GoalTile
-              key={goal.id}
-              goal={goal}
-              actualPerMin={netBalance.get(goal.itemId)}
-              item={gameData?.items[goal.itemId]}
-              rateUnit={rateUnit}
-              onUpdateRate={rate => updateGoalRate(goal.id, rate)}
-              onRemove={() => removeGoal(goal.id)}
-            />
+            <Fragment key={goal.id}>
+              <GoalTile
+                goal={goal}
+                actualPerMin={netBalance.get(goal.itemId)}
+                item={gameData?.items[goal.itemId]}
+                rateUnit={rateUnit}
+                onUpdateRate={rate => updateGoalRate(goal.id, rate)}
+                onRemove={() => removeGoal(goal.id)}
+              />
+              {renderExportChips(goal.itemId)}
+            </Fragment>
           ))}
           <button
             type="button"
@@ -280,20 +314,45 @@ export function FactorySummary() {
               variant="byproduct"
             />
           ))}
+          {exportedByproducts.flatMap(renderExportChips)}
         </SummaryPane>
 
         {/* Ingredients (click an active tile to forbid the LP from importing it;
-            click a locked chip to allow imports again). */}
+            right-click it to receive it from another block; click a locked chip
+            to allow imports again). */}
         <SummaryPane label="Ingredients">
+          {connections.map(c => {
+            const source = blocks.find(b => b.id === c.fromBlockId)
+            return (
+              <ConnectionChip
+                key={c.id}
+                connection={c}
+                flow={inputFlows.get(c.id)}
+                item={gameData?.items[c.itemId]}
+                sourceName={source?.name}
+                neededPerMin={neededPerMin.get(c.itemId) ?? 0}
+                onSelectSource={() => setActiveBlock(c.fromBlockId)}
+                onRemove={() => removeInputConnection(c.id)}
+              />
+            )
+          })}
           {ingredientItems.map(({ itemId, rate }) => (
-            <ItemTile
-              key={itemId}
-              item={gameData?.items[itemId]}
-              ratePerSec={rate / 60}
-              variant="ingredient"
-              onClick={() => toggleNoImportItem(itemId)}
-              title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports of this item`}
-            />
+            <span key={itemId} className="relative inline-flex">
+              <ItemTile
+                item={gameData?.items[itemId]}
+                ratePerSec={rate / 60}
+                variant="ingredient"
+                onClick={() => toggleNoImportItem(itemId)}
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setMenuItemId(itemId)
+                }}
+                title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports, right-click to receive from another block`}
+              />
+              {menuItemId === itemId && (
+                <ConnectionMenu itemId={itemId} onClose={() => setMenuItemId(undefined)} />
+              )}
+            </span>
           ))}
           {noImportItems.map(itemId => (
             <NoImportChip

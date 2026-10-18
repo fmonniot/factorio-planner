@@ -67,8 +67,9 @@ selector on the right.
 goal (or `?` when it has none); the full name is the tab's tooltip. The active
 block's name is printed after the tabs.
 
-- Click a tab to make that block active. Only the active block is shown and
-  solved.
+- Click a tab to make that block active. Only the active block is shown, but
+  every block is solved on each edit (blocks can feed one another; see
+  [Ingredients pane](#ingredients-pane)).
 - `+` adds a new empty block named "Block N" and activates it.
 - Right-click a tab for a small menu: **Rename** (browser prompt) and **Delete**.
   Delete is disabled when only one block remains; deleting the active block
@@ -150,10 +151,14 @@ One `GoalTile` per block goal: item icon, target rate, `→` actual rate, unit.
   once the solver has a result.
 - `×` (on hover) removes the goal.
 - `+` opens the [item picker](#item-picker) to add a goal.
+- An `ExportChip` (`→ <consumer> <rate>`) follows the goal's tile for each block
+  that receives the item from this one. Click it to open that block.
 
 ### Byproducts pane
 
-Every item with a positive net balance that is not a goal, as `ItemTile`s.
+Every item with a positive net balance that is not a goal, as `ItemTile`s. The
+rate shown is the net balance minus what other blocks receive; a tile is hidden
+when nothing is left. `ExportChip`s for exported non-goal items follow the tiles.
 
 ### Ingredients pane
 
@@ -162,6 +167,19 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
 
 - Clicking a tile adds the item to the block's `noImportItems`, which forbids
   the solver from importing it.
+- Right-clicking a tile opens `ConnectionMenu` ("Receive <item> from"): one entry
+  per other block that currently offers the item (with the offered rate),
+  excluding blocks already connected for that item and blocks that would close a
+  cycle. Choosing one adds a connection to the active block. With no candidate
+  the menu reads "No other block produces this item". It closes on Escape or a
+  click outside.
+- Connections come first, as `ConnectionChip`s: item icon, `delivered/needed`,
+  `← <source block>` (click to open the source) and `×` (removes the connection;
+  undoable). `needed` is what is delivered plus what is still imported. States:
+  normal; `limited` (amber border, tooltip "Limited: <source> only offers N",
+  the rest of the need stays in the tiles); `unused` (dimmed, tooltip "Not used:
+  this block makes or needs none from outside"); `(deleted block)` or `(cycle,
+  ignored)` (grey; remove with `×`).
 - Each no-import item is shown after the tiles as a dimmed chip with a 🔒; click
   it to allow imports again.
 

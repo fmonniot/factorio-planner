@@ -17,7 +17,9 @@ A linear program handles both naturally: cycles are just additional constraints,
 
 ## Pipeline
 
-Entry point: `solve(plan, gameData)` in [src/solver/index.ts](../src/solver/index.ts), where `plan = flattenBlock(block)`.
+Entry point: `solveAll(blocks, gameData)` in [src/solver/index.ts](../src/solver/index.ts). It orders the blocks with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) so every source is solved before its consumers, then calls `solveBlock(plan, gameData, supplyCaps)` for each one, where `plan = flattenBlock(block)` and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`.
+
+Per block, `solveBlock` runs:
 
 1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted).
 2. `computeNodeEffects` — module + beacon bonuses per node ([src/solver/effects.ts](../src/solver/effects.ts)).
@@ -25,11 +27,11 @@ Entry point: `solve(plan, gameData)` in [src/solver/index.ts](../src/solver/inde
 4. `no-recipe` check on goals.
 5. Apply `byproductPolicy = 'discard'` (zeroes coefficients in `S`).
 6. Collect pins and the no-import set.
-7. `solveLP` — build and solve the LP ([src/solver/solve.ts](../src/solver/solve.ts)).
-8. Diagnostics: overconstrained surplus, goal shortfalls, intermediate slack, raw consumption.
+7. `solveLP` — build and solve the LP ([src/solver/solve.ts](../src/solver/solve.ts)); a second pass when connected supply is needed.
+8. Diagnostics: overconstrained surplus, goal shortfalls, intermediate slack, raw consumption (reduced by what was received).
 9. `computeMachineMetrics` — machine count and power per node.
 
-The result is a `SolverResult` `{ nodes, unsatisfied, warnings }` (see [src/data/types.ts](../src/data/types.ts)). Rates are per minute; recipe throughput is executions per minute.
+The result is a `SolverResult` `{ nodes, unsatisfied, warnings }` (see [src/data/types.ts](../src/data/types.ts)); `solveAll` returns one per block plus the connection flows. Rates are per minute; recipe throughput is executions per minute.
 
 ---
 
@@ -53,6 +55,7 @@ Variables:
 ```
 x_j ≥ 0   for each recipe j                                   (throughput, executions/minute)
 s_i ≥ 0   for each intermediate i not in noImportItems        (external import slack)
+u_i ≥ 0   for each intermediate i with a supply cap           (supply from another block; pass 2 only)
 ```
 
 Constraints:
@@ -61,6 +64,7 @@ Constraints:
 Σ S_ij · x_j        ≥ d_i      for each goal i with a row in S             (hard, no slack)
 Σ S_ij · x_j + s_i  ≥ 0        for each intermediate i                     (elastic)
 Σ S_ij · x_j        ≥ 0        for each intermediate i in noImportItems    (hard)
+Σ S_ij · x_j + u_i (+ s_i)  ≥ 0, u_i ≤ cap_i   for each intermediate i with a supply cap
 x_j                 = pin_j    for each pinned recipe j
 ```
 
@@ -69,7 +73,7 @@ x_j                 = pin_j    for each pinned recipe j
 Objective:
 
 ```
-minimize  Σ c_j · x_j  +  BIG_M · Σ s_i
+minimize  Σ c_j · x_j  +  BIG_M · Σ s_i      (supply u_i costs 0)
           c_j = BC_BONUS for byproduct-consumer recipes, 1 otherwise
 ```
 
@@ -106,7 +110,7 @@ Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
 - **Goal shortfall** — goal target minus the net actual rate (sum of `outputRates − inputRates` over all nodes), when positive.
 - **Intermediate slack** — each `s_i` above tolerance: the item must come from outside.
-- **Raw consumption** — total consumption of each `raw` item across recipes. Items already reported as a goal shortfall are skipped.
+- **Raw consumption** — total consumption of each `raw` item across recipes, minus what the block receives of it from connected blocks (dropped when nothing is left). Items already reported as a goal shortfall are skipped.
 
 `unsatisfied` is ordered goal shortfalls, then intermediate slack, then raw consumption.
 
@@ -123,6 +127,41 @@ The first three knobs sit on individual recipe nodes; `noImportItems` sits on th
 - **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input.
 
 `primaryProduct` on a node is display-only; the solver ignores it.
+
+---
+
+## Connections between blocks
+
+A `BlockConnection` on block B says "B receives item X from block A" (see [data-model.md](data-model.md#block)). The model is push-based: A's own goals drive A's LP and consumers only draw on what A has left over. **B always uses its own recipes first**; connected supply covers only what B would otherwise import.
+
+**Offer.** What a source can offer of X is `max(0, Σ outputRates[X] − Σ inputRates[X])` over its solved nodes (`netBalance`): goal output, surplus intermediates and byproducts. A block's received items are consumed by its own recipes, so it never re-exports them.
+
+**Solve order.** `orderBlocks` sorts blocks topologically (Kahn's algorithm, ties broken by position in `blocks`). `solveAll` keeps, per block, the offer still unclaimed. Several consumers of the same `(A, X)` are served in solve order, each getting what earlier ones left. Several sources of the same `(B, X)` are summed into one cap, and the amount delivered is split between them in `inputConnections` order. A block with no goals or no nodes offers and receives nothing.
+
+**What B takes.** `delivered = min(what B would otherwise import, what is still on offer)`, where "would otherwise import" depends on how X is classified in B:
+
+- **Raw in B** (no recipe in B makes X): all of B's consumption of X. No LP change; after the solve `received = min(consumption, cap)` and the `rawConsumption` entry is reduced by it.
+- **Intermediate in B** (B can make X): the slack B needs for X after running its own recipes as far as they go. Pins, locked upstream items or missing upstream recipes limit how far that is.
+- **Goal or byproduct in B**: nothing is taken (flow status `unused`).
+
+**Own production first: two passes.** One LP cannot guarantee the ordering (a cost on the supply variable would have to exceed an unbounded recipe-chain cost yet stay below `BIG_M` times the units it replaces), so `solveBlock` runs up to two:
+
+1. *Measure.* Solve with no supply variables. Connected items are removed from the no-import set for this pass only, so a locked connected item reports its shortfall as slack instead of making the LP infeasible. The residual of a connected intermediate is its slack.
+2. *Fill.* Only if some connected intermediate has a residual above `1e-6`: solve again with the original no-import set plus, per such item, a supply variable `u_i` (objective cost 0) and a constraint `u_i ≤ min(cap_i, residual_i)`. Capping at the residual keeps own production at its pass-1 level (replacing it would bring slack back at `BIG_M`), and supply fills the gap ahead of slack (0 < `BIG_M`).
+
+Diagnostics come from the final pass only. The amount actually received is computed after the solve as `min(u_i, max(0, −net_i))` rather than from `u_i` alone, because a degenerate optimum may leave `u_i` above the deficit. Locking an item (`noImportItems`) does not block connected supply, but a locked item the supply cannot fully cover makes the LP infeasible exactly as it would without connections.
+
+**Own production that needs an import.** If B can make X only by importing an upstream item Y, B's recipe still counts as covering X: Y stays an import and the connected X is not used. Connect Y as well to feed it. Supply never replaces an upstream import. For the same reason, supply never makes a byproduct-consumer recipe run harder: it only fills a shortfall, while that recipe only consumes surplus.
+
+**Flow status** (`ConnectionFlow.status`, per connection):
+
+- `limited` — B still imports the item and takes everything on offer (`rate ≥ available − 1e-6`).
+- `unused` — otherwise, when `rate ≤ 1e-6` (B makes the item, or does not need it from outside).
+- `ok` — otherwise.
+- `missing-source` — the source block does not exist; the connection is ignored.
+- `cycle` — the connection lies on a cycle (only possible in imported JSON); it is ignored. Every other block is still solved.
+
+A repeated `(fromBlockId, itemId)` on one block counts once. A block whose solve throws gets an empty result, offers nothing, and is reported in `MultiBlockSolve.errors`; other blocks are unaffected.
 
 ---
 
@@ -163,9 +202,6 @@ Drain is not affected by consumption modules. Beacon power is not counted.
 
 The solver is fully stateless: every call recomputes from scratch. There is no incremental update logic.
 
-`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one solve of the active block. It skips the solver when:
+`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll` over every block (up to two LPs per block). It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
 
-- no game data is loaded — status becomes `idle`;
-- there is no active block, or the block has zero goals or zero nodes — status becomes `solved` with an empty result.
-
-Solver exceptions set status `error`. `lastResult` keeps the most recent successful result while a re-solve is pending, so views don't flash.
+The store keeps `lastResults` (every block's result by id) and `flows`. `status` and `lastResult` follow the active block, so `selectSolverResult` is unchanged. A solver exception in the active block sets status `error`; in any other block it only leaves that block's result empty. `lastResult` keeps the most recent successful result while a re-solve is pending, so views don't flash.

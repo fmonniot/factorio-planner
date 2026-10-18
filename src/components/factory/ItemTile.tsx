@@ -35,6 +35,7 @@ interface ItemTileProps {
   ratePerSec: number
   variant: ItemTileVariant
   onClick?: () => void
+  onContextMenu?: (e: React.MouseEvent) => void
   title?: string
 }
 
@@ -45,7 +46,7 @@ const variantClasses: Record<ItemTileVariant, string> = {
   electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
-export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTileProps) {
+export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
   const cls = variantClasses[variant]
 
@@ -83,6 +84,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTile
       <button
         type="button"
         onClick={onClick}
+        onContextMenu={onContextMenu}
         title={title ?? item?.name}
         className={`${baseClass} hover:brightness-125 cursor-pointer`}
       >
@@ -92,7 +94,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, title }: ItemTile
   }
 
   return (
-    <span title={title ?? item?.name} className={baseClass}>
+    <span title={title ?? item?.name} onContextMenu={onContextMenu} className={baseClass}>
       {inner}
     </span>
   )
