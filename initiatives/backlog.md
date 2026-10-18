@@ -53,7 +53,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
-- [ ] **Row actions on right click.** Move the four buttons at the start of every product row (absorb byproduct, pin, subfactory, delete) into a menu opened by right-clicking the recipe portion of the row, so the actions are available there too.
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 
 ## Data sets

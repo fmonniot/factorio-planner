@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { RecipeDndProvider } from './RecipeDnd'
@@ -532,5 +532,153 @@ describe('RecipeRow — v2 surplus intermediate renders as byproduct', () => {
     // steam appears as a byproduct tile (non-primary output — button with red-950 class)
     const steamTiles = screen.getAllByTitle(/Steam/i)
     expect(steamTiles.length).toBeGreaterThan(0)
+  })
+})
+
+describe('RecipeRow context menu', () => {
+  function openMenu() {
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
+  }
+  const nodes = () => useBlockStore.getState().blocks[0].rootPlan.nodes
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
+  it('right-clicking the recipe icon opens a menu with the four actions', () => {
+    renderRow()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    openMenu()
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    const labels = screen.getAllByRole('menuitem').map(i => i.textContent)
+    expect(labels).toEqual(['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+  })
+
+  it('Remove recipe removes the node and closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove recipe' }))
+    expect(nodes()).toHaveLength(0)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('Pin rate pins the node and the button title switches to Unpin rate', () => {
+    const { unmount } = renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
+    const node = nodes()[0]
+    expect(node.kind === 'game-recipe' && node.pinnedRate).toBeGreaterThan(0)
+    // Props are static in the harness: re-render with the updated store node.
+    unmount()
+    renderRow({ planNode: node })
+    expect(screen.getByTitle('Unpin rate')).toBeInTheDocument()
+  })
+
+  it('a pinned node offers Unpin rate', () => {
+    const pinned: RecipeNode = { ...ironPlateRecipeNode, pinnedRate: 2 }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [pinned] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    renderRow({ planNode: pinned })
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Unpin rate' }))
+    const node = nodes()[0]
+    expect(node.kind === 'game-recipe' && node.pinnedRate).toBeUndefined()
+  })
+
+  it('a byproduct consumer shows Stop absorbing byproduct and no pin item', () => {
+    const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
+    renderRow({ planNode: bc })
+    openMenu()
+    expect(screen.getByRole('menuitem', { name: 'Stop absorbing byproduct' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /pin rate/i })).not.toBeInTheDocument()
+  })
+
+  it('Absorb byproduct marks the node as a byproduct consumer', () => {
+    renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Absorb byproduct' }))
+    const node = nodes()[0]
+    expect(node.kind === 'game-recipe' && node.byproductConsumer).toBe(true)
+  })
+
+  it('Wrap in subfactory prompts for a name and wraps the node', () => {
+    const prompt = vi.fn().mockReturnValue('My group')
+    vi.stubGlobal('prompt', prompt)
+    renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Wrap in subfactory…' }))
+    expect(prompt).toHaveBeenCalledWith('Subfactory name:', 'Iron Plate')
+    expect(nodes()[0].kind).toBe('subplan')
+  })
+
+  it('Escape closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('mousedown outside closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('right-clicking inside the open menu keeps it in place', () => {
+    renderRow()
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 10, clientY: 20 })
+    const menu = screen.getByRole('menu')
+    const { left, top } = menu.style
+    fireEvent.contextMenu(screen.getAllByRole('menuitem')[0], { clientX: 300, clientY: 400 })
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getByRole('menu').style.left).toBe(left)
+    expect(screen.getByRole('menu').style.top).toBe(top)
+  })
+
+  it('mousedown inside the menu does not close it', () => {
+    renderRow()
+    openMenu()
+    fireEvent.mouseDown(screen.getAllByRole('menuitem')[0])
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('scrolling closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.scroll(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('window blur closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.blur(window)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('shifts the menu back inside the viewport', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 160, height: 120, x: 0, y: 0, top: 0, left: 0, right: 160, bottom: 120,
+      toJSON: () => ({}),
+    })
+    vi.stubGlobal('innerWidth', 500)
+    vi.stubGlobal('innerHeight', 300)
+    renderRow()
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 480, clientY: 290 })
+    const menu = screen.getByRole('menu')
+    expect(menu.style.left).toBe('340px')
+    expect(menu.style.top).toBe('180px')
+  })
+
+  it('right-clicking a non-recipe cell does not open the menu', () => {
+    renderRow()
+    fireEvent.contextMenu(screen.getByText('⚡'))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })

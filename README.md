@@ -18,7 +18,7 @@ In the **Products** pane of the summary panel, use the **+** button (tooltip "Ad
 
 ### 3. Read and shape the production table
 
-Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there:
+Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there (the row's pin, absorb, wrap and remove actions are also in a menu you get by right-clicking the recipe cell):
 
 - **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.

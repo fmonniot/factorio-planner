@@ -10,6 +10,7 @@ import { BeaconCell } from './BeaconPopover'
 import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
+import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -66,6 +67,7 @@ export function RecipeRow({
 
   const indentPx = depth * 16
   const [editMachineOpen, setEditMachineOpen] = useState(false)
+  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
 
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.effectAllowed = 'move'
@@ -223,6 +225,28 @@ export function RecipeRow({
     updateNodePinnedRate(planNode.id, undefined)
   }
 
+  function handleToggleByproductConsumer() {
+    updateNodeByproductConsumer(planNode.id, !isByproductConsumer)
+  }
+
+  function handleWrap() {
+    const name = window.prompt('Subfactory name:', recipe.name)
+    if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
+  }
+
+  // Same actions as the hover buttons, in the same order.
+  const rowActions: RowAction[] = [
+    {
+      label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
+      onSelect: handleToggleByproductConsumer,
+    },
+    ...(!isByproductConsumer
+      ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
+      : []),
+    { label: 'Wrap in subfactory…', onSelect: handleWrap },
+    { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
+  ]
+
   function handlePinnedRateChange(raw: string) {
     const v = parseFloat(raw)
     if (isFinite(v) && v > 0) {
@@ -253,12 +277,19 @@ export function RecipeRow({
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
       {/* Recipe icon + wrap + pin */}
-      <td className="px-2 py-0.5 whitespace-nowrap" style={{ paddingLeft: `${8 + indentPx}px` }}>
+      <td
+        className="px-2 py-0.5 whitespace-nowrap"
+        style={{ paddingLeft: `${8 + indentPx}px` }}
+        onContextMenu={e => {
+          e.preventDefault()
+          setMenuPos({ x: e.clientX, y: e.clientY })
+        }}
+      >
         <div className="flex items-center gap-1">
           {/* Byproduct-consumer toggle */}
           <button
             type="button"
-            onClick={() => updateNodeByproductConsumer(planNode.id, !isByproductConsumer)}
+            onClick={handleToggleByproductConsumer}
             title={isByproductConsumer ? 'Stop absorbing byproduct (re-enter main solve)' : 'Only run to absorb byproduct from other recipes'}
             className={`text-sm leading-none shrink-0 transition-opacity ${
               isByproductConsumer
@@ -286,10 +317,7 @@ export function RecipeRow({
           {/* Wrap in subfactory */}
           <button
             type="button"
-            onClick={() => {
-              const name = window.prompt('Subfactory name:', recipe.name)
-              if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
-            }}
+            onClick={handleWrap}
             className="text-gray-700 hover:text-gray-500 text-[10px] leading-none shrink-0 opacity-0 group-hover:opacity-100"
             title="Wrap in subfactory"
           >
@@ -321,6 +349,9 @@ export function RecipeRow({
             </span>
           )}
         </div>
+        {menuPos && (
+          <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />
+        )}
       </td>
 
       {/* Machine + module slots */}
