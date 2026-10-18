@@ -427,6 +427,43 @@ describe('input connections', () => {
     expect(active().inputConnections.map(c => c.id)).toEqual([first.id, second.id, last.id])
   })
 
+  it('undo of a removal is dropped when it would now close a cycle', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().removeInputConnection(active().inputConnections[0].id)
+    store().setActiveBlock(sourceId)
+    store().addInputConnection('gear', activeId)
+    store().setActiveBlock(activeId)
+
+    store().undo()
+    expect(active().inputConnections).toEqual([])
+    // The invalid command was dropped, so the earlier add can still be undone.
+    expect(store().history[activeId].undoStack).toHaveLength(1)
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+  })
+
+  it('redo of an add is dropped when it would now close a cycle', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().undo()
+    store().setActiveBlock(sourceId)
+    store().addInputConnection('gear', activeId)
+    store().setActiveBlock(activeId)
+
+    store().redo()
+    expect(active().inputConnections).toEqual([])
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+  })
+
+  it('redo of an add is dropped when the source was deleted', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().undo()
+    useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== sourceId) }))
+    store().redo()
+    expect(active().inputConnections).toEqual([])
+  })
+
   it('removeInputConnection ignores an unknown id', () => {
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().removeInputConnection('nope')

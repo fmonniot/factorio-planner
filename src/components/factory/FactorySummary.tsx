@@ -1,6 +1,6 @@
 import { Fragment, useMemo, useState } from 'react'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import { useSolverStore, selectSolverResult, selectFlows } from '../../store/solverStore'
+import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
@@ -11,10 +11,7 @@ import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { WarningsPopover } from './WarningsPopover'
 import { ConnectionMenu, ConnectionChip, ExportChip } from './ConnectionMenu'
-import { netBalance as computeNetBalance } from '../../solver/index'
-
-/** Rates at or below this are treated as zero. */
-const FLOW_TOLERANCE = 1e-6
+import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
 // GoalTile — shows target → actual with inline edit for target
@@ -135,7 +132,7 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
 export function FactorySummary() {
   const activeBlock = useBlockStore(selectActiveBlock)
   const renameBlock = useBlockStore(s => s.renameBlock)
-  const solverResult = useSolverStore(selectSolverResult)
+  const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
   const setRateUnit = useUiStore(s => s.setRateUnit)
@@ -336,24 +333,28 @@ export function FactorySummary() {
               />
             )
           })}
-          {ingredientItems.map(({ itemId, rate }) => (
+          {ingredientItems.map(({ itemId, rate }) => {
+            const connectable = !goalIds.has(itemId)
+            return (
             <span key={itemId} className="relative inline-flex">
               <ItemTile
                 item={gameData?.items[itemId]}
                 ratePerSec={rate / 60}
                 variant="ingredient"
                 onClick={() => toggleNoImportItem(itemId)}
-                onContextMenu={e => {
+                // A goal shortfall cannot be fed by a connection (goals never receive supply).
+                onContextMenu={connectable ? e => {
                   e.preventDefault()
                   setMenuItemId(itemId)
-                }}
-                title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports, right-click to receive from another block`}
+                } : undefined}
+                title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports${connectable ? ', right-click to receive from another block' : ''}`}
               />
-              {menuItemId === itemId && (
+              {connectable && menuItemId === itemId && (
                 <ConnectionMenu itemId={itemId} onClose={() => setMenuItemId(undefined)} />
               )}
             </span>
-          ))}
+            )
+          })}
           {noImportItems.map(itemId => (
             <NoImportChip
               key={itemId}

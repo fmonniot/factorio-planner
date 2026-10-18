@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useSolverStore, wireSolver, selectSolverResult } from './solverStore'
+import { useSolverStore, wireSolver, selectSolverResult, selectBlockResult } from './solverStore'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import type { GameData } from '../data/types'
@@ -46,7 +46,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, flows: [] })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [] })
   unwire = wireSolver()
 })
 
@@ -210,6 +210,26 @@ describe('wireSolver — several blocks', () => {
     vi.runAllTimers()
     expect(useSolverStore.getState().lastResult).toBe(useSolverStore.getState().lastResults[plates.id])
     expect(useSolverStore.getState().lastResult).not.toBe(useSolverStore.getState().lastResults[gears.id])
+  })
+
+  it('swaps to the new block immediately, without re-solving', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    const before = useSolverStore.getState().lastResults
+    useBlockStore.getState().setActiveBlock(plates.id)
+    // No timers have run: the stored result is already the new block's.
+    const state = useSolverStore.getState()
+    expect(state.lastResult).toBe(before[plates.id])
+    expect(state.lastResult).not.toBe(before[gears.id])
+    expect(state.status.type === 'solved' && state.status.result).toBe(before[plates.id])
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResults).toBe(before)
+  })
+
+  it('selectBlockResult follows the requested block, not the last solved one', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    const state = useSolverStore.getState()
+    expect(selectBlockResult(plates.id)(state)).toBe(state.lastResults[plates.id])
+    expect(selectBlockResult(gears.id)(state)).toBe(state.lastResults[gears.id])
   })
 
   it('keeps the status solved when an inactive block fails', () => {

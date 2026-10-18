@@ -20,10 +20,14 @@ export interface SolverStoreState {
   lastResult: SolverResult | undefined
   /** Latest result of every block (blockId → result); the active block's is also `lastResult`. */
   lastResults: Record<string, SolverResult>
+  /** Latest solver error of every block that failed (blockId → message). */
+  lastErrors: Record<string, string>
   /** Latest delivery on every block-to-block connection. */
   flows: ConnectionFlow[]
   /** Internal — set by the subscription wiring; not for direct use. */
   _setStatus: (status: SolverStatus) => void
+  /** Internal — point status/lastResult at another block using the stored results (no solve). */
+  _selectBlock: (blockId: string) => void
   /** Internal — store a whole-plan solve; `status`/`lastResult` follow the active block. */
   _setSolved: (all: MultiBlockSolve, activeBlockId: string) => void
 }
@@ -32,6 +36,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
   status: { type: 'idle' },
   lastResult: undefined,
   lastResults: {},
+  lastErrors: {},
   flows: [],
   _setStatus: (status) => {
     if (status.type === 'solved') {
@@ -40,20 +45,23 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
       set({ status })
     }
   },
+  _selectBlock: (blockId) =>
+    set(state => {
+      const error = state.lastErrors[blockId]
+      if (error !== undefined) return { status: { type: 'error', message: error } }
+      const result = state.lastResults[blockId]
+      return result ? { status: { type: 'solved', result }, lastResult: result } : {}
+    }),
   _setSolved: (all, activeBlockId) => {
+    const shared = { lastResults: all.results, lastErrors: all.errors, flows: all.flows }
     const error = all.errors[activeBlockId]
     // A failure in one block is that block's status only; other blocks stay solved.
     if (error !== undefined) {
-      set({ status: { type: 'error', message: error }, lastResults: all.results, flows: all.flows })
+      set({ status: { type: 'error', message: error }, ...shared })
       return
     }
     const result = all.results[activeBlockId] ?? { nodes: [], unsatisfied: [], warnings: [] }
-    set({
-      status: { type: 'solved', result },
-      lastResult: result,
-      lastResults: all.results,
-      flows: all.flows,
-    })
+    set({ status: { type: 'solved', result }, lastResult: result, ...shared })
   },
 }))
 
@@ -76,6 +84,7 @@ export function wireSolver(): () => void {
 
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
+      timer = undefined
       const { blocks, activeBlockId } = useBlockStore.getState()
       const gameData = selectGameData(useGameDataStore.getState())
 
@@ -95,7 +104,20 @@ export function wireSolver(): () => void {
     }, DEBOUNCE_MS)
   }
 
-  const unsubBlocks = useBlockStore.subscribe(schedule)
+  // Switching tabs changes no block, so the stored results are already right:
+  // only repoint the active block's status instead of re-solving every block.
+  const unsubBlocks = useBlockStore.subscribe((state, prev) => {
+    if (
+      state.blocks === prev.blocks &&
+      state.activeBlockId !== prev.activeBlockId &&
+      timer === undefined &&
+      state.activeBlockId in useSolverStore.getState().lastResults
+    ) {
+      useSolverStore.getState()._selectBlock(state.activeBlockId)
+      return
+    }
+    schedule()
+  })
   const unsubGameData = useGameDataStore.subscribe(schedule)
 
   return () => {
@@ -113,6 +135,18 @@ export function wireSolver(): () => void {
  *  Remains defined during re-solves so views don't unmount mid-interaction. */
 export function selectSolverResult(state: SolverStoreState): SolverResult | undefined {
   return state.lastResult
+}
+
+/**
+ * The latest result of one block. Unlike `selectSolverResult` this follows the
+ * block it is asked for, so a view stays consistent right after the active
+ * block changes, before the next solve lands. Falls back to `lastResult` while
+ * no per-block results exist yet.
+ */
+export function selectBlockResult(blockId: string | undefined) {
+  return (state: SolverStoreState): SolverResult | undefined =>
+    (blockId !== undefined ? state.lastResults[blockId] : undefined) ??
+    (Object.keys(state.lastResults).length === 0 ? state.lastResult : undefined)
 }
 
 /** Latest result of every block, keyed by block id. */

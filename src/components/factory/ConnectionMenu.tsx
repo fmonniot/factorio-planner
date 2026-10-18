@@ -1,10 +1,10 @@
 import { useEffect, useRef } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { wouldCreateCycle } from '../../solver/blockGraph'
-import { netBalance } from '../../solver/index'
+import { netBalance, FLOW_TOLERANCE } from '../../solver/index'
 import { Icon } from '../Icon'
 import { fmtRate } from './ItemTile'
 import type { BlockConnection, ConnectionFlow, Item } from '../../data/types'
@@ -12,8 +12,6 @@ import type { BlockConnection, ConnectionFlow, Item } from '../../data/types'
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
 // ---------------------------------------------------------------------------
-
-const OFFER_TOLERANCE = 1e-6
 
 interface ConnectionMenuProps {
   itemId: string
@@ -25,16 +23,23 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const results = useSolverStore(selectBlockResults)
+  const flows = useSolverStore(selectFlows)
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
   const ref = useRef<HTMLDivElement>(null)
 
+  // Keep the latest onClose in a ref so the document listeners bind once.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+
   useEffect(() => {
     function handleMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current()
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') onCloseRef.current()
     }
     document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('keydown', handleKeyDown)
@@ -42,7 +47,7 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
       document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('keydown', handleKeyDown)
     }
-  }, [onClose])
+  }, [])
 
   const active = blocks.find(b => b.id === activeBlockId)
   const itemName = gameData?.items[itemId]?.name ?? itemId
@@ -52,8 +57,15 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
     .filter(b => b.id !== activeBlockId)
     .filter(b => !active?.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === b.id))
     .filter(b => !wouldCreateCycle(blocks, b.id, activeBlockId))
-    .map(b => ({ block: b, offered: netBalance(results[b.id]?.nodes ?? []).get(itemId) ?? 0 }))
-    .filter(({ offered }) => offered > OFFER_TOLERANCE)
+    .map(b => {
+      // What is left after the deliveries to the source's other consumers.
+      const taken = flows
+        .filter(f => f.fromBlockId === b.id && f.itemId === itemId)
+        .reduce((sum, f) => sum + f.rate, 0)
+      const offered = (netBalance(results[b.id]?.nodes ?? []).get(itemId) ?? 0) - taken
+      return { block: b, offered }
+    })
+    .filter(({ offered }) => offered > FLOW_TOLERANCE)
 
   return (
     <div

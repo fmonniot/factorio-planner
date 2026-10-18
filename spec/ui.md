@@ -167,8 +167,11 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
 
 - Clicking a tile adds the item to the block's `noImportItems`, which forbids
   the solver from importing it.
-- Right-clicking a tile opens `ConnectionMenu` ("Receive <item> from"): one entry
-  per other block that currently offers the item (with the offered rate),
+- Right-clicking a tile opens `ConnectionMenu` ("Receive <item> from"), except on
+  a goal shortfall (goals are never fed by connections, so those tiles have no
+  menu): one entry per other block that still has the item to give (the offered
+  rate minus what it already delivers to other blocks; sources with nothing left
+  are not listed),
   excluding blocks already connected for that item and blocks that would close a
   cycle. Choosing one adds a connection to the active block. With no candidate
   the menu reads "No other block produces this item". It closes on Escape or a

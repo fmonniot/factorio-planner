@@ -216,16 +216,35 @@ describe('solveBlock — own production first', () => {
     expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(50, 4)
   })
 
-  it('keeps importing the upstream item when the own recipe needs it (supply does not replace it)', () => {
+  // Pins today's behaviour of the "own production that needs an import" rule, which
+  // depends on the recipe ratio (see spec/solver.md). `ingotFromOre` is pinned at 10,
+  // so ingot is short, and plate can only come from the ingot.
+  describe('own production that needs an upstream import', () => {
+    const gd = (ingotPerPlate: number, platesPerRun: number): GameData => {
+      const data = connectionGameData()
+      data.recipes.plateFromIngot = recipe(
+        'plateFromIngot', 1,
+        [{ itemId: 'ingot', type: 'item', amount: ingotPerPlate }],
+        [product('plate', platesPerRun)],
+      )
+      return data
+    }
     const plan = {
       goals: gearGoal,
-      nodes: [planNode('g', 'gear'), planNode('p', 'plateFromIngot'), planNode('i', 'ingotFromOre')],
-      noImportItems: ['ingot'],
+      nodes: [planNode('g', 'gear'), planNode('p', 'plateFromIngot'), pinned('i', 'ingotFromOre', 10)],
     }
-    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
-    expect(received.get('plate') ?? 0).toBe(0)
-    expect(rate(result.unsatisfied, 'ore')).toBeCloseTo(50, 4)
-    expect(rate(result.unsatisfied, 'plate')).toBe(0)
+
+    it('1 ingot -> 1 plate: slack on plate is cheaper, so supply replaces the import', () => {
+      const { result, received } = solveBlock(plan, gd(1, 1), new Map([['plate', 100]]))
+      expect(received.get('plate')).toBeCloseTo(40, 4)
+      expect(rate(result.unsatisfied, 'ingot')).toBe(0)
+    })
+
+    it('1 ingot -> 2 plates: the upstream import stays and the supply is not used', () => {
+      const { result, received } = solveBlock(plan, gd(1, 2), new Map([['plate', 100]]))
+      expect(received.size).toBe(0)
+      expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(15, 4)
+    })
   })
 
   it('takes supply for an item the block cannot make and imports the rest', () => {
@@ -254,6 +273,21 @@ describe('solveBlock — own production first', () => {
     const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
     expect(received.get('plate')).toBeCloseTo(30, 4)
     expect(result.nodes.find(n => n.recipeNodeId === 'g')!.throughput).toBeCloseTo(25, 4)
+  })
+
+  it('keeps pins and reports the real delivery when a locked item is only partly offered', () => {
+    const plan = {
+      goals: gearGoal,
+      nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)],
+      noImportItems: ['plate'],
+    }
+    const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 10]]))
+    expect(result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    expect(result.nodes.find(n => n.recipeNodeId === 'p')!.throughput).toBeCloseTo(20, 4)
+    expect(result.nodes.find(n => n.recipeNodeId === 'g')!.throughput).toBeCloseTo(25, 4)
+    expect(received.get('plate')).toBeCloseTo(10, 4)
+    // The rest of the lock cannot be honoured and shows up as an import.
+    expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(20, 4)
   })
 
   it('is identical to solve() without caps', () => {
@@ -316,6 +350,36 @@ describe('solveAll', () => {
     const f = flowOf(all, 'c1')
     expect(f.rate).toBe(0)
     expect(f.status).toBe('unused')
+  })
+
+  it('reports a limited flow, not ok, for a locked item that is only partly offered', () => {
+    const locked: Block = {
+      ...block('B', gearGoal(25), [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)], [link('c1', 'A')]),
+      noImportItems: ['plate'],
+    }
+    const all = solveAll([block('A', plateGoal(10), [planNode('p', 'plate')]), locked], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.rate).toBeCloseTo(10, 4)
+    expect(f.status).toBe('limited')
+    expect(all.results.B.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+  })
+
+  it('marks a repeated (source, item) connection unused instead of limited', () => {
+    const all = solveAll([
+      block('A', plateGoal(10), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A'), link('c2', 'A')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1').status).toBe('limited')
+    expect(flowOf(all, 'c2')).toMatchObject({ rate: 0, available: 0, status: 'unused' })
+  })
+
+  it('does not feed a goal item: the shortfall stays and the flow is unused', () => {
+    const all = solveAll([
+      block('A', gearGoal(30), [planNode('p', 'plate'), planNode('g', 'gear')]),
+      block('B', gearGoal(25), [planNode('x', 'plate')], [link('c1', 'A', 'gear')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1')).toMatchObject({ rate: 0, status: 'unused' })
+    expect(rate(all.results.B.unsatisfied, 'gear')).toBeCloseTo(25, 4)
   })
 
   it('serves several consumers of one source in solve order', () => {

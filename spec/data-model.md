@@ -327,7 +327,9 @@ them from the sub-plans. Block-level values already present on the input win.
 source by id, so renaming a block changes nothing and a source is never modified
 by its consumers. A block must not connect to itself or twice to the same
 `(fromBlockId, itemId)`, and connections must not form a cycle; the store enforces
-all three when a connection is added. Deleting a block removes the connections
+all three when a connection is added, and again on redo of an add and undo of a
+removal (a command that is no longer legal is dropped from the history instead of
+applied). Deleting a block removes the connections
 that read from it (`removeBlock`), but imported or hand-edited JSON can still
 contain a source that does not exist or a cycle: the solver ignores those
 connections and reports them as `missing-source` / `cycle`. Plans saved before

@@ -303,7 +303,12 @@ describe('FactorySummary — connections', () => {
     useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: opts.activeId, history: {} })
     useSolverStore.setState({
       lastResult: opts.result ?? emptyResult(),
-      lastResults: { consumer: emptyResult(), miner: opts.minerOffers === false ? emptyResult() : minerResult() },
+      lastResults: {
+        consumer: emptyResult(),
+        miner: opts.minerOffers === false ? emptyResult() : minerResult(),
+        // The active block's own result is the one passed in.
+        [opts.activeId]: opts.result ?? emptyResult(),
+      },
       flows: opts.flows ?? [],
       _setStatus: () => {},
     })
@@ -362,6 +367,38 @@ describe('FactorySummary — connections', () => {
       { id: expect.any(String), itemId: 'iron-ore', fromBlockId: 'miner' },
     ])
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('does not offer a connection for a goal shortfall tile', () => {
+    // ironGoal's item is also a goal of the consumer, so its shortfall cannot be fed.
+    const goalShortfall: SolverResult = { nodes: [], unsatisfied: [{ itemId: ironGoal.itemId, rate: 5 }], warnings: [] }
+    setupBlocks({ activeId: 'consumer', connected: false, result: goalShortfall })
+    render(<FactorySummary />)
+    const tile = screen.getAllByTitle(/click to forbid imports$/)[0]
+    fireEvent.contextMenu(tile)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(tile.getAttribute('title')).not.toContain('right-click')
+  })
+
+  it('lists a source with what is left after its other consumers, and hides it when nothing is left', () => {
+    setupBlocks({
+      activeId: 'consumer', connected: false, result: mockSolverResult,
+      flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 150 })],
+    })
+    const { unmount } = render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    // 200 offered - 150 already delivered = 50/min.
+    expect(screen.getByRole('menuitem', { name: /Miner/ }).textContent).toContain('50.0')
+    unmount()
+
+    setupBlocks({
+      activeId: 'consumer', connected: false, result: mockSolverResult,
+      flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 200 })],
+    })
+    render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
   })
 
   it('says so when no other block produces the item', () => {

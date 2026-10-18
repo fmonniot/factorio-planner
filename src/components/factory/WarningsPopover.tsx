@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useSolverStore, selectSolverResult } from '../../store/solverStore'
+import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import type { SolverWarning, GameData } from '../../data/types'
@@ -56,9 +56,9 @@ function isCritical(w: SolverWarning): boolean {
 // ---------------------------------------------------------------------------
 
 export function WarningsPopover() {
-  const result = useSolverStore(selectSolverResult)
   const gameData = useGameDataStore(selectGameData)
   const block = useBlockStore(selectActiveBlock)
+  const result = useSolverStore(selectBlockResult(block?.id))
   const removeNode = useBlockStore(s => s.removeNode)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)

@@ -149,17 +149,17 @@ A `BlockConnection` on block B says "B receives item X from block A" (see [data-
 1. *Measure.* Solve with no supply variables. Connected items are removed from the no-import set for this pass only, so a locked connected item reports its shortfall as slack instead of making the LP infeasible. The residual of a connected intermediate is its slack.
 2. *Fill.* Only if some connected intermediate has a residual above `1e-6`: solve again with the original no-import set plus, per such item, a supply variable `u_i` (objective cost 0) and a constraint `u_i ≤ min(cap_i, residual_i)`. Capping at the residual keeps own production at its pass-1 level (replacing it would bring slack back at `BIG_M`), and supply fills the gap ahead of slack (0 < `BIG_M`).
 
-Diagnostics come from the final pass only. The amount actually received is computed after the solve as `min(u_i, max(0, −net_i))` rather than from `u_i` alone, because a degenerate optimum may leave `u_i` above the deficit. Locking an item (`noImportItems`) does not block connected supply, but a locked item the supply cannot fully cover makes the LP infeasible exactly as it would without connections.
+Diagnostics come from the final pass only. The amount actually received is computed after the solve as `min(u_i, max(0, −net_i))` rather than from `u_i` alone, because a degenerate optimum may leave `u_i` above the deficit. Locking an item (`noImportItems`) does not block connected supply. If the offer covers the whole residual of a locked item, the lock holds in pass 2. If it covers only part, the lock is dropped for that item in pass 2 (an infeasible LP would return meaningless values and discard the valid pass-1 answer): pins stay honoured, supply fills what is on offer, the rest shows up as an import, and the flow is `limited`.
 
-**Own production that needs an import.** If B can make X only by importing an upstream item Y, B's recipe still counts as covering X: Y stays an import and the connected X is not used. Connect Y as well to feed it. Supply never replaces an upstream import. For the same reason, supply never makes a byproduct-consumer recipe run harder: it only fills a shortfall, while that recipe only consumes surplus.
+**Own production that needs an import.** If B can make X only by importing an upstream item Y, whether the connected X replaces that import depends on the recipe ratio, because pass 1 picks the cheaper of two slacks. Slack on X costs `BIG_M` per unit; slack on Y plus running the recipe costs `BIG_M · (Y per X) + 1`. With 1 Y per X (or more Y per X) the slack on X is cheaper, so X is reported short and the supply fills it. When the recipe yields more X than it consumes Y (for example 1 Y makes 2 X), importing Y is cheaper: Y stays an import and the connected X is not used. Connect Y as well to feed it. The rule is an artefact of the objective and is not tuned; see the backlog item "Let connected supply replace an upstream import". Supply never makes a byproduct-consumer recipe run harder: it only fills a shortfall, while that recipe only consumes surplus.
 
 **Flow status** (`ConnectionFlow.status`, per connection):
 
 - `limited` — B still imports the item and takes everything on offer (`rate ≥ available − 1e-6`).
-- `unused` — otherwise, when `rate ≤ 1e-6` (B makes the item, or does not need it from outside).
+- `unused` — otherwise, when `rate ≤ 1e-6` (B makes the item, or does not need it from outside), and always for a repeated `(fromBlockId, itemId)` pair. A goal item is never fed, so the UI does not offer a connection on a goal shortfall; a goal connection from imported JSON just reads `unused`.
 - `ok` — otherwise.
 - `missing-source` — the source block does not exist; the connection is ignored.
-- `cycle` — the connection lies on a cycle (only possible in imported JSON); it is ignored. Every other block is still solved.
+- `cycle` — the connection lies on a cycle (the store rejects those when adding, undoing and redoing, so only imported or hand-edited JSON can contain one); it is ignored. Every other block is still solved.
 
 A repeated `(fromBlockId, itemId)` on one block counts once. A block whose solve throws gets an empty result, offers nothing, and is reported in `MultiBlockSolve.errors`; other blocks are unaffected.
 

@@ -43,7 +43,7 @@ export function flattenBlock(block: Block): SolverPlan {
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
-const FLOW_TOLERANCE = 1e-6
+export const FLOW_TOLERANCE = 1e-6
 
 /**
  * Net items/min a set of solved nodes leaves over per item (produced minus
@@ -180,13 +180,20 @@ export function solveBlock(
   // the residual keeps own production at its pass-1 level (replacing it would
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
   const pass2Caps = new Map<string, number>()
+  // A locked item whose offer is below its residual stays unlocked in pass 2: with
+  // the lock the LP would be infeasible and its output meaningless. The uncovered
+  // part then shows up as an import, the same as in pass 1.
+  const pass2NoImport = new Set(noImportItems)
   for (const [itemId, cap] of totalCaps) {
     if (!system.classification.intermediates.has(itemId)) continue
     const residual = lp.slack.get(itemId) ?? 0
-    if (residual > FLOW_TOLERANCE) pass2Caps.set(itemId, Math.min(cap, residual))
+    if (residual > FLOW_TOLERANCE) {
+      pass2Caps.set(itemId, Math.min(cap, residual))
+      if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+    }
   }
   if (pass2Caps.size > 0) {
-    lp = solveLP(system, pinnedRates, bcRecipeIds, noImportItems, pass2Caps)
+    lp = solveLP(system, pinnedRates, bcRecipeIds, pass2NoImport, pass2Caps)
   }
 
   const { throughput: throughputMap, slack: slackMap, warnings } = lp
@@ -367,6 +374,7 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
     const available = new Map<string, number>() // connection id → items/min on offer
     const caps = new Map<string, number>()      // item id → total on offer
     const seen = new Set<string>()
+    const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
     for (const c of block.inputConnections) {
       if (!blockIds.has(c.fromBlockId)) {
         flows.push(ignoredFlow(block, c, 'missing-source'))
@@ -375,7 +383,9 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
       } else {
         // A repeated (source, item) pair in hand-edited JSON must not double the offer.
         const key = `${c.fromBlockId}\0${c.itemId}`
-        const offer = seen.has(key) ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        const duplicate = seen.has(key)
+        if (duplicate) duplicates.add(c.id)
+        const offer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
         seen.add(key)
         active.push(c)
         available.set(c.id, offer)
@@ -414,7 +424,8 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
 
       const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
       const status: ConnectionFlowStatus =
-        importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
+        duplicates.has(c.id) ? 'unused'
+        : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
         : rate <= FLOW_TOLERANCE ? 'unused'
         : 'ok'
       flows.push({
