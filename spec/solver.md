@@ -41,7 +41,7 @@ For each item that appears in the active recipe set, `buildClassifiedSystem` put
 
 - **goal** — appears in the block's goals. Drives a hard "produce at least X per minute" constraint.
 - **intermediate** — produced and consumed by recipes in the plan. Must net to ≥ 0 (no deficit; surplus is allowed by the constraint and reported afterwards as `overconstrained`), with elastic slack so an unbalanced plan still solves with an explicit "external import" report.
-- **raw** — no producer in the active recipe set. Treated as a free input; consumption is reported as `UnsatisfiedItem`.
+- **raw** — no producer in the active recipe set. Treated as a free input; consumption is reported as `UnsatisfiedItem`. An ore or pumped fluid is raw until the block has its extraction row (a `mining:` or `offshore:` recipe, see [data-model.md](data-model.md#extraction-recipes)); with the row it is an intermediate like any other.
 - **byproduct** — has producers but no consumers. Excluded from the LP rows; the LP doesn't try to balance them.
 
 Goals take priority — an item that is a goal is a goal even if recipes also produce/consume it.
@@ -124,7 +124,7 @@ The first three knobs sit on individual recipe nodes; `noImportItems` sits on th
 - **`byproductPolicy[itemId] = 'discard'`** — zeroes the recipe's positive coefficient for that item in `S`. This happens **after** classification and before the LP, so the item keeps its classification; it affects only the LP rows. `SolvedNode.outputRates` still include the discarded product.
 - **`byproductPolicy[itemId] = 'feed-back'`** — the default in the UI. A no-op for the solver.
 - **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. Its ingredients are added to the no-import set, so the LP can't import them just to fire the bonus — they must come from another in-plan producer.
-- **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input.
+- **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input. An ore that has an extraction row is an intermediate, so a lock on it applies.
 
 `primaryProduct` on a node is display-only; the solver ignores it.
 
@@ -194,7 +194,7 @@ machineCountCeil  = Math.ceil(machineCountExact)
 powerKw           = machineCountExact · (energyUsageKw · (1 + consumptionBonus) + drainKw)
 ```
 
-Drain is not affected by consumption modules. Beacon power is not counted.
+Drain is not affected by consumption modules. Beacon power is not counted. For a mining drill or offshore pump, `craftingSpeed` is its mining or pumping speed (an offshore pump recipe yields 60 units per craft, so one pump of speed 20 makes 1200 per second).
 
 ---
 

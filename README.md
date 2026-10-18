@@ -23,7 +23,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
-- **Click an ingredient** to find or add a recipe that produces it.
+- **Click an ingredient** to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
 - **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs.
 - **Lock an item** by clicking it in the summary's **Ingredients** pane so the solver never imports it (click the locked chip to unlock). Whatever it would have needed from outside then shows up as a shortfall.
@@ -97,9 +97,11 @@ node scripts/build-game-data.js --patch-technologies \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
+`--patch-extraction` adds the mining and offshore-pump recipes, and the drills and pumps that run them, to an existing bundle the same way (same mod-set check, safe to re-run); it also refreshes `placeResult`. Machine icons already on disk are never overwritten, because a drill or pump can share its id with an item whose icon is already written. The Seablock bundle has them; the Nullius bundle does not yet.
+
 Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
 
-`--patch-names` works the same way but recomputes only the `name` fields (locale placeholders such as `__ITEM__x__` are expanded); it applies the same mod-set check.
+`--patch-names` works the same way but recomputes only the `name` fields (locale placeholders such as `__ITEM__x__` are expanded); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`) and of drills and pumps.
 
 The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
 
@@ -117,10 +119,12 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |
 | `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
+| `scripts/extraction.js` | Exports mining and offshore-pump recipes and the drills and pumps that run them (used by the build script) |
+| `scripts/energy.js` | Energy-string parsing and energy-type inference shared by the export scripts |
 | `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
-| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology and place-result exports, locale resolution and bundled-name checks |
+| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology, extraction and place-result exports, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
 | `spec/` | How the system works today |

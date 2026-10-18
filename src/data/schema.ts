@@ -76,6 +76,8 @@ export const RecipeSchema = z.object({
   ),
   subgroup: z.string().default(''),
   order: z.string().default(''),
+  /** True for a recipe the exporter makes from a resource (mining drill) or an offshore pump. Always inside the research horizon. */
+  extraction: z.boolean().optional(),
 })
 
 export const ItemGroupSchema = z.object({
@@ -102,7 +104,8 @@ export const EffectNameSchema = z.enum([
 export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
-  type: z.enum(['assembling-machine', 'furnace', 'rocket-silo']),
+  // For 'mining-drill' and 'offshore-pump', craftingSpeed is the mining or pumping speed.
+  type: z.enum(['assembling-machine', 'furnace', 'rocket-silo', 'mining-drill', 'offshore-pump']),
   // Some older exports omit this field. Default to 1 so they still load;
   // re-export to get real values.
   craftingSpeed: z.number().positive().default(1),

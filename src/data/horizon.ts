@@ -20,9 +20,10 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
 
 /**
  * Recipes offered under a research horizon: those available at game start plus
- * those unlocked by a targeted technology or one of its prerequisites. Returns
- * null (= no limit) when the data set has no technology data or no target is
- * a known technology.
+ * those unlocked by a targeted technology or one of its prerequisites, plus
+ * extraction recipes, which need no research (their machines are gated like any
+ * other). Returns null (= no limit) when the data set has no technology data or
+ * no target is a known technology.
  */
 export function availableRecipeIds(gameData: GameData, targetIds: readonly string[]): Set<string> | null {
   if (!hasTechnologies(gameData)) return null
@@ -32,13 +33,13 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   for (const id of closure) {
     for (const recipeId of gameData.technologies[id].unlockedRecipes) available.add(recipeId)
   }
+  for (const r of Object.values(gameData.recipes)) if (r.extraction) available.add(r.id)
   return available
 }
 
 /**
- * Items a research horizon leaves offered as goals: those no recipe produces
- * (raw resources, whose extraction is not modelled) and those with at least one
- * non-hidden producing recipe inside the horizon. Hidden recipes are ignored
+ * Items a research horizon leaves offered as goals: items no recipe produces
+ * and those with at least one non-hidden producing recipe inside the horizon. Hidden recipes are ignored
  * entirely: an item only hidden recipes produce counts as having no producer
  * (always offered), and a hidden recipe never rescues an item whose non-hidden
  * producers are all outside the horizon. Returns null (= no limit) when

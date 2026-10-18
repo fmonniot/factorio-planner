@@ -88,7 +88,7 @@ Clicking it opens the **Research horizon** modal:
 
 - Target chips (× removes one) and a **Clear** button. With no targets: "No limit:
   every recipe is offered."
-- A line "N of M recipes available" (M counts non-hidden recipes).
+- A line "N of M recipes available" (M counts non-hidden recipes; extraction recipes count as available).
 - A search box and a scrollable list of every exported technology, sorted by name;
   clicking one adds or removes it as a target immediately.
 - **Done** closes the modal.
@@ -341,7 +341,7 @@ byproduct makes it the primary product (it swaps places with the current one).
 
 **Ingredients cell.** Every input with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
-same sub-plan as the clicked row. A ⚡ tile at the end shows the row's power draw
+same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. A ⚡ tile at the end shows the row's power draw
 (auto-scaled W / kW / MW / GW) when it is above zero.
 
 Rates come from the last solve; before a solve (or for a row the solver did not
@@ -389,8 +389,9 @@ backdrop and close on Escape or a click on the backdrop.
 - Item-group tabs, then items of the selected group in rows by subgroup, sorted by
   Factorio `order`. Hidden items are never shown.
 - With a research horizon, items produced only by non-hidden recipes outside it are
-  not offered; items no non-hidden recipe produces (raw resources, or items only
-  hidden recipes make) are always offered. An empty
+  not offered; items no non-hidden recipe produces (raw resources without an extraction
+  recipe, or items only hidden recipes make) are always offered. An ore with a
+  non-hidden extraction recipe is offered because that recipe is inside every horizon. An empty
   result caused by the horizon reads "No items match within the research horizon
   (N outside it)". Goals already set are unaffected.
 - Clicking an item adds it as a goal immediately when the amount is valid;
@@ -408,6 +409,7 @@ The same component in recipes mode (`source="recipes"`).
   crafting time, products (with probability) and the machines that can make it.
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
+- Extraction recipes ("Iron ore (mining)", "Water (offshore pump)") are listed like any other recipe, under the group of what they produce; they are always inside the research horizon.
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
