@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
@@ -195,7 +196,7 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove }: EdgeLabelsProp
 
   return (
     <div
-      style={{ left: (edge.x1 + edge.x2) / 2, top: (edge.y1 + edge.y2) / 2, transform: 'translate(-50%, -50%)' }}
+      style={{ left: edge.labelX, top: edge.labelY, transform: 'translate(-50%, -50%)' }}
       className="absolute flex flex-col items-center gap-0.5"
     >
       {edge.connectionIds.map(id => {
@@ -277,21 +278,24 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
       if (items.length > 0) {
         roles.set(b.id, { role: 'target' })
       } else {
-        const name = blocks.find(x => x.id === connectFrom)?.name ?? ''
-        roles.set(b.id, {
-          role: 'blocked',
-          reason: wouldCreateCycle(blocks, connectFrom, b.id)
-            ? 'Would create a cycle'
-            : `Nothing to send: ${b.name} imports nothing ${name} has left to offer`,
-        })
+        let reason: string
+        if (wouldCreateCycle(blocks, connectFrom, b.id)) reason = 'Would create a cycle'
+        else if (!results[b.id]) reason = `${b.name} has not been solved yet`
+        else reason = `Nothing to send: ${b.name} imports nothing ${source?.name ?? ''} has left to offer`
+        roles.set(b.id, { role: 'blocked', reason })
       }
     }
     return { roles, itemsByTarget }
-  }, [connectFrom, blocks, results, flows])
+  }, [connectFrom, source, blocks, results, flows])
 
   function cancelConnect() {
     setConnectFrom(undefined)
     setMenuTarget(undefined)
+  }
+
+  // Only clicks on the canvas or its layer themselves; nodes, chips and the menu are children.
+  function onBackgroundClick(e: MouseEvent<HTMLDivElement>) {
+    if (e.target === e.currentTarget) cancelConnect()
   }
 
   function selectNode(id: string) {
@@ -342,9 +346,14 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           data-testid="block-graph-canvas"
           style={{ width: layout.width + PAD * 2, height: layout.height + PAD * 2 }}
           className="relative"
-          onClick={e => { if (e.target === e.currentTarget) cancelConnect() }}
+          onClick={onBackgroundClick}
         >
-          <div className="absolute" style={{ left: PAD, top: PAD, width: layout.width, height: layout.height }}>
+          <div
+            data-testid="block-graph-layer"
+            className="absolute"
+            style={{ left: PAD, top: PAD, width: layout.width, height: layout.height }}
+            onClick={onBackgroundClick}
+          >
             <svg width={layout.width} height={layout.height} className="absolute left-0 top-0 pointer-events-none" style={{ overflow: 'visible' }}>
               {layout.edges.map(e => {
                 const status = e.cyclic

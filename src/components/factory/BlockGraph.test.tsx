@@ -135,6 +135,38 @@ describe('BlockGraph', () => {
     expect(node('consumer').getAttribute('data-connect')).toBeNull()
   })
 
+  it('leaves connect mode on a click anywhere on the background', () => {
+    setup()
+    render(<BlockGraphButton />)
+    for (const testId of ['block-graph-layer', 'block-graph-canvas']) {
+      open()
+      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+      expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
+      fireEvent.click(screen.getByTestId(testId))
+      expect(screen.queryByTestId('graph-connect-hint'), testId).toBeNull()
+      fireEvent.click(screen.getByRole('button', { name: 'Close' }))
+    }
+  })
+
+  it('stays in connect mode when a node is clicked', () => {
+    setup()
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+    fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
+    expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
+  })
+
+  it('says a target has not been solved yet instead of claiming nothing to send', () => {
+    setup()
+    useSolverStore.setState({ lastResults: { miner: minerResult() } })
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+    expect(node('consumer').getAttribute('data-connect')).toBe('blocked')
+    expect(node('consumer').getAttribute('title')).toBe('Consumer has not been solved yet')
+  })
+
   it('removes a connection from its edge label', () => {
     setup({ connected: true })
     render(<BlockGraphButton />)

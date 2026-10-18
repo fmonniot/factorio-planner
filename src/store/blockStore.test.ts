@@ -512,6 +512,28 @@ describe('input connections', () => {
     expect(active().inputConnections).toEqual([])
   })
 
+  it('undo of a removal is dropped when the item is a goal of the target', () => {
+    const store = () => useBlockStore.getState()
+    // A goal and a connection for the same item can coexist (addGoal does not drop the connection).
+    store().addInputConnection('plate', sourceId)
+    store().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    store().removeInputConnection(active().inputConnections[0].id)
+    expect(active().inputConnections).toEqual([])
+    store().undo() // would re-add a connection for a goal item: dropped
+    expect(active().inputConnections).toEqual([])
+    expect(store().history[activeId].undoStack).toHaveLength(2)
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+  })
+
+  it('a connection edited on a non-active block is recorded in that block\'s history only', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId, otherId())
+    expect(store().history[otherId()].undoStack).toHaveLength(1)
+    expect(store().history[activeId]?.undoStack ?? []).toHaveLength(0)
+    store().undo() // the active block has nothing to undo
+    expect(store().blocks.find(b => b.id === otherId())!.inputConnections).toHaveLength(1)
+  })
+
   it('removeInputConnection ignores an unknown id', () => {
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().removeInputConnection('nope')

@@ -89,18 +89,23 @@ near-full-screen modal showing every block and the connections between them, lik
 - **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
   block has a teal ring. Clicking a node makes that block active and closes the graph.
 - **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
-  then ok, then not used, then cycle, which is dashed). Each connection is a chip at the middle
-  of the edge: item icon, delivered rate (`—` before the first solve) and `×`, which removes the
-  connection at once; it is undoable in the consumer's history. Titles match the
+  then ok, then not used, then cycle, which is dashed). Each connection is a chip: item icon,
+  delivered rate (`—` before the first solve) and `×`, which removes the connection at once.
+  The chips of an edge are stacked in the gutter just before the consumer's column, which never
+  holds a node, at the height of the edge there; chips of different edges sharing a gutter are
+  pushed apart so none covers another. Edges are drawn under the nodes. A graph edit is recorded
+  in the *consumer* block's history, while undo and redo act on the *active* block, so undoing
+  after editing another block's connections does not revert that edit. Titles match the
   [Ingredients chips](#ingredients-pane). Connections whose source was deleted and
   self-connections are not drawn; they stay visible and removable in the Ingredients pane.
 - **Connecting from the source side.** The `→` handle on a node (disabled with a single block)
   starts connect mode: blocks that import something the source still has left to offer are
-  highlighted, the others are dimmed with a reason ("Would create a cycle" or "Nothing to send").
+  highlighted, the others are dimmed with a reason ("Would create a cycle", "<block> has not been
+  solved yet" or "Nothing to send").
   Clicking a highlighted block opens a menu "Send to <block>" with one entry per item, showing
   what the source offers and the target needs; choosing one adds the connection to the target.
   The same rules as the Ingredients menu apply (`src/store/connections.ts`). **Cancel**, the
-  handle again or a click on the background leaves connect mode; Escape closes the whole graph.
+  handle again or a click on the empty background (anywhere outside nodes, chips and the menu) leaves connect mode; Escape closes the whole graph.
 
 ### Research horizon
 

@@ -11,6 +11,10 @@ export const NODE_W = 200
 export const NODE_H = 64
 export const COL_GAP = 160
 export const ROW_GAP = 40
+/** Footprint reserved for one connection chip, and the minimum space between stacked labels. */
+export const LABEL_W = 120
+export const LABEL_CHIP_H = 28
+export const LABEL_GAP = 4
 
 export interface BlockNodeLayout {
   id: string
@@ -32,6 +36,9 @@ export interface BlockEdgeLayout {
   y1: number
   x2: number
   y2: number
+  /** Centre of the label stack (one chip per connection): in the gutter just before the consumer's column. */
+  labelX: number
+  labelY: number
 }
 
 export interface BlockGraphLayout {
@@ -121,13 +128,37 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     y1: nodes[p.from].y + NODE_H / 2,
     x2: nodes[p.to].x,
     y2: nodes[p.to].y + NODE_H / 2,
+    labelX: 0,
+    labelY: 0,
   }))
+
+  // Labels sit in the gutter before the consumer's column, which holds no node, on the
+  // straight line between the endpoints; labels sharing a gutter are pushed apart.
+  const stackH = (e: BlockEdgeLayout) => e.connectionIds.length * LABEL_CHIP_H
+  const byGutter = new Map<number, BlockEdgeLayout[]>()
+  for (const e of edges) {
+    e.labelX = e.x2 - COL_GAP / 2
+    const t = e.x2 === e.x1 ? 1 : (e.labelX - e.x1) / (e.x2 - e.x1)
+    e.labelY = e.y1 + (e.y2 - e.y1) * t
+    const list = byGutter.get(e.x2)
+    if (list) list.push(e)
+    else byGutter.set(e.x2, [e])
+  }
+  let labelsBottom = 0
+  for (const list of byGutter.values()) {
+    list.sort((a, b) => a.labelY - b.labelY) // stable: ties keep pair order
+    for (let i = 1; i < list.length; i++) {
+      const min = list[i - 1].labelY + (stackH(list[i - 1]) + stackH(list[i])) / 2 + LABEL_GAP
+      if (list[i].labelY < min) list[i].labelY = min
+    }
+    for (const e of list) labelsBottom = Math.max(labelsBottom, e.labelY + stackH(e) / 2)
+  }
 
   const maxRows = Math.max(...columns.map(c => c.length))
   return {
     nodes,
     edges,
     width: (maxCol + 1) * (NODE_W + COL_GAP) - COL_GAP,
-    height: maxRows * (NODE_H + ROW_GAP) - ROW_GAP,
+    height: Math.max(maxRows * (NODE_H + ROW_GAP) - ROW_GAP, labelsBottom),
   }
 }

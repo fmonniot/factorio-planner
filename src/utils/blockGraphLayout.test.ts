@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { layoutBlockGraph, NODE_W, NODE_H, COL_GAP, ROW_GAP } from './blockGraphLayout'
+import { layoutBlockGraph, NODE_W, NODE_H, COL_GAP, ROW_GAP, LABEL_W, LABEL_CHIP_H } from './blockGraphLayout'
+import type { BlockEdgeLayout, BlockGraphLayout } from './blockGraphLayout'
 import { makeEmptyBlock } from '../store/blockStore'
 import type { Block } from '../data/types'
 
@@ -82,5 +83,48 @@ describe('layoutBlockGraph', () => {
   it('is deterministic', () => {
     const blocks = [block('A'), block('B', ['A']), block('C', ['A', 'B']), block('D')]
     expect(layoutBlockGraph(blocks)).toEqual(layoutBlockGraph(blocks))
+  })
+
+  describe('edge labels', () => {
+    const rect = (e: BlockEdgeLayout) => {
+      const h = e.connectionIds.length * LABEL_CHIP_H
+      return { l: e.labelX - LABEL_W / 2, r: e.labelX + LABEL_W / 2, t: e.labelY - h / 2, b: e.labelY + h / 2 }
+    }
+    const overlap = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) =>
+      a.l < b.r && b.l < a.r && a.t < b.b && b.t < a.b
+    const inNode = (layout: BlockGraphLayout, e: BlockEdgeLayout) => {
+      const r = rect(e)
+      return Object.values(layout.nodes).some(n =>
+        overlap(r, { l: n.x, r: n.x + NODE_W, t: n.y, b: n.y + NODE_H }))
+    }
+
+    it('anchors a label in the gutter before the consumer', () => {
+      const layout = layoutBlockGraph([block('A'), block('B', ['A'])])
+      expect(layout.edges[0].labelX).toBe(layout.edges[0].x2 - COL_GAP / 2)
+      expect(layout.edges[0].labelY).toBe(NODE_H / 2)
+    })
+
+    it('keeps the label of an edge that skips a column out of the middle node', () => {
+      const layout = layoutBlockGraph([block('A'), block('B', ['A']), block('C', ['B', 'A'])])
+      expect(layout.edges).toHaveLength(3)
+      for (const e of layout.edges) expect(inNode(layout, e), `${e.from}>${e.to}`).toBe(false)
+    })
+
+    it('separates the labels of crossing edges between the same two columns', () => {
+      const layout = layoutBlockGraph([block('A'), block('B'), block('C', ['A', 'B']), block('D', ['A', 'B'])])
+      expect(layout.edges).toHaveLength(4)
+      const rects = layout.edges.map(rect)
+      for (let i = 0; i < rects.length; i++) {
+        expect(inNode(layout, layout.edges[i])).toBe(false)
+        for (let j = i + 1; j < rects.length; j++) expect(overlap(rects[i], rects[j]), `${i} vs ${j}`).toBe(false)
+      }
+      expect(layout.height).toBeGreaterThanOrEqual(Math.max(...rects.map(r => r.b)))
+    })
+
+    it('accounts for stacked chips of a multi-connection edge', () => {
+      const layout = layoutBlockGraph([block('A'), block('B'), block('C', [['A', 'x'], ['A', 'y']]), block('D', ['B'])])
+      const [r1, r2] = layout.edges.map(rect)
+      expect(overlap(r1, r2)).toBe(false)
+    })
   })
 })

@@ -40,7 +40,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
-- [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them.
+- [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [~] **Solver warnings on rows.** Warnings show in the summary-header popover (`WarningsPopover`); they are not yet marked on the affected recipe rows.

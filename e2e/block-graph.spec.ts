@@ -79,6 +79,17 @@ test.describe('block graph', () => {
     await expect(node(page, 'Gears')).toHaveAttribute('data-connect', 'blocked')
   })
 
+  test('a click on the background leaves connect mode', async ({ page }) => {
+    await setup(page)
+    await openGraph(page)
+    await node(page, 'Plates').getByTestId('graph-connect-handle').click()
+    await expect(page.getByTestId('graph-connect-hint')).toBeVisible()
+    // The empty strip between the two stacked nodes lies on the layout layer, not the padding.
+    const layer = await page.getByTestId('block-graph-layer').boundingBox()
+    await page.mouse.click(layer!.x + layer!.width - 20, layer!.y + layer!.height / 2)
+    await expect(page.getByTestId('graph-connect-hint')).toHaveCount(0)
+  })
+
   test('removes a connection from its edge', async ({ page }) => {
     await setup(page)
     await openGraph(page)

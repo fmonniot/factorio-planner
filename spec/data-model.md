@@ -441,11 +441,15 @@ them from the sub-plans. Block-level values already present on the input win.
 source by id, so renaming a block changes nothing and a source is never modified
 by its consumers. A block must not connect to itself or twice to the same
 `(fromBlockId, itemId)`, connections must not form a cycle, and a connection must not
-supply one of the consumer's own goal items; the store enforces all four (rules in
-`src/store/connections.ts`) when a connection is added, and again on redo of an add and undo of a
-removal (a command that is no longer legal is dropped from the history instead of
-applied). The connection actions take an optional target block (default: the active one), and
-the undo entry goes to that block's history. Deleting a block removes the connections
+supply one of the consumer's own goal items. The store enforces all four (rules in
+`src/store/connections.ts`) when a connection is added, on redo of an add and on undo of a
+removal (a command that is no longer legal is dropped from the history instead of applied).
+Adding a goal does not remove an existing connection for the same item: such a connection stays
+in the plan and the solver reads it as `unused` (a goal is never fed). The connection actions
+take an optional target block (default: the active one), and the undo entry goes to *that*
+block's history; `undo` / `redo` only read the active block's history, so an edit made on another
+block (e.g. from the block graph) is not reverted by undoing while a different block is active.
+Deleting a block removes the connections
 that read from it (`removeBlock`), but imported or hand-edited JSON can still
 contain a source that does not exist or a cycle: the solver ignores those
 connections and reports them as `missing-source` / `cycle`. Plans saved before
