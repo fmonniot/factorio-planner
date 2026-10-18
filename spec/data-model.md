@@ -86,6 +86,7 @@ interface Recipe {
   mainProduct?: string | null
   subgroup: string           // default ''
   order: string              // default ''
+  extraction?: true          // set on mining and offshore-pump recipes; always inside the research horizon
 }
 
 interface Ingredient {
@@ -154,8 +155,8 @@ it, but they do not stop the user from adding productivity modules.
 interface Machine {
   id: string
   name: string
-  type: 'assembling-machine' | 'furnace' | 'rocket-silo'
-  craftingSpeed: number          // > 0; default 1 when absent
+  type: 'assembling-machine' | 'furnace' | 'rocket-silo' | 'mining-drill' | 'offshore-pump'
+  craftingSpeed: number          // > 0; default 1 when absent; the mining or pumping speed for a drill or pump
   energyUsageKw: number          // kW at full load
   energyType: 'electric' | 'burner' | 'heat' | 'void'
   drainKw: number                // idle drain in kW; 0 when absent
@@ -169,7 +170,7 @@ interface Machine {
 type EffectName = 'speed' | 'productivity' | 'consumption' | 'pollution' | 'quality'
 ```
 
-Only the three prototype types above are exported as machines. `energyType` comes
+Crafting machines (assembling machines, furnaces, rocket silos) are exported from their prototype tables; mining drills and offshore pumps come from the extraction export (see [Extraction recipes](#extraction-recipes)). `energyType` comes
 from `energy_source.type`; anything other than electric, burner or heat becomes
 `'void'`. Energy strings in the dump (`"75kW"`, `"9.75MW"`) are parsed to kW; the
 parser accepts W, kW, MW, GW and TW suffixes, and a bare number is read as watts.
@@ -261,11 +262,10 @@ by a targeted technology or any of its prerequisites (followed transitively).
 Recipes that are neither starting recipes nor unlocked by any exported technology
 (for example ones only a script unlocks) are outside every horizon. The horizon
 applies only to non-hidden recipes: hidden recipes are not part of research
-progression and are shown whenever "Hidden recipes" is ticked. No targets,
+progression and are shown whenever "Hidden recipes" is ticked. Extraction recipes (`Recipe.extraction`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. No targets,
 or no technology data in the bundle, means no limit.
 
-An item is offered as a goal under a horizon if no recipe produces it (a raw
-resource) or at least one non-hidden recipe producing it is inside the horizon.
+An item is offered as a goal under a horizon if no recipe produces it or at least one non-hidden recipe producing it is inside the horizon.
 Hidden recipes are ignored: an item only hidden recipes produce is always offered,
 and a hidden recipe does not keep an item whose non-hidden producers are all outside.
 
@@ -286,6 +286,24 @@ fastest available non-hidden machine of the category (first one wins a tie), els
 category has no entry). A category the data has no default for at all is not affected. Machine,
 module and beacon choices already stored in the plan are never rewritten when the horizon
 narrows; they are kept and flagged in the UI.
+
+### Extraction recipes
+
+The build script turns resources and offshore pumps into ordinary recipes so the solver needs no special case. They carry `extraction: true` and their own categories; the colon cannot collide with a Factorio prototype name.
+
+**Mining recipe**, one per resource that at least one exported drill can mine:
+
+- `id` `mining:<resource name>`; `name` `<resource name> (mining)`; `category` `mining:<resource category>` (the default resource category is `basic-solid`), or `mining-with-fluid:<resource category>` when the resource has a `required_fluid`.
+- `craftingTime` is `minable.mining_time` (resources without `minable` or with a non-positive time are skipped). `products` come from `minable.results`, normalised like recipe products, or from `minable.result` with `minable.count` (default 1).
+- `ingredients` is empty, or the required fluid with amount `fluid_amount / 10`.
+- `madeIn` lists the drills whose `resource_categories` include the category; for a fluid-requiring resource, only drills with an input fluid box. `allowProductivity` is true.
+- `hidden` when the resource is hidden or every drill in `madeIn` is hidden. `subgroup` is the main product's, `order` the resource's.
+
+**Drill machine** (`type: 'mining-drill'`), only for drills that can mine an exported resource: `craftingSpeed` is `mining_speed`, `craftingCategories` are `mining:<c>` for each resource category plus `mining-with-fluid:<c>` when the drill has an input fluid box. `allowedEffects` is every effect when the prototype has no `allowed_effects` (vanilla drills accept modules), otherwise the listed ones (`{}` means none). Energy follows the other machines; a `void` energy source is 0 kW.
+
+**Offshore pump** (`type: 'offshore-pump'`): the fluids a pump makes are its `fluid_box.filter`, else its `fluid`, else the distinct fluids of the tiles. `craftingSpeed` is `pumping_speed`, `craftingCategories` are `offshore:<fluid>`. Each fluid gets one recipe `offshore:<fluid>` named `<fluid> (offshore pump)` with `craftingTime` 1 and one product of 60 units, so a pump makes `60 x pumping_speed` per second (1200/s at speed 20, as in Factorio 2.0).
+
+`defaultMachines` for these categories is the fastest machine, as for any other category.
 
 ### Icon paths
 
@@ -316,7 +334,7 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
   machines only report `energyUsageKw`.
 - `place_result` is kept only as `Item.placeResult`, and only when it names an
-  exported machine or beacon; miners, pumps and other entities are not recorded.
+  exported machine (drills and pumps included) or beacon; other entities are not recorded.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
   to them, and so is every technology that has a disabled prerequisite (transitively),
   since it can never be researched. Effects other than `unlock-recipe` and research
@@ -337,6 +355,8 @@ Things to keep in mind when reading a bundle:
   matched to the item with the same id, and an entity without such an item is never
   gated. `--patch-technologies` also writes `placeResult`. Nullius has no technology
   data, so its horizon never applies.
+- A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories. Nullius has not been patched yet and still needs a re-dump with its mod set.
+- Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node
   scripts/build-game-data.js --patch-technologies` adds it to an existing bundle

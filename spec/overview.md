@@ -18,7 +18,7 @@ The UI is a flat production table: the user sets goals for a block, adds recipes
 - Belt/logistics network layout or spatial planning
 - Multiplayer or shared editing sessions
 - Map-level infrastructure (power grids, train networks)
-- Mining/extraction modelling — raw resources are reported as sinks (e.g. "iron-ore: 180/min"), not as machines to configure
+- Mining productivity research, resource yield and depletion, and asteroid collection are not modelled (mining and pumping rows assume the base rate and, for fluid resources, a 100 % yield)
 
 ## Design Principles
 

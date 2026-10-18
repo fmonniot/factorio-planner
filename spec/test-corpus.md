@@ -22,7 +22,7 @@ cases.
 Formula: `machineCount = throughput_exec_per_min × craftingTime_s / 60`
 
 Raw resources confirmed: `iron-ore` has no non-packaging non-hidden producer;
-`nullius-air` has no recipe at all (pump-only).
+`nullius-air` has no recipe at all (pump-only). The corpus plans contain no extraction rows (mining or offshore pump recipes), so ores and pumped fluids stay raw in every case.
 
 ---
 
