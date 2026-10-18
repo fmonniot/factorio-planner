@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import { useSolverStore, selectSolverResult } from '../../store/solverStore'
+import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
@@ -13,7 +13,7 @@ import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
 export function ProductionTable() {
   const activeBlock = useBlockStore(selectActiveBlock)
-  const solverResult = useSolverStore(selectSolverResult)
+  const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const addNode = useBlockStore(s => s.addNode)
 

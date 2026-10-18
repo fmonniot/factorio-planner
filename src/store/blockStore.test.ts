@@ -354,3 +354,125 @@ describe('toggleNoImportItem', () => {
     expect(useBlockStore.getState().blocks[0].noImportItems).toEqual([])
   })
 })
+
+// ---------------------------------------------------------------------------
+// Input connections
+// ---------------------------------------------------------------------------
+
+describe('input connections', () => {
+  let sourceId: string
+  let activeId: string
+
+  beforeEach(() => {
+    const active = makeEmptyBlock('Consumer')
+    const source = makeEmptyBlock('Source')
+    sourceId = source.id
+    activeId = active.id
+    useBlockStore.setState({ blocks: [active, source], activeBlockId: active.id, history: {} })
+  })
+
+  const active = () => useBlockStore.getState().blocks.find(b => b.id === activeId)!
+
+  it('makeEmptyBlock starts without connections', () => {
+    expect(makeEmptyBlock('B').inputConnections).toEqual([])
+  })
+
+  it('addInputConnection appends a connection to the active block', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId)
+    expect(active().inputConnections).toEqual([
+      { id: expect.any(String), itemId: 'plate', fromBlockId: sourceId },
+    ])
+  })
+
+  it.each([
+    ['a duplicate', 'plate', () => sourceId, true],
+    ['a self-connection', 'plate', () => activeId, false],
+    ['an unknown source', 'plate', () => 'ghost', false],
+  ])('ignores %s', (_name, itemId, from, connectFirst) => {
+    if (connectFirst) useBlockStore.getState().addInputConnection('plate', sourceId)
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().addInputConnection(itemId, from())
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('ignores a connection that would close a cycle', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId)
+    useBlockStore.getState().setActiveBlock(sourceId)
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().addInputConnection('gear', activeId)
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('undo removes the connection and redo re-adds it with the same id', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId)
+    const id = active().inputConnections[0].id
+    useBlockStore.getState().undo()
+    expect(active().inputConnections).toEqual([])
+    useBlockStore.getState().redo()
+    expect(active().inputConnections.map(c => c.id)).toEqual([id])
+  })
+
+  it('removeInputConnection removes it and undo restores it at its index', () => {
+    const third = makeEmptyBlock('Third')
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, third] }))
+    const s = useBlockStore.getState()
+    s.addInputConnection('plate', sourceId)
+    s.addInputConnection('plate', third.id)
+    s.addInputConnection('gear', sourceId)
+    const [first, second, last] = active().inputConnections
+
+    useBlockStore.getState().removeInputConnection(second.id)
+    expect(active().inputConnections.map(c => c.id)).toEqual([first.id, last.id])
+    useBlockStore.getState().undo()
+    expect(active().inputConnections.map(c => c.id)).toEqual([first.id, second.id, last.id])
+  })
+
+  it('undo of a removal is dropped when it would now close a cycle', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().removeInputConnection(active().inputConnections[0].id)
+    store().setActiveBlock(sourceId)
+    store().addInputConnection('gear', activeId)
+    store().setActiveBlock(activeId)
+
+    store().undo()
+    expect(active().inputConnections).toEqual([])
+    // The invalid command was dropped, so the earlier add can still be undone.
+    expect(store().history[activeId].undoStack).toHaveLength(1)
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+  })
+
+  it('redo of an add is dropped when it would now close a cycle', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().undo()
+    store().setActiveBlock(sourceId)
+    store().addInputConnection('gear', activeId)
+    store().setActiveBlock(activeId)
+
+    store().redo()
+    expect(active().inputConnections).toEqual([])
+    expect(store().history[activeId].redoStack).toHaveLength(0)
+  })
+
+  it('redo of an add is dropped when the source was deleted', () => {
+    const store = () => useBlockStore.getState()
+    store().addInputConnection('plate', sourceId)
+    store().undo()
+    useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== sourceId) }))
+    store().redo()
+    expect(active().inputConnections).toEqual([])
+  })
+
+  it('removeInputConnection ignores an unknown id', () => {
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().removeInputConnection('nope')
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('removeBlock strips connections that read from the deleted block', () => {
+    useBlockStore.getState().addInputConnection('plate', sourceId)
+    useBlockStore.getState().removeBlock(sourceId)
+    expect(active().inputConnections).toEqual([])
+  })
+})

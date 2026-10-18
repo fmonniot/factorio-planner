@@ -20,6 +20,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient.
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **Absolute home paths in committed `iconPath`s.** Every `iconPath` in the bundled `game-data.json` files contains the exporting machine's absolute home directory. `scripts/build-game-data.js` should emit paths relative to the Factorio / mods directories.
+- [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
 
 ## Sharing and import
 
@@ -29,7 +30,12 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Planning features
 
-- [ ] **Connections between blocks.** One block's output feeding another block's input.
+- [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
+- [ ] **Connect items not shown in Ingredients.** Connections can only be created from an Ingredients tile; items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
+- [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
+- [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
+- [ ] **Visual block graph.** Show blocks and their connections as a graph, and create connections from the source side.
+- [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
 - [ ] **Plan horizon.** Limit available recipes by technology so the player decides how far ahead they plan (e.g. hide space-science-gated recipes while planning the first science packs). Needs technology data in the export.
 - [ ] **Mining and extraction.** Model miners, pumps and other resource entities (covers the offshore-pump bug properly).
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.

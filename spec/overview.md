@@ -4,6 +4,8 @@
 
 A web-based production planner for Factorio, built first for the **Nullius** overhaul mod. Given a set of desired output rates, it computes the full production chain: every recipe, intermediate product, raw resource, machine count, and power draw required to satisfy those goals — including cycles and multi-output recipes.
 
+A plan can hold several blocks, and one block can receive an item from another block's output (its own recipes still come first).
+
 The UI is a flat production table: the user sets goals for a block, adds recipes as rows (optionally grouped into collapsible sub-factories), and reads the solved rates, machine counts and imports directly in the table and the summary panes above it. See [ui.md](ui.md).
 
 ## Scope

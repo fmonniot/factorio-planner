@@ -1,7 +1,21 @@
-import type { Block, GameData, ProductionGoal, RecipeNode, SolvedNode, SolverResult, SubPlan, UnsatisfiedItem } from '../data/types'
+import type {
+  Block,
+  BlockConnection,
+  ConnectionFlow,
+  ConnectionFlowStatus,
+  GameData,
+  MultiBlockSolve,
+  ProductionGoal,
+  RecipeNode,
+  SolvedNode,
+  SolverResult,
+  SubPlan,
+  UnsatisfiedItem,
+} from '../data/types'
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
+import { orderBlocks } from './blockGraph'
 
 interface SolverPlan {
   goals: ProductionGoal[]
@@ -28,7 +42,46 @@ export function flattenBlock(block: Block): SolverPlan {
   }
 }
 
+/** Rates at or below this are treated as zero when comparing supply and demand. */
+export const FLOW_TOLERANCE = 1e-6
+
+/**
+ * Net items/min a set of solved nodes leaves over per item (produced minus
+ * consumed). Positive entries are what a block can offer to other blocks.
+ */
+export function netBalance(
+  nodes: { inputRates: Record<string, number>; outputRates: Record<string, number> }[],
+): Map<string, number> {
+  const net = new Map<string, number>()
+  for (const node of nodes) {
+    for (const [id, rate] of Object.entries(node.outputRates))
+      net.set(id, (net.get(id) ?? 0) + rate)
+    for (const [id, rate] of Object.entries(node.inputRates))
+      net.set(id, (net.get(id) ?? 0) - rate)
+  }
+  return net
+}
+
 export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
+  return solveBlock(plan, gameData).result
+}
+
+/**
+ * Solve one block, optionally with items supplied by other blocks.
+ *
+ * `supplyCaps` maps itemId → items/min on offer. Own production comes first,
+ * so the block runs in up to two passes:
+ *   1. Solve without supply, letting connected items use slack even when they
+ *      are locked, to measure what the block's own recipes cannot cover.
+ *   2. Only if a connected intermediate is short, solve again with the original
+ *      locks and a supply variable per short item, capped at min(offer, shortfall).
+ * `received` is what the block actually takes from each offer (items/min).
+ */
+export function solveBlock(
+  plan: SolverPlan,
+  gameData: GameData,
+  supplyCaps: Map<string, number> = new Map(),
+): { result: SolverResult; received: Map<string, number> } {
   // SubPlanNodes are UI grouping only; the solver only sees game-recipe nodes.
   // byproductConsumer is a flag that applies a small negative bonus to the
   // recipe's objective coefficient, making the LP prefer to run it up to
@@ -114,8 +167,36 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
     }
   }
 
-  const { throughput: throughputMap, slack: slackMap, warnings } =
-    solveLP(system, pinnedRates, bcRecipeIds, noImportItems)
+  const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
+
+  // Pass 1: what the block's own recipes cannot cover. Connected items lose their
+  // lock for this pass only, so a shortfall shows up as slack, not as infeasibility.
+  const pass1NoImport = totalCaps.size === 0
+    ? noImportItems
+    : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport)
+
+  // Pass 2: supply fills only the residual of connected intermediates. Capping at
+  // the residual keeps own production at its pass-1 level (replacing it would
+  // bring slack back at BIG_M); raw items need no LP row and are handled below.
+  const pass2Caps = new Map<string, number>()
+  // A locked item whose offer is below its residual stays unlocked in pass 2: with
+  // the lock the LP would be infeasible and its output meaningless. The uncovered
+  // part then shows up as an import, the same as in pass 1.
+  const pass2NoImport = new Set(noImportItems)
+  for (const [itemId, cap] of totalCaps) {
+    if (!system.classification.intermediates.has(itemId)) continue
+    const residual = lp.slack.get(itemId) ?? 0
+    if (residual > FLOW_TOLERANCE) {
+      pass2Caps.set(itemId, Math.min(cap, residual))
+      if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+    }
+  }
+  if (pass2Caps.size > 0) {
+    lp = solveLP(system, pinnedRates, bcRecipeIds, pass2NoImport, pass2Caps)
+  }
+
+  const { throughput: throughputMap, slack: slackMap, warnings } = lp
 
   // Per-item net surplus from the LP solve.
   const itemSurplus = new Map<string, number>()
@@ -213,6 +294,7 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
     slackIntermediates.push({ itemId, rate })
   }
 
+  const received = new Map<string, number>()
   const rawConsumption: UnsatisfiedItem[] = []
   const goalShortfallIds = new Set(goalShortfalls.map(u => u.itemId))
   for (const itemId of system.classification.raw) {
@@ -225,13 +307,144 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
         totalConsumption += Math.abs(coeff) * (throughputMap.get(recipeId) ?? 0)
       }
     }
-    if (totalConsumption > 0) {
-      rawConsumption.push({ itemId, rate: totalConsumption })
+    if (totalConsumption <= 0) continue
+    // Supply is always preferred over import for items the block cannot make.
+    const fromSupply = Math.min(totalConsumption, totalCaps.get(itemId) ?? 0)
+    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
+    const imported = totalConsumption - fromSupply
+    if (fromSupply === 0 || imported > FLOW_TOLERANCE) {
+      rawConsumption.push({ itemId, rate: imported })
     }
+  }
+
+  // Connected intermediates: the amount taken is the deficit left after own
+  // production, never the raw LP variable (degenerate optima can leave it higher).
+  for (const itemId of totalCaps.keys()) {
+    if (!system.classification.intermediates.has(itemId)) continue
+    const deficit = Math.max(0, -(itemSurplus.get(itemId) ?? 0))
+    const fromSupply = Math.min(lp.supply.get(itemId) ?? 0, deficit)
+    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
   }
 
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  return { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] }
+  return {
+    result: { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] },
+    received,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Whole-plan solve
+// ---------------------------------------------------------------------------
+
+function emptyResult(): SolverResult {
+  return { nodes: [], unsatisfied: [], warnings: [] }
+}
+
+/**
+ * Solve every block in dependency order, feeding each block the net output its
+ * sources still have on offer. Several consumers of one source are served in
+ * solve order; several sources of one item are drained in connection order.
+ */
+export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
+  const { order, cyclicConnectionIds } = orderBlocks(blocks)
+  const blockIds = new Set(blocks.map(b => b.id))
+  const results: Record<string, SolverResult> = {}
+  const errors: Record<string, string> = {}
+  const flows: ConnectionFlow[] = []
+  // blockId → itemId → items/min still on offer
+  const remaining = new Map<string, Map<string, number>>()
+
+  function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowStatus): ConnectionFlow {
+    return {
+      connectionId: c.id,
+      fromBlockId: c.fromBlockId,
+      toBlockId: block.id,
+      itemId: c.itemId,
+      available: 0,
+      rate: 0,
+      status,
+    }
+  }
+
+  for (const block of order) {
+    const active: BlockConnection[] = []
+    const available = new Map<string, number>() // connection id → items/min on offer
+    const caps = new Map<string, number>()      // item id → total on offer
+    const seen = new Set<string>()
+    const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
+    for (const c of block.inputConnections) {
+      if (!blockIds.has(c.fromBlockId)) {
+        flows.push(ignoredFlow(block, c, 'missing-source'))
+      } else if (cyclicConnectionIds.has(c.id)) {
+        flows.push(ignoredFlow(block, c, 'cycle'))
+      } else {
+        // A repeated (source, item) pair in hand-edited JSON must not double the offer.
+        const key = `${c.fromBlockId}\0${c.itemId}`
+        const duplicate = seen.has(key)
+        if (duplicate) duplicates.add(c.id)
+        const offer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        seen.add(key)
+        active.push(c)
+        available.set(c.id, offer)
+        caps.set(c.itemId, (caps.get(c.itemId) ?? 0) + offer)
+      }
+    }
+
+    let result = emptyResult()
+    let received = new Map<string, number>()
+    const plan = flattenBlock(block)
+    if (plan.goals.length > 0 && plan.nodes.length > 0) {
+      try {
+        ;({ result, received } = solveBlock(plan, gameData, caps))
+      } catch (err) {
+        errors[block.id] = err instanceof Error ? err.message : String(err)
+        result = emptyResult()
+        received = new Map()
+      }
+    }
+    results[block.id] = result
+
+    const stillImported = new Map<string, number>()
+    for (const u of result.unsatisfied) {
+      stillImported.set(u.itemId, (stillImported.get(u.itemId) ?? 0) + u.rate)
+    }
+
+    const undelivered = new Map(received)
+    for (const c of active) {
+      const offer = available.get(c.id) ?? 0
+      const rate = Math.min(undelivered.get(c.itemId) ?? 0, offer)
+      undelivered.set(c.itemId, (undelivered.get(c.itemId) ?? 0) - rate)
+      const sourceLeft = remaining.get(c.fromBlockId)
+      if (sourceLeft && rate > 0) {
+        sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
+      }
+
+      const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
+      const status: ConnectionFlowStatus =
+        duplicates.has(c.id) ? 'unused'
+        : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
+        : rate <= FLOW_TOLERANCE ? 'unused'
+        : 'ok'
+      flows.push({
+        connectionId: c.id,
+        fromBlockId: c.fromBlockId,
+        toBlockId: block.id,
+        itemId: c.itemId,
+        available: offer,
+        rate,
+        status,
+      })
+    }
+
+    const offers = new Map<string, number>()
+    for (const [itemId, net] of netBalance(result.nodes)) {
+      if (net > FLOW_TOLERANCE) offers.set(itemId, net)
+    }
+    remaining.set(block.id, offers)
+  }
+
+  return { results, flows, errors }
 }

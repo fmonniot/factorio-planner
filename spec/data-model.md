@@ -290,8 +290,8 @@ interface AppState {
 
 ### Block
 
-A block is one independent factory (one tab in the UI). The solver solves each
-block as a single LP.
+A block is one factory (one tab in the UI). The solver solves each block as a
+single LP; blocks can receive items from one another through `inputConnections`.
 
 ```ts
 interface Block {
@@ -300,7 +300,14 @@ interface Block {
   gameDataVersion: string    // reserved; new blocks get '' and nothing sets it
   goals: ProductionGoal[]    // default []
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
+  inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
+}
+
+interface BlockConnection {
+  id: string           // uuid
+  itemId: string
+  fromBlockId: string  // block whose net output of itemId supplies this block
 }
 
 interface ProductionGoal {
@@ -315,6 +322,19 @@ older plans stored `goals` and `noImportItems` on each sub-plan. The migration
 walks the tree, hoists them to the block (goals deduplicated by `itemId` with
 rates summed; non-positive rates dropped; no-import items deduplicated), and strips
 them from the sub-plans. Block-level values already present on the input win.
+
+**Connections.** A connection is stored on the *consumer* block and points at its
+source by id, so renaming a block changes nothing and a source is never modified
+by its consumers. A block must not connect to itself or twice to the same
+`(fromBlockId, itemId)`, and connections must not form a cycle; the store enforces
+all three when a connection is added, and again on redo of an add and undo of a
+removal (a command that is no longer legal is dropped from the history instead of
+applied). Deleting a block removes the connections
+that read from it (`removeBlock`), but imported or hand-edited JSON can still
+contain a source that does not exist or a cycle: the solver ignores those
+connections and reports them as `missing-source` / `cycle`. Plans saved before
+connections existed have no `inputConnections` field and load with `[]`. How the
+solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan
 
@@ -406,7 +426,8 @@ reads only the config fields.
 ## Solver state (transient)
 
 Defined in `src/data/types.ts`. Not persisted and not validated by Zod; produced
-by `solve()` and held in `solverStore`. All rates are per minute.
+by `solveAll()` (one `SolverResult` per block) and held in `solverStore`. All rates
+are per minute.
 
 ```ts
 interface SolverResult {
@@ -440,6 +461,31 @@ type SolverWarning =
 `unsatisfied` lists, in this order: goal shortfalls, intermediate slack (items the
 LP had to import to balance), and raw-resource consumption. The UI shows it as the
 Ingredients pane.
+
+```ts
+interface MultiBlockSolve {
+  results: Record<string, SolverResult>  // blockId -> result, every block present
+  flows: ConnectionFlow[]                // one per BlockConnection
+  errors: Record<string, string>         // blockId -> message for a block whose solve threw
+}
+
+interface ConnectionFlow {
+  connectionId: string
+  fromBlockId: string
+  toBlockId: string
+  itemId: string
+  available: number   // items/min the source still offered when this consumer was solved
+  rate: number        // items/min actually delivered
+  status: ConnectionFlowStatus
+}
+
+type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'cycle'
+```
+
+`unused` means nothing is delivered and the consumer does not need an outside
+supply of the item; `limited` means the consumer takes everything on offer and
+still imports the item. `missing-source` and `cycle` flows have `rate` and
+`available` 0.
 
 What triggers each warning is described in [solver.md](solver.md); how the UI
 presents them is in [ui.md](ui.md).

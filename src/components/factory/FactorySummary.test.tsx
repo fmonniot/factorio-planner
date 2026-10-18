@@ -5,7 +5,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { GameData, SolverResult, ProductionGoal } from '../../data/types'
+import type { Block, ConnectionFlow, GameData, SolverResult, ProductionGoal } from '../../data/types'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -52,6 +52,8 @@ function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: withSolver ? mockSolverResult : undefined,
+    lastResults: {},
+    flows: [],
     _setStatus: () => {},
   })
 }
@@ -270,5 +272,166 @@ describe('FactorySummary — add goal', () => {
     expect(goals).toHaveLength(1)
     expect(goals[0].itemId).toBe('iron-plate')
     expect(goals[0].rate).toBe(60)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Connections between blocks
+// ---------------------------------------------------------------------------
+
+describe('FactorySummary — connections', () => {
+  const emptyResult = (): SolverResult => ({ nodes: [], unsatisfied: [], warnings: [] })
+  const minerResult = (): SolverResult => ({
+    nodes: [{
+      recipeNodeId: 'm', inputRates: {}, outputRates: { 'iron-ore': 200 },
+      throughput: 200, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    }],
+    unsatisfied: [],
+    warnings: [],
+  })
+  const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
+    connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-ore',
+    available: 30, rate: 30, status: 'ok', ...over,
+  })
+
+  function setupBlocks(opts: { activeId: 'consumer' | 'miner', connected: boolean, result?: SolverResult, flows?: ConnectionFlow[], minerOffers?: boolean }) {
+    const consumer: Block = {
+      ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal],
+      inputConnections: opts.connected ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner' }] : [],
+    }
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', goals: [ironGoal] }
+    useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: opts.activeId, history: {} })
+    useSolverStore.setState({
+      lastResult: opts.result ?? emptyResult(),
+      lastResults: {
+        consumer: emptyResult(),
+        miner: opts.minerOffers === false ? emptyResult() : minerResult(),
+        // The active block's own result is the one passed in.
+        [opts.activeId]: opts.result ?? emptyResult(),
+      },
+      flows: opts.flows ?? [],
+      _setStatus: () => {},
+    })
+  }
+
+  it('shows a chip with the source name and the delivered rate', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+    render(<FactorySummary />)
+    const chip = screen.getByTestId('connection-chip')
+    expect(chip.textContent).toContain('Miner')
+    expect(chip.textContent).toContain('30.0')
+  })
+
+  it('titles a limited chip with "Limited"', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'limited', available: 30 })] })
+    render(<FactorySummary />)
+    expect(screen.getByTestId('connection-chip').getAttribute('title')).toContain('Limited')
+  })
+
+  it('titles an unused chip with "Not used"', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'unused', rate: 0 })] })
+    render(<FactorySummary />)
+    expect(screen.getByTestId('connection-chip').getAttribute('title')).toContain('Not used')
+  })
+
+  it('labels a chip whose source block is gone and lets the user remove it', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'missing-source', rate: 0, available: 0 })] })
+    useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== 'miner') }))
+    render(<FactorySummary />)
+    expect(screen.getByTestId('connection-chip').textContent).toContain('deleted block')
+    fireEvent.click(screen.getByTitle('Remove connection'))
+    expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
+  })
+
+  it('the × button removes the connection', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle('Remove connection'))
+    expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
+  })
+
+  it('clicking the source name opens the source block', () => {
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle('Go to Miner'))
+    expect(useBlockStore.getState().activeBlockId).toBe('miner')
+  })
+
+  it('right-clicking an ingredient tile offers the blocks that produce it', () => {
+    setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+    render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    expect(screen.getByText('Receive Iron Ore from')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Miner/ }))
+    expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([
+      { id: expect.any(String), itemId: 'iron-ore', fromBlockId: 'miner' },
+    ])
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('does not offer a connection for a goal shortfall tile', () => {
+    // ironGoal's item is also a goal of the consumer, so its shortfall cannot be fed.
+    const goalShortfall: SolverResult = { nodes: [], unsatisfied: [{ itemId: ironGoal.itemId, rate: 5 }], warnings: [] }
+    setupBlocks({ activeId: 'consumer', connected: false, result: goalShortfall })
+    render(<FactorySummary />)
+    const tile = screen.getAllByTitle(/click to forbid imports$/)[0]
+    fireEvent.contextMenu(tile)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(tile.getAttribute('title')).not.toContain('right-click')
+  })
+
+  it('lists a source with what is left after its other consumers, and hides it when nothing is left', () => {
+    setupBlocks({
+      activeId: 'consumer', connected: false, result: mockSolverResult,
+      flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 150 })],
+    })
+    const { unmount } = render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    // 200 offered - 150 already delivered = 50/min.
+    expect(screen.getByRole('menuitem', { name: /Miner/ }).textContent).toContain('50.0')
+    unmount()
+
+    setupBlocks({
+      activeId: 'consumer', connected: false, result: mockSolverResult,
+      flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 200 })],
+    })
+    render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
+  })
+
+  it('says so when no other block produces the item', () => {
+    setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult, minerOffers: false })
+    render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
+  })
+
+  it('shows an export chip after the goal tile and subtracts exports from the byproduct rate', () => {
+    const result: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 58, slag: 10 },
+        throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [],
+      warnings: [],
+    }
+    setupBlocks({
+      activeId: 'miner', connected: false, result,
+      flows: [
+        flow({ connectionId: 'e1', itemId: 'iron-plate', fromBlockId: 'miner', toBlockId: 'consumer', rate: 20 }),
+        flow({ connectionId: 'e2', itemId: 'slag', fromBlockId: 'miner', toBlockId: 'consumer', rate: 4 }),
+      ],
+    })
+    render(<FactorySummary />)
+    const chips = screen.getAllByTestId('export-chip')
+    expect(chips).toHaveLength(2)
+    expect(chips[0].textContent).toContain('Consumer')
+    expect(chips[0].textContent).toContain('20.0')
+    // The first chip directly follows the goal tile.
+    expect(screen.getByTitle(/Target:/).closest('div')!.nextElementSibling).toBe(chips[0])
+    // slag: 10 produced - 4 exported = 6 left as a byproduct
+    expect(screen.getAllByTitle('Slag').some(el => el.textContent?.includes('6.00'))).toBe(true)
   })
 })

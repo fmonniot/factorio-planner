@@ -22,6 +22,7 @@ export type {
   GameRecipeNode,
   SubPlanNode,
   SubPlan,
+  BlockConnection,
   Block,
   AppState,
 } from './schema'
@@ -56,4 +57,33 @@ export interface SolverResult {
   nodes: SolvedNode[]
   unsatisfied: UnsatisfiedItem[]
   warnings: SolverWarning[]
+}
+
+// ---------------------------------------------------------------------------
+// Multi-block solve — transient, produced by solveAll().
+// ---------------------------------------------------------------------------
+
+export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'cycle'
+
+export interface ConnectionFlow {
+  connectionId: string
+  fromBlockId: string
+  toBlockId: string
+  itemId: string
+  /** items/min the source still offered when this consumer was solved */
+  available: number
+  /** items/min actually delivered */
+  rate: number
+  /**
+   * unused: rate ≤ 1e-6 (the consumer makes the item itself or needs none);
+   * limited: rate ≥ available − 1e-6 and the consumer still imports the item.
+   */
+  status: ConnectionFlowStatus
+}
+
+export interface MultiBlockSolve {
+  results: Record<string, SolverResult>
+  flows: ConnectionFlow[]
+  /** Per-block solver failures; the failing block also gets an empty result. */
+  errors: Record<string, string>
 }
