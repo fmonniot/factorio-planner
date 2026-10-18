@@ -93,7 +93,8 @@ near-full-screen modal showing every block and the connections between them, lik
   delivered rate (`—` before the first solve) and `×`, which removes the connection at once.
   The chips of an edge are stacked in the gutter just before the consumer's column, which never
   holds a node, at the height of the edge there; chips of different edges sharing a gutter are
-  pushed apart so none covers another. Edges are drawn under the nodes. A graph edit is recorded
+  pushed apart so none covers another; if a tall stack would reach above the first row, the whole
+  graph is moved down to make room. Edges are drawn under the nodes. A graph edit is recorded
   in the *consumer* block's history, while undo and redo act on the *active* block, so undoing
   after editing another block's connections does not revert that edit. Titles match the
   [Ingredients chips](#ingredients-pane). Connections whose source was deleted and

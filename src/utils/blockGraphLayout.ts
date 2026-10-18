@@ -144,6 +144,7 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     if (list) list.push(e)
     else byGutter.set(e.x2, [e])
   }
+  let labelsTop = 0
   let labelsBottom = 0
   for (const list of byGutter.values()) {
     list.sort((a, b) => a.labelY - b.labelY) // stable: ties keep pair order
@@ -151,7 +152,23 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
       const min = list[i - 1].labelY + (stackH(list[i - 1]) + stackH(list[i])) / 2 + LABEL_GAP
       if (list[i].labelY < min) list[i].labelY = min
     }
-    for (const e of list) labelsBottom = Math.max(labelsBottom, e.labelY + stackH(e) / 2)
+    for (const e of list) {
+      labelsTop = Math.min(labelsTop, e.labelY - stackH(e) / 2)
+      labelsBottom = Math.max(labelsBottom, e.labelY + stackH(e) / 2)
+    }
+  }
+
+  // A tall stack on a top-row edge reaches above the first row: move everything down so
+  // it stays inside the layout (the viewport cannot scroll to negative coordinates).
+  const shift = -labelsTop
+  if (shift > 0) {
+    for (const n of Object.values(nodes)) n.y += shift
+    for (const e of edges) {
+      e.y1 += shift
+      e.y2 += shift
+      e.labelY += shift
+    }
+    labelsBottom += shift
   }
 
   const maxRows = Math.max(...columns.map(c => c.length))
@@ -159,6 +176,6 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     nodes,
     edges,
     width: (maxCol + 1) * (NODE_W + COL_GAP) - COL_GAP,
-    height: Math.max(maxRows * (NODE_H + ROW_GAP) - ROW_GAP, labelsBottom),
+    height: Math.max(maxRows * (NODE_H + ROW_GAP) - ROW_GAP + shift, labelsBottom),
   }
 }

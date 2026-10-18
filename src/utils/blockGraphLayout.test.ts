@@ -121,6 +121,17 @@ describe('layoutBlockGraph', () => {
       expect(layout.height).toBeGreaterThanOrEqual(Math.max(...rects.map(r => r.b)))
     })
 
+    it('keeps a tall label stack on the top row inside the layout', () => {
+      const ids = ['a', 'b', 'c', 'd', 'e']
+      const layout = layoutBlockGraph([block('A'), block('B', ids.map(id => ['A', id]))])
+      const [edge] = layout.edges
+      expect(rect(edge).t).toBeGreaterThanOrEqual(0)
+      expect(rect(edge).b).toBeLessThanOrEqual(layout.height)
+      for (const n of Object.values(layout.nodes)) expect(n.y + NODE_H).toBeLessThanOrEqual(layout.height)
+      expect(edge.y1).toBe(layout.nodes.A.y + NODE_H / 2)
+      expect(edge.y2).toBe(layout.nodes.B.y + NODE_H / 2)
+    })
+
     it('accounts for stacked chips of a multi-connection edge', () => {
       const layout = layoutBlockGraph([block('A'), block('B'), block('C', [['A', 'x'], ['A', 'y']]), block('D', ['B'])])
       const [r1, r2] = layout.edges.map(rect)
