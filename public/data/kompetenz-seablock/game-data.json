@@ -296,7 +296,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "a[stone-furnace]"
+      "order": "a[stone-furnace]",
+      "placeResult": "stone-furnace"
     },
     "burner-mining-drill": {
       "id": "burner-mining-drill",
@@ -366,7 +367,8 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "angels-washing-building",
-      "order": "d"
+      "order": "d",
+      "placeResult": "offshore-pump"
     },
     "pipe": {
       "id": "pipe",
@@ -446,7 +448,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "a[assembling-machine-1]"
+      "order": "a[assembling-machine-1]",
+      "placeResult": "assembling-machine-1"
     },
     "assembling-machine-2": {
       "id": "assembling-machine-2",
@@ -456,7 +459,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "b[assembling-machine-2]"
+      "order": "b[assembling-machine-2]",
+      "placeResult": "assembling-machine-2"
     },
     "red-wire": {
       "id": "red-wire",
@@ -546,7 +550,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "c[electric-furnace-1]"
+      "order": "c[electric-furnace-1]",
+      "placeResult": "electric-furnace"
     },
     "solid-fuel": {
       "id": "solid-fuel",
@@ -606,7 +611,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "b[steel-furnace]"
+      "order": "b[steel-furnace]",
+      "placeResult": "steel-furnace"
     },
     "gate": {
       "id": "gate",
@@ -786,7 +792,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "c[assembling-machine-3]"
+      "order": "c[assembling-machine-3]",
+      "placeResult": "assembling-machine-3"
     },
     "underground-belt": {
       "id": "underground-belt",
@@ -986,7 +993,8 @@
       "hidden": false,
       "stackSize": 1,
       "subgroup": "space-related",
-      "order": "a[rocket-silo]"
+      "order": "a[rocket-silo]",
+      "placeResult": "rocket-silo"
     },
     "cargo-landing-pad": {
       "id": "cargo-landing-pad",
@@ -1036,7 +1044,8 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "module-beacon",
-      "order": "a[beacon]"
+      "order": "a[beacon]",
+      "placeResult": "beacon"
     },
     "storage-tank": {
       "id": "storage-tank",
@@ -1066,7 +1075,8 @@
       "hidden": true,
       "stackSize": 20,
       "subgroup": "extraction-machine",
-      "order": "b[fluids]-b[pumpjack-1]"
+      "order": "b[fluids]-b[pumpjack-1]",
+      "placeResult": "pumpjack"
     },
     "oil-refinery": {
       "id": "oil-refinery",
@@ -1076,7 +1086,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "b[oil-refinery]-a"
+      "order": "b[oil-refinery]-a",
+      "placeResult": "oil-refinery"
     },
     "chemical-plant": {
       "id": "chemical-plant",
@@ -1086,7 +1097,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "a[regular]-aa[vanilla]"
+      "order": "a[regular]-aa[vanilla]",
+      "placeResult": "chemical-plant"
     },
     "sulfur": {
       "id": "sulfur",
@@ -1256,7 +1268,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "production-machine",
-      "order": "g[centrifuge-1]"
+      "order": "g[centrifuge-1]",
+      "placeResult": "centrifuge"
     },
     "uranium-fuel-cell": {
       "id": "uranium-fuel-cell",
@@ -16406,7 +16419,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "production-machine",
-      "order": "e[distillery]"
+      "order": "e[distillery]",
+      "placeResult": "bob-distillery"
     },
     "bob-ruby-3": {
       "id": "bob-ruby-3",
@@ -17236,7 +17250,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "production-machine",
-      "order": "e[bob-electrolyser-1]"
+      "order": "e[bob-electrolyser-1]",
+      "placeResult": "bob-electrolyser"
     },
     "bob-stone-mixing-furnace": {
       "id": "bob-stone-mixing-furnace",
@@ -17246,7 +17261,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[mixing-furnace-1]"
+      "order": "b[mixing-furnace-1]",
+      "placeResult": "bob-stone-mixing-furnace"
     },
     "bob-steel-mixing-furnace": {
       "id": "bob-steel-mixing-furnace",
@@ -17256,7 +17272,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[mixing-furnace-2]"
+      "order": "b[mixing-furnace-2]",
+      "placeResult": "bob-steel-mixing-furnace"
     },
     "bob-electric-mixing-furnace": {
       "id": "bob-electric-mixing-furnace",
@@ -17266,7 +17283,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "c[bob-electric-mixing-furnace]"
+      "order": "c[bob-electric-mixing-furnace]",
+      "placeResult": "bob-electric-mixing-furnace"
     },
     "bob-stone-chemical-furnace": {
       "id": "bob-stone-chemical-furnace",
@@ -17276,7 +17294,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[chemical-boiler-1]"
+      "order": "b[chemical-boiler-1]",
+      "placeResult": "bob-stone-chemical-furnace"
     },
     "bob-steel-chemical-furnace": {
       "id": "bob-steel-chemical-furnace",
@@ -17286,7 +17305,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[chemical-boiler-2]"
+      "order": "b[chemical-boiler-2]",
+      "placeResult": "bob-steel-chemical-furnace"
     },
     "bob-electric-chemical-furnace": {
       "id": "bob-electric-chemical-furnace",
@@ -17296,7 +17316,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "c[chemical-furnace]"
+      "order": "c[chemical-furnace]",
+      "placeResult": "bob-electric-chemical-furnace"
     },
     "bob-air-pump": {
       "id": "bob-air-pump",
@@ -17306,7 +17327,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-air-pump-1]"
+      "order": "e[bob-air-pump-1]",
+      "placeResult": "bob-air-pump"
     },
     "bob-air-pump-2": {
       "id": "bob-air-pump-2",
@@ -17316,7 +17338,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-air-pump-2]"
+      "order": "e[bob-air-pump-2]",
+      "placeResult": "bob-air-pump-2"
     },
     "bob-air-pump-3": {
       "id": "bob-air-pump-3",
@@ -17326,7 +17349,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-air-pump-3]"
+      "order": "e[bob-air-pump-3]",
+      "placeResult": "bob-air-pump-3"
     },
     "bob-air-pump-4": {
       "id": "bob-air-pump-4",
@@ -17336,7 +17360,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-air-pump-4]"
+      "order": "e[bob-air-pump-4]",
+      "placeResult": "bob-air-pump-4"
     },
     "bob-water-pump": {
       "id": "bob-water-pump",
@@ -17346,7 +17371,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-water-pump-1]"
+      "order": "e[bob-water-pump-1]",
+      "placeResult": "bob-water-pump"
     },
     "bob-water-pump-2": {
       "id": "bob-water-pump-2",
@@ -17356,7 +17382,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-water-pump-2]"
+      "order": "e[bob-water-pump-2]",
+      "placeResult": "bob-water-pump-2"
     },
     "bob-water-pump-3": {
       "id": "bob-water-pump-3",
@@ -17366,7 +17393,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-water-pump-3]"
+      "order": "e[bob-water-pump-3]",
+      "placeResult": "bob-water-pump-3"
     },
     "bob-water-pump-4": {
       "id": "bob-water-pump-4",
@@ -17376,7 +17404,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "e[bob-water-pump-4]"
+      "order": "e[bob-water-pump-4]",
+      "placeResult": "bob-water-pump-4"
     },
     "bob-small-inline-storage-tank": {
       "id": "bob-small-inline-storage-tank",
@@ -17406,7 +17435,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-pump",
-      "order": "bob-void-pump"
+      "order": "bob-void-pump",
+      "placeResult": "bob-void-pump"
     },
     "bob-plutonium-239": {
       "id": "bob-plutonium-239",
@@ -17706,7 +17736,8 @@
       "hidden": true,
       "stackSize": 20,
       "subgroup": "ee-modules",
-      "order": "aa"
+      "order": "aa",
+      "placeResult": "ee-super-beacon"
     },
     "ee-super-construction-robot": {
       "id": "ee-super-construction-robot",
@@ -17866,7 +17897,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "c[bob-assembling-machine-4]"
+      "order": "c[bob-assembling-machine-4]",
+      "placeResult": "bob-assembling-machine-4"
     },
     "bob-assembling-machine-5": {
       "id": "bob-assembling-machine-5",
@@ -17876,7 +17908,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "c[bob-assembling-machine-5]"
+      "order": "c[bob-assembling-machine-5]",
+      "placeResult": "bob-assembling-machine-5"
     },
     "bob-assembling-machine-6": {
       "id": "bob-assembling-machine-6",
@@ -17886,7 +17919,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "c[bob-assembling-machine-6]"
+      "order": "c[bob-assembling-machine-6]",
+      "placeResult": "bob-assembling-machine-6"
     },
     "bob-electronics-machine-1": {
       "id": "bob-electronics-machine-1",
@@ -17896,7 +17930,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "d[electronics-machine-1]"
+      "order": "d[electronics-machine-1]",
+      "placeResult": "bob-electronics-machine-1"
     },
     "bob-electronics-machine-2": {
       "id": "bob-electronics-machine-2",
@@ -17906,7 +17941,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "d[electronics-machine-2]"
+      "order": "d[electronics-machine-2]",
+      "placeResult": "bob-electronics-machine-2"
     },
     "bob-electronics-machine-3": {
       "id": "bob-electronics-machine-3",
@@ -17916,7 +17952,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-assembly-machine",
-      "order": "d[electronics-machine-3]"
+      "order": "d[electronics-machine-3]",
+      "placeResult": "bob-electronics-machine-3"
     },
     "bob-electric-furnace-2": {
       "id": "bob-electric-furnace-2",
@@ -17926,7 +17963,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "c[electric-furnace-2]"
+      "order": "c[electric-furnace-2]",
+      "placeResult": "bob-electric-furnace-2"
     },
     "bob-electric-furnace-3": {
       "id": "bob-electric-furnace-3",
@@ -17936,7 +17974,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "c[electric-furnace-3]"
+      "order": "c[electric-furnace-3]",
+      "placeResult": "bob-electric-furnace-3"
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
@@ -17946,7 +17985,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "d[electric-chemical-mixing-furnace-1]"
+      "order": "d[electric-chemical-mixing-furnace-1]",
+      "placeResult": "bob-electric-chemical-mixing-furnace"
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
@@ -17956,7 +17996,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "d[electric-chemical-mixing-furnace-2]"
+      "order": "d[electric-chemical-mixing-furnace-2]",
+      "placeResult": "bob-electric-chemical-mixing-furnace-2"
     },
     "bob-fluid-furnace": {
       "id": "bob-fluid-furnace",
@@ -17966,7 +18007,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "smelting-machine",
-      "order": "b[steela-furnace]"
+      "order": "b[steela-furnace]",
+      "placeResult": "bob-fluid-furnace"
     },
     "bob-fluid-mixing-furnace": {
       "id": "bob-fluid-mixing-furnace",
@@ -17976,7 +18018,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[mixing-furnace-3]"
+      "order": "b[mixing-furnace-3]",
+      "placeResult": "bob-fluid-mixing-furnace"
     },
     "bob-fluid-chemical-furnace": {
       "id": "bob-fluid-chemical-furnace",
@@ -17986,7 +18029,8 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-smelting-machine",
-      "order": "b[chemical-boiler-3]"
+      "order": "b[chemical-boiler-3]",
+      "placeResult": "bob-fluid-chemical-furnace"
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
@@ -17996,7 +18040,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "production-machine",
-      "order": "g[centrifuge-2]"
+      "order": "g[centrifuge-2]",
+      "placeResult": "bob-centrifuge-2"
     },
     "bob-centrifuge-3": {
       "id": "bob-centrifuge-3",
@@ -18006,7 +18051,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "production-machine",
-      "order": "g[centrifuge-3]"
+      "order": "g[centrifuge-3]",
+      "placeResult": "bob-centrifuge-3"
     },
     "bob-solder-alloy": {
       "id": "bob-solder-alloy",
@@ -21056,7 +21102,8 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "module-beacon",
-      "order": "a[bob-beacon]-2"
+      "order": "a[bob-beacon]-2",
+      "placeResult": "bob-beacon-2"
     },
     "bob-beacon-3": {
       "id": "bob-beacon-3",
@@ -21066,7 +21113,8 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "module-beacon",
-      "order": "a[bob-beacon]-3"
+      "order": "a[bob-beacon]-3",
+      "placeResult": "bob-beacon-3"
     },
     "bob-module-case": {
       "id": "bob-module-case",
@@ -21286,7 +21334,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-crusher",
-      "order": "a[burner-ore-crusher]"
+      "order": "a[burner-ore-crusher]",
+      "placeResult": "angels-burner-ore-crusher"
     },
     "angels-ore-crusher": {
       "id": "angels-ore-crusher",
@@ -21296,7 +21345,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-crusher",
-      "order": "b[ore-crusher]"
+      "order": "b[ore-crusher]",
+      "placeResult": "angels-ore-crusher"
     },
     "angels-ore-crusher-2": {
       "id": "angels-ore-crusher-2",
@@ -21306,7 +21356,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-crusher",
-      "order": "c[ore-crusher-2]"
+      "order": "c[ore-crusher-2]",
+      "placeResult": "angels-ore-crusher-2"
     },
     "angels-ore-crusher-3": {
       "id": "angels-ore-crusher-3",
@@ -21316,7 +21367,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-crusher",
-      "order": "d[ore-crusher-3]"
+      "order": "d[ore-crusher-3]",
+      "placeResult": "angels-ore-crusher-3"
     },
     "angels-ore-sorting-facility": {
       "id": "angels-ore-sorting-facility",
@@ -21326,7 +21378,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-sorter",
-      "order": "a[ore-sorting-facility]"
+      "order": "a[ore-sorting-facility]",
+      "placeResult": "angels-ore-sorting-facility"
     },
     "angels-ore-sorting-facility-2": {
       "id": "angels-ore-sorting-facility-2",
@@ -21336,7 +21389,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-sorter",
-      "order": "b[ore-sorting-facility-2]"
+      "order": "b[ore-sorting-facility-2]",
+      "placeResult": "angels-ore-sorting-facility-2"
     },
     "angels-ore-sorting-facility-3": {
       "id": "angels-ore-sorting-facility-3",
@@ -21346,7 +21400,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-sorter",
-      "order": "c[ore-sorting-facility-3]"
+      "order": "c[ore-sorting-facility-3]",
+      "placeResult": "angels-ore-sorting-facility-3"
     },
     "angels-ore-sorting-facility-4": {
       "id": "angels-ore-sorting-facility-4",
@@ -21356,7 +21411,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-sorter",
-      "order": "d[ore-sorting-facility-4]"
+      "order": "d[ore-sorting-facility-4]",
+      "placeResult": "angels-ore-sorting-facility-4"
     },
     "angels-ore-sorting-facility-5": {
       "id": "angels-ore-sorting-facility-5",
@@ -21366,7 +21422,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-sorter",
-      "order": "e[ore-sorting-facility-5]"
+      "order": "e[ore-sorting-facility-5]",
+      "placeResult": "angels-ore-sorting-facility-5"
     },
     "angels-ore-floatation-cell": {
       "id": "angels-ore-floatation-cell",
@@ -21376,7 +21433,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-floatation",
-      "order": "a[ore-floatation-cell]"
+      "order": "a[ore-floatation-cell]",
+      "placeResult": "angels-ore-floatation-cell"
     },
     "angels-ore-floatation-cell-2": {
       "id": "angels-ore-floatation-cell-2",
@@ -21386,7 +21444,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-floatation",
-      "order": "b[ore-floatation-cell-2]"
+      "order": "b[ore-floatation-cell-2]",
+      "placeResult": "angels-ore-floatation-cell-2"
     },
     "angels-ore-floatation-cell-3": {
       "id": "angels-ore-floatation-cell-3",
@@ -21396,7 +21455,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-floatation",
-      "order": "c[ore-floatation-cell-3]"
+      "order": "c[ore-floatation-cell-3]",
+      "placeResult": "angels-ore-floatation-cell-3"
     },
     "angels-ore-leaching-plant": {
       "id": "angels-ore-leaching-plant",
@@ -21406,7 +21466,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-leaching",
-      "order": "a[ore-leaching-plant]"
+      "order": "a[ore-leaching-plant]",
+      "placeResult": "angels-ore-leaching-plant"
     },
     "angels-ore-leaching-plant-2": {
       "id": "angels-ore-leaching-plant-2",
@@ -21416,7 +21477,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-leaching",
-      "order": "b[ore-leaching-plant-2]"
+      "order": "b[ore-leaching-plant-2]",
+      "placeResult": "angels-ore-leaching-plant-2"
     },
     "angels-ore-leaching-plant-3": {
       "id": "angels-ore-leaching-plant-3",
@@ -21426,7 +21488,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-leaching",
-      "order": "c[ore-leaching-plant-3]"
+      "order": "c[ore-leaching-plant-3]",
+      "placeResult": "angels-ore-leaching-plant-3"
     },
     "angels-ore-refinery": {
       "id": "angels-ore-refinery",
@@ -21436,7 +21499,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-refining",
-      "order": "a[ore-refinery]"
+      "order": "a[ore-refinery]",
+      "placeResult": "angels-ore-refinery"
     },
     "angels-ore-refinery-2": {
       "id": "angels-ore-refinery-2",
@@ -21446,7 +21510,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-ore-refining",
-      "order": "b[ore-refinery-2]"
+      "order": "b[ore-refinery-2]",
+      "placeResult": "angels-ore-refinery-2"
     },
     "angels-powderizer": {
       "id": "angels-powderizer",
@@ -21456,7 +21521,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powderizer",
-      "order": "a"
+      "order": "a",
+      "placeResult": "angels-powderizer"
     },
     "angels-powderizer-2": {
       "id": "angels-powderizer-2",
@@ -21466,7 +21532,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powderizer",
-      "order": "b"
+      "order": "b",
+      "placeResult": "angels-powderizer-2"
     },
     "angels-powderizer-3": {
       "id": "angels-powderizer-3",
@@ -21476,7 +21543,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powderizer",
-      "order": "c"
+      "order": "c",
+      "placeResult": "angels-powderizer-3"
     },
     "angels-electro-whinning-cell": {
       "id": "angels-electro-whinning-cell",
@@ -21486,7 +21554,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-ore-whinning",
-      "order": "d"
+      "order": "d",
+      "placeResult": "angels-electro-whinning-cell"
     },
     "angels-electro-whinning-cell-2": {
       "id": "angels-electro-whinning-cell-2",
@@ -21496,7 +21565,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-ore-whinning",
-      "order": "e"
+      "order": "e",
+      "placeResult": "angels-electro-whinning-cell-2"
     },
     "angels-crystallizer": {
       "id": "angels-crystallizer",
@@ -21506,7 +21576,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "c[crystallizer]-a[mk1]"
+      "order": "c[crystallizer]-a[mk1]",
+      "placeResult": "angels-crystallizer"
     },
     "angels-crystallizer-2": {
       "id": "angels-crystallizer-2",
@@ -21516,7 +21587,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "c[crystallizer]-b[mk2]"
+      "order": "c[crystallizer]-b[mk2]",
+      "placeResult": "angels-crystallizer-2"
     },
     "angels-crystallizer-3": {
       "id": "angels-crystallizer-3",
@@ -21526,7 +21598,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "c[crystallizer]-c[mk3]"
+      "order": "c[crystallizer]-c[mk3]",
+      "placeResult": "angels-crystallizer-3"
     },
     "angels-filtration-unit": {
       "id": "angels-filtration-unit",
@@ -21536,7 +21609,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "b[filtration-unit]-a[mk1]"
+      "order": "b[filtration-unit]-a[mk1]",
+      "placeResult": "angels-filtration-unit"
     },
     "angels-filtration-unit-2": {
       "id": "angels-filtration-unit-2",
@@ -21546,7 +21620,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "b[filtration-unit]-b[mk2]"
+      "order": "b[filtration-unit]-b[mk2]",
+      "placeResult": "angels-filtration-unit-2"
     },
     "angels-filtration-unit-3": {
       "id": "angels-filtration-unit-3",
@@ -21556,7 +21631,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-refining-buildings",
-      "order": "b[filtration-unit]-c[mk3]"
+      "order": "b[filtration-unit]-c[mk3]",
+      "placeResult": "angels-filtration-unit-3"
     },
     "angels-liquifier": {
       "id": "angels-liquifier",
@@ -21566,7 +21642,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "c[liquifier]-a"
+      "order": "c[liquifier]-a",
+      "placeResult": "angels-liquifier"
     },
     "angels-liquifier-2": {
       "id": "angels-liquifier-2",
@@ -21576,7 +21653,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "c[liquifier]-b"
+      "order": "c[liquifier]-b",
+      "placeResult": "angels-liquifier-2"
     },
     "angels-liquifier-3": {
       "id": "angels-liquifier-3",
@@ -21586,7 +21664,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "c[liquifier]-c"
+      "order": "c[liquifier]-c",
+      "placeResult": "angels-liquifier-3"
     },
     "angels-liquifier-4": {
       "id": "angels-liquifier-4",
@@ -21596,7 +21675,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "c[liquifier]-d"
+      "order": "c[liquifier]-d",
+      "placeResult": "angels-liquifier-4"
     },
     "angels-thermal-bore": {
       "id": "angels-thermal-bore",
@@ -21606,7 +21686,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "f[thermal-extractor]-a[bore]"
+      "order": "f[thermal-extractor]-a[bore]",
+      "placeResult": "angels-thermal-bore"
     },
     "angels-thermal-extractor": {
       "id": "angels-thermal-extractor",
@@ -21616,7 +21697,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "f[thermal-extractor]-b[extractor]"
+      "order": "f[thermal-extractor]-b[extractor]",
+      "placeResult": "angels-thermal-extractor"
     },
     "angels-hydro-plant": {
       "id": "angels-hydro-plant",
@@ -21626,7 +21708,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "a[hydro-plant]"
+      "order": "a[hydro-plant]",
+      "placeResult": "angels-hydro-plant"
     },
     "angels-hydro-plant-2": {
       "id": "angels-hydro-plant-2",
@@ -21636,7 +21719,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "b[hydro-plant2-]"
+      "order": "b[hydro-plant2-]",
+      "placeResult": "angels-hydro-plant-2"
     },
     "angels-hydro-plant-3": {
       "id": "angels-hydro-plant-3",
@@ -21646,7 +21730,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "b[hydro-plant2-]"
+      "order": "b[hydro-plant2-]",
+      "placeResult": "angels-hydro-plant-3"
     },
     "angels-ground-water-pump": {
       "id": "angels-ground-water-pump",
@@ -21656,7 +21741,8 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "angels-washing-building",
-      "order": "e"
+      "order": "e",
+      "placeResult": "angels-ground-water-pump"
     },
     "angels-salination-plant": {
       "id": "angels-salination-plant",
@@ -21666,7 +21752,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "d[salination-plant]"
+      "order": "d[salination-plant]",
+      "placeResult": "angels-salination-plant"
     },
     "angels-salination-plant-2": {
       "id": "angels-salination-plant-2",
@@ -21676,7 +21763,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "e[salination-plant2-]"
+      "order": "e[salination-plant2-]",
+      "placeResult": "angels-salination-plant-2"
     },
     "angels-seafloor-pump": {
       "id": "angels-seafloor-pump",
@@ -21686,7 +21774,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-washing-building",
-      "order": "a"
+      "order": "a",
+      "placeResult": "angels-seafloor-pump"
     },
     "angels-sea-pump": {
       "id": "angels-sea-pump",
@@ -21696,7 +21785,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-washing-building",
-      "order": "f"
+      "order": "f",
+      "placeResult": "angels-sea-pump-placeable"
     },
     "angels-washing-plant": {
       "id": "angels-washing-plant",
@@ -21706,7 +21796,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-washing-building",
-      "order": "b"
+      "order": "b",
+      "placeResult": "angels-washing-plant"
     },
     "angels-washing-plant-2": {
       "id": "angels-washing-plant-2",
@@ -21716,7 +21807,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-washing-building",
-      "order": "c"
+      "order": "c",
+      "placeResult": "angels-washing-plant-2"
     },
     "angels-clarifier": {
       "id": "angels-clarifier",
@@ -21726,7 +21818,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-water-treatment-building",
-      "order": "c[clarifier]"
+      "order": "c[clarifier]",
+      "placeResult": "angels-clarifier"
     },
     "angels-barreling-pump": {
       "id": "angels-barreling-pump",
@@ -21736,7 +21829,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-fluid-control",
-      "order": "c[barreling-pump]"
+      "order": "c[barreling-pump]",
+      "placeResult": "angels-barreling-pump"
     },
     "angels-ore1": {
       "id": "angels-ore1",
@@ -22576,7 +22670,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "ab[angels-electrolyser]-a"
+      "order": "ab[angels-electrolyser]-a",
+      "placeResult": "angels-electrolyser"
     },
     "angels-electrolyser-2": {
       "id": "angels-electrolyser-2",
@@ -22586,7 +22681,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "ab[angels-electrolyser]-b"
+      "order": "ab[angels-electrolyser]-b",
+      "placeResult": "angels-electrolyser-2"
     },
     "angels-electrolyser-3": {
       "id": "angels-electrolyser-3",
@@ -22596,7 +22692,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "ab[angels-electrolyser]-c"
+      "order": "ab[angels-electrolyser]-c",
+      "placeResult": "angels-electrolyser-3"
     },
     "angels-electrolyser-4": {
       "id": "angels-electrolyser-4",
@@ -22606,7 +22703,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "ab[angels-electrolyser]-d"
+      "order": "ab[angels-electrolyser]-d",
+      "placeResult": "angels-electrolyser-4"
     },
     "angels-air-filter": {
       "id": "angels-air-filter",
@@ -22616,7 +22714,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "b[angels-air-filter]-a"
+      "order": "b[angels-air-filter]-a",
+      "placeResult": "angels-air-filter"
     },
     "angels-air-filter-2": {
       "id": "angels-air-filter-2",
@@ -22626,7 +22725,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "b[angels-air-filter]-b"
+      "order": "b[angels-air-filter]-b",
+      "placeResult": "angels-air-filter-2"
     },
     "angels-air-filter-3": {
       "id": "angels-air-filter-3",
@@ -22636,7 +22736,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-electrolyser",
-      "order": "b[angels-air-filter]-c"
+      "order": "b[angels-air-filter]-c",
+      "placeResult": "angels-air-filter-3"
     },
     "angels-chemical-plant-2": {
       "id": "angels-chemical-plant-2",
@@ -22646,7 +22747,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "a[regular]-b[angel]-b"
+      "order": "a[regular]-b[angel]-b",
+      "placeResult": "angels-chemical-plant-2"
     },
     "angels-chemical-plant-3": {
       "id": "angels-chemical-plant-3",
@@ -22656,7 +22758,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "a[regular]-b[angel]-c"
+      "order": "a[regular]-b[angel]-c",
+      "placeResult": "angels-chemical-plant-3"
     },
     "angels-chemical-plant-4": {
       "id": "angels-chemical-plant-4",
@@ -22666,7 +22769,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "a[regular]-b[angel]-d"
+      "order": "a[regular]-b[angel]-d",
+      "placeResult": "angels-chemical-plant-4"
     },
     "angels-advanced-chemical-plant": {
       "id": "angels-advanced-chemical-plant",
@@ -22676,7 +22780,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "b[advanced]-a"
+      "order": "b[advanced]-a",
+      "placeResult": "angels-advanced-chemical-plant"
     },
     "angels-advanced-chemical-plant-2": {
       "id": "angels-advanced-chemical-plant-2",
@@ -22686,7 +22791,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-chemical-plant",
-      "order": "b[advanced]-b"
+      "order": "b[advanced]-b",
+      "placeResult": "angels-advanced-chemical-plant-2"
     },
     "angels-gas-refinery-small": {
       "id": "angels-gas-refinery-small",
@@ -22696,7 +22802,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "a[gas-refinery-small]-a"
+      "order": "a[gas-refinery-small]-a",
+      "placeResult": "angels-gas-refinery-small"
     },
     "angels-gas-refinery-small-2": {
       "id": "angels-gas-refinery-small-2",
@@ -22706,7 +22813,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "a[gas-refinery-small]-b"
+      "order": "a[gas-refinery-small]-b",
+      "placeResult": "angels-gas-refinery-small-2"
     },
     "angels-gas-refinery-small-3": {
       "id": "angels-gas-refinery-small-3",
@@ -22716,7 +22824,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "a[gas-refinery-small]-c"
+      "order": "a[gas-refinery-small]-c",
+      "placeResult": "angels-gas-refinery-small-3"
     },
     "angels-gas-refinery-small-4": {
       "id": "angels-gas-refinery-small-4",
@@ -22726,7 +22835,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "a[gas-refinery-small]-d"
+      "order": "a[gas-refinery-small]-d",
+      "placeResult": "angels-gas-refinery-small-4"
     },
     "angels-gas-refinery": {
       "id": "angels-gas-refinery",
@@ -22736,7 +22846,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "b[gas-refinery]-a"
+      "order": "b[gas-refinery]-a",
+      "placeResult": "angels-gas-refinery"
     },
     "angels-gas-refinery-2": {
       "id": "angels-gas-refinery-2",
@@ -22746,7 +22857,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "b[gas-refinery]-b"
+      "order": "b[gas-refinery]-b",
+      "placeResult": "angels-gas-refinery-2"
     },
     "angels-gas-refinery-3": {
       "id": "angels-gas-refinery-3",
@@ -22756,7 +22868,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "b[gas-refinery]-c"
+      "order": "b[gas-refinery]-c",
+      "placeResult": "angels-gas-refinery-3"
     },
     "angels-gas-refinery-4": {
       "id": "angels-gas-refinery-4",
@@ -22766,7 +22879,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-gas-refinery",
-      "order": "b[gas-refinery]-d"
+      "order": "b[gas-refinery]-d",
+      "placeResult": "angels-gas-refinery-4"
     },
     "angels-separator": {
       "id": "angels-separator",
@@ -22776,7 +22890,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "a[separator]-a"
+      "order": "a[separator]-a",
+      "placeResult": "angels-separator"
     },
     "angels-separator-2": {
       "id": "angels-separator-2",
@@ -22786,7 +22901,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "a[separator]-b"
+      "order": "a[separator]-b",
+      "placeResult": "angels-separator-2"
     },
     "angels-separator-3": {
       "id": "angels-separator-3",
@@ -22796,7 +22912,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "a[separator]-c"
+      "order": "a[separator]-c",
+      "placeResult": "angels-separator-3"
     },
     "angels-separator-4": {
       "id": "angels-separator-4",
@@ -22806,7 +22923,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "a[separator]-d"
+      "order": "a[separator]-d",
+      "placeResult": "angels-separator-4"
     },
     "angels-oil-refinery-2": {
       "id": "angels-oil-refinery-2",
@@ -22816,7 +22934,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "b[oil-refinery]-b"
+      "order": "b[oil-refinery]-b",
+      "placeResult": "angels-oil-refinery-2"
     },
     "angels-oil-refinery-3": {
       "id": "angels-oil-refinery-3",
@@ -22826,7 +22945,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "b[oil-refinery]-c"
+      "order": "b[oil-refinery]-c",
+      "placeResult": "angels-oil-refinery-3"
     },
     "angels-oil-refinery-4": {
       "id": "angels-oil-refinery-4",
@@ -22836,7 +22956,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-oil-refinery",
-      "order": "b[oil-refinery]-d"
+      "order": "b[oil-refinery]-d",
+      "placeResult": "angels-oil-refinery-4"
     },
     "angels-steam-cracker": {
       "id": "angels-steam-cracker",
@@ -22846,7 +22967,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-steam",
-      "order": "a[steam-cracker]-a"
+      "order": "a[steam-cracker]-a",
+      "placeResult": "angels-steam-cracker"
     },
     "angels-steam-cracker-2": {
       "id": "angels-steam-cracker-2",
@@ -22856,7 +22978,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-steam",
-      "order": "a[steam-cracker]-b"
+      "order": "a[steam-cracker]-b",
+      "placeResult": "angels-steam-cracker-2"
     },
     "angels-steam-cracker-3": {
       "id": "angels-steam-cracker-3",
@@ -22866,7 +22989,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-steam",
-      "order": "a[steam-cracker]-c"
+      "order": "a[steam-cracker]-c",
+      "placeResult": "angels-steam-cracker-3"
     },
     "angels-steam-cracker-4": {
       "id": "angels-steam-cracker-4",
@@ -22876,7 +23000,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-steam",
-      "order": "a[steam-cracker]-d"
+      "order": "a[steam-cracker]-d",
+      "placeResult": "angels-steam-cracker-4"
     },
     "angels-flare-stack": {
       "id": "angels-flare-stack",
@@ -22886,7 +23011,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-petrochem-buildings-steam",
-      "order": "b[angels-flare-stack]"
+      "order": "b[angels-flare-stack]",
+      "placeResult": "angels-flare-stack"
     },
     "angels-electric-boiler": {
       "id": "angels-electric-boiler",
@@ -22896,7 +23022,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-boiler-building",
-      "order": "c[electric-boiler]-a"
+      "order": "c[electric-boiler]-a",
+      "placeResult": "angels-electric-boiler"
     },
     "angels-electric-boiler-2": {
       "id": "angels-electric-boiler-2",
@@ -22906,7 +23033,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-boiler-building",
-      "order": "c[electric-boiler]-b"
+      "order": "c[electric-boiler]-b",
+      "placeResult": "angels-electric-boiler-2"
     },
     "angels-electric-boiler-3": {
       "id": "angels-electric-boiler-3",
@@ -22916,7 +23044,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-boiler-building",
-      "order": "c[electric-boiler]-c"
+      "order": "c[electric-boiler]-c",
+      "placeResult": "angels-electric-boiler-3"
     },
     "angels-valve-inspector": {
       "id": "angels-valve-inspector",
@@ -23676,7 +23805,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-induction-furnace",
-      "order": "a[induction-furnace]"
+      "order": "a[induction-furnace]",
+      "placeResult": "angels-induction-furnace"
     },
     "angels-induction-furnace-2": {
       "id": "angels-induction-furnace-2",
@@ -23686,7 +23816,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-induction-furnace",
-      "order": "b[induction-furnace-2]"
+      "order": "b[induction-furnace-2]",
+      "placeResult": "angels-induction-furnace-2"
     },
     "angels-induction-furnace-3": {
       "id": "angels-induction-furnace-3",
@@ -23696,7 +23827,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-induction-furnace",
-      "order": "c[induction-furnace-3]"
+      "order": "c[induction-furnace-3]",
+      "placeResult": "angels-induction-furnace-3"
     },
     "angels-induction-furnace-4": {
       "id": "angels-induction-furnace-4",
@@ -23706,7 +23838,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-induction-furnace",
-      "order": "d[induction-furnace-4]"
+      "order": "d[induction-furnace-4]",
+      "placeResult": "angels-induction-furnace-4"
     },
     "angels-blast-furnace": {
       "id": "angels-blast-furnace",
@@ -23716,7 +23849,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-blast-furnace",
-      "order": "a[blast-furnace]"
+      "order": "a[blast-furnace]",
+      "placeResult": "angels-blast-furnace"
     },
     "angels-blast-furnace-2": {
       "id": "angels-blast-furnace-2",
@@ -23726,7 +23860,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-blast-furnace",
-      "order": "b[blast-furnace-2]"
+      "order": "b[blast-furnace-2]",
+      "placeResult": "angels-blast-furnace-2"
     },
     "angels-blast-furnace-3": {
       "id": "angels-blast-furnace-3",
@@ -23736,7 +23871,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-blast-furnace",
-      "order": "c[blast-furnace-3]"
+      "order": "c[blast-furnace-3]",
+      "placeResult": "angels-blast-furnace-3"
     },
     "angels-blast-furnace-4": {
       "id": "angels-blast-furnace-4",
@@ -23746,7 +23882,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-blast-furnace",
-      "order": "d[blast-furnace-4]"
+      "order": "d[blast-furnace-4]",
+      "placeResult": "angels-blast-furnace-4"
     },
     "angels-chemical-furnace": {
       "id": "angels-chemical-furnace",
@@ -23756,7 +23893,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-chemical-furnace",
-      "order": "a[angels-chemical-furnace]"
+      "order": "a[angels-chemical-furnace]",
+      "placeResult": "angels-chemical-furnace"
     },
     "angels-chemical-furnace-2": {
       "id": "angels-chemical-furnace-2",
@@ -23766,7 +23904,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-chemical-furnace",
-      "order": "b[angels-chemical-furnace-2]"
+      "order": "b[angels-chemical-furnace-2]",
+      "placeResult": "angels-chemical-furnace-2"
     },
     "angels-chemical-furnace-3": {
       "id": "angels-chemical-furnace-3",
@@ -23776,7 +23915,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-chemical-furnace",
-      "order": "c[angels-chemical-furnace-3]"
+      "order": "c[angels-chemical-furnace-3]",
+      "placeResult": "angels-chemical-furnace-3"
     },
     "angels-chemical-furnace-4": {
       "id": "angels-chemical-furnace-4",
@@ -23786,7 +23926,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-chemical-furnace",
-      "order": "d[angels-chemical-furnace-4]"
+      "order": "d[angels-chemical-furnace-4]",
+      "placeResult": "angels-chemical-furnace-4"
     },
     "angels-casting-machine": {
       "id": "angels-casting-machine",
@@ -23796,7 +23937,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-casting-machine",
-      "order": "a[casting-machine]"
+      "order": "a[casting-machine]",
+      "placeResult": "angels-casting-machine"
     },
     "angels-casting-machine-2": {
       "id": "angels-casting-machine-2",
@@ -23806,7 +23948,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-casting-machine",
-      "order": "b[casting-machine-2]"
+      "order": "b[casting-machine-2]",
+      "placeResult": "angels-casting-machine-2"
     },
     "angels-casting-machine-3": {
       "id": "angels-casting-machine-3",
@@ -23816,7 +23959,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-casting-machine",
-      "order": "c[casting-machine-3]"
+      "order": "c[casting-machine-3]",
+      "placeResult": "angels-casting-machine-3"
     },
     "angels-casting-machine-4": {
       "id": "angels-casting-machine-4",
@@ -23826,7 +23970,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-casting-machine",
-      "order": "d[casting-machine-4]"
+      "order": "d[casting-machine-4]",
+      "placeResult": "angels-casting-machine-4"
     },
     "angels-powder-mixer": {
       "id": "angels-powder-mixer",
@@ -23836,7 +23981,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powder-mixer",
-      "order": "a[powder-mixer]"
+      "order": "a[powder-mixer]",
+      "placeResult": "angels-powder-mixer"
     },
     "angels-powder-mixer-2": {
       "id": "angels-powder-mixer-2",
@@ -23846,7 +23992,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powder-mixer",
-      "order": "b[powder-mixer-2]"
+      "order": "b[powder-mixer-2]",
+      "placeResult": "angels-powder-mixer-2"
     },
     "angels-powder-mixer-3": {
       "id": "angels-powder-mixer-3",
@@ -23856,7 +24003,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powder-mixer",
-      "order": "c[powder-mixer-3]"
+      "order": "c[powder-mixer-3]",
+      "placeResult": "angels-powder-mixer-3"
     },
     "angels-powder-mixer-4": {
       "id": "angels-powder-mixer-4",
@@ -23866,7 +24014,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-powder-mixer",
-      "order": "d[powder-mixer-4]"
+      "order": "d[powder-mixer-4]",
+      "placeResult": "angels-powder-mixer-4"
     },
     "angels-ore-processing-machine": {
       "id": "angels-ore-processing-machine",
@@ -23876,7 +24025,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-processing-machine",
-      "order": "a[ore-processing-machine]"
+      "order": "a[ore-processing-machine]",
+      "placeResult": "angels-ore-processing-machine"
     },
     "angels-ore-processing-machine-2": {
       "id": "angels-ore-processing-machine-2",
@@ -23886,7 +24036,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-processing-machine",
-      "order": "b[ore-processing-machine-2]"
+      "order": "b[ore-processing-machine-2]",
+      "placeResult": "angels-ore-processing-machine-2"
     },
     "angels-ore-processing-machine-3": {
       "id": "angels-ore-processing-machine-3",
@@ -23896,7 +24047,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-processing-machine",
-      "order": "c[ore-processing-machine-3]"
+      "order": "c[ore-processing-machine-3]",
+      "placeResult": "angels-ore-processing-machine-3"
     },
     "angels-ore-processing-machine-4": {
       "id": "angels-ore-processing-machine-4",
@@ -23906,7 +24058,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-processing-machine",
-      "order": "d[ore-processing-machine-4]"
+      "order": "d[ore-processing-machine-4]",
+      "placeResult": "angels-ore-processing-machine-4"
     },
     "angels-pellet-press": {
       "id": "angels-pellet-press",
@@ -23916,7 +24069,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-pellet-press",
-      "order": "a[pellet-press]"
+      "order": "a[pellet-press]",
+      "placeResult": "angels-pellet-press"
     },
     "angels-pellet-press-2": {
       "id": "angels-pellet-press-2",
@@ -23926,7 +24080,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-pellet-press",
-      "order": "b[pellet-press-2]"
+      "order": "b[pellet-press-2]",
+      "placeResult": "angels-pellet-press-2"
     },
     "angels-pellet-press-3": {
       "id": "angels-pellet-press-3",
@@ -23936,7 +24091,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-pellet-press",
-      "order": "c[pellet-press-3]"
+      "order": "c[pellet-press-3]",
+      "placeResult": "angels-pellet-press-3"
     },
     "angels-pellet-press-4": {
       "id": "angels-pellet-press-4",
@@ -23946,7 +24102,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-pellet-press",
-      "order": "d[pellet-press-4]"
+      "order": "d[pellet-press-4]",
+      "placeResult": "angels-pellet-press-4"
     },
     "angels-sintering-oven": {
       "id": "angels-sintering-oven",
@@ -23956,7 +24113,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-sintering-oven",
-      "order": "a[sintering-oven]"
+      "order": "a[sintering-oven]",
+      "placeResult": "angels-sintering-oven"
     },
     "angels-sintering-oven-2": {
       "id": "angels-sintering-oven-2",
@@ -23966,7 +24124,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-sintering-oven",
-      "order": "b[sintering-oven-2]"
+      "order": "b[sintering-oven-2]",
+      "placeResult": "angels-sintering-oven-2"
     },
     "angels-sintering-oven-3": {
       "id": "angels-sintering-oven-3",
@@ -23976,7 +24135,8 @@
       "hidden": true,
       "stackSize": 10,
       "subgroup": "angels-sintering-oven",
-      "order": "c[sintering-oven-3]"
+      "order": "c[sintering-oven-3]",
+      "placeResult": "angels-sintering-oven-3"
     },
     "angels-sintering-oven-4": {
       "id": "angels-sintering-oven-4",
@@ -23986,7 +24146,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-sintering-oven",
-      "order": "d[sintering-oven-4]"
+      "order": "d[sintering-oven-4]",
+      "placeResult": "angels-sintering-oven-4"
     },
     "angels-sintering-oven-5": {
       "id": "angels-sintering-oven-5",
@@ -23996,7 +24157,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-sintering-oven",
-      "order": "d[sintering-oven-5]"
+      "order": "d[sintering-oven-5]",
+      "placeResult": "angels-sintering-oven-5"
     },
     "angels-strand-casting-machine": {
       "id": "angels-strand-casting-machine",
@@ -24006,7 +24168,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-strand-casting-machine",
-      "order": "a[strand-casting-machine]"
+      "order": "a[strand-casting-machine]",
+      "placeResult": "angels-strand-casting-machine"
     },
     "angels-strand-casting-machine-2": {
       "id": "angels-strand-casting-machine-2",
@@ -24016,7 +24179,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-strand-casting-machine",
-      "order": "b[strand-casting-machine-2]"
+      "order": "b[strand-casting-machine-2]",
+      "placeResult": "angels-strand-casting-machine-2"
     },
     "angels-strand-casting-machine-3": {
       "id": "angels-strand-casting-machine-3",
@@ -24026,7 +24190,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-strand-casting-machine",
-      "order": "c[strand-casting-machine-3]"
+      "order": "c[strand-casting-machine-3]",
+      "placeResult": "angels-strand-casting-machine-3"
     },
     "angels-strand-casting-machine-4": {
       "id": "angels-strand-casting-machine-4",
@@ -24036,7 +24201,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-strand-casting-machine",
-      "order": "d[strand-casting-machine-4]"
+      "order": "d[strand-casting-machine-4]",
+      "placeResult": "angels-strand-casting-machine-4"
     },
     "angels-cooling-tower": {
       "id": "angels-cooling-tower",
@@ -24046,7 +24212,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-boiler-building",
-      "order": "f[cooling-tower]"
+      "order": "f[cooling-tower]",
+      "placeResult": "angels-cooling-tower"
     },
     "bob-brass-bearing-ball": {
       "id": "bob-brass-bearing-ball",
@@ -25766,7 +25933,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "a[algae]-a"
+      "order": "a[algae]-a",
+      "placeResult": "angels-algae-farm"
     },
     "angels-algae-farm-2": {
       "id": "angels-algae-farm-2",
@@ -25776,7 +25944,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "a[algae]-b"
+      "order": "a[algae]-b",
+      "placeResult": "angels-algae-farm-2"
     },
     "angels-algae-farm-3": {
       "id": "angels-algae-farm-3",
@@ -25786,7 +25955,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "a[algae]-c"
+      "order": "a[algae]-c",
+      "placeResult": "angels-algae-farm-3"
     },
     "angels-algae-farm-4": {
       "id": "angels-algae-farm-4",
@@ -25796,7 +25966,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "a[algae]-d"
+      "order": "a[algae]-d",
+      "placeResult": "angels-algae-farm-4"
     },
     "angels-crop-farm": {
       "id": "angels-crop-farm",
@@ -25806,7 +25977,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-a",
-      "order": "a"
+      "order": "a",
+      "placeResult": "angels-crop-farm"
     },
     "angels-temperate-farm": {
       "id": "angels-temperate-farm",
@@ -25816,7 +25988,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-a",
-      "order": "ba"
+      "order": "ba",
+      "placeResult": "angels-temperate-farm"
     },
     "angels-desert-farm": {
       "id": "angels-desert-farm",
@@ -25826,7 +25999,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-a",
-      "order": "bc"
+      "order": "bc",
+      "placeResult": "angels-desert-farm"
     },
     "angels-swamp-farm": {
       "id": "angels-swamp-farm",
@@ -25836,7 +26010,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-a",
-      "order": "bb"
+      "order": "bb",
+      "placeResult": "angels-swamp-farm"
     },
     "angels-composter": {
       "id": "angels-composter",
@@ -25846,7 +26021,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-b",
-      "order": "b"
+      "order": "b",
+      "placeResult": "angels-composter"
     },
     "angels-seed-extractor": {
       "id": "angels-seed-extractor",
@@ -25856,7 +26032,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-b",
-      "order": "a"
+      "order": "a",
+      "placeResult": "angels-seed-extractor"
     },
     "angels-bio-press": {
       "id": "angels-bio-press",
@@ -25866,7 +26043,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-b",
-      "order": "d"
+      "order": "d",
+      "placeResult": "angels-bio-press"
     },
     "angels-bio-processor": {
       "id": "angels-bio-processor",
@@ -25876,7 +26054,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-b",
-      "order": "c"
+      "order": "c",
+      "placeResult": "angels-bio-processor"
     },
     "angels-nutrient-extractor": {
       "id": "angels-nutrient-extractor",
@@ -25886,7 +26065,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-vegetabilis-b",
-      "order": "d"
+      "order": "d",
+      "placeResult": "angels-nutrient-extractor"
     },
     "angels-bio-generator-temperate-1": {
       "id": "angels-bio-generator-temperate-1",
@@ -25896,7 +26076,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "b[generator]-a"
+      "order": "b[generator]-a",
+      "placeResult": "angels-bio-generator-temperate-1"
     },
     "angels-bio-generator-swamp-1": {
       "id": "angels-bio-generator-swamp-1",
@@ -25906,7 +26087,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "b[generator]-b"
+      "order": "b[generator]-b",
+      "placeResult": "angels-bio-generator-swamp-1"
     },
     "angels-bio-generator-desert-1": {
       "id": "angels-bio-generator-desert-1",
@@ -25916,7 +26098,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "b[generator]-c"
+      "order": "b[generator]-c",
+      "placeResult": "angels-bio-generator-desert-1"
     },
     "angels-bio-arboretum-1": {
       "id": "angels-bio-arboretum-1",
@@ -25926,7 +26109,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-nauvis-a",
-      "order": "c[arboretum]-a"
+      "order": "c[arboretum]-a",
+      "placeResult": "angels-bio-arboretum-1"
     },
     "angels-bio-refugium-fish": {
       "id": "angels-bio-refugium-fish",
@@ -25936,7 +26120,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-alien-a",
-      "order": "a"
+      "order": "a",
+      "placeResult": "angels-bio-refugium-fish"
     },
     "angels-bio-refugium-puffer": {
       "id": "angels-bio-refugium-puffer",
@@ -25946,7 +26131,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-alien-a",
-      "order": "d"
+      "order": "d",
+      "placeResult": "angels-bio-refugium-puffer"
     },
     "angels-bio-refugium-biter": {
       "id": "angels-bio-refugium-biter",
@@ -25956,7 +26142,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-alien-a",
-      "order": "e"
+      "order": "e",
+      "placeResult": "angels-bio-refugium-biter"
     },
     "angels-bio-hatchery": {
       "id": "angels-bio-hatchery",
@@ -25966,7 +26153,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-alien-a",
-      "order": "c"
+      "order": "c",
+      "placeResult": "angels-bio-hatchery"
     },
     "angels-bio-butchery": {
       "id": "angels-bio-butchery",
@@ -25976,7 +26164,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-bio-processing-buildings-alien-a",
-      "order": "b"
+      "order": "b",
+      "placeResult": "angels-bio-butchery"
     },
     "angels-temperate-garden": {
       "id": "angels-temperate-garden",
@@ -135898,6 +136087,106 @@
       "subgroup": "sb-SpaceMod",
       "order": "",
       "mainProduct": "protection-field"
+    },
+    "mining:crude-oil": {
+      "id": "mining:crude-oil",
+      "name": "Oil well (mining)",
+      "category": "mining:basic-fluid",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "angels-liquid-multi-phase-oil",
+          "type": "fluid",
+          "amount": 10,
+          "probability": 1,
+          "amountMin": 10,
+          "amountMax": 10
+        }
+      ],
+      "madeIn": [
+        "pumpjack"
+      ],
+      "allowProductivity": true,
+      "hidden": true,
+      "subgroup": "angels-petrochem-raw-fluids",
+      "order": "a",
+      "extraction": true,
+      "mainProduct": "angels-liquid-multi-phase-oil"
+    },
+    "mining:angels-sea-pump-resource": {
+      "id": "mining:angels-sea-pump-resource",
+      "name": "Water (mining)",
+      "category": "mining:angels-sea-pump",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 1500,
+          "probability": 1,
+          "amountMin": 1500,
+          "amountMax": 1500
+        }
+      ],
+      "madeIn": [
+        "angels-sea-pump"
+      ],
+      "allowProductivity": true,
+      "hidden": true,
+      "subgroup": "angels-water-treatment-fluid",
+      "order": "a-b-a",
+      "extraction": true,
+      "mainProduct": "water"
+    },
+    "offshore:water": {
+      "id": "offshore:water",
+      "name": "Water (offshore pump)",
+      "category": "offshore:water",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "angels-ground-water-pump",
+        "angels-sea-pump-placeable",
+        "offshore-pump"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "angels-water-treatment-fluid",
+      "order": "",
+      "extraction": true,
+      "mainProduct": "water"
+    },
+    "offshore:angels-water-viscous-mud": {
+      "id": "offshore:angels-water-viscous-mud",
+      "name": "Viscous mud water (offshore pump)",
+      "category": "offshore:angels-water-viscous-mud",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "angels-water-viscous-mud",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "angels-seafloor-pump"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "angels-water-washing-fluid",
+      "order": "",
+      "extraction": true,
+      "mainProduct": "angels-water-viscous-mud"
     }
   },
   "machines": {
@@ -139772,6 +140061,113 @@
       ],
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/rocket-silo.png",
       "hidden": false
+    },
+    "pumpjack": {
+      "id": "pumpjack",
+      "name": "Pumpjack",
+      "type": "mining-drill",
+      "craftingSpeed": 1,
+      "energyUsageKw": 90,
+      "energyType": "electric",
+      "drainKw": 0,
+      "moduleSlots": 2,
+      "allowedEffects": [
+        "consumption",
+        "pollution",
+        "productivity",
+        "quality",
+        "speed"
+      ],
+      "craftingCategories": [
+        "mining:basic-fluid",
+        "mining:water"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/pumpjack.png",
+      "hidden": true
+    },
+    "angels-sea-pump": {
+      "id": "angels-sea-pump",
+      "name": "Heavy offshore pump",
+      "type": "mining-drill",
+      "craftingSpeed": 1,
+      "energyUsageKw": 250,
+      "energyType": "electric",
+      "drainKw": 0,
+      "moduleSlots": 2,
+      "allowedEffects": [
+        "consumption",
+        "pollution",
+        "speed"
+      ],
+      "craftingCategories": [
+        "mining:angels-sea-pump"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-sea-pump.png",
+      "hidden": false
+    },
+    "offshore-pump": {
+      "id": "offshore-pump",
+      "name": "Offshore pump",
+      "type": "offshore-pump",
+      "craftingSpeed": 20,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "offshore:water"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/offshore-pump.png",
+      "hidden": false
+    },
+    "angels-ground-water-pump": {
+      "id": "angels-ground-water-pump",
+      "name": "Ground water bore",
+      "type": "offshore-pump",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "offshore:water"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-ground-water-pump.png",
+      "hidden": false
+    },
+    "angels-seafloor-pump": {
+      "id": "angels-seafloor-pump",
+      "name": "Seafloor pump",
+      "type": "offshore-pump",
+      "craftingSpeed": 5,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "offshore:angels-water-viscous-mud"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-seafloor-pump.png",
+      "hidden": false
+    },
+    "angels-sea-pump-placeable": {
+      "id": "angels-sea-pump-placeable",
+      "name": "Heavy offshore pump",
+      "type": "offshore-pump",
+      "craftingSpeed": 25,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "offshore:water"
+      ],
+      "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-sea-pump-placeable.png",
+      "hidden": false
     }
   },
   "modules": {
@@ -140418,7 +140814,12 @@
     "angels-bio-void": "angels-composter",
     "angels-bio-hatchery": "angels-bio-hatchery",
     "angels-bio-butchery": "angels-bio-butchery",
-    "rocket-building": "rocket-silo"
+    "rocket-building": "rocket-silo",
+    "mining:basic-fluid": "pumpjack",
+    "mining:water": "pumpjack",
+    "mining:angels-sea-pump": "angels-sea-pump",
+    "offshore:water": "angels-sea-pump-placeable",
+    "offshore:angels-water-viscous-mud": "angels-seafloor-pump"
   },
   "itemGroups": {
     "logistics": {
