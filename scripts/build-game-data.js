@@ -45,7 +45,7 @@ import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
 import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies } from './technologies.js'
-import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName } from './locale.js'
+import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -761,7 +761,7 @@ function patchNames(existing, raw, localeMap) {
       }
       if (name !== entry.name) {
         changes.push(`${section} ${id}: ${entry.name} -> ${name}`)
-        if (!/__[A-Z][A-Z_]*__/.test(entry.name)) changedWithoutPlaceholder++
+        if (!RESIDUE_RE.test(entry.name)) changedWithoutPlaceholder++
       }
       out[id] = { ...entry, name }
     }

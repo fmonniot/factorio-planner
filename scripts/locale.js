@@ -65,8 +65,13 @@ export const PLACEHOLDER_SCOPES = {
 }
 
 export const TOKEN_RE = /__(ITEM|ENTITY|FLUID|TILE)__([A-Za-z0-9][A-Za-z0-9_.-]*?)__/g
-/** A leftover `__WORD__` after expansion (numeric `__1__` is not residue). */
-export const RESIDUE_RE = /__[A-Z][A-Z_]*__/
+/**
+ * A leftover of a token we expand (`__ITEM__`, `__ENTITY__`, `__FLUID__`,
+ * `__TILE__`), including malformed ones with no closing `__`. Other Factorio
+ * tokens (`__CONTROL__x__`, `__REMARK_COLOR_BEGIN__`) and numeric `__1__`
+ * are not residue.
+ */
+export const RESIDUE_RE = /__(ITEM|ENTITY|FLUID|TILE)__/
 
 const MAX_DEPTH = 8
 
@@ -104,14 +109,45 @@ export function lookupLocale(key, localeMap, stack = []) {
 }
 
 /**
+ * Resolve a LocalisedString strictly: `undefined` when any part (placeholder,
+ * key or nested argument) cannot be resolved cleanly.
+ */
+function resolveStrict(localised, localeMap) {
+  if (typeof localised === 'string') {
+    const { text, ok } = expandPlaceholders(localised, localeMap)
+    return ok ? text : undefined
+  }
+  if (!Array.isArray(localised)) return undefined
+  const [key, ...rest] = localised
+  if (typeof key !== 'string') return undefined
+  if (key === '') {
+    // Concatenation: ["", part1, part2, ...] — every part must resolve.
+    const parts = rest.map(p => resolveStrict(p, localeMap))
+    return parts.some(p => p === undefined) ? undefined : parts.join('')
+  }
+  if (rest.length === 0) return lookupLocale(key, localeMap)
+  // Format string with args — basic positional substitution.
+  const template = lookupLocale(key, localeMap)
+  if (template === undefined) return undefined
+  let failed = false
+  const text = template.replace(/__(\d+)__/g, (_, n) => {
+    const arg = rest[parseInt(n, 10) - 1]
+    if (arg == null) return `__${n}__`
+    const val = resolveStrict(arg, localeMap)
+    if (val === undefined) failed = true
+    return val ?? ''
+  })
+  return failed ? undefined : text
+}
+
+/**
  * Resolve a Factorio LocalisedString to English.
- * A LocalisedString is either:
- *   - a plain string  → returned (placeholders expanded)
- *   - an array        → first element is a locale key, rest are positional args
- *     e.g. ["item-name.iron-plate"]  or  ["format", arg1, arg2]
+ * A LocalisedString is either a plain string (placeholders expanded) or an
+ * array: a locale key plus positional args (`["format", arg1, arg2]`), or
+ * `["", part1, part2, ...]` for concatenation.
  *
- * We only handle the simple single-key case; complex format strings fall back
- * to the prototype's internal name.
+ * If any part cannot be resolved cleanly (unknown key, unresolvable
+ * placeholder) the whole name counts as unresolved and `fallback` is used.
  */
 export function resolveLocale(localised, fallback, localeMap, ...scopes) {
   if (!localised) {
@@ -121,29 +157,7 @@ export function resolveLocale(localised, fallback, localeMap, ...scopes) {
     }
     return fallback
   }
-  if (typeof localised === 'string') {
-    return expandPlaceholders(localised, localeMap).text || fallback
-  }
-
-  if (Array.isArray(localised)) {
-    const [key, ...rest] = localised
-    if (typeof key === 'string' && key !== '' && rest.length === 0) {
-      return lookupLocale(key, localeMap) ?? fallback
-    }
-    // Simple concatenation case: ["", part1, part2, ...]
-    if (key === '') {
-      return rest.map(p => resolveLocale(p, '', localeMap)).join('') || fallback
-    }
-    // Format string with args — do a basic positional substitution.
-    const template = localeMap[key]
-    if (!template) return fallback
-    return expandPlaceholders(template, localeMap).text.replace(/__(\d+)__/g, (_, n) => {
-      const arg = rest[parseInt(n, 10) - 1]
-      return arg != null ? resolveLocale(arg, '', localeMap) : `__${n}__`
-    })
-  }
-
-  return fallback
+  return resolveStrict(localised, localeMap) || fallback
 }
 
 /**

@@ -92,6 +92,15 @@ describe('expandPlaceholders', () => {
     expect(expandPlaceholders('__ITEM__x', makeLocale()).ok).toBe(false)
   })
 
+  it('does not treat other Factorio tokens as residue', () => {
+    expect(expandPlaceholders('Remote (__CONTROL__x__)', makeLocale()).ok).toBe(true)
+    expect(expandPlaceholders('__REMARK_COLOR_BEGIN__Hi', makeLocale()).ok).toBe(true)
+  })
+
+  it('reports a malformed token without closing underscores as not ok', () => {
+    expect(expandPlaceholders('__ITEM__sct-t3-sulfur-lightsource', makeLocale()).ok).toBe(false)
+  })
+
   it('does not treat numeric placeholders as residue', () => {
     expect(expandPlaceholders('Foo __1__', makeLocale())).toEqual({ text: 'Foo __1__', ok: true })
   })
@@ -130,6 +139,30 @@ describe('resolveLocale', () => {
 
   it('still concatenates ["", a, b]', () => {
     expect(resolveLocale(['', 'A', ['item-name.iron-plate']], 'fb', makeLocale())).toBe('AIron plate')
+  })
+
+  it('falls back when any concatenated part is unresolvable', () => {
+    const l = makeLocale()
+    l['entity-name.foo'] = '__ITEM__missing__'
+    expect(resolveLocale(['', ['entity-name.foo'], ' 2'], 'fb', l)).toBe('fb')
+    expect(resolveLocale(['', ['item-name.nope'], ' 2'], 'fb', l)).toBe('fb')
+  })
+
+  it('falls back when a plain string has an unresolvable placeholder', () => {
+    expect(resolveLocale('__ENTITY__unknown-tank__ 2', 'fb', makeLocale())).toBe('fb')
+  })
+
+  it('falls back when a format arg or template is unresolvable', () => {
+    const l = makeLocale()
+    l['custom.fmt'] = 'X __1__'
+    l['custom.bad'] = '__ITEM__missing__ __1__'
+    expect(resolveLocale(['custom.fmt', '__ITEM__missing__'], 'fb', l)).toBe('fb')
+    expect(resolveLocale(['custom.bad', '2'], 'fb', l)).toBe('fb')
+  })
+
+  it('keeps values containing other Factorio tokens', () => {
+    const l = { 'item-name.remote': 'Remote (__CONTROL__give-remote__)' }
+    expect(resolveLocale(['item-name.remote'], 'fb', l)).toBe('Remote (__CONTROL__give-remote__)')
   })
 })
 

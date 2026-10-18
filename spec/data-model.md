@@ -107,7 +107,7 @@ interface Product {
 compatibility shim for bundles that serialised empty tables as objects.
 
 **Recipe name.** The build script uses, in order: the recipe's `localised_name`,
-its `recipe-name` locale key, then the display name of its main product. A locale value whose placeholders cannot be resolved counts as missing.
+its `recipe-name` locale key, then the display name of its main product. A name whose placeholders cannot be resolved (in a locale value, a plain `localised_name` string, a format argument, or any part of a `["", ...]` concatenation) counts as missing as a whole, so the build script moves on to the next source and finally to the id. Only `__ITEM__`, `__ENTITY__`, `__FLUID__` and `__TILE__` are expanded or treated as unresolved; other Factorio tokens such as `__CONTROL__x__` are left untouched.
 
 **Recipe subgroup.** When the recipe has no `subgroup`, the build script uses the
 subgroup of its main product (or of its single product).
