@@ -44,7 +44,7 @@ The solver runs entirely in the browser with no server round-trip. This keeps th
 
 Tailwind's utility classes enable fast iteration without maintaining a parallel CSS file. The design is information-dense, and Tailwind's spacing/color system handles that well.
 
-Component library: none. The production table, popovers, modals and the item picker are custom components.
+Component library: none. The production table, popovers, modals and the item picker are custom components. So is the technology tree: hand-written pan/zoom (`src/utils/viewTransform.ts`) and column layout (`src/data/techTree.ts`), with no graph-layout library.
 
 ---
 
@@ -77,7 +77,7 @@ The corpus cases in [test-corpus.md](test-corpus.md) are the reference values fo
 
 Game data is bundled with the app under `public/data/<dataset>/` (Nullius and Seablock are committed). The pipeline runs `factorio --dump-data` (no GUI needed) to emit `data-raw-dump.json`, then a Node script post-processes it into the `GameData` shape the app expects. The command-line recipe is in the README ("Exporting game data").
 
-**Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the Factorio and mods directories for icons, resolves locale strings (`scripts/locale.js`, including placeholder expansion), classifies machines, exports beacons, and writes `game-data.json` plus icons to the paths given by `--output` and `--icons-out` (defaulting to `public/data/nullius/`). Layered icons are composited by `scripts/icon-compositor.js` with `sharp`; `adm-zip` reads zipped mods.
+**Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the Factorio and mods directories for icons, resolves locale strings (`scripts/locale.js`, including placeholder expansion), classifies machines, exports beacons, and writes `game-data.json` plus icons to the paths given by `--output` and `--icons-out` (defaulting to `public/data/nullius/`). Technology icons go to `icons/technology/` (capped at 128 px) so they cannot collide with item icons of the same id. Layered icons are composited by `scripts/icon-compositor.js` with `sharp`; `adm-zip` reads zipped mods.
 
 **Bundled and uploaded data.** Nothing is loaded on a first visit: the top-bar selector offers the bundled datasets and an "Upload file…" option. An uploaded file is stored in IndexedDB; the selected source is remembered in localStorage. Each data set keeps its own plan in localStorage (one key per data set); the plan on screen is swapped when a different data set loads.
 

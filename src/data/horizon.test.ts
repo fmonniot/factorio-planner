@@ -3,7 +3,7 @@ import { hasTechnologies, technologyClosure, availableRecipeIds, availableItemId
 import type { GameData } from './types'
 
 function tech(id: string, prerequisites: string[] = [], unlockedRecipes: string[] = []) {
-  return { id, name: id, prerequisites, unlockedRecipes }
+  return { id, name: id, prerequisites, unlockedRecipes, iconPath: '' }
 }
 
 function makeGameData(): GameData {

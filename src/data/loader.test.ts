@@ -239,9 +239,33 @@ describe('parseGameData — technologies', () => {
 
   it('strips unknown keys from a technology', () => {
     const gd = minimalGameData() as unknown as Record<string, unknown>
-    gd.technologies = { electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: [], cost: 10 } }
+    gd.technologies = { electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: [], bogus: 10 } }
     const data = parseGameData(gd)
-    expect(data.technologies.electronics).not.toHaveProperty('cost')
+    expect(data.technologies.electronics).not.toHaveProperty('bogus')
+  })
+})
+
+describe('parseGameData — technology cost and icon', () => {
+  it('defaults iconPath and leaves cost undefined for an older bundle', () => {
+    const gd = minimalGameData() as unknown as Record<string, unknown>
+    gd.technologies = { electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: [] } }
+    const t = parseGameData(gd).technologies.electronics
+    expect(t.iconPath).toBe('')
+    expect(t.cost).toBeUndefined()
+  })
+
+  it('keeps a cost, a null cost and a null count', () => {
+    const gd = minimalGameData() as unknown as Record<string, unknown>
+    const base = { prerequisites: [], unlockedRecipes: [] }
+    gd.technologies = {
+      a: { id: 'a', name: 'A', ...base, cost: { ingredients: [{ itemId: 'p', amount: 1 }], count: 10, time: 5 } },
+      b: { id: 'b', name: 'B', ...base, cost: null },
+      c: { id: 'c', name: 'C', ...base, cost: { ingredients: {}, count: null, time: 0 } },
+    }
+    const t = parseGameData(gd).technologies
+    expect(t.a.cost?.count).toBe(10)
+    expect(t.b.cost).toBeNull()
+    expect(t.c.cost).toEqual({ ingredients: [], count: null, time: 0 })
   })
 })
 

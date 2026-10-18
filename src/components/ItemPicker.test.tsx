@@ -84,9 +84,9 @@ const fixture: GameData = {
 function fixtureWithTechnologies(): GameData {
   const data = structuredClone(fixture)
   data.technologies = {
-    'smelting': { id: 'smelting', name: 'Smelting', prerequisites: [], unlockedRecipes: ['iron-plate'] },
-    'barrels':  { id: 'barrels',  name: 'Barrels',  prerequisites: ['smelting'], unlockedRecipes: ['fill-water-barrel'] },
-    'boiling':  { id: 'boiling',  name: 'Boiling',  prerequisites: [], unlockedRecipes: ['boil-water'] },
+    'smelting': { id: 'smelting', name: 'Smelting', prerequisites: [], unlockedRecipes: ['iron-plate'], iconPath: '' },
+    'barrels':  { id: 'barrels',  name: 'Barrels',  prerequisites: ['smelting'], unlockedRecipes: ['fill-water-barrel'], iconPath: '' },
+    'boiling':  { id: 'boiling',  name: 'Boiling',  prerequisites: [], unlockedRecipes: ['boil-water'], iconPath: '' },
   }
   data.startingRecipes = ['copper-plate']
   return data
