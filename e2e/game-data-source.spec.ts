@@ -115,6 +115,7 @@ test.describe('game data source selector', () => {
     await page.reload()
     await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock')
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('Error loading data')).not.toBeVisible()
     const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
     expect(stored).toBe('kompetenz-seablock')
   })

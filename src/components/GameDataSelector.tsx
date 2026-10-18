@@ -23,7 +23,13 @@ function readPersistedDatasetId(): string | null {
   const stored = localStorage.getItem(STORAGE_KEY)
   if (stored === null) return null
   const normalized = normalizeDatasetId(stored)
-  if (normalized !== stored) localStorage.setItem(STORAGE_KEY, normalized)
+  if (normalized !== stored) {
+    try {
+      localStorage.setItem(STORAGE_KEY, normalized)
+    } catch {
+      // Quota full or storage blocked: the normalised id is still usable.
+    }
+  }
   return normalized
 }
 
