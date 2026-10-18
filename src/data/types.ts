@@ -15,6 +15,7 @@ export type {
   ItemGroup,
   ItemSubgroup,
   Technology,
+  TechnologyCost,
   GameData,
   ProductionGoal,
   ModuleConfig,

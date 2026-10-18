@@ -291,7 +291,17 @@
       "prerequisites": [],
       "unlockedRecipes": [
         "electronic-circuit"
-      ]
+      ],
+      "cost": {
+        "ingredients": [
+          {
+            "itemId": "iron-plate",
+            "amount": 1
+          }
+        ],
+        "count": 10,
+        "time": 5
+      }
     },
     "rocket-silo": {
       "id": "rocket-silo",
@@ -301,7 +311,21 @@
       ],
       "unlockedRecipes": [
         "rocket-part"
-      ]
+      ],
+      "cost": {
+        "ingredients": [
+          {
+            "itemId": "iron-plate",
+            "amount": 1
+          },
+          {
+            "itemId": "electronic-circuit",
+            "amount": 1
+          }
+        ],
+        "count": 100,
+        "time": 30
+      }
     },
     "space-science-pack": {
       "id": "space-science-pack",
@@ -311,7 +335,8 @@
       ],
       "unlockedRecipes": [
         "space-science-pack"
-      ]
+      ],
+      "cost": null
     },
     "advanced-material-processing": {
       "id": "advanced-material-processing",

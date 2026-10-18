@@ -53,13 +53,13 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
-- [ ] **Technology tree view.** An in-game-style tech screen: technology cards with icons and science-pack cost chips, columns by science tier, and researched / available / locked states derived from the plan's research horizon. Needs the export to keep technology icons, research cost and time (dropped today, see spec/data-model.md), a graph layout with pan and zoom.
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 
 ## Data sets
 
 - [ ] **Use the game's resolved names when available.** `factorio --dump-prototype-locale` writes `*-locale.json` next to the dump with Factorio's own English names; `build-game-data.js` should prefer them over its merged locale map, which ignores mod load order (e.g. tech `bob-advanced-logistic-science-pack` is exported as "Transport science pack"; in game it is "Science pack: Commercial AI implementation").
-- [ ] **Technology data for the Nullius bundle.** `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon. The bundle's names also contain Factorio placeholders (12 items, 12 recipes, e.g. `bob-storage-tank-2` shows `__ENTITY__storage-tank__ 2`); with a dump and mod list matching the bundle's mod set (nullius 2.0.4) run `--patch-technologies` then `--patch-names` and empty the Nullius list in `scripts/__tests__/bundle-names.test.js`.
+- [ ] **Technology data for the Nullius bundle.** Patch mode now also writes research cost and technology icons. `public/data/nullius/game-data.json` has no `technologies` or `startingRecipes`, so the horizon button is hidden for Nullius. Switch to the Nullius mod set, run `factorio --dump-data`, then `node scripts/build-game-data.js --patch-technologies` with `--output public/data/nullius/game-data.json` (see the README). Check that recipes unlocked only by scripts are acceptable as outside every horizon. The bundle's names also contain Factorio placeholders (12 items, 12 recipes, e.g. `bob-storage-tank-2` shows `__ENTITY__storage-tank__ 2`); with a dump and mod list matching the bundle's mod set (nullius 2.0.4) run `--patch-technologies` then `--patch-names` and empty the Nullius list in `scripts/__tests__/bundle-names.test.js`.
+- [ ] **Icon layers with `tint` alpha 0 render dark.** `compositeIconLayers` draws additive highlight/light layers (tint alpha 0) with normal `over` blending, so some icons come out almost black (e.g. technologies `advanced-material-processing-2/3/4`; about 165 bundled technologies and 397 bundled items have such layers). Predates the tech tree.
 - [~] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
 ## Tests and tooling
@@ -72,6 +72,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Ideas (not planned)
 
 - Sankey / flow diagram view
+- Tech tree search / jump-to technology
+- Show research trigger conditions on trigger technologies
 - Plan diffing
 - Light theme / theme toggle (the UI is dark-only)
 - Named plan links (needs a server; conflicts with "no backend")

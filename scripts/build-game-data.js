@@ -20,8 +20,10 @@
  *   --icons-out   public/data/nullius/icons
  *   --output      public/data/nullius/game-data.json
  *
- * Patch mode: add only the technology data to an existing bundle, leaving
- * everything else (and the icons) untouched. Requires the dump to come from
+ * Patch mode: add only the technology data (including research cost) to an
+ * existing bundle, leaving everything else untouched. Technology icons are
+ * written to icons/technology/ next to the bundle (or under --icons-out when
+ * given). Requires the dump to come from
  * the same mod set as the bundle (checked, ignoring `base`):
  *   node scripts/build-game-data.js --patch-technologies \
  *     --dump ... --factorio-dir ... --mods-dir ... \
@@ -43,8 +45,9 @@ import { join, dirname, resolve } from 'node:path'
 import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
-import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
-import { exportTechnologies } from './technologies.js'
+import sharp from 'sharp'
+import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
+import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -72,7 +75,7 @@ function parseArgs(argv) {
     if (argv[i] === '--dump')         args.dump        = argv[++i]
     else if (argv[i] === '--factorio-dir') args.factorioDir = argv[++i]
     else if (argv[i] === '--mods-dir')    args.modsDir     = argv[++i]
-    else if (argv[i] === '--icons-out')   args.iconsOut    = argv[++i]
+    else if (argv[i] === '--icons-out')   { args.iconsOut = argv[++i]; args.iconsOutGiven = true }
     else if (argv[i] === '--output')      args.output      = argv[++i]
     else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
     else if (argv[i] === '--patch-names') args.patchNames = true
@@ -220,10 +223,12 @@ const MOD_PATH_RE = /^__([^_]+(?:_[^_]+)*)__\/(.+)$/
  * single PNG using compositeIconLayers().  For proto.icon (single path), the
  * source file is copied as-is (fast path, no sharp involved).
  *
+ * Icons larger than maxSize px are downscaled to maxSize after compositing.
+ *
  * Returns the public URL string (e.g. "/data/nullius/icons/iron-plate.png")
  * or "" if the icon cannot be found.
  */
-function makeIconResolver(resolvers, iconsOut) {
+function makeIconResolver(resolvers, iconsOut, maxSize = Infinity) {
   mkdirSync(iconsOut, { recursive: true })
 
   // Map from output filename -> already written (deduplicate).
@@ -237,10 +242,11 @@ function makeIconResolver(resolvers, iconsOut) {
       const outName = id + '.png'
       const outPath = join(iconsOut, outName)
       if (!written.has(outName)) {
-        const outputSize = proto.icon_size ?? 64
-        const raw = await compositeIconLayers(proto.icons, resolvers, outputSize)
+        const { outputSize, expectedSize } = iconCanvasSize(proto)
+        const raw = await compositeIconLayers(proto.icons, resolvers, outputSize, expectedSize)
         if (!raw) return ''
-        const buf = await normalizeIcon(raw, outputSize)
+        let buf = await normalizeIcon(raw, outputSize)
+        if (outputSize > maxSize) buf = await sharp(buf).resize(maxSize, maxSize).png().toBuffer()
         writeFileSync(outPath, buf)
         written.add(outName)
       }
@@ -263,7 +269,8 @@ function makeIconResolver(resolvers, iconsOut) {
         iconSize,
       )
       if (!raw) return ''
-      const buf = await normalizeIcon(raw, iconSize)
+      let buf = await normalizeIcon(raw, iconSize)
+      if (iconSize > maxSize) buf = await sharp(buf).resize(maxSize, maxSize).png().toBuffer()
       writeFileSync(outPath, buf)
       written.add(outName)
     }
@@ -841,12 +848,20 @@ if (args.patchTechnologies) {
   const recipeIds = new Set(Object.keys(existing.recipes))
   const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
   if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)
-  const { technologies, startingRecipes } = exportTechnologies(
+  const exported = exportTechnologies(
     raw, recipeIds, p => resolveTechnologyName(p, localeMap),
+  )
+  const { startingRecipes } = exported
+  const techIconsOut = args.iconsOutGiven
+    ? join(iconsOut, 'technology')
+    : join(dirname(outputPath), 'icons', 'technology')
+  const technologies = await attachTechnologyIcons(
+    exported.technologies, raw, makeIconResolver(resolvers, techIconsOut, 128),
   )
   writeFileSync(outputPath, JSON.stringify({ ...existing, technologies, startingRecipes }, null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: technologies=${Object.keys(technologies).length} ` +
+    `technologyIcons=${Object.values(technologies).filter(t => t.iconPath).length} ` +
     `startingRecipes=${startingRecipes.length}\n`
   )
   process.exit(0)
@@ -877,8 +892,13 @@ const itemSubgroups = exportItemSubgroups(raw)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
-const { technologies, startingRecipes } = exportTechnologies(
+const exportedTechnologies = exportTechnologies(
   raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, localeMap),
+)
+const { startingRecipes } = exportedTechnologies
+// Own folder: a technology can share its id with an item (automation-science-pack).
+const technologies = await attachTechnologyIcons(
+  exportedTechnologies.technologies, raw, makeIconResolver(resolvers, join(iconsOut, 'technology'), 128),
 )
 
 const output = {

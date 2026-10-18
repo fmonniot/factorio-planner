@@ -33,8 +33,8 @@ function makeGameData(): GameData {
     itemGroups: {},
     itemSubgroups: {},
     technologies: {
-      base: { id: 'base', name: 'Base', prerequisites: [], unlockedRecipes: ['plate'] },
-      alt: { id: 'alt', name: 'Alt', prerequisites: [], unlockedRecipes: ['plate-alt'] },
+      base: { id: 'base', name: 'Base', prerequisites: [], unlockedRecipes: ['plate'], iconPath: '' },
+      alt: { id: 'alt', name: 'Alt', prerequisites: [], unlockedRecipes: ['plate-alt'], iconPath: '' },
     },
     startingRecipes: [],
   }

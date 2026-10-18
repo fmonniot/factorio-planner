@@ -46,14 +46,36 @@ export function normalizeColor(c) {
 }
 
 /**
+ * Canvas size for a prototype's icon. Layers are authored for an expected icon
+ * size (64 for items, 256 for technologies); the canvas grows only when a layer
+ * with an explicit `scale` is larger than that. Layers without `scale` are drawn at
+ * half the expected size, so they never force growth.
+ *
+ * @returns {{ outputSize: number, expectedSize: number }}
+ */
+export function iconCanvasSize(proto) {
+  if (proto.icon_size) return { outputSize: proto.icon_size, expectedSize: proto.icon_size }
+  const expectedSize = proto.type === 'technology' ? 256 : 64
+  const layers = Array.isArray(proto.icons) ? proto.icons : []
+  const outputSize = Math.max(
+    expectedSize,
+    ...layers.map(l => (l.scale == null ? 0 : Math.round((l.icon_size ?? 0) * l.scale))),
+  )
+  return { outputSize, expectedSize }
+}
+
+/**
  * Composite an array of Factorio IconData layers into a single PNG Buffer.
  *
  * @param {Array}  layers     - Array of IconData objects from proto.icons
  * @param {object} resolvers  - Mod name → resolver map
  * @param {number} outputSize - Output canvas size in pixels (default 64)
+ * @param {number} expectedSize - Icon size the layers are authored for (64 for items,
+ *                                256 for technologies); layers without `scale` are
+ *                                drawn at half of it. Defaults to outputSize.
  * @returns {Promise<Buffer|null>} PNG buffer, or null if no layers could be rendered
  */
-export async function compositeIconLayers(layers, resolvers, outputSize = 64) {
+export async function compositeIconLayers(layers, resolvers, outputSize = 64, expectedSize = outputSize) {
   const compositeInputs = []
 
   for (const layer of layers) {
@@ -61,7 +83,7 @@ export async function compositeIconLayers(layers, resolvers, outputSize = 64) {
     if (!buf) continue
 
     const iconSize   = layer.icon_size ?? outputSize
-    const scale      = layer.scale ?? (outputSize / 2) / iconSize
+    const scale      = layer.scale ?? (expectedSize / 2) / iconSize
     const scaledSize = Math.max(1, Math.round(iconSize * scale))
 
     let img = sharp(buf)

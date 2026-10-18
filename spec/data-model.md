@@ -223,8 +223,8 @@ interface ItemSubgroup {
 
 ### Technology
 
-Research data, used only to limit the recipes the pickers offer (the solver
-ignores it).
+Research data, used to limit the recipes the pickers offer and to draw the
+technology tree (the solver ignores it).
 
 ```ts
 interface Technology {
@@ -232,8 +232,20 @@ interface Technology {
   name: string
   prerequisites: string[]     // Technology ids
   unlockedRecipes: string[]   // recipe ids from `unlock-recipe` effects
+  iconPath: string            // default ''
+  cost?: TechnologyCost | null
+}
+
+interface TechnologyCost {
+  ingredients: { itemId: string; amount: number }[]   // science packs per unit
+  count: number | null        // units; null when the count is a formula (count_formula)
+  time: number                // seconds per unit
 }
 ```
+
+`cost` is `undefined` when the bundle was exported without cost data and `null`
+for a technology that is not researched in labs (completed by a research
+trigger). The tree shows no cost for the first and "Trigger" for the second.
 
 `startingRecipes` lists the recipes available at game start (the dump's
 `recipe.enabled` is not `false`).
@@ -261,6 +273,10 @@ contain absolute filesystem paths of the form
 `/<…>/public/data/<dataset>/icons/<id>.png`. An empty string means no icon could
 be resolved.
 
+Technology icons are written to `icons/technology/<id>.png`, in their own folder
+because a technology can share its id with an item (`automation-science-pack`),
+and are capped at 128 px.
+
 `src/utils/iconUrl.ts` turns that into a URL: it keeps everything after
 `/public/` and prefixes Vite's `BASE_URL`. `iconUrlWebp` swaps `.png` for `.webp`;
 the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
@@ -278,8 +294,9 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
   machines only report `energyUsageKw`.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
   to them, and so is every technology that has a disabled prerequisite (transitively),
-  since it can never be researched. Effects other than `unlock-recipe`, research cost, triggers and time,
-  and technology icons are not exported. Technologies that unlock nothing and are
+  since it can never be researched. Effects other than `unlock-recipe` and research
+  trigger conditions are not exported (a trigger technology gets `cost: null`).
+  Research cost, time and technology icons are exported. Technologies that unlock nothing and are
   nobody's prerequisite (bonus and infinite upgrades) are dropped too.
 
 ### Source-data notes
@@ -294,7 +311,10 @@ Things to keep in mind when reading a bundle:
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node
   scripts/build-game-data.js --patch-technologies` adds it to an existing bundle
-  without re-exporting icons or recipes; see the README.
+  without re-exporting recipes or the other icons (it writes the cost and the
+  technology icons); see the README. A bundle may also have technologies without
+  `cost` or icons; the tech tree then falls back to a letter placeholder and no
+  cost line.
 - Approximate size of the committed Nullius bundle, for orientation only (it
   changes with every re-export): ~2,400 recipes, ~2,850 items and fluids, 136
   machines, a few dozen modules, ~20 beacons.

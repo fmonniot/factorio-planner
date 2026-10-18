@@ -135,11 +135,26 @@ export const BeaconEntitySchema = z.object({
   allowedEffects: z.array(EffectNameSchema),
 })
 
+export const TechnologyIngredientSchema = z.object({
+  itemId: z.string(),
+  amount: z.number().positive(),
+})
+
+export const TechnologyCostSchema = z.object({
+  ingredients: luaArray(TechnologyIngredientSchema),
+  /** null when the count is a formula (count_formula). */
+  count: z.number().positive().nullable(),
+  time: z.number().nonnegative(),
+})
+
 export const TechnologySchema = z.object({
   id: z.string(),
   name: z.string(),
   prerequisites: luaArray(z.string()),
   unlockedRecipes: luaArray(z.string()),
+  iconPath: z.string().default(''),
+  /** undefined = bundle exported without cost; null = not researched in labs (research trigger). */
+  cost: TechnologyCostSchema.nullable().optional(),
 })
 
 export const GameDataSchema = z.object({
@@ -368,6 +383,7 @@ export type BeaconEntity = z.output<typeof BeaconEntitySchema>
 export type ItemGroup = z.output<typeof ItemGroupSchema>
 export type ItemSubgroup = z.output<typeof ItemSubgroupSchema>
 export type Technology = z.output<typeof TechnologySchema>
+export type TechnologyCost = z.output<typeof TechnologyCostSchema>
 export type GameData = z.output<typeof GameDataSchema>
 
 export type ProductionGoal = z.output<typeof ProductionGoalSchema>
