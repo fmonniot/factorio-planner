@@ -73,14 +73,14 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
         e.stopPropagation()
       }}
       style={{ position: 'fixed', left: pos.x, top: pos.y }}
-      className="z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 w-max"
+      className="z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col"
     >
       {actions.map(action => (
         <button
           key={action.label}
           type="button"
           role="menuitem"
-          className={`w-full text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 ${
+          className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 ${
             action.danger ? 'text-red-400' : 'text-gray-200'
           }`}
           onClick={() => {

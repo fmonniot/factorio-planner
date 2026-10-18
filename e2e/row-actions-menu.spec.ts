@@ -20,6 +20,8 @@ test('right-click menu pins, dismisses with Escape and removes a recipe', async 
   // Pin through the menu.
   await icon.click({ button: 'right' })
   await expect(menu).toBeVisible()
+  // The menu hugs its labels instead of stretching across the row.
+  expect((await menu.boundingBox())!.width).toBeLessThan(200)
   await menu.getByRole('menuitem', { name: 'Pin rate' }).click()
   await expect(menu).toBeHidden()
   await expect(row.getByLabel('Pinned rate')).toBeVisible()
