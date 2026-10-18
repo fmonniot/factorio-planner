@@ -13,11 +13,13 @@ behind each feature so you can find it.
 
 `src/main.tsx`, in order:
 
-1. Restores the saved `AppState` from `localStorage` (`loadPersistedAppState`,
-   `src/store/persistence.ts`) and the rate unit (`loadPersistedUiState`,
-   `src/store/uiStore.ts`). Invalid saved state is ignored and the default state
-   (one empty block named "Factory") is used.
-2. Starts auto-saving both on every change.
+1. Restores the rate unit (`loadPersistedUiState`, `src/store/uiStore.ts`). The
+   plan is not loaded yet: it belongs to a game data set, which is only known once
+   data has loaded (see [Game data selector](#game-data-selector)). Until then the
+   table shows "Load game data to begin".
+2. Starts auto-saving (`initAppStatePersistence`, `src/store/persistence.ts`) on
+   every change, and subscribes to the game data store so the plan is swapped when
+   a data set finishes loading.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
    block store or the game data schedules a re-solve of the **active block**
    after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
@@ -93,8 +95,14 @@ shows "Select game data…" and nothing is loaded. A "Loading…" or "Error load
 data" label appears next to the dropdown while loading or after a validation
 failure (the tooltip carries the error message).
 
-Plans are not tied to a dataset: switching datasets keeps every block, and nodes
-whose recipe is missing from the new data are simply not rendered.
+Each data set has its own plan. When a data set finishes loading and differs from
+the previous one, the plan stored for it replaces the one on screen (or an empty
+"Factory" block if it has none); switching back restores the earlier plan. The
+plan is identified by the loaded source id: the dropdown value for a bundled
+dataset (trailing slashes ignored) or `custom:<filename>` for an upload, so two
+uploads with different names do not share a plan. Reloading the same data set does
+not reset the plan, and a failed load leaves the current plan untouched. A stored
+plan that fails validation is ignored and the data set starts empty.
 
 ---
 

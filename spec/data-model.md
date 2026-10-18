@@ -261,8 +261,10 @@ Things to keep in mind when reading a bundle:
 
 ## App state (persisted)
 
-The user's work is an `AppState`. It is saved to `localStorage` under
-`factorio-planner:app-state` on every change, restored at startup through
+The user's work is an `AppState`. It is saved to `localStorage` on every change under
+`factorio-planner:app-state:<sourceId>`, one key per game data set (`nullius`,
+`kompetenz-seablock`, `custom:<filename>`; trailing slashes dropped). The plan is
+restored through
 `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
 data), and downloaded as JSON by the "Export plan" button.
 

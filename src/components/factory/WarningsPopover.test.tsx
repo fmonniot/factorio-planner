@@ -26,7 +26,7 @@ const mockGameData: GameData = {
 } as unknown as GameData
 
 function setupWithWarnings(result: Partial<SolverResult>) {
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: { nodes: [], unsatisfied: [], warnings: [], ...result },
@@ -39,7 +39,7 @@ function openPopover() {
 }
 
 beforeEach(() => {
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
 })
 
 // ---------------------------------------------------------------------------

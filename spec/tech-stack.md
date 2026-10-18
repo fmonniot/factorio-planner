@@ -79,13 +79,13 @@ Game data is bundled with the app under `public/data/<dataset>/` (Nullius and Se
 
 **Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the Factorio and mods directories for icons, resolves locale strings, classifies machines, exports beacons, and writes `game-data.json` plus icons to the paths given by `--output` and `--icons-out` (defaulting to `public/data/nullius/`). Layered icons are composited by `scripts/icon-compositor.js` with `sharp`; `adm-zip` reads zipped mods.
 
-**Bundled and uploaded data.** Nothing is loaded on a first visit: the top-bar selector offers the bundled datasets and an "Upload file…" option. An uploaded file is stored in IndexedDB; the selected source is remembered in localStorage. Plans persist in localStorage independently of the active game data.
+**Bundled and uploaded data.** Nothing is loaded on a first visit: the top-bar selector offers the bundled datasets and an "Upload file…" option. An uploaded file is stored in IndexedDB; the selected source is remembered in localStorage. Each data set keeps its own plan in localStorage (one key per data set); the plan on screen is swapped when a different data set loads.
 
 ---
 
 ## Hosting
 
-Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage and can be exported as JSON.
+Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (one per game data set) and can be exported as JSON.
 
 ---
 

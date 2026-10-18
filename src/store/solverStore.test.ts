@@ -29,7 +29,7 @@ function makeGameDataJson(overrides: Partial<GameData> = {}): string {
 }
 
 function loadGameData(overrides: Partial<GameData> = {}) {
-  useGameDataStore.getState().importGameData(makeGameDataJson(overrides))
+  useGameDataStore.getState().importGameData(makeGameDataJson(overrides), 'test')
 }
 
 // ---------------------------------------------------------------------------

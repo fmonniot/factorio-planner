@@ -48,7 +48,7 @@ function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
     history: {},
   })
   useUiStore.setState({ rateUnit: 'min' })
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData } })
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     status: { type: 'idle' },
     lastResult: withSolver ? mockSolverResult : undefined,
@@ -202,7 +202,7 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
     setupStore([ironGoal])
     // Extend game data to include steam so the tile shows the name
     const gdWithSteam = { ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }
-    useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData } })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: gdWithSteam as unknown as GameData, sourceId: 'test' } })
     useSolverStore.setState({ status: { type: 'idle' }, lastResult: surplusResult, _setStatus: () => {} })
     render(<FactorySummary />)
     // steam has net 15 (20 produced - 5 consumed), should appear in Byproducts

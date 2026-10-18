@@ -80,13 +80,13 @@ export function GameDataSelector() {
     if (persisted) {
       const dataset = SERVER_DATASETS.find(d => d.id === persisted)
       if (dataset) {
-        importUrl(dataset.url)
+        importUrl(dataset.url, dataset.id)
         return
       }
     }
     loadCustomData().then(entry => {
       if (entry) {
-        importJson(entry.json)
+        importJson(entry.json, `custom:${entry.filename}`)
         setSelectedValue(`custom:${entry.filename}`)
       }
     })
@@ -105,7 +105,7 @@ export function GameDataSelector() {
       setSelectedValue(value)
       localStorage.setItem(STORAGE_KEY, value)
       await clearCustomData()
-      importUrl(dataset.url)
+      importUrl(dataset.url, dataset.id)
     }
   }
 
