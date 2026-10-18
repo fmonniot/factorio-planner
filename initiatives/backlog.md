@@ -12,7 +12,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Bugs
 
 - [ ] **Water from an offshore pump.** Offshore pumps (and other fluid sources that are entities, not recipes) cannot produce water in a plan. Nullius is unaffected (seawater intakes are recipes); Seablock and vanilla are. The proper fix is "Mining and extraction" below.
-- [ ] **Seablock data-set id has a trailing slash.** In `src/components/GameDataSelector.tsx` the Seablock entry's id is `'kompetenz-seablock/'` and its URL ends in `kompetenz-seablock//game-data.json`. Harmless today but looks like a typo; the id now only feeds the `game-data-source` localStorage value and the plan storage key (trailing slash ignored there), so renaming it just needs a fallback for the old stored `game-data-source` value.
 - [ ] **`gameDataVersion` is never set.** `AppState.gameDataVersion` (`src/data/schema.ts`) is always initialised to `''` (`src/store/blockStore.ts`) and never written. Either record the loaded data set's version (useful for the per-data-set plans) or drop the field.
 
 - [ ] **Pinned rate unit mismatch.** The solver treats `pinnedRate` as executions per minute, but `RecipeRow` displays and stores it as if it were per second. Verify and fix (found during the docs-cleanup audit).

@@ -31,7 +31,7 @@ test.describe('per-data-set plans', () => {
     await expect(page.locator('main')).toContainText('250')
 
     // Seablock starts with an empty plan, without the Nullius goal.
-    await selectDataset(page, 'kompetenz-seablock/')
+    await selectDataset(page, 'kompetenz-seablock')
     await expect(page.locator('main')).not.toContainText('250')
     await expect(page.getByText('Error loading data')).not.toBeVisible()
 
@@ -43,11 +43,11 @@ test.describe('per-data-set plans', () => {
   test('each data set keeps its own plan across reloads', async ({ page }) => {
     await selectDataset(page, 'nullius')
     await addGoal(page, '250')
-    await selectDataset(page, 'kompetenz-seablock/')
+    await selectDataset(page, 'kompetenz-seablock')
     await addGoal(page, '375')
 
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock/')
+    await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock')
     await expect(page.locator('main')).toContainText('375', { timeout: 10000 })
     await expect(page.locator('main')).not.toContainText('250')
 

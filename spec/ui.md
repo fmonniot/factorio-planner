@@ -92,7 +92,8 @@ import button; a saved file is the same shape the app keeps in `localStorage`.
 - the name of the uploaded file, once there is one.
 
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
-stored upload. An uploaded file is stored in IndexedDB (database
+stored upload. (A `kompetenz-seablock/` value stored by older versions is
+normalised to `kompetenz-seablock` and rewritten on load.) An uploaded file is stored in IndexedDB (database
 `factorio-planner`) and reloaded on the next visit. With neither, the dropdown
 shows "Select game data…" and nothing is loaded. A "Loading…" or "Error loading
 data" label appears next to the dropdown while loading or after a validation
@@ -102,7 +103,7 @@ Each data set has its own plan. When a data set finishes loading and differs fro
 the previous one, the plan stored for it replaces the one on screen (or an empty
 "Factory" block if it has none); switching back restores the earlier plan. The
 plan is identified by the loaded source id: the dropdown value for a bundled
-dataset (trailing slashes ignored), or `custom:<filename>#<fingerprint>` for an
+dataset, or `custom:<filename>#<fingerprint>` for an
 upload, where the fingerprint is a short hash of the data's `modSet`, so uploads
 with different names or different mod sets do not share a plan (two files with the
 same name and the same mod set do; the dropdown still shows `custom:<filename>`).

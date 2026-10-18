@@ -32,12 +32,17 @@ export function customPlanSourceId(filename: string, modSet: Record<string, stri
   return `${customSourceId(filename)}#${hash.toString(16).padStart(8, '0')}`
 }
 
+/** Data set id without trailing slashes (the Seablock id used to end in one). */
+export function normalizeDatasetId(id: string): string {
+  return id.replace(/\/+$/, '')
+}
+
 /**
  * Storage key of the plan belonging to a data set. Trailing slashes are
  * dropped so `kompetenz-seablock/` and `kompetenz-seablock` share a plan.
  */
 export function planStorageKey(sourceId: string): string {
-  return PLAN_KEY_PREFIX + sourceId.replace(/\/+$/, '')
+  return PLAN_KEY_PREFIX + normalizeDatasetId(sourceId)
 }
 
 /** Prefix shared by the storage keys of all custom-upload plans. */
