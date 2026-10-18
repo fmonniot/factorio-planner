@@ -67,6 +67,11 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
     <div
       ref={ref}
       role="menu"
+      // Synthetic events bubble through the portal to the row's onContextMenu; stop them here.
+      onContextMenu={e => {
+        e.preventDefault()
+        e.stopPropagation()
+      }}
       style={{ position: 'fixed', left: pos.x, top: pos.y }}
       className="z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
     >

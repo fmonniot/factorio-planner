@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { RecipeDndProvider } from './RecipeDnd'
@@ -541,6 +541,11 @@ describe('RecipeRow context menu', () => {
   }
   const nodes = () => useBlockStore.getState().blocks[0].rootPlan.nodes
 
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    vi.restoreAllMocks()
+  })
+
   it('right-clicking the recipe icon opens a menu with the four actions', () => {
     renderRow()
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
@@ -559,11 +564,15 @@ describe('RecipeRow context menu', () => {
   })
 
   it('Pin rate pins the node and the button title switches to Unpin rate', () => {
-    renderRow()
+    const { unmount } = renderRow()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
     const node = nodes()[0]
     expect(node.kind === 'game-recipe' && node.pinnedRate).toBeGreaterThan(0)
+    // Props are static in the harness: re-render with the updated store node.
+    unmount()
+    renderRow({ planNode: node })
+    expect(screen.getByTitle('Unpin rate')).toBeInTheDocument()
   })
 
   it('a pinned node offers Unpin rate', () => {
@@ -605,7 +614,6 @@ describe('RecipeRow context menu', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Wrap in subfactory…' }))
     expect(prompt).toHaveBeenCalledWith('Subfactory name:', 'Iron Plate')
     expect(nodes()[0].kind).toBe('subplan')
-    vi.unstubAllGlobals()
   })
 
   it('Escape closes the menu', () => {
@@ -620,6 +628,52 @@ describe('RecipeRow context menu', () => {
     openMenu()
     fireEvent.mouseDown(document.body)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('right-clicking inside the open menu keeps it in place', () => {
+    renderRow()
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 10, clientY: 20 })
+    const menu = screen.getByRole('menu')
+    const { left, top } = menu.style
+    fireEvent.contextMenu(screen.getAllByRole('menuitem')[0], { clientX: 300, clientY: 400 })
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getByRole('menu').style.left).toBe(left)
+    expect(screen.getByRole('menu').style.top).toBe(top)
+  })
+
+  it('mousedown inside the menu does not close it', () => {
+    renderRow()
+    openMenu()
+    fireEvent.mouseDown(screen.getAllByRole('menuitem')[0])
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+  })
+
+  it('scrolling closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.scroll(document.body)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('window blur closes the menu', () => {
+    renderRow()
+    openMenu()
+    fireEvent.blur(window)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('shifts the menu back inside the viewport', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+      width: 160, height: 120, x: 0, y: 0, top: 0, left: 0, right: 160, bottom: 120,
+      toJSON: () => ({}),
+    })
+    vi.stubGlobal('innerWidth', 500)
+    vi.stubGlobal('innerHeight', 300)
+    renderRow()
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0], { clientX: 480, clientY: 290 })
+    const menu = screen.getByRole('menu')
+    expect(menu.style.left).toBe('340px')
+    expect(menu.style.top).toBe('180px')
   })
 
   it('right-clicking a non-recipe cell does not open the menu', () => {
