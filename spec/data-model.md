@@ -248,8 +248,9 @@ progression and are shown whenever "Hidden recipes" is ticked. No targets,
 or no technology data in the bundle, means no limit.
 
 An item is offered as a goal under a horizon if no recipe produces it (a raw
-resource) or at least one recipe producing it is inside the horizon (hidden
-recipes count as inside).
+resource) or at least one non-hidden recipe producing it is inside the horizon.
+Hidden recipes are ignored: an item only hidden recipes produce is always offered,
+and a hidden recipe does not keep an item whose non-hidden producers are all outside.
 
 ### Icon paths
 

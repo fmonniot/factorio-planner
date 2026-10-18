@@ -102,13 +102,15 @@ describe('availableItemIds', () => {
   }
   function makeItemsData(): GameData {
     const data = makeGameData()
-    data.items = Object.fromEntries(['raw', 'inside', 'outside', 'mixed', 'secret'].map(id => [id, item(id)]))
+    data.items = Object.fromEntries(['raw', 'inside', 'outside', 'mixed', 'secret', 'shadowed'].map(id => [id, item(id)]))
     data.recipes = Object.fromEntries([
       recipe('r-inside', ['inside']),
       recipe('r-outside', ['outside']),
       recipe('r-mixed-in', ['mixed']),
       recipe('r-mixed-out', ['mixed']),
       recipe('r-secret', ['secret'], true),
+      recipe('r-shadowed-out', ['shadowed']),
+      recipe('r-shadowed-hidden', ['shadowed'], true),
     ].map(r => [r.id, r]))
     return data
   }
@@ -131,7 +133,11 @@ describe('availableItemIds', () => {
     expect(availableItemIds(makeItemsData(), new Set(['r-mixed-in']))?.has('mixed')).toBe(true)
   })
 
-  it('keeps items produced by a hidden recipe', () => {
+  it('keeps items only hidden recipes produce, as they have no visible producer', () => {
     expect(availableItemIds(makeItemsData(), new Set())?.has('secret')).toBe(true)
+  })
+
+  it('drops items whose non-hidden producers are outside the horizon even if a hidden recipe produces them', () => {
+    expect(availableItemIds(makeItemsData(), new Set())?.has('shadowed')).toBe(false)
   })
 })
