@@ -20,6 +20,8 @@ function makeGameData(overrides: Partial<GameData> = {}): GameData {
     defaultMachines: {},
     itemGroups: {},
     itemSubgroups: {},
+    technologies: {},
+    startingRecipes: [],
     ...overrides,
   }
 }

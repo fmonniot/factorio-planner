@@ -21,6 +21,8 @@ function makeGameData(
     defaultMachines: {},
     itemGroups: {},
     itemSubgroups: {},
+    technologies: {},
+    startingRecipes: [],
   }
 }
 

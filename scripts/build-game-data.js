@@ -19,7 +19,14 @@
  *   --mods-dir    ~/Library/Application Support/factorio/mods
  *   --icons-out   public/data/nullius/icons
  *   --output      public/data/nullius/game-data.json
- * 
+ *
+ * Patch mode: add only the technology data to an existing bundle, leaving
+ * everything else (and the icons) untouched. Requires the dump to come from
+ * the same mod set as the bundle (checked, ignoring `base`):
+ *   node scripts/build-game-data.js --patch-technologies \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -31,6 +38,7 @@ import { homedir } from 'node:os'
 import { createRequire } from 'node:module'
 import { execSync } from 'node:child_process'
 import { compositeIconLayers, normalizeIcon } from './icon-compositor.js'
+import { exportTechnologies } from './technologies.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -59,6 +67,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--mods-dir')    args.modsDir     = argv[++i]
     else if (argv[i] === '--icons-out')   args.iconsOut    = argv[++i]
     else if (argv[i] === '--output')      args.output      = argv[++i]
+    else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
   }
   return args
 }
@@ -283,6 +292,22 @@ function resolveLocale(localised, fallback, localeMap, ...scopes) {
   }
 
   return fallback
+}
+
+/**
+ * Display name of a technology. Leveled technologies ("mining-productivity-2")
+ * usually share one localised name keyed by the base id, so fall back to
+ * "<base name> <level>".
+ */
+function resolveTechnologyName(proto, localeMap) {
+  const name = resolveLocale(proto.localised_name, proto.name, localeMap, 'technology-name')
+  if (name !== proto.name) return name
+  const m = proto.name.match(/^(.*)-(\d+)$/)
+  if (m) {
+    const base = resolveLocale(null, m[1], localeMap, 'technology-name')
+    if (base !== m[1]) return `${base} ${m[2]}`
+  }
+  return proto.name
 }
 
 // ---------------------------------------------------------------------------
@@ -731,6 +756,57 @@ function computeDefaultMachines(machines, categoryMap) {
   return defaults
 }
 
+/**
+ * Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
+ * The base game version is not present in mod-list.json, so we fetch it by running the binary.
+ */
+function computeModSet() {
+  // 1. Read the list of enabled mods from mod-list.json.
+  const modListPath = join(modsDir, 'mod-list.json')
+  let enabledModNames = null
+  if (existsSync(modListPath)) {
+    try {
+      const modList = JSON.parse(readFileSync(modListPath, 'utf8'))
+      enabledModNames = new Set(
+        (modList.mods ?? []).filter(m => m.enabled !== false).map(m => m.name)
+      )
+    } catch {
+      process.stderr.write(`[warn] Could not parse mod-list.json — including all mods\n`)
+    }
+  }
+
+  // 2. For each (enabled) mod, read its version from info.json via the resolver.
+  const modSet = {}
+  for (const [modName, resolver] of Object.entries(resolvers)) {
+    if (enabledModNames && !enabledModNames.has(modName)) continue
+    const buf = resolver.readFile('info.json')
+    if (!buf) continue
+    try {
+      const info = JSON.parse(buf.toString('utf8'))
+      if (typeof info.version === 'string') modSet[modName] = info.version
+    } catch {}
+  }
+
+  // 3. Get the base game version from the factorio binary (most reliable source).
+  //    mod-list.json doesn't list base, and built-in mods are not in modsDir.
+  let factorioVersion = modSet['base'] ?? '?'
+  const factorioBin = join(factorioDir, 'MacOS', 'factorio')
+  if (existsSync(factorioBin)) {
+    try {
+      const versionOutput = execSync(`"${factorioBin}" --version 2>&1`, { encoding: 'utf8', timeout: 10000 })
+      const match = versionOutput.match(/Version:\s*(\d+\.\d+\.\d+)/)
+      if (match) {
+        factorioVersion = match[1]
+        modSet['base'] = factorioVersion
+      }
+    } catch {
+      process.stderr.write(`[warn] Could not run factorio binary to determine version; using info.json value\n`)
+    }
+  }
+
+  return { modSet, factorioVersion }
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
@@ -752,6 +828,36 @@ process.stderr.write(`[build-game-data] Loaded ${Object.keys(resolvers).length} 
 process.stderr.write(`[build-game-data] Parsing locale files...\n`)
 const localeMap = buildLocaleMap(resolvers)
 process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap).length}\n`)
+
+const { modSet, factorioVersion } = computeModSet()
+
+if (args.patchTechnologies) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  const diffs = []
+  const oldSet = existing.modSet ?? {}
+  for (const name of new Set([...Object.keys(oldSet), ...Object.keys(modSet)])) {
+    if (name === 'base') continue
+    if (oldSet[name] !== modSet[name]) {
+      diffs.push(`  ${name}: bundle=${oldSet[name] ?? '(missing)'} dump=${modSet[name] ?? '(missing)'}`)
+    }
+  }
+  if (diffs.length > 0) {
+    process.stderr.write(`[build-game-data] Mod set mismatch between bundle and dump:\n${diffs.join('\n')}\n`)
+    process.exit(1)
+  }
+  const recipeIds = new Set(Object.keys(existing.recipes))
+  const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
+  if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)
+  const { technologies, startingRecipes } = exportTechnologies(
+    raw, recipeIds, p => resolveTechnologyName(p, localeMap),
+  )
+  writeFileSync(outputPath, JSON.stringify({ ...existing, technologies, startingRecipes }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: technologies=${Object.keys(technologies).length} ` +
+    `startingRecipes=${startingRecipes.length}\n`
+  )
+  process.exit(0)
+}
 
 const resolveIcon = makeIconResolver(resolvers, iconsOut)
 
@@ -778,51 +884,9 @@ const itemSubgroups = exportItemSubgroups(raw)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
-// Build modSet from mod-list.json (lists enabled mods) + info.json versions (from resolvers).
-// The base game version is not present in mod-list.json, so we fetch it by running the binary.
-
-// 1. Read the list of enabled mods from mod-list.json.
-const modListPath = join(modsDir, 'mod-list.json')
-let enabledModNames = null
-if (existsSync(modListPath)) {
-  try {
-    const modList = JSON.parse(readFileSync(modListPath, 'utf8'))
-    enabledModNames = new Set(
-      (modList.mods ?? []).filter(m => m.enabled !== false).map(m => m.name)
-    )
-  } catch {
-    process.stderr.write(`[warn] Could not parse mod-list.json — including all mods\n`)
-  }
-}
-
-// 2. For each (enabled) mod, read its version from info.json via the resolver.
-const modSet = {}
-for (const [modName, resolver] of Object.entries(resolvers)) {
-  if (enabledModNames && !enabledModNames.has(modName)) continue
-  const buf = resolver.readFile('info.json')
-  if (!buf) continue
-  try {
-    const info = JSON.parse(buf.toString('utf8'))
-    if (typeof info.version === 'string') modSet[modName] = info.version
-  } catch {}
-}
-
-// 3. Get the base game version from the factorio binary (most reliable source).
-//    mod-list.json doesn't list base, and built-in mods are not in modsDir.
-let factorioVersion = modSet['base'] ?? '?'
-const factorioBin = join(factorioDir, 'MacOS', 'factorio')
-if (existsSync(factorioBin)) {
-  try {
-    const versionOutput = execSync(`"${factorioBin}" --version 2>&1`, { encoding: 'utf8', timeout: 10000 })
-    const match = versionOutput.match(/Version:\s*(\d+\.\d+\.\d+)/)
-    if (match) {
-      factorioVersion = match[1]
-      modSet['base'] = factorioVersion
-    }
-  } catch {
-    process.stderr.write(`[warn] Could not run factorio binary to determine version; using info.json value\n`)
-  }
-}
+const { technologies, startingRecipes } = exportTechnologies(
+  raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, localeMap),
+)
 
 const output = {
   factorioVersion,
@@ -835,6 +899,8 @@ const output = {
   defaultMachines,
   itemGroups,
   itemSubgroups,
+  technologies,
+  startingRecipes,
 }
 
 mkdirSync(dirname(outputPath), { recursive: true })
@@ -845,6 +911,7 @@ process.stderr.write(
   `[build-game-data] Done — factorioVersion=${factorioVersion} ` +
   `items=${count(items)} recipes=${count(recipes)} ` +
   `machines=${count(machines)} modules=${count(modules)} beacons=${count(beacons)} ` +
-  `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)}\n` +
+  `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)} ` +
+  `technologies=${count(technologies)} startingRecipes=${startingRecipes.length}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )

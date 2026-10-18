@@ -138,6 +138,8 @@ export function makeEmptyBlock(name: string): Block {
 export interface BlockStoreState {
   blocks: Block[]
   activeBlockId: string
+  /** Technologies the plan targets (see AppState.horizonTechnologyIds). */
+  horizonTechnologyIds: string[]
   history: Record<string, BlockHistory>
 
   // Block management
@@ -177,6 +179,9 @@ export interface BlockStoreState {
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
   wrapNodeInSubPlan: (nodeId: string, name: string) => void
+
+  // Research horizon (plan-wide; not undoable)
+  setHorizonTechnologyIds: (ids: string[]) => void
 
   // Undo/redo (per active block)
   undo: () => void
@@ -258,6 +263,7 @@ const initialBlock = makeEmptyBlock('Factory')
 export const useBlockStore = create<BlockStoreState>((set) => ({
   blocks: [initialBlock],
   activeBlockId: initialBlock.id,
+  horizonTechnologyIds: [],
   history: {},
 
   // ── Block management ──────────────────────────────────────────────────────
@@ -846,12 +852,17 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       }
     }),
 
+  // ── Research horizon ──────────────────────────────────────────────────────
+
+  setHorizonTechnologyIds: (ids) => set({ horizonTechnologyIds: [...new Set(ids)] }),
+
   // ── Full replace (persistence) ────────────────────────────────────────────
 
   setAppState: (appState) =>
     set({
       blocks: appState.blocks,
       activeBlockId: appState.activeBlockId,
+      horizonTechnologyIds: appState.horizonTechnologyIds,
       history: {},
     }),
 }))
@@ -859,6 +870,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 // ---------------------------------------------------------------------------
 // Selector helpers
 // ---------------------------------------------------------------------------
+
+/** The persisted/exported part of the store. */
+export function selectAppState(s: BlockStoreState): AppState {
+  return { blocks: s.blocks, activeBlockId: s.activeBlockId, horizonTechnologyIds: s.horizonTechnologyIds }
+}
 
 export function selectActiveBlock(state: BlockStoreState): Block | undefined {
   return state.blocks.find(b => b.id === state.activeBlockId)

@@ -5,6 +5,7 @@ import {
   makeEmptySubPlan,
   findSubPlan,
   isSubPlanDescendant,
+  selectAppState,
 } from './blockStore'
 import type { RecipeNode, SubPlanNode } from '../data/types'
 
@@ -30,6 +31,7 @@ beforeEach(() => {
   useBlockStore.setState({
     blocks: [block],
     activeBlockId: block.id,
+    horizonTechnologyIds: [],
     history: {},
   })
 })
@@ -474,5 +476,37 @@ describe('input connections', () => {
     useBlockStore.getState().addInputConnection('plate', sourceId)
     useBlockStore.getState().removeBlock(sourceId)
     expect(active().inputConnections).toEqual([])
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Research horizon
+// ---------------------------------------------------------------------------
+
+describe('setHorizonTechnologyIds', () => {
+  it('de-duplicates and leaves blocks and history untouched', () => {
+    const { blocks, history } = useBlockStore.getState()
+    useBlockStore.getState().setHorizonTechnologyIds(['a', 'a', 'b'])
+    const state = useBlockStore.getState()
+    expect(state.horizonTechnologyIds).toEqual(['a', 'b'])
+    expect(state.blocks).toBe(blocks)
+    expect(state.history).toBe(history)
+  })
+
+  it('setAppState replaces the horizon', () => {
+    const block = makeEmptyBlock('Other')
+    useBlockStore.getState().setHorizonTechnologyIds(['a'])
+    useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['b'] })
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['b'])
+  })
+
+  it('selectAppState returns blocks, activeBlockId and the horizon', () => {
+    useBlockStore.getState().setHorizonTechnologyIds(['a'])
+    const state = useBlockStore.getState()
+    expect(selectAppState(state)).toEqual({
+      blocks: state.blocks,
+      activeBlockId: state.activeBlockId,
+      horizonTechnologyIds: ['a'],
+    })
   })
 })

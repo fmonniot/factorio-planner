@@ -37,6 +37,10 @@ A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and c
 
 Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes next to the product. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Remove a connection with the **×** on its chip.
 
+### 5. Plan horizon
+
+**Horizon** in the top bar limits the recipes the pickers offer to those unlocked by the technologies you choose and their prerequisites, plus the recipes available at game start. Use it to plan the first science packs without being offered space-science recipes. Recipes already in your plan keep working. The horizon is saved with the plan, and the button only appears for data sets that include technology data.
+
 ### Saving and sharing
 
 Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
@@ -83,6 +87,14 @@ node scripts/build-game-data.js \
   --output    public/data/nullius/game-data.json
 ```
 
+To add technology data to an existing bundle without re-exporting recipes and icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode:
+
+```sh
+node scripts/build-game-data.js --patch-technologies \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
 The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
 
 ### Repository map
@@ -97,9 +109,10 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/utils/` | Small helpers (icon URLs) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
+| `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
-| `scripts/__tests__/` | Golden-image tests for the icon compositor |
+| `scripts/__tests__/` | Tests for the icon compositor (golden images) and the technology export |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections) |
 | `spec/` | How the system works today |
@@ -111,4 +124,4 @@ Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), w
 
 ## Status
 
-The planner is usable but still early. Known gaps include importing plans, sharing by URL, and filtering recipes by tech progression. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.
+The planner is usable but still early. Known gaps include importing plans and sharing by URL. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.

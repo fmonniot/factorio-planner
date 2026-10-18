@@ -1,0 +1,329 @@
+{
+  "factorioVersion": "2.0.0",
+  "modSet": {
+    "base": "2.0.0"
+  },
+  "items": {
+    "iron-ore": {
+      "id": "iron-ore",
+      "name": "Iron ore",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "a"
+    },
+    "iron-plate": {
+      "id": "iron-plate",
+      "name": "Iron plate",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "b"
+    },
+    "iron-gear-wheel": {
+      "id": "iron-gear-wheel",
+      "name": "Iron gear wheel",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "c"
+    },
+    "electronic-circuit": {
+      "id": "electronic-circuit",
+      "name": "Electronic circuit",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "d"
+    },
+    "rocket-part": {
+      "id": "rocket-part",
+      "name": "Rocket part",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "e"
+    },
+    "space-science-pack": {
+      "id": "space-science-pack",
+      "name": "Space science pack",
+      "type": "item",
+      "iconPath": "",
+      "hidden": false,
+      "subgroup": "intermediate",
+      "order": "f"
+    }
+  },
+  "recipes": {
+    "iron-plate": {
+      "id": "iron-plate",
+      "name": "Iron plate",
+      "category": "smelting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "iron-ore",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "iron-plate",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "stone-furnace"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "a"
+    },
+    "iron-gear-wheel": {
+      "id": "iron-gear-wheel",
+      "name": "Iron gear wheel",
+      "category": "crafting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "iron-plate",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "iron-gear-wheel",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "assembling-machine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "b"
+    },
+    "electronic-circuit": {
+      "id": "electronic-circuit",
+      "name": "Electronic circuit",
+      "category": "crafting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "iron-plate",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "electronic-circuit",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "assembling-machine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "c"
+    },
+    "rocket-part": {
+      "id": "rocket-part",
+      "name": "Rocket part",
+      "category": "crafting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "electronic-circuit",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "rocket-part",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "assembling-machine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "d"
+    },
+    "space-science-pack": {
+      "id": "space-science-pack",
+      "name": "Space science pack",
+      "category": "crafting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "rocket-part",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "space-science-pack",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "assembling-machine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "e"
+    },
+    "advanced-iron-smelting": {
+      "id": "advanced-iron-smelting",
+      "name": "Advanced iron smelting",
+      "category": "smelting",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "iron-ore",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "iron-plate",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "madeIn": [
+        "stone-furnace"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "mainProduct": null,
+      "subgroup": "intermediate",
+      "order": "f"
+    }
+  },
+  "machines": {
+    "stone-furnace": {
+      "id": "stone-furnace",
+      "name": "Stone furnace",
+      "type": "furnace",
+      "craftingSpeed": 1,
+      "energyUsageKw": 90,
+      "energyType": "electric",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "smelting"
+      ],
+      "iconPath": "",
+      "hidden": false
+    },
+    "assembling-machine": {
+      "id": "assembling-machine",
+      "name": "Assembling machine",
+      "type": "assembling-machine",
+      "craftingSpeed": 1,
+      "energyUsageKw": 90,
+      "energyType": "electric",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "crafting"
+      ],
+      "iconPath": "",
+      "hidden": false
+    }
+  },
+  "modules": {},
+  "beacons": {},
+  "defaultMachines": {
+    "smelting": "stone-furnace",
+    "crafting": "assembling-machine"
+  },
+  "itemGroups": {
+    "intermediates": {
+      "id": "intermediates",
+      "name": "Intermediates",
+      "order": "a",
+      "iconPath": ""
+    }
+  },
+  "itemSubgroups": {
+    "intermediate": {
+      "id": "intermediate",
+      "group": "intermediates",
+      "order": "a"
+    }
+  },
+  "technologies": {
+    "electronics": {
+      "id": "electronics",
+      "name": "Electronics",
+      "prerequisites": [],
+      "unlockedRecipes": [
+        "electronic-circuit"
+      ]
+    },
+    "rocket-silo": {
+      "id": "rocket-silo",
+      "name": "Rocket silo",
+      "prerequisites": [
+        "electronics"
+      ],
+      "unlockedRecipes": [
+        "rocket-part"
+      ]
+    },
+    "space-science-pack": {
+      "id": "space-science-pack",
+      "name": "Space science pack",
+      "prerequisites": [
+        "rocket-silo"
+      ],
+      "unlockedRecipes": [
+        "space-science-pack"
+      ]
+    },
+    "advanced-material-processing": {
+      "id": "advanced-material-processing",
+      "name": "Advanced material processing",
+      "prerequisites": [],
+      "unlockedRecipes": [
+        "advanced-iron-smelting"
+      ]
+    }
+  },
+  "startingRecipes": [
+    "iron-gear-wheel",
+    "iron-plate"
+  ]
+}

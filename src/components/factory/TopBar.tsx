@@ -1,4 +1,5 @@
 import { BlockTabs } from '../BlockTabs'
+import { HorizonButton } from '../HorizonPicker'
 import { GameDataSelector, ExportPlanButton } from '../GameDataSelector'
 
 export function TopBar() {
@@ -8,6 +9,7 @@ export function TopBar() {
       <div className="flex items-center justify-between px-2 h-10">
         <BlockTabs />
         <div className="flex items-center gap-2 shrink-0">
+          <HorizonButton />
           <ExportPlanButton />
           <GameDataSelector />
         </div>

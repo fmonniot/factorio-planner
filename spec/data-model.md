@@ -36,6 +36,8 @@ interface GameData {
   defaultMachines: Record<string, string>     // recipe category -> machine id
   itemGroups: Record<string, ItemGroup>       // default {}
   itemSubgroups: Record<string, ItemSubgroup> // default {}
+  technologies: Record<string, Technology>    // default {}
+  startingRecipes: string[]                   // recipe ids available without research; default []
 }
 ```
 
@@ -219,6 +221,30 @@ interface ItemSubgroup {
 }
 ```
 
+### Technology
+
+Research data, used only to limit the recipes the pickers offer (the solver
+ignores it).
+
+```ts
+interface Technology {
+  id: string
+  name: string
+  prerequisites: string[]     // Technology ids
+  unlockedRecipes: string[]   // recipe ids from `unlock-recipe` effects
+}
+```
+
+`startingRecipes` lists the recipes available at game start (the dump's
+`recipe.enabled` is not `false`).
+
+A plan's research horizon is `AppState.horizonTechnologyIds`: the technologies it
+targets. A recipe is inside the horizon if it is a starting recipe or is unlocked
+by a targeted technology or any of its prerequisites (followed transitively).
+Recipes that are neither starting recipes nor unlocked by any exported technology
+(for example ones only a script unlocks) are outside every horizon. No targets,
+or no technology data in the bundle, means no limit.
+
 ### Icon paths
 
 Every `iconPath` is written by the build script as the path of the PNG it
@@ -243,6 +269,10 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - `allow_decomposition` (recycling) is not exported.
 - Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
   machines only report `energyUsageKw`.
+- Technologies that are disabled (`enabled: false`) are dropped, with references
+  to them. Effects other than `unlock-recipe`, research cost, triggers and time,
+  and technology icons are not exported. Technologies that unlock nothing and are
+  nobody's prerequisite (bonus and infinite upgrades) are dropped too.
 
 ### Source-data notes
 
@@ -253,6 +283,10 @@ Things to keep in mind when reading a bundle:
 - Some recipes have an empty `madeIn` (no exported machine handles their
   category), and many are `hidden`. The recipe picker hides hidden recipes unless
   "Hidden recipes" is ticked.
+- A bundle may lack technology data (`technologies` and `startingRecipes` then
+  default to empty and the horizon feature is hidden). `node
+  scripts/build-game-data.js --patch-technologies` adds it to an existing bundle
+  without re-exporting icons or recipes; see the README.
 - Approximate size of the committed Nullius bundle, for orientation only (it
   changes with every re-export): ~2,400 recipes, ~2,850 items and fluids, 136
   machines, a few dozen modules, ~20 beacons.
@@ -285,8 +319,11 @@ AppState
 interface AppState {
   blocks: Block[]
   activeBlockId: string
+  horizonTechnologyIds: string[]   // technologies the plan targets; default [] = no limit
 }
 ```
+
+Ids that are not in the loaded data set's `technologies` are ignored and kept.
 
 ### Block
 

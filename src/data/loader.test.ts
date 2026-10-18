@@ -222,6 +222,29 @@ describe('parseGameData', () => {
 // GameData — validation errors
 // ---------------------------------------------------------------------------
 
+describe('parseGameData — technologies', () => {
+  it('defaults a bundle without technology data to empty collections', () => {
+    const data = parseGameData(minimalGameData())
+    expect(data.technologies).toEqual({})
+    expect(data.startingRecipes).toEqual([])
+  })
+
+  it('normalises {} prerequisites to an empty list', () => {
+    const gd = minimalGameData() as unknown as Record<string, unknown>
+    gd.technologies = { electronics: { id: 'electronics', name: 'Electronics', prerequisites: {}, unlockedRecipes: {} } }
+    const data = parseGameData(gd)
+    expect(data.technologies.electronics.prerequisites).toEqual([])
+    expect(data.technologies.electronics.unlockedRecipes).toEqual([])
+  })
+
+  it('strips unknown keys from a technology', () => {
+    const gd = minimalGameData() as unknown as Record<string, unknown>
+    gd.technologies = { electronics: { id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: [], cost: 10 } }
+    const data = parseGameData(gd)
+    expect(data.technologies.electronics).not.toHaveProperty('cost')
+  })
+})
+
 describe('parseGameData — validation errors', () => {
   it('throws GameDataLoadError for non-object input', () => {
     expect(() => parseGameData('not an object')).toThrow(GameDataLoadError)
@@ -411,5 +434,22 @@ describe('parseAppState — inputConnections', () => {
     })
     expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
     expect(state.blocks[1].inputConnections).toEqual(connections)
+  })
+})
+
+describe('parseAppState — horizonTechnologyIds', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const block = {
+    id: 'b1', name: 'Block', gameDataVersion: '', goals: [], noImportItems: [],
+    rootPlan: { id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
+  }
+
+  it('defaults a plan saved without a horizon to an empty list', () => {
+    expect(parseAppState({ blocks: [block], activeBlockId: 'b1' }).horizonTechnologyIds).toEqual([])
+  })
+
+  it('round-trips the horizon through JSON unchanged', () => {
+    const state = parseAppState({ blocks: [block], activeBlockId: 'b1', horizonTechnologyIds: ['electronics'] })
+    expect(parseAppState(JSON.parse(JSON.stringify(state))).horizonTechnologyIds).toEqual(['electronics'])
   })
 })

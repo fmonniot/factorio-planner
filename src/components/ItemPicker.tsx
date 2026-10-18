@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
+import { useAvailableRecipeIds } from '../store/horizon'
 import { Icon } from './Icon'
 import type { Item, Recipe, GameData } from '../data/types'
 
@@ -184,14 +185,18 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  // Recipes that pass all filters (hidden toggle, item filter, search).
-  const filteredRecipes = useMemo(
-    () => Object.values(gameData.recipes)
+  const available = useAvailableRecipeIds()
+
+  // Recipes that pass all filters (hidden toggle, item filter, search, research
+  // horizon), and how many the horizon alone removed.
+  const { filteredRecipes, outsideHorizonCount } = useMemo(() => {
+    const matching = Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
       .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
-      .filter(r => matchesRecipe(query, r)),
-    [gameData, showHidden, filterByItemId, query],
-  )
+      .filter(r => matchesRecipe(query, r))
+    const inside = available ? matching.filter(r => available.has(r.id)) : matching
+    return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
+  }, [gameData, showHidden, filterByItemId, query, available])
 
   // Top-level item-groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {
@@ -316,7 +321,11 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
       {/* Body: subgroup grids, flowing within the selected group */}
       <div className="overflow-y-auto flex-1 p-2 space-y-1">
         {subgroupRows.length === 0 && (
-          <div className="px-2 py-3 text-gray-500 text-sm">No recipes match</div>
+          <div className="px-2 py-3 text-gray-500 text-sm">
+            {outsideHorizonCount > 0
+              ? `No recipes match within the research horizon (${outsideHorizonCount} outside it)`
+              : 'No recipes match'}
+          </div>
         )}
         {subgroupRows.map(([sgId, recipes]) => (
           <div

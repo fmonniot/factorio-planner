@@ -1,4 +1,4 @@
-import { useBlockStore, makeEmptyBlock } from './blockStore'
+import { useBlockStore, makeEmptyBlock, selectAppState } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import { parseAppState } from '../data/loader'
 import { AppStateLoadError } from '../data/loader'
@@ -31,8 +31,7 @@ let activeKey: string | null = null
 export function saveAppState(): void {
   if (activeKey === null) return
   try {
-    const { blocks, activeBlockId } = useBlockStore.getState()
-    localStorage.setItem(activeKey, JSON.stringify({ blocks, activeBlockId }))
+    localStorage.setItem(activeKey, JSON.stringify(selectAppState(useBlockStore.getState())))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
   }
@@ -87,7 +86,7 @@ function applyRawAppState(raw: string, malformedPrefix: string): LoadAppStateRes
 
 function resetToEmptyPlan(): void {
   const block = makeEmptyBlock('Factory')
-  useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id })
+  useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [] })
 }
 
 /** Copy an unreadable stored value to `<key>:corrupt` and drop the original. */
@@ -175,7 +174,7 @@ export function activatePlan(sourceId: string): void {
  */
 export function initAppStatePersistence(): () => void {
   const unsubBlocks = useBlockStore.subscribe((state, prevState) => {
-    if (state.blocks !== prevState.blocks) {
+    if (state.blocks !== prevState.blocks || state.horizonTechnologyIds !== prevState.horizonTechnologyIds) {
       saveAppState()
     }
   })

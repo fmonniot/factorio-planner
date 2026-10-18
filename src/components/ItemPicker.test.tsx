@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
+import { useBlockStore } from '../store/blockStore'
 import type { GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -75,10 +76,25 @@ const fixture: GameData = {
     'smelting-basic':{ id: 'smelting-basic', group: 'intermediates', order: 'b' },
     'fill-barrel':   { id: 'fill-barrel',    group: 'intermediates', order: 'c' },
   },
+  technologies: {},
+  startingRecipes: [],
+}
+
+/** A fresh copy of the fixture with a research tree: copper-plate is a starting recipe, `smelting` unlocks iron-plate. */
+function fixtureWithTechnologies(): GameData {
+  const data = structuredClone(fixture)
+  data.technologies = {
+    'smelting': { id: 'smelting', name: 'Smelting', prerequisites: [], unlockedRecipes: ['iron-plate'] },
+    'barrels':  { id: 'barrels',  name: 'Barrels',  prerequisites: ['smelting'], unlockedRecipes: ['fill-water-barrel'] },
+    'boiling':  { id: 'boiling',  name: 'Boiling',  prerequisites: [], unlockedRecipes: ['boil-water'] },
+  }
+  data.startingRecipes = ['copper-plate']
+  return data
 }
 
 beforeEach(() => {
   useGameDataStore.setState({ status: { type: 'loaded', gameData: fixture, sourceId: 'test' } })
+  useBlockStore.setState({ horizonTechnologyIds: [] })
 })
 
 // ---------------------------------------------------------------------------
@@ -170,6 +186,55 @@ describe('ItemPicker — recipes mode', () => {
     expect(panel).toHaveTextContent('Products:')
     expect(panel).toHaveTextContent('Made in:')
     expect(panel).toHaveTextContent('Stone Furnace')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Recipes mode — research horizon
+// ---------------------------------------------------------------------------
+
+describe('ItemPicker — recipes mode with a research horizon', () => {
+  function loadWithTechnologies() {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithTechnologies(), sourceId: 'test' } })
+  }
+
+  function slotIds() {
+    return screen.getAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id'))
+  }
+
+  it('leaves out recipes outside the horizon and keeps those inside', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(['iron-plate'])
+  })
+
+  it('includes recipes unlocked by prerequisites and starting recipes', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['barrels'] })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'copper-plate', 'fill-water-barrel']))
+    expect(slotIds()).not.toContain('boil-water')
+  })
+
+  it('offers every non-hidden recipe without technology data', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'fill-water-barrel']))
+    expect(slotIds()).not.toContain('secret-recipe')
+  })
+
+  it('offers every non-hidden recipe without targets', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'fill-water-barrel']))
+  })
+
+  it('explains an empty result caused by the horizon', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
   })
 })
 
