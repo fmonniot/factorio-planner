@@ -67,7 +67,6 @@ function makeBlock(rootPlan: SubPlan, goals: ProductionGoal[]): Block {
   return {
     id: 'block-1',
     name: 'Block',
-    gameDataVersion: '',
     goals,
     noImportItems: [],
     inputConnections: [],

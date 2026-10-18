@@ -3,7 +3,6 @@
     {
       "id": "098837ad-a157-4bb1-85f3-3519c17780c1",
       "name": "Chemical Science",
-      "gameDataVersion": "",
       "rootPlan": {
         "id": "89a3c51d-adb1-4e72-b668-16c742ba421a",
         "name": "Main",
@@ -138,7 +137,6 @@
     {
       "id": "f6ea3975-f44a-45dd-b417-590fb2be476d",
       "name": "Block 2",
-      "gameDataVersion": "",
       "rootPlan": {
         "id": "86fcc2c7-9db5-470c-b2f9-fc367ce28280",
         "name": "Main",

@@ -386,12 +386,12 @@ Ids that are not in the loaded data set's `technologies` are ignored and kept.
 
 A block is one factory (one tab in the UI). The solver solves each block as a
 single LP; blocks can receive items from one another through `inputConnections`.
+Plans are stored per data set (keyed by source id), so a block carries no game-data version.
 
 ```ts
 interface Block {
   id: string
   name: string
-  gameDataVersion: string    // reserved; new blocks get '' and nothing sets it
   goals: ProductionGoal[]    // default []
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
   inputConnections: BlockConnection[]  // default []; items received from other blocks

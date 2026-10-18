@@ -12,7 +12,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Bugs
 
 - [ ] **Water from an offshore pump.** Offshore pumps (and other fluid sources that are entities, not recipes) cannot produce water in a plan. Nullius is unaffected (seawater intakes are recipes); Seablock and vanilla are. The proper fix is "Mining and extraction" below.
-- [ ] **`gameDataVersion` is never set.** `AppState.gameDataVersion` (`src/data/schema.ts`) is always initialised to `''` (`src/store/blockStore.ts`) and never written. Either record the loaded data set's version (useful for the per-data-set plans) or drop the field.
 
 - [ ] **Pinned rate unit mismatch.** The solver treats `pinnedRate` as executions per minute, but `RecipeRow` displays and stores it as if it were per second. Verify and fix (found during the docs-cleanup audit).
 - [ ] **`allowProductivity` not enforced by the solver.** Productivity modules can be added to recipes that disallow productivity and the solver applies them; only the Edit machine modal's effect preview honours the flag.
