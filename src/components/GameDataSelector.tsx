@@ -219,7 +219,7 @@ export function ExportPlanButton() {
 
 type ImportDialog =
   | null
-  | { kind: 'confirm'; fileName: string; appState: AppState; unknownIds: string[] }
+  | { kind: 'confirm'; fileName: string; appState: AppState; unknownIds: string[]; sourceId: string }
   | { kind: 'error'; fileName: string; message: string }
 
 const blocksLabel = (n: number) => `${n} ${n === 1 ? 'block' : 'blocks'}`
@@ -242,24 +242,32 @@ export function ImportPlanButton() {
       setDialog({ kind: 'error', fileName: file.name, message: 'Load game data before importing a plan.' })
       return
     }
-    const check = checkPlanImport(json, current.gameData)
+    const check = checkPlanImport(json, current.gameData, current.sourceId)
     if (check.type === 'error') {
       setDialog({ kind: 'error', fileName: file.name, message: check.message })
     } else {
-      setDialog({ kind: 'confirm', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds })
+      setDialog({ kind: 'confirm', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds, sourceId: check.sourceId })
     }
   }
 
-  // The input is created per click and never attached to the DOM, so the same
-  // file can be picked twice and the game-data upload input stays the only one.
+  // The input lives in the DOM only while a pick is in flight (some WebKit
+  // versions do not fire `change` on a detached input); a fresh one per click
+  // lets the same file be picked twice.
   function handleClick() {
+    document.querySelectorAll('[data-plan-import-input]').forEach(el => el.remove())
     const input = document.createElement('input')
     input.type = 'file'
     input.accept = '.json,application/json'
+    input.hidden = true
+    input.style.display = 'none'
+    input.setAttribute('data-plan-import-input', '')
     input.onchange = () => {
       const file = input.files?.[0]
+      input.remove()
       if (file) void handleFile(file)
     }
+    input.addEventListener('cancel', () => input.remove())
+    document.body.appendChild(input)
     input.click()
   }
 
@@ -284,7 +292,7 @@ export function ImportPlanButton() {
           </p>
           {dialog.unknownIds.length > 0 && (
             <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
-              {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and will be ignored: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
+              {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and cannot be produced: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
             </p>
           )}
           <div className="flex justify-end gap-2">
@@ -296,7 +304,7 @@ export function ImportPlanButton() {
             </button>
             <button
               onClick={() => {
-                const result = replacePlan(dialog.appState)
+                const result = replacePlan(dialog.appState, dialog.sourceId)
                 if (result.type === 'error') {
                   setDialog({ kind: 'error', fileName: dialog.fileName, message: result.message })
                 } else {

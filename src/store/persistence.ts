@@ -4,7 +4,7 @@ import { parseAppState } from '../data/loader'
 import { AppStateLoadError } from '../data/loader'
 import { planStorageKey, CUSTOM_PLAN_KEY_PREFIX } from './sourceId'
 import { flattenBlock } from '../solver/index'
-import type { AppState, GameData } from '../data/types'
+import type { AppState, GameData, SubPlan } from '../data/types'
 
 export { planStorageKey }
 
@@ -108,26 +108,66 @@ export function findUnknownPlanIds(appState: AppState, gameData: GameData): stri
   return [...unknown]
 }
 
+/** First duplicated block, sub-plan or node id (ids must be unique per block), as an error message; null when all are unique. */
+function findDuplicateId(appState: AppState): string | null {
+  const blockIds = new Set<string>()
+  for (const block of appState.blocks) {
+    if (blockIds.has(block.id)) return `Duplicate block id "${block.id}".`
+    blockIds.add(block.id)
+    const subPlanIds = new Set<string>()
+    const nodeIds = new Set<string>()
+    const walk = (plan: SubPlan): string | null => {
+      if (subPlanIds.has(plan.id)) return `Duplicate sub-plan id "${plan.id}" in block "${block.id}".`
+      subPlanIds.add(plan.id)
+      for (const n of plan.nodes) {
+        if (nodeIds.has(n.id)) return `Duplicate node id "${n.id}" in block "${block.id}".`
+        nodeIds.add(n.id)
+      }
+      for (const sp of plan.subPlans) {
+        const dup = walk(sp)
+        if (dup) return dup
+      }
+      return null
+    }
+    const dup = walk(block.rootPlan)
+    if (dup) return dup
+  }
+  return null
+}
+
 export type PlanImportCheck =
-  | { type: 'ok'; appState: AppState; unknownIds: string[] }
+  | { type: 'ok'; appState: AppState; unknownIds: string[]; sourceId: string }
   | { type: 'error'; message: string }
 
-/** Parse and validate an exported plan file against the loaded game data. Never touches the store. */
-export function checkPlanImport(json: string, gameData: GameData): PlanImportCheck {
+/**
+ * Parse and validate an exported plan file against the loaded game data
+ * (`sourceId` identifies it; `replacePlan` refuses if it changed meanwhile).
+ * Never touches the store.
+ */
+export function checkPlanImport(json: string, gameData: GameData, sourceId: string): PlanImportCheck {
   const result = parseRawAppState(json, 'Not a valid JSON file')
   if (result.type === 'error') return result
   let appState = result.appState
   if (appState.blocks.length === 0) return { type: 'error', message: 'The plan contains no blocks.' }
+  const duplicate = findDuplicateId(appState)
+  if (duplicate) return { type: 'error', message: duplicate }
   if (!appState.blocks.some(b => b.id === appState.activeBlockId)) {
     appState = { ...appState, activeBlockId: appState.blocks[0].id }
   }
-  return { type: 'ok', appState, unknownIds: findUnknownPlanIds(appState, gameData) }
+  return { type: 'ok', appState, unknownIds: findUnknownPlanIds(appState, gameData), sourceId }
 }
 
-/** Replace the current data set's plan with an imported one. Not undoable; autosave persists it. */
-export function replacePlan(appState: AppState): LoadAppStateResult {
-  if (useGameDataStore.getState().status.type !== 'loaded') {
+/**
+ * Replace the current data set's plan with an imported one. `sourceId` is the
+ * data set the plan was checked against. Not undoable; autosave persists it.
+ */
+export function replacePlan(appState: AppState, sourceId: string): LoadAppStateResult {
+  const status = useGameDataStore.getState().status
+  if (status.type !== 'loaded') {
     return { type: 'error', message: 'Load game data before importing a plan.' }
+  }
+  if (status.sourceId !== sourceId) {
+    return { type: 'error', message: 'The loaded game data changed; pick the file again.' }
   }
   useBlockStore.getState().setAppState(appState)
   return { type: 'ok' }

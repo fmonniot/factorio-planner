@@ -382,8 +382,8 @@ restored through
 `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
 data), and downloaded as JSON by the "Export plan" button. The "Import plan" button reads the same
 shape through `checkPlanImport` (`src/store/persistence.ts`): `parseAppState` plus a non-empty
-`blocks` check and an `activeBlockId` fallback to the first block; the localStorage load path does
-not apply those two normalisations.
+`blocks` check, a uniqueness check (block ids; sub-plan and node ids within a block) and an
+`activeBlockId` fallback to the first block; the localStorage load path applies none of these.
 
 ```
 AppState

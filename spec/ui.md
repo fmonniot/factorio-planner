@@ -38,7 +38,7 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣][▣][+] Block name          [Block graph] [Export plan] [Import plan] [Nullius ▾]   │
+│ [▣][▣][+] Block name   [Graph] [Export plan] [Import plan] [Nullius ▾]   │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS ─────────────┐ ┌ BYPRODUCTS ─────────┐ ┌ INGREDIENTS ────────┐ │
@@ -179,15 +179,19 @@ is the same shape the app keeps in `localStorage`.
 `ImportPlanButton` (same file) loads such a file back. It is disabled until game data has loaded,
 because the plan belongs to the current data set and is written to that data set's plan key.
 Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and validates
-the file without touching the store: malformed JSON, a schema failure or a plan with no blocks
-("The plan contains no blocks.") opens an error dialog; an `activeBlockId` that matches no block
+the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
+("The plan contains no blocks.") or a duplicated block, sub-plan or node id (ids must be unique per
+block; e.g. `Duplicate block id "b1".`) opens an error dialog; an `activeBlockId` that matches no block
 falls back to the first block. A valid file opens a confirmation dialog naming the file and the old
 and new block counts. If the file refers to recipes or goal items the loaded game data does not
-define, the dialog adds a warning listing the first few ids (`import-unknown-ids`); the plan imports
-anyway and those entries are ignored, so a plan made for another data set looks mostly empty. Only
-"Replace plan" calls `replacePlan`, which replaces the whole plan (no merging) and clears the undo
+define, the dialog adds a warning that they cannot be produced, listing the first few ids
+(`import-unknown-ids`); the plan imports anyway (unknown recipes do nothing, unknown goals stay
+unsatisfiable), so a plan made for another data set looks mostly empty. Only "Replace plan" calls
+`replacePlan` with the source id of the data set it was checked against; it refuses with "The loaded
+game data changed; pick the file again." if another data set is loaded by then. Otherwise it replaces the whole plan (no merging) and clears the undo
 history; autosave persists it. It cannot be undone; export first to keep the current plan. The file
-picker is created on each click and never attached to the page.
+input is created on each click, attached (hidden) to the page only while the pick is in flight,
+and removed on selection or cancel.
 
 ### Game data selector
 

@@ -413,7 +413,7 @@ describe('plan import', () => {
     it('accepts a valid plan without touching the store', () => {
       const before = useBlockStore.getState().blocks
       const input = makeState()
-      const result = checkPlanImport(JSON.stringify(input), knownData())
+      const result = checkPlanImport(JSON.stringify(input), knownData(), 'nullius')
       expect(result.type).toBe('ok')
       if (result.type !== 'ok') return
       expect(result.appState).toEqual(parseRoundTrip(input))
@@ -423,27 +423,52 @@ describe('plan import', () => {
 
     it('rejects malformed JSON without touching the store', () => {
       const before = useBlockStore.getState().blocks
-      const result = checkPlanImport('{', knownData())
+      const result = checkPlanImport('{', knownData(), 'nullius')
       expect(result.type).toBe('error')
       if (result.type === 'error') expect(result.message).toMatch(/^Not a valid JSON file:/)
       expect(useBlockStore.getState().blocks).toBe(before)
     })
 
     it('rejects JSON that fails the schema', () => {
-      const result = checkPlanImport('{"blocks": 5}', knownData())
+      const result = checkPlanImport('{"blocks": 5}', knownData(), 'nullius')
       expect(result.type).toBe('error')
       if (result.type === 'error') expect(result.message).toContain('blocks')
     })
 
     it('rejects a plan with no blocks', () => {
-      expect(checkPlanImport('{"blocks": [], "activeBlockId": "x"}', knownData()))
+      expect(checkPlanImport('{"blocks": [], "activeBlockId": "x"}', knownData(), 'nullius'))
         .toEqual({ type: 'error', message: 'The plan contains no blocks.' })
     })
 
     it('falls back to the first block when the active id matches none', () => {
-      const result = checkPlanImport(JSON.stringify(makeState('nope')), knownData())
+      const result = checkPlanImport(JSON.stringify(makeState('nope')), knownData(), 'nullius')
       expect(result.type).toBe('ok')
       if (result.type === 'ok') expect(result.appState.activeBlockId).toBe(result.appState.blocks[0].id)
+    })
+
+    it('rejects duplicate block ids', () => {
+      const state = { ...makeState(), blocks: [makeBlock('b1'), makeBlock('b1')] }
+      expect(checkPlanImport(JSON.stringify(state), knownData(), 'nullius'))
+        .toEqual({ type: 'error', message: 'Duplicate block id "b1".' })
+    })
+
+    it('rejects duplicate node ids within a block', () => {
+      const block = makeBlock('b1', { recipes: ['iron-plate'], nested: ['iron-plate'] })
+      block.rootPlan.subPlans[0].nodes[0].id = block.rootPlan.nodes[0].id
+      const result = checkPlanImport(JSON.stringify({ ...makeState(), blocks: [block] }), knownData(), 'nullius')
+      expect(result).toEqual({ type: 'error', message: `Duplicate node id "${block.rootPlan.nodes[0].id}" in block "b1".` })
+    })
+
+    it('rejects duplicate sub-plan ids within a block', () => {
+      const block = makeBlock('b1', { nested: [] })
+      block.rootPlan.subPlans.push({ ...block.rootPlan.subPlans[0] })
+      const result = checkPlanImport(JSON.stringify({ ...makeState(), blocks: [block] }), knownData(), 'nullius')
+      expect(result).toEqual({ type: 'error', message: 'Duplicate sub-plan id "b1-sp" in block "b1".' })
+    })
+
+    it('carries the source id it was checked against', () => {
+      const result = checkPlanImport(JSON.stringify(makeState()), knownData(), 'seablock')
+      expect(result.type === 'ok' && result.sourceId).toBe('seablock')
     })
 
     it('accepts a legacy block with per-subplan goals', () => {
@@ -454,7 +479,7 @@ describe('plan import', () => {
           goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }],
         },
       }
-      const result = checkPlanImport(JSON.stringify({ blocks: [legacy], activeBlockId: 'b1' }), knownData())
+      const result = checkPlanImport(JSON.stringify({ blocks: [legacy], activeBlockId: 'b1' }), knownData(), 'nullius')
       expect(result.type).toBe('ok')
     })
   })
@@ -482,24 +507,35 @@ describe('plan import', () => {
   describe('replacePlan', () => {
     it('refuses while no game data is loaded and leaves the store unchanged', () => {
       const before = useBlockStore.getState().blocks
-      const result = replacePlan(makeState())
+      const result = replacePlan(makeState(), 'nullius')
       expect(result).toEqual({ type: 'error', message: 'Load game data before importing a plan.' })
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
+    it('refuses when the loaded game data changed since the check', () => {
+      useGameDataStore.setState({ status: loadedStatus('seablock') })
+      const before = useBlockStore.getState().blocks
+      expect(replacePlan(makeState(), 'nullius'))
+        .toEqual({ type: 'error', message: 'The loaded game data changed; pick the file again.' })
       expect(useBlockStore.getState().blocks).toBe(before)
     })
 
     it('replaces the plan, clears history and autosaves it', () => {
       const unsub = initAppStatePersistence()
-      useGameDataStore.setState({ status: loadedStatus('nullius') })
-      vi.clearAllMocks()
-      const imported = makeState('b2')
-      expect(replacePlan(imported)).toEqual({ type: 'ok' })
-      unsub()
-      const state = useBlockStore.getState()
-      expect(state.blocks).toEqual(imported.blocks)
-      expect(state.activeBlockId).toBe('b2')
-      expect(state.horizonTechnologyIds).toEqual(['electronics'])
-      expect(state.history).toEqual({})
-      expect(localStorageMock.setItem).toHaveBeenCalledWith(KEY, JSON.stringify(imported))
+      try {
+        useGameDataStore.setState({ status: loadedStatus('nullius') })
+        vi.clearAllMocks()
+        const imported = makeState('b2')
+        expect(replacePlan(imported, 'nullius')).toEqual({ type: 'ok' })
+        const state = useBlockStore.getState()
+        expect(state.blocks).toEqual(imported.blocks)
+        expect(state.activeBlockId).toBe('b2')
+        expect(state.horizonTechnologyIds).toEqual(['electronics'])
+        expect(state.history).toEqual({})
+        expect(localStorageMock.setItem).toHaveBeenCalledWith(KEY, JSON.stringify(imported))
+      } finally {
+        unsub()
+      }
     })
   })
 })
