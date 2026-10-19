@@ -7,10 +7,13 @@ import {
   activatePlan,
   initAppStatePersistence,
   removeCustomPlans,
+  checkPlanImport,
+  findUnknownPlanIds,
+  replacePlan,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
-import type { GameData } from '../data/types'
+import type { AppState, GameData, Block, GameRecipeNode } from '../data/types'
 
 const KEY = planStorageKey('nullius')
 
@@ -360,5 +363,179 @@ describe('makeEmptyBlock', () => {
     const block = makeEmptyBlock('New Plan')
     expect(block.rootPlan).toBeDefined()
     expect(block.name).toBe('New Plan')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// plan import
+// ---------------------------------------------------------------------------
+
+describe('plan import', () => {
+  const parseRoundTrip = (state: AppState) => JSON.parse(JSON.stringify(state)) as AppState
+  const now = '2026-01-01T00:00:00.000Z'
+
+  function recipeNode(id: string, recipeId: string): GameRecipeNode {
+    return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} }
+  }
+
+  function makeBlock(id: string, opts: { goal?: string; recipes?: string[]; nested?: string[] } = {}): Block {
+    const block = makeEmptyBlock(id)
+    block.id = id
+    if (opts.goal) block.goals = [{ id: `${id}-g`, itemId: opts.goal, rate: 60 }]
+    block.rootPlan.nodes = (opts.recipes ?? []).map((r, i) => recipeNode(`${id}-n${i}`, r))
+    if (opts.nested) {
+      block.rootPlan.subPlans = [{
+        id: `${id}-sp`, name: 'Sub', nodes: opts.nested.map((r, i) => recipeNode(`${id}-s${i}`, r)),
+        subPlans: [], createdAt: now, updatedAt: now,
+      }]
+    }
+    return block
+  }
+
+  function makeState(activeBlockId = 'b1'): AppState {
+    return {
+      blocks: [makeBlock('b1', { goal: 'iron-plate', recipes: ['iron-plate'] }), makeBlock('b2')],
+      activeBlockId,
+      horizonTechnologyIds: ['electronics'],
+    }
+  }
+
+  function gameDataWith(recipes: string[], items: string[]): GameData {
+    return {
+      recipes: Object.fromEntries(recipes.map(r => [r, {}])),
+      items: Object.fromEntries(items.map(i => [i, {}])),
+    } as unknown as GameData
+  }
+
+  const knownData = () => gameDataWith(['iron-plate'], ['iron-plate'])
+
+  describe('checkPlanImport', () => {
+    it('accepts a valid plan without touching the store', () => {
+      const before = useBlockStore.getState().blocks
+      const input = makeState()
+      const result = checkPlanImport(JSON.stringify(input), knownData(), 'nullius')
+      expect(result.type).toBe('ok')
+      if (result.type !== 'ok') return
+      expect(result.appState).toEqual(parseRoundTrip(input))
+      expect(result.unknownIds).toEqual([])
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
+    it('rejects malformed JSON without touching the store', () => {
+      const before = useBlockStore.getState().blocks
+      const result = checkPlanImport('{', knownData(), 'nullius')
+      expect(result.type).toBe('error')
+      if (result.type === 'error') expect(result.message).toMatch(/^Not a valid JSON file:/)
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
+    it('rejects JSON that fails the schema', () => {
+      const result = checkPlanImport('{"blocks": 5}', knownData(), 'nullius')
+      expect(result.type).toBe('error')
+      if (result.type === 'error') expect(result.message).toContain('blocks')
+    })
+
+    it('rejects a plan with no blocks', () => {
+      expect(checkPlanImport('{"blocks": [], "activeBlockId": "x"}', knownData(), 'nullius'))
+        .toEqual({ type: 'error', message: 'The plan contains no blocks.' })
+    })
+
+    it('falls back to the first block when the active id matches none', () => {
+      const result = checkPlanImport(JSON.stringify(makeState('nope')), knownData(), 'nullius')
+      expect(result.type).toBe('ok')
+      if (result.type === 'ok') expect(result.appState.activeBlockId).toBe(result.appState.blocks[0].id)
+    })
+
+    it('rejects duplicate block ids', () => {
+      const state = { ...makeState(), blocks: [makeBlock('b1'), makeBlock('b1')] }
+      expect(checkPlanImport(JSON.stringify(state), knownData(), 'nullius'))
+        .toEqual({ type: 'error', message: 'Duplicate block id "b1".' })
+    })
+
+    it('rejects duplicate node ids within a block', () => {
+      const block = makeBlock('b1', { recipes: ['iron-plate'], nested: ['iron-plate'] })
+      block.rootPlan.subPlans[0].nodes[0].id = block.rootPlan.nodes[0].id
+      const result = checkPlanImport(JSON.stringify({ ...makeState(), blocks: [block] }), knownData(), 'nullius')
+      expect(result).toEqual({ type: 'error', message: `Duplicate node id "${block.rootPlan.nodes[0].id}" in block "b1".` })
+    })
+
+    it('rejects duplicate sub-plan ids within a block', () => {
+      const block = makeBlock('b1', { nested: [] })
+      block.rootPlan.subPlans.push({ ...block.rootPlan.subPlans[0] })
+      const result = checkPlanImport(JSON.stringify({ ...makeState(), blocks: [block] }), knownData(), 'nullius')
+      expect(result).toEqual({ type: 'error', message: 'Duplicate sub-plan id "b1-sp" in block "b1".' })
+    })
+
+    it('carries the source id it was checked against', () => {
+      const result = checkPlanImport(JSON.stringify(makeState()), knownData(), 'seablock')
+      expect(result.type === 'ok' && result.sourceId).toBe('seablock')
+    })
+
+    it('accepts a legacy block with per-subplan goals', () => {
+      const legacy = {
+        id: 'b1', name: 'Block', noImportItems: [],
+        rootPlan: {
+          id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now,
+          goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }],
+        },
+      }
+      const result = checkPlanImport(JSON.stringify({ blocks: [legacy], activeBlockId: 'b1' }), knownData(), 'nullius')
+      expect(result.type).toBe('ok')
+    })
+  })
+
+  describe('findUnknownPlanIds', () => {
+    it('reports a recipe nested in a subplan', () => {
+      const state = { ...makeState(), blocks: [makeBlock('b1', { nested: ['ghost'] })] }
+      expect(findUnknownPlanIds(state, knownData())).toEqual(['ghost'])
+    })
+
+    it('reports an unknown goal item', () => {
+      const state = { ...makeState(), blocks: [makeBlock('b1', { goal: 'nope-item' })] }
+      expect(findUnknownPlanIds(state, knownData())).toEqual(['nope-item'])
+    })
+
+    it('reports a repeated id once and skips known ids', () => {
+      const state = {
+        ...makeState(),
+        blocks: [makeBlock('b1', { recipes: ['ghost', 'iron-plate'], nested: ['ghost'] }), makeBlock('b2', { recipes: ['ghost'] })],
+      }
+      expect(findUnknownPlanIds(state, knownData())).toEqual(['ghost'])
+    })
+  })
+
+  describe('replacePlan', () => {
+    it('refuses while no game data is loaded and leaves the store unchanged', () => {
+      const before = useBlockStore.getState().blocks
+      const result = replacePlan(makeState(), 'nullius')
+      expect(result).toEqual({ type: 'error', message: 'Load game data before importing a plan.' })
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
+    it('refuses when the loaded game data changed since the check', () => {
+      useGameDataStore.setState({ status: loadedStatus('seablock') })
+      const before = useBlockStore.getState().blocks
+      expect(replacePlan(makeState(), 'nullius'))
+        .toEqual({ type: 'error', message: 'The loaded game data changed; pick the file again.' })
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
+    it('replaces the plan, clears history and autosaves it', () => {
+      const unsub = initAppStatePersistence()
+      try {
+        useGameDataStore.setState({ status: loadedStatus('nullius') })
+        vi.clearAllMocks()
+        const imported = makeState('b2')
+        expect(replacePlan(imported, 'nullius')).toEqual({ type: 'ok' })
+        const state = useBlockStore.getState()
+        expect(state.blocks).toEqual(imported.blocks)
+        expect(state.activeBlockId).toBe('b2')
+        expect(state.horizonTechnologyIds).toEqual(['electronics'])
+        expect(state.history).toEqual({})
+        expect(localStorageMock.setItem).toHaveBeenCalledWith(KEY, JSON.stringify(imported))
+      } finally {
+        unsub()
+      }
+    })
   })
 })

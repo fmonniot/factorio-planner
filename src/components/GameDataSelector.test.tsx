@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { GameDataSelector } from './GameDataSelector'
+import { GameDataSelector, ImportPlanButton } from './GameDataSelector'
 import { useGameDataStore } from '../store/gameDataStore'
+import type { GameData } from '../data/types'
 
 const KEY = 'factorio-planner:game-data-source'
 
@@ -32,5 +33,20 @@ describe('GameDataSelector persisted id', () => {
     })
     expect(() => render(<GameDataSelector />)).not.toThrow()
     expect(screen.getByLabelText('Game data source')).toHaveValue('kompetenz-seablock')
+  })
+})
+
+describe('ImportPlanButton', () => {
+  it('is disabled until game data is loaded', () => {
+    render(<ImportPlanButton />)
+    expect(screen.getByRole('button', { name: 'Import plan' })).toBeDisabled()
+  })
+
+  it('is enabled once game data is loaded', () => {
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'nullius' },
+    })
+    render(<ImportPlanButton />)
+    expect(screen.getByRole('button', { name: 'Import plan' })).toBeEnabled()
   })
 })

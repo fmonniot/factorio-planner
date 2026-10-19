@@ -22,7 +22,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Sharing and import
 
-- [ ] **Import plan from JSON.** Counterpart of the existing "Export plan" button; reuse `parseAppState` (`src/data/loader.ts`) for validation.
+- [ ] **Record the data set in exported plans.** Export does not record which data set a plan was made for; stamping the data-set id would let import warn on a mismatch instead of only listing unknown ids (changes the export format).
 - [ ] **Read-only shared view.** Depends on URL sharing.
 
 ## Planning features

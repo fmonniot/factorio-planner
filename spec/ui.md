@@ -38,7 +38,7 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣][▣][+] Block name          [Block graph] [Export plan] [Nullius ▾]   │
+│ [▣][▣][+] Block name   [Graph] [Export plan] [Import plan] [Nullius ▾]   │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS ─────────────┐ ┌ BYPRODUCTS ─────────┐ ┌ INGREDIENTS ────────┐ │
@@ -59,7 +59,7 @@ The layout is designed for desktop widths; there is no mobile layout.
 ## TopBar
 
 `TopBar.tsx` is one row: block tabs on the left; on the right the block graph button, the
-horizon button, the tech tree button, plan export and game-data selector.
+horizon button, the tech tree button, plan export, plan import and game-data selector.
 
 ### Block tabs
 
@@ -170,11 +170,28 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   wide tree still fits). The viewport never scrolls natively: focusing an off-screen
   card does not move the view. The modal opens centred on the furthest target, if any.
 
-### Export plan
+### Export and import plan
 
 `ExportPlanButton` (in `GameDataSelector.tsx`) downloads the current `AppState`
-(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-YYYY-MM-DD.json`. There is no
-import button; a saved file is the same shape the app keeps in `localStorage`.
+(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-YYYY-MM-DD.json`; a saved file
+is the same shape the app keeps in `localStorage`.
+
+`ImportPlanButton` (same file) loads such a file back. It is disabled until game data has loaded,
+because the plan belongs to the current data set and is written to that data set's plan key.
+Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and validates
+the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
+("The plan contains no blocks.") or a duplicated block, sub-plan or node id (ids must be unique per
+block; e.g. `Duplicate block id "b1".`) opens an error dialog; an `activeBlockId` that matches no block
+falls back to the first block. A valid file opens a confirmation dialog naming the file and the old
+and new block counts. If the file refers to recipes or goal items the loaded game data does not
+define, the dialog adds a warning that they cannot be produced, listing the first few ids
+(`import-unknown-ids`); the plan imports anyway (unknown recipes do nothing, unknown goals stay
+unsatisfiable), so a plan made for another data set looks mostly empty. Only "Replace plan" calls
+`replacePlan` with the source id of the data set it was checked against; it refuses with "The loaded
+game data changed; pick the file again." if another data set is loaded by then. Otherwise it replaces the whole plan (no merging) and clears the undo
+history; autosave persists it. It cannot be undone; export first to keep the current plan. The file
+input is created on each click, attached (hidden) to the page only while the pick is in flight,
+and removed on selection or cancel.
 
 ### Game data selector
 
@@ -510,6 +527,6 @@ The same component in recipes mode (`source="recipes"`).
 
 Some store capabilities have no UI: undo/redo (`blockStore` keeps a per-block
 history), renaming a sub-factory, and the per-product `byproductPolicy`
-(`'discard'`). There is no plan import, URL sharing, settings panel, totals bar,
+(`'discard'`). There is no URL sharing, settings panel, totals bar,
 or responsive layout. Planned work lives in
 [initiatives/backlog.md](../initiatives/backlog.md).

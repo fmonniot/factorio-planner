@@ -26,7 +26,7 @@ Zustand's minimal API handles both without boilerplate. Redux Toolkit is viable 
 
 ## Schema validation: Zod
 
-Game data and persisted plan state are parsed at load time against the Zod schemas in `src/data/schema.ts`; TypeScript types are derived from them. Invalid game data surfaces a structured `GameDataLoadError`.
+Game data and persisted plan state are parsed at load time and on plan import against the Zod schemas in `src/data/schema.ts`; TypeScript types are derived from them. Invalid game data surfaces a structured `GameDataLoadError`.
 
 ---
 
@@ -85,7 +85,7 @@ Game data is bundled with the app under `public/data/<dataset>/` (Nullius and Se
 
 ## Hosting
 
-Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (one per game data set) and can be exported as JSON.
+Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (one per game data set) and can be exported and imported as JSON.
 
 ---
 

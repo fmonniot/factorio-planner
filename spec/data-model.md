@@ -380,7 +380,10 @@ key `factorio-planner:app-state` is adopted once by the first data set without a
 and then removed (see [ui.md](ui.md#game-data-selector)). The plan is
 restored through
 `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
-data), and downloaded as JSON by the "Export plan" button.
+data), and downloaded as JSON by the "Export plan" button. The "Import plan" button reads the same
+shape through `checkPlanImport` (`src/store/persistence.ts`): `parseAppState` plus a non-empty
+`blocks` check, a uniqueness check (block ids; sub-plan and node ids within a block) and an
+`activeBlockId` fallback to the first block; the localStorage load path applies none of these.
 
 ```
 AppState
