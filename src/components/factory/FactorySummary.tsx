@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useState } from 'react'
-import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
@@ -11,6 +11,7 @@ import type { ProductionGoal, Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { WarningsPopover } from './WarningsPopover'
 import { isGoalItem } from '../../store/connections'
+import { RowActionsMenu } from './RowActionsMenu'
 import { ConnectionMenu, ConnectionChip, ExportChip } from './ConnectionMenu'
 import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
@@ -150,6 +151,9 @@ export function FactorySummary() {
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const allFlows = useSolverStore(selectFlows)
+  const addNode = useBlockStore(s => s.addNode)
+  const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
+  const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [menuItemId, setMenuItemId] = useState<string | undefined>(undefined)
 
   const goals: ProductionGoal[] = activeBlock?.goals ?? []
@@ -310,6 +314,11 @@ export function FactorySummary() {
               item={gameData?.items[itemId]}
               ratePerSec={ratePerMin / 60}
               variant="byproduct"
+              onContextMenu={e => {
+                e.preventDefault()
+                setByproductMenu({ itemId, x: e.clientX, y: e.clientY })
+              }}
+              title={`${gameData?.items[itemId]?.name ?? itemId} — right-click to add a consumer recipe`}
             />
           ))}
           {exportedByproducts.flatMap(renderExportChips)}
@@ -366,6 +375,24 @@ export function FactorySummary() {
           ))}
         </SummaryPane>
       </div>
+
+      {byproductMenu && (
+        <RowActionsMenu
+          x={byproductMenu.x}
+          y={byproductMenu.y}
+          actions={[{ label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(byproductMenu.itemId) }]}
+          onClose={() => setByproductMenu(null)}
+        />
+      )}
+
+      {consumerPickerItemId && (
+        <ItemPicker
+          source="recipes"
+          consumesItemId={consumerPickerItemId}
+          onSelect={id => addNode(makeRecipeNode(id))}
+          onClose={() => setConsumerPickerItemId(null)}
+        />
+      )}
 
       {showGoalPicker && (
         <ItemPicker

@@ -52,7 +52,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 - [ ] **Remove via right-click menu, not a cross icon.** Standardize on a context (right-click) menu for removing things instead of the small cross icon. Non-exhaustive list of affected removals: subfactories, goals.
-- [ ] **Byproduct right-click: add a consumer recipe.** Right-clicking a byproduct icon opens a menu with an option to add a recipe that consumes that byproduct. The option opens the recipe picker filtered on the byproduct as an input item.
+- [ ] **Byproduct menu: hide "Add consumer recipe…" when nothing consumes the item.** The menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. Disable or hide the entry in that case.
+- [ ] **Indicator for byproduct-consumer rows.** A row marked "Absorb byproduct" (`byproductConsumer`, see [spec/ui.md](../spec/ui.md)) looks like any other row, so the user can forget it only soaks up surplus. Show a small badge next to the recipe icon as a reminder, with a tooltip explaining the mode.
 - [ ] **Hover tooltip: unlocking technology.** The item / recipe hover tooltip shows inputs, outputs and buildings. Add a section that names the technology that unlocks it, with its science pack type(s) shown in the UI (e.g. the pack icons), so the player can see how far away the option is. Layout is open.
 
 ## Data sets

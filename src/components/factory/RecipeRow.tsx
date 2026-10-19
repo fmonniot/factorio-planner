@@ -34,6 +34,8 @@ interface RecipeRowProps {
   nodeIndex: number
   /** Open the recipe picker pre-filtered to recipes producing this item. */
   onIngredientClick?: (itemId: string, subPlanId: string) => void
+  /** Open the recipe picker filtered to recipes consuming this byproduct. */
+  onAddConsumer?: (itemId: string, subPlanId: string) => void
 }
 
 export function RecipeRow({
@@ -49,6 +51,7 @@ export function RecipeRow({
   parentSubPlanId,
   nodeIndex,
   onIngredientClick,
+  onAddConsumer,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -71,6 +74,7 @@ export function RecipeRow({
   const indentPx = depth * 16
   const [editMachineOpen, setEditMachineOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
+  const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.effectAllowed = 'move'
@@ -283,6 +287,7 @@ export function RecipeRow({
         style={{ paddingLeft: `${8 + indentPx}px` }}
         onContextMenu={e => {
           e.preventDefault()
+          setByproductMenu(null)
           setMenuPos({ x: e.clientX, y: e.clientY })
         }}
       >
@@ -395,6 +400,14 @@ export function RecipeRow({
           {byproductEntries.map(([itemId, ratePerMin]) => {
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
             const itemName = gameData.items[itemId]?.name ?? itemId
+            const openMenu = onAddConsumer
+              ? (e: React.MouseEvent) => {
+                  e.preventDefault()
+                  setMenuPos(null)
+                  setByproductMenu({ itemId, x: e.clientX, y: e.clientY })
+                }
+              : undefined
+            const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
             if (isMultiOutput) {
               // In multi-output recipes, clicking a byproduct tile makes it primary.
@@ -405,7 +418,8 @@ export function RecipeRow({
                   ratePerSec={ratePerMin / 60}
                   variant="byproduct"
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
-                  title={`${itemName} — Set as primary`}
+                  onContextMenu={openMenu}
+                  title={`${itemName} — Set as primary${hint}`}
                 />
               )
             }
@@ -424,10 +438,19 @@ export function RecipeRow({
                     [itemId]: policy === 'feed-back' ? 'discard' : 'feed-back',
                   })
                 }
-                title={`${itemName} — ${policy} (click to toggle)`}
+                onContextMenu={openMenu}
+                title={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
             )
           })}
+          {byproductMenu && onAddConsumer && (
+            <RowActionsMenu
+              x={byproductMenu.x}
+              y={byproductMenu.y}
+              actions={[{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer(byproductMenu.itemId, parentSubPlanId) }]}
+              onClose={() => setByproductMenu(null)}
+            />
+          )}
         </div>
       </td>
 

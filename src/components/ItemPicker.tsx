@@ -171,12 +171,13 @@ function PickerFrame({
 interface RecipePickerBodyProps {
   gameData: GameData
   filterByItemId?: string
+  consumesItemId?: string
   initialQuery: string
   onSelect: (id: string) => void
   onClose: () => void
 }
 
-function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, onClose }: RecipePickerBodyProps) {
+function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQuery, onSelect, onClose }: RecipePickerBodyProps) {
   const [query, setQuery] = useState(initialQuery)
   const [showHidden, setShowHidden] = useState(false)
   const [hoveredRecipeId, setHoveredRecipeId] = useState<string | null>(null)
@@ -193,11 +194,12 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
     const matching = Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
       .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
+      .filter(r => !consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId))
       .filter(r => matchesRecipe(query, r))
     // Hidden recipes are never part of research progression: the horizon only applies to the others.
     const inside = available ? matching.filter(r => r.hidden || available.has(r.id)) : matching
     return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
-  }, [gameData, showHidden, filterByItemId, query, available])
+  }, [gameData, showHidden, filterByItemId, consumesItemId, query, available])
 
   // Top-level item-groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {
@@ -244,9 +246,11 @@ function RecipePickerBody({ gameData, filterByItemId, initialQuery, onSelect, on
       })
   }, [filteredRecipes, selectedGroupId, gameData])
 
-  const subtitle = filterByItemId
-    ? `Choose a recipe to produce '${gameData.items[filterByItemId]?.name ?? filterByItemId}'`
-    : 'Choose a recipe'
+  const subtitle = consumesItemId
+    ? `Choose a recipe that consumes '${gameData.items[consumesItemId]?.name ?? consumesItemId}'`
+    : filterByItemId
+      ? `Choose a recipe to produce '${gameData.items[filterByItemId]?.name ?? filterByItemId}'`
+      : 'Choose a recipe'
 
   const sidePanel = hoveredRecipeId
     ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} />
@@ -610,6 +614,8 @@ interface RecipeModeProps extends BasePickerProps {
   onSelect: (recipeId: string) => void
   /** When set, only show recipes that produce this item. */
   filterByItemId?: string
+  /** When set, only show recipes that take this item as an ingredient. */
+  consumesItemId?: string
 }
 
 interface ItemModeProps extends BasePickerProps {
@@ -638,6 +644,7 @@ export function ItemPicker(props: ItemPickerProps) {
       <RecipePickerBody
         gameData={gameData}
         filterByItemId={props.filterByItemId}
+        consumesItemId={props.consumesItemId}
         initialQuery={props.initialQuery ?? ''}
         onSelect={props.onSelect}
         onClose={props.onClose}

@@ -112,6 +112,17 @@ export function makeEmptySubPlan(name: string): SubPlan {
   }
 }
 
+/** A fresh, unconfigured recipe node for `recipeId`. */
+export function makeRecipeNode(recipeId: string): RecipeNode {
+  return {
+    kind: 'game-recipe',
+    id: crypto.randomUUID(),
+    recipeId,
+    modules: [],
+    byproductPolicy: {},
+  }
+}
+
 export function makeEmptyBlock(name: string): Block {
   return {
     id: crypto.randomUUID(),

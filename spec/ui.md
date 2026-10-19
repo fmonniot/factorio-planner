@@ -274,6 +274,12 @@ Every item with a positive net balance that is not a goal, as `ItemTile`s. The
 rate shown is the net balance minus what other blocks receive; a tile is hidden
 when nothing is left. `ExportChip`s for exported non-goal items follow the tiles.
 
+Right-clicking a tile opens a `RowActionsMenu` with **Add consumer recipe…**,
+which opens a recipe picker filtered to recipes that take the item as an
+ingredient. The chosen recipe is added to the block's root plan (even while a
+sub-factory is expanded). Escape or an outside click closes the menu without
+opening the picker.
+
 ### Ingredients pane
 
 The solver's `unsatisfied` list: everything the block must import (goal
@@ -391,6 +397,11 @@ module is outside the horizon gets an amber ring.
 
 **Byproducts cell.** Every other output. On multi-output recipes, clicking a
 byproduct makes it the primary product (it swaps places with the current one).
+Right-clicking a byproduct tile opens a `RowActionsMenu` with **Add consumer
+recipe…**, which opens the recipe picker filtered to recipes consuming that item;
+the chosen recipe is added to the same sub-plan as the row. The menu follows the
+same closing rules as the recipe-cell menu, and only one of the two is open at a
+time.
 
 **Ingredients cell.** Every input with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
@@ -462,6 +473,9 @@ The same component in recipes mode (`source="recipes"`).
   crafting time, products (with probability) and the machines that can make it.
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
+- When opened from a byproduct, only recipes consuming that item (as an
+  ingredient, fluid temperature ignored) are listed and the subtitle reads
+  "Choose a recipe that consumes '…'".
 - Extraction recipes ("Iron ore (mining)", "Water (offshore pump)") are listed like any other recipe, under the group of what they produce; they are always inside the research horizon.
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When

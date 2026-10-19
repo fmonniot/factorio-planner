@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
@@ -17,7 +17,7 @@ export function ProductionTable() {
   const gameData = useGameDataStore(selectGameData)
   const addNode = useBlockStore(s => s.addNode)
 
-  const [picker, setPicker] = useState<null | { filterByItemId?: string; targetSubPlanId?: string }>(null)
+  const [picker, setPicker] = useState<null | { filterByItemId?: string; consumesItemId?: string; targetSubPlanId?: string }>(null)
   // Set of SubPlanNode ids whose children are currently expanded.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
@@ -35,14 +35,7 @@ export function ProductionTable() {
   const solvedMap = new Map(solverResult?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
 
   function handleAddRecipe(recipeId: string) {
-    const node: RecipeNode = {
-      kind: 'game-recipe',
-      id: crypto.randomUUID(),
-      recipeId,
-      modules: [],
-      byproductPolicy: {},
-    }
-    addNode(node, picker?.targetSubPlanId)
+    addNode(makeRecipeNode(recipeId), picker?.targetSubPlanId)
   }
 
   if (!gameData) {
@@ -94,6 +87,7 @@ export function ProductionTable() {
                   expanded,
                   toggleExpand,
                   (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
+                  (itemId, subPlanId) => setPicker({ consumesItemId: itemId, targetSubPlanId: subPlanId }),
                 )}
                 {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
               </tbody>
@@ -119,6 +113,7 @@ export function ProductionTable() {
         <ItemPicker
           source="recipes"
           filterByItemId={picker.filterByItemId}
+          consumesItemId={picker.consumesItemId}
           onSelect={handleAddRecipe}
           onClose={() => setPicker(null)}
         />
@@ -141,6 +136,7 @@ function renderNodes(
   expanded: Set<string>,
   toggleExpand: (id: string) => void,
   onIngredientClick: (itemId: string, subPlanId: string) => void,
+  onAddConsumer: (itemId: string, subPlanId: string) => void,
 ): React.ReactNode[] {
   const rows: React.ReactNode[] = []
 
@@ -160,6 +156,7 @@ function renderNodes(
         parentSubPlanId={parentSubPlanId}
         nodeIndex={idx}
         onIngredientClick={onIngredientClick}
+        onAddConsumer={onAddConsumer}
       />
     )
 
@@ -184,6 +181,7 @@ function renderNodes(
               expanded,
               toggleExpand,
               onIngredientClick,
+              onAddConsumer,
             )
           )
         }

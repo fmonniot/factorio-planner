@@ -173,6 +173,33 @@ describe('ItemPicker — recipes mode', () => {
     expect(onClose).toHaveBeenCalled()
   })
 
+  it('consumesItemId lists only recipes taking that item as an ingredient, hidden ones on demand', () => {
+    render(<ItemPicker source="recipes" consumesItemId="iron-ore" onSelect={() => {}} onClose={() => {}} />)
+    const ids = () => screen.queryAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id'))
+    // The unfiltered picker shows one group tab at a time; boil-water lives in 'fluids'.
+    fireEvent.click(screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'fluids')!)
+    expect(ids()).toEqual(['boil-water'])
+    fireEvent.click(screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'intermediates')!)
+    expect(ids()).toEqual(expect.arrayContaining(['iron-plate', 'copper-plate']))
+    expect(ids()).not.toContain('fill-water-barrel')
+    expect(ids()).not.toContain('secret-recipe')
+
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    expect(ids()).toContain('secret-recipe')
+  })
+
+  it('consumesItemId shows a consumer subtitle and hides the tab strip when one group remains', () => {
+    render(<ItemPicker source="recipes" consumesItemId="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText("Choose a recipe that consumes 'Water'")).toBeInTheDocument()
+    expect(screen.getAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id'))).toEqual(['fill-water-barrel'])
+    expect(screen.queryAllByTestId('recipe-group-tab')).toHaveLength(0)
+  })
+
+  it('consumesItemId and filterByItemId intersect', () => {
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" consumesItemId="iron-ore" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id'))).toEqual(['iron-plate'])
+  })
+
   it('hovering a slot renders the recipe detail panel with sections and made-in list', () => {
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
     const slot = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'iron-plate')!

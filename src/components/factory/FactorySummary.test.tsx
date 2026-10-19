@@ -435,6 +435,46 @@ describe('FactorySummary — connections', () => {
     // The first chip directly follows the goal tile.
     expect(screen.getByTitle(/Target:/).closest('div')!.nextElementSibling).toBe(chips[0])
     // slag: 10 produced - 4 exported = 6 left as a byproduct
-    expect(screen.getAllByTitle('Slag').some(el => el.textContent?.includes('6.00'))).toBe(true)
+    expect(screen.getByTitle('Slag — right-click to add a consumer recipe').textContent).toContain('6.00')
+  })
+})
+
+describe('FactorySummary — byproduct consumer recipe', () => {
+  const slagTile = () => screen.getByTitle('Slag — right-click to add a consumer recipe')
+
+  function withConsumerRecipe() {
+    const data = structuredClone(mockGameData)
+    data.recipes['slag-to-plate'] = {
+      id: 'slag-to-plate', name: 'Slag To Plate', category: 'smelting', craftingTime: 1,
+      ingredients: [{ itemId: 'slag', type: 'item', amount: 2 }],
+      products: [{ itemId: 'iron-plate', type: 'item', amount: 1 }],
+      madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-plate',
+    } as unknown as GameData['recipes'][string]
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+  }
+
+  it('right-click then "Add consumer recipe…" opens the filtered picker and adds to the root plan', async () => {
+    withConsumerRecipe()
+    render(<FactorySummary />)
+    fireEvent.contextMenu(slagTile())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
+
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    expect(screen.getByText("Choose a recipe that consumes 'Slag'")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Slag To Plate'))
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('slag-to-plate')
+  })
+
+  it('Escape closes the menu without opening a picker', () => {
+    withConsumerRecipe()
+    render(<FactorySummary />)
+    fireEvent.contextMenu(slagTile())
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
   })
 })
