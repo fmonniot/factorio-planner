@@ -18,7 +18,7 @@ In the **Products** pane of the summary panel, use the **+** button (tooltip "Ad
 
 ### 3. Read and shape the production table
 
-Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there (the row's pin, absorb, wrap and remove actions are in a menu you get by right-clicking the recipe icon):
+Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there (the row's pin, absorb, share limit, wrap and remove actions are in a menu you get by right-clicking the recipe icon):
 
 - **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
@@ -26,6 +26,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Click an ingredient** to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
 - **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs.
+- **Limit a recipe's share.** "Limit share…" caps how much of its product a recipe makes (for example at most 30 % of the soil from the sand route); the other recipes that make the item cover the rest. It is a cap, never a minimum, and shows as a `≤30%` badge on the row.
 - **Lock an item** by clicking it in the summary's **Ingredients** pane so the solver never imports it (click the locked chip to unlock). Whatever it would have needed from outside then shows up as a shortfall.
 - **Group recipes into subfactories** with "Wrap in subfactory", and drag rows to reorder them, including between groups.
 

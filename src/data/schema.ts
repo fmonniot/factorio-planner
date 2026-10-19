@@ -214,6 +214,8 @@ export const GameRecipeNodeSchema = z.object({
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
   byproductConsumer: z.boolean().optional(),
+  // Upper bound (0 < s < 1) on this recipe's share of its primary product. Out-of-range values are dropped so edited plans still load.
+  maxShare: z.preprocess(v => (typeof v === 'number' && v > 0 && v < 1 ? v : undefined), z.number().optional()),
 })
 
 export const SubPlanNodeSchema = z.object({

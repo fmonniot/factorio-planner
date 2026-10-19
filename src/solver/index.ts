@@ -13,7 +13,7 @@ import type {
   UnsatisfiedItem,
 } from '../data/types'
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
-import { solveLP } from './solve'
+import { solveLP, type ShareLimit } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
 import { orderBlocks } from './blockGraph'
 
@@ -152,6 +152,18 @@ export function solveBlock(
     }
   }
 
+  // Share limits: one per recipe, last duplicate row wins (same rule as pins and
+  // effects). A pin on the limited row wins, and absorb rows are never limited.
+  const limitByRecipe = new Map<string, ShareLimit>()
+  for (const n of gameRecipeNodes) {
+    if (n.maxShare === undefined || n.byproductConsumer || n.pinnedRate !== undefined) continue
+    const recipe = gameData.recipes[n.recipeId]
+    const itemId = n.primaryProduct ?? recipe?.mainProduct ?? recipe?.products[0]?.itemId
+    if (!itemId) continue
+    limitByRecipe.set(n.recipeId, { recipeId: n.recipeId, itemId, maxShare: n.maxShare })
+  }
+  const shareLimits = [...limitByRecipe.values()]
+
   // No-import set: user's explicit list, plus bc recipes' ingredients.
   // Auto-adding bc ingredients preserves the "consume surplus only, don't
   // trigger new ingredient production" semantics: with no slack allowed on
@@ -174,7 +186,7 @@ export function solveBlock(
   const pass1NoImport = totalCaps.size === 0
     ? noImportItems
     : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport)
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, new Map(), shareLimits)
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
@@ -193,7 +205,7 @@ export function solveBlock(
     }
   }
   if (pass2Caps.size > 0) {
-    lp = solveLP(system, pinnedRates, bcRecipeIds, pass2NoImport, pass2Caps)
+    lp = solveLP(system, pinnedRates, bcRecipeIds, pass2NoImport, pass2Caps, shareLimits)
   }
 
   const { throughput: throughputMap, slack: slackMap, warnings } = lp

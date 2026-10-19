@@ -207,6 +207,7 @@ export interface BlockStoreState {
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
   updateNodeByproductConsumer: (nodeId: string, value: boolean) => void
+  updateNodeMaxShare: (nodeId: string, maxShare: number | undefined) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
   updateNodeRecipe: (nodeId: string, recipeId: string) => void
   wrapNodeInSubPlan: (nodeId: string, name: string) => void
@@ -769,6 +770,21 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: value } : n,
         n => n.kind === 'game-recipe' ? { ...n, byproductConsumer: oldValue } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
+    }),
+
+  updateNodeMaxShare: (nodeId, maxShare) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldValue = old.maxShare
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, maxShare } : n,
+        n => n.kind === 'game-recipe' ? { ...n, maxShare: oldValue } : n,
       )
       return cmd ? applyCommand(state, cmd) : state
     }),

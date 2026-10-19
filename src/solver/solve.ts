@@ -32,6 +32,20 @@ const SLACK_TOLERANCE = 1e-6
  * (BIG_M slack cost dominates if the LP would have to import inputs).
  */
 const BC_BONUS = -0.01
+/**
+ * Cost per item/min a recipe goes over its share limit. Far above recipe costs
+ * (the limit holds whenever it can) and far below BIG_M (going over always
+ * comes before importing).
+ */
+const SHARE_PENALTY = 1e3
+
+/** Upper bound on a recipe's share of the producers' output of one item. */
+export interface ShareLimit {
+  recipeId: string
+  itemId: string
+  /** 0 < maxShare < 1 */
+  maxShare: number
+}
 
 /**
  * Build and solve the elastic LP for the given classified system.
@@ -46,7 +60,9 @@ const BC_BONUS = -0.01
  *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
  *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
  *     - Pinned recipes:     x_j = rate  (equality)
- *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i
+ *     - Share limits:       (1 − s)·S_if·x_f − s·Σ_{j≠f} S_ij·x_j − o_k ≤ 0
+ *                           (f = limited recipe, producers only; o_k ≥ 0 is the overshoot)
+ *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i + SHARE_PENALTY * Σ o_k
  *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes; supply u_i is free,
  *     so it is used ahead of slack. Callers cap it at what own production can't cover.
  *
@@ -60,6 +76,7 @@ export function solveLP(
   bcRecipeIds: Set<string> = new Set(),
   noImportItems: Set<string> = new Set(),
   supplyCaps: Map<string, number> = new Map(),
+  shareLimits: ShareLimit[] = [],
 ): LPResult {
   const { S, recipes, classification } = system
   const warnings: SolverWarning[] = []
@@ -151,6 +168,27 @@ export function solveLP(
     constraints[cName] = { equal: rate }
     variables[varName][cName] = 1
   }
+
+  // Share limits: the flagged recipe makes at most `maxShare` of the item's
+  // total production. Soft (overshoot variable) because a hard cap can make the
+  // goal unreachable, e.g. when another recipe on the item is pinned.
+  shareLimits.forEach((limit, k) => {
+    const rowS = S.get(limit.itemId)
+    if (!rowS) return
+    if (!((rowS.get(limit.recipeId) ?? 0) > 0)) return
+    const producers = [...rowS].filter(([, coeff]) => coeff > 0)
+    if (producers.length < 2) return
+    const cName = `share_${k}`
+    const overName = `shover_${k}`
+    constraints[cName] = { max: 0 }
+    for (const [recipeId, coeff] of producers) {
+      const varName = recipeToVar.get(recipeId)
+      if (!varName) continue
+      const factor = recipeId === limit.recipeId ? 1 - limit.maxShare : -limit.maxShare
+      variables[varName][cName] = (variables[varName][cName] ?? 0) + factor * coeff
+    }
+    variables[overName] = { __obj__: SHARE_PENALTY, [cName]: -1 }
+  })
 
   const model = {
     optimize: '__obj__',

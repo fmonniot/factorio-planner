@@ -544,13 +544,13 @@ describe('RecipeRow context menu', () => {
     vi.restoreAllMocks()
   })
 
-  it('right-clicking the recipe icon opens a menu with the four actions', () => {
+  it('right-clicking the recipe icon opens a menu with the five actions', () => {
     renderRow()
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     openMenu()
     expect(screen.getByRole('menu')).toBeInTheDocument()
     const labels = screen.getAllByRole('menuitem').map(i => i.textContent)
-    expect(labels).toEqual(['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+    expect(labels).toEqual(['Absorb byproduct', 'Limit share…', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
   })
 
   it('Remove recipe removes the node and closes the menu', () => {
@@ -602,6 +602,74 @@ describe('RecipeRow context menu', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: 'Absorb byproduct' }))
     const node = nodes()[0]
     expect(node.kind === 'game-recipe' && node.byproductConsumer).toBe(true)
+  })
+
+  describe('share limit', () => {
+    const maxShareOf = () => {
+      const node = nodes()[0]
+      return node.kind === 'game-recipe' ? node.maxShare : 'not-a-recipe'
+    }
+    function seed(node: RecipeNode) {
+      const block = makeEmptyBlock('Test')
+      useBlockStore.setState({
+        blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }],
+        activeBlockId: block.id,
+        history: {},
+      })
+      renderRow({ planNode: node })
+    }
+
+    it('a valid percentage sets the limit', () => {
+      const prompt = vi.fn().mockReturnValue('30')
+      vi.stubGlobal('prompt', prompt)
+      renderRow()
+      openMenu()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Limit share…' }))
+      expect(prompt).toHaveBeenCalledWith('Maximum share of Iron Plate made by this recipe (%):', '50')
+      expect(maxShareOf()).toBeCloseTo(0.3, 6)
+    })
+
+    it.each(['150', '0', '100', 'abc'])('%s changes nothing', raw => {
+      vi.stubGlobal('prompt', vi.fn().mockReturnValue(raw))
+      renderRow()
+      openMenu()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Limit share…' }))
+      expect(maxShareOf()).toBeUndefined()
+    })
+
+    it('cancelling the prompt changes nothing', () => {
+      vi.stubGlobal('prompt', vi.fn().mockReturnValue(null))
+      renderRow()
+      openMenu()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Limit share…' }))
+      expect(maxShareOf()).toBeUndefined()
+    })
+
+    it('a limited row shows the badge and a menu without Absorb byproduct', () => {
+      seed({ ...ironPlateRecipeNode, maxShare: 0.3 })
+      expect(screen.getByLabelText('Share limit')).toHaveTextContent('≤30%')
+      openMenu()
+      const labels = screen.getAllByRole('menuitem').map(i => i.textContent)
+      expect(labels).toEqual(['Change share limit…', 'Remove share limit', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+    })
+
+    it('Remove share limit clears the limit', () => {
+      seed({ ...ironPlateRecipeNode, maxShare: 0.3 })
+      openMenu()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Remove share limit' }))
+      expect(maxShareOf()).toBeUndefined()
+    })
+
+    it('an absorb row has no Limit share item', () => {
+      renderRow({ planNode: { ...ironPlateRecipeNode, byproductConsumer: true } })
+      openMenu()
+      expect(screen.queryByRole('menuitem', { name: /share/i })).not.toBeInTheDocument()
+    })
+
+    it('an unflagged row has no badge', () => {
+      renderRow()
+      expect(screen.queryByLabelText('Share limit')).not.toBeInTheDocument()
+    })
   })
 
   it('Wrap in subfactory prompts for a name and wraps the node', () => {

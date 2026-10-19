@@ -55,6 +55,7 @@ export function RecipeRow({
   const moveNode = useBlockStore(s => s.moveNode)
   const updateNodeByproductPolicy = useBlockStore(s => s.updateNodeByproductPolicy)
   const updateNodeByproductConsumer = useBlockStore(s => s.updateNodeByproductConsumer)
+  const updateNodeMaxShare = useBlockStore(s => s.updateNodeMaxShare)
   const updateNodePrimaryProduct = useBlockStore(s => s.updateNodePrimaryProduct)
   const updateNodePinnedRate = useBlockStore(s => s.updateNodePinnedRate)
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
@@ -208,6 +209,9 @@ export function RecipeRow({
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
+  const hasShareLimit = planNode.maxShare !== undefined
+  const sharePct = Math.round((planNode.maxShare ?? 0) * 100)
+  const primaryItemName = (primaryItemId && gameData.items[primaryItemId]?.name) || primaryItemId
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
@@ -236,11 +240,30 @@ export function RecipeRow({
     if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
   }
 
+  function handleSetShareLimit() {
+    const raw = window.prompt(
+      `Maximum share of ${primaryItemName} made by this recipe (%):`,
+      hasShareLimit ? String(sharePct) : '50',
+    )
+    const v = parseFloat(raw ?? '')
+    if (isFinite(v) && v > 0 && v < 100) updateNodeMaxShare(planNode.id, v / 100)
+  }
+
   const rowActions: RowAction[] = [
-    {
-      label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
-      onSelect: handleToggleByproductConsumer,
-    },
+    ...(!hasShareLimit
+      ? [{
+          label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
+          onSelect: handleToggleByproductConsumer,
+        }]
+      : []),
+    ...(!isByproductConsumer
+      ? [
+          { label: hasShareLimit ? 'Change share limit…' : 'Limit share…', onSelect: handleSetShareLimit },
+          ...(hasShareLimit
+            ? [{ label: 'Remove share limit', onSelect: () => updateNodeMaxShare(planNode.id, undefined) }]
+            : []),
+        ]
+      : []),
     ...(!isByproductConsumer
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
@@ -301,6 +324,16 @@ export function RecipeRow({
               className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
             >
               {recipe.name.substring(0, 2).toUpperCase()}
+            </span>
+          )}
+          {hasShareLimit && (
+            <span
+              role="img"
+              aria-label="Share limit"
+              title={`Makes at most ${sharePct}% of ${primaryItemName}`}
+              className="text-[9px] font-semibold text-amber-400 select-none"
+            >
+              ≤{sharePct}%
             </span>
           )}
         </div>

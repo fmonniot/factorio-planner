@@ -358,6 +358,47 @@ describe('toggleNoImportItem', () => {
 })
 
 // ---------------------------------------------------------------------------
+// updateNodeMaxShare
+// ---------------------------------------------------------------------------
+
+describe('updateNodeMaxShare', () => {
+  function rootNode() {
+    return useBlockStore.getState().blocks[0].rootPlan.nodes[0] as { maxShare?: number }
+  }
+
+  beforeEach(() => {
+    useBlockStore.getState().addNode({ ...ironNode })
+  })
+
+  it('sets the share limit', () => {
+    useBlockStore.getState().updateNodeMaxShare('node-iron', 0.3)
+    expect(rootNode().maxShare).toBe(0.3)
+  })
+
+  it('undo restores the previous value and redo reapplies it', () => {
+    const s = useBlockStore.getState()
+    s.updateNodeMaxShare('node-iron', 0.3)
+    s.undo()
+    expect(rootNode().maxShare).toBeUndefined()
+    useBlockStore.getState().redo()
+    expect(rootNode().maxShare).toBe(0.3)
+  })
+
+  it('undefined clears the limit', () => {
+    const s = useBlockStore.getState()
+    s.updateNodeMaxShare('node-iron', 0.3)
+    s.updateNodeMaxShare('node-iron', undefined)
+    expect(rootNode().maxShare).toBeUndefined()
+  })
+
+  it('leaves state unchanged for an unknown node id', () => {
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().updateNodeMaxShare('nope', 0.3)
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Input connections
 // ---------------------------------------------------------------------------
 

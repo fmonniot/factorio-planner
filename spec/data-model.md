@@ -500,6 +500,7 @@ interface GameRecipeNode {
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
   byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
+  maxShare?: number             // 0 < s < 1; cap on this recipe's share of its primary product, see solver.md
 }
 
 interface SubPlanNode {
@@ -518,9 +519,14 @@ interface SubPlanNode {
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Display-only override of the recipe's main product: it
   decides which output appears in the row's Products cell (the rest go to
-  Byproducts) and which icon represents the recipe. The solver ignores it.
+  Byproducts) and which icon represents the recipe. The solver reads it only
+  to pick the item a `maxShare` applies to.
 - **`byproductConsumer`.** See [solver.md](solver.md). The UI hides the pin
   control on such nodes.
+- **`maxShare`.** Missing means no limit. Values outside the open interval
+  (0, 1) are dropped on load so edited plans still load. See
+  [solver.md](solver.md). The UI hides it on byproduct-consumer rows and
+  hides Absorb byproduct on limited rows.
 
 ### ModuleConfig and BeaconConfig
 

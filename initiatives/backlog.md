@@ -30,7 +30,13 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
 - [ ] **Connect items not shown in Ingredients.** Connections can only be created for items in the target block's Ingredients pane (from a tile or from the block graph); items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
-- [ ] **Priority between product rows.** Let a product row have a lower priority than another, so it only compensates for the higher-priority one. Example: making soil needs washing plants to thin muddy water, which leaves thin mud water that becomes sand, which becomes soil. The user wants the sand recipe used only to compensate for the mud recipe, not as a parallel route.
+- [ ] **Exact and minimum shares.** A row's share is only an upper bound; let the user also fix it or set a minimum.
+- [ ] **Warn when the solver goes over a share limit.** A limit is soft (e.g. when another producer is pinned); the row exceeds it silently today.
+- [ ] **Share limit on an item other than the primary product.** The limit is counted against the row's primary product only.
+- [ ] **Connected supply ahead of a limited row.** Limited rows count as own production, so connected supply only covers what is left; offer the opposite order.
+- [ ] **Several priority levels between product rows.** A share limit is a single number; a true priority order (fallback chains) is not expressible.
+- [ ] **"Absorb byproduct" only on real leftovers.** Make a byproduct consumer take only genuine leftovers instead of competing for the same intermediates.
+- [ ] **Explain the no-leftover soil result.** When the cheaper route leaves no leftover (e.g. the Seablock sand route taking about 94 % of the soil), tell the user why in the UI.
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
 - [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).

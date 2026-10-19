@@ -349,7 +349,14 @@ Right-clicking anywhere in the recipe cell opens a context menu
 clamped to the viewport) with:
 
 - **Absorb byproduct** / **Stop absorbing byproduct** — "only run to absorb
-  byproduct from other recipes" (sets `byproductConsumer`).
+  byproduct from other recipes" (sets `byproductConsumer`); omitted on rows with
+  a share limit.
+- **Limit share…** / **Change share limit…** and **Remove share limit** — a
+  prompt for a percentage (default 50, or the current value) sets `maxShare`
+  to "this recipe makes at most N % of its primary product". Input outside
+  0–100 (exclusive), non-numeric input or cancelling changes nothing.
+  Omitted on byproduct-consumer rows. A limited row shows an amber `≤N%` badge
+  after the recipe icon (tooltip "Makes at most N% of <item>").
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
   becomes a number input for the pinned rate.

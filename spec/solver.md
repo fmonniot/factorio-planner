@@ -54,6 +54,7 @@ Variables:
 
 ```
 x_j ≥ 0   for each recipe j                                   (throughput, executions/minute)
+o_k ≥ 0   for each share limit k                             (overshoot past the limit, items/minute)
 s_i ≥ 0   for each intermediate i not in noImportItems        (external import slack)
 u_i ≥ 0   for each intermediate i with a supply cap           (supply from another block; pass 2 only)
 ```
@@ -66,6 +67,7 @@ Constraints:
 Σ S_ij · x_j        ≥ 0        for each intermediate i in noImportItems    (hard)
 Σ S_ij · x_j + u_i (+ s_i)  ≥ 0, u_i ≤ cap_i   for each intermediate i with a supply cap
 x_j                 = pin_j    for each pinned recipe j
+(1 − m_k)·S_if·x_f − m_k·Σ_{j≠f} S_ij·x_j − o_k ≤ 0   for each share limit k (f limited, j other producers of i)
 ```
 
 `S_ij` is the net stoichiometry coefficient: positive = produced per execution, negative = consumed. Productivity bonuses scale only the `amount − ignoredByProductivity` portion of products, then the result is multiplied by `probability` (`effectiveProductAmount` in `build.ts`). Productivity is applied before items enter `S`; speed and consumption only affect machine count and power after the solve.
@@ -73,11 +75,13 @@ x_j                 = pin_j    for each pinned recipe j
 Objective:
 
 ```
-minimize  Σ c_j · x_j  +  BIG_M · Σ s_i      (supply u_i costs 0)
+minimize  Σ c_j · x_j  +  BIG_M · Σ s_i  +  SHARE_PENALTY · Σ o_k      (supply u_i costs 0)
           c_j = BC_BONUS for byproduct-consumer recipes, 1 otherwise
 ```
 
 `BIG_M = 1e6` makes slack the last-resort balancer (the LP only imports an item if the network genuinely cannot produce it internally). `BC_BONUS = -0.01` is a tiny negative coefficient that nudges byproduct-consumer recipes to run up to whatever surplus the intermediate constraints permit, without ever overriding goal-meeting decisions.
+
+`SHARE_PENALTY = 1e3` is the cost per item of going over a share limit. It is far above a recipe's cost of 1 per execution (the limit holds whenever it can) and far below `BIG_M` (going over always comes before importing). The limit is soft because a hard cap is not always feasible: with another producer of the item pinned, it could make the goal unreachable and the whole LP infeasible.
 
 Tolerances: slack is reported only above `SLACK_TOLERANCE = 1e-6`; intermediate surplus above `SURPLUS_TOLERANCE = 1e-6` triggers `overconstrained`; goal shortfall is reported above `GOAL_SHORTFALL_TOLERANCE = 1e-4`.
 
@@ -116,23 +120,24 @@ Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
 ---
 
-## Pinned rates, byproduct policies, byproduct consumers, no-import items
+## Pinned rates, byproduct policies, byproduct consumers, share limits, no-import items
 
-The first three knobs sit on individual recipe nodes; `noImportItems` sits on the `Block`.
+The first four knobs sit on individual recipe nodes; `noImportItems` sits on the `Block`.
 
 - **`pinnedRate`** — translates to `x_j = rate` (equality constraint). Useful for "I want exactly N machines of this".
 - **`byproductPolicy[itemId] = 'discard'`** — zeroes the recipe's positive coefficient for that item in `S`. This happens **after** classification and before the LP, so the item keeps its classification; it affects only the LP rows. `SolvedNode.outputRates` still include the discarded product.
 - **`byproductPolicy[itemId] = 'feed-back'`** — the default in the UI. A no-op for the solver.
 - **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. Its ingredients are added to the no-import set, so the LP can't import them just to fire the bonus — they must come from another in-plan producer.
+- **`maxShare = s`** (0 < s < 1) — caps the recipe's share of its primary product (`primaryProduct ?? recipe.mainProduct ?? recipe.products[0]`) at `s` of what all producers make of it. Shares are measured on net producer output after `discard` has zeroed coefficients, so a discarded primary product leaves nothing to limit and the limit is skipped. Other recipes that make the item cover the rest. It is a cap, never a minimum: it does not force the row to run, above the natural split it changes nothing, and on the more expensive route it gives 0 %. It adds the `share_k` constraint and overshoot variable `o_k` shown above. The limit is skipped when the row is pinned (the pin wins), when it is a byproduct consumer, or when no other recipe in the plan makes the item. With duplicate rows of the same recipe, the last flagged row wins (same rule as pins and effects). When the cap cannot be met (for example another producer is pinned), the solver goes over it before importing, so the row can exceed `s`. Cutting the cheaper route can leave the other route's intermediates in surplus, which raises `overconstrained`.
 - **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input. An ore that has an extraction row is an intermediate, so a lock on it applies.
 
-`primaryProduct` on a node is display-only; the solver ignores it.
+`primaryProduct` on a node is otherwise display-only; the solver reads it only to pick the item a share limit applies to.
 
 ---
 
 ## Connections between blocks
 
-A `BlockConnection` on block B says "B receives item X from block A" (see [data-model.md](data-model.md#block)). The model is push-based: A's own goals drive A's LP and consumers only draw on what A has left over. **B always uses its own recipes first**; connected supply covers only what B would otherwise import.
+A `BlockConnection` on block B says "B receives item X from block A" (see [data-model.md](data-model.md#block)). The model is push-based: A's own goals drive A's LP and consumers only draw on what A has left over. **B always uses its own recipes first**; connected supply covers only what B would otherwise import. Rows with a share limit count as own production: the other routes cover the rest of the limited item before any connected supply is used.
 
 **Offer.** What a source can offer of X is `max(0, Σ outputRates[X] − Σ inputRates[X])` over its solved nodes (`netBalance`): goal output, surplus intermediates and byproducts. A block's received items are consumed by its own recipes, so it never re-exports them.
 

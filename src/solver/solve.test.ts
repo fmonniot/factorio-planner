@@ -520,3 +520,147 @@ describe('solveLP — supply caps', () => {
     expect(lp.slack.get('plate')).toBeCloseTo(30, 4)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Share limit
+// ---------------------------------------------------------------------------
+
+describe('v2 solver — share limit', () => {
+  // muddy and compost are raw. Two routes to soil: from mud directly, or from
+  // sand made out of the thin mud water that washing leaves over.
+  const gameData = makeGameData({
+    recipes: {
+      'wash': recipe('wash', 1, [item('muddy', 10)], [product('mud', 1), product('thin', 10)]),
+      'soil-mud': recipe('soil-mud', 1, [item('mud', 1), item('compost', 1)], [product('soil', 1)]),
+      'sand': recipe('sand', 1, [item('thin', 10)], [product('sand', 5)]),
+      'soil-sand': recipe('soil-sand', 1, [item('sand', 1), item('compost', 2)], [product('soil', 1)]),
+    },
+  })
+  const goals = [{ id: 'g1', itemId: 'soil', rate: 10 }]
+
+  function run(
+    maxShare: number | undefined,
+    opts: { gd?: GameData; extra?: GameRecipeNode[]; edit?: (nodes: GameRecipeNode[]) => GameRecipeNode[] } = {},
+  ) {
+    const nodes = opts.edit ? opts.edit(baseNodes(maxShare)) : baseNodes(maxShare)
+    const allNodes = [...nodes, ...(opts.extra ?? [])]
+    const result = solve({ goals, nodes: allNodes }, opts.gd ?? gameData)
+    return {
+      result,
+      rate: (recipeId: string) => {
+        const nodeId = allNodes.find(n => n.recipeId === recipeId)?.id
+        return result.nodes.find(n => n.recipeNodeId === nodeId)?.throughput ?? 0
+      },
+    }
+  }
+
+  function baseNodes(maxShare: number | undefined): GameRecipeNode[] {
+    return [
+      planNode('n-wash', 'wash'),
+      planNode('n-mud', 'soil-mud'),
+      planNode('n-sand', 'sand'),
+      { ...planNode('n-soil-sand', 'soil-sand'), maxShare },
+    ]
+  }
+
+  it('(a) no limit: sand route takes most of the soil', () => {
+    const { rate } = run(undefined)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(8.3333, 4)
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(1.6667, 4)
+    expect(rate('wash'), 'wash').toBeCloseTo(1.6667, 4)
+    expect(rate('sand'), 'sand').toBeCloseTo(1.6667, 4)
+  })
+
+  it('(b) limit 30%: sand route capped, thin mud water left over', () => {
+    const { result, rate } = run(0.3)
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(7, 4)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(3, 4)
+    expect(rate('wash'), 'wash').toBeCloseTo(7, 4)
+    expect(rate('sand'), 'sand').toBeCloseTo(0.6, 4)
+    const warning = result.warnings.find(w => w.type === 'overconstrained')
+    expect(warning, 'overconstrained warning').toBeDefined()
+    expect(JSON.stringify(warning)).toContain('64')
+  })
+
+  it('(c) limit above the natural split changes nothing', () => {
+    const { rate } = run(0.9)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(8.3333, 4)
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(1.6667, 4)
+    expect(rate('wash'), 'wash').toBeCloseTo(1.6667, 4)
+  })
+
+  it('(d) limit 30% with wash pinned high: all soil from mud', () => {
+    const { rate } = run(0.3, {
+      edit: nodes => nodes.map(n => n.recipeId === 'wash' ? { ...n, pinnedRate: 20 } : n),
+    })
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(10, 4)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(0, 4)
+  })
+
+  it('(e) goes over the limit rather than fail when another producer is pinned', () => {
+    const { result, rate } = run(0.3, {
+      edit: nodes => nodes.map(n => n.recipeId === 'soil-mud' ? { ...n, pinnedRate: 4 } : n),
+    })
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(4, 4)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(6, 4)
+    for (const id of ['mud', 'sand', 'thin']) {
+      expect(result.unsatisfied.find(u => u.itemId === id), `unsatisfied ${id}`).toBeUndefined()
+    }
+  })
+
+  it('(f) a pin on the limited row wins: limit ignored', () => {
+    const { rate } = run(0.3, {
+      edit: nodes => nodes.map(n => n.recipeId === 'soil-sand' ? { ...n, pinnedRate: 2 } : n),
+    })
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(2, 4)
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(8, 4)
+  })
+
+  it('(g) no other producer in the plan: limit ignored', () => {
+    const { rate } = run(0.3, {
+      edit: nodes => nodes.filter(n => n.recipeId !== 'soil-mud'),
+    })
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(10, 4)
+    expect(rate('wash'), 'wash').toBeCloseTo(2, 4)
+  })
+
+  it('(h) limit on the already more expensive route gives it 0%', () => {
+    const steps = ['t1', 't2', 't3', 't4', 't5']
+    const recipes: GameData['recipes'] = { ...gameData.recipes }
+    recipes['sand'] = recipe('sand', 1, [item('t5', 10)], [product('sand', 5)])
+    let prev = 'thin'
+    for (const t of steps) {
+      recipes[`pass-${t}`] = recipe(`pass-${t}`, 1, [item(prev, 1)], [product(t, 1)])
+      prev = t
+    }
+    const gd = makeGameData({ recipes })
+    const { rate } = run(0.3, {
+      gd,
+      extra: steps.map(t => planNode(`n-pass-${t}`, `pass-${t}`)),
+    })
+    expect(rate('soil-mud'), 'soil-mud').toBeCloseTo(10, 4)
+    expect(rate('soil-sand'), 'soil-sand').toBeCloseTo(0, 4)
+  })
+
+  it('byproductConsumer wins over maxShare: behaves like absorb alone', () => {
+    const gd = makeGameData({
+      recipes: {
+        'smelting': recipe('smelting', 1, [item('iron-ore', 2)], [product('iron-plate', 1), product('slag', 1)]),
+        'slag-disposal': recipe('slag-disposal', 1, [item('slag', 1)], [product('dust', 0.5)]),
+        'dust-mining': recipe('dust-mining', 1, [], [product('dust', 1)]),
+      },
+    })
+    const plan = (extra: object) => ({
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      nodes: [
+        planNode('n1', 'smelting'),
+        { ...planNode('n2', 'slag-disposal'), byproductConsumer: true, ...extra },
+        planNode('n3', 'dust-mining'),
+      ],
+    })
+    const absorb = solve(plan({}), gd)
+    const both = solve(plan({ maxShare: 0.3 }), gd)
+    const t = (r: typeof absorb) => r.nodes.map(n => n.throughput)
+    expect(t(both)).toEqual(t(absorb))
+  })
+})

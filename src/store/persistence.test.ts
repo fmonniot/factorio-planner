@@ -118,6 +118,21 @@ describe('loadPersistedAppState', () => {
     expect(useBlockStore.getState().blocks[0].name).toBe('Saved Plan')
   })
 
+  it('keeps a valid maxShare and drops an out-of-range one without rejecting the plan', () => {
+    function loadWithMaxShare(maxShare: number): GameRecipeNode | undefined {
+      const block = makeEmptyBlock('Shares')
+      const node: GameRecipeNode = {
+        kind: 'game-recipe', id: 'n1', recipeId: 'r', modules: [], byproductPolicy: {}, maxShare,
+      }
+      block.rootPlan.nodes.push(node)
+      localStorageMock.setItem(KEY, JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+      expect(loadPersistedAppState('nullius')).toEqual({ type: 'ok' })
+      return useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode | undefined
+    }
+    expect(loadWithMaxShare(0.3)?.maxShare).toBe(0.3)
+    expect(loadWithMaxShare(1.5)?.maxShare).toBeUndefined()
+  })
+
   it('returns error on malformed JSON', () => {
     localStorageMock.setItem(KEY, 'not json')
     const result = loadPersistedAppState('nullius')

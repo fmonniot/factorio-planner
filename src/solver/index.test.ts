@@ -591,3 +591,38 @@ describe('solve — extraction recipes', () => {
     expect(rate(result.unsatisfied, 'iron-ore')).toBe(0)
   })
 })
+
+describe('solveBlock — share limit', () => {
+  const gd = makeGameData({
+    recipes: {
+      'wash': recipe('wash', 1, [{ itemId: 'muddy', type: 'item', amount: 10 }], [product('mud', 1), product('thin', 10)]),
+      'soil-mud': recipe('soil-mud', 1, [{ itemId: 'mud', type: 'item', amount: 1 }, { itemId: 'compost', type: 'item', amount: 1 }], [product('soil', 1)]),
+      'sand': recipe('sand', 1, [{ itemId: 'thin', type: 'item', amount: 10 }], [product('sand', 5)]),
+      'soil-sand': recipe('soil-sand', 1, [{ itemId: 'sand', type: 'item', amount: 1 }, { itemId: 'compost', type: 'item', amount: 2 }], [product('soil', 1)]),
+    },
+  })
+  const goals: ProductionGoal[] = [{ id: 'g1', itemId: 'soil', rate: 10 }]
+  const base = [planNode('wash', 'wash'), planNode('mud', 'soil-mud'), planNode('sand', 'sand')]
+  const limited = (id: string, maxShare: number): RecipeNode => ({ ...planNode(id, 'soil-sand'), maxShare })
+  const rateOf = (result: ReturnType<typeof solve>, id: string) =>
+    result.nodes.find(n => n.recipeNodeId === id)?.throughput ?? 0
+
+  it('own production first: a limited row does not draw on connected supply', () => {
+    const { result, received } = solveBlock(
+      { goals, nodes: [...base, limited('ss', 0.3)] },
+      gd,
+      new Map([['mud', 10]]),
+    )
+    expect(rateOf(result, 'mud')).toBeCloseTo(7, 4)
+    expect(rateOf(result, 'ss')).toBeCloseTo(3, 4)
+    expect(received.size).toBe(0)
+  })
+
+  it('with duplicate rows, the last flagged one decides', () => {
+    const { result } = solveBlock(
+      { goals, nodes: [...base, planNode('ss1', 'soil-sand'), limited('ss2', 0.3)] },
+      gd,
+    )
+    expect(rateOf(result, 'mud')).toBeCloseTo(7, 4)
+  })
+})
