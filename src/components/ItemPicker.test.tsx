@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, within } from '@testing-library/react'
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
@@ -387,5 +387,86 @@ describe('ItemPicker — items mode', () => {
     render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)
     const ids = screen.getAllByTestId('item-slot').map(s => s.getAttribute('data-item-id'))
     expect(ids).not.toContain('hidden-item')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Recipe detail panel — "Unlocked by:" section
+// ---------------------------------------------------------------------------
+
+describe('ItemPicker — recipe detail panel unlock section', () => {
+  const packs1 = { ingredients: [{ itemId: 'iron-ore', amount: 1 }], count: 10, time: 5 }
+
+  function hover(data: GameData, recipeId: string) {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const slot = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === recipeId)!
+    fireEvent.mouseEnter(slot)
+    return screen.getByTestId('recipe-detail-panel')
+  }
+
+  it('is absent without technology data', () => {
+    hover(fixture, 'iron-plate')
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    expect(screen.queryByTestId('recipe-unlock')).toBeNull()
+  })
+
+  it('shows one costed technology without the research time', () => {
+    const data = fixtureWithTechnologies()
+    data.technologies.smelting.cost = structuredClone(packs1)
+    hover(data, 'iron-plate')
+    const unlock = screen.getByTestId('recipe-unlock')
+    expect(unlock.dataset.unlockKind).toBe('technologies')
+    expect(unlock).toHaveTextContent('Unlocked by:')
+    const rows = screen.getAllByTestId('recipe-unlock-tech')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].dataset.techId).toBe('smelting')
+    expect(rows[0]).toHaveTextContent('Smelting')
+    expect(within(rows[0]).getByTitle('Iron Ore ×1')).toBeInTheDocument()
+    const cost = within(rows[0]).getByTestId('tech-cost')
+    expect(cost).toHaveTextContent('×10')
+    expect(cost.textContent).not.toContain('·')
+    expect(cost.textContent).not.toContain('5s')
+  })
+
+  it('reads "Available from the start" for a starting recipe', () => {
+    hover(fixtureWithTechnologies(), 'copper-plate')
+    const unlock = screen.getByTestId('recipe-unlock')
+    expect(unlock.dataset.unlockKind).toBe('start')
+    expect(unlock).toHaveTextContent('Available from the start')
+    expect(screen.queryByTestId('recipe-unlock-tech')).toBeNull()
+  })
+
+  it('lists several technologies, fewest pack types first, with a formula count', () => {
+    const data = fixtureWithTechnologies()
+    data.technologies.smelting.cost = structuredClone(packs1)
+    data.technologies.extra = {
+      id: 'extra', name: 'Extra', prerequisites: [], unlockedRecipes: ['iron-plate'], iconPath: '',
+      cost: { ingredients: [{ itemId: 'iron-ore', amount: 1 }, { itemId: 'water', amount: 1 }], count: null, time: 1 },
+    }
+    hover(data, 'iron-plate')
+    const rows = screen.getAllByTestId('recipe-unlock-tech')
+    expect(rows.map(r => r.dataset.techId)).toEqual(['smelting', 'extra'])
+    const cost = within(rows[1]).getByTestId('tech-cost')
+    expect(cost).toHaveTextContent('×?')
+    expect(cost.textContent).not.toContain('·')
+  })
+
+  it('shows Trigger for a research-trigger technology', () => {
+    const data = fixtureWithTechnologies()
+    data.technologies.smelting.cost = null
+    hover(data, 'iron-plate')
+    expect(screen.getByTestId('tech-cost').textContent).toBe('Trigger')
+  })
+
+  it('reads "No technology" for a recipe nothing unlocks', () => {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithTechnologies(), sourceId: 'test' } })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    const slot = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'secret-recipe')!
+    fireEvent.mouseEnter(slot)
+    const unlock = screen.getByTestId('recipe-unlock')
+    expect(unlock.dataset.unlockKind).toBe('none')
+    expect(unlock).toHaveTextContent('No technology (outside every research horizon)')
   })
 })

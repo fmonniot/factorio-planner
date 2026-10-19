@@ -2,6 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useAvailableRecipeIds, useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
+import { TechCost } from './TechCost'
+import { recipeUnlock } from '../data/horizon'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -43,6 +45,36 @@ function ItemRow({
         {fmtAmount(amount)}{prob < 1 ? ` ×${prob}` : ''} ×
       </span>
       <span className="text-gray-300 truncate">{name}</span>
+    </div>
+  )
+}
+
+function UnlockSection({ recipeId, gameData, bordered }: { recipeId: string; gameData: GameData; bordered: boolean }) {
+  const unlock = recipeUnlock(gameData, recipeId)
+  if (!unlock) return null
+  return (
+    <div
+      data-testid="recipe-unlock"
+      data-unlock-kind={unlock.kind}
+      className={bordered ? 'px-3 py-2 border-t border-gray-800' : 'px-3 py-2'}
+    >
+      <div className="text-gray-200 font-bold mb-1">Unlocked by:</div>
+      {unlock.kind === 'start' && <div className="py-1 text-gray-400">Available from the start</div>}
+      {unlock.kind === 'none' && (
+        <div className="py-1 text-gray-400">No technology (outside every research horizon)</div>
+      )}
+      {unlock.kind === 'technologies' && unlock.technologies.map(t => (
+        <div key={t.id} data-testid="recipe-unlock-tech" data-tech-id={t.id} className="flex items-center gap-2 py-1">
+          {t.iconPath
+            ? <Icon iconPath={t.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />
+            : <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-gray-700 text-gray-300 text-xs">{t.name.charAt(0)}</span>
+          }
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-gray-300">{t.name}</span>
+            <TechCost cost={t.cost} items={gameData.items} showTime={false} />
+          </span>
+        </div>
+      ))}
     </div>
   )
 }
@@ -121,6 +153,9 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
           })}
         </div>
       )}
+
+      {/* Unlocked by */}
+      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={recipe.madeIn.length > 0} />
     </div>
   )
 }

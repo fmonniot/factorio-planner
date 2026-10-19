@@ -11,6 +11,7 @@ import {
 import type { ViewTransform } from '../utils/viewTransform'
 import { Modal } from './Modal'
 import { Icon } from './Icon'
+import { TechCost } from './TechCost'
 import type { GameData, Technology } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -45,7 +46,6 @@ interface TechCardProps {
 }
 
 const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, movedRef, onToggle }: TechCardProps) {
-  const cost = tech.cost
   return (
     <button
       type="button"
@@ -76,25 +76,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       )}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{tech.name}</span>
-        {cost === null && (
-          <span data-testid="tech-cost" className="block text-[11px] text-gray-400">Trigger</span>
-        )}
-        {cost && (
-          <span data-testid="tech-cost" className="flex flex-wrap items-center gap-x-1 text-[11px] text-gray-400">
-            {cost.ingredients.map(ing => {
-              const item = items[ing.itemId]
-              const label = `${item?.name ?? ing.itemId} ×${ing.amount}`
-              return item?.iconPath ? (
-                <Icon key={ing.itemId} iconPath={item.iconPath} alt={label} title={label} draggable={false} className="w-4 h-4 object-contain" />
-              ) : (
-                <span key={ing.itemId} title={label} className="w-4 h-4 flex items-center justify-center rounded bg-gray-700 text-[9px]">
-                  {(item?.name ?? ing.itemId).charAt(0)}
-                </span>
-              )
-            })}
-            <span>×{cost.count ?? '?'} · {cost.time}s</span>
-          </span>
-        )}
+        <TechCost cost={tech.cost} items={items} />
       </span>
     </button>
   )
