@@ -71,7 +71,11 @@ block's name is printed after the tabs.
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
 - `+` adds a new empty block named "Block N" and activates it.
-- Right-click a tab for a small menu: **Rename** (browser prompt) and **Delete**.
+- Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**.
+  Duplicate copies the block as "<name> (copy)", inserts it right after the
+  original and activates it. Goals, recipes, sub-plans and input connections
+  are copied with fresh ids; connections from other blocks reading the original
+  are not. Like add, rename and delete, it is not undoable.
   Delete is disabled when only one block remains; deleting the active block
   activates the first remaining one.
 - All of the above are disabled unless game data is loaded (not while it is empty,
