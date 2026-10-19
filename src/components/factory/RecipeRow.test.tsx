@@ -764,3 +764,55 @@ describe('RecipeRow — research horizon', () => {
     })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Byproduct right-click — add a consumer recipe
+// ---------------------------------------------------------------------------
+
+describe('RecipeRow byproduct context menu', () => {
+  beforeEach(() => {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+  })
+  const oxygenTile = () => screen.getByTitle(/^Oxygen — Set as primary/)
+
+  it('right-clicking a byproduct tile offers "Add consumer recipe…" and reports the item and sub-plan', () => {
+    const onAddConsumer = vi.fn()
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer })
+    fireEvent.contextMenu(oxygenTile())
+
+    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Add consumer recipe…'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
+
+    const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+    expect(onAddConsumer).toHaveBeenCalledWith('oxygen', rootId)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('left-click still sets the primary product', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
+    fireEvent.click(oxygenTile())
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.primaryProduct).toBe('oxygen')
+  })
+
+  it('opens no menu without onAddConsumer', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('never has the recipe-cell menu and the byproduct menu open together', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
+    fireEvent.contextMenu(oxygenTile())
+    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(
+      ['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'],
+    )
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Add consumer recipe…'])
+  })
+})

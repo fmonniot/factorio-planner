@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 // ---------------------------------------------------------------------------
-// RowActionsMenu — right-click context menu for a recipe row
+// RowActionsMenu — right-click context menu (recipe rows, byproduct tiles)
 // ---------------------------------------------------------------------------
 
 export interface RowAction {

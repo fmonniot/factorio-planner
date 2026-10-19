@@ -5,7 +5,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { GameData, RecipeNode } from '../../data/types'
+import type { GameData, RecipeNode, SubPlanNode } from '../../data/types'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -143,5 +143,87 @@ describe('ProductionTable', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     // Subtitle reflects the targeted item.
     expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
+  })
+
+  describe('byproduct right-click', () => {
+    // Fresh data per call: adds a slag byproduct and a recipe that consumes it.
+    function slagData(): GameData {
+      const data = structuredClone(mockGameData)
+      data.items['slag'] = { id: 'slag', name: 'Slag', type: 'item', iconPath: '', hidden: false } as GameData['items'][string]
+      data.recipes['slag-to-plate'] = {
+        ...structuredClone(data.recipes['iron-plate']),
+        id: 'slag-to-plate',
+        name: 'Slag To Plate',
+        ingredients: [{ itemId: 'slag', type: 'item', amount: 2 }],
+      }
+      return data
+    }
+
+    function solveWithSlag(nodeId: string) {
+      useSolverStore.setState({
+        status: { type: 'success' },
+        lastResult: {
+          nodes: [{
+            recipeNodeId: nodeId,
+            inputRates: { 'iron-ore': 60 },
+            outputRates: { 'iron-plate': 60, slag: 10 },
+            throughput: 30,
+            machineCountExact: 1,
+            machineCountCeil: 1,
+            powerKw: 0,
+          }],
+        },
+        _setStatus: () => {},
+      } as never)
+    }
+
+    beforeEach(() => {
+      useGameDataStore.setState({ status: { type: 'loaded', gameData: slagData(), sourceId: 'test' } })
+    })
+
+    async function openConsumerPicker() {
+      fireEvent.contextMenu(screen.getByTitle(/^Slag — /))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
+      await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+      expect(screen.getByText("Choose a recipe that consumes 'Slag'")).toBeInTheDocument()
+    }
+
+    it('adds the chosen consumer recipe to the root plan', async () => {
+      const block = useBlockStore.getState().blocks[0]
+      useBlockStore.setState({
+        blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [structuredClone(existingNode)] } }],
+        activeBlockId: block.id,
+        history: {},
+      })
+      solveWithSlag('node-1')
+      render(<ProductionTable />)
+      await openConsumerPicker()
+
+      fireEvent.click(screen.getByTitle('Slag To Plate'))
+      const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+      expect(nodes).toHaveLength(2)
+      expect(nodes[1].kind === 'game-recipe' && nodes[1].recipeId).toBe('slag-to-plate')
+    })
+
+    it('adds the consumer to the sub-plan of the row it was opened from', async () => {
+      const block = useBlockStore.getState().blocks[0]
+      const sub = { ...makeEmptyBlock('x').rootPlan, id: 'sp-1', name: 'Sub', nodes: [structuredClone(existingNode)] }
+      const subNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' } as SubPlanNode
+      useBlockStore.setState({
+        blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [subNode], subPlans: [sub] } }],
+        activeBlockId: block.id,
+        history: {},
+      })
+      solveWithSlag('node-1')
+      render(<ProductionTable />)
+      // Expand the sub-factory so its row renders.
+      fireEvent.click(screen.getByText('▶'))
+      await openConsumerPicker()
+
+      fireEvent.click(screen.getByTitle('Slag To Plate'))
+      const root = useBlockStore.getState().blocks[0].rootPlan
+      expect(root.nodes).toHaveLength(1)
+      expect(root.subPlans[0].nodes).toHaveLength(2)
+    })
   })
 })
