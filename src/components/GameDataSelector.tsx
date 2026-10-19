@@ -2,7 +2,9 @@ import { useRef, useState, useEffect } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
 import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
-import { removeCustomPlans } from '../store/persistence'
+import { removeCustomPlans, checkPlanImport, replacePlan } from '../store/persistence'
+import type { AppState } from '../data/types'
+import { Modal } from './Modal'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -208,5 +210,120 @@ export function ExportPlanButton() {
     >
       Export plan
     </button>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ImportPlanButton
+// ---------------------------------------------------------------------------
+
+type ImportDialog =
+  | null
+  | { kind: 'confirm'; fileName: string; appState: AppState; unknownIds: string[] }
+  | { kind: 'error'; fileName: string; message: string }
+
+const blocksLabel = (n: number) => `${n} ${n === 1 ? 'block' : 'blocks'}`
+
+export function ImportPlanButton() {
+  const status = useGameDataStore(s => s.status)
+  const currentBlockCount = useBlockStore(s => s.blocks.length)
+  const [dialog, setDialog] = useState<ImportDialog>(null)
+
+  async function handleFile(file: File) {
+    let json: string
+    try {
+      json = await file.text()
+    } catch {
+      setDialog({ kind: 'error', fileName: file.name, message: 'Could not read the file.' })
+      return
+    }
+    const current = useGameDataStore.getState().status
+    if (current.type !== 'loaded') {
+      setDialog({ kind: 'error', fileName: file.name, message: 'Load game data before importing a plan.' })
+      return
+    }
+    const check = checkPlanImport(json, current.gameData)
+    if (check.type === 'error') {
+      setDialog({ kind: 'error', fileName: file.name, message: check.message })
+    } else {
+      setDialog({ kind: 'confirm', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds })
+    }
+  }
+
+  // The input is created per click and never attached to the DOM, so the same
+  // file can be picked twice and the game-data upload input stays the only one.
+  function handleClick() {
+    const input = document.createElement('input')
+    input.type = 'file'
+    input.accept = '.json,application/json'
+    input.onchange = () => {
+      const file = input.files?.[0]
+      if (file) void handleFile(file)
+    }
+    input.click()
+  }
+
+  const close = () => setDialog(null)
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        disabled={status.type !== 'loaded'}
+        className="text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        title="Import a plan from a JSON file (replaces the current plan)"
+      >
+        Import plan
+      </button>
+      {dialog?.kind === 'confirm' && (
+        <Modal onClose={close} className="p-4 w-96 text-sm">
+          <h2 className="font-semibold text-gray-100 mb-2">Import plan</h2>
+          <p className="text-gray-300 mb-3">
+            Replace the current plan ({blocksLabel(currentBlockCount)}) with &quot;{dialog.fileName}&quot; ({blocksLabel(dialog.appState.blocks.length)})?
+            {' '}This cannot be undone; export the current plan first to keep it.
+          </p>
+          {dialog.unknownIds.length > 0 && (
+            <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
+              {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and will be ignored: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
+            </p>
+          )}
+          <div className="flex justify-end gap-2">
+            <button
+              onClick={close}
+              className="text-xs bg-gray-800 text-gray-300 hover:text-gray-100 border border-gray-600 rounded px-3 py-1"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => {
+                const result = replacePlan(dialog.appState)
+                if (result.type === 'error') {
+                  setDialog({ kind: 'error', fileName: dialog.fileName, message: result.message })
+                } else {
+                  close()
+                }
+              }}
+              className="text-xs bg-blue-600 text-white hover:bg-blue-500 rounded px-3 py-1"
+            >
+              Replace plan
+            </button>
+          </div>
+        </Modal>
+      )}
+      {dialog?.kind === 'error' && (
+        <Modal onClose={close} className="p-4 w-96 text-sm">
+          <h2 className="font-semibold text-gray-100 mb-2">Could not import &quot;{dialog.fileName}&quot;</h2>
+          <pre className="whitespace-pre-wrap text-red-400 text-xs mb-3">{dialog.message}</pre>
+          <div className="flex justify-end">
+            <button
+              onClick={close}
+              className="text-xs bg-gray-800 text-gray-300 hover:text-gray-100 border border-gray-600 rounded px-3 py-1"
+            >
+              Close
+            </button>
+          </div>
+        </Modal>
+      )}
+    </>
   )
 }

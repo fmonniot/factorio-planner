@@ -47,7 +47,7 @@ The **Block graph** button in the top bar shows all blocks and their connections
 
 ### Saving and sharing
 
-Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON. Importing a plan and sharing one by URL are not built yet. See the [backlog](initiatives/backlog.md).
+Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON, and **Import plan** loads such a file back, replacing the current data set's plan after a confirmation. Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
@@ -138,4 +138,4 @@ Contributors who use AI coding agents should also read [CLAUDE.md](CLAUDE.md), w
 
 ## Status
 
-The planner is usable but still early. Known gaps include importing plans and sharing by URL. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.
+The planner is usable but still early. Known gaps include sharing by URL. The [backlog](initiatives/backlog.md) tracks known bugs, small items and larger work.
