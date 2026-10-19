@@ -10,8 +10,8 @@ import {
 } from '../utils/viewTransform'
 import type { ViewTransform } from '../utils/viewTransform'
 import { Modal } from './Modal'
-import { Icon } from './Icon'
 import { TechCost } from './TechCost'
+import { TechIcon } from './TechIcon'
 import type { GameData, Technology } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -66,14 +66,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
       className={`absolute flex items-center gap-2 px-2 rounded border text-left text-gray-100 ${CARD_CLASS[state]} ${isTarget ? 'ring-2 ring-amber-300' : ''}`}
     >
-      {tech.iconPath ? (
-        <Icon iconPath={tech.iconPath} alt="" draggable={false} className="w-10 h-10 object-contain shrink-0" />
-      ) : (
-        <span
-          data-testid="tech-icon-placeholder"
-          className="w-10 h-10 shrink-0 flex items-center justify-center rounded bg-gray-700 text-gray-300 text-sm"
-        >{tech.name.charAt(0)}</span>
-      )}
+      <TechIcon tech={tech} className="w-10 h-10 text-sm" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{tech.name}</span>
         <TechCost cost={tech.cost} items={items} />

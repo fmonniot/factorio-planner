@@ -3,6 +3,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useAvailableRecipeIds, useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
 import { TechCost } from './TechCost'
+import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
 import type { Item, Recipe, GameData } from '../data/types'
 
@@ -61,14 +62,11 @@ function UnlockSection({ recipeId, gameData, bordered }: { recipeId: string; gam
       <div className="text-gray-200 font-bold mb-1">Unlocked by:</div>
       {unlock.kind === 'start' && <div className="py-1 text-gray-400">Available from the start</div>}
       {unlock.kind === 'none' && (
-        <div className="py-1 text-gray-400">No technology (outside every research horizon)</div>
+        <div className="py-1 text-gray-400">No technology unlocks this recipe</div>
       )}
       {unlock.kind === 'technologies' && unlock.technologies.map(t => (
         <div key={t.id} data-testid="recipe-unlock-tech" data-tech-id={t.id} className="flex items-center gap-2 py-1">
-          {t.iconPath
-            ? <Icon iconPath={t.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />
-            : <span className="w-6 h-6 shrink-0 flex items-center justify-center rounded bg-gray-700 text-gray-300 text-xs">{t.name.charAt(0)}</span>
-          }
+          <TechIcon tech={t} className="w-6 h-6 text-xs" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-gray-300">{t.name}</span>
             <TechCost cost={t.cost} items={gameData.items} showTime={false} />

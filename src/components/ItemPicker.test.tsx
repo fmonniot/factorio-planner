@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
@@ -467,6 +467,18 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     fireEvent.mouseEnter(slot)
     const unlock = screen.getByTestId('recipe-unlock')
     expect(unlock.dataset.unlockKind).toBe('none')
-    expect(unlock).toHaveTextContent('No technology (outside every research horizon)')
+    expect(unlock).toHaveTextContent('No technology unlocks this recipe')
+  })
+
+  it('draws the top border only when the recipe has machines', () => {
+    const withMachines = fixtureWithTechnologies()
+    hover(withMachines, 'iron-plate')
+    expect(screen.getByTestId('recipe-unlock')).toHaveClass('border-t')
+    cleanup()
+
+    const noMachines = fixtureWithTechnologies()
+    noMachines.recipes['iron-plate'].madeIn = []
+    hover(noMachines, 'iron-plate')
+    expect(screen.getByTestId('recipe-unlock')).not.toHaveClass('border-t')
   })
 })

@@ -159,6 +159,8 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   technology shows "Trigger"; a bundle without cost data shows nothing. The cost is
   rendered by the shared `TechCost` component (`TechCost.tsx`), which the recipe
   picker also uses, without the time.
+  The icon (or a letter placeholder) comes from the shared `TechIcon` component
+  (`TechIcon.tsx`), likewise used by the picker.
 - **States**, derived from the plan's research horizon: *researched* (a target or
   one of its prerequisites; green), *available* (all prerequisites researched; amber),
   *locked* (gray, dimmed). Edges take the colour of their dependent's state. With no
@@ -475,11 +477,12 @@ The same component in recipes mode (`source="recipes"`).
   crafting time, products (with probability) and the machines that can make it.
   When the data set has technology data, the panel ends with an **Unlocked by:**
   section. Each technology that unlocks the recipe is listed (fewest science-pack
-  types first, then by name) with its icon, its name and its science packs (pack
+  types first, then by name; technologies with no cost data or a research
+  trigger sort last) with its icon, its name and its science packs (pack
   icons, then `×count`; `×?` for a formula count; "Trigger" for a research-trigger
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
-  technology unlocks reads "No technology (outside every research horizon)".
+  technology unlocks reads "No technology unlocks this recipe".
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an
