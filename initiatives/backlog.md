@@ -51,6 +51,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
+- [ ] **Remove via right-click menu, not a cross icon.** Standardize on a context (right-click) menu for removing things instead of the small cross icon. Non-exhaustive list of affected removals: subfactories, goals.
 
 ## Data sets
 
