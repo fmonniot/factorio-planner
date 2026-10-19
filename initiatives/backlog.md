@@ -30,6 +30,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
 - [ ] **Connect items not shown in Ingredients.** Connections can only be created for items in the target block's Ingredients pane (from a tile or from the block graph); items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
+- [ ] **Priority between product rows.** Let a product row have a lower priority than another, so it only compensates for the higher-priority one. Example: making soil needs washing plants to thin muddy water, which leaves thin mud water that becomes sand, which becomes soil. The user wants the sand recipe used only to compensate for the mud recipe, not as a parallel route.
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
 - [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).
@@ -52,6 +53,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 - [ ] **Remove via right-click menu, not a cross icon.** Standardize on a context (right-click) menu for removing things instead of the small cross icon. Non-exhaustive list of affected removals: subfactories, goals.
+- [ ] **Byproduct right-click: add a consumer recipe.** Right-clicking a byproduct icon opens a menu with an option to add a recipe that consumes that byproduct. The option opens the recipe picker filtered on the byproduct as an input item.
 
 ## Data sets
 
