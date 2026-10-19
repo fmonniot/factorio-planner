@@ -21,6 +21,7 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
   const blocks = useBlockStore(s => s.blocks)
   const renameBlock = useBlockStore(s => s.renameBlock)
   const removeBlock = useBlockStore(s => s.removeBlock)
+  const duplicateBlock = useBlockStore(s => s.duplicateBlock)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -38,6 +39,11 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
     onClose()
   }
 
+  function handleDuplicate() {
+    duplicateBlock(blockId)
+    onClose()
+  }
+
   function handleDelete() {
     if (blocks.length <= 1) { onClose(); return }
     removeBlock(blockId)
@@ -47,15 +53,25 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
   return (
     <div
       ref={ref}
+      role="menu"
       className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-28"
     >
       <button
+        role="menuitem"
         className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
         onClick={handleRename}
       >
         Rename
       </button>
       <button
+        role="menuitem"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        onClick={handleDuplicate}
+      >
+        Duplicate
+      </button>
+      <button
+        role="menuitem"
         className="w-full text-left px-3 py-1 text-xs text-red-400 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed"
         onClick={handleDelete}
         disabled={blocks.length <= 1}

@@ -33,7 +33,7 @@ If the plan can't be solved cleanly (a goal with no recipe, the same recipe adde
 
 ### 4. Work with several blocks
 
-A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename** and **Delete**. Use blocks for independent production lines, for example one per science pack.
+A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename**, **Duplicate** and **Delete**. Use blocks for independent production lines, for example one per science pack.
 
 Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes next to the product. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Remove a connection with the **×** on its chip.
 

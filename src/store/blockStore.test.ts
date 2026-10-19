@@ -7,7 +7,7 @@ import {
   isSubPlanDescendant,
   selectAppState,
 } from './blockStore'
-import type { RecipeNode, SubPlanNode } from '../data/types'
+import type { Block, RecipeNode, SubPlanNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -576,5 +576,103 @@ describe('setHorizonTechnologyIds', () => {
       activeBlockId: state.activeBlockId,
       horizonTechnologyIds: ['a'],
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// duplicateBlock
+// ---------------------------------------------------------------------------
+
+describe('duplicateBlock', () => {
+  function makeRichBlock(): Block {
+    const block = makeEmptyBlock('Source')
+    const child = makeEmptySubPlan('Child')
+    child.nodes = [{ ...ironNode, id: 'child-node' }]
+    block.rootPlan.subPlans = [child]
+    block.rootPlan.nodes = [
+      { ...ironNode, id: 'root-node' },
+      { kind: 'subplan', id: 'root-subplan-node', subPlanId: child.id },
+    ]
+    block.goals = [{ id: 'goal-1', itemId: 'iron-plate', rate: 30 }]
+    return block
+  }
+
+  function collectIds(block: Block): string[] {
+    const ids = [block.id, ...block.goals.map(g => g.id), ...block.inputConnections.map(c => c.id)]
+    const walk = (p: Block['rootPlan']) => {
+      ids.push(p.id, ...p.nodes.map(n => n.id))
+      p.subPlans.forEach(walk)
+    }
+    walk(block.rootPlan)
+    return ids
+  }
+
+  let original: Block
+  let other: Block
+
+  beforeEach(() => {
+    original = makeRichBlock()
+    other = makeEmptyBlock('Other')
+    const trailing = makeEmptyBlock('Trailing')
+    original.inputConnections = [{ id: 'conn-1', itemId: 'iron-plate', fromBlockId: other.id }]
+    other.inputConnections = [{ id: 'conn-2', itemId: 'copper-plate', fromBlockId: original.id }]
+    useBlockStore.setState({
+      blocks: [original, other, trailing],
+      activeBlockId: other.id,
+      history: {},
+    })
+  })
+
+  const blocks = () => useBlockStore.getState().blocks
+
+  it('inserts the copy right after the original, activates it and names it', () => {
+    const snapshot = structuredClone(original)
+    useBlockStore.getState().duplicateBlock(original.id)
+    const { activeBlockId } = useBlockStore.getState()
+    expect(blocks().map(b => b.name)).toEqual(['Source', 'Source (copy)', 'Other', 'Trailing'])
+    expect(activeBlockId).toBe(blocks()[1].id)
+    expect(blocks()[0]).toEqual(snapshot)
+  })
+
+  it('keeps the structure but gives every entity a fresh id', () => {
+    useBlockStore.getState().duplicateBlock(original.id)
+    const copy = blocks()[1]
+    const strip = (b: Block) => JSON.stringify(b, (k, v) => (k === 'id' || k === 'subPlanId' ? undefined : v))
+    expect(strip({ ...copy, name: original.name })).toBe(strip(original))
+    const originalIds = collectIds(original)
+    const copyIds = collectIds(copy)
+    expect(new Set([...originalIds, ...copyIds]).size).toBe(originalIds.length + copyIds.length)
+  })
+
+  it('points subplan nodes at the copied child sub-plan', () => {
+    useBlockStore.getState().duplicateBlock(original.id)
+    const copy = blocks()[1]
+    const node = copy.rootPlan.nodes.find(n => n.kind === 'subplan')
+    expect(node?.kind === 'subplan' && node.subPlanId).toBe(copy.rootPlan.subPlans[0].id)
+    expect(copy.rootPlan.subPlans[0].id).not.toBe(original.rootPlan.subPlans[0].id)
+  })
+
+  it('copies input connections but not connections reading from the original', () => {
+    useBlockStore.getState().duplicateBlock(original.id)
+    const copy = blocks()[1]
+    expect(copy.inputConnections).toHaveLength(1)
+    expect(copy.inputConnections[0]).toMatchObject({ itemId: 'iron-plate', fromBlockId: other.id })
+    expect(copy.inputConnections[0].id).not.toBe('conn-1')
+    expect(blocks().filter(b => b.inputConnections.some(c => c.fromBlockId === copy.id))).toHaveLength(0)
+    expect(blocks()[2].inputConnections).toHaveLength(1)
+  })
+
+  it('does not share state with the original', () => {
+    useBlockStore.getState().duplicateBlock(original.id)
+    useBlockStore.getState().addGoal({ id: 'extra', itemId: 'copper-plate', rate: 5 })
+    expect(blocks()[1].goals).toHaveLength(2)
+    expect(blocks()[0].goals).toHaveLength(1)
+  })
+
+  it('is a no-op for an unknown block id', () => {
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().duplicateBlock('missing')
+    expect(useBlockStore.getState().blocks).toBe(before)
+    expect(useBlockStore.getState().activeBlockId).toBe(other.id)
   })
 })

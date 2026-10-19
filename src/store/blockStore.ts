@@ -123,6 +123,44 @@ export function makeEmptyBlock(name: string): Block {
   }
 }
 
+/**
+ * Deep copy of a block with a fresh id on the block, its goals, input
+ * connections, sub-plans and nodes. `subplan` nodes are remapped to the cloned
+ * child sub-plans. Connections from other blocks reading this one are not part
+ * of the block, so they are not copied.
+ */
+export function cloneBlock(block: Block): Block {
+  const subPlanIds = new Map<string, string>()
+
+  function cloneSubPlan(plan: SubPlan): SubPlan {
+    const id = crypto.randomUUID()
+    subPlanIds.set(plan.id, id)
+    return { ...structuredClone(plan), id, nodes: [], subPlans: plan.subPlans.map(cloneSubPlan) }
+  }
+
+  const rootPlan = cloneSubPlan(block.rootPlan)
+
+  function cloneNodes(source: SubPlan, target: SubPlan) {
+    target.nodes = source.nodes.map((node): RecipeNode | SubPlanNode => {
+      const copy = structuredClone(node)
+      copy.id = crypto.randomUUID()
+      if (copy.kind === 'subplan') copy.subPlanId = subPlanIds.get(copy.subPlanId) ?? copy.subPlanId
+      return copy
+    })
+    source.subPlans.forEach((child, i) => cloneNodes(child, target.subPlans[i]))
+  }
+  cloneNodes(block.rootPlan, rootPlan)
+
+  return {
+    ...structuredClone(block),
+    id: crypto.randomUUID(),
+    name: `${block.name} (copy)`,
+    goals: block.goals.map(g => ({ ...structuredClone(g), id: crypto.randomUUID() })),
+    inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
+    rootPlan,
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store state and actions
 // ---------------------------------------------------------------------------
@@ -137,6 +175,7 @@ export interface BlockStoreState {
   // Block management
   addBlock: () => void
   removeBlock: (blockId: string) => void
+  duplicateBlock: (blockId: string) => void
   renameBlock: (blockId: string, name: string) => void
   setActiveBlock: (blockId: string) => void
   // SubPlan management
@@ -291,6 +330,16 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         activeBlockId: next.id,
         history: newHistory,
       }
+    }),
+
+  duplicateBlock: (blockId) =>
+    set(state => {
+      const index = state.blocks.findIndex(b => b.id === blockId)
+      if (index < 0) return state
+      const copy = cloneBlock(state.blocks[index])
+      const blocks = [...state.blocks]
+      blocks.splice(index + 1, 0, copy)
+      return { blocks, activeBlockId: copy.id }
     }),
 
   renameBlock: (blockId, name) =>

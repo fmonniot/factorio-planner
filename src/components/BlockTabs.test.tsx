@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { BlockTabs } from './BlockTabs'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useGameDataStore } from '../store/gameDataStore'
@@ -30,5 +30,20 @@ describe('BlockTabs editability', () => {
     render(<BlockTabs />)
     expect(screen.getByTitle('Add block')).toBeEnabled()
     expect(screen.getByTitle('Test')).toBeEnabled()
+  })
+})
+
+describe('BlockTabs context menu', () => {
+  it('duplicates a block from the right-click menu', () => {
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },
+    })
+    render(<BlockTabs />)
+    fireEvent.contextMenu(screen.getByTitle('Test'))
+    expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate' }))
+    expect(screen.getByTitle('Test')).toBeInTheDocument()
+    expect(screen.getByTitle('Test (copy)')).toBeInTheDocument()
   })
 })
