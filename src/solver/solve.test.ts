@@ -579,7 +579,10 @@ describe('v2 solver — share limit', () => {
     expect(rate('sand'), 'sand').toBeCloseTo(0.6, 4)
     const warning = result.warnings.find(w => w.type === 'overconstrained')
     expect(warning, 'overconstrained warning').toBeDefined()
-    expect(JSON.stringify(warning)).toContain('64')
+    const thin = warning?.type === 'overconstrained'
+      ? warning.surplusItems.find(i => i.itemId === 'thin')?.rate
+      : undefined
+    expect(thin, 'thin surplus').toBeCloseTo(64, 4)
   })
 
   it('(c) limit above the natural split changes nothing', () => {

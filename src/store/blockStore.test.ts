@@ -391,6 +391,22 @@ describe('updateNodeMaxShare', () => {
     expect(rootNode().maxShare).toBeUndefined()
   })
 
+  it('setting the current value again is a no-op without an undo entry', () => {
+    const s = useBlockStore.getState()
+    s.updateNodeMaxShare('node-iron', 0.3)
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().updateNodeMaxShare('node-iron', 0.3)
+    expect(useBlockStore.getState().blocks).toBe(before)
+    useBlockStore.getState().undo()
+    expect(rootNode().maxShare).toBeUndefined()
+  })
+
+  it.each([0, 1, -0.2, 1.5, NaN])('rejects out-of-range value %s', v => {
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().updateNodeMaxShare('node-iron', v)
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
   it('leaves state unchanged for an unknown node id', () => {
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().updateNodeMaxShare('nope', 0.3)

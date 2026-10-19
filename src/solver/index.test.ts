@@ -607,22 +607,63 @@ describe('solveBlock — share limit', () => {
   const rateOf = (result: ReturnType<typeof solve>, id: string) =>
     result.nodes.find(n => n.recipeNodeId === id)?.throughput ?? 0
 
-  it('own production first: a limited row does not draw on connected supply', () => {
+  it('connected supply fills what the limited row needs but never raises it past its limit', () => {
+    // No 'sand' recipe in the plan: sand can only come from the connected block.
+    const nodes = [planNode('wash', 'wash'), planNode('mud', 'soil-mud'), limited('ss', 0.3)]
+    const { result, received } = solveBlock({ goals, nodes }, gd, new Map([['sand', 100]]))
+    expect(rateOf(result, 'ss')).toBeCloseTo(3, 4)
+    expect(rateOf(result, 'mud')).toBeCloseTo(7, 4)
+    expect(received.get('sand')).toBeCloseTo(3, 4)
+    // Baseline without the limit: supply is not used up to its 100 either, but the split differs.
+    const free = solveBlock({ goals, nodes: [...nodes.slice(0, 2), planNode('ss', 'soil-sand')] }, gd, new Map([['sand', 100]]))
+    expect(rateOf(free.result, 'ss')).toBeGreaterThan(3.5)
+  })
+
+  it('own production first: a limited row with an own sand route draws nothing from supply', () => {
     const { result, received } = solveBlock(
       { goals, nodes: [...base, limited('ss', 0.3)] },
       gd,
-      new Map([['mud', 10]]),
+      new Map([['sand', 100]]),
     )
-    expect(rateOf(result, 'mud')).toBeCloseTo(7, 4)
     expect(rateOf(result, 'ss')).toBeCloseTo(3, 4)
-    expect(received.size).toBe(0)
+    expect(received.get('sand') ?? 0).toBe(0)
   })
 
   it('with duplicate rows, the last flagged one decides', () => {
     const { result } = solveBlock(
-      { goals, nodes: [...base, planNode('ss1', 'soil-sand'), limited('ss2', 0.3)] },
+      { goals, nodes: [...base, limited('ss1', 0.5), limited('ss2', 0.3)] },
       gd,
     )
     expect(rateOf(result, 'mud')).toBeCloseTo(7, 4)
+    const swapped = solveBlock(
+      { goals, nodes: [...base, limited('ss1', 0.3), limited('ss2', 0.5)] },
+      gd,
+    )
+    expect(rateOf(swapped.result, 'mud')).toBeCloseTo(5, 4)
+  })
+
+  describe('duplicate rows of one recipe', () => {
+    const pinned = (id: string): RecipeNode => ({ ...planNode(id, 'soil-sand'), pinnedRate: 10 })
+    const absorbing = (id: string): RecipeNode => ({ ...planNode(id, 'soil-sand'), byproductConsumer: true })
+
+    it.each([
+      ['limited then pinned', () => [limited('a', 0.3), pinned('b')]],
+      ['pinned then limited', () => [pinned('b'), limited('a', 0.3)]],
+    ])('a pin on any row wins over the limit (%s)', (_name, rows) => {
+      const { result } = solveBlock({ goals, nodes: [...base, ...rows()] }, gd)
+      expect(rateOf(result, 'a') || rateOf(result, 'b')).toBeCloseTo(10, 4)
+      expect(rateOf(result, 'mud')).toBeCloseTo(0, 4)
+      // Only what the pinned sand route needs; no extra mud-route production to dodge the limit.
+      expect(rateOf(result, 'wash')).toBeCloseTo(2, 4)
+    })
+
+    it.each([
+      ['limited then absorbing', () => [limited('a', 0.3), absorbing('b')]],
+      ['absorbing then limited', () => [absorbing('b'), limited('a', 0.3)]],
+    ])('an absorb flag on any row means the limit is not applied (%s)', (_name, rows) => {
+      const withLimit = solveBlock({ goals, nodes: [...base, ...rows()] }, gd)
+      const plain = solveBlock({ goals, nodes: [...base, absorbing('b'), planNode('a', 'soil-sand')] }, gd)
+      expect(rateOf(withLimit.result, 'mud')).toBeCloseTo(rateOf(plain.result, 'mud'), 4)
+    })
   })
 })

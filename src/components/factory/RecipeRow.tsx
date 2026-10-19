@@ -5,6 +5,8 @@ import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
+import { primaryItemId as resolvePrimaryItemId } from '../../data/recipeItems'
+import { formatSharePct, parseSharePct } from '../../utils/sharePct'
 import { ItemTile, fmtRate } from './ItemTile'
 import { MachineCell } from './MachinePopover'
 import { ModuleCell } from './ModulePopover'
@@ -205,12 +207,12 @@ export function RecipeRow({
 
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
-  const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
+  const primaryItemId = resolvePrimaryItemId(planNode, recipe)
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
   const hasShareLimit = planNode.maxShare !== undefined
-  const sharePct = Math.round((planNode.maxShare ?? 0) * 100)
+  const sharePct = formatSharePct(planNode.maxShare ?? 0)
   const primaryItemName = (primaryItemId && gameData.items[primaryItemId]?.name) || primaryItemId
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
@@ -245,8 +247,8 @@ export function RecipeRow({
       `Maximum share of ${primaryItemName} made by this recipe (%):`,
       hasShareLimit ? String(sharePct) : '50',
     )
-    const v = parseFloat(raw ?? '')
-    if (isFinite(v) && v > 0 && v < 100) updateNodeMaxShare(planNode.id, v / 100)
+    const v = parseSharePct(raw)
+    if (v !== null) updateNodeMaxShare(planNode.id, v / 100)
   }
 
   const rowActions: RowAction[] = [
@@ -330,8 +332,10 @@ export function RecipeRow({
             <span
               role="img"
               aria-label="Share limit"
-              title={`Makes at most ${sharePct}% of ${primaryItemName}`}
-              className="text-[9px] font-semibold text-amber-400 select-none"
+              title={isPinned
+                ? 'Share limit ignored while the rate is pinned'
+                : `Makes at most ${sharePct}% of ${primaryItemName}`}
+              className={`text-[9px] font-semibold select-none ${isPinned ? 'text-amber-400/40 line-through' : 'text-amber-400'}`}
             >
               ≤{sharePct}%
             </span>

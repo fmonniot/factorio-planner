@@ -116,8 +116,8 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI, and the connection rules (`connections.ts`) |
 | `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`) |
-| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules and the technology-tree layout |
-| `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
+| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules, the technology-tree layout and the shared primary-item resolution (`recipeItems.ts`) |
+| `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout, share-limit percentage parsing/formatting) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |

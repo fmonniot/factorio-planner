@@ -629,12 +629,30 @@ describe('RecipeRow context menu', () => {
       expect(maxShareOf()).toBeCloseTo(0.3, 6)
     })
 
-    it.each(['150', '0', '100', 'abc'])('%s changes nothing', raw => {
+    it.each(['150', '0', '100', 'abc', '12,5', '30abc', ''])('%s changes nothing', raw => {
       vi.stubGlobal('prompt', vi.fn().mockReturnValue(raw))
       renderRow()
       openMenu()
       fireEvent.click(screen.getByRole('menuitem', { name: 'Limit share…' }))
       expect(maxShareOf()).toBeUndefined()
+    })
+
+    it('accepts a decimal and the prefill of a decimal limit is accepted again', () => {
+      const prompt = vi.fn().mockReturnValue('0.4')
+      vi.stubGlobal('prompt', prompt)
+      seed({ ...ironPlateRecipeNode, maxShare: 0.004 })
+      expect(screen.getByLabelText('Share limit')).toHaveTextContent('≤0.4%')
+      openMenu()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Change share limit…' }))
+      expect(prompt).toHaveBeenCalledWith(expect.any(String), '0.4')
+      expect(maxShareOf()).toBeCloseTo(0.004, 6)
+    })
+
+    it('a pinned limited row shows the badge as inactive', () => {
+      seed({ ...ironPlateRecipeNode, maxShare: 0.3, pinnedRate: 5 })
+      const badge = screen.getByLabelText('Share limit')
+      expect(badge).toHaveAttribute('title', 'Share limit ignored while the rate is pinned')
+      expect(badge.className).toContain('line-through')
     })
 
     it('cancelling the prompt changes nothing', () => {

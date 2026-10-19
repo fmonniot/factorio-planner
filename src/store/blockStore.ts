@@ -782,6 +782,8 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const old = subPlan?.nodes.find(n => n.id === nodeId)
       if (!old || old.kind !== 'game-recipe') return state
       const oldValue = old.maxShare
+      if (maxShare === oldValue) return state
+      if (maxShare !== undefined && !(maxShare > 0 && maxShare < 1)) return state
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? { ...n, maxShare } : n,
         n => n.kind === 'game-recipe' ? { ...n, maxShare: oldValue } : n,

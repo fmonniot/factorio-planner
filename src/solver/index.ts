@@ -15,6 +15,7 @@ import type {
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP, type ShareLimit } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
+import { primaryItemId } from '../data/recipeItems'
 import { orderBlocks } from './blockGraph'
 
 interface SolverPlan {
@@ -153,12 +154,13 @@ export function solveBlock(
   }
 
   // Share limits: one per recipe, last duplicate row wins (same rule as pins and
-  // effects). A pin on the limited row wins, and absorb rows are never limited.
+  // effects). A pin or an absorb flag on any row of the recipe wins over the limit.
   const limitByRecipe = new Map<string, ShareLimit>()
   for (const n of gameRecipeNodes) {
-    if (n.maxShare === undefined || n.byproductConsumer || n.pinnedRate !== undefined) continue
-    const recipe = gameData.recipes[n.recipeId]
-    const itemId = n.primaryProduct ?? recipe?.mainProduct ?? recipe?.products[0]?.itemId
+    if (n.maxShare === undefined) continue
+    // Pins and absorb flags are per recipe, so they apply across duplicate rows.
+    if (pinnedRates.has(n.recipeId) || bcRecipeIds.has(n.recipeId)) continue
+    const itemId = primaryItemId(n, gameData.recipes[n.recipeId])
     if (!itemId) continue
     limitByRecipe.set(n.recipeId, { recipeId: n.recipeId, itemId, maxShare: n.maxShare })
   }

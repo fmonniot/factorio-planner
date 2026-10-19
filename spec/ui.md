@@ -353,10 +353,14 @@ clamped to the viewport) with:
   a share limit.
 - **Limit share…** / **Change share limit…** and **Remove share limit** — a
   prompt for a percentage (default 50, or the current value) sets `maxShare`
-  to "this recipe makes at most N % of its primary product". Input outside
-  0–100 (exclusive), non-numeric input or cancelling changes nothing.
+  to "this recipe makes at most N % of its primary product". Input must be a
+  plain number strictly between 0 and 100 (decimals allowed, `.` separator; the
+  badge and the prompt pre-fill show at most one decimal); anything else
+  (`12,5`, `30abc`, empty, out of range) or cancelling changes nothing.
   Omitted on byproduct-consumer rows. A limited row shows an amber `≤N%` badge
-  after the recipe icon (tooltip "Makes at most N% of <item>").
+  after the recipe icon (tooltip "Makes at most N% of <item>"). While the row is also pinned the solver
+  ignores the limit, so the badge is dimmed and struck through with the tooltip
+  "Share limit ignored while the rate is pinned".
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
   becomes a number input for the pinned rate.
