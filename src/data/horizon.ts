@@ -1,4 +1,4 @@
-import type { GameData, Machine } from './types'
+import type { GameData, Machine, Technology } from './types'
 
 export function hasTechnologies(gameData: GameData): boolean {
   return Object.keys(gameData.technologies).length > 0
@@ -35,6 +35,33 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   }
   for (const r of Object.values(gameData.recipes)) if (r.extraction) available.add(r.id)
   return available
+}
+
+export type RecipeUnlock =
+  | { kind: 'start' }                                    // starting or extraction recipe
+  | { kind: 'technologies'; technologies: Technology[] } // non-empty, sorted
+  | { kind: 'none' }                                     // no exported technology unlocks it
+
+/**
+ * How a recipe becomes available: at game start (starting or extraction recipe),
+ * through the listed technologies (fewest science-pack types first, then by name),
+ * or never. Returns null when the data set has no technology data.
+ */
+export function recipeUnlock(gameData: GameData, recipeId: string): RecipeUnlock | null {
+  if (!hasTechnologies(gameData)) return null
+  if (gameData.startingRecipes.includes(recipeId) || gameData.recipes[recipeId]?.extraction) {
+    return { kind: 'start' }
+  }
+  const packCount = (t: Technology) => (t.cost ? t.cost.ingredients.length : Infinity)
+  const technologies = Object.values(gameData.technologies)
+    .filter(t => t.unlockedRecipes.includes(recipeId))
+    .sort((a, b) => {
+      const pa = packCount(a)
+      const pb = packCount(b)
+      if (pa !== pb) return pa < pb ? -1 : 1
+      return a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+    })
+  return technologies.length === 0 ? { kind: 'none' } : { kind: 'technologies', technologies }
 }
 
 /**

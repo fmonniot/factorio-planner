@@ -71,6 +71,7 @@ describe('TechTreeButton', () => {
     const cost = within(card('electronics')).getByTestId('tech-cost')
     expect(cost).toHaveTextContent('×10')
     expect(cost).toHaveTextContent('5s')
+    expect(cost).toHaveTextContent('×10 · 5s')
     expect(within(card('rocket-silo')).queryByTestId('tech-cost')).not.toBeInTheDocument()
     expect(within(card('electronics')).getByTestId('tech-icon-placeholder')).toBeInTheDocument()
     expect(within(card('rocket-silo')).getByTestId('tech-icon-placeholder')).toBeInTheDocument()

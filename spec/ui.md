@@ -156,7 +156,11 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
 - **Cards**: icon (a letter placeholder when the bundle has none), name, and the
   cost: one chip per science pack (the pack's item icon, tooltip `<pack> ×amount`)
   followed by `×count · time s` (`×?` for a formula count). A research-trigger
-  technology shows "Trigger"; a bundle without cost data shows nothing.
+  technology shows "Trigger"; a bundle without cost data shows nothing. The cost is
+  rendered by the shared `TechCost` component (`TechCost.tsx`), which the recipe
+  picker also uses, without the time.
+  The icon (or a letter placeholder) comes from the shared `TechIcon` component
+  (`TechIcon.tsx`), likewise used by the picker.
 - **States**, derived from the plan's research horizon: *researched* (a target or
   one of its prerequisites; green), *available* (all prerequisites researched; amber),
   *locked* (gray, dimmed). Edges take the colour of their dependent's state. With no
@@ -471,6 +475,14 @@ The same component in recipes mode (`source="recipes"`).
   slots in subgroup rows. Each slot shows the icon of the recipe's main product.
 - Hovering or focusing a slot shows a side panel with the recipe's ingredients,
   crafting time, products (with probability) and the machines that can make it.
+  When the data set has technology data, the panel ends with an **Unlocked by:**
+  section. Each technology that unlocks the recipe is listed (fewest science-pack
+  types first, then by name; technologies with no cost data or a research
+  trigger sort last) with its icon, its name and its science packs (pack
+  icons, then `×count`; `×?` for a formula count; "Trigger" for a research-trigger
+  technology; nothing when the bundle has no cost data). Research time is not shown.
+  Starting and extraction recipes read "Available from the start"; a recipe no
+  technology unlocks reads "No technology unlocks this recipe".
 - When opened from an ingredient, only recipes producing that item are listed and
   the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an

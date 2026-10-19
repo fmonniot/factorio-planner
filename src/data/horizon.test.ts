@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds,
   withinHorizon, placingItemIds, availableMachineIds, availableBeaconIds, availableModuleIds,
-  horizonDefaultMachines, resolveRowMachine, computeHorizon,
+  horizonDefaultMachines, resolveRowMachine, computeHorizon, recipeUnlock,
 } from './horizon'
 import type { GameData } from './types'
 
@@ -449,5 +449,56 @@ describe('extraction recipes', () => {
     const row = resolveRowMachine(d, later, 'mining:basic-solid', undefined)
     expect(row.noMachineInHorizon).toBe(false)
     expect(row.machineId).toBe('drill')
+  })
+})
+
+describe('recipeUnlock', () => {
+  const ids = (u: ReturnType<typeof recipeUnlock>) =>
+    u && u.kind === 'technologies' ? u.technologies.map(t => t.id) : null
+  const cost = (n: number) => ({
+    ingredients: Array.from({ length: n }, (_, i) => ({ itemId: `p${i}`, amount: 1 })),
+    count: 1,
+    time: 1,
+  })
+
+  it('is null without technology data', () => {
+    const gd = makeGameData()
+    gd.technologies = {}
+    expect(recipeUnlock(gd, 'r-a')).toBeNull()
+  })
+  it('reports a starting recipe as start, even when a technology also unlocks it', () => {
+    const gd = makeGameData()
+    expect(recipeUnlock(gd, 'r-start')).toEqual({ kind: 'start' })
+    gd.technologies.a.unlockedRecipes.push('r-start')
+    expect(recipeUnlock(gd, 'r-start')).toEqual({ kind: 'start' })
+  })
+  it('reports an extraction recipe as start', () => {
+    const gd = makeGameData()
+    gd.recipes['mining:iron-ore'] = { ...makeRecipe('mining:iron-ore', 'iron-ore'), extraction: true }
+    expect(recipeUnlock(gd, 'mining:iron-ore')).toEqual({ kind: 'start' })
+  })
+  it('lists the unlocking technology', () => {
+    expect(ids(recipeUnlock(makeGameData(), 'r-b'))).toEqual(['b'])
+  })
+  it('sorts equal technologies by name', () => {
+    expect(ids(recipeUnlock(makeGameData(), 'r-shared'))).toEqual(['other', 'x'])
+  })
+  it('sorts by number of science-pack types first', () => {
+    const gd = makeGameData()
+    gd.technologies.x.cost = cost(1)
+    gd.technologies.other.cost = cost(2)
+    expect(ids(recipeUnlock(gd, 'r-shared'))).toEqual(['x', 'other'])
+    gd.technologies.x.cost = cost(2)
+    gd.technologies.other.cost = cost(1)
+    expect(ids(recipeUnlock(gd, 'r-shared'))).toEqual(['other', 'x'])
+  })
+  it('sorts a trigger technology last', () => {
+    const gd = makeGameData()
+    gd.technologies.x.cost = null
+    gd.technologies.other.cost = cost(3)
+    expect(ids(recipeUnlock(gd, 'r-shared'))).toEqual(['other', 'x'])
+  })
+  it('reports none for a recipe nothing unlocks, even without a recipe entry', () => {
+    expect(recipeUnlock(makeGameData(), 'orphan')).toEqual({ kind: 'none' })
   })
 })
