@@ -290,10 +290,14 @@ export function FactorySummary() {
             <button
               type="button"
               onClick={() => setShowGoalPicker(true)}
-              className="w-[22px] h-5 text-gray-400 hover:text-gray-200 text-[13px] leading-none rounded border border-gray-700 hover:border-gray-500 normal-case tracking-normal"
+              className="w-[22px] h-5 inline-flex items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
               title="Add goal"
+              aria-label="Add goal"
             >
-              +
+              {/* An SVG rather than a "+" glyph, whose font metrics sit it off-centre. */}
+              <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
             </button>
           }
           slots={productSlots}

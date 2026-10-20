@@ -26,7 +26,7 @@ async function setup(page: Page) {
 }
 
 test.describe('summary panes with many items', () => {
-  // A small viewport keeps the 25vh grids short enough to overflow with 16 slots.
+  // A small viewport wraps 16 slots onto more than the grid's two visible rows.
   test.use({ viewport: { width: 1000, height: 560 } })
 
   test('counts the goals and keeps Add goal in view while the grid scrolls', async ({ page }) => {

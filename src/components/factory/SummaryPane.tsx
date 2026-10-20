@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Block, GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
@@ -6,6 +6,7 @@ import { SummarySlot } from './SummarySlot'
 import { SummaryDetailStrip } from './SummaryDetailStrip'
 import type { StripAction, StripState } from './SummaryDetailStrip'
 import { overviewRows } from './summarySegments'
+import { useMoreBelow } from './useMoreBelow'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
 
 interface SummaryPaneProps {
@@ -49,32 +50,8 @@ export function SummaryPane({
   const [editing, setEditing] = useState(false)
   const [traceKey, setTraceKey] = useState<string | null>(null)
 
-  const bodyRef = useRef<HTMLDivElement>(null)
-  const contentRef = useRef<HTMLDivElement>(null)
   // True while more slots sit below the visible part of the grid (drives the bottom fade).
-  const [hasMore, setHasMore] = useState(false)
-
-  function measure() {
-    const el = bodyRef.current
-    if (!el) return
-    const more = el.scrollTop + el.clientHeight < el.scrollHeight - 1
-    setHasMore(prev => (prev === more ? prev : more))
-  }
-
-  // Content changes (slots added or removed) resize the body, so observe it as well as scrolling.
-  // The body's own box stops changing at the height cap, so also re-measure after every render
-  // (slots added, another block, slots rewrapping on a unit change).
-  useLayoutEffect(measure)
-
-  useEffect(() => {
-    const el = bodyRef.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    // The content wrapper changes size even while the capped body does not.
-    if (contentRef.current) observer.observe(contentRef.current)
-    return () => observer.disconnect()
-  }, [])
+  const { bodyRef, contentRef, hasMore, onScroll } = useMoreBelow<HTMLDivElement, HTMLDivElement>()
 
   const rows = overviewRows(slots)
   // A trace on a key that no longer exists (connection or block removed) is ignored.
@@ -131,7 +108,7 @@ export function SummaryPane({
       data-overflow={hasMore ? 'true' : undefined}
       className="border border-gray-700 rounded-md flex flex-col min-h-0"
     >
-      <div className="flex items-center justify-between gap-2 h-5 px-2 pt-1.5 pb-1 box-content text-[10px] uppercase tracking-[0.06em] text-gray-400 shrink-0">
+      <div className="flex items-center justify-between gap-2 min-h-8 px-2 pt-2 pb-1 text-[10px] uppercase tracking-[0.06em] text-gray-400 shrink-0">
         <div>
           {label}
           <span className="ml-1 tabular-nums">· {slots.length}</span>
@@ -141,9 +118,9 @@ export function SummaryPane({
       <div className="relative flex-1 min-h-0">
         <div
           ref={bodyRef}
-          onScroll={measure}
+          onScroll={onScroll}
           data-testid="summary-slot-grid"
-          className="max-h-[25vh] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2"
+          className="max-h-[130px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2"
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map(slot => (
@@ -172,7 +149,7 @@ export function SummaryPane({
           </div>
         </div>
         {hasMore && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-gray-900 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-gray-900/90 to-transparent" />
         )}
       </div>
       <SummaryDetailStrip

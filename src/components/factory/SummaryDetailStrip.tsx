@@ -5,6 +5,7 @@ import { SegmentBar } from './SummarySlot'
 import { lookStyle, segmentLook } from './segmentLooks'
 import { fmtRate } from './ItemTile'
 import { segmentLabel, segmentTitle } from './summarySegments'
+import { useMoreBelow } from './useMoreBelow'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
 
 export type StripState = 'overview' | 'preview' | 'selected' | 'editing'
@@ -51,16 +52,21 @@ export function SummaryDetailStrip({
   onOpenBlock,
   onConnectionContextMenu,
 }: SummaryDetailStripProps) {
+  // The strip's height leaves room for three overview rows and a peek at the fourth.
+  const { bodyRef: rowsRef, contentRef: rowsContentRef, hasMore: rowsHaveMore, onScroll: onRowsScroll } =
+    useMoreBelow<HTMLDivElement, HTMLDivElement>()
   const unit = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
   const lookOf = (kind: SegmentKind | OverlayKind, blockId: string | undefined, limited?: boolean) =>
     segmentLook(kind, blockId !== undefined ? colorOf(blockId) : undefined, limited)
-  const root = 'h-[136px] shrink-0 overflow-hidden border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 py-2 flex flex-col gap-[7px] text-[11px]'
+  // 110px fits the overview's heading and three rows with a sliver of the fourth, and the
+  // detail's header, bar, one line of colour key and the actions.
+  const root = 'h-[110px] shrink-0 overflow-hidden border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 pt-2 pb-1.5 flex flex-col text-[11px]'
 
   if (state === 'overview' || !slot) {
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
     return (
-      <div data-testid="summary-detail" data-state="overview" className={root}>
+      <div data-testid="summary-detail" data-state="overview" className={`${root} gap-[7px]`}>
         <div className="flex items-center justify-between h-5 shrink-0">
           <span className="text-xs font-semibold text-gray-100">Overview</span>
           {rows.length > 0 && (
@@ -68,41 +74,54 @@ export function SummaryDetailStrip({
           )}
         </div>
         {rows.length === 0 && <div className="text-gray-500">Nothing here yet</div>}
-        <div className="flex flex-col gap-0.5 min-h-0 overflow-y-auto">
-          {rows.map(row => {
-            const look = lookOf(row.kind, row.blockId, row.limited)
-            const on = traceKey === row.key
-            const total = row.kind === 'unused'
-              ? 'unused'
-              : row.total > 0 ? fmt(row.total) : '—'
-            const width = row.total > 0 && maxTotal > 0 ? Math.max((row.total / maxTotal) * 100, 2) : 0
-            return (
-              <button
-                key={row.key}
-                type="button"
-                data-testid="summary-overview-row"
-                data-key={row.key}
-                data-limited={row.limited ? 'true' : undefined}
-                aria-pressed={on}
-                onClick={() => onToggleTrace(row.key)}
-                className={`shrink-0 grid grid-cols-[10px_96px_minmax(0,1fr)_56px_22px] gap-x-2 items-center h-5 px-1 rounded-[3px] border text-left hover:bg-gray-900 ${on ? 'bg-gray-900 text-gray-100' : 'border-transparent'} ${row.limited ? 'text-amber-400' : on ? '' : 'text-gray-300'}`}
-                style={{
-                  borderColor: on ? (row.blockId !== undefined ? colorOf(row.blockId) : '#9ca3af') : undefined,
-                  opacity: traceKey && !on ? 0.6 : undefined,
-                }}
-              >
-                <span aria-hidden="true" className="w-2 h-2 rounded-[2px]" style={lookStyle(look)} />
-                <span className="truncate">
-                  {segmentLabel(row, row.blockId !== undefined ? blockNameOf(row.blockId) : undefined)}
-                </span>
-                <span aria-hidden="true" className="flex h-2">
-                  <span className="rounded-[2px]" style={{ ...lookStyle(look), width: `${width}%` }} />
-                </span>
-                <span className="text-right font-mono tabular-nums text-gray-200">{total}</span>
-                <span className="text-right tabular-nums text-gray-500">{row.count}</span>
-              </button>
-            )
-          })}
+        <div className="relative flex-1 min-h-0">
+          <div
+            ref={rowsRef}
+            onScroll={onRowsScroll}
+            data-testid="summary-overview-rows"
+            data-overflow={rowsHaveMore ? 'true' : undefined}
+            className="h-full overflow-y-auto"
+          >
+            <div ref={rowsContentRef} className="flex flex-col gap-0.5">
+              {rows.map(row => {
+                const look = lookOf(row.kind, row.blockId, row.limited)
+                const on = traceKey === row.key
+                const total = row.kind === 'unused'
+                  ? 'unused'
+                  : row.total > 0 ? fmt(row.total) : '—'
+                const width = row.total > 0 && maxTotal > 0 ? Math.max((row.total / maxTotal) * 100, 2) : 0
+                return (
+                  <button
+                    key={row.key}
+                    type="button"
+                    data-testid="summary-overview-row"
+                    data-key={row.key}
+                    data-limited={row.limited ? 'true' : undefined}
+                    aria-pressed={on}
+                    onClick={() => onToggleTrace(row.key)}
+                    className={`shrink-0 grid grid-cols-[10px_96px_minmax(0,1fr)_56px_22px] gap-x-2 items-center h-5 px-1 rounded-[3px] border text-left hover:bg-gray-900 ${on ? 'bg-gray-900 text-gray-100' : 'border-transparent'} ${row.limited ? 'text-amber-400' : on ? '' : 'text-gray-300'}`}
+                    style={{
+                      borderColor: on ? (row.blockId !== undefined ? colorOf(row.blockId) : '#9ca3af') : undefined,
+                      opacity: traceKey && !on ? 0.6 : undefined,
+                    }}
+                  >
+                    <span aria-hidden="true" className="w-2 h-2 rounded-[2px]" style={lookStyle(look)} />
+                    <span className="truncate">
+                      {segmentLabel(row, row.blockId !== undefined ? blockNameOf(row.blockId) : undefined)}
+                    </span>
+                    <span aria-hidden="true" className="flex h-2">
+                      <span className="rounded-[2px]" style={{ ...lookStyle(look), width: `${width}%` }} />
+                    </span>
+                    <span className="text-right font-mono tabular-nums text-gray-200">{total}</span>
+                    <span className="text-right tabular-nums text-gray-500">{row.count}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+          {rowsHaveMore && (
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3 bg-gradient-to-t from-gray-800/90 to-transparent" />
+          )}
         </div>
       </div>
     )
@@ -113,7 +132,7 @@ export function SummaryDetailStrip({
   const editable = state === 'selected' || state === 'editing'
 
   return (
-    <div data-testid="summary-detail" data-state={state} className={root}>
+    <div data-testid="summary-detail" data-state={state} className={`${root} gap-[5px]`}>
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{itemName}</span>
@@ -148,7 +167,7 @@ export function SummaryDetailStrip({
           onConnectionContextMenu={onConnectionContextMenu}
         />
       </div>
-      <ul className="flex flex-wrap content-start gap-x-3 gap-y-1 flex-1 min-h-0 overflow-y-auto">
+      <ul className="flex flex-wrap content-start gap-x-3 gap-y-1 flex-1 min-h-0 overflow-y-auto leading-tight">
         {entries.map((entry, i) => {
           const blockName = entry.blockId !== undefined ? blockNameOf(entry.blockId) : undefined
           const amount = 'amount' in entry ? entry.amount : undefined

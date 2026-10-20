@@ -782,9 +782,9 @@ describe('FactorySummary — pane layout', () => {
   it('caps the slot grid height and gives the strip a fixed height', () => {
     render(<FactorySummary />)
     const grid = within(pane('Products')).getByTestId('summary-slot-grid')
-    expect(grid).toHaveClass('max-h-[25vh]')
+    expect(grid).toHaveClass('max-h-[130px]')
     expect(grid).toHaveClass('overflow-y-auto')
-    expect(strip('Products')).toHaveClass('h-[136px]')
+    expect(strip('Products')).toHaveClass('h-[110px]')
   })
 })
 
@@ -816,6 +816,15 @@ describe('FactorySummary — scroll fade', () => {
     contentHeight = 50
     fireEvent.click(screen.getByText('/min'))
     expect(pane('Products')).not.toHaveAttribute('data-overflow')
+  })
+
+  it('fades the overview rows until they are scrolled to the bottom', () => {
+    render(<FactorySummary />)
+    const rows = within(strip('Products')).getByTestId('summary-overview-rows')
+    expect(rows).toHaveAttribute('data-overflow', 'true')
+    rows.scrollTop = 50
+    fireEvent.scroll(rows)
+    expect(rows).not.toHaveAttribute('data-overflow')
   })
 })
 
