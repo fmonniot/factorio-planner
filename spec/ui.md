@@ -486,8 +486,8 @@ The same component in recipes mode (`source="recipes"`).
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".
-- When opened from an ingredient, only recipes producing that item are listed and
-  the subtitle reads "Choose a recipe to produce '…'".
+- When opened from an ingredient or a goal tile, only recipes producing that item are
+  listed and the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an
   ingredient, fluid temperature ignored) are listed and the subtitle reads
   "Choose a recipe that consumes '…'".

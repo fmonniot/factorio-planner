@@ -35,6 +35,7 @@ test.describe('Goal tile: add producer recipe', () => {
 
     await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
     await expect(rows).toHaveCount(before + 1)
+    await expect(page.locator('main table tbody tr [title="Water electrolysis"]').first()).toBeVisible()
   })
 
   test('clicking the target rate does not open the picker', async ({ page }) => {
