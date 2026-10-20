@@ -367,6 +367,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const hex = color.toLowerCase()
       if (!HEX_COLOR_RE.test(hex)) return state
+      if (state.blocks.find(b => b.id === blockId)?.color === hex) return state
       return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color: hex } : b)) }
     }),
 

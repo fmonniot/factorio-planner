@@ -82,7 +82,7 @@ and carries `aria-current`.
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses.
 - Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**,
-  plus a **Colour** grid of the 16 palette swatches (the current one is ringed).
+  plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
   share a colour, and like the other block actions it is not undoable.
   Duplicate copies the block as "<name> (copy)", inserts it right after the

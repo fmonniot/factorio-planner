@@ -740,6 +740,13 @@ describe('block colours', () => {
       expect(useBlockStore.getState().blocks[1].color).toBe('#abcdef')
     })
 
+    it('keeps the blocks array untouched when the colour is unchanged', () => {
+      const { b } = seed()
+      const before = useBlockStore.getState().blocks
+      useBlockStore.getState().setBlockColor(b.id, '#F472B6')
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+
     it('ignores an invalid colour or an unknown block', () => {
       const { a, b } = seed()
       const before = useBlockStore.getState().blocks

@@ -415,7 +415,7 @@ Plans are stored per data set (keyed by source id), so a block carries no game-d
 interface Block {
   id: string
   name: string
-  color: string              // '#rrggbb', display colour; the user can change it to any palette colour
+  color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
   goals: ProductionGoal[]    // default []
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
   inputConnections: BlockConnection[]  // default []; items received from other blocks
@@ -441,7 +441,7 @@ walks the tree, hoists them to the block (goals deduplicated by `itemId` with
 rates summed; non-positive rates dropped; no-import items deduplicated), and strips
 them from the sub-plans. Block-level values already present on the input win.
 
-**Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any palette colour from its tab menu (stored lower-case `#rrggbb`; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
+**Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
 
 **Connections.** A connection is stored on the *consumer* block and points at its
 source by id, so renaming a block changes nothing and a source is never modified

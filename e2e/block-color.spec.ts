@@ -40,7 +40,7 @@ test.describe('block colours', () => {
     await page.getByLabel('Colour #a3e635').click()
     await expect(page.getByRole('menu')).toHaveCount(0)
     expect(await exportColors(page)).toEqual({ Plates: '#60a5fa', Gears: '#a3e635' })
-    // Right-clicking activates the tab, so its stripe is at full strength.
+    // Gears is the active block in the fixture (right-click does not activate a tab), so its stripe is at full strength.
     const stripe = page.locator('button[title="Gears"] [data-testid="block-tab-stripe"]')
     await expect(stripe).toHaveCSS('background-color', 'rgb(163, 230, 53)')
 

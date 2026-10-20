@@ -24,7 +24,7 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
   const removeBlock = useBlockStore(s => s.removeBlock)
   const duplicateBlock = useBlockStore(s => s.duplicateBlock)
   const setBlockColor = useBlockStore(s => s.setBlockColor)
-  const currentColor = blocks.find(b => b.id === blockId)?.color.toLowerCase()
+  const currentColor = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.color)?.toLowerCase()
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
