@@ -42,6 +42,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
+- [ ] **Top bar redesign: workspace menu and icon tools.** Merge the plan menu and Menu into one workspace button on the right, make Horizon / Block graph / Tech tree icon buttons, add a horizon targets popover. Plan: [top-bar-workspace/plan.md](top-bar-workspace/plan.md).
 - [ ] **Default block colour from the block's icon.** Derive a new block's default colour from its first goal's icon. Open question: the icon changes with goals, so decide whether the colour is fixed at creation.
 - [~] **Block colour in block graph.** Block tabs show the colour as a stripe across the top; block graph nodes and edges do not show it yet, so they do not match the summary bars.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
