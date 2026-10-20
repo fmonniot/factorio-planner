@@ -27,7 +27,7 @@ test.describe('Nodes panel', () => {
     // 2. Main panel should show the "no recipes yet" state
     await expect(page.getByText('No recipes yet')).toBeVisible()
 
-    // 3. Open recipe picker via "+ Add recipe" in ProductionTable
+    // 3. Open recipe picker via the empty-state "+ Add recipe" button in ProductionTable
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 

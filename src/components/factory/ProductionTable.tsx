@@ -67,13 +67,13 @@ export function ProductionTable() {
             <table className="w-full border-collapse text-xs">
               <thead>
                 <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
-                  <th className="px-1 py-1 w-8">
+                  <th className="px-1 py-0.5 w-8">
                     <button
                       type="button"
                       onClick={() => setPicker({})}
                       title="Add recipe"
                       aria-label="Add recipe"
-                      className="w-[22px] h-5 inline-flex items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
+                      className="w-[22px] h-5 flex mx-auto items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
                     >
                       <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
                         <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
