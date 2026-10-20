@@ -177,7 +177,8 @@ present in the data set's technologies) is set.
 
 Clicking the flag toggles the **targets popover** (`HorizonTargetsPopover`, a `Popover` named
 "Horizon targets" anchored under the flag). It lists each valid target with its icon and name and
-a remove button (`Remove <name>`), plus **Edit horizon…** and **Clear** (`Clear horizon`). With
+a remove button (`Remove <name>`), the list scrolling (`horizon-target-list`) so the popover never
+exceeds 70% of the viewport height, plus **Edit horizon…** and **Clear** (`Clear horizon`). With
 no targets it says so and offers **Choose technologies…** instead. Opening moves focus to the
 edit button (**Edit horizon…** / **Choose technologies…**), deliberately not the first remove
 button, so a second Enter or Space cannot delete a target; removing or clearing targets moves

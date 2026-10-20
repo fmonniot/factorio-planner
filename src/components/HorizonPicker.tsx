@@ -147,8 +147,8 @@ function HorizonTargetsPopover({ gameData, onClose, onEdit, ignoreRef }: {
   }, [valid.length])
 
   return (
-    <Popover onClose={onClose} ignoreRef={ignoreRef} className="right-0 top-full w-72 p-3">
-      <div role="dialog" aria-label="Horizon targets" className="text-gray-200">
+    <Popover onClose={onClose} ignoreRef={ignoreRef} className="right-0 top-full w-72 p-3 max-h-[70vh] flex flex-col">
+      <div role="dialog" aria-label="Horizon targets" className="text-gray-200 flex flex-col min-h-0">
         <h2 className="text-sm font-semibold text-gray-100 mb-1">Research horizon</h2>
         <p className="text-xs text-gray-400 mb-2">
           {valid.length > 0
@@ -156,7 +156,7 @@ function HorizonTargetsPopover({ gameData, onClose, onEdit, ignoreRef }: {
             : 'No targets: pickers offer every recipe, machine and module.'}
         </p>
         {valid.length > 0 && (
-          <ul className="flex flex-col gap-1 mb-2">
+          <ul data-testid="horizon-target-list" className="flex flex-col gap-1 mb-2 overflow-y-auto min-h-0">
             {valid.map(id => {
               const tech = gameData.technologies[id]
               return (

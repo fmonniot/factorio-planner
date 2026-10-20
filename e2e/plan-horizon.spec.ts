@@ -147,6 +147,31 @@ test.describe('Horizon popover', () => {
     await expect(page.getByRole('button', { name: 'Edit horizon…' })).toBeFocused()
   })
 
+  test('the popover stays within 70% of the viewport with many targets', async ({ page }) => {
+    const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
+    const ids = Array.from({ length: 45 }, (_, i) => `bulk-tech-${i}`)
+    for (const id of ids) data.technologies[id] = { id, name: `Bulk tech ${id.slice(10)}`, prerequisites: [], unlockedRecipes: [], iconPath: '' }
+    await page.goto('/')
+    await upload(page, Buffer.from(JSON.stringify(data)))
+    await setHorizon(page, ...ids)
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: 45 technologies')
+
+    await horizonButton(page).click()
+    const popover = page.getByRole('dialog', { name: 'Horizon targets' })
+    await expect(popover.getByRole('button', { name: /^Remove / })).toHaveCount(45)
+
+    const viewportHeight = page.viewportSize()!.height
+    const box = (await popover.locator('xpath=..').boundingBox())!
+    expect(box.height).toBeLessThanOrEqual(viewportHeight * 0.7 + 1) // +1: sub-pixel rounding
+    expect(box.y + box.height).toBeLessThanOrEqual(viewportHeight)
+
+    // The footer actions stay reachable while the list scrolls.
+    await expect(popover.getByRole('button', { name: 'Edit horizon…' })).toBeInViewport()
+    await expect(popover.getByRole('button', { name: 'Clear horizon' })).toBeInViewport()
+    const list = popover.getByTestId('horizon-target-list')
+    expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+  })
+
   test('the horizon follows plan switches', async ({ page }) => {
     await openHorizonDialog(page)
     await tech(page, 'electronics').click()
