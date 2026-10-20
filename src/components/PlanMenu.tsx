@@ -2,11 +2,12 @@ import { useState } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
+import type { LoadAppStateResult } from '../store/persistence'
 import { switchPlan, createPlan, duplicatePlan, renamePlan, deletePlan, PLAN_NAME_MAX_LENGTH } from '../store/persistence'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 
-type PlanDialog = null | { kind: 'rename' } | { kind: 'delete' }
+type PlanDialog = null | { kind: 'rename' } | { kind: 'delete' } | { kind: 'error'; message: string }
 
 const SECONDARY_BUTTON = 'text-xs bg-gray-800 text-gray-300 hover:text-gray-100 border border-gray-600 rounded px-3 py-1'
 
@@ -61,6 +62,8 @@ export function PlanMenu() {
   if (index === null || !active) return null
 
   const close = () => setDialog(null)
+  // Run a plan action; a refused one (stale plan, changed game data) is shown instead of silently ignored.
+  const run = (result: LoadAppStateResult) => setDialog(result.type === 'error' ? { kind: 'error', message: result.message } : null)
 
   return (
     <>
@@ -86,7 +89,7 @@ export function PlanMenu() {
                     title={p.name}
                     tabIndex={-1}
                     className={ITEM_CLASS}
-                    onClick={() => { switchPlan(p.id); closeMenu(true) }}
+                    onClick={() => { run(switchPlan(p.id)); closeMenu(true) }}
                   >
                     <span aria-hidden className="w-3 inline-block shrink-0">{checked ? '✓' : ''}</span>
                     <span className="truncate max-w-64">{p.name}</span>
@@ -95,13 +98,13 @@ export function PlanMenu() {
               })}
             </div>
             <div role="separator" className="my-1 border-t border-gray-700" />
-            <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { createPlan(); closeMenu(true) }}>
+            <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { run(createPlan()); closeMenu(true) }}>
               New plan
             </button>
             <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { setDialog({ kind: 'rename' }); closeMenu(false) }}>
               Rename…
             </button>
-            <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { duplicatePlan(); closeMenu(true) }}>
+            <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { run(duplicatePlan()); closeMenu(true) }}>
               Duplicate
             </button>
             <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS} onClick={() => { setDialog({ kind: 'delete' }); closeMenu(false) }}>
@@ -114,7 +117,7 @@ export function PlanMenu() {
         <PlanNameDialog
           initialName={active.name}
           onClose={close}
-          onSubmit={name => { renamePlan(active.id, name); close() }}
+          onSubmit={name => run(renamePlan(active.id, name))}
         />
       )}
       {dialog?.kind === 'delete' && (
@@ -128,11 +131,20 @@ export function PlanMenu() {
             <button type="button" onClick={close} className={SECONDARY_BUTTON}>Cancel</button>
             <button
               type="button"
-              onClick={() => { deletePlan(active.id); close() }}
+              onClick={() => run(deletePlan(active.id))}
               className="text-xs bg-red-600 text-white hover:bg-red-500 rounded px-3 py-1"
             >
               Delete plan
             </button>
+          </div>
+        </Modal>
+      )}
+      {dialog?.kind === 'error' && (
+        <Modal onClose={close} className="p-4 w-96 text-sm">
+          <h2 className="font-semibold text-gray-100 mb-2">Plan action failed</h2>
+          <pre className="whitespace-pre-wrap text-red-400 text-xs mb-3">{dialog.message}</pre>
+          <div className="flex justify-end">
+            <button type="button" onClick={close} className={SECONDARY_BUTTON}>Close</button>
           </div>
         </Modal>
       )}

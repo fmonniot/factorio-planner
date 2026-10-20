@@ -124,4 +124,21 @@ describe('PlanMenu', () => {
       expect(planNames()).toEqual(['Plan 1'])
     })
   })
+
+  it('shows the message when an action is refused', async () => {
+    activate()
+    render(<PlanMenu />)
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename…' }))
+    const input = screen.getByRole('textbox', { name: 'Plan name' })
+    await userEvent.clear(input)
+    await userEvent.type(input, 'New name')
+    // The loaded game data changes under the open dialog.
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'kompetenz-seablock' } })
+    await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    expect(screen.getByText('The loaded game data changed; pick the file again.')).toBeInTheDocument()
+    expect(planNames()).toEqual(['Plan 1'])
+    await userEvent.click(screen.getByRole('button', { name: 'Close' }))
+    expect(screen.queryByText('The loaded game data changed; pick the file again.')).not.toBeInTheDocument()
+  })
 })

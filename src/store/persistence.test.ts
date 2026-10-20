@@ -239,6 +239,18 @@ describe('switching data sets', () => {
   })
 })
 
+describe('autosave while game data loads', () => {
+  it('does not write while a data set is loading', () => {
+    const unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    useGameDataStore.setState({ status: { type: 'loading' } })
+    const before = { ...store }
+    useBlockStore.getState().addGoal({ id: 'g9', itemId: 'iron-plate', rate: 1 })
+    expect(store).toEqual(before)
+    unsub()
+  })
+})
+
 describe('research horizon', () => {
   let unsub: () => void
   beforeEach(() => { unsub = initAppStatePersistence() })
@@ -296,7 +308,7 @@ describe('custom plans', () => {
     expect(Object.keys(store).filter(k => k.includes('nullius'))).toHaveLength(4)
   })
 
-  it('keeps an upload whose file name merely starts like the kept one', () => {
+  it('drops an upload whose file name merely starts like the kept one', () => {
     storeAllKeys('custom:a.json#1')
     storeAllKeys('custom:a.json#12')
     removeCustomPlans('custom:a.json#1')
@@ -319,6 +331,7 @@ describe('migration of single-plan storage', () => {
 
   it('moves a data set\'s old plan into the list as the active "Plan 1"', () => {
     storePlan('nullius', 'Old plan')
+    const legacy = store[legacyPlanStorageKey('nullius')]
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     const index = readIndex('nullius')
     expect(index.plans).toHaveLength(1)
@@ -326,6 +339,29 @@ describe('migration of single-plan storage', () => {
     expect(index.activePlanId).toBe(index.plans[0].id)
     expect(useBlockStore.getState().blocks[0].name).toBe('Old plan')
     expect(store[legacyPlanStorageKey('nullius')]).toBeUndefined()
+    // The autosave may re-serialize the plan, so compare content rather than text.
+    expect(JSON.parse(store[KEY()]).blocks).toEqual(JSON.parse(legacy).blocks)
+  })
+
+  it('does not list a plan whose copy could not be written, on any reload', () => {
+    storePlan('nullius', 'Old plan')
+    const legacy = store[legacyPlanStorageKey('nullius')]
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      if (key.startsWith('factorio-planner:plan:')) throw new Error('QuotaExceededError')
+      store[key] = value
+    })
+    try {
+      for (let i = 0; i < 2; i++) {
+        useGameDataStore.setState({ status: { type: 'empty' } })
+        usePlansStore.setState({ sourceId: null, index: null })
+        useGameDataStore.setState({ status: loadedStatus('nullius') })
+        expect(useBlockStore.getState().blocks[0].name).toBe('Old plan')
+      }
+    } finally {
+      localStorageMock.setItem.mockImplementation((key: string, value: string) => { store[key] = value })
+    }
+    expect(store[planIndexKey('nullius')]).toBeUndefined()
+    expect(store[legacyPlanStorageKey('nullius')]).toBe(legacy)
   })
 
   it('keeps an unreadable old plan under :corrupt of its new key', () => {

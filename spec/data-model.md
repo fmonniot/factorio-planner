@@ -392,6 +392,15 @@ memory. Duplicating or importing a plan runs it through `clonePlan` (`src/store/
 gives every block, sub-plan, node, goal and connection a fresh id so two plans never share ids
 (solver results and undo history are keyed by block id).
 
+Known limitations: the index is written whole from the tab's memory and `storage` events are not
+observed, so with several tabs open the last write wins and may drop plans another tab created (their
+plan keys remain, but no index lists them; see the backlog). A migrated old plan is copied as-is, without
+fresh ids; if two copies of the same old plan are adopted (for example an older app version rewrote the
+old key after migration), they share block ids, and switching between them may show the other's solver
+results until the next solve lands (the debounced solve replaces them; undo history is cleared on every
+switch). Autosave is suspended while game data is loading, so a data set switch cannot recreate keys it
+just removed.
+
 A plan is restored through `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on
 invalid data), and downloaded as JSON by the menu's "Export plan" item. The "Import plan…" item reads the
 same shape through `checkPlanImport` (`src/store/persistence.ts`): `parseAppState` plus a non-empty

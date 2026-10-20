@@ -59,12 +59,14 @@ export function exportFileName(planName: string, date: Date): string {
 
 /**
  * Serialize the current app state to the active plan's localStorage key.
- * No-op while no data set is active. Silently ignores QuotaExceededError and
+ * No-op while no data set is active or while game data is loading. Silently ignores QuotaExceededError and
  * other write failures.
  */
 export function saveAppState(): void {
   const key = activePlanKey()
   if (key === null) return
+  // While a data set is loading, the plan list still points at the one being replaced; writing now could recreate keys that were just removed.
+  if (useGameDataStore.getState().status.type === 'loading') return
   try {
     localStorage.setItem(key, JSON.stringify(selectAppState(useBlockStore.getState())))
   } catch {
@@ -78,7 +80,6 @@ export function saveAppState(): void {
 
 export type LoadAppStateResult =
   | { type: 'ok' }
-  | { type: 'missing' }
   | { type: 'error'; message: string }
 
 type ParseRawResult = { type: 'ok'; appState: AppState } | { type: 'error'; message: string }
@@ -364,7 +365,8 @@ export function activateDataSet(sourceId: string): void {
   const first = freshEntry('Plan 1')
   const index = migrated.index ?? { activePlanId: first.id, plans: [first] }
   usePlansStore.setState({ sourceId: id, index })
-  writeIndex()
+  // A plan whose copy failed (`raw` set) stays in memory only: listing it would add one more entry per reload.
+  if (migrated.raw === undefined) writeIndex()
   loadActivePlan(migrated.raw)
 }
 
