@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { PlanMenu } from './PlanMenu'
+import { WorkspaceMenu } from './WorkspaceMenu'
 import { useGameDataStore } from '../store/gameDataStore'
 import { usePlansStore } from '../store/plansStore'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
@@ -27,41 +27,49 @@ function activate() {
   activateDataSet('nullius')
 }
 
-const trigger = () => screen.getByRole('button', { name: /^Plan: / })
+const trigger = () => screen.getByRole('button', { name: /^(Plan: |Choose game data)/ })
 const openMenu = () => userEvent.click(trigger())
 const planNames = () => usePlansStore.getState().index!.plans.map(p => p.name)
 
-describe('PlanMenu', () => {
-  it('renders nothing before a data set is active', () => {
-    render(<PlanMenu />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
+describe('Plans section of the workspace menu', () => {
+  it('has no Plans section or action tiles before a data set is active', async () => {
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(screen.queryByRole('group', { name: 'Plans' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'New plan' })).not.toBeInTheDocument()
   })
 
-  it('is disabled while game data is loading', () => {
+  it('keeps the trigger enabled and disables the action tiles while game data is loading', async () => {
     activate()
     useGameDataStore.setState({ status: { type: 'loading' } })
-    render(<PlanMenu />)
-    expect(trigger()).toBeDisabled()
+    render(<WorkspaceMenu />)
+    // While loading the trigger is named after the plan alone.
+    const loadingTrigger = screen.getByRole('button', { name: 'Plan 1' })
+    expect(loadingTrigger).toBeEnabled()
+    await userEvent.click(loadingTrigger)
+    for (const name of ['New plan', 'Rename plan', 'Duplicate plan', 'Delete plan']) {
+      expect(screen.getByRole('menuitem', { name }), name).toBeDisabled()
+    }
   })
 
   it('names its trigger after the active plan', () => {
     activate()
-    render(<PlanMenu />)
+    render(<WorkspaceMenu />)
     expect(screen.getByRole('button', { name: 'Plan: Plan 1' })).toBeEnabled()
   })
 
-  it('lists the plans, then New plan, Rename…, Duplicate and Delete…', async () => {
+  it('lists the plans, then the plan actions', async () => {
     activate()
-    render(<PlanMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
-    const names = Array.from(screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')).map(el => el.textContent?.replace('✓', '').trim())
-    expect(names).toEqual(['Plan 1', 'New plan', 'Rename…', 'Duplicate', 'Delete…'])
+    const names = Array.from(screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')).map(el => el.getAttribute('aria-label') ?? el.textContent?.replace('✓', '').trim())
+    expect(names.slice(0, 5)).toEqual(['Plan 1', 'New plan', 'Rename plan', 'Duplicate plan', 'Delete plan'])
     expect(screen.getByRole('menuitemradio', { name: 'Plan 1' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('switches plan when a radio item is picked', async () => {
     activate()
-    render(<PlanMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitem', { name: 'New plan' }))
     expect(screen.getByRole('button', { name: 'Plan: Plan 2' })).toBeInTheDocument()
@@ -73,9 +81,9 @@ describe('PlanMenu', () => {
   describe('rename', () => {
     async function openRename() {
       activate()
-      render(<PlanMenu />)
+      render(<WorkspaceMenu />)
       await openMenu()
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Rename…' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Rename plan' }))
       return screen.getByRole('textbox', { name: 'Plan name' })
     }
 
@@ -104,9 +112,9 @@ describe('PlanMenu', () => {
   describe('delete', () => {
     it('asks first, and Cancel keeps the plan', async () => {
       activate()
-      render(<PlanMenu />)
+      render(<WorkspaceMenu />)
       await openMenu()
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Delete plan' }))
       expect(screen.getByRole('heading', { name: 'Delete plan "Plan 1"?' })).toBeInTheDocument()
       expect(screen.getByText(/An empty plan replaces it\./)).toBeInTheDocument()
       await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -115,11 +123,11 @@ describe('PlanMenu', () => {
 
     it('deletes after confirmation', async () => {
       activate()
-      render(<PlanMenu />)
+      render(<WorkspaceMenu />)
       await openMenu()
       await userEvent.click(screen.getByRole('menuitem', { name: 'New plan' }))
       await openMenu()
-      await userEvent.click(screen.getByRole('menuitem', { name: 'Delete…' }))
+      await userEvent.click(screen.getByRole('menuitem', { name: 'Delete plan' }))
       await userEvent.click(screen.getByRole('button', { name: 'Delete plan' }))
       expect(planNames()).toEqual(['Plan 1'])
     })
@@ -127,9 +135,9 @@ describe('PlanMenu', () => {
 
   it('shows the message when an action is refused', async () => {
     activate()
-    render(<PlanMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename…' }))
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Rename plan' }))
     const input = screen.getByRole('textbox', { name: 'Plan name' })
     await userEvent.clear(input)
     await userEvent.type(input, 'New name')

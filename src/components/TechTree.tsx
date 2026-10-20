@@ -12,6 +12,8 @@ import type { ViewTransform } from '../utils/viewTransform'
 import { Modal } from './Modal'
 import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
+import { IconButton } from './IconButton'
+import { FlaskIcon } from './icons'
 import type { GameData, Technology } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -266,13 +268,9 @@ export function TechTreeButton() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1"
-        title="Show the technology tree"
-      >
-        Tech tree
-      </button>
+      <IconButton label="Tech tree" onClick={() => setOpen(true)}>
+        <FlaskIcon className="w-[17px] h-[17px]" />
+      </IconButton>
       {open && <TechTreeModal gameData={gameData} onClose={() => setOpen(false)} />}
     </>
   )

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
+import { openHorizonDialog } from './support/horizon'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
 
@@ -88,7 +89,7 @@ test.describe('Extraction recipes', () => {
   })
 
   test('extraction recipes ignore the research horizon', async ({ page }) => {
-    await page.getByRole('button', { name: /^Horizon/ }).click()
+    await openHorizonDialog(page)
     await page.locator('[data-tech-id="electronics"]').click()
     await page.getByRole('button', { name: 'Done' }).click()
 

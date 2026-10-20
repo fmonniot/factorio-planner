@@ -12,7 +12,7 @@ async function setup(page: Page) {
   await expect(page.locator('button[title="Gears"]')).toBeVisible()
 }
 
-test.describe('top-bar menu', () => {
+test.describe('workspace menu', () => {
   test('folds export, import and the data set selector into one button', async ({ page }) => {
     await setup(page)
     await expect(menuTrigger(page)).toBeVisible()
@@ -20,13 +20,22 @@ test.describe('top-bar menu', () => {
     await expect(page.getByRole('button', { name: 'Import plan' })).toHaveCount(0)
     await expect(page.getByRole('combobox')).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Block graph' })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Menu', exact: true })).toHaveCount(0)
+  })
+
+  test('the trigger shows the plan name and the data set label', async ({ page }) => {
+    await setup(page)
+    await expect(menuTrigger(page)).toHaveText(/Nullius/)
+    await expect(menuTrigger(page)).toHaveAccessibleName(/^Plan: /)
   })
 
   test('lists the items in order with the current data set checked', async ({ page }) => {
     await setup(page)
     const menu = await openAppMenu(page)
     const items = menu.locator('[role^="menuitem"]')
-    await expect(items).toHaveText([/Nullius/, /Seablock/, /Upload file…/, 'Export plan', 'Import plan…'])
+    await expect(items).toHaveText([
+      /Plan 1|Plan/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, 'Export plan', 'Import plan…',
+    ])
     await expect(menu.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
   })
 
@@ -36,9 +45,11 @@ test.describe('top-bar menu', () => {
     await page.keyboard.press('Enter')
     const menu = appMenu(page)
     await expect(menu).toBeVisible()
-    await expect(menu.getByRole('menuitemradio', { name: 'Nullius' })).toBeFocused()
+    // Focus lands on the checked radio, the active plan.
+    const plan = menu.getByRole('group', { name: 'Plans' }).getByRole('menuitemradio', { checked: true })
+    await expect(plan).toBeFocused()
     await page.keyboard.press('ArrowDown')
-    await expect(menu.getByRole('menuitemradio', { name: 'Seablock' })).toBeFocused()
+    await expect(menu.getByRole('menuitem', { name: 'New plan' })).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
     await expect(menuTrigger(page)).toBeFocused()
@@ -75,7 +86,8 @@ test.describe('top-bar menu', () => {
     await page.goto('/')
     await page.evaluate(() => localStorage.clear())
     await page.reload()
-    await expect(page.getByText('Open Menu at the top right to pick a game data set')).toBeVisible()
+    await expect(page.getByText('Open the workspace menu at the top right to pick a game data set')).toBeVisible()
+    await expect(menuTrigger(page)).toHaveAccessibleName('Choose game data')
     const menu = await openAppMenu(page)
     await expect(menu.locator('[role="menuitemradio"][aria-checked="true"]')).toHaveCount(0)
     await expect(menu.getByRole('menuitem', { name: 'Import plan' })).toBeDisabled()

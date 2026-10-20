@@ -42,7 +42,7 @@ export function ProductionTable() {
     return (
       <div className="flex flex-col flex-1 min-h-0 bg-gray-900 items-center justify-center gap-2 text-gray-600">
         <span className="text-sm">Load game data to begin</span>
-        <span className="text-xs text-gray-700">Open Menu at the top right to pick a game data set</span>
+        <span className="text-xs text-gray-700">Open the workspace menu at the top right to pick a game data set</span>
       </div>
     )
   }

@@ -10,6 +10,8 @@ import { layoutBlockGraph, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
+import { IconButton } from '../IconButton'
+import { GraphIcon } from '../icons'
 import { fmtRate } from './ItemTile'
 import type { Block, ConnectionFlow, GameData, Item } from '../../data/types'
 
@@ -437,13 +439,9 @@ export function BlockGraphButton() {
 
   return (
     <>
-      <button
-        onClick={() => setOpen(true)}
-        className="text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1"
-        title="Show the blocks and their connections"
-      >
-        Block graph
-      </button>
+      <IconButton label="Block graph" onClick={() => setOpen(true)}>
+        <GraphIcon className="w-[17px] h-[17px]" />
+      </IconButton>
       {open && <BlockGraphModal gameData={gameData} onClose={() => setOpen(false)} />}
     </>
   )

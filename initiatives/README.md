@@ -20,7 +20,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
-| Top bar workspace menu      | Future   | [top-bar-workspace/](top-bar-workspace/)               |
+| Top bar workspace menu      | Shipped  | [archive/top-bar-workspace/](archive/top-bar-workspace/) |
 | Summary panes as slots      | Shipped  | [archive/summary-panes-slots/](archive/summary-panes-slots/) |
 | Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |
 | LP solver v2                | Shipped  | [archive/lp-solver/](archive/lp-solver/)               |

@@ -1,6 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
+import { horizonButton, openHorizonDialog } from './support/horizon'
+import { runPlanAction, switchToPlan } from './support/planMenu'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
 
@@ -13,7 +15,6 @@ async function upload(page: Page, buffer: Buffer = fs.readFileSync(FIXTURE_PATH)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 }
 
-const horizonButton = (page: Page) => page.getByRole('button', { name: /^Horizon/ })
 const tech = (page: Page, id: string) => page.locator(`[data-tech-id="${id}"]`)
 const count = (page: Page) => page.getByTestId('horizon-recipe-count')
 
@@ -52,32 +53,32 @@ test.describe('Plan horizon', () => {
 
   test('setting a horizon limits the recipe picker', async ({ page }) => {
     await upload(page)
-    await expect(horizonButton(page)).toHaveText('Horizon: none')
-    await horizonButton(page).click()
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: none')
+    await openHorizonDialog(page)
     await tech(page, 'electronics').click()
     await expect(count(page)).toHaveText('3 of 6 recipes available')
     await page.getByRole('button', { name: 'Done' }).click()
-    await expect(horizonButton(page)).toHaveText('Horizon: Electronics')
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: Electronics')
     expect(await pickerRecipeIds(page)).toEqual(['electronic-circuit', 'iron-gear-wheel', 'iron-plate'])
   })
 
   test('setting a horizon limits the goal picker', async ({ page }) => {
     await upload(page)
-    await horizonButton(page).click()
+    await openHorizonDialog(page)
     await tech(page, 'electronics').click()
     await page.getByRole('button', { name: 'Done' }).click()
     expect(await pickerGoalItemIds(page)).toEqual(['electronic-circuit', 'iron-gear-wheel', 'iron-ore', 'iron-plate'])
 
-    await horizonButton(page).click()
+    await openHorizonDialog(page)
     await page.getByRole('button', { name: 'Clear' }).click()
     await page.getByRole('button', { name: 'Done' }).click()
-    await expect(horizonButton(page)).toHaveText('Horizon: none')
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: none')
     expect(await pickerGoalItemIds(page)).toHaveLength(6)
   })
 
   test('changing and clearing the target', async ({ page }) => {
     await upload(page)
-    await horizonButton(page).click()
+    await openHorizonDialog(page)
     await tech(page, 'electronics').click()
     await tech(page, 'space-science-pack').click()
     await expect(count(page)).toHaveText('5 of 6 recipes available')
@@ -86,25 +87,67 @@ test.describe('Plan horizon', () => {
       'electronic-circuit', 'iron-gear-wheel', 'iron-plate', 'rocket-part', 'space-science-pack',
     ])
 
-    await horizonButton(page).click()
+    await openHorizonDialog(page)
     await page.getByRole('button', { name: 'Remove Electronics' }).click()
     // electronics is still a prerequisite of the remaining target.
     await expect(count(page)).toHaveText('5 of 6 recipes available')
     await page.getByRole('button', { name: 'Clear' }).click()
     await page.getByRole('button', { name: 'Done' }).click()
-    await expect(horizonButton(page)).toHaveText('Horizon: none')
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: none')
     expect(await pickerRecipeIds(page)).toHaveLength(6)
   })
 
   test('persists across a reload', async ({ page }) => {
     await upload(page)
-    await horizonButton(page).click()
+    await openHorizonDialog(page)
     await tech(page, 'electronics').click()
     await page.getByRole('button', { name: 'Done' }).click()
-    await expect(horizonButton(page)).toHaveText('Horizon: Electronics')
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: Electronics')
 
     await page.reload()
-    await expect(horizonButton(page)).toHaveText('Horizon: Electronics', { timeout: 10000 })
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: Electronics', { timeout: 10000 })
+  })
+})
+
+test.describe('Horizon popover', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await upload(page)
+  })
+
+  test('the dot follows the targets and the popover lists and removes them', async ({ page }) => {
+    await expect(page.getByTestId('horizon-dot')).toHaveCount(0)
+    await openHorizonDialog(page)
+    await tech(page, 'electronics').click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(page.getByTestId('horizon-dot')).toBeVisible()
+
+    await horizonButton(page).click()
+    const popover = page.getByRole('dialog', { name: 'Horizon targets' })
+    await expect(popover).toContainText('Electronics')
+    await popover.getByRole('button', { name: 'Remove Electronics' }).click()
+    await expect(horizonButton(page)).toHaveAccessibleName('Horizon: none')
+    await expect(page.getByTestId('horizon-dot')).toHaveCount(0)
+  })
+
+  test('Escape closes the popover and refocuses the flag', async ({ page }) => {
+    await horizonButton(page).click()
+    await expect(page.getByRole('dialog', { name: 'Horizon targets' })).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('dialog', { name: 'Horizon targets' })).toBeHidden()
+    await expect(horizonButton(page)).toBeFocused()
+  })
+
+  test('the horizon follows plan switches', async ({ page }) => {
+    await openHorizonDialog(page)
+    await tech(page, 'electronics').click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(page.getByTestId('horizon-dot')).toBeVisible()
+
+    await runPlanAction(page, 'New plan')
+    await expect(page.getByTestId('horizon-dot')).toHaveCount(0)
+    await switchToPlan(page, 'Plan 1')
+    await expect(page.getByTestId('horizon-dot')).toBeVisible()
   })
 })
 
@@ -153,7 +196,7 @@ function machineFixture() {
 }
 
 async function setHorizon(page: Page, ...techIds: string[]) {
-  await horizonButton(page).click()
+  await openHorizonDialog(page)
   const clear = page.getByRole('button', { name: 'Clear' })
   if (await clear.isEnabled()) await clear.click()
   for (const id of techIds) await tech(page, id).click()

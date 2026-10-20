@@ -7,6 +7,8 @@ import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName } f
 import type { AppState } from '../data/types'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
+import { usePlanSection } from './PlanMenu'
+import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -321,107 +323,137 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
 }
 
 // ---------------------------------------------------------------------------
-// AppMenu
+// WorkspaceMenu
 // ---------------------------------------------------------------------------
 
+const DATASET_LABELS: Record<string, string> = Object.fromEntries(SERVER_DATASETS.map(d => [d.id, d.label]))
+
 /**
- * Top-bar menu for app-level entries: game data set, plan export and import.
- * Always mounted: the data-set auto-load, the hidden upload input and the
- * import dialogs must outlive the panel, which unmounts when it closes.
+ * Top-bar menu for the workspace: the plans of the active data set, the game
+ * data set, plan export and import. Always mounted: the data-set auto-load,
+ * the hidden upload input and the plan / import dialogs must outlive the
+ * panel, which unmounts when it closes. The trigger is never disabled, since
+ * the game data group has to stay reachable.
  */
-export function AppMenu() {
+export function WorkspaceMenu() {
   const status = useGameDataStore(s => s.status)
   const {
     selectedValue, uploadedFilename, selectServerDataset, fileInputRef, openUploadPicker, handleUploadChange,
   } = useGameDataSource()
   const { startImport, dialog } = usePlanImport()
+  const plans = usePlanSection()
+
+  const topLine = plans.active?.name ?? 'Choose game data'
+  const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
+  const ariaLabel = status.type === 'loaded' && plans.active ? `Plan: ${plans.active.name}` : topLine
+
   return (
     <>
-      <div className="flex items-center gap-2">
-        {status.type === 'loading' && (
-          <span className="text-xs text-gray-400">Loading…</span>
-        )}
-        {status.type === 'error' && (
-          <span className="text-xs text-red-400" title={status.message}>Error loading data</span>
-        )}
-        <MenuButton label="Menu" title="Game data set, plan export and import" menuLabel="Plan and game data" align="right">
-          {close => (
-            <>
-              <div role="group" aria-label="Game data" className="flex flex-col">
-                <div aria-hidden className="px-3 pt-1 pb-0.5 text-[10px] uppercase text-gray-500">Game data</div>
-                {SERVER_DATASETS.map(d => {
-                  const checked = selectedValue === d.id
-                  return (
-                    <button
-                      key={d.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={checked}
-                      tabIndex={-1}
-                      className={ITEM_CLASS}
-                      onClick={() => { void selectServerDataset(d.id); close(true) }}
-                    >
-                      <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
-                    </button>
-                  )
-                })}
-                {uploadedFilename && (
+      <MenuButton
+        label={
+          <>
+            <span aria-hidden className="w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-gray-300 shrink-0">
+              <LayersIcon />
+            </span>
+            <span className="flex flex-col items-start leading-tight text-left">
+              <span className="text-xs font-semibold text-gray-100 truncate max-w-40">{topLine}</span>
+              {status.type === 'loading' && <span className="text-[11px] text-gray-400">Loading…</span>}
+              {status.type === 'error' && (
+                <span className="text-[11px] text-red-400" title={status.message}>Error loading data</span>
+              )}
+              {status.type === 'loaded' && datasetLabel && (
+                <span className="text-[11px] text-gray-400 truncate max-w-40">{datasetLabel}</span>
+              )}
+            </span>
+          </>
+        }
+        ariaLabel={ariaLabel}
+        title="Plans, game data, export and import"
+        menuLabel="Plan and game data"
+        align="right"
+        triggerClassName="h-9 flex items-center gap-2.5 pl-1.5 pr-2 bg-gray-800 border border-gray-600 hover:border-gray-500 rounded-lg"
+        caret={<ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />}
+        panelClassName="w-72"
+      >
+        {close => (
+          <>
+            {plans.renderItems(close)}
+            {plans.active && <div role="separator" className="my-1 border-t border-gray-700" />}
+            <div role="group" aria-label="Game data" className="flex flex-col">
+              <div aria-hidden className="text-[11px] uppercase tracking-wide text-gray-400 px-3 pt-1 pb-1">Game data</div>
+              {SERVER_DATASETS.map(d => {
+                const checked = selectedValue === d.id
+                return (
                   <button
+                    key={d.id}
                     type="button"
                     role="menuitemradio"
-                    aria-checked={true}
-                    title={uploadedFilename}
+                    aria-checked={checked}
                     tabIndex={-1}
                     className={ITEM_CLASS}
-                    onClick={() => close(true)}
+                    onClick={() => { void selectServerDataset(d.id); close(true) }}
                   >
-                    <span aria-hidden className="w-3 inline-block">✓</span>
-                    <span className="truncate max-w-64">{uploadedFilename}</span>
+                    <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
                   </button>
-                )}
+                )
+              })}
+              {uploadedFilename && (
                 <button
                   type="button"
-                  role="menuitem"
+                  role="menuitemradio"
+                  aria-checked={true}
+                  title={uploadedFilename}
                   tabIndex={-1}
                   className={ITEM_CLASS}
-                  onClick={() => { openUploadPicker(); close(true) }}
+                  onClick={() => close(true)}
                 >
-                  <span aria-hidden className="w-3 inline-block" />Upload file…
+                  <span aria-hidden className="w-3 inline-block">✓</span>
+                  <span className="truncate max-w-64">{uploadedFilename}</span>
                 </button>
-              </div>
-              <div role="separator" className="my-1 border-t border-gray-700" />
+              )}
               <button
                 type="button"
                 role="menuitem"
-                title="Export plan as JSON"
                 tabIndex={-1}
                 className={ITEM_CLASS}
-                onClick={() => { exportPlan(); close(true) }}
+                onClick={() => { openUploadPicker(); close(true) }}
               >
-                Export plan
+                <span aria-hidden className="w-3 inline-block" />Upload file…
               </button>
-              <button
-                type="button"
-                role="menuitem"
-                disabled={status.type !== 'loaded'}
-                title="Import a plan from a JSON file as a new plan"
-                tabIndex={-1}
-                className={ITEM_CLASS}
-                onClick={() => { startImport(); close(true) }}
-              >
-                Import plan…
-              </button>
-            </>
-          )}
-        </MenuButton>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".json"
-          className="hidden"
-          onChange={handleUploadChange}
-        />
-      </div>
+            </div>
+            <div role="separator" className="my-1 border-t border-gray-700" />
+            <button
+              type="button"
+              role="menuitem"
+              title="Export plan as JSON"
+              tabIndex={-1}
+              className={ITEM_CLASS}
+              onClick={() => { exportPlan(); close(true) }}
+            >
+              <DownloadIcon />Export plan
+            </button>
+            <button
+              type="button"
+              role="menuitem"
+              disabled={status.type !== 'loaded'}
+              title="Import a plan from a JSON file as a new plan"
+              tabIndex={-1}
+              className={ITEM_CLASS}
+              onClick={() => { startImport(); close(true) }}
+            >
+              <UploadIcon />Import plan…
+            </button>
+          </>
+        )}
+      </MenuButton>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleUploadChange}
+      />
+      {plans.dialogs}
       {dialog}
     </>
   )

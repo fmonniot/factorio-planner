@@ -1,33 +1,40 @@
 import { useEffect, useRef } from 'react'
-import type { ReactNode } from 'react'
+import type { ReactNode, RefObject } from 'react'
 
 interface PopoverProps {
   onClose: () => void
   children: ReactNode
   className?: string
+  /** A pointerdown inside this element does not close the popover (the trigger, so a click on it just toggles). */
+  ignoreRef?: RefObject<HTMLElement | null>
 }
 
 /**
  * A lightweight absolute-positioned panel that closes on outside click or Escape.
  * The trigger element should be in a `relative`-positioned container.
  */
-export function Popover({ onClose, children, className = '' }: PopoverProps) {
+export function Popover({ onClose, children, className = '', ignoreRef }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // Capture phase + preventDefault so Escape does not also clear the
+    // summary pane selection (see MenuButton).
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      onClose()
     }
     function onPointer(e: PointerEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
+      const target = e.target as Node
+      if (ref.current && !ref.current.contains(target) && !ignoreRef?.current?.contains(target)) onClose()
     }
-    window.addEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, { capture: true })
     window.addEventListener('pointerdown', onPointer, { capture: true })
     return () => {
-      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey, { capture: true })
       window.removeEventListener('pointerdown', onPointer, { capture: true })
     }
-  }, [onClose])
+  }, [onClose, ignoreRef])
 
   return (
     <div
