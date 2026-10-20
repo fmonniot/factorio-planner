@@ -46,7 +46,7 @@ session (see [Game data selector](#game-data-selector)).
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
-│ ▲▼ │ ▶ Smelting  3 recipes  ×                                            │
+│ ▲▼ │ ▶ Smelting  3 recipes                                               │
 │ ▲▼ │ [icon]           │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
 │ + Add recipe                                                              │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -273,7 +273,7 @@ One `GoalTile` per block goal: item icon (or name when there is no icon), target
   plan.
 - The actual rate is the item's net balance across all solved nodes; it appears
   once the solver has a result.
-- `×` (on hover) removes the goal.
+- Right-clicking the tile opens a `RowActionsMenu` with **Remove goal**.
 - `+` opens the [item picker](#item-picker) to add a goal.
 - An `ExportChip` (`→ <consumer> <rate>`) follows the goal's tile for each block
   that receives the item from this one. Click it to open that block.
@@ -295,11 +295,15 @@ opening the picker.
 The solver's `unsatisfied` list: everything the block must import (goal
 shortfalls, intermediate slack, raw resources), as `ItemTile`s.
 
-- Clicking a tile adds the item to the block's `noImportItems`, which forbids
-  the solver from importing it.
-- Right-clicking a tile opens `ConnectionMenu` ("Receive <item> from"), except on
-  a goal shortfall (goals are never fed by connections, so those tiles have no
-  menu): one entry per other block that still has the item to give (the offered
+- Clicking a tile opens the [recipe picker](#recipe-picker) filtered to recipes
+  producing the item; the chosen recipe is added to the root plan (as with the
+  goal tile and the Byproducts pane).
+- Right-clicking a tile opens `ConnectionMenu`, except on a goal shortfall,
+  which has no menu: goals are never fed by connections and have no import
+  slack, so forbidding imports would change nothing (see
+  [solver.md](solver.md)). A lock chip for a goal item can still exist (the lock
+  predates the goal, or comes from saved data); it stays removable. It lists
+  "Receive <item> from" with one entry per other block that still has the item to give (the offered
   rate minus what it already delivers to other blocks; sources with nothing left
   are not listed),
   excluding blocks already connected for that item and blocks that would close a
@@ -307,16 +311,19 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
   from the source side in the [block graph](#block-graph). With no candidate
   the menu reads "No other block produces this item". It is rendered in a
   portal at the tile's bottom-left corner (so the pane's scrolling cannot clip
-  it) and closes on Escape, a click outside, or a scroll.
+  it) and closes on Escape, a click outside, or a scroll. After a divider it
+  ends with **Forbid imports** (adds the item to the block's `noImportItems`,
+  so the solver never imports it) or, for a locked item, **Allow imports**.
 - Connections come first, as `ConnectionChip`s: item icon, `delivered/needed`,
-  `← <source block>` (click to open the source) and `×` (removes the connection;
-  undoable). `needed` is what is delivered plus what is still imported. States:
+  `← <source block>` (click to open the source). Right-clicking a chip opens a
+  `RowActionsMenu` with **Remove connection** (undoable). `needed` is what is delivered plus what is still imported. States:
   normal; `limited` (amber border, tooltip "Limited: <source> only offers N",
   the rest of the need stays in the tiles); `unused` (dimmed, tooltip "Not used:
   this block makes or needs none from outside"); `(deleted block)` or `(cycle,
-  ignored)` (grey; remove with `×`).
+  ignored)` (grey; remove with right-click).
 - Each no-import item is shown after the tiles as a dimmed chip with a 🔒; click
-  it to allow imports again.
+  it to allow imports again. Right-clicking the chip opens the same
+  `ConnectionMenu`; for a goal item it holds only **Allow imports**.
 
 ### Warnings popover
 
@@ -424,8 +431,11 @@ reach) the rate cells are empty and the machine count is 0.
 
 ### Sub-factory rows
 
-A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count,
-and × to remove the sub-factory **with all its contents**. Expanding shows its
+A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
+and a right-click menu with **Remove subfactory**, which removes it **with all
+its contents**. When it has contents a confirmation names the sub-factory and
+counts its recipes and nested sub-factories; an empty one is removed at once.
+Removal is not undoable. Expanding shows its
 nodes indented beneath it (including nested sub-factories); an empty expanded
 group shows a "Drop here" target. Expanded/collapsed state is not saved.
 

@@ -8,8 +8,8 @@ const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 test('duplicating a block copies its goal and solves the copy', async ({ page }) => {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  const plateTile = page.locator('button[title^="Iron plate — click to forbid"]')
-  const rodTile = page.locator('button[title^="Iron rod — click to forbid"]')
+  const plateTile = page.locator('button[title^="Iron plate — click to find a producer recipe"]')
+  const rodTile = page.locator('button[title^="Iron rod — click to find a producer recipe"]')
   await expect(plateTile).toBeVisible({ timeout: 10000 })
   const rate = await page.getByTitle(/Target:/).getAttribute('title')
 

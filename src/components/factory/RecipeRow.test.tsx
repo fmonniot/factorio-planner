@@ -1,10 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
+import { countSubPlanContents } from './subPlanContents'
 import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
-import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode } from '../../data/types'
+import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Fixtures — single-output
@@ -260,60 +261,6 @@ describe('RecipeRow', () => {
     renderRow()
     const cell = screen.getAllByTitle('Iron Plate')[0].closest('td')!
     expect(within(cell).queryAllByRole('button')).toHaveLength(0)
-  })
-
-  it('× button fully deletes the subplan from the tree (and its node reference)', () => {
-    const childSubPlan = {
-      id: 'sp-123',
-      name: 'My Subfactory',
-      goals: [],
-      nodes: [],
-      subPlans: [],
-      noImportItems: [],
-      createdAt: '',
-      updatedAt: '',
-    }
-    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
-    const block = makeEmptyBlock('Test')
-    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
-    useBlockStore.setState({
-      blocks: [{ ...block, rootPlan }],
-      activeBlockId: block.id,
-      history: {},
-    })
-    renderRow({ planNode: spNode, solvedNode: undefined })
-    fireEvent.click(screen.getByTitle('Remove subplan'))
-    const updatedRoot = useBlockStore.getState().blocks[0].rootPlan
-    expect(updatedRoot.nodes).toHaveLength(0)
-    expect(updatedRoot.subPlans).toHaveLength(0)
-  })
-
-  it('× button sits in the same <td> as the subplan name and is not hidden behind hover', () => {
-    const childSubPlan = {
-      id: 'sp-123',
-      name: 'My Subfactory',
-      goals: [],
-      nodes: [],
-      subPlans: [],
-      noImportItems: [],
-      createdAt: '',
-      updatedAt: '',
-    }
-    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
-    const block = makeEmptyBlock('Test')
-    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [childSubPlan] }
-    useBlockStore.setState({
-      blocks: [{ ...block, rootPlan }],
-      activeBlockId: block.id,
-      history: {},
-    })
-    renderRow({ planNode: spNode, solvedNode: undefined })
-    const label = screen.getByText('My Subfactory')
-    const button = screen.getByTitle('Remove subplan')
-    // The visual-adjacency check: name and × live in the same cell.
-    expect(label.closest('td')).toBe(button.closest('td'))
-    // The discoverability check: × is not gated behind hover-only opacity.
-    expect(button.className).not.toMatch(/opacity-0/)
   })
 
   it('subplan node shows expanded indicator when isExpanded=true', () => {
@@ -814,5 +761,88 @@ describe('RecipeRow byproduct context menu', () => {
     fireEvent.contextMenu(oxygenTile())
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Add consumer recipe…'])
+  })
+})
+
+describe('RecipeRow sub-factory removal', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  function makeSubPlan(id: string, name: string, nodes: (GameRecipeNode | SubPlanNode)[] = [], subPlans: SubPlan[] = []): SubPlan {
+    return { id, name, nodes, subPlans, createdAt: '', updatedAt: '' }
+  }
+
+  function recipeNode(id: string): GameRecipeNode {
+    return { kind: 'game-recipe', id, recipeId: 'iron-plate', modules: [], byproductPolicy: {} }
+  }
+
+  function setupSubfactory(child: SubPlan) {
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: child.id }
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+    renderRow({ planNode: spNode, solvedNode: undefined })
+  }
+
+  const openMenu = () => fireEvent.contextMenu(screen.getByText('My Subfactory').closest('td')!)
+  const rootPlan = () => useBlockStore.getState().blocks[0].rootPlan
+
+  it('right-click then "Remove subfactory" deletes an empty sub-factory without confirming', () => {
+    const confirm = vi.fn()
+    vi.stubGlobal('confirm', confirm)
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    expect(screen.queryByTitle('Remove subplan')).not.toBeInTheDocument()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
+    expect(rootPlan().nodes).toHaveLength(0)
+    expect(rootPlan().subPlans).toHaveLength(0)
+    expect(confirm).not.toHaveBeenCalled()
+  })
+
+  it('the menu offers only "Remove subfactory"', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Remove subfactory'])
+  })
+
+  it('asks for confirmation when the sub-factory has contents, and respects the answer', () => {
+    const nested = makeSubPlan('sp-inner', 'Inner', [recipeNode('r3')])
+    const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'sp-inner' }
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), innerNode], [nested]))
+    const confirm = vi.fn().mockReturnValue(false)
+    vi.stubGlobal('confirm', confirm)
+
+    // The badge counts recipes recursively, like the confirmation does.
+    expect(screen.getByText('2 recipes')).toBeInTheDocument()
+
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
+    expect(confirm).toHaveBeenCalledWith('Remove subfactory "My Subfactory" and its 2 recipes and 1 nested subfactory?')
+    expect(rootPlan().subPlans).toHaveLength(1)
+    expect(rootPlan().nodes).toHaveLength(1)
+
+    confirm.mockReturnValue(true)
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
+    expect(rootPlan().subPlans).toHaveLength(0)
+    expect(rootPlan().nodes).toHaveLength(0)
+  })
+
+  it('Escape closes the menu and keeps the sub-factory', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(rootPlan().subPlans).toHaveLength(1)
+  })
+
+  it('countSubPlanContents counts recipes and nested sub-factories at every depth', () => {
+    const deepest = makeSubPlan('c', 'C', [recipeNode('r4')])
+    const mid = makeSubPlan('b', 'B', [recipeNode('r2'), recipeNode('r3'), { kind: 'subplan', id: 'n-c', subPlanId: 'c' }], [deepest])
+    const top = makeSubPlan('a', 'A', [recipeNode('r1'), { kind: 'subplan', id: 'n-b', subPlanId: 'b' }], [mid])
+    expect(countSubPlanContents(top)).toEqual({ recipes: 4, subfactories: 2 })
+    expect(countSubPlanContents(makeSubPlan('e', 'E'))).toEqual({ recipes: 0, subfactories: 0 })
   })
 })

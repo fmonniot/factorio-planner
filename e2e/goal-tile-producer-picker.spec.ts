@@ -24,7 +24,7 @@ test.describe('Goal tile: add producer recipe', () => {
     const rows = page.locator('main table tbody tr')
     const before = await rows.count()
 
-    await page.getByTitle('Hydrogen — click to add a producer recipe', { exact: true }).click()
+    await page.getByTitle('Hydrogen — click to add a producer recipe, right-click to remove', { exact: true }).click()
 
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
     await expect(page.getByText("Choose a recipe to produce 'Hydrogen'")).toBeVisible()
