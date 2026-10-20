@@ -3,7 +3,6 @@ import fs from 'fs'
 import { planStorageKey } from '../../src/store/sourceId'
 
 // Plans are stored per data set (see src/store/persistence.ts).
-const APP_STATE_KEY = planStorageKey('nullius')
 const GAME_DATA_KEY = 'factorio-planner:game-data-source'
 
 /**
@@ -18,12 +17,13 @@ const GAME_DATA_KEY = 'factorio-planner:game-data-source'
  * @param page             Playwright page object
  * @param planFixturePath  Absolute path to an exported plan JSON file
  * @param gameDataSource   Which bundled dataset to auto-load ('nullius'),
- *                         or null to skip (game data must be loaded manually)
+ *                         or 'kompetenz-seablock', or null to skip (game data
+ *                         must be loaded manually; the plan goes to Nullius)
  */
 export async function loadPlanFixture(
   page: Page,
   planFixturePath: string,
-  gameDataSource: 'nullius' | null = 'nullius',
+  gameDataSource: 'nullius' | 'kompetenz-seablock' | null = 'nullius',
 ): Promise<void> {
   const json = fs.readFileSync(planFixturePath, 'utf8')
   await page.addInitScript(
@@ -32,7 +32,7 @@ export async function loadPlanFixture(
       if (gameDataValue) localStorage.setItem(gameDataKey, gameDataValue)
     },
     {
-      stateKey: APP_STATE_KEY,
+      stateKey: planStorageKey(gameDataSource ?? 'nullius'),
       stateJson: json,
       gameDataKey: GAME_DATA_KEY,
       gameDataValue: gameDataSource,

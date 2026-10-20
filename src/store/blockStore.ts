@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
+import { pickBlockColor } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -123,10 +124,11 @@ export function makeRecipeNode(recipeId: string): RecipeNode {
   }
 }
 
-export function makeEmptyBlock(name: string): Block {
+export function makeEmptyBlock(name: string, color: string = pickBlockColor([])): Block {
   return {
     id: crypto.randomUUID(),
     name,
+    color,
     goals: [],
     noImportItems: [],
     inputConnections: [],
@@ -140,7 +142,7 @@ export function makeEmptyBlock(name: string): Block {
  * child sub-plans. Connections from other blocks reading this one are not part
  * of the block, so they are not copied.
  */
-export function cloneBlock(block: Block): Block {
+export function cloneBlock(block: Block, color: string): Block {
   const subPlanIds = new Map<string, string>()
 
   function cloneSubPlan(plan: SubPlan): SubPlan {
@@ -166,6 +168,7 @@ export function cloneBlock(block: Block): Block {
     ...structuredClone(block),
     id: crypto.randomUUID(),
     name: `${block.name} (copy)`,
+    color,
     goals: block.goals.map(g => ({ ...structuredClone(g), id: crypto.randomUUID() })),
     inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
     rootPlan,
@@ -314,7 +317,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   addBlock: () =>
     set(state => {
-      const block = makeEmptyBlock(`Block ${state.blocks.length + 1}`)
+      const block = makeEmptyBlock(`Block ${state.blocks.length + 1}`, pickBlockColor(state.blocks.map(b => b.color)))
       return {
         blocks: [...state.blocks, block],
         activeBlockId: block.id,
@@ -347,7 +350,8 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const index = state.blocks.findIndex(b => b.id === blockId)
       if (index < 0) return state
-      const copy = cloneBlock(state.blocks[index])
+      const src = state.blocks[index]
+      const copy = cloneBlock(src, pickBlockColor(state.blocks.map(b => b.color), { exclude: src.color }))
       const blocks = [...state.blocks]
       blocks.splice(index + 1, 0, copy)
       return { blocks, activeBlockId: copy.id }

@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { clickRowAction } from './support/rowMenu'
+import { slot } from './support/summary'
 
 /** Goals and sub-factories are removed from a right-click menu (no × buttons). */
 const FIXTURE = path.resolve('e2e/fixtures/byproduct-add-consumer.json')
@@ -13,8 +14,8 @@ test.describe('Removal through right-click menus', () => {
     await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   })
 
-  test('right-click on a goal tile removes the goal', async ({ page }) => {
-    const goal = page.getByTitle(/^Hydrogen — click to add a producer recipe/)
+  test('right-click on a goal slot removes the goal', async ({ page }) => {
+    const goal = slot(page, 'Products', 'Hydrogen')
     await goal.click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Remove goal' }).click()
     await expect(goal).toHaveCount(0)

@@ -1,6 +1,6 @@
 # Summary panes → item slots with allocation micro-bars
 
-Status: Future
+Status: Shipped
 
 ## Context
 
@@ -123,13 +123,14 @@ Each block gets a colour, stored on the block:
 - The palette avoids the colours that already mean something: teal (actual
   rates, selection), amber (warnings) and grey (kept, import). Candidates to tune
   during implementation: `#60a5fa #7dd3fc #818cf8 #a78bfa #d8b4fe #e879f9
-  #f472b6 #fda4af #fca5a5 #fb923c #a3e635 #86efac #bfdbfe #fbcfe8 #c4b5fd
-  #fdba74`.
+  #f472b6 #fda4af #fca5a5 #a5b4fc #a3e635 #86efac #bfdbfe #fbcfe8 #c4b5fd
+  #f9a8d4` (the orange pair was swapped out so no block colour resembles the
+  amber warning colour).
 
 The canvas also tried colours derived from the block's position in the list;
 that was rejected because reordering blocks recolours every one of them.
 
-Out of scope here, as follow-ups in [../backlog.md](../backlog.md): letting the
+Out of scope here, as follow-ups in [../../backlog.md](../../backlog.md): letting the
 user choose the colour, deriving the default from the block's icon, and showing
 the colour in the block tabs and the block graph.
 
@@ -162,8 +163,8 @@ All on the canvas linked above.
   and removable.
 - Data model: `BlockSchema.color`, migration, palette picker in the block store
   (add, duplicate, import).
-- Docs: [spec/ui.md](../../spec/ui.md) (FactorySummary panes),
-  [spec/data-model.md](../../spec/data-model.md) (block colour), README "Using the
+- Docs: [spec/ui.md](../../../spec/ui.md) (FactorySummary panes),
+  [spec/data-model.md](../../../spec/data-model.md) (block colour), README "Using the
   planner".
 - Tests: unit tests for the segment function and colour assignment; update
   `e2e/summary-panes-many-items.spec.ts` for slots, selection, hover preview,

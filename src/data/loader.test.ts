@@ -6,6 +6,7 @@ import {
   GameDataLoadError,
 } from './loader'
 import { SubPlanSchema } from './schema'
+import { BLOCK_PALETTE } from './blockColors'
 import { ZodError } from 'zod'
 import type { GameData, SubPlan, GameRecipeNode } from './types'
 
@@ -479,6 +480,33 @@ describe('parseAppState — inputConnections', () => {
     })
     expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
     expect(state.blocks[1].inputConnections).toEqual(connections)
+  })
+})
+
+describe('parseAppState — block colours', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const blockJson = (id: string, extra: Record<string, unknown> = {}) => ({
+    id, name: id, goals: [], noImportItems: [],
+    rootPlan: { id: `${id}-root`, name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
+    ...extra,
+  })
+
+  it('gives a legacy block without a colour a palette colour', () => {
+    const state = parseAppState({ blocks: [blockJson('a'), blockJson('b')], activeBlockId: 'a' })
+    expect(state.blocks.map(b => b.color)).toEqual([BLOCK_PALETTE[0], BLOCK_PALETTE[1]])
+  })
+
+  it('gives the same colours when the same JSON is parsed twice', () => {
+    const raw = { blocks: [blockJson('a'), blockJson('b'), blockJson('c')], activeBlockId: 'a' }
+    expect(parseAppState(raw).blocks.map(b => b.color)).toEqual(parseAppState(raw).blocks.map(b => b.color))
+  })
+
+  it('keeps the colours a plan already has', () => {
+    const state = parseAppState({
+      blocks: [blockJson('a'), blockJson('b', { color: '#60a5fa' })],
+      activeBlockId: 'a',
+    })
+    expect(state.blocks.map(b => b.color)).toEqual([BLOCK_PALETTE[1], '#60a5fa'])
   })
 })
 

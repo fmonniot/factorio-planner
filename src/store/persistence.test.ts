@@ -12,6 +12,7 @@ import {
   replacePlan,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
+import { HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore } from './gameDataStore'
 import type { AppState, GameData, Block, GameRecipeNode } from '../data/types'
 
@@ -481,6 +482,7 @@ describe('plan import', () => {
       }
       const result = checkPlanImport(JSON.stringify({ blocks: [legacy], activeBlockId: 'b1' }), knownData(), 'nullius')
       expect(result.type).toBe('ok')
+      expect(result.type === 'ok' && result.appState.blocks[0].color).toMatch(HEX_COLOR_RE)
     })
   })
 

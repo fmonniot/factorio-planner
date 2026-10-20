@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useBlockStore, selectActiveBlock } from '../store/blockStore'
+import { useBlockStore } from '../store/blockStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 
 // ---------------------------------------------------------------------------
@@ -7,6 +7,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 // ---------------------------------------------------------------------------
 
 import { Icon } from './Icon'
+import { withAlpha } from '../data/blockColors'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -109,31 +110,41 @@ function BlockTab({ blockId, isActive, onClick, disabled }: BlockTabProps) {
   }
 
   return (
-    <div className="relative">
+    <div className="relative min-w-0 flex">
       <button
         title={block.name}
+        aria-current={isActive ? 'true' : undefined}
         onClick={onClick}
         onContextMenu={handleContextMenu}
         disabled={disabled}
         className={`
-          w-9 h-9 rounded flex items-center justify-center text-sm font-bold
+          relative flex items-center gap-1.5 min-w-0 max-w-44 h-8 pl-2 pr-3 -mb-px rounded-t text-xs border border-b-0
           transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed
           ${isActive
-            ? 'bg-gray-700 ring-2 ring-blue-500 text-gray-100'
-            : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-200'
+            ? 'bg-gray-800 border-gray-700 text-gray-100'
+            : 'border-transparent text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
           }
         `}
       >
-        {firstItem ? (
-          <Icon
-            iconPath={firstItem.iconPath}
-            alt={firstItem.name}
-            className="w-6 h-6 object-contain"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-          />
-        ) : (
-          <span className="text-gray-500">?</span>
+        {/* Block colour as a stripe across the top, kept off the icon so the icon keeps its own colours */}
+        <span
+          aria-hidden="true"
+          data-testid="block-tab-stripe"
+          className={`absolute -left-px -right-px -top-px rounded-t ${isActive ? 'h-[3px]' : 'h-0.5'}`}
+          style={{ background: isActive ? block.color : withAlpha(block.color, 0.55) }}
+        />
+        {/* Wrapped so Icon's <picture>/<source> count as one flex item, not an extra gap */}
+        {firstItem && (
+          <span className="flex shrink-0">
+            <Icon
+              iconPath={firstItem.iconPath}
+              alt=""
+              className="w-5 h-5 object-contain"
+              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+            />
+          </span>
         )}
+        <span className="truncate">{block.name}</span>
       </button>
 
       {menuOpen && (
@@ -152,13 +163,12 @@ export function BlockTabs() {
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const addBlock = useBlockStore(s => s.addBlock)
-  const activeBlock = useBlockStore(selectActiveBlock)
   // The plan on screen only belongs to the selected data set once its data has
   // loaded; until then the tabs are read-only so no edit lands in the wrong plan.
   const editable = useGameDataStore(s => s.status.type === 'loaded')
 
   return (
-    <div className="h-10 bg-gray-900 border-b border-gray-700 flex items-center gap-1 px-3 shrink-0">
+    <div className="self-stretch flex items-end gap-1 min-w-0">
       {blocks.map(block => (
         <BlockTab
           key={block.id}
@@ -174,17 +184,10 @@ export function BlockTabs() {
         title="Add block"
         onClick={addBlock}
         disabled={!editable}
-        className="w-9 h-9 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors text-lg leading-none disabled:opacity-40 disabled:cursor-not-allowed"
+        className="self-center shrink-0 w-7 h-7 ml-1 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors text-lg leading-none disabled:opacity-40 disabled:cursor-not-allowed"
       >
         +
       </button>
-
-      {/* Active block name label */}
-      {activeBlock && (
-        <span className="ml-2 text-xs text-gray-500 truncate max-w-32">
-          {activeBlock.name}
-        </span>
-      )}
     </div>
   )
 }

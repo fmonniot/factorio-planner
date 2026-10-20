@@ -38,12 +38,16 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣][▣][+] Block name   [Graph] [Export plan] [Import plan] [Nullius ▾]   │
+│ [▣ Plates][▣ Gears] +    [Graph] [Export plan] [Import plan] [Nullius ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
-│ │ [icon 60 → ▼58.2] [→B]│ │ [icon 12 /m] [→ C]  │ │ [icon 30 /m] [← A]  │ │
-│ │                       │ │                     │ │ [icon 🔒]           │ │
+│ │ [slot 58▼] [slot ]    │ │ [slot 12 ] [slot ]  │ │ [slot 30 ] [slot ⊘] │ │
+│ │  ▂▂▂▂▂▂    micro-bars │ │  ▂▂▂▂▂▂             │ │  ▂▂▂▂▂▂             │ │
+│ ├───────────────────────┤ ├─────────────────────┤ ├─────────────────────┤ │
+│ │ detail strip: overview│ │ overview / preview /│ │ → B ▇▇▇▇ 40 · 2     │ │
+│ │ rows, or the selected │ │ selected slot with  │ │ Imported ▇▇ 5 · 1   │ │
+│ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
@@ -64,17 +68,22 @@ horizon button, the tech tree button, plan export, plan import and game-data sel
 
 ### Block tabs
 
-`BlockTabs.tsx`. One square tab per block, showing the icon of the block's first
-goal (or `?` when it has none); the full name is the tab's tooltip. The active
-block's name is printed after the tabs.
+`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border: the
+icon of the block's first goal (none when it has no goal), then the block's name, truncated when
+long; the full name is the tab's tooltip. A stripe in the block's colour runs across the top of each
+tab: full strength and 3px on the active tab, muted and 2px on the others. The colour stays off the
+icon so item icons keep their own colours. The active tab also has a raised background and border
+and carries `aria-current`.
 
 - Click a tab to make that block active. Only the active block is shown, but
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
-- `+` adds a new empty block named "Block N" and activates it.
+- `+` adds a new empty block named "Block N" and activates it. Every block has a
+  display colour ([data-model.md](data-model.md#block)); a new block gets a random
+  palette colour, preferring one no other block uses.
 - Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
-  original and activates it. Goals, recipes, sub-plans and input connections
+  original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original
   are not. Like add, rename and delete, it is not undoable.
   Delete is disabled when only one block remains; deleting the active block
@@ -102,7 +111,7 @@ near-full-screen modal showing every block and the connections between them, lik
   graph is moved down to make room. Edges are drawn under the nodes. A graph edit is recorded
   in the *consumer* block's history, while undo and redo act on the *active* block, so undoing
   after editing another block's connections does not revert that edit. Titles match the
-  [Ingredients chips](#ingredients-pane). Connections whose source was deleted and
+  [Ingredients pane's segment titles](#ingredients-pane). Connections whose source was deleted and
   self-connections are not drawn; they stay visible and removable in the Ingredients pane.
 - **Connecting from the source side.** The `→` handle on a node (disabled with a single block)
   starts connect mode: blocks that import something the source still has left to offer are
@@ -261,92 +270,65 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
   default is `/min`. It changes how every rate in the summary and the table is
   displayed; stored values are always per minute.
 
-Each of the three panes has a header (label, an item count `· N`, and for
-Products the `+` button) above a list of rows, one row per item. A row has a lead
-tile on the left and that item's connection chips, wrapping, to its right; chips
-carry no icon when the lead already shows it. Items show their icon; an item without an icon falls back to its name. A pane
-is capped at 25% of the viewport height (`max-h-[25vh]`); when its rows overflow,
-the list scrolls vertically while the header stays put, and a gradient fades the
-bottom edge (the pane has `data-overflow="true"`) while more rows sit below. The
-fade is re-measured after every render and whenever the list's content resizes.
+Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
+
+**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** (segments 1px apart) along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal (with a dark teal fill) when selected, amber for a short goal or a limited connection, grey otherwise; a short goal's rate is amber. A locked item or an unused connection dims the slot. The grid grows to fill the pane, so the three detail strips line up at the bottom of the row. The grid is capped at two rows of slots plus a peek at the third (`max-h-[124px]`), to leave room for the production table, and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes (`useMoreBelow`).
+
+**Allocation segments.** Every item is a bar whose segments add up to the bar's scale. The micro-bar, the detail bar and the overview all use the same encoding:
+
+| Pane | Scale | Segments, in order |
+|---|---|---|
+| Products | max(target, actual) | one `export` per consumer block · `kept` (actual minus exports) · `short` (target minus actual, when short) |
+| Byproducts | net production | one `export` per consumer block · `left` (what stays) |
+| Ingredients | need | one `source` per source block (delivered) · `import` (still imported) |
+
+| Kind | Look in the detail bar (micro-bar: solid) |
+|---|---|
+| `export`, `source` | the block's colour as a translucent fill with a solid border; a limited source has an amber border (amber in the micro-bar) |
+| `kept`, `left` | dark fill, grey border |
+| `import` | no fill, light grey outline |
+| `short` | faint amber fill, dashed amber border |
+| unused / cycle / deleted source | no fill, dashed grey border; takes no share of the bar, but fills it (dark grey in the micro-bar) when the item has no segment, and otherwise outlines the detail bar with a dashed line |
+| imports forbidden | grey stripes; fills the bar when the item has no segment |
+
+The looks live in `segmentLooks.ts` and are shared by the micro-bar, the detail bar, the colour key and the overview's swatches and bars.
+
+Products also draw a 2px light tick at the target when the actual rate differs from it (inside the bar when over-producing, at its end when short). Block colours come from `Block.color`; a block that no longer exists is grey. The segment model is built by pure functions in `summarySegments.ts` from the rows of `summaryRows.ts`.
+
+**Detail strip.** A fixed-height strip (`h-[110px]`, `data-testid="summary-detail"`, `data-state`) at the bottom of the pane, on a lighter background, always present, so slots never move when the selection changes. It has four states:
+
+- *overview* (nothing selected or hovered): an `Overview` heading with the hint "click a row to trace it" ("click again to clear" while tracing), then one button per segment key in the pane, laid out in columns: swatch, label such as `→ Sciences`, `Kept`, `Imported`, a bar sized against the pane's largest total (at least 2% wide), the total rate (`unused` for an unused source, `—` for a key with no rate) and the number of items carrying it. The strip's height shows three rows and a peek at the fourth; more rows scroll (`summary-overview-rows`) with the same bottom fade as the grid. Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): the row gets a border in its block's colour, the other rows fade, slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
+- *preview* (a slot is hovered): that slot's detail with a `preview` tag after the name. Hovering the selected slot keeps the selected state.
+- *selected* (a slot is clicked): header (icon, name, rates, `×` back to the overview), the full-size bar with labels (name and rate) on segments at least 20% wide, a colour key listing every segment and overlay with its exact rate, wrapped inline (it scrolls inside the strip), and the item's actions.
+- *editing* (Products only): as selected, with the target as an input. Hover does not change the strip meanwhile.
+
+Clicking a slot selects it and clicking it again clears the selection. A double-click on a slot leaves it selected. Escape (heard on the document, so it works wherever focus is, and only when no input or menu handled it) clears the selection, or the trace when nothing is selected. Selection, hover and trace are view state: not saved. Slots are identified by a pane-unique id (the goal id in Products, so two goals for one item are separate slots; the item id elsewhere).
+
+Segments in the detail bar and entries in the colour key are interactive (an entry whose block was deleted is still focusable, so its context menu opens from the keyboard): an `export` or `source` whose block exists opens that block when clicked; right-clicking a `source`, or an unused / cycle / deleted-source entry, opens a `RowActionsMenu` with **Remove connection** (Ingredients pane only). Titles: `Sends <item> to <consumer> — click to open`, `<item> from <source> — click to open, right-click to remove`, `Limited: <source> only offers N — …`, `Not used: this block makes or needs none from outside — right-click to remove`, and for a deleted source or a cycle the corresponding explanation.
 
 ### Products pane
 
-One row per block goal, in goal order, led by a `GoalTile`: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
+One slot per block goal, in goal order. The slot rate is the actual output (the target before the first solve). Segments: one `export` per consumer, `kept`, and `short` when short.
 
-- The target is clickable and edits inline (in the current display unit).
-- The icon (or name) is clickable and opens the [recipe picker](#recipe-picker)
-  filtered to recipes producing the item; the chosen recipe is added to the root
-  plan.
-- The actual rate is the item's net balance across all solved nodes; it appears
-  once the solver has a result. When it is below the target (by more than the
-  solver's flow tolerance, and by an amount that does not round to zero in the
-  displayed precision) it turns amber with a leading `▼` and its tooltip reads
-  "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal. Once the
-  solver has a result, a goal that no node produces counts as an actual of 0, so
-  it is fully short. "Short" compares the goal's net balance with its target and
-  does not subtract what the block exports, so a goal whose output is partly
-  delivered to other blocks is not marked short for that reason.
-- Right-clicking the tile opens a `RowActionsMenu` with **Remove goal**.
-- `+`, pinned in the pane header so it never scrolls away, opens the
-  [item picker](#item-picker) to add a goal.
-- An `ExportChip` (`→ <consumer> <rate>`, no icon) sits on the goal's row for each
-  block that receives the item from this one. Click it to open that block.
+- Header rates in the strip: `target → actual /unit`. The target is a button (`Target: X/m — click to edit`) that edits inline in the current display unit (Enter or blur commits, Escape cancels and keeps the selection); double-clicking a slot selects it and edits its target at once.
+- The actual rate is the item's net balance across all solved nodes; it appears once the solver has a result. When it is below the target (by more than the solver's flow tolerance, and by an amount that does not round to zero in the displayed precision) the slot gets an amber border and a `▼` badge, and the actual turns amber with a leading `▼` and its tooltip reads "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal. Once the solver has a result, a goal that no node produces counts as an actual of 0, so it is fully short. "Short" compares the goal's net balance with its target and does not subtract what the block exports, so a goal whose output is partly delivered to other blocks is not marked short for that reason.
+- Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Remove goal**. Right-clicking a slot opens a `RowActionsMenu` with **Remove goal**.
+- `+`, pinned in the pane header so it never scrolls away, opens the [item picker](#item-picker) to add a goal.
 
 ### Byproducts pane
 
-One row per non-goal item with a positive net balance, led by an `ItemTile`. The
-rate shown is the net balance minus what other blocks receive. An item that is
-only exported (nothing left) has a row without a tile, whose first `ExportChip`
-keeps the item icon. Rows list leftover byproducts first, then export-only items;
-each row's `ExportChip`s follow its tile.
+One slot per non-goal item with a positive net balance. The slot rate is the net balance minus what other blocks receive; an item that is only exported has rate 0. Segments: one `export` per consumer, then `left`. Slots list leftover byproducts first, then export-only items. Header rates: `made N`, the net production.
 
-Right-clicking a tile opens a `RowActionsMenu` with **Add consumer recipe…**,
-which opens a recipe picker filtered to recipes that take the item as an
-ingredient. The chosen recipe is added to the block's root plan (even while a
-sub-factory is expanded). Escape or an outside click closes the menu without
-opening the picker.
+Right-clicking a slot, or **Add consumer recipe…** in the strip, opens a recipe picker filtered to recipes that take the item as an ingredient. The chosen recipe is added to the block's root plan (even while a sub-factory is expanded). Escape or an outside click closes the menu without opening the picker.
 
 ### Ingredients pane
 
-The solver's `unsatisfied` list: everything the block must import (goal
-shortfalls, intermediate slack, raw resources), together with the block's
-connections and locked items, grouped into one row per item. A row's lead is the
-import `ItemTile` when the item is still imported, otherwise the lock chip when
-it is locked, otherwise nothing; the item's connection chips follow. Rows are
-ordered by first appearance: connected items, then imported items, then locked
-items. A row without a lead shows the icon on its first chip only.
+The solver's `unsatisfied` list: everything the block must import (goal shortfalls, intermediate slack, raw resources), together with the block's connections and locked items, grouped into one slot per item. Slots are ordered by first appearance: connected items, then imported items, then locked items. The slot rate is the need: what is delivered plus what is still imported. Segments: one `source` per connection that delivers something, then `import`. Header rates: `need N`.
 
-- Clicking a tile opens the [recipe picker](#recipe-picker) filtered to recipes
-  producing the item; the chosen recipe is added to the root plan (as with the
-  goal tile and the Byproducts pane).
-- Right-clicking a tile opens `ConnectionMenu`, except on a goal shortfall,
-  which has no menu: goals are never fed by connections and have no import
-  slack, so forbidding imports would change nothing (see
-  [solver.md](solver.md)). A lock chip for a goal item can still exist (the lock
-  predates the goal, or comes from saved data); it stays removable. It lists
-  "Receive <item> from" with one entry per other block that still has the item to give (the offered
-  rate minus what it already delivers to other blocks; sources with nothing left
-  are not listed),
-  excluding blocks already connected for that item and blocks that would close a
-  cycle. Choosing one adds a connection to the active block. Connections can also be made
-  from the source side in the [block graph](#block-graph). With no candidate
-  the menu reads "No other block produces this item". It is rendered in a
-  portal at the tile's bottom-left corner (so the pane's scrolling cannot clip
-  it) and closes on Escape, a click outside, or a scroll. After a divider it
-  ends with **Forbid imports** (adds the item to the block's `noImportItems`,
-  so the solver never imports it) or, for a locked item, **Allow imports**.
-- Connections follow the lead on the item's row, as `ConnectionChip`s: `delivered/needed`,
-  `← <source block>` (click to open the source). Right-clicking a chip opens a
-  `RowActionsMenu` with **Remove connection** (undoable). `needed` is what is delivered plus what is still imported. States:
-  normal; `limited` (amber border, tooltip "Limited: <source> only offers N",
-  the rest of the need stays in the tiles); `unused` (dimmed, tooltip "Not used:
-  this block makes or needs none from outside"); `(deleted block)` or `(cycle,
-  ignored)` (grey; remove with right-click).
-- Each no-import item is shown as a dimmed chip with a 🔒: the row's lead, or,
-  when the item is also imported (a locked goal shortfall), the first chip after
-  the tile. Click it to allow imports again. Right-clicking the chip opens the same
-  `ConnectionMenu`; for a goal item it holds only **Allow imports**.
+- Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Receive from…** opens `ConnectionMenu` under the button; **Forbid imports** / **Allow imports**. A plain left click on a slot only selects it, locked or not.
+- Right-clicking a slot opens `ConnectionMenu` under the slot, except on a goal shortfall, which has no menu: goals are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a goal item can still exist (the lock predates the goal, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu lists "Receive <item> from" with one entry per other block that still has the item to give (the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed), excluding blocks already connected for that item and blocks that would close a cycle. Choosing one adds a connection to the active block. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block produces this item". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
+- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N"; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · cycle, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable).
+- A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
 ### Warnings popover
 
@@ -525,7 +507,7 @@ The same component in recipes mode (`source="recipes"`).
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".
-- When opened from an ingredient or a goal tile, only recipes producing that item are
+- When opened from a summary slot's **Find recipe** or an ingredient tile, only recipes producing that item are
   listed and the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an
   ingredient, fluid temperature ignored) are listed and the subtitle reads
@@ -582,7 +564,7 @@ The same component in recipes mode (`source="recipes"`).
 
 ## Shared pieces
 
-- `ItemTile.tsx` — the coloured rate tile used everywhere (variants product,
+- `ItemTile.tsx` — the coloured rate tile used in the production table (variants product,
   byproduct, ingredient, electricity), plus `fmtRate` and `fmtPower`. Rates show
   0–2 decimals depending on magnitude.
 - `Icon.tsx` — renders an `iconPath` as a `<picture>` with a WebP source and PNG

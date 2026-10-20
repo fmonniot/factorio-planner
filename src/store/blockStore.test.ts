@@ -2,12 +2,14 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import {
   useBlockStore,
   makeEmptyBlock,
+  cloneBlock,
   makeEmptySubPlan,
   findSubPlan,
   isSubPlanDescendant,
   selectAppState,
 } from './blockStore'
 import type { Block, RecipeNode, SubPlanNode } from '../data/types'
+import { BLOCK_PALETTE } from '../data/blockColors'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -638,7 +640,7 @@ describe('duplicateBlock', () => {
     useBlockStore.getState().duplicateBlock(original.id)
     const copy = blocks()[1]
     const strip = (b: Block) => JSON.stringify(b, (k, v) => (k === 'id' || k === 'subPlanId' ? undefined : v))
-    expect(strip({ ...copy, name: original.name })).toBe(strip(original))
+    expect(strip({ ...copy, name: original.name, color: original.color })).toBe(strip(original))
     const originalIds = collectIds(original)
     const copyIds = collectIds(copy)
     expect(new Set([...originalIds, ...copyIds]).size).toBe(originalIds.length + copyIds.length)
@@ -674,5 +676,45 @@ describe('duplicateBlock', () => {
     useBlockStore.getState().duplicateBlock('missing')
     expect(useBlockStore.getState().blocks).toBe(before)
     expect(useBlockStore.getState().activeBlockId).toBe(other.id)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// block colours
+// ---------------------------------------------------------------------------
+
+describe('block colours', () => {
+  const palette: readonly string[] = BLOCK_PALETTE
+
+  it('gives an empty block a palette colour', () => {
+    expect(palette).toContain(makeEmptyBlock('B').color)
+  })
+
+  it('addBlock takes the only unused palette colour', () => {
+    const blocks = BLOCK_PALETTE.slice(0, 15).map((c, i) => makeEmptyBlock(`B${i}`, c))
+    useBlockStore.setState({ blocks, activeBlockId: blocks[0].id, history: {} })
+    useBlockStore.getState().addBlock()
+    const added = useBlockStore.getState().blocks[15]
+    expect(added.color).toBe(BLOCK_PALETTE[15])
+  })
+
+  it('duplicateBlock gives the copy a different colour from its source', () => {
+    const only = makeEmptyBlock('Only')
+    useBlockStore.setState({ blocks: [only], activeBlockId: only.id, history: {} })
+    useBlockStore.getState().duplicateBlock(only.id)
+    const [src, copy] = useBlockStore.getState().blocks
+    expect(copy.color).not.toBe(src.color)
+    expect(palette).toContain(copy.color)
+  })
+
+  it('duplicateBlock still differs from its source when every palette colour is used', () => {
+    const blocks = BLOCK_PALETTE.map((c, i) => makeEmptyBlock(`B${i}`, c))
+    useBlockStore.setState({ blocks, activeBlockId: blocks[0].id, history: {} })
+    useBlockStore.getState().duplicateBlock(blocks[0].id)
+    expect(useBlockStore.getState().blocks[1].color).not.toBe(blocks[0].color)
+  })
+
+  it('cloneBlock sets the colour it is given', () => {
+    expect(cloneBlock(makeEmptyBlock('B'), '#123456').color).toBe('#123456')
   })
 })

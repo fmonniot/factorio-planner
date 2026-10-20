@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
+import { detail, selectSlot, slot } from './support/summary'
 
 /**
  * Fixture: block "Plates" (goal iron plate 60/min) and the active block "Gears"
@@ -12,21 +13,25 @@ import { loadPlanFixture } from './support/loadPlan'
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 
-const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to find a producer recipe"]')
-const rodTile = (page: Page) => page.locator('button[title^="Iron rod — click to find a producer recipe"]')
-const chip = (page: Page) => page.getByTestId('connection-chip')
+const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
+const rodSlot = (page: Page) => slot(page, 'Ingredients', 'Iron rod')
+const sourceSegment = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')
+const sourceEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')
+const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(plateTile(page)).toBeVisible({ timeout: 10000 })
+  await expect(plateSlot(page)).toBeVisible({ timeout: 10000 })
 }
 
 async function connectPlatesFromPlatesBlock(page: Page) {
   // The menu lists Plates only once its own solve has landed.
-  await plateTile(page).click({ button: 'right' })
+  await plateSlot(page).click({ button: 'right' })
   await page.getByRole('menuitem', { name: /Plates/ }).click()
-  await expect(chip(page)).toBeVisible()
+  // The slot may still be selected from before; a second click would clear it.
+  if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
+  await expect(sourceSegment(page)).toBeVisible()
 }
 
 test.describe('block connections', () => {
@@ -35,29 +40,33 @@ test.describe('block connections', () => {
     await connectPlatesFromPlatesBlock(page)
 
     // Gears now gets all 30 plate/min from Plates; rods are still imported.
-    await expect(chip(page)).toContainText('Plates')
-    await expect(chip(page)).toContainText('30.0')
-    await expect(plateTile(page)).toHaveCount(0)
-    await expect(rodTile(page)).toContainText('15.0')
+    await expect(sourceSegment(page)).toContainText('Plates')
+    await expect(sourceEntry(page)).toContainText('30.0')
+    await expect(importEntry(page)).toHaveCount(0)
+    await expect(rodSlot(page)).toHaveAccessibleName(/, 15\.0 per/)
 
     // Plates shows what it sends to Gears.
     await page.locator('button[title="Plates"]').click()
-    await expect(page.getByTestId('export-chip')).toContainText('Gears')
-    await expect(page.getByTestId('export-chip')).toContainText('30.0')
+    await selectSlot(page, 'Products', 'Iron plate')
+    const exportSegment = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
+    await expect(exportSegment).toHaveAttribute('title', /^Sends Iron plate to Gears/)
+    await expect(detail(page, 'Products').locator('[data-testid="summary-key-entry"][data-kind="export"]')).toContainText('30.0')
 
     // Lower the Plates goal to 20: Gears is limited and imports the other 10.
     await page.getByTitle(/Target:/).click()
     await page.getByLabel('Goal target rate').fill('20')
     await page.getByLabel('Goal target rate').press('Enter')
     await page.locator('button[title="Gears"]').click()
-    await expect(chip(page)).toHaveAttribute('title', /Limited/)
-    await expect(plateTile(page)).toContainText('10.0')
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(plateSlot(page)).toHaveAttribute('data-status', 'limited')
+    await expect(sourceSegment(page)).toHaveAttribute('title', /Limited/)
+    await expect(importEntry(page)).toContainText('10.0')
 
     // Removing the connection brings the whole import back.
-    await chip(page).click({ button: 'right' })
+    await sourceSegment(page).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Remove connection' }).click()
-    await expect(chip(page)).toHaveCount(0)
-    await expect(plateTile(page)).toContainText('30.0')
+    await expect(sourceSegment(page)).toHaveCount(0)
+    await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
 
     // The connection is part of the exported plan.
     await connectPlatesFromPlatesBlock(page)
@@ -80,7 +89,7 @@ test.describe('block connections', () => {
     await overlay.getByPlaceholder('Search…').fill('Iron plate')
     await overlay.locator('[data-testid="recipe-slot"][title="Iron plate"]').click()
 
-    await expect(chip(page)).toHaveAttribute('title', /Not used/)
-    await expect(page.locator('button[title^="Iron ingot — click to find a producer recipe"]')).toBeVisible()
+    await expect(detail(page, 'Ingredients').getByTestId('summary-key-entry').filter({ hasText: 'unused' })).toHaveAttribute('title', /Not used/)
+    await expect(slot(page, 'Ingredients', 'Iron ingot')).toBeVisible()
   })
 })

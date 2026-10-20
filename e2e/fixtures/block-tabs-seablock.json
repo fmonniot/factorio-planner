@@ -1,0 +1,110 @@
+{
+  "blocks": [
+    {
+      "id": "dddd0001-0000-0000-0000-000000000001",
+      "name": "Red science",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "dddd0001-0000-0000-0000-0000000000g1",
+          "itemId": "automation-science-pack",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "dddd0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [],
+        "subPlans": [],
+        "createdAt": "2026-10-19T00:00:00.000Z",
+        "updatedAt": "2026-10-19T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0002-0000-0000-0000-000000000001",
+      "name": "Green science",
+      "color": "#f472b6",
+      "goals": [
+        {
+          "id": "dddd0002-0000-0000-0000-0000000000g1",
+          "itemId": "logistic-science-pack",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "dddd0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [],
+        "subPlans": [],
+        "createdAt": "2026-10-19T00:00:00.000Z",
+        "updatedAt": "2026-10-19T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0003-0000-0000-0000-000000000001",
+      "name": "Processing units",
+      "color": "#a3e635",
+      "goals": [
+        {
+          "id": "dddd0003-0000-0000-0000-0000000000g1",
+          "itemId": "processing-unit",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "dddd0003-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [],
+        "subPlans": [],
+        "createdAt": "2026-10-19T00:00:00.000Z",
+        "updatedAt": "2026-10-19T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0004-0000-0000-0000-000000000001",
+      "name": "Advanced circuits",
+      "color": "#a78bfa",
+      "goals": [
+        {
+          "id": "dddd0004-0000-0000-0000-0000000000g1",
+          "itemId": "advanced-circuit",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "dddd0004-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [],
+        "subPlans": [],
+        "createdAt": "2026-10-19T00:00:00.000Z",
+        "updatedAt": "2026-10-19T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0005-0000-0000-0000-000000000001",
+      "name": "Iron coils",
+      "color": "#7dd3fc",
+      "goals": [
+        {
+          "id": "dddd0005-0000-0000-0000-0000000000g1",
+          "itemId": "angels-roll-iron",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "dddd0005-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [],
+        "subPlans": [],
+        "createdAt": "2026-10-19T00:00:00.000Z",
+        "updatedAt": "2026-10-19T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "dddd0003-0000-0000-0000-000000000001"
+}

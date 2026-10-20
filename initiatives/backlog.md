@@ -19,6 +19,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **Absolute home paths in committed `iconPath`s.** Every `iconPath` in the bundled `game-data.json` files contains the exporting machine's absolute home directory. `scripts/build-game-data.js` should emit paths relative to the Factorio / mods directories.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
+- [ ] **`Icon` adds a phantom flex item.** `Icon` wraps its `<img>` in a `<picture>` with `display: contents`, so its `<source>` element becomes a zero-width flex item of the parent; in a flex row with `gap` this adds one extra gap (6px with `gap-1.5`) before the image. `BlockTabs` works around it by wrapping the icon in a span; fix it in `Icon` (e.g. hide the `<source>`, or render `<picture>` as an inline-flex box) and check the layouts that shift.
 
 ## Sharing and import
 
@@ -28,7 +29,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Planning features
 
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
-- [ ] **Connect items not shown in Ingredients.** Connections can only be created for items in the target block's Ingredients pane (from a tile or from the block graph); items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
+- [ ] **Connect items not shown in Ingredients.** Connections can only be created for items in the target block's Ingredients pane (from a slot or from the block graph); items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
 - [ ] **Per-connection rate caps.** Let the user limit how much a consumer may take.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
@@ -40,9 +41,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
-- [ ] **Summary panes as item slots.** Replace the one-row-per-item Products, Byproducts and Ingredients panes with slots carrying an allocation micro-bar and a detail strip; adds a colour to each block. Design: [summary-panes-slots/design.md](summary-panes-slots/design.md).
-- [ ] **User-chosen block colour.** Depends on the summary panes initiative, which adds `Block.color` assigned at random. Let the user pick it (e.g. from the block tab's right-click menu), and consider deriving the default from the block's icon.
-- [ ] **Block colour in tabs and block graph.** Once blocks have a colour, show it in `BlockTabs` and on block graph nodes and edges so it matches the summary bars.
+- [ ] **User-chosen block colour.** Blocks have a random `Block.color` (see [archive/summary-panes-slots/design.md](archive/summary-panes-slots/design.md)); let the user pick it (e.g. from the block tab's right-click menu), and consider deriving the default from the block's icon.
+- [~] **Block colour in block graph.** Block tabs show the colour as a stripe across the top; block graph nodes and edges do not show it yet, so they do not match the summary bars.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
@@ -54,7 +54,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
-- [ ] **Byproduct menu and goal tile: hide "Add consumer recipe…" / "Add producer" when nothing matches the item.** The byproduct menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. The goal tile's icon click ("click to add a producer recipe") has the same flaw (as does a tile click in the Ingredients pane): for raw items, or when every producer is outside the research horizon, it opens an empty "Add recipe" picker. Disable or hide the entry (and drop the goal tile hint) in those cases.
+- [ ] **Byproduct menu and summary strip: hide "Add consumer recipe…" / "Find recipe" when nothing matches the item.** The byproduct menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. The summary strip's **Find recipe** action (Products and Ingredients) has the same flaw: for raw items, or when every producer is outside the research horizon, it opens an empty "Add recipe" picker. Disable or hide the action in those cases.
 - [ ] **Fluid temperature indicator.** Fluids show their temperature nowhere in the UI (tiles, goals, pickers, production table). The schema carries `minimumTemperature` / `maximumTemperature` on fluids, but no component reads them and the solver ignores them.
 - [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
 - [ ] **Make sub-factory removal undoable.** `removeSubPlan` in `src/store/blockStore.ts` uses `set` directly instead of a `Command`, so removing a sub-factory (and its contents) cannot be undone.

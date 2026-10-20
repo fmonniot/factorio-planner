@@ -67,6 +67,7 @@ function makeBlock(rootPlan: SubPlan, goals: ProductionGoal[]): Block {
   return {
     id: 'block-1',
     name: 'Block',
+    color: '#60a5fa',
     goals,
     noImportItems: [],
     inputConnections: [],
