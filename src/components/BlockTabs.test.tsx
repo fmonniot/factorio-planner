@@ -47,3 +47,17 @@ describe('BlockTabs context menu', () => {
     expect(screen.getByTitle('Test (copy)')).toBeInTheDocument()
   })
 })
+
+describe('BlockTabs tab look', () => {
+  it('shows the block name under a stripe in the block colour, full strength when active', () => {
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = makeEmptyBlock('Gears', '#f472b6')
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: plates.id, history: {} })
+    render(<BlockTabs />)
+    const stripe = (name: string) =>
+      screen.getByTitle(name).querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
+    expect(screen.getByTitle('Plates')).toHaveTextContent('Plates')
+    expect(stripe('Plates').style.background, 'active').toBe('#60a5fa')
+    expect(stripe('Gears').style.background, 'inactive').toBe('rgba(244, 114, 182, 0.55)')
+  })
+})

@@ -38,7 +38,7 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣][▣][+] Block name   [Graph] [Export plan] [Import plan] [Nullius ▾]   │
+│ [▣ Plates][▣ Gears] +    [Graph] [Export plan] [Import plan] [Nullius ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
@@ -68,9 +68,12 @@ horizon button, the tech tree button, plan export, plan import and game-data sel
 
 ### Block tabs
 
-`BlockTabs.tsx`. One square tab per block, showing the icon of the block's first
-goal (or `?` when it has none); the full name is the tab's tooltip. The active
-block's name is printed after the tabs.
+`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border: the
+icon of the block's first goal (none when it has no goal), then the block's name, truncated when
+long; the full name is the tab's tooltip. A stripe in the block's colour runs across the top of each
+tab: full strength and 3px on the active tab, muted and 2px on the others. The colour stays off the
+icon so item icons keep their own colours. The active tab also has a raised background and border
+and carries `aria-current`.
 
 - Click a tab to make that block active. Only the active block is shown, but
   every block is solved on each edit (blocks can feed one another; see

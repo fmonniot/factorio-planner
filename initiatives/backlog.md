@@ -41,7 +41,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## UI / UX
 
 - [ ] **User-chosen block colour.** Blocks have a random `Block.color` (see [archive/summary-panes-slots/design.md](archive/summary-panes-slots/design.md)); let the user pick it (e.g. from the block tab's right-click menu), and consider deriving the default from the block's icon.
-- [ ] **Block colour in tabs and block graph.** Once blocks have a colour, show it in `BlockTabs` and on block graph nodes and edges so it matches the summary bars.
+- [~] **Block colour in block graph.** Block tabs show the colour as a stripe across the top; block graph nodes and edges do not show it yet, so they do not match the summary bars.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
