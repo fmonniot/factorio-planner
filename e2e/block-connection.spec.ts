@@ -82,7 +82,7 @@ test.describe('block connections', () => {
     await setup(page)
     await connectPlatesFromPlatesBlock(page)
 
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     const overlay = page.locator('.fixed.inset-0')
     await overlay.getByPlaceholder('Search…').fill('Iron plate')
     await overlay.locator('[data-testid="recipe-slot"][title="Iron plate"]').click()

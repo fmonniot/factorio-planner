@@ -17,7 +17,7 @@ test.describe('Recipe picker grouping', () => {
 
   test('top-level item-group tabs render and switching tabs swaps the visible recipes', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
     const tabs = overlay.locator('[data-testid="recipe-group-tab"]')
@@ -39,7 +39,7 @@ test.describe('Recipe picker grouping', () => {
 
   test('recipes are organised into subgroup-row grids inside the selected tab', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
 
     const subgroupRows = overlay.locator('[data-testid="recipe-subgroup-row"]')
     await expect(subgroupRows.first()).toBeVisible()
@@ -52,7 +52,7 @@ test.describe('Recipe picker grouping', () => {
 
   test('Show-hidden toggle reveals additional recipes', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
 
     const beforeCount = await overlay.locator('[data-testid="recipe-slot"]').count()
     await overlay.getByLabel('Hidden recipes').check()
@@ -63,22 +63,25 @@ test.describe('Recipe picker grouping', () => {
 
   test('clicking a recipe slot adds the recipe to the plan', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Iron plate')
 
     const slot = overlay.locator('[data-testid="recipe-slot"]').first()
     const recipeId = await slot.getAttribute('data-recipe-id')
     expect(recipeId).toBeTruthy()
 
-    const beforeAdd = await page.locator('main').getByText('+ Add recipe').count()
     await slot.click()
 
     // Picker closes and we're back in the production table.
     await expect(overlay).not.toBeVisible()
-    // The "+ Add recipe" button stays at the bottom; the empty-state row goes
-    // away once a node is added — so its count drops.
-    await expect.poll(async () => page.locator('main').getByText('+ Add recipe').count())
-      .toBeLessThanOrEqual(beforeAdd)
+    // The empty-state link is gone; the header "+" button replaces it and
+    // there is no "+ Add recipe" footer.
+    await expect(page.getByRole('button', { name: 'Add recipe' })).toBeVisible()
+    await expect(page.getByText('+ Add recipe')).toHaveCount(0)
+    // The header button opens the picker again.
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
+    await page.keyboard.press('Escape')
     // And the recipe row carries the recipe name as a title attribute.
     await expect(page.locator('main').locator(`[title*="ron"]`).first()).toBeVisible()
   })

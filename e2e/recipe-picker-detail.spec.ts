@@ -18,7 +18,7 @@ test.describe('Recipe picker detail panel', () => {
   test('hovering a recipe slot shows the redesigned detail panel', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
 
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
     // Narrow to a single result.
@@ -48,7 +48,7 @@ test.describe('Recipe picker detail panel', () => {
 
   test('detail panel disappears when cursor leaves the slot', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
 
     const slot = overlay.locator('[data-testid="recipe-slot"]').first()
@@ -62,7 +62,7 @@ test.describe('Recipe picker detail panel', () => {
 
   test('detail panel updates when hovering a different recipe', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research')
 
     const slots = overlay.locator('[data-testid="recipe-slot"]')

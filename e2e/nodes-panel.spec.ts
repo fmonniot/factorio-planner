@@ -28,7 +28,7 @@ test.describe('Nodes panel', () => {
     await expect(page.getByText('No recipes yet')).toBeVisible()
 
     // 3. Open recipe picker via "+ Add recipe" in ProductionTable
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
     // 4. Search and select nullius-chemical-pack recipe
@@ -51,7 +51,7 @@ test.describe('Nodes panel', () => {
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await pickerOverlay.locator('[data-testid="item-slot"]').first().click()
 
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await pickerOverlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 
