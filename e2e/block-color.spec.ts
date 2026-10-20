@@ -3,16 +3,14 @@ import path from 'path'
 import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail } from './support/summary'
+import { exportPlan } from './support/appMenu'
 
 const PLAN = path.resolve('e2e/fixtures/block-connection.json')
 const MANY = path.resolve('e2e/fixtures/summary-many-items.json')
 const SCIENCES_ID = 'cccc0002-0000-0000-0000-000000000001'
 
 async function exportColors(page: Page): Promise<Record<string, string>> {
-  const [download] = await Promise.all([
-    page.waitForEvent('download'),
-    page.getByRole('button', { name: 'Export plan' }).click(),
-  ])
+  const download = await exportPlan(page)
   const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
   return Object.fromEntries(exported.blocks.map((b: { name: string; color: string }) => [b.name, b.color]))
 }

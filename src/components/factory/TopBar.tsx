@@ -2,7 +2,7 @@ import { BlockTabs } from '../BlockTabs'
 import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
 import { TechTreeButton } from '../TechTree'
-import { GameDataSelector, ExportPlanButton, ImportPlanButton } from '../GameDataSelector'
+import { AppMenu } from '../AppMenu'
 
 export function TopBar() {
   return (
@@ -14,9 +14,7 @@ export function TopBar() {
           <BlockGraphButton />
           <HorizonButton />
           <TechTreeButton />
-          <ExportPlanButton />
-          <ImportPlanButton />
-          <GameDataSelector />
+          <AppMenu />
         </div>
       </div>
     </div>

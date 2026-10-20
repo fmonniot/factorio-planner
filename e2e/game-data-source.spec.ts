@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
-import { customSourceId } from '../src/store/sourceId'
+import { selectDataset, expectDataset } from './support/appMenu'
 
 const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 const STORAGE_KEY = 'factorio-planner:game-data-source'
@@ -64,9 +64,6 @@ async function getIndexedDBEntry(page: Page): Promise<{ json: string; filename: 
   }, { idbName: IDB_NAME, idbStore: IDB_STORE, idbKey: IDB_KEY })
 }
 
-const gameDataSelect = (page: Page) =>
-  page.getByRole('combobox', { name: 'Game data source' })
-
 const mainHint = (page: Page, text: string) =>
   page.getByText(text)
 
@@ -83,15 +80,14 @@ test.describe('game data source selector', () => {
   })
 
   test('first visit — shows placeholder, nothing loaded', async ({ page }) => {
-    await expect(gameDataSelect(page)).toHaveValue('')
+    await expectDataset(page, null)
     await expect(mainHint(page, 'Load game data to begin')).toBeVisible()
   })
 
   test('select Nullius — fetches data, persists to localStorage', async ({ page }) => {
-    await gameDataSelect(page).selectOption('nullius')
-    // Wait for loading to finish (hint disappears).
-    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-    await expect(gameDataSelect(page)).toHaveValue('nullius')
+    // Waits for loading to finish (hint disappears).
+    await selectDataset(page, 'Nullius')
+    await expectDataset(page, 'Nullius')
     const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
     expect(stored).toBe('nullius')
   })
@@ -103,8 +99,8 @@ test.describe('game data source selector', () => {
       [STORAGE_KEY, 'nullius'] as [string, string],
     )
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue('nullius')
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, 'Nullius')
   })
 
   test('legacy stored kompetenz-seablock/ still loads Seablock', async ({ page }) => {
@@ -113,8 +109,8 @@ test.describe('game data source selector', () => {
       [STORAGE_KEY, 'kompetenz-seablock/'] as [string, string],
     )
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock')
     await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, 'Seablock')
     await expect(page.getByText('Error loading data')).not.toBeVisible()
     const stored = await page.evaluate((key) => localStorage.getItem(key), STORAGE_KEY)
     expect(stored).toBe('kompetenz-seablock')
@@ -124,8 +120,8 @@ test.describe('game data source selector', () => {
     const fileInput = page.locator('input[type="file"]')
     await fileInput.setInputFiles(GAME_DATA_PATH)
     const filename = path.basename(GAME_DATA_PATH)
-    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
-    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible()
+    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, filename)
     const entry = await getIndexedDBEntry(page)
     expect(entry).not.toBeNull()
     expect(entry?.filename).toBe(filename)
@@ -138,8 +134,8 @@ test.describe('game data source selector', () => {
     const filename = path.basename(GAME_DATA_PATH)
     await seedIndexedDB(page, json, filename)
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
-    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible()
+    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, filename)
   })
 
   test('switch from custom to Nullius — clears IndexedDB, writes localStorage', async ({ page }) => {
@@ -149,12 +145,11 @@ test.describe('game data source selector', () => {
     const filename = path.basename(GAME_DATA_PATH)
     await seedIndexedDB(page, json, filename)
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue(customSourceId(filename), { timeout: 10000 })
+    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectDataset(page, filename)
 
     // Now switch to Nullius.
-    await gameDataSelect(page).selectOption('nullius')
-    await expect(gameDataSelect(page)).toHaveValue('nullius')
-    await expect(mainHint(page, 'Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await selectDataset(page, 'Nullius')
 
     const entry = await getIndexedDBEntry(page)
     expect(entry).toBeNull()

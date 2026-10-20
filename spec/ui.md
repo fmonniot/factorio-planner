@@ -15,7 +15,7 @@ behind each feature so you can find it.
 
 1. Restores the rate unit (`loadPersistedUiState`, `src/store/uiStore.ts`). The
    plan is not loaded yet: it belongs to a game data set, which is only known once
-   data has loaded (see [Game data selector](#game-data-selector)). Until then the
+   data has loaded (see [Game data set](#game-data-set)). Until then the
    table shows "Load game data to begin", the summary strip is hidden and the block
    tabs are disabled, so no edit can land in the wrong plan.
 2. Starts auto-saving (`initAppStatePersistence`, `src/store/persistence.ts`) on
@@ -28,7 +28,7 @@ behind each feature so you can find it.
 4. Mounts `FactoryShell`.
 
 Game data is not loaded at startup unless a dataset was chosen in an earlier
-session (see [Game data selector](#game-data-selector)).
+session (see [Game data set](#game-data-set)).
 
 ---
 
@@ -38,7 +38,7 @@ session (see [Game data selector](#game-data-selector)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣ Plates][▣ Gears] +    [Graph] [Export plan] [Import plan] [Nullius ▾] │
+│ [▣ Plates][▣ Gears] +       [Graph] [Horizon: none] [Tech tree] [Menu ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
@@ -64,7 +64,7 @@ The layout is designed for desktop widths; there is no mobile layout.
 ## TopBar
 
 `TopBar.tsx` is one row: block tabs on the left; on the right the block graph button, the
-horizon button, the tech tree button, plan export, plan import and game-data selector.
+horizon button, the tech tree button and the [Menu](#menu).
 
 ### Block tabs
 
@@ -188,13 +188,37 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   wide tree still fits). The viewport never scrolls natively: focusing an off-screen
   card does not move the view. The modal opens centred on the furthest target, if any.
 
+### Menu
+
+`AppMenu` (`AppMenu.tsx`) is the **Menu ▾** button at the right end of the top bar
+(`aria-haspopup="menu"`, `aria-expanded`). It opens a panel named "Plan and game data":
+
+- a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file once there
+  is one, and **Upload file…**; the current data set is the checked item (see
+  [Game data set](#game-data-set));
+- a separator, then **Export plan** and **Import plan** (see [Export and import plan](#export-and-import-plan)).
+
+The "Loading…" / "Error loading data" label sits next to the button, outside the menu, so it
+shows while the menu is closed. The menu is meant to collect more app-level entries over time.
+
+Opening with the keyboard (Enter, Space or ArrowDown) focuses the checked data set (else the first
+enabled item); ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
+button, so only the hovered row looks active. Arrow keys move between enabled items and wrap;
+Home / End jump to the ends; Tab closes the menu. Apart from Escape, these keys are only taken
+while focus is inside the menu or on its button. Escape closes it and
+returns focus to the button; it is handled in the capture phase and prevented, so it does not
+also clear a summary pane selection. A click outside closes it; a click on the button toggles.
+The hidden data-set file input, the data-set auto-load on page load and the import dialogs live in
+`AppMenu` itself rather than in the panel, so they keep working after the panel closes (the file
+pick and the confirmation dialog are asynchronous).
+
 ### Export and import plan
 
-`ExportPlanButton` (in `GameDataSelector.tsx`) downloads the current `AppState`
+The **Export plan** item (`exportPlan` in `AppMenu.tsx`) downloads the current `AppState`
 (`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-YYYY-MM-DD.json`; a saved file
 is the same shape the app keeps in `localStorage`.
 
-`ImportPlanButton` (same file) loads such a file back. It is disabled until game data has loaded,
+The **Import plan** item (`usePlanImport` in `AppMenu.tsx`) loads such a file back. It is disabled until game data has loaded,
 because the plan belongs to the current data set and is written to that data set's plan key.
 Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and validates
 the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
@@ -211,30 +235,35 @@ history; autosave persists it. It cannot be undone; export first to keep the cur
 input is created on each click, attached (hidden) to the page only while the pick is in flight,
 and removed on selection or cancel.
 
-### Game data selector
+### Game data set
 
-`GameDataSelector` (in `GameDataSelector.tsx`) is a dropdown with:
+The menu's Game data group (`useGameDataSource` in `AppMenu.tsx`) is a set of radio items:
 
 - the bundled datasets, **Nullius** and **Seablock** (served from
   `public/data/<dataset>/game-data.json`);
 - **Upload file…**, which opens a file chooser for a custom `game-data.json`;
 - the name of the uploaded file, once there is one.
 
+Picking the checked bundled data set again does nothing, unless its last load failed (then it
+retries); the uploaded file's item only closes the menu (upload the file again to retry).
+A failure to store the upload or to clear it when switching (IndexedDB blocked) shows the same
+"Error loading data" label and leaves the previous choice checked. Picking a data set before the
+stored upload has been read abandons that pending read.
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
 stored upload. An uploaded file is stored in IndexedDB (database
-`factorio-planner`) and reloaded on the next visit. With neither, the dropdown
-shows "Select game data…" and nothing is loaded. A "Loading…" or "Error loading
-data" label appears next to the dropdown while loading or after a validation
+`factorio-planner`) and reloaded on the next visit. With neither, no item is
+checked, nothing is loaded and the empty table says to open Menu. A "Loading…" or "Error loading
+data" label appears next to the Menu button while loading or after a validation
 failure (the tooltip carries the error message).
 
 Each data set has its own plan. When a data set finishes loading and differs from
 the previous one, the plan stored for it replaces the one on screen (or an empty
 "Factory" block if it has none); switching back restores the earlier plan. The
-plan is identified by the loaded source id: the dropdown value for a bundled
+plan is identified by the loaded source id: the bundled data set's id for a bundled
 dataset, or `custom:<filename>#<fingerprint>` for an
 upload, where the fingerprint is a short hash of the data's `modSet`, so uploads
 with different names or different mod sets do not share a plan (two files with the
-same name and the same mod set do; the dropdown still shows `custom:<filename>`).
+same name and the same mod set do; the menu still lists the file name).
 Reloading the same data set does not reset the plan, and a failed load leaves the
 current plan untouched.
 

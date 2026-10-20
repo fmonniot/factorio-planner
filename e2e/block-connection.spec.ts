@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
+import { exportPlan } from './support/appMenu'
 
 /**
  * Fixture: block "Plates" (goal iron plate 60/min) and the active block "Gears"
@@ -70,10 +71,7 @@ test.describe('block connections', () => {
 
     // The connection is part of the exported plan.
     await connectPlatesFromPlatesBlock(page)
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export plan' }).click(),
-    ])
+    const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
     const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
     expect(gears.inputConnections).toHaveLength(1)
