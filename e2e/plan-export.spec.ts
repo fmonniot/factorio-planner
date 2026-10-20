@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { exportPlan } from './support/appMenu'
 
 const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 
@@ -11,7 +12,7 @@ async function loadGameData(page: import('@playwright/test').Page) {
 }
 
 test.describe('Plan export', () => {
-  test('Export plan button downloads valid JSON containing blocks and activeBlockId', async ({ page }) => {
+  test('Export plan downloads valid JSON containing blocks and activeBlockId', async ({ page }) => {
     await page.goto('/')
     await loadGameData(page)
 
@@ -32,10 +33,7 @@ test.describe('Plan export', () => {
     await expect(row).toBeVisible()
 
     // Trigger the download and capture it.
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export plan' }).click(),
-    ])
+    const download = await exportPlan(page)
 
     // Filename should match the pattern factorio-plan-YYYY-MM-DD.json.
     expect(download.suggestedFilename()).toMatch(/^factorio-plan-\d{4}-\d{2}-\d{2}\.json$/)

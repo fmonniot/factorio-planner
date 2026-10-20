@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { exportPlan, pickPlanFile } from './support/appMenu'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 
@@ -11,14 +12,6 @@ async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   await expect(tab(page, 'Gears')).toBeVisible()
-}
-
-async function pickPlanFile(page: Page, files: string | { name: string; mimeType: string; buffer: Buffer }) {
-  const [chooser] = await Promise.all([
-    page.waitForEvent('filechooser'),
-    page.getByRole('button', { name: 'Import plan' }).click(),
-  ])
-  await chooser.setFiles(files)
 }
 
 async function expectFixtureTabs(page: Page) {
@@ -49,10 +42,7 @@ test.describe('Plan import', () => {
 
   test('a plan exported from the app can be imported back', async ({ page }) => {
     await setup(page)
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.getByRole('button', { name: 'Export plan' }).click(),
-    ])
+    const download = await exportPlan(page)
     const filePath = await download.path()
 
     await page.getByTitle('Add block').click()

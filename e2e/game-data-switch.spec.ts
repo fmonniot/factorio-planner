@@ -1,13 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
-
-const gameDataSelect = (page: Page) =>
-  page.getByRole('combobox', { name: 'Game data source' })
-
-async function selectDataset(page: Page, id: string) {
-  await gameDataSelect(page).selectOption(id)
-  await expect(gameDataSelect(page)).toHaveValue(id)
-  await expect(page.getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-}
+import { selectDataset, expectDataset } from './support/appMenu'
 
 /** Add a goal of `amount` for the first item in the picker. */
 async function addGoal(page: Page, amount: string) {
@@ -26,32 +18,32 @@ test.describe('per-data-set plans', () => {
   })
 
   test('switching data sets swaps the plan and switching back restores it', async ({ page }) => {
-    await selectDataset(page, 'nullius')
+    await selectDataset(page, 'Nullius')
     await addGoal(page, '250')
     await expect(page.locator('main')).toContainText('250')
 
     // Seablock starts with an empty plan, without the Nullius goal.
-    await selectDataset(page, 'kompetenz-seablock')
+    await selectDataset(page, 'Seablock')
     await expect(page.locator('main')).not.toContainText('250')
     await expect(page.getByText('Error loading data')).not.toBeVisible()
 
     // Back to Nullius: the plan is restored.
-    await selectDataset(page, 'nullius')
+    await selectDataset(page, 'Nullius')
     await expect(page.locator('main')).toContainText('250')
   })
 
   test('each data set keeps its own plan across reloads', async ({ page }) => {
-    await selectDataset(page, 'nullius')
+    await selectDataset(page, 'Nullius')
     await addGoal(page, '250')
-    await selectDataset(page, 'kompetenz-seablock')
+    await selectDataset(page, 'Seablock')
     await addGoal(page, '375')
 
     await page.reload()
-    await expect(gameDataSelect(page)).toHaveValue('kompetenz-seablock')
+    await expectDataset(page, 'Seablock', { timeout: 10000 })
     await expect(page.locator('main')).toContainText('375', { timeout: 10000 })
     await expect(page.locator('main')).not.toContainText('250')
 
-    await selectDataset(page, 'nullius')
+    await selectDataset(page, 'Nullius')
     await expect(page.locator('main')).toContainText('250')
     await expect(page.locator('main')).not.toContainText('375')
   })
@@ -59,7 +51,7 @@ test.describe('per-data-set plans', () => {
   test('plan editing is disabled until game data is loaded', async ({ page }) => {
     await expect(page.getByTitle('Add block')).toBeDisabled()
     await expect(page.getByTitle('Add goal')).not.toBeVisible()
-    await selectDataset(page, 'nullius')
+    await selectDataset(page, 'Nullius')
     await expect(page.getByTitle('Add block')).toBeEnabled()
     await expect(page.getByTitle('Add goal')).toBeVisible()
   })

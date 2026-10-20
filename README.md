@@ -10,7 +10,7 @@ Tell it what you want to produce and how fast. It works out every recipe, interm
 
 ### 1. Pick a game data set
 
-The selector at the top right chooses which recipes and machines the planner knows about. Nothing is loaded on your first visit: pick **Nullius** (listed first, and the best-tested set) or **Seablock**, both bundled with the app. You can also load your own with **Upload file…**, using a JSON export in the same format (see [Exporting game data](#exporting-game-data)). Your choice is remembered for the next visit.
+Open **Menu** at the top right to choose which recipes and machines the planner knows about. Nothing is loaded on your first visit: pick **Nullius** (listed first, and the best-tested set) or **Seablock**, both bundled with the app. You can also load your own with **Upload file…**, using a JSON export in the same format (see [Exporting game data](#exporting-game-data)). The current data set is checked in the menu, and your choice is remembered for the next visit.
 
 ### 2. Set your goals
 
@@ -48,7 +48,7 @@ The **Block graph** button in the top bar shows all blocks and their connections
 
 ### Saving and sharing
 
-Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan** downloads it as JSON, and **Import plan** loads such a file back, replacing the current data set's plan after a confirmation. Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
+Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan**, in **Menu**, downloads it as JSON, and **Import plan** loads such a file back, replacing the current data set's plan after a confirmation. Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
