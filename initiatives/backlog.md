@@ -55,7 +55,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Fluid temperature indicator.** Fluids show their temperature nowhere in the UI (tiles, goals, pickers, production table). The schema carries `minimumTemperature` / `maximumTemperature` on fluids, but no component reads them and the solver ignores them.
 - [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
 - [ ] **Make sub-factory removal undoable.** `removeSubPlan` in `src/store/blockStore.ts` uses `set` directly instead of a `Command`, so removing a sub-factory (and its contents) cannot be undone.
-- [ ] **Redesign the Products, Byproducts and Ingredients panels.** They read poorly once a panel holds 15+ items and each item carries its own connections. Find a layout that stays scannable at that size (e.g. grouping, collapsing or a different presentation of connections) and present the options to the user before building.
 
 ## Data sets
 

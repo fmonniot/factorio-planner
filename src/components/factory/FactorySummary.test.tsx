@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -446,7 +446,9 @@ describe('FactorySummary — connections', () => {
     expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
   })
 
-  it('shows an export chip after the goal tile and subtracts exports from the byproduct rate', () => {
+  const rowOf = (itemId: string) => screen.getAllByTestId('summary-row').find(r => r.dataset.itemId === itemId)!
+
+  it("shows a goal's export chips on its row and subtracts exports from the byproduct rate", () => {
     const result: SolverResult = {
       nodes: [{
         recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 58, slag: 10 },
@@ -463,14 +465,107 @@ describe('FactorySummary — connections', () => {
       ],
     })
     render(<FactorySummary />)
-    const chips = screen.getAllByTestId('export-chip')
-    expect(chips).toHaveLength(2)
+    const chips = within(rowOf('iron-plate')).getAllByTestId('export-chip')
+    expect(chips).toHaveLength(1)
     expect(chips[0].textContent).toContain('Consumer')
     expect(chips[0].textContent).toContain('20.0')
-    // The first chip directly follows the goal tile.
-    expect(screen.getByTitle(/Target:/).closest('div')!.nextElementSibling).toBe(chips[0])
     // slag: 10 produced - 4 exported = 6 left as a byproduct
     expect(screen.getByTitle('Slag — right-click to add a consumer recipe').textContent).toContain('6.00')
+  })
+
+  it('keeps each goal export chips on that goal row', () => {
+    const oreGoal: ProductionGoal = { id: 'g2', itemId: 'iron-ore', rate: 10 }
+    setupBlocks({
+      activeId: 'miner', connected: false,
+      flows: [
+        flow({ connectionId: 'e1', itemId: 'iron-plate', fromBlockId: 'miner', toBlockId: 'consumer', rate: 5 }),
+        flow({ connectionId: 'e2', itemId: 'iron-plate', fromBlockId: 'miner', toBlockId: 'third', rate: 5 }),
+        flow({ connectionId: 'e3', itemId: 'iron-ore', fromBlockId: 'miner', toBlockId: 'consumer', rate: 5 }),
+        flow({ connectionId: 'e4', itemId: 'iron-ore', fromBlockId: 'miner', toBlockId: 'third', rate: 5 }),
+      ],
+    })
+    useBlockStore.setState(s => ({
+      blocks: [...s.blocks.map(b => (b.id === 'miner' ? { ...b, goals: [ironGoal, oreGoal] } : b)),
+        { ...makeEmptyBlock('Third'), id: 'third' }],
+    }))
+    render(<FactorySummary />)
+    for (const [itemId, name] of [['iron-plate', 'Iron Plate'], ['iron-ore', 'Iron Ore']]) {
+      const chips = within(rowOf(itemId)).getAllByTestId('export-chip')
+      expect(chips, `${itemId} chips`).toHaveLength(2)
+      for (const chip of chips) expect(chip.getAttribute('title')).toContain(`Sends ${name} to`)
+    }
+  })
+
+  it('shows an import tile followed by the connection chip on one row', () => {
+    setupBlocks({
+      activeId: 'consumer', connected: true, result: mockSolverResult,
+      flows: [flow({ status: 'limited', available: 30 })],
+    })
+    render(<FactorySummary />)
+    const row = rowOf('iron-ore')
+    const lead = row.firstElementChild!
+    expect(within(lead as HTMLElement).getByTitle(/Iron Ore — click to find a producer recipe/)).toBeInTheDocument()
+    expect(within(row).getAllByTestId('connection-chip')).toHaveLength(1)
+    expect(lead.nextElementSibling!.contains(within(row).getByTestId('connection-chip'))).toBe(true)
+  })
+
+  it('leads a locked item row with the lock chip', () => {
+    setupBlocks({ activeId: 'consumer', connected: false, result: { nodes: [], unsatisfied: [], warnings: [] } })
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ['iron-ore'] })) }))
+    render(<FactorySummary />)
+    const lead = rowOf('iron-ore').firstElementChild as HTMLElement
+    expect(within(lead).getByTitle(/Iron Ore — locked/)).toBeInTheDocument()
+  })
+
+  it('shows a connection chip with its icon and no import tile for a fully delivered item', () => {
+    const iconData = structuredClone(mockGameData)
+    iconData.items['iron-ore'].iconPath = 'x/y'
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: iconData, sourceId: 'test' } })
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+    render(<FactorySummary />)
+    const row = rowOf('iron-ore')
+    expect(within(row).queryByTitle(/click to find a producer recipe/)).not.toBeInTheDocument()
+    const chip = within(row).getByTestId('connection-chip')
+    expect(chip.querySelector('img'), 'first chip of a row without a lead keeps its icon').not.toBeNull()
+  })
+})
+
+describe('FactorySummary — pane header', () => {
+  it('shows the goal count and keeps Add goal outside the scrolling list', () => {
+    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', rate: 10 }])
+    render(<FactorySummary />)
+    expect(screen.getByText('Products').textContent).toContain('· 2')
+    expect(
+      screen.getByTitle('Add goal').closest('.overflow-y-auto'),
+      'Add goal stays outside the scrolling list',
+    ).toBeNull()
+  })
+})
+
+describe('FactorySummary — short goal', () => {
+  it('marks a short goal with an amber ▼ and the shortfall in the title', () => {
+    render(<FactorySummary />)
+    const actual = screen.getByTitle(/Actual:/)
+    expect(actual.getAttribute('title')).toContain('short by 2.00')
+    expect(actual).toHaveClass('text-amber-400')
+    expect(actual.textContent).toContain('▼')
+  })
+
+  it('shows no marker when the goal is met or exceeded', () => {
+    const met: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [],
+      warnings: [],
+    }
+    useSolverStore.setState({ lastResult: met })
+    render(<FactorySummary />)
+    const actual = screen.getByTitle(/Actual:/)
+    expect(actual.getAttribute('title')).not.toContain('short by')
+    expect(actual.textContent).not.toContain('▼')
+    expect(actual).toHaveClass('text-teal-400')
   })
 })
 

@@ -1,4 +1,4 @@
-import { Fragment, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -13,6 +13,7 @@ import { WarningsPopover } from './WarningsPopover'
 import { isGoalItem } from '../../store/connections'
 import { RowActionsMenu } from './RowActionsMenu'
 import { ConnectionMenu, ConnectionChip, ExportChip } from './ConnectionMenu'
+import { ingredientRows, byproductRows } from './summaryRows'
 import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,7 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextM
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const targetDisplay = fmtRate(goal.rate / 60, rateUnit)
   const actualDisplay = actualPerMin !== undefined ? fmtRate(actualPerMin / 60, rateUnit) : null
+  const short = actualPerMin !== undefined && actualPerMin < goal.rate - FLOW_TOLERANCE
 
   function startEdit() {
     setDraft(fmtRate(goal.rate / 60, rateUnit))
@@ -117,9 +119,12 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextM
         <>
           <span className="text-gray-600 text-[10px]">→</span>
           <span
-            title={`Actual: ${actualDisplay}${unitLabel} — solver output`}
-            className="text-teal-400 tabular-nums font-mono text-[11px] leading-none"
+            title={short
+              ? `Actual: ${actualDisplay}${unitLabel} — short by ${fmtRate((goal.rate - actualPerMin) / 60, rateUnit)}${unitLabel}`
+              : `Actual: ${actualDisplay}${unitLabel} — solver output`}
+            className={`${short ? 'text-amber-400' : 'text-teal-400'} tabular-nums font-mono text-[11px] leading-none`}
           >
+            {short && '▼ '}
             {actualDisplay}
           </span>
         </>
@@ -180,12 +185,13 @@ export function FactorySummary() {
   const exportedPerMin = new Map<string, number>()
   for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
 
-  function renderExportChips(itemId: string) {
+  function renderExportChips(itemId: string, showIcon: (index: number) => boolean) {
     return outputFlows
       .filter(f => f.itemId === itemId)
-      .map(f => (
+      .map((f, i) => (
         <ExportChip
           key={f.connectionId}
+          showIcon={showIcon(i)}
           flow={f}
           item={gameData?.items[itemId]}
           consumerName={blocks.find(b => b.id === f.toBlockId)?.name ?? f.toBlockId}
@@ -200,11 +206,13 @@ export function FactorySummary() {
     .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
     .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
   const exportedByproducts = [...exportedPerMin.keys()].filter(id => !goalIds.has(id))
+  const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
   const importedPerMin = new Map(ingredientItems.map(u => [u.itemId, u.rate]))
   const connections = activeBlock?.inputConnections ?? []
+  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
   // Per item: everything this block needs from outside, whether delivered or still imported.
   const neededPerMin = new Map<string, number>()
   for (const c of connections) {
@@ -287,82 +295,97 @@ export function FactorySummary() {
 
       {/* Three-pane summary */}
       <div className="grid grid-cols-3 gap-2 px-3 pb-2 pt-1">
-        {/* Products — one GoalTile per goal */}
-        <SummaryPane label="Products">
+        {/* Products — one row per goal: its tile, then the exports of that item */}
+        <SummaryPane
+          label="Products"
+          count={goals.length}
+          action={
+            <button
+              type="button"
+              onClick={() => setShowGoalPicker(true)}
+              className="text-gray-600 hover:text-gray-400 text-xs leading-none px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500 normal-case tracking-normal"
+              title="Add goal"
+            >
+              +
+            </button>
+          }
+        >
           {goals.map(goal => (
-            <Fragment key={goal.id}>
-              <GoalTile
-                goal={goal}
-                actualPerMin={netBalance.get(goal.itemId)}
-                item={gameData?.items[goal.itemId]}
-                rateUnit={rateUnit}
-                onUpdateRate={rate => updateGoalRate(goal.id, rate)}
-                onContextMenu={e => {
-                  e.preventDefault()
-                  setGoalMenu({ goalId: goal.id, x: e.clientX, y: e.clientY })
-                }}
-                onFindProducer={() => setProducerPickerItemId(goal.itemId)}
-              />
-              {renderExportChips(goal.itemId)}
-            </Fragment>
+            <SummaryRow
+              key={goal.id}
+              itemId={goal.itemId}
+              lead={
+                <GoalTile
+                  goal={goal}
+                  actualPerMin={netBalance.get(goal.itemId)}
+                  item={gameData?.items[goal.itemId]}
+                  rateUnit={rateUnit}
+                  onUpdateRate={rate => updateGoalRate(goal.id, rate)}
+                  onContextMenu={e => {
+                    e.preventDefault()
+                    setGoalMenu({ goalId: goal.id, x: e.clientX, y: e.clientY })
+                  }}
+                  onFindProducer={() => setProducerPickerItemId(goal.itemId)}
+                />
+              }
+            >
+              {renderExportChips(goal.itemId, () => false)}
+            </SummaryRow>
           ))}
-          <button
-            type="button"
-            onClick={() => setShowGoalPicker(true)}
-            className="text-gray-600 hover:text-gray-400 text-xs px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500"
-            title="Add goal"
-          >
-            +
-          </button>
         </SummaryPane>
 
-        {/* Byproducts */}
-        <SummaryPane label="Byproducts">
-          {byproductItems.map(({ itemId, ratePerMin }) => (
-            <ItemTile
-              key={itemId}
-              item={gameData?.items[itemId]}
-              ratePerSec={ratePerMin / 60}
-              variant="byproduct"
-              onContextMenu={e => {
-                e.preventDefault()
-                setByproductMenu({ itemId, x: e.clientX, y: e.clientY })
-              }}
-              title={`${gameData?.items[itemId]?.name ?? itemId} — right-click to add a consumer recipe`}
-            />
-          ))}
-          {exportedByproducts.flatMap(renderExportChips)}
+        {/* Byproducts — one row per item; an item that is only exported has no tile */}
+        <SummaryPane label="Byproducts" count={byproductRowList.length}>
+          {byproductRowList.map(({ itemId, leftPerMin }) => {
+            const hasLead = leftPerMin !== undefined
+            return (
+              <SummaryRow
+                key={itemId}
+                itemId={itemId}
+                lead={hasLead && (
+                  <ItemTile
+                    item={gameData?.items[itemId]}
+                    ratePerSec={leftPerMin / 60}
+                    variant="byproduct"
+                    onContextMenu={e => {
+                      e.preventDefault()
+                      setByproductMenu({ itemId, x: e.clientX, y: e.clientY })
+                    }}
+                    title={`${gameData?.items[itemId]?.name ?? itemId} — right-click to add a consumer recipe`}
+                  />
+                )}
+              >
+                {renderExportChips(itemId, i => !hasLead && i === 0)}
+              </SummaryRow>
+            )
+          })}
         </SummaryPane>
 
         {/* Ingredients (click a tile to add a producer recipe; right-click it to
             receive it from another block or forbid imports; click a locked chip,
-            or right-click it, to allow imports again). */}
-        <SummaryPane label="Ingredients">
-          {connections.map(c => {
-            const source = blocks.find(b => b.id === c.fromBlockId)
-            return (
-              <ConnectionChip
-                key={c.id}
-                connection={c}
-                flow={inputFlows.get(c.id)}
-                item={gameData?.items[c.itemId]}
-                sourceName={source?.name}
-                neededPerMin={neededPerMin.get(c.itemId) ?? 0}
-                onSelectSource={() => setActiveBlock(c.fromBlockId)}
+            or right-click it, to allow imports again). One row per item: the
+            import tile (or locked chip) first, then its connection chips. */}
+        <SummaryPane label="Ingredients" count={ingredientRowList.length}>
+          {ingredientRowList.map(({ itemId, connections: itemConnections, importPerMin, locked }) => {
+            const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
+            const item = gameData?.items[itemId]
+            const noImportChip = (
+              <NoImportChip
+                key={`lock-${itemId}`}
+                item={item}
+                itemId={itemId}
+                onClick={() => toggleNoImportItem(itemId)}
                 onContextMenu={e => {
                   e.preventDefault()
-                  setConnectionChipMenu({ connectionId: c.id, x: e.clientX, y: e.clientY })
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
                 }}
               />
             )
-          })}
-          {ingredientItems.map(({ itemId, rate }) => {
-            const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
-            return (
+            const importTile = importPerMin !== undefined && (
               <ItemTile
-                key={itemId}
-                item={gameData?.items[itemId]}
-                ratePerSec={rate / 60}
+                item={item}
+                ratePerSec={importPerMin / 60}
                 variant="ingredient"
                 onClick={() => setProducerPickerItemId(itemId)}
                 // A goal shortfall has no menu: goals never receive supply, and forbidding imports
@@ -372,23 +395,34 @@ export function FactorySummary() {
                   const rect = e.currentTarget.getBoundingClientRect()
                   setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
                 } : undefined}
-                title={`${gameData?.items[itemId]?.name ?? itemId} — click to find a producer recipe${connectable ? ', right-click to receive from another block or forbid imports' : ''}`}
+                title={`${item?.name ?? itemId} — click to find a producer recipe${connectable ? ', right-click to receive from another block or forbid imports' : ''}`}
               />
             )
+            const hasImport = importPerMin !== undefined
+            const lead = hasImport ? importTile : locked ? noImportChip : undefined
+            const hasLead = hasImport || locked
+            return (
+              <SummaryRow key={itemId} itemId={itemId} lead={lead}>
+                {hasImport && locked && noImportChip}
+                {itemConnections.map((c, i) => (
+                  <ConnectionChip
+                    key={c.id}
+                    connection={c}
+                    flow={inputFlows.get(c.id)}
+                    item={item}
+                    sourceName={blocks.find(b => b.id === c.fromBlockId)?.name}
+                    neededPerMin={neededPerMin.get(c.itemId) ?? 0}
+                    showIcon={!hasLead && i === 0}
+                    onSelectSource={() => setActiveBlock(c.fromBlockId)}
+                    onContextMenu={e => {
+                      e.preventDefault()
+                      setConnectionChipMenu({ connectionId: c.id, x: e.clientX, y: e.clientY })
+                    }}
+                  />
+                ))}
+              </SummaryRow>
+            )
           })}
-          {noImportItems.map(itemId => (
-            <NoImportChip
-              key={itemId}
-              item={gameData?.items[itemId]}
-              itemId={itemId}
-              onClick={() => toggleNoImportItem(itemId)}
-              onContextMenu={e => {
-                e.preventDefault()
-                const rect = e.currentTarget.getBoundingClientRect()
-                setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
-              }}
-            />
-          ))}
         </SummaryPane>
       </div>
 
@@ -462,10 +496,6 @@ export function FactorySummary() {
 }
 
 // ---------------------------------------------------------------------------
-// SummaryPane
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // NoImportChip — locked item: small grey chip with lock icon; click to unlock, right-click for the menu
 // ---------------------------------------------------------------------------
 
@@ -502,13 +532,85 @@ function NoImportChip({
   )
 }
 
-function SummaryPane({ label, children }: { label: string; children: React.ReactNode }) {
+// ---------------------------------------------------------------------------
+// SummaryPane / SummaryRow
+// ---------------------------------------------------------------------------
+
+function SummaryPane({
+  label,
+  count,
+  action,
+  children,
+}: {
+  label: string
+  count: number
+  action?: React.ReactNode
+  children: React.ReactNode
+}) {
+  const bodyRef = useRef<HTMLDivElement>(null)
+  // True while more rows sit below the visible part of the list (drives the bottom fade).
+  const [hasMore, setHasMore] = useState(false)
+
+  function measure() {
+    const el = bodyRef.current
+    if (!el) return
+    const more = el.scrollTop + el.clientHeight < el.scrollHeight - 1
+    setHasMore(prev => (prev === more ? prev : more))
+  }
+
+  // Content changes (rows added or removed) resize the body, so observe it as well as scrolling.
+  useEffect(() => {
+    measure()
+    const el = bodyRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [])
+
   return (
-    <div className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5 flex flex-col max-h-[25vh]">
-      <div className="text-[10px] uppercase tracking-wide text-gray-600 mb-1 shrink-0">{label}</div>
-      <div className="flex flex-wrap gap-1 items-center content-start min-h-[1.75rem] overflow-y-auto">
+    <div
+      data-overflow={hasMore ? 'true' : undefined}
+      className="relative border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5 flex flex-col max-h-[25vh]"
+    >
+      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-gray-600 mb-1 shrink-0">
+        <div>
+          {label}
+          <span className="ml-1 tabular-nums">· {count}</span>
+        </div>
+        {action}
+      </div>
+      <div
+        ref={bodyRef}
+        onScroll={measure}
+        className="flex flex-col gap-0.5 min-h-[1.75rem] overflow-y-auto"
+      >
         {children}
       </div>
+      {hasMore && (
+        <div className="pointer-events-none absolute inset-x-px bottom-px h-6 rounded-b bg-gradient-to-t from-gray-900 to-transparent" />
+      )}
+    </div>
+  )
+}
+
+function SummaryRow({
+  itemId,
+  lead,
+  children,
+}: {
+  itemId: string
+  lead?: React.ReactNode
+  children?: React.ReactNode
+}) {
+  return (
+    <div
+      data-testid="summary-row"
+      data-item-id={itemId}
+      className="flex items-start gap-1 py-0.5 border-b border-gray-800/60 last:border-0"
+    >
+      {lead && <div className="shrink-0">{lead}</div>}
+      <div className="flex flex-wrap gap-1 min-w-0">{children}</div>
     </div>
   )
 }

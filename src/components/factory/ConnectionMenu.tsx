@@ -137,6 +137,8 @@ interface ConnectionChipProps {
   neededPerMin: number
   onSelectSource: () => void
   onContextMenu: React.MouseEventHandler<HTMLSpanElement>
+  /** Show the item icon (or name); false when the row's lead tile already shows it. Default true. */
+  showIcon?: boolean
 }
 
 export function ConnectionChip({
@@ -147,6 +149,7 @@ export function ConnectionChip({
   neededPerMin,
   onSelectSource,
   onContextMenu,
+  showIcon = true,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
@@ -184,11 +187,11 @@ export function ConnectionChip({
       onContextMenu={onContextMenu}
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${tone}`}
     >
-      {item?.iconPath ? (
+      {showIcon && (item?.iconPath ? (
         <Icon iconPath={item.iconPath} alt={itemName} className="w-5 h-5 object-contain shrink-0" />
       ) : (
         <span className="text-[10px] truncate max-w-[4rem]">{itemName}</span>
-      )}
+      ))}
       <span className="text-[10px] font-mono tabular-nums leading-none">
         {fmt(rate)}/{fmt(neededPerMin)}
         <span className="opacity-60">{unit}</span>
@@ -218,9 +221,11 @@ interface ExportChipProps {
   item: Item | undefined
   consumerName: string
   onSelectConsumer: () => void
+  /** Show the item icon; false when the row's lead tile already shows it. Default true. */
+  showIcon?: boolean
 }
 
-export function ExportChip({ flow, item, consumerName, onSelectConsumer }: ExportChipProps) {
+export function ExportChip({ flow, item, consumerName, onSelectConsumer, showIcon = true }: ExportChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
 
@@ -233,10 +238,10 @@ export function ExportChip({ flow, item, consumerName, onSelectConsumer }: Expor
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-300 border border-gray-700 hover:border-gray-500"
     >
       <span className="text-[10px]">→</span>
-      {item?.iconPath && (
+      {showIcon && item?.iconPath && (
         <Icon iconPath={item.iconPath} alt={item.name} className="w-4 h-4 object-contain shrink-0" />
       )}
-      <span className="text-[10px]">{consumerName}</span>
+      <span className="text-[10px] truncate max-w-[8rem]">{consumerName}</span>
       <span className="text-[10px] font-mono tabular-nums leading-none">
         {fmtRate(flow.rate / 60, rateUnit)}
         <span className="opacity-60">{unit}</span>

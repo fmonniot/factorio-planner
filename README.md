@@ -14,7 +14,7 @@ The selector at the top right chooses which recipes and machines the planner kno
 
 ### 2. Set your goals
 
-In the **Products** pane of the summary panel, use the **+** button (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it, or click a goal's icon to open the recipe picker and add a recipe that produces it. Right-click a goal to remove it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
+In the **Products** pane of the summary panel, use the **+** button in the pane header (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it, or click a goal's icon to open the recipe picker and add a recipe that produces it. Right-click a goal to remove it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
 
 ### 3. Read and shape the production table
 
@@ -36,7 +36,7 @@ If the plan can't be solved cleanly (a goal with no recipe, the same recipe adde
 
 A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename**, **Duplicate** and **Delete**. Use blocks for independent production lines, for example one per science pack.
 
-Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes next to the product. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Right-click a connection chip to remove it.
+Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes on the product's row. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Right-click a connection chip to remove it.
 
 The **Block graph** button in the top bar shows all blocks and their connections. Click a block to open it. To connect from the supplying side, click the **→** on the source block, then the block that should receive the item, then the item; the **×** on an edge label removes that connection.
 
@@ -115,7 +115,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI, and the connection rules (`connections.ts`) |
-| `src/components/` | React UI; `factory/` holds the summary panel, the production table and the block connection menu and chips (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
+| `src/components/` | React UI; `factory/` holds the summary panel (`summaryRows.ts` groups its pane rows), the production table and the block connection menu and chips (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
 | `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules and the technology-tree layout |
 | `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
