@@ -366,7 +366,9 @@ by depth. Nodes whose recipe does not exist in the loaded data render nothing.
 
 **Recipe cell.** The icon of the primary product (falls back to the first two
 letters of the recipe name), with the recipe name as tooltip. The cell has no
-buttons; the row actions are in the right-click menu below.
+buttons; the row actions are in the right-click menu below. Byproduct-consumer
+rows carry a small amber "↓" badge at the icon's bottom-right corner, whose
+tooltip explains the mode.
 
 Right-clicking anywhere in the recipe cell opens a context menu
 (`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
