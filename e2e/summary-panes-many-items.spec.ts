@@ -162,7 +162,8 @@ test.describe('summary panes with many items', () => {
     await page.locator('button[title="Metals"]').click()
     await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`)).toHaveCount(0)
     await page.locator('button[title="Sciences"]').click()
-    await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`)).toContainText('· 12')
+    // The last column of an overview row is the number of slots carrying it.
+    await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`).locator('span').last()).toHaveText('12')
 
     let withConnection = 0
     for (const s of await slots(page, 'Ingredients').all()) {

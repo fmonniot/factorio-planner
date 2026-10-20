@@ -129,21 +129,21 @@ export function SummaryPane({
       data-testid="summary-pane"
       data-pane={pane}
       data-overflow={hasMore ? 'true' : undefined}
-      className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5 flex flex-col"
+      className="border border-gray-700 rounded-md flex flex-col min-h-0"
     >
-      <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-gray-600 mb-1 shrink-0">
+      <div className="flex items-center justify-between gap-2 h-5 px-2 pt-1.5 pb-1 box-content text-[10px] uppercase tracking-[0.06em] text-gray-400 shrink-0">
         <div>
           {label}
           <span className="ml-1 tabular-nums">· {slots.length}</span>
         </div>
         {action}
       </div>
-      <div className="relative">
+      <div className="relative flex-1 min-h-0">
         <div
           ref={bodyRef}
           onScroll={measure}
           data-testid="summary-slot-grid"
-          className="max-h-[25vh] min-h-[58px] overflow-y-auto"
+          className="max-h-[25vh] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2"
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map(slot => (
@@ -172,7 +172,7 @@ export function SummaryPane({
           </div>
         </div>
         {hasMore && (
-          <div className="pointer-events-none absolute inset-x-px bottom-px h-6 rounded-b bg-gradient-to-t from-gray-900 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-6 bg-gradient-to-t from-gray-900 to-transparent" />
         )}
       </div>
       <SummaryDetailStrip

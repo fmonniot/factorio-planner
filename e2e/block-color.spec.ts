@@ -55,7 +55,9 @@ test.describe('block colours', () => {
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
     const row = detail(page, 'Products').locator(`[data-testid="summary-overview-row"][data-key="to:${SCIENCES_ID}"]`)
     await expect(row).toBeVisible({ timeout: 20000 })
-    // Sciences is the second block: #7dd3fc.
-    await expect(row.locator('span').first()).toHaveCSS('background-color', 'rgb(125, 211, 252)')
+    // Sciences is the second block: #7dd3fc, as a translucent fill with a stronger border.
+    const swatch = row.locator('span').first()
+    await expect(swatch).toHaveCSS('background-color', 'rgba(125, 211, 252, 0.32)')
+    await expect(swatch).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
   })
 })

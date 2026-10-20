@@ -290,7 +290,7 @@ export function FactorySummary() {
             <button
               type="button"
               onClick={() => setShowGoalPicker(true)}
-              className="text-gray-600 hover:text-gray-400 text-xs leading-none px-1.5 py-0.5 rounded border border-gray-700 hover:border-gray-500 normal-case tracking-normal"
+              className="w-[22px] h-5 text-gray-400 hover:text-gray-200 text-[13px] leading-none rounded border border-gray-700 hover:border-gray-500 normal-case tracking-normal"
               title="Add goal"
             >
               +
