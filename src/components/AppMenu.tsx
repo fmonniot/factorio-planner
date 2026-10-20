@@ -1,10 +1,12 @@
-import { useRef, useState, useEffect, useLayoutEffect, useId, type ReactNode } from 'react'
+import { useRef, useState, useEffect, type ReactNode } from 'react'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
+import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
 import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
-import { removeCustomPlans, checkPlanImport, replacePlan } from '../store/persistence'
+import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName } from '../store/persistence'
 import type { AppState } from '../data/types'
 import { Modal } from './Modal'
+import { MenuButton, ITEM_CLASS } from './MenuButton'
 
 // ---------------------------------------------------------------------------
 // Server-bundled game datasets
@@ -200,25 +202,22 @@ function exportPlan() {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `factorio-plan-${new Date().toISOString().slice(0, 10)}.json`
+  a.download = exportFileName(selectActivePlanEntry(usePlansStore.getState())?.name ?? '', new Date())
   a.click()
   URL.revokeObjectURL(url)
 }
 
 type ImportDialog =
   | null
-  | { kind: 'confirm'; fileName: string; appState: AppState; unknownIds: string[]; sourceId: string }
+  | { kind: 'warning'; fileName: string; appState: AppState; unknownIds: string[]; sourceId: string }
   | { kind: 'error'; fileName: string; message: string }
-
-const blocksLabel = (n: number) => `${n} ${n === 1 ? 'block' : 'blocks'}`
 
 /**
  * The import flow: `startImport` opens the file picker, `dialog` is the
- * confirm / error modal. The pick is async, so the owner must stay mounted
+ * warning / error modal. The pick is async, so the owner must stay mounted
  * after the menu closes for the dialog to appear.
  */
 function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
-  const currentBlockCount = useBlockStore(s => s.blocks.length)
   const [dialog, setDialog] = useState<ImportDialog>(null)
 
   async function handleFile(file: File) {
@@ -237,8 +236,12 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
     const check = checkPlanImport(json, current.gameData, current.sourceId)
     if (check.type === 'error') {
       setDialog({ kind: 'error', fileName: file.name, message: check.message })
+    } else if (check.unknownIds.length === 0) {
+      // Nothing is overwritten and nothing looks off: no need to ask.
+      const result = importPlanAsNew(check.appState, check.sourceId, file.name)
+      if (result.type === 'error') setDialog({ kind: 'error', fileName: file.name, message: result.message })
     } else {
-      setDialog({ kind: 'confirm', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds, sourceId: check.sourceId })
+      setDialog({ kind: 'warning', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds, sourceId: check.sourceId })
     }
   }
 
@@ -267,18 +270,13 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
 
   const dialogs = (
     <>
-      {dialog?.kind === 'confirm' && (
+      {dialog?.kind === 'warning' && (
         <Modal onClose={close} className="p-4 w-96 text-sm">
-          <h2 className="font-semibold text-gray-100 mb-2">Import plan</h2>
-          <p className="text-gray-300 mb-3">
-            Replace the current plan ({blocksLabel(currentBlockCount)}) with &quot;{dialog.fileName}&quot; ({blocksLabel(dialog.appState.blocks.length)})?
-            {' '}This cannot be undone; export the current plan first to keep it.
+          <h2 className="font-semibold text-gray-100 mb-2">Import &quot;{dialog.fileName}&quot;?</h2>
+          <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
+            {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and cannot be produced: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
           </p>
-          {dialog.unknownIds.length > 0 && (
-            <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
-              {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and cannot be produced: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
-            </p>
-          )}
+          <p className="text-gray-300 mb-3">It will be added as a new plan.</p>
           <div className="flex justify-end gap-2">
             <button
               onClick={close}
@@ -288,7 +286,7 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
             </button>
             <button
               onClick={() => {
-                const result = replacePlan(dialog.appState, dialog.sourceId)
+                const result = importPlanAsNew(dialog.appState, dialog.sourceId, dialog.fileName)
                 if (result.type === 'error') {
                   setDialog({ kind: 'error', fileName: dialog.fileName, message: result.message })
                 } else {
@@ -297,7 +295,7 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
               }}
               className="text-xs bg-blue-600 text-white hover:bg-blue-500 rounded px-3 py-1"
             >
-              Replace plan
+              Import anyway
             </button>
           </div>
         </Modal>
@@ -326,9 +324,6 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
 // AppMenu
 // ---------------------------------------------------------------------------
 
-const ITEM_SELECTOR = '[role^="menuitem"]:not(:disabled)'
-const ITEM_CLASS = 'text-left whitespace-nowrap px-3 py-1 text-gray-200 hover:bg-gray-700 focus:bg-gray-700 outline-none flex items-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed'
-
 /**
  * Top-bar menu for app-level entries: game data set, plan export and import.
  * Always mounted: the data-set auto-load, the hidden upload input and the
@@ -340,85 +335,6 @@ export function AppMenu() {
     selectedValue, uploadedFilename, selectServerDataset, fileInputRef, openUploadPicker, handleUploadChange,
   } = useGameDataSource()
   const { startImport, dialog } = usePlanImport()
-  const [open, setOpen] = useState(false)
-  const menuId = useId()
-  const wrapperRef = useRef<HTMLDivElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-  const panelRef = useRef<HTMLDivElement>(null)
-  // Where focus goes on open: keyboard opens move into the panel, mouse opens
-  // leave it on the trigger so only the hovered row looks active.
-  const openFocusRef = useRef<'checked' | 'last' | 'none'>('none')
-
-  function close(returnFocus: boolean) {
-    setOpen(false)
-    if (returnFocus) triggerRef.current?.focus()
-  }
-
-  useLayoutEffect(() => {
-    if (!open) return
-    const panel = panelRef.current
-    if (!panel || openFocusRef.current === 'none') return
-    const target = openFocusRef.current === 'last'
-      ? Array.from(panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR)).pop()
-      : panel.querySelector<HTMLElement>('[aria-checked="true"]') ?? panel.querySelector<HTMLElement>(ITEM_SELECTOR)
-    target?.focus()
-  }, [open])
-
-  useEffect(() => {
-    if (!open) return
-
-    // Capture phase + preventDefault so Escape does not also clear the
-    // summary pane selection (see RowActionsMenu).
-    function onKeyDown(e: KeyboardEvent) {
-      // Escape works anywhere; the other keys only when focus is in the menu
-      // (or on its trigger), so they do not hijack the rest of the page.
-      const active = document.activeElement
-      const inMenu = active === triggerRef.current || !!panelRef.current?.contains(active)
-      if (e.key !== 'Escape' && !inMenu) return
-      const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? [])
-      const index = items.indexOf(document.activeElement as HTMLElement)
-      const focusAt = (i: number) => items[(i + items.length) % items.length]?.focus()
-      switch (e.key) {
-        case 'Escape':
-          e.preventDefault()
-          close(true)
-          break
-        case 'ArrowDown':
-          e.preventDefault()
-          focusAt(index + 1)
-          break
-        case 'ArrowUp':
-          e.preventDefault()
-          focusAt(index < 0 ? -1 : index - 1)
-          break
-        case 'Home':
-          e.preventDefault()
-          focusAt(0)
-          break
-        case 'End':
-          e.preventDefault()
-          focusAt(-1)
-          break
-        case 'Tab':
-          close(true)
-          break
-      }
-    }
-
-    // Covers trigger and panel, so a trigger click toggles instead of
-    // closing and immediately reopening.
-    function onPointerDown(e: PointerEvent) {
-      if (!wrapperRef.current?.contains(e.target as Node)) close(false)
-    }
-
-    document.addEventListener('keydown', onKeyDown, true)
-    document.addEventListener('pointerdown', onPointerDown, true)
-    return () => {
-      document.removeEventListener('keydown', onKeyDown, true)
-      document.removeEventListener('pointerdown', onPointerDown, true)
-    }
-  }, [open])
-
   return (
     <>
       <div className="flex items-center gap-2">
@@ -428,34 +344,9 @@ export function AppMenu() {
         {status.type === 'error' && (
           <span className="text-xs text-red-400" title={status.message}>Error loading data</span>
         )}
-        <div ref={wrapperRef} className="relative">
-          <button
-            ref={triggerRef}
-            type="button"
-            aria-haspopup="menu"
-            aria-expanded={open}
-            aria-controls={open ? menuId : undefined}
-            title="Game data set, plan export and import"
-            className="flex items-center gap-1 text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1"
-            // detail is 0 for clicks synthesised from Enter / Space.
-            onClick={e => { openFocusRef.current = e.detail === 0 ? 'checked' : 'none'; setOpen(o => !o) }}
-            onKeyDown={e => {
-              if (open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
-              e.preventDefault()
-              openFocusRef.current = e.key === 'ArrowUp' ? 'last' : 'checked'
-              setOpen(true)
-            }}
-          >
-            Menu<span aria-hidden className="text-[10px] opacity-60">▾</span>
-          </button>
-          {open && (
-            <div
-              ref={panelRef}
-              id={menuId}
-              role="menu"
-              aria-label="Plan and game data"
-              className="absolute top-full right-0 mt-1 z-50 min-w-48 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col text-xs"
-            >
+        <MenuButton label="Menu" title="Game data set, plan export and import" menuLabel="Plan and game data" align="right">
+          {close => (
+            <>
               <div role="group" aria-label="Game data" className="flex flex-col">
                 <div aria-hidden className="px-3 pt-1 pb-0.5 text-[10px] uppercase text-gray-500">Game data</div>
                 {SERVER_DATASETS.map(d => {
@@ -513,16 +404,16 @@ export function AppMenu() {
                 type="button"
                 role="menuitem"
                 disabled={status.type !== 'loaded'}
-                title="Import a plan from a JSON file (replaces the current plan)"
+                title="Import a plan from a JSON file as a new plan"
                 tabIndex={-1}
                 className={ITEM_CLASS}
                 onClick={() => { startImport(); close(true) }}
               >
-                Import plan
+                Import plan…
               </button>
-            </div>
+            </>
           )}
-        </div>
+        </MenuButton>
         <input
           ref={fileInputRef}
           type="file"

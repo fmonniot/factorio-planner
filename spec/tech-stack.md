@@ -79,13 +79,13 @@ Game data is bundled with the app under `public/data/<dataset>/` (Nullius and Se
 
 **Build script** (`scripts/build-game-data.js`): reads the raw dump, walks the Factorio and mods directories for icons, resolves locale strings (`scripts/locale.js`, including placeholder expansion), classifies machines, exports beacons, and writes `game-data.json` plus icons to the paths given by `--output` and `--icons-out` (defaulting to `public/data/nullius/`). Technology icons go to `icons/technology/` (capped at 128 px) so they cannot collide with item icons of the same id. Layered icons are composited by `scripts/icon-compositor.js` with `sharp`; `adm-zip` reads zipped mods. `scripts/place-results.js` sets `Item.placeResult` (prototype `place_result`) on the items that place an exported machine or beacon; the research horizon uses it to gate machines and beacons.
 
-**Bundled and uploaded data.** Nothing is loaded on a first visit: the top-bar Menu offers the bundled datasets and an "Upload file…" item. An uploaded file is stored in IndexedDB; the selected source is remembered in localStorage. Each data set keeps its own plan in localStorage (one key per data set); the plan on screen is swapped when a different data set loads.
+**Bundled and uploaded data.** Nothing is loaded on a first visit: the top-bar Menu offers the bundled datasets and an "Upload file…" item. An uploaded file is stored in IndexedDB; the selected source is remembered in localStorage. Each data set keeps its own list of plans in localStorage (an index key plus one key per plan); the active plan on screen is swapped when a different data set loads.
 
 ---
 
 ## Hosting
 
-Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (one per game data set) and can be exported and imported as JSON.
+Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (several per game data set) and can be exported, and imported as new plans, as JSON.
 
 ---
 

@@ -1,9 +1,8 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
-import { loadPlanFixture } from './support/loadPlan'
+import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { detail } from './support/summary'
-import { planStorageKey } from '../src/store/sourceId'
 import { exportPlan } from './support/appMenu'
 
 const PLAN = path.resolve('e2e/fixtures/block-connection.json')
@@ -46,7 +45,7 @@ test.describe('block colours', () => {
 
     // loadPlanFixture re-seeds localStorage on every load, so a reload would
     // discard the choice; check the persisted plan directly instead.
-    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), planStorageKey('nullius'))
+    const saved = await readActivePlan(page, 'nullius') as { blocks: { color: string }[] }
     expect(saved.blocks.map((b: { color: string }) => b.color)).toEqual(['#60a5fa', '#a3e635'])
   })
 

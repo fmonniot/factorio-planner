@@ -28,7 +28,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Planning features
 
-- [ ] **Multiple saved plans per data set.** Today a data set holds one factory, but a player may want several plans for the same data set (e.g. an early-game and a late-game factory). Introduce a concept akin to saves: create, name, switch between, duplicate and delete plans within a data set, and decide how the active plan is remembered and offered in the top bar.
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
 - [ ] **Connect items not shown in Ingredients.** Connections can only be created for items in the target block's Ingredients pane (from a slot or from the block graph); items a block already covers cannot be connected, and goal shortfalls are deliberately not connectable (goals never receive supply).
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
@@ -37,6 +36,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).
 - [ ] **Recipe picker "Made in" tooltip ignores the horizon.** It lists every machine of the category.
 - [ ] **Mining productivity research and fluid-resource yield.** Extraction rows use the drill's base mining speed and a 100 % yield for fluid resources (crude oil and similar), as the game's resource entity yield and depletion are not modelled. Mining productivity research and a drill's base `effect_receiver` are ignored too.
+- [ ] **Multi-tab safety for the plan list.** Each tab keeps the plan index in memory and writes it whole, and nothing listens for `storage` events, so with two tabs open one tab's write can drop plans the other created (the plan keys stay but no index lists them). Listen for `storage` events (or re-read the index before each write) and merge.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
 - [ ] **Quality tiers.**
 

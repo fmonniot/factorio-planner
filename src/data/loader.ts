@@ -1,5 +1,5 @@
-import { GameDataSchema, AppStateSchema } from './schema'
-import type { GameData, AppState } from './schema'
+import { GameDataSchema, AppStateSchema, PlanIndexSchema } from './schema'
+import type { GameData, AppState, PlanIndex } from './schema'
 
 export class GameDataLoadError extends Error {
   readonly issues: { path: string; message: string }[]
@@ -66,6 +66,18 @@ export function loadGameDataFromJson(json: string): GameData {
  */
 export function parseAppState(raw: unknown): AppState {
   const result = AppStateSchema.safeParse(raw)
+  if (!result.success) {
+    throw new AppStateLoadError(formatZodError(result.error))
+  }
+  return result.data
+}
+
+/**
+ * Parse and validate a raw JSON value as a PlanIndex.
+ * Throws AppStateLoadError if validation fails.
+ */
+export function parsePlanIndex(raw: unknown): PlanIndex {
+  const result = PlanIndexSchema.safeParse(raw)
   if (!result.success) {
     throw new AppStateLoadError(formatZodError(result.error))
   }

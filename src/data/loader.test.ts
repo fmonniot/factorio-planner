@@ -3,6 +3,8 @@ import {
   parseGameData,
   loadGameDataFromJson,
   parseAppState,
+  parsePlanIndex,
+  AppStateLoadError,
   GameDataLoadError,
 } from './loader'
 import { SubPlanSchema } from './schema'
@@ -552,5 +554,16 @@ describe('parseAppState — horizonTechnologyIds', () => {
   it('round-trips the horizon through JSON unchanged', () => {
     const state = parseAppState({ blocks: [block], activeBlockId: 'b1', horizonTechnologyIds: ['electronics'] })
     expect(parseAppState(JSON.parse(JSON.stringify(state))).horizonTechnologyIds).toEqual(['electronics'])
+  })
+})
+
+describe('parsePlanIndex', () => {
+  it('accepts a valid index', () => {
+    const index = { activePlanId: 'a', plans: [{ id: 'a', name: 'Plan 1' }] }
+    expect(parsePlanIndex(index)).toEqual(index)
+  })
+
+  it('throws AppStateLoadError when plans is missing', () => {
+    expect(() => parsePlanIndex({ activePlanId: 'a' })).toThrow(AppStateLoadError)
   })
 })
