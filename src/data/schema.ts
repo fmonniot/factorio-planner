@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -348,6 +349,8 @@ export const BlockSchema = z.preprocess(
   z.object({
     id: z.string(),
     name: z.string(),
+    /** Display colour, `#rrggbb`; filled in by `AppStateSchema` when missing. */
+    color: z.string().regex(HEX_COLOR_RE),
     goals: z.array(ProductionGoalSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
@@ -357,12 +360,16 @@ export const BlockSchema = z.preprocess(
   }),
 )
 
-export const AppStateSchema = z.object({
-  blocks: z.array(BlockSchema),
-  activeBlockId: z.string(),
-  /** Technologies the plan targets; their prerequisites are implied. Empty = no limit. */
-  horizonTechnologyIds: z.array(z.string()).default([]),
-})
+export const AppStateSchema = z.preprocess(
+  // Per-block migration cannot see the other blocks, so colours are handed out here.
+  assignMissingBlockColors,
+  z.object({
+    blocks: z.array(BlockSchema),
+    activeBlockId: z.string(),
+    /** Technologies the plan targets; their prerequisites are implied. Empty = no limit. */
+    horizonTechnologyIds: z.array(z.string()).default([]),
+  }),
+)
 
 // ---------------------------------------------------------------------------
 // Canonical types — derived from the schema, not written by hand.

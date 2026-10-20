@@ -14,7 +14,7 @@ The selector at the top right chooses which recipes and machines the planner kno
 
 ### 2. Set your goals
 
-In the **Products** pane of the summary panel, use the **+** button in the pane header (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it, or click a goal's icon to open the recipe picker and add a recipe that produces it. Right-click a goal to remove it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
+In the **Products** pane of the summary panel, use the **+** button in the pane header (tooltip "Add goal") to pick an item and enter a target rate. Each goal is a slot with a small bar showing where its output goes. Select a goal (click it) to see its target next to what the solver actually achieves, so you can see when something is short; click the target, or double-click the slot, to edit it, and use **Find recipe** in the detail strip below the slots to open the recipe picker and add a recipe that produces it. Right-click a goal to remove it.
 
 ### 3. Read and shape the production table
 
@@ -23,11 +23,11 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
-- **Click an ingredient** (on a row, or in the summary's **Ingredients** pane) to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
+- **Click an ingredient** on a row, or select it in the summary's **Ingredients** pane and use **Find recipe**, to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
 - **Right-click a byproduct** (in a row or in the summary's Byproducts pane) to add a recipe that consumes it.
 - **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs; such rows are marked with a small badge on the recipe icon.
-- **Lock an item** by right-clicking it in the summary's **Ingredients** pane and choosing **Forbid imports**, so the solver never imports it (click the 🔒 chip, or right-click it and choose **Allow imports**, to unlock). Whatever it would have needed from outside then shows up as a shortfall.
+- **Lock an item** by selecting it in the summary's **Ingredients** pane and choosing **Forbid imports** (or right-click it), so the solver never imports it (select it and choose **Allow imports** to unlock). Whatever it would have needed from outside then shows up as a shortfall.
 - **Group recipes into subfactories** with "Wrap in subfactory" (right-click a subfactory row to remove it; you are asked to confirm when it is not empty), and drag rows to reorder them, including between groups.
 
 If the plan can't be solved cleanly (a goal with no recipe, the same recipe added twice, conflicting pins, or surplus that nothing consumes), a warnings indicator appears in the summary header, next to the /sec · /min toggle, and lists what the solver found.
@@ -36,7 +36,7 @@ If the plan can't be solved cleanly (a goal with no recipe, the same recipe adde
 
 A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Rename the active block by clicking its name in the summary header, or right-click a tab for **Rename**, **Duplicate** and **Delete**. Use blocks for independent production lines, for example one per science pack.
 
-Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a chip with the delivered and needed rate. The supplying block shows where its output goes on the product's row. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the chip is marked limited and the rest stays an import. Right-click a connection chip to remove it.
+Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane (or select it and choose **Receive from…**) and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a segment in the source block's colour on the item's bar. The supplying block shows where its output goes on the product's bar. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the slot is marked limited and the rest stays an import. Right-click the source's segment to remove the connection. Every block has its own colour, picked automatically.
 
 The **Block graph** button in the top bar shows all blocks and their connections. Click a block to open it. To connect from the supplying side, click the **→** on the source block, then the block that should receive the item, then the item; the **×** on an edge label removes that connection.
 
@@ -115,8 +115,8 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
 | `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI, and the connection rules (`connections.ts`) |
-| `src/components/` | React UI; `factory/` holds the summary panel (`summaryRows.ts` groups its pane rows), the production table and the block connection menu and chips (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
-| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, the game data loader, research-horizon rules and the technology-tree layout |
+| `src/components/` | React UI; `factory/` holds the summary panel (`summaryRows.ts` groups its pane rows), the production table and the block connection menu (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `summarySegments.ts` turns each pane item into allocation segments, drawn by `SummarySlot.tsx`, `SummaryDetailStrip.tsx` and `SummaryPane.tsx`; `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
+| `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, block colours (`blockColors.ts`), the game data loader, research-horizon rules and the technology-tree layout |
 | `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
@@ -129,7 +129,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
 | `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology, extraction and place-result exports, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
-| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`) |
+| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`, `block-color.spec.ts` block colours, `support/summary.ts` the slot and detail-strip helpers) |
 | `spec/` | How the system works today |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `.github/workflows/` | CI (lint, doc links, unit, e2e, build on PRs) and GitHub Pages deploy on release |

@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { detail, selectSlot, slot } from './support/summary'
 
 /**
  * Same fixture as block-connection.spec.ts: block "Plates" (goal iron plate
@@ -10,13 +11,14 @@ import { loadPlanFixture } from './support/loadPlan'
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 
-const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to find a producer recipe"]')
+const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
+const sourceSegment = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')
 const node = (page: Page, name: string) => page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name, exact: true }) })
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(plateTile(page)).toBeVisible({ timeout: 10000 })
+  await expect(plateSlot(page)).toBeVisible({ timeout: 10000 })
 }
 
 async function openGraph(page: Page) {
@@ -60,9 +62,10 @@ test.describe('block graph', () => {
 
     // Gears (still the active block) now receives the plates.
     await closeGraph(page)
-    await expect(page.getByTestId('connection-chip')).toContainText('Plates')
-    await expect(page.getByTestId('connection-chip')).toContainText('30.0')
-    await expect(plateTile(page)).toHaveCount(0)
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(sourceSegment(page)).toContainText('Plates')
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('30.0')
+    await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
   })
 
   test('rejects a cycle and a connection with nothing left to send', async ({ page }) => {
@@ -98,8 +101,9 @@ test.describe('block graph', () => {
     await page.getByTestId('graph-edge-remove').click()
     await expect(page.getByTestId('graph-edge')).toHaveCount(0)
     await closeGraph(page)
-    await expect(page.getByTestId('connection-chip')).toHaveCount(0)
-    await expect(plateTile(page)).toContainText('30.0')
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(sourceSegment(page)).toHaveCount(0)
+    await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
   })
 
   test('clicking a block opens it', async ({ page }) => {

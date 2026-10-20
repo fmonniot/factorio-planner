@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { slotById } from './support/summary'
 
 /**
  * The nullius-ethylene-methane-v2 fixture has:
@@ -28,19 +29,21 @@ test.describe('LP solver — overconstrained Nullius plan', () => {
     await waitForSolver(page)
   })
 
-  test('ethylene goal tile shows actual rate ≥ 800/min', async ({ page }) => {
-    // The actual rate is in a span with title containing "Actual:"
-    // In /min mode, 800/min renders as "800"
-    const actualSpans = page.locator('[title*="Actual:"]')
-    // There are two goal tiles (ethylene + methane); find the one with ≥ 800
-    const ethyleneActual = actualSpans.filter({ hasText: /^8[0-9][0-9]|^[1-9]\d{3,}/ }).first()
-    await expect(ethyleneActual).toBeVisible({ timeout: 10000 })
+  test('ethylene goal slot shows actual rate ≥ 800/min', async ({ page }) => {
+    // The slot's accessible name carries the actual rate; in /min mode 800/min renders as "800".
+    await expect(slotById(page, 'Products', 'nullius-ethylene')).toHaveAttribute(
+      'aria-label',
+      /, (8\d\d|[1-9]\d{3,}) per minute$/,
+      { timeout: 10000 },
+    )
   })
 
-  test('methane goal tile shows actual rate ≥ 400/min', async ({ page }) => {
-    const actualSpans = page.locator('[title*="Actual:"]')
-    const methaneActual = actualSpans.filter({ hasText: /^4[0-9][0-9]|^[5-9][0-9][0-9]|^[1-9]\d{3,}/ }).first()
-    await expect(methaneActual).toBeVisible({ timeout: 10000 })
+  test('methane goal slot shows actual rate ≥ 400/min', async ({ page }) => {
+    await expect(slotById(page, 'Products', 'nullius-methane')).toHaveAttribute(
+      'aria-label',
+      /, (4\d\d|[5-9]\d\d|[1-9]\d{3,}) per minute$/,
+      { timeout: 10000 },
+    )
   })
 
   test('overconstrained warning badge appears', async ({ page }) => {

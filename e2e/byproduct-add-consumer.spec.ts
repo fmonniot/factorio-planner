@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { slot } from './support/summary'
 
 /**
  * Fixture: hydrogen goal (100/min) + steam electrolysis only, so oxygen is a
@@ -44,8 +45,8 @@ test.describe('Byproduct: add consumer recipe', () => {
     await expect(page.locator('main table tbody tr [title="Nitric acid"]').first()).toBeVisible()
   })
 
-  test('summary tile: right-click, pick a consumer, row appears', async ({ page }) => {
-    await page.getByTitle('Oxygen — right-click to add a consumer recipe', { exact: true }).click({ button: 'right' })
+  test('summary slot: right-click, pick a consumer, row appears', async ({ page }) => {
+    await slot(page, 'Byproducts', 'Oxygen').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Add consumer recipe…' }).click()
 
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
@@ -59,7 +60,7 @@ test.describe('Byproduct: add consumer recipe', () => {
   })
 
   test('Escape closes the menu without opening the picker', async ({ page }) => {
-    await page.getByTitle('Oxygen — right-click to add a consumer recipe', { exact: true }).click({ button: 'right' })
+    await slot(page, 'Byproducts', 'Oxygen').click({ button: 'right' })
     await expect(page.getByRole('menu')).toBeVisible()
     await page.keyboard.press('Escape')
     await expect(page.getByRole('menu')).not.toBeVisible()
