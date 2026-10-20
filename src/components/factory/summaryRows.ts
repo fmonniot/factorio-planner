@@ -58,7 +58,6 @@ export function byproductRows(
   const seen = new Set(rows.map(r => r.itemId))
   for (const itemId of exportedItemIds) {
     if (seen.has(itemId)) continue
-    seen.add(itemId)
     rows.push({ itemId, leftPerMin: undefined, exported: true })
   }
   return rows

@@ -43,7 +43,7 @@ session (see [Game data selector](#game-data-selector)).
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
 │ │ [icon 60 → ▼58.2] [→B]│ │ [icon 12 /m] [→ C]  │ │ [icon 30 /m] [← A]  │ │
-│ │                       │ │                     │ │ [icon] [🔒]         │ │
+│ │                       │ │                     │ │ [icon 🔒]           │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
@@ -264,10 +264,11 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
 Each of the three panes has a header (label, an item count `· N`, and for
 Products the `+` button) above a list of rows, one row per item. A row has a lead
 tile on the left and that item's connection chips, wrapping, to its right; chips
-carry no icon when the lead already shows it. Icons only, no item names. A pane
+carry no icon when the lead already shows it. Items show their icon; an item without an icon falls back to its name. A pane
 is capped at 25% of the viewport height (`max-h-[25vh]`); when its rows overflow,
 the list scrolls vertically while the header stays put, and a gradient fades the
-bottom edge (the pane has `data-overflow="true"`) while more rows sit below.
+bottom edge (the pane has `data-overflow="true"`) while more rows sit below. The
+fade is re-measured after every render and whenever the list's content resizes.
 
 ### Products pane
 
@@ -279,8 +280,13 @@ One row per block goal, in goal order, led by a `GoalTile`: item icon (or name w
   plan.
 - The actual rate is the item's net balance across all solved nodes; it appears
   once the solver has a result. When it is below the target (by more than the
-  solver's flow tolerance) it turns amber with a leading `▼` and its tooltip
-  reads "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal.
+  solver's flow tolerance, and by an amount that does not round to zero in the
+  displayed precision) it turns amber with a leading `▼` and its tooltip reads
+  "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal. Once the
+  solver has a result, a goal that no node produces counts as an actual of 0, so
+  it is fully short. "Short" compares the goal's net balance with its target and
+  does not subtract what the block exports, so a goal whose output is partly
+  delivered to other blocks is not marked short for that reason.
 - Right-clicking the tile opens a `RowActionsMenu` with **Remove goal**.
 - `+`, pinned in the pane header so it never scrolls away, opens the
   [item picker](#item-picker) to add a goal.

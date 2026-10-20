@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -40,7 +40,11 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextM
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const targetDisplay = fmtRate(goal.rate / 60, rateUnit)
   const actualDisplay = actualPerMin !== undefined ? fmtRate(actualPerMin / 60, rateUnit) : null
-  const short = actualPerMin !== undefined && actualPerMin < goal.rate - FLOW_TOLERANCE
+  // Short only when the shortfall survives the display rounding, so "short by 0.00/m" never shows.
+  const shortfallDisplay = actualPerMin !== undefined ? fmtRate((goal.rate - actualPerMin) / 60, rateUnit) : null
+  const short = actualPerMin !== undefined
+    && actualPerMin < goal.rate - FLOW_TOLERANCE
+    && parseFloat(shortfallDisplay!) > 0
 
   function startEdit() {
     setDraft(fmtRate(goal.rate / 60, rateUnit))
@@ -120,7 +124,7 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextM
           <span className="text-gray-600 text-[10px]">→</span>
           <span
             title={short
-              ? `Actual: ${actualDisplay}${unitLabel} — short by ${fmtRate((goal.rate - actualPerMin) / 60, rateUnit)}${unitLabel}`
+              ? `Actual: ${actualDisplay}${unitLabel} — short by ${shortfallDisplay}${unitLabel}`
               : `Actual: ${actualDisplay}${unitLabel} — solver output`}
             className={`${short ? 'text-amber-400' : 'text-teal-400'} tabular-nums font-mono text-[11px] leading-none`}
           >
@@ -317,7 +321,8 @@ export function FactorySummary() {
               lead={
                 <GoalTile
                   goal={goal}
-                  actualPerMin={netBalance.get(goal.itemId)}
+                  // No node makes the item: the goal is fully short, not unknown.
+                  actualPerMin={solverResult ? (netBalance.get(goal.itemId) ?? 0) : undefined}
                   item={gameData?.items[goal.itemId]}
                   rateUnit={rateUnit}
                   onUpdateRate={rate => updateGoalRate(goal.id, rate)}
@@ -399,8 +404,8 @@ export function FactorySummary() {
               />
             )
             const hasImport = importPerMin !== undefined
-            const lead = hasImport ? importTile : locked ? noImportChip : undefined
             const hasLead = hasImport || locked
+            const lead = hasImport ? importTile : locked ? noImportChip : undefined
             return (
               <SummaryRow key={itemId} itemId={itemId} lead={lead}>
                 {hasImport && locked && noImportChip}
@@ -548,6 +553,7 @@ function SummaryPane({
   children: React.ReactNode
 }) {
   const bodyRef = useRef<HTMLDivElement>(null)
+  const contentRef = useRef<HTMLDivElement>(null)
   // True while more rows sit below the visible part of the list (drives the bottom fade).
   const [hasMore, setHasMore] = useState(false)
 
@@ -559,12 +565,17 @@ function SummaryPane({
   }
 
   // Content changes (rows added or removed) resize the body, so observe it as well as scrolling.
+  // The body's own box stops changing at the height cap, so also re-measure after every render
+  // (rows added, another block, chips rewrapping on a unit change).
+  useLayoutEffect(measure)
+
   useEffect(() => {
-    measure()
     const el = bodyRef.current
     if (!el || typeof ResizeObserver === 'undefined') return
     const observer = new ResizeObserver(measure)
     observer.observe(el)
+    // The content wrapper changes size even while the capped body does not.
+    if (contentRef.current) observer.observe(contentRef.current)
     return () => observer.disconnect()
   }, [])
 
@@ -583,9 +594,9 @@ function SummaryPane({
       <div
         ref={bodyRef}
         onScroll={measure}
-        className="flex flex-col gap-0.5 min-h-[1.75rem] overflow-y-auto"
+        className="min-h-[1.75rem] overflow-y-auto"
       >
-        {children}
+        <div ref={contentRef} className="flex flex-col gap-0.5">{children}</div>
       </div>
       {hasMore && (
         <div className="pointer-events-none absolute inset-x-px bottom-px h-6 rounded-b bg-gradient-to-t from-gray-900 to-transparent" />

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -528,6 +528,63 @@ describe('FactorySummary — connections', () => {
     const chip = within(row).getByTestId('connection-chip')
     expect(chip.querySelector('img'), 'first chip of a row without a lead keeps its icon').not.toBeNull()
   })
+
+  it('puts the lock chip right after the tile for a goal that is both short and locked', () => {
+    setupBlocks({
+      activeId: 'consumer', connected: false,
+      result: { nodes: [], unsatisfied: [{ itemId: 'iron-plate', rate: 5 }], warnings: [] },
+    })
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ['iron-plate'] })) }))
+    render(<FactorySummary />)
+    // The goal's Products row comes first; the Ingredients row is the last one for the item.
+    const row = screen.getAllByTestId('summary-row').filter(r => r.dataset.itemId === 'iron-plate').at(-1)!
+    const lead = row.firstElementChild as HTMLElement
+    expect(within(lead).getByTitle(/Iron Plate — click to find a producer recipe/)).toBeInTheDocument()
+    const trailing = lead.nextElementSibling as HTMLElement
+    expect(trailing.firstElementChild!.getAttribute('title'), 'lock chip comes first after the tile').toContain('locked')
+    expect(within(row).getAllByTitle(/locked/), 'lock chip is not duplicated').toHaveLength(1)
+  })
+
+  it('keeps the icon on a deleted-source chip of a row without a lead', () => {
+    const iconData = structuredClone(mockGameData)
+    iconData.items['iron-ore'].iconPath = 'x/y'
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: iconData, sourceId: 'test' } })
+    setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'missing-source', rate: 0, available: 0 })] })
+    useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== 'miner') }))
+    render(<FactorySummary />)
+    const chip = within(rowOf('iron-ore')).getByTestId('connection-chip')
+    expect(chip.textContent).toContain('deleted block')
+    expect(chip.querySelector('img')).not.toBeNull()
+  })
+
+  it('shows a byproduct that is only exported as a row with no tile and an icon on its first chip', () => {
+    const iconData = structuredClone(mockGameData)
+    iconData.items.slag.iconPath = 'x/y'
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: iconData, sourceId: 'test' } })
+    const result: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60, slag: 4 },
+        throughput: 30, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [],
+      warnings: [],
+    }
+    setupBlocks({
+      activeId: 'miner', connected: false, result,
+      flows: [
+        flow({ connectionId: 'e1', itemId: 'slag', fromBlockId: 'miner', toBlockId: 'consumer', rate: 4 }),
+        flow({ connectionId: 'e2', itemId: 'slag', fromBlockId: 'miner', toBlockId: 'third', rate: 0.5 }),
+      ],
+    })
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, { ...makeEmptyBlock('Third'), id: 'third' }] }))
+    render(<FactorySummary />)
+    const row = rowOf('slag')
+    expect(within(row).queryByTitle(/right-click to add a consumer recipe/), 'no tile').not.toBeInTheDocument()
+    const chips = within(row).getAllByTestId('export-chip')
+    expect(chips).toHaveLength(2)
+    expect(chips[0].querySelector('img'), 'first chip keeps the icon').not.toBeNull()
+    expect(chips[1].querySelector('img')).toBeNull()
+  })
 })
 
 describe('FactorySummary — pane header', () => {
@@ -566,6 +623,74 @@ describe('FactorySummary — short goal', () => {
     expect(actual.getAttribute('title')).not.toContain('short by')
     expect(actual.textContent).not.toContain('▼')
     expect(actual).toHaveClass('text-teal-400')
+  })
+
+  it('words the shortfall in /sec when that is the unit', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    render(<FactorySummary />)
+    // goal 60/min, actual 58/min: 1.00/s -> 0.97/s, short by 0.03/s
+    const actual = screen.getByTitle(/Actual:/)
+    expect(actual.getAttribute('title')).toContain('short by 0.03/s')
+    expect(actual).toHaveClass('text-amber-400')
+  })
+
+  it('marks a goal as short when no node produces its item at all', () => {
+    useSolverStore.setState({ lastResult: { nodes: [], unsatisfied: [], warnings: [] } })
+    render(<FactorySummary />)
+    const actual = screen.getByTitle(/Actual:/)
+    expect(actual.getAttribute('title')).toContain('short by 60.0')
+    expect(actual.textContent).toContain('▼')
+    expect(actual).toHaveClass('text-amber-400')
+  })
+
+  it('shows no marker when the shortfall rounds to zero in the displayed precision', () => {
+    const almost: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 59.9999 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [],
+      warnings: [],
+    }
+    useSolverStore.setState({ lastResult: almost })
+    render(<FactorySummary />)
+    const actual = screen.getByTitle(/Actual:/)
+    expect(actual.getAttribute('title')).not.toContain('short by')
+    expect(actual.textContent).not.toContain('▼')
+    expect(actual).toHaveClass('text-teal-400')
+  })
+})
+
+describe('FactorySummary — scroll fade', () => {
+  const proto = HTMLElement.prototype
+  const desc = (k: string) => Object.getOwnPropertyDescriptor(proto, k)
+  const saved = { scrollHeight: desc('scrollHeight'), clientHeight: desc('clientHeight') }
+  let contentHeight = 100
+
+  beforeEach(() => {
+    contentHeight = 100
+    Object.defineProperty(proto, 'scrollHeight', { configurable: true, get: () => contentHeight })
+    Object.defineProperty(proto, 'clientHeight', { configurable: true, get: () => 50 })
+  })
+  afterEach(() => {
+    for (const [k, d] of Object.entries(saved)) {
+      if (d) Object.defineProperty(proto, k, d)
+      else delete (proto as unknown as Record<string, unknown>)[k]
+    }
+  })
+
+  const products = () => screen.getByText('Products').closest('[data-overflow], .max-h-\\[25vh\\]') as HTMLElement
+
+  it('re-measures after a re-render even when the capped body itself does not resize', () => {
+    contentHeight = 50
+    render(<FactorySummary />)
+    expect(products()).not.toHaveAttribute('data-overflow')
+    contentHeight = 100
+    fireEvent.click(screen.getByText('/sec'))
+    expect(products()).toHaveAttribute('data-overflow', 'true')
+    contentHeight = 50
+    fireEvent.click(screen.getByText('/min'))
+    expect(products()).not.toHaveAttribute('data-overflow')
   })
 })
 

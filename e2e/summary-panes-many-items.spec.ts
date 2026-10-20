@@ -60,6 +60,12 @@ test.describe('summary panes with many items', () => {
 
   test('an export chip opens the consumer, whose ingredient rows hold their own connection chips', async ({ page }) => {
     await setup(page)
+    // Item names by id, read from the Metals goal tiles before leaving the block.
+    const names = new Map<string, string>()
+    for (const row of await rows(page, 'Products').all()) {
+      const title = (await row.locator('button[title*="click to add a producer recipe"]').getAttribute('title'))!
+      names.set((await row.getAttribute('data-item-id'))!, title.split(' — ')[0])
+    }
     await page.getByTestId('export-chip').filter({ hasText: 'Sciences' }).first().click()
     await expect(page.getByTitle('Click to rename')).toHaveText('Sciences')
 
@@ -72,8 +78,13 @@ test.describe('summary panes with many items', () => {
       if (n === 0) continue
       withConnection++
       expect(n, 'one connection per item').toBe(1)
-      const itemName = (await chips.first().getAttribute('title'))!
-      expect(itemName).toMatch(/ from Metals| Limited| Not used/)
+      const itemId = (await row.getAttribute('data-item-id'))!
+      const name = names.get(itemId)
+      expect(name, `${itemId} is one of the Metals goals`).toBeDefined()
+      // Limited and unused chips name no item, so their title cannot be compared with the row.
+      expect((await chips.first().getAttribute('title'))!).toMatch(
+        new RegExp(`^(${name!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} from Metals|Limited: |Not used: )`),
+      )
     }
     expect(withConnection).toBe(12)
   })
