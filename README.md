@@ -14,7 +14,7 @@ The selector at the top right chooses which recipes and machines the planner kno
 
 ### 2. Set your goals
 
-In the **Products** pane of the summary panel, use the **+** button (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
+In the **Products** pane of the summary panel, use the **+** button (tooltip "Add goal") to pick an item and enter a target rate. Click a rate to edit it, or click a goal's icon to open the recipe picker and add a recipe that produces it. The planner then shows the target next to what the solver actually achieves, so you can see when something is short.
 
 ### 3. Read and shape the production table
 

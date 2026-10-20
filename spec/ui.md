@@ -262,9 +262,12 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
 
 ### Products pane
 
-One `GoalTile` per block goal: item icon, target rate, `→` actual rate, unit.
+One `GoalTile` per block goal: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
 
 - The target is clickable and edits inline (in the current display unit).
+- The icon (or name) is clickable and opens the [recipe picker](#recipe-picker)
+  filtered to recipes producing the item; the chosen recipe is added to the root
+  plan.
 - The actual rate is the item's net balance across all solved nodes; it appears
   once the solver has a result.
 - `×` (on hover) removes the goal.
@@ -483,8 +486,8 @@ The same component in recipes mode (`source="recipes"`).
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".
-- When opened from an ingredient, only recipes producing that item are listed and
-  the subtitle reads "Choose a recipe to produce '…'".
+- When opened from an ingredient or a goal tile, only recipes producing that item are
+  listed and the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an
   ingredient, fluid temperature ignored) are listed and the subtitle reads
   "Choose a recipe that consumes '…'".
