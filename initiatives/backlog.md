@@ -24,7 +24,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Sharing and import
 
 - [ ] **Record the data set in exported plans.** Export does not record which data set a plan was made for; stamping the data-set id would let import warn on a mismatch instead of only listing unknown ids (changes the export format).
-- [ ] **Read-only shared view.** Depends on URL sharing.
 
 ## Planning features
 
@@ -55,7 +54,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
-- [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
 - [ ] **Byproduct menu and summary strip: hide "Add consumer recipe…" / "Find recipe" when nothing matches the item.** The byproduct menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. The summary strip's **Find recipe** action (Products and Ingredients) has the same flaw: for raw items, or when every producer is outside the research horizon, it opens an empty "Add recipe" picker. Disable or hide the action in those cases.
 - [ ] **Fluid temperature indicator.** Fluids show their temperature nowhere in the UI (tiles, goals, pickers, production table). The schema carries `minimumTemperature` / `maximumTemperature` on fluids, but no component reads them and the solver ignores them.
 - [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
@@ -72,7 +70,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 - [ ] **Encode the 6 corpus cases as solver unit tests.** [spec/test-corpus.md](../spec/test-corpus.md) is the solver's ground truth, but its cases were deleted with the v1 solver (`f55c2db`) and never ported. Multi-output (case 3), the Kovarex cycle (case 4), probability (case 5) and `ignoredByProductivity` (case 6) have no solver test at all. Expected values still match today's `solve()` output.
 - [ ] **Solver integration test on real data.** A `src/solver/index.integration.test.ts` that runs the solver against `public/data/nullius/game-data.json` with corpus-like goals, to catch what synthetic tests cannot (missing machine for a category, unexpected classifications, real crafting speeds). An earlier version existed and was deleted in `f55c2db`. The data file is committed, so no skip gate is needed.
-- [ ] **CI on pushes to `main`.** `.github/workflows/test.yml` runs on pull requests and `v*` tags only, so a direct push or merge result on `main` is never tested.
 - [ ] **Dead code: `MachinePopover` / `ModulePopover`.** Neither component is rendered anywhere (their files' `MachineCell`, `ModuleCell` and `isModuleAllowed*` exports are used). Delete the components (and the `ModulePopover` cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
 
 ## Ideas (not planned)
@@ -80,6 +77,3 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - Sankey / flow diagram view
 - Tech tree search / jump-to technology (the tree is now the only place to pick horizon targets, so finding a technology by name means panning)
 - Show research trigger conditions on trigger technologies
-- Plan diffing
-- Light theme / theme toggle (the UI is dark-only)
-- Named plan links (needs a server; conflicts with "no backend")
