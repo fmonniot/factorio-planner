@@ -51,6 +51,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Beacons: several beacon types per recipe.** `RecipeNode.beaconConfig` holds a single beacon config today.
 - [ ] **Beacons: enforce module restrictions** (e.g. no productivity in Nullius beacons — verify in game first). `BeaconModal` lists every non-hidden module.
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.
+- [ ] **Fold export, import and data set into a menu.** The top bar has six items on its right side. Block graph, horizon and tech tree stay visible; export, import and the data set selector move into a single menu to free space for block tabs.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
