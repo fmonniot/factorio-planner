@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
@@ -14,10 +15,13 @@ import type { BlockConnection, ConnectionFlow, Item } from '../../data/types'
 
 interface ConnectionMenuProps {
   itemId: string
+  /** Viewport coordinates of the menu's top-left corner (the bottom-left of the clicked tile). */
+  x: number
+  y: number
   onClose: () => void
 }
 
-export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
+export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
@@ -40,11 +44,17 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onCloseRef.current()
     }
+    // A fixed menu would float away from its tile, so close on scroll.
+    function handleScroll() {
+      onCloseRef.current()
+    }
     document.addEventListener('mousedown', handleMouseDown)
     document.addEventListener('keydown', handleKeyDown)
+    window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('mousedown', handleMouseDown)
       document.removeEventListener('keydown', handleKeyDown)
+      window.removeEventListener('scroll', handleScroll, true)
     }
   }, [])
 
@@ -53,11 +63,12 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
 
   const candidates = sourceCandidates(blocks, activeBlockId, itemId, results, flows)
 
-  return (
+  return createPortal(
     <div
       ref={ref}
       role="menu"
-      className="absolute top-full left-0 mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
+      style={{ left: x, top: y }}
+      className="fixed mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
     >
       <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
         Receive {itemName} from
@@ -85,7 +96,8 @@ export function ConnectionMenu({ itemId, onClose }: ConnectionMenuProps) {
           </button>
         ))
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 

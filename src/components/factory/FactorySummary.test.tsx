@@ -372,6 +372,14 @@ describe('FactorySummary — connections', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
+  it('caps each summary pane height and scrolls its tiles', () => {
+    setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+    render(<FactorySummary />)
+    const tiles = screen.getByTitle(/Iron Ore — click to forbid/).closest('.overflow-y-auto')
+    expect(tiles).not.toBeNull()
+    expect(tiles!.parentElement).toHaveClass('max-h-[25vh]')
+  })
+
   it('does not offer a connection for a goal shortfall tile', () => {
     // ironGoal's item is also a goal of the consumer, so its shortfall cannot be fed.
     const goalShortfall: SolverResult = { nodes: [], unsatisfied: [{ itemId: ironGoal.itemId, rate: 5 }], warnings: [] }

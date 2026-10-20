@@ -161,7 +161,7 @@ export function FactorySummary() {
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
-  const [menuItemId, setMenuItemId] = useState<string | undefined>(undefined)
+  const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
   const goals: ProductionGoal[] = activeBlock?.goals ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
@@ -354,8 +354,8 @@ export function FactorySummary() {
           {ingredientItems.map(({ itemId, rate }) => {
             const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
             return (
-            <span key={itemId} className="relative inline-flex">
               <ItemTile
+                key={itemId}
                 item={gameData?.items[itemId]}
                 ratePerSec={rate / 60}
                 variant="ingredient"
@@ -363,14 +363,11 @@ export function FactorySummary() {
                 // A goal shortfall cannot be fed by a connection (goals never receive supply).
                 onContextMenu={connectable ? e => {
                   e.preventDefault()
-                  setMenuItemId(itemId)
+                  const rect = e.currentTarget.getBoundingClientRect()
+                  setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
                 } : undefined}
                 title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports${connectable ? ', right-click to receive from another block' : ''}`}
               />
-              {connectable && menuItemId === itemId && (
-                <ConnectionMenu itemId={itemId} onClose={() => setMenuItemId(undefined)} />
-              )}
-            </span>
             )
           })}
           {noImportItems.map(itemId => (
@@ -383,6 +380,15 @@ export function FactorySummary() {
           ))}
         </SummaryPane>
       </div>
+
+      {connectionMenu && (
+        <ConnectionMenu
+          itemId={connectionMenu.itemId}
+          x={connectionMenu.x}
+          y={connectionMenu.y}
+          onClose={() => setConnectionMenu(null)}
+        />
+      )}
 
       {byproductMenu && (
         <RowActionsMenu
@@ -462,9 +468,9 @@ function NoImportChip({
 
 function SummaryPane({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5">
-      <div className="text-[10px] uppercase tracking-wide text-gray-600 mb-1">{label}</div>
-      <div className="flex flex-wrap gap-1 items-center min-h-[1.75rem]">
+    <div className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5 flex flex-col max-h-[25vh]">
+      <div className="text-[10px] uppercase tracking-wide text-gray-600 mb-1 shrink-0">{label}</div>
+      <div className="flex flex-wrap gap-1 items-center content-start min-h-[1.75rem] overflow-y-auto">
         {children}
       </div>
     </div>
