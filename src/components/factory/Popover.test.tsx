@@ -22,6 +22,20 @@ describe('Popover', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('does not re-subscribe the window listeners when only onClose changes', () => {
+    const add = vi.spyOn(window, 'addEventListener')
+    const first = vi.fn()
+    const second = vi.fn()
+    const { rerender } = render(<Popover onClose={first}>content</Popover>)
+    const calls = add.mock.calls.length
+    rerender(<Popover onClose={second}>content</Popover>)
+    expect(add.mock.calls.length).toBe(calls)
+    fireEvent.pointerDown(document.body)
+    expect(first).not.toHaveBeenCalled()
+    expect(second).toHaveBeenCalledWith('outside')
+    add.mockRestore()
+  })
+
   it('ignores a pointerdown inside ignoreRef', () => {
     const onClose = vi.fn()
     const ignoreRef = createRef<HTMLDivElement>()

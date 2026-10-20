@@ -272,6 +272,7 @@ describe('WorkspaceMenu', () => {
     useGameDataStore.setState({ status: { type: 'loading' } })
     render(<WorkspaceMenu />)
     expect(trigger()).toHaveTextContent('Loading…')
+    expect(trigger()).toHaveAccessibleName('Choose game data, loading')
     expect(trigger()).toBeEnabled()
   })
 
@@ -279,6 +280,7 @@ describe('WorkspaceMenu', () => {
     useGameDataStore.setState({ status: { type: 'error', message: 'boom' } })
     render(<WorkspaceMenu />)
     expect(trigger()).toHaveTextContent('Error loading data')
+    expect(trigger()).toHaveAccessibleName('Choose game data, error loading data')
     expect(screen.getByText('Error loading data')).toHaveAttribute('title', 'boom')
   })
 

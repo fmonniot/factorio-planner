@@ -345,7 +345,8 @@ export function WorkspaceMenu() {
 
   const topLine = plans.active?.name ?? 'Choose game data'
   const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
-  const ariaLabel = status.type === 'loaded' && plans.active ? `Plan: ${plans.active.name}` : topLine
+  const statusSuffix = status.type === 'loading' ? ', loading' : status.type === 'error' ? ', error loading data' : ''
+  const ariaLabel = (plans.active ? `Plan: ${plans.active.name}` : 'Choose game data') + statusSuffix
 
   return (
     <>

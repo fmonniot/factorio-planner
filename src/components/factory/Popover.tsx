@@ -2,7 +2,8 @@ import { useEffect, useRef } from 'react'
 import type { ReactNode, RefObject } from 'react'
 
 interface PopoverProps {
-  onClose: () => void
+  /** `escape` for the Escape key, `outside` for a pointerdown outside the panel. */
+  onClose: (reason: 'escape' | 'outside') => void
   children: ReactNode
   className?: string
   /** A pointerdown inside this element does not close the popover (the trigger, so a click on it just toggles). */
@@ -15,6 +16,9 @@ interface PopoverProps {
  */
 export function Popover({ onClose, children, className = '', ignoreRef }: PopoverProps) {
   const ref = useRef<HTMLDivElement>(null)
+  // Latest callback, so inline arrows do not re-subscribe the window listeners on every render.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose })
 
   useEffect(() => {
     // Capture phase + preventDefault so Escape does not also clear the
@@ -22,11 +26,11 @@ export function Popover({ onClose, children, className = '', ignoreRef }: Popove
     function onKey(e: KeyboardEvent) {
       if (e.key !== 'Escape') return
       e.preventDefault()
-      onClose()
+      onCloseRef.current('escape')
     }
     function onPointer(e: PointerEvent) {
       const target = e.target as Node
-      if (ref.current && !ref.current.contains(target) && !ignoreRef?.current?.contains(target)) onClose()
+      if (ref.current && !ref.current.contains(target) && !ignoreRef?.current?.contains(target)) onCloseRef.current('outside')
     }
     window.addEventListener('keydown', onKey, { capture: true })
     window.addEventListener('pointerdown', onPointer, { capture: true })
@@ -34,7 +38,7 @@ export function Popover({ onClose, children, className = '', ignoreRef }: Popove
       window.removeEventListener('keydown', onKey, { capture: true })
       window.removeEventListener('pointerdown', onPointer, { capture: true })
     }
-  }, [onClose, ignoreRef])
+  }, [ignoreRef])
 
   return (
     <div

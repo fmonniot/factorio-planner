@@ -131,23 +131,24 @@ const LINK_BUTTON = 'text-xs text-blue-400 hover:text-blue-300 underline-offset-
 
 function HorizonTargetsPopover({ gameData, onClose, onEdit, ignoreRef }: {
   gameData: GameData
-  onClose: () => void
+  onClose: (reason: 'escape' | 'outside') => void
   onEdit: () => void
   ignoreRef: RefObject<HTMLElement | null>
 }) {
   const targets = useBlockStore(s => s.horizonTechnologyIds)
   const setTargets = useBlockStore(s => s.setHorizonTechnologyIds)
-  const panelRef = useRef<HTMLDivElement>(null)
+  const editRef = useRef<HTMLButtonElement>(null)
   const valid = targets.filter(id => gameData.technologies[id])
 
-  // Move focus into the popover on open: first remove button, else the edit button.
+  // Focus the edit button on open, not a remove button (a second Enter would delete a target), and
+  // again whenever a target goes away, since that removes the focused button.
   useEffect(() => {
-    panelRef.current?.querySelector<HTMLElement>('button')?.focus()
-  }, [])
+    editRef.current?.focus()
+  }, [valid.length])
 
   return (
     <Popover onClose={onClose} ignoreRef={ignoreRef} className="right-0 top-full w-72 p-3">
-      <div ref={panelRef} role="dialog" aria-label="Horizon targets" className="text-gray-200">
+      <div role="dialog" aria-label="Horizon targets" className="text-gray-200">
         <h2 className="text-sm font-semibold text-gray-100 mb-1">Research horizon</h2>
         <p className="text-xs text-gray-400 mb-2">
           {valid.length > 0
@@ -176,7 +177,7 @@ function HorizonTargetsPopover({ gameData, onClose, onEdit, ignoreRef }: {
           </ul>
         )}
         <div className="flex items-center justify-between">
-          <button type="button" onClick={onEdit} className={LINK_BUTTON}>
+          <button ref={editRef} type="button" onClick={onEdit} className={LINK_BUTTON}>
             {valid.length > 0 ? 'Edit horizon…' : 'Choose technologies…'}
           </button>
           {valid.length > 0 && (
@@ -232,11 +233,11 @@ export function HorizonButton() {
         <HorizonTargetsPopover
           gameData={gameData}
           ignoreRef={wrapperRef}
-          onClose={() => { setPopoverOpen(false); buttonRef.current?.focus() }}
+          onClose={reason => { setPopoverOpen(false); if (reason === 'escape') buttonRef.current?.focus() }}
           onEdit={() => { setPopoverOpen(false); setModalOpen(true) }}
         />
       )}
-      {modalOpen && <HorizonModal gameData={gameData} onClose={() => setModalOpen(false)} />}
+      {modalOpen && <HorizonModal gameData={gameData} onClose={() => { setModalOpen(false); buttonRef.current?.focus() }} />}
     </div>
   )
 }

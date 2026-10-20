@@ -138,6 +138,15 @@ test.describe('Horizon popover', () => {
     await expect(horizonButton(page)).toBeFocused()
   })
 
+  test('opening the popover focuses Edit horizon…, not a remove button', async ({ page }) => {
+    await openHorizonDialog(page)
+    await tech(page, 'electronics').click()
+    await page.getByRole('button', { name: 'Done' }).click()
+    await expect(horizonButton(page)).toBeFocused()
+    await horizonButton(page).click()
+    await expect(page.getByRole('button', { name: 'Edit horizon…' })).toBeFocused()
+  })
+
   test('the horizon follows plan switches', async ({ page }) => {
     await openHorizonDialog(page)
     await tech(page, 'electronics').click()

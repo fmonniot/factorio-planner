@@ -43,13 +43,13 @@ describe('Plans section of the workspace menu', () => {
     activate()
     useGameDataStore.setState({ status: { type: 'loading' } })
     render(<WorkspaceMenu />)
-    // While loading the trigger is named after the plan alone.
-    const loadingTrigger = screen.getByRole('button', { name: 'Plan 1' })
+    const loadingTrigger = screen.getByRole('button', { name: 'Plan: Plan 1, loading' })
     expect(loadingTrigger).toBeEnabled()
     await userEvent.click(loadingTrigger)
     for (const name of ['New plan', 'Rename plan', 'Duplicate plan', 'Delete plan']) {
       expect(screen.getByRole('menuitem', { name }), name).toBeDisabled()
     }
+    expect(screen.getByRole('menuitemradio', { name: 'Plan 1' })).toBeDisabled()
   })
 
   it('names its trigger after the active plan', () => {

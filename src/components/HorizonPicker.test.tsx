@@ -159,16 +159,44 @@ describe('HorizonButton', () => {
     expect(screen.getByRole('button', { name: 'Horizon: none' })).toBeInTheDocument()
   })
 
-  it('moves focus into the popover, and Escape closes it and refocuses the flag', () => {
+  it('moves focus to the edit button, and Escape closes it and refocuses the flag', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
     render(<HorizonButton />)
     const flag = screen.getByRole('button', { name: 'Horizon: Electronics' })
     fireEvent.click(flag)
-    expect(screen.getByRole('button', { name: 'Remove Electronics' })).toHaveFocus()
+    expect(screen.getByRole('button', { name: 'Edit horizon…' })).toHaveFocus()
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     act(() => { document.activeElement!.dispatchEvent(event) })
     expect(event.defaultPrevented).toBe(true)
     expect(screen.queryByRole('dialog', { name: 'Horizon targets' })).not.toBeInTheDocument()
+    expect(flag).toHaveFocus()
+  })
+
+  it('an outside click closes the popover without moving focus to the flag', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
+    render(<HorizonButton />)
+    const flag = screen.getByRole('button', { name: 'Horizon: Electronics' })
+    fireEvent.click(flag)
+    fireEvent.pointerDown(document.body)
+    expect(screen.queryByRole('dialog', { name: 'Horizon targets' })).not.toBeInTheDocument()
+    expect(flag).not.toHaveFocus()
+  })
+
+  it('removing the last target moves focus to Choose technologies…', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
+    render(<HorizonButton />)
+    fireEvent.click(screen.getByRole('button', { name: 'Horizon: Electronics' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove Electronics' }))
+    expect(screen.getByRole('button', { name: 'Choose technologies…' })).toHaveFocus()
+  })
+
+  it('closing the modal returns focus to the flag', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
+    render(<HorizonButton />)
+    const flag = screen.getByRole('button', { name: 'Horizon: Electronics' })
+    fireEvent.click(flag)
+    fireEvent.click(screen.getByRole('button', { name: 'Edit horizon…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
     expect(flag).toHaveFocus()
   })
 

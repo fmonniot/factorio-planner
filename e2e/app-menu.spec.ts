@@ -34,7 +34,7 @@ test.describe('workspace menu', () => {
     const menu = await openAppMenu(page)
     const items = menu.locator('[role^="menuitem"]')
     await expect(items).toHaveText([
-      /Plan 1|Plan/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, 'Export plan', 'Import plan…',
+      /^✓?Plan 1$/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, 'Export plan', 'Import plan…',
     ])
     await expect(menu.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
   })

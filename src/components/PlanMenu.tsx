@@ -3,52 +3,15 @@ import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
 import type { LoadAppStateResult } from '../store/persistence'
-import { switchPlan, createPlan, duplicatePlan, renamePlan, deletePlan, PLAN_NAME_MAX_LENGTH } from '../store/persistence'
+import { switchPlan, createPlan, duplicatePlan, renamePlan, deletePlan } from '../store/persistence'
 import { Modal } from './Modal'
+import { PlanNameDialog } from './PlanNameDialog'
 import { ITEM_CLASS } from './MenuButton'
 import { PlusIcon, PencilIcon, CopyIcon, TrashIcon } from './icons'
 
 type PlanDialog = null | { kind: 'rename' } | { kind: 'delete' } | { kind: 'error'; message: string }
 
 const SECONDARY_BUTTON = 'text-xs bg-gray-800 text-gray-300 hover:text-gray-100 border border-gray-600 rounded px-3 py-1'
-
-// This file exports a hook, not a component, so fast refresh reloads it fully.
-// eslint-disable-next-line react-refresh/only-export-components
-function PlanNameDialog({ initialName, onSubmit, onClose }: { initialName: string; onSubmit: (name: string) => void; onClose: () => void }) {
-  const [name, setName] = useState(initialName)
-  const blank = name.trim() === ''
-  return (
-    <Modal onClose={onClose} className="p-4 w-80 text-sm">
-      <form
-        onSubmit={e => {
-          e.preventDefault()
-          if (!blank) onSubmit(name)
-        }}
-      >
-        <h2 className="font-semibold text-gray-100 mb-2">Rename plan</h2>
-        <input
-          aria-label="Plan name"
-          value={name}
-          maxLength={PLAN_NAME_MAX_LENGTH}
-          autoFocus
-          onFocus={e => e.currentTarget.select()}
-          onChange={e => setName(e.target.value)}
-          className="w-full mb-3 text-xs bg-gray-800 text-gray-100 border border-gray-600 rounded px-2 py-1"
-        />
-        <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className={SECONDARY_BUTTON}>Cancel</button>
-          <button
-            type="submit"
-            disabled={blank}
-            className="text-xs bg-blue-600 text-white hover:bg-blue-500 rounded px-3 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            Rename
-          </button>
-        </div>
-      </form>
-    </Modal>
-  )
-}
 
 const TILE_CLASS = 'flex flex-col items-center gap-0.5 py-1.5 bg-gray-900 border border-gray-700 rounded-md text-[11px] hover:bg-gray-700 focus:bg-gray-700 outline-none disabled:opacity-50 disabled:cursor-not-allowed'
 
@@ -94,6 +57,7 @@ export function usePlanSection(): PlanSection {
                 type="button"
                 role="menuitemradio"
                 aria-checked={checked}
+                disabled={!loaded}
                 title={p.name}
                 tabIndex={-1}
                 className={ITEM_CLASS}

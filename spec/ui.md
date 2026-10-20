@@ -83,7 +83,7 @@ and holds:
   one checked; picking one switches to it;
 - a row of four action tiles, **New**, **Rename**, **Duplicate** and **Delete** (accessible
   names `New plan`, `Rename plan`, `Duplicate plan`, `Delete plan`), which act on the active plan.
-  They are disabled until game data has loaded.
+  The plan radio items and the tiles are disabled until game data has loaded.
 
 Plan state lives in `plansStore.ts` (plan list and active plan) and the actions in
 `persistence.ts`.
@@ -179,7 +179,9 @@ Clicking the flag toggles the **targets popover** (`HorizonTargetsPopover`, a `P
 "Horizon targets" anchored under the flag). It lists each valid target with its icon and name and
 a remove button (`Remove <name>`), plus **Edit horizon…** and **Clear** (`Clear horizon`). With
 no targets it says so and offers **Choose technologies…** instead. Opening moves focus to the
-first remove button (else the edit button); Escape or an outside click closes it, and Escape
+edit button (**Edit horizon…** / **Choose technologies…**), deliberately not the first remove
+button, so a second Enter or Space cannot delete a target; removing or clearing targets moves
+focus back to that button, which survives. Escape or an outside click closes it, and only Escape
 returns focus to the flag. **Edit horizon…** / **Choose technologies…** closes the popover and
 opens the **Research horizon** modal:
 
@@ -188,7 +190,7 @@ opens the **Research horizon** modal:
 - A line "N of M recipes available" (M counts non-hidden recipes; extraction recipes count as available).
 - A search box and a scrollable list of every exported technology, sorted by name;
   clicking one adds or removes it as a target immediately.
-- **Done** closes the modal.
+- **Done** (or Escape) closes the modal and returns focus to the flag.
 
 The targets and all their prerequisites define the horizon (rule in
 [data-model.md](data-model.md#technology)). It belongs to the plan, so it is saved
@@ -250,8 +252,8 @@ active plan's name and a sub-line, and a chevron:
 | State | Top line | Sub-line | Accessible name |
 |---|---|---|---|
 | No data set chosen yet | Choose game data | none | `Choose game data` |
-| Loading | active plan name, else "Choose game data" | Loading… | the top line |
-| Error | active plan name, else "Choose game data" | Error loading data (red; the tooltip carries the error message) | the top line |
+| Loading | active plan name, else "Choose game data" | Loading… | `Plan: <name>, loading` (or `Choose game data, loading`) |
+| Error | active plan name, else "Choose game data" | Error loading data (red; the tooltip carries the error message) | `Plan: <name>, error loading data` (or `Choose game data, error loading data`) |
 | Loaded | active plan name | data set label: Nullius, Seablock or the uploaded file name | `Plan: <name>` |
 
 It opens a panel named "Plan and game data", in order:
