@@ -56,6 +56,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Indicator for byproduct-consumer rows.** A row marked "Absorb byproduct" (`byproductConsumer`, see [spec/ui.md](../spec/ui.md)) looks like any other row, so the user can forget it only soaks up surplus. Show a small badge next to the recipe icon as a reminder, with a tooltip explaining the mode.
 - [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
 - [ ] **Make sub-factory removal undoable.** `removeSubPlan` in `src/store/blockStore.ts` uses `set` directly instead of a `Command`, so removing a sub-factory (and its contents) cannot be undone.
+- [ ] **Redesign the Products, Byproducts and Ingredients panels.** They read poorly once a panel holds 15+ items and each item carries its own connections. Find a layout that stays scannable at that size (e.g. grouping, collapsing or a different presentation of connections) and present the options to the user before building.
 
 ## Data sets
 
