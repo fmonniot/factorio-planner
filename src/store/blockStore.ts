@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { pickBlockColor } from '../data/blockColors'
+import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -191,6 +191,7 @@ export interface BlockStoreState {
   removeBlock: (blockId: string) => void
   duplicateBlock: (blockId: string) => void
   renameBlock: (blockId: string, name: string) => void
+  setBlockColor: (blockId: string, color: string) => void
   setActiveBlock: (blockId: string) => void
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
@@ -361,6 +362,13 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => ({
       blocks: state.blocks.map(b => (b.id === blockId ? { ...b, name } : b)),
     })),
+
+  setBlockColor: (blockId, color) =>
+    set(state => {
+      const hex = color.toLowerCase()
+      if (!HEX_COLOR_RE.test(hex)) return state
+      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color: hex } : b)) }
+    }),
 
   setActiveBlock: (blockId) =>
     set(state => {

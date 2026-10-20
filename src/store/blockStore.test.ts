@@ -717,4 +717,37 @@ describe('block colours', () => {
   it('cloneBlock sets the colour it is given', () => {
     expect(cloneBlock(makeEmptyBlock('B'), '#123456').color).toBe('#123456')
   })
+
+  describe('setBlockColor', () => {
+    function seed() {
+      const a = makeEmptyBlock('A', '#60a5fa')
+      const b = makeEmptyBlock('B', '#f472b6')
+      useBlockStore.setState({ blocks: [a, b], activeBlockId: a.id, history: {} })
+      return { a, b }
+    }
+
+    it('sets the colour of the target block only', () => {
+      const { a, b } = seed()
+      useBlockStore.getState().setBlockColor(b.id, '#a3e635')
+      const [first, second] = useBlockStore.getState().blocks
+      expect(first.color).toBe(a.color)
+      expect(second.color).toBe('#a3e635')
+    })
+
+    it('lower-cases its input', () => {
+      const { b } = seed()
+      useBlockStore.getState().setBlockColor(b.id, '#ABCDEF')
+      expect(useBlockStore.getState().blocks[1].color).toBe('#abcdef')
+    })
+
+    it('ignores an invalid colour or an unknown block', () => {
+      const { a, b } = seed()
+      const before = useBlockStore.getState().blocks
+      useBlockStore.getState().setBlockColor(b.id, 'red')
+      useBlockStore.getState().setBlockColor(b.id, '#12345')
+      useBlockStore.getState().setBlockColor('missing', '#a3e635')
+      expect(useBlockStore.getState().blocks.map(x => x.color)).toEqual(before.map(x => x.color))
+      expect(useBlockStore.getState().blocks[0].id).toBe(a.id)
+    })
+  })
 })

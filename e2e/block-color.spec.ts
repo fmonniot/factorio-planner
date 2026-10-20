@@ -3,6 +3,7 @@ import path from 'path'
 import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail } from './support/summary'
+import { planStorageKey } from '../src/store/sourceId'
 import { exportPlan } from './support/appMenu'
 
 const PLAN = path.resolve('e2e/fixtures/block-connection.json')
@@ -29,6 +30,24 @@ test.describe('block colours', () => {
     await page.reload()
     await ready(page)
     expect(await exportColors(page)).toEqual({ Plates: '#60a5fa', Gears: '#7dd3fc' })
+  })
+
+  test('a colour picked from the tab menu is exported and is persisted', async ({ page }) => {
+    await loadPlanFixture(page, PLAN)
+    await ready(page)
+
+    await page.locator('button[title="Gears"]').click({ button: 'right' })
+    await page.getByLabel('Colour #a3e635').click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    expect(await exportColors(page)).toEqual({ Plates: '#60a5fa', Gears: '#a3e635' })
+    // Right-clicking activates the tab, so its stripe is at full strength.
+    const stripe = page.locator('button[title="Gears"] [data-testid="block-tab-stripe"]')
+    await expect(stripe).toHaveCSS('background-color', 'rgb(163, 230, 53)')
+
+    // loadPlanFixture re-seeds localStorage on every load, so a reload would
+    // discard the choice; check the persisted plan directly instead.
+    const saved = await page.evaluate(key => JSON.parse(localStorage.getItem(key)!), planStorageKey('nullius'))
+    expect(saved.blocks.map((b: { color: string }) => b.color)).toEqual(['#60a5fa', '#a3e635'])
   })
 
   test('new and duplicated blocks get a colour of their own', async ({ page }) => {

@@ -7,7 +7,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 // ---------------------------------------------------------------------------
 
 import { Icon } from './Icon'
-import { withAlpha } from '../data/blockColors'
+import { withAlpha, BLOCK_PALETTE } from '../data/blockColors'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -23,6 +23,8 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
   const renameBlock = useBlockStore(s => s.renameBlock)
   const removeBlock = useBlockStore(s => s.removeBlock)
   const duplicateBlock = useBlockStore(s => s.duplicateBlock)
+  const setBlockColor = useBlockStore(s => s.setBlockColor)
+  const currentColor = blocks.find(b => b.id === blockId)?.color.toLowerCase()
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -79,6 +81,24 @@ function BlockContextMenu({ blockId, onClose }: ContextMenuProps) {
       >
         Delete
       </button>
+      <div role="separator" className="my-1 border-t border-gray-700" />
+      <div className="text-[10px] text-gray-500 px-3 pb-1">Colour</div>
+      <div role="group" aria-label="Block colour" className="grid grid-cols-8 gap-1 px-3 pb-1.5">
+        {BLOCK_PALETTE.map(c => (
+          <button
+            key={c}
+            role="menuitemradio"
+            aria-checked={c === currentColor}
+            aria-label={`Colour ${c}`}
+            title={c}
+            data-testid="block-color-swatch"
+            data-color={c}
+            className={`w-4 h-4 rounded-sm ${c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
+            style={{ background: c }}
+            onClick={() => { setBlockColor(blockId, c); onClose() }}
+          />
+        ))}
+      </div>
     </div>
   )
 }
