@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
-import { openHorizonDialog } from './support/horizon'
+import { openHorizonTree, closeHorizonTree } from './support/horizon'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
 
@@ -89,9 +89,9 @@ test.describe('Extraction recipes', () => {
   })
 
   test('extraction recipes ignore the research horizon', async ({ page }) => {
-    await openHorizonDialog(page)
+    await openHorizonTree(page)
     await page.locator('[data-tech-id="electronics"]').click()
-    await page.getByRole('button', { name: 'Done' }).click()
+    await closeHorizonTree(page)
 
     await page.getByRole('button', { name: 'Add recipe' }).click()
     const recipeIds = await page.locator('[data-testid="recipe-slot"]').evaluateAll(

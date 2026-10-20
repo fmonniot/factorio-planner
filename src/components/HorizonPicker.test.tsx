@@ -44,8 +44,8 @@ function tech(id: string) {
   return document.querySelector(`[data-tech-id="${id}"]`) as HTMLElement
 }
 
-/** Click the flag, then go through the popover to the modal. */
-function openModal(flagName: string) {
+/** Click the flag, then go through the popover to the tech tree. */
+function openTree(flagName: string) {
   fireEvent.click(screen.getByRole('button', { name: flagName }))
   fireEvent.click(screen.getByRole('button', { name: /^(Choose technologies|Edit horizon)/ }))
 }
@@ -65,56 +65,17 @@ describe('HorizonButton', () => {
   it('labels the horizon by its targets', () => {
     render(<HorizonButton />)
     expect(screen.getByRole('button', { name: 'Horizon: none' })).toBeInTheDocument()
-    openModal('Horizon: none')
+    openTree('Horizon: none')
     fireEvent.click(tech('electronics'))
-    fireEvent.click(screen.getByText('Done'))
+    fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Horizon: Electronics' })).toBeInTheDocument()
-    openModal('Horizon: Electronics')
+    openTree('Horizon: Electronics')
     fireEvent.click(tech('rocket-silo'))
-    fireEvent.click(screen.getByText('Done'))
+    fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.getByRole('button', { name: 'Horizon: 2 technologies' })).toBeInTheDocument()
   })
 
-  it('toggles a target through aria-pressed', () => {
-    render(<HorizonButton />)
-    openModal('Horizon: none')
-    fireEvent.click(tech('electronics'))
-    expect(tech('electronics').getAttribute('aria-pressed')).toBe('true')
-    fireEvent.click(tech('electronics'))
-    expect(tech('electronics').getAttribute('aria-pressed')).toBe('false')
-  })
-
-  it('Clear empties the targets', () => {
-    render(<HorizonButton />)
-    openModal('Horizon: none')
-    expect(screen.getByRole('button', { name: 'Clear' })).toBeDisabled()
-    fireEvent.click(tech('electronics'))
-    expect(screen.getAllByTestId('horizon-target')).toHaveLength(1)
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
-    expect(screen.queryAllByTestId('horizon-target')).toHaveLength(0)
-    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
-  })
-
-  it('Clear removes stale target ids that match no technology', () => {
-    useBlockStore.setState({ horizonTechnologyIds: ['gone'] })
-    render(<HorizonButton />)
-    openModal('Horizon: none')
-    expect(screen.getByRole('button', { name: 'Clear' })).toBeEnabled()
-    fireEvent.click(screen.getByRole('button', { name: 'Clear' }))
-    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
-  })
-
-  it('updates the recipe count', () => {
-    render(<HorizonButton />)
-    openModal('Horizon: none')
-    expect(screen.getByTestId('horizon-recipe-count')).toHaveTextContent('3 of 3 recipes available')
-    fireEvent.click(tech('electronics'))
-    expect(screen.getByTestId('horizon-recipe-count')).toHaveTextContent('2 of 3 recipes available')
-    fireEvent.click(tech('rocket-silo'))
-    expect(screen.getByTestId('horizon-recipe-count')).toHaveTextContent('3 of 3 recipes available')
-  })
-
-  it('opens the targets popover, not the modal, on click', () => {
+  it('opens the targets popover, not the tree, on click', () => {
     render(<HorizonButton />)
     const flag = screen.getByRole('button', { name: 'Horizon: none' })
     expect(flag).toHaveAttribute('aria-haspopup', 'dialog')
@@ -123,7 +84,7 @@ describe('HorizonButton', () => {
     expect(flag).toHaveAttribute('aria-expanded', 'true')
     const popover = screen.getByRole('dialog', { name: 'Horizon targets' })
     expect(popover).toHaveTextContent('No targets')
-    expect(screen.queryByTestId('horizon-recipe-count')).not.toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Technology tree' })).not.toBeInTheDocument()
     fireEvent.click(flag)
     expect(screen.queryByRole('dialog', { name: 'Horizon targets' })).not.toBeInTheDocument()
   })
@@ -190,22 +151,28 @@ describe('HorizonButton', () => {
     expect(screen.getByRole('button', { name: 'Choose technologies…' })).toHaveFocus()
   })
 
-  it('closing the modal returns focus to the flag', () => {
+  it('closing the tree returns focus to the flag', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
     render(<HorizonButton />)
     const flag = screen.getByRole('button', { name: 'Horizon: Electronics' })
     fireEvent.click(flag)
     fireEvent.click(screen.getByRole('button', { name: 'Edit horizon…' }))
-    fireEvent.click(screen.getByRole('button', { name: 'Done' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Close' }))
     expect(flag).toHaveFocus()
   })
 
-  it('Edit horizon… closes the popover and opens the modal', () => {
+  it('Edit horizon… closes the popover and opens the tech tree', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['electronics'] })
     render(<HorizonButton />)
     fireEvent.click(screen.getByRole('button', { name: 'Horizon: Electronics' }))
     fireEvent.click(screen.getByRole('button', { name: 'Edit horizon…' }))
     expect(screen.queryByRole('dialog', { name: 'Horizon targets' })).not.toBeInTheDocument()
-    expect(screen.getByTestId('horizon-recipe-count')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Technology tree' })).toBeInTheDocument()
+  })
+
+  it('Choose technologies… opens the tech tree when there are no targets', () => {
+    render(<HorizonButton />)
+    openTree('Horizon: none')
+    expect(screen.getByRole('heading', { name: 'Technology tree' })).toBeInTheDocument()
   })
 })

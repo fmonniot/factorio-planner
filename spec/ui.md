@@ -184,15 +184,8 @@ edit button (**Edit horizon…** / **Choose technologies…**), deliberately not
 button, so a second Enter or Space cannot delete a target; removing or clearing targets moves
 focus back to that button, which survives. Escape or an outside click closes it, and only Escape
 returns focus to the flag. **Edit horizon…** / **Choose technologies…** closes the popover and
-opens the **Research horizon** modal:
-
-- Target chips (× removes one; the chip area scrolls past about six rows so the technology list keeps
-  its room) and a **Clear** button that stays outside that scroll. With no targets: "No limit:
-  every recipe is offered."
-- A line "N of M recipes available" (M counts non-hidden recipes; extraction recipes count as available).
-- A search box and a scrollable list of every exported technology, sorted by name;
-  clicking one adds or removes it as a target immediately.
-- **Done** (or Escape) closes the modal and returns focus to the flag.
+opens the [technology tree](#technology-tree), the only place to pick targets; closing the tree
+returns focus to the flag.
 
 The targets and all their prerequisites define the horizon (rule in
 [data-model.md](data-model.md#technology)). It belongs to the plan, so it is saved
@@ -232,9 +225,10 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   *locked* (gray, dimmed). Edges take the colour of their dependent's state. With no
   horizon nothing is researched and the roots are available; the header says
   "No horizon: every recipe is offered. Click a technology to research up to it."
-  Otherwise it reads "Horizon: N targets".
-- **Click** a card to toggle it as a horizon target, like the Research horizon modal;
-  targets get a ring. Adding a locked technology researches its whole prerequisite
+  Otherwise it reads "Horizon: N targets". Next to it, "N of M recipes available"
+  (`data-testid="tech-tree-recipe-count"`; M counts non-hidden recipes, extraction
+  recipes count as available) shows what the horizon unlocks.
+- **Click** a card to toggle it as a horizon target; targets get a ring. Adding a locked technology researches its whole prerequisite
   chain. **Clear horizon** empties the targets.
 - **Pan and zoom** (maths in `src/utils/viewTransform.ts`): drag the background to
   pan (a drag longer than 4 px never counts as a click), mouse wheel to zoom around

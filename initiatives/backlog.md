@@ -78,7 +78,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Ideas (not planned)
 
 - Sankey / flow diagram view
-- Tech tree search / jump-to technology
+- Tech tree search / jump-to technology (the tree is now the only place to pick horizon targets, so finding a technology by name means panning)
 - Show research trigger conditions on trigger technologies
 - Plan diffing
 - Light theme / theme toggle (the UI is dark-only)

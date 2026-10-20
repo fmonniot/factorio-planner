@@ -103,6 +103,24 @@ describe('TechTreeButton', () => {
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
   })
 
+  it('updates the recipe count as the horizon changes', () => {
+    open()
+    const count = screen.getByTestId('tech-tree-recipe-count')
+    expect(count).toHaveTextContent('3 of 3 recipes available')
+    fireEvent.click(card('electronics'))
+    expect(count).toHaveTextContent('2 of 3 recipes available')
+    fireEvent.click(card('rocket-silo'))
+    expect(count).toHaveTextContent('3 of 3 recipes available')
+  })
+
+  it('Clear horizon removes stale target ids that match no technology', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['gone'] })
+    open()
+    expect(screen.getByRole('button', { name: 'Clear horizon' })).toBeEnabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear horizon' }))
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
+  })
+
   it('closes on Escape', () => {
     open()
     expect(screen.getByRole('heading', { name: 'Technology tree' })).toBeInTheDocument()

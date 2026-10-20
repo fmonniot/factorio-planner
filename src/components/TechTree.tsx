@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useStat
 import type { MutableRefObject } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
+import { useAvailableRecipeIds } from '../store/horizon'
 import { hasTechnologies } from '../data/horizon'
 import { layoutTechTree, techStates, CARD_W, CARD_H } from '../data/techTree'
 import type { TechState } from '../data/techTree'
@@ -18,7 +19,8 @@ import type { GameData, Technology } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Technology tree — pannable, zoomable graph of the technologies. Clicking a
-// card toggles it as a research-horizon target, like the Horizon picker.
+// card toggles it as a research-horizon target. It is the one place to edit the
+// horizon: the top bar's tech tree button and the horizon flag both open it.
 // ---------------------------------------------------------------------------
 
 const CARD_CLASS: Record<TechState, string> = {
@@ -77,13 +79,22 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
   )
 })
 
-function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
+export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
   const targets = useBlockStore(s => s.horizonTechnologyIds)
   const setTargets = useBlockStore(s => s.setHorizonTechnologyIds)
 
   const layout = useMemo(() => layoutTechTree(gameData.technologies), [gameData.technologies])
   const states = useMemo(() => techStates(gameData, targets), [gameData, targets])
   const validTargets = targets.filter(id => gameData.technologies[id])
+  const available = useAvailableRecipeIds()
+
+  const { visibleCount, availableCount } = useMemo(() => {
+    const visible = Object.values(gameData.recipes).filter(r => !r.hidden)
+    return {
+      visibleCount: visible.length,
+      availableCount: available ? visible.filter(r => available.has(r.id)).length : visible.length,
+    }
+  }, [gameData, available])
 
   const [view, setView] = useState<ViewTransform>({ x: 24, y: 24, scale: 1 })
   const viewportRef = useRef<HTMLDivElement>(null)
@@ -211,6 +222,9 @@ function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () 
           {validTargets.length === 0
             ? 'No horizon: every recipe is offered. Click a technology to research up to it.'
             : `Horizon: ${validTargets.length} ${validTargets.length === 1 ? 'target' : 'targets'}`}
+        </span>
+        <span data-testid="tech-tree-recipe-count" className="text-xs text-gray-400">
+          {availableCount} of {visibleCount} recipes available
         </span>
         <button
           type="button"
