@@ -2,6 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { selectDataset } from './support/appMenu'
 import { loadPlanFixture } from './support/loadPlan'
+import { pane } from './support/summary'
 import {
   planTrigger, planNames, switchToPlan, renameActivePlan, runPlanAction, deleteActivePlan,
 } from './support/planMenu'
@@ -45,17 +46,19 @@ test.describe('multiple plans per data set', () => {
   })
 
   test('a duplicate is independent of the original', async ({ page }) => {
+    // Goal amounts are not rendered in the table; the Products slot count tells the plans apart.
+    const goalSlots = pane(page, 'Products').getByTestId('summary-slot')
+
     await addGoal(page, '250')
     await runPlanAction(page, 'Duplicate')
     await expectPlan(page, 'Plan 1 (copy)')
-    await expect(page.locator('main')).toContainText('250')
+    await expect(goalSlots).toHaveCount(1)
 
     await addGoal(page, '375')
-    await expect(page.locator('main')).toContainText('375')
+    await expect(goalSlots).toHaveCount(2)
 
     await switchToPlan(page, 'Plan 1')
-    await expect(page.locator('main')).toContainText('250')
-    await expect(page.locator('main')).not.toContainText('375')
+    await expect(goalSlots).toHaveCount(1)
   })
 
   test('deleting a plan activates another; deleting the only plan leaves an empty Plan 1', async ({ page }) => {
