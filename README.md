@@ -48,7 +48,7 @@ The **Block graph** button in the top bar shows all blocks and their connections
 
 ### Saving and sharing
 
-Your plan is saved in your browser's local storage as you work, separately for each game data set: switching data sets swaps the plan, and switching back restores it. **Export plan**, in **Menu**, downloads it as JSON, and **Import plan** loads such a file back, replacing the current data set's plan after a confirmation. Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
+Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the **Plan** menu at the left of the top bar switches between them and creates, renames, duplicates and deletes them, and switching data sets brings back that data set's active plan. **Export plan**, in **Menu**, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears only if it uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 
@@ -114,8 +114,8 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 |---|---|
 | `src/main.tsx` | Entry point: wires persistence and the debounced auto-solve, mounts the UI |
 | `src/solver/` | The LP-based production solver (`build.ts`, `solve.ts`, `effects.ts`, `blockGraph.ts` for block ordering and cycle checks, `index.ts`) |
-| `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, UI, and the connection rules (`connections.ts`) |
-| `src/components/` | React UI; `factory/` holds the summary panel (`summaryRows.ts` groups its pane rows), the production table and the block connection menu (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `summarySegments.ts` turns each pane item into allocation segments, styled by `segmentLooks.ts` and drawn by `SummarySlot.tsx`, `SummaryDetailStrip.tsx` and `SummaryPane.tsx` (`useMoreBelow.ts` drives their scroll fades); `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
+| `src/store/` | Zustand stores: blocks/plan, game data, solver result, persistence, plan list (`plansStore.ts`), UI, and the connection rules (`connections.ts`) |
+| `src/components/` | React UI; the top-bar dropdowns are `AppMenu.tsx` (game data, export, import) and `PlanMenu.tsx` (plans), both built on `MenuButton.tsx`; `factory/` holds the summary panel (`summaryRows.ts` groups its pane rows), the production table and the block connection menu (`ConnectionMenu.tsx`) and the block graph (`BlockGraph.tsx`); `summarySegments.ts` turns each pane item into allocation segments, styled by `segmentLooks.ts` and drawn by `SummarySlot.tsx`, `SummaryDetailStrip.tsx` and `SummaryPane.tsx` (`useMoreBelow.ts` drives their scroll fades); `subPlanContents.ts` counts a sub-factory's contents for the removal prompt |
 | `src/data/` | Zod schemas (`schema.ts`, the source of truth for types), types, block colours (`blockColors.ts`), the game data loader, research-horizon rules and the technology-tree layout |
 | `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |

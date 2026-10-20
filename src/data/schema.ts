@@ -371,6 +371,12 @@ export const AppStateSchema = z.preprocess(
   }),
 )
 
+/** One saved plan of a data set, as listed in its plan index. */
+export const PlanEntrySchema = z.object({ id: z.string().min(1), name: z.string() })
+
+/** The plans saved for one data set, and which of them is active. */
+export const PlanIndexSchema = z.object({ activePlanId: z.string(), plans: z.array(PlanEntrySchema) })
+
 // ---------------------------------------------------------------------------
 // Canonical types — derived from the schema, not written by hand.
 //
@@ -407,6 +413,8 @@ export type SubPlan = SubPlanType
 export type BlockConnection = z.output<typeof BlockConnectionSchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
+export type PlanEntry = z.output<typeof PlanEntrySchema>
+export type PlanIndex = z.output<typeof PlanIndexSchema>
 
 // Input types — what the schema accepts before transforms (useful in tests).
 export type GameDataInput = z.input<typeof GameDataSchema>

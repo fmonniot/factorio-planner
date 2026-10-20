@@ -47,7 +47,7 @@ export async function pickPlanFile(page: Page, files: Parameters<FileChooser['se
   const menu = await openAppMenu(page)
   const [chooser] = await Promise.all([
     page.waitForEvent('filechooser'),
-    menu.getByRole('menuitem', { name: 'Import plan' }).click(),
+    menu.getByRole('menuitem', { name: 'Import plan…' }).click(),
   ])
   await chooser.setFiles(files)
 }

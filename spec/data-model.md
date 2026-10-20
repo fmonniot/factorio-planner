@@ -372,18 +372,32 @@ Things to keep in mind when reading a bundle:
 
 ## App state (persisted)
 
-The user's work is an `AppState`. It is saved to `localStorage` on every change under
-`factorio-planner:app-state:<sourceId>`, one key per game data set (`nullius`,
-`kompetenz-seablock`, `custom:<filename>#<modSet fingerprint>`; trailing slashes
-dropped). An unreadable stored plan is kept under `<key>:corrupt`. The pre-per-data-set
-key `factorio-planner:app-state` is adopted once by the first data set without a plan
-and then removed (see [ui.md](ui.md#game-data-set)). The plan is
-restored through
-`parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on invalid
-data), and downloaded as JSON by the menu's "Export plan" item. The "Import plan" item reads the same
-shape through `checkPlanImport` (`src/store/persistence.ts`): `parseAppState` plus a non-empty
+The user's work is a set of plans, each an `AppState`. A game data set (`nullius`,
+`kompetenz-seablock`, `custom:<filename>#<modSet fingerprint>`; trailing slashes dropped) holds several
+plans, one of them active, and the app saves to `localStorage` on every change:
+
+- `factorio-planner:plan-index:<sourceId>` holds a `PlanIndex` (`src/data/schema.ts`, parsed by
+  `parsePlanIndex` in `src/data/loader.ts`): `{ activePlanId: string, plans: PlanEntry[] }`, where a
+  `PlanEntry` is `{ id: string, name: string }`. The list order is the menu order.
+- `factorio-planner:plan:<sourceId>/<planId>` holds one plan's `AppState`, the same shape as an
+  exported file.
+- An unreadable plan is kept under `<planKey>:corrupt`, an unreadable index under `<indexKey>:corrupt`.
+- Plans stored by older versions (`factorio-planner:app-state:<sourceId>`, and before that the global
+  `factorio-planner:app-state`) are migrated into this layout lazily when the data set is activated (see
+  [ui.md](ui.md#game-data-set)).
+
+Plan ids and names are chosen by `src/store/persistence.ts`, which owns the plan actions (new, switch,
+rename, duplicate, delete, import); `src/store/plansStore.ts` mirrors the active data set's index in
+memory. Duplicating or importing a plan runs it through `clonePlan` (`src/store/blockStore.ts`), which
+gives every block, sub-plan, node, goal and connection a fresh id so two plans never share ids
+(solver results and undo history are keyed by block id).
+
+A plan is restored through `parseAppState` (`src/data/loader.ts`, which throws `AppStateLoadError` on
+invalid data), and downloaded as JSON by the menu's "Export plan" item. The "Import plan…" item reads the
+same shape through `checkPlanImport` (`src/store/persistence.ts`): `parseAppState` plus a non-empty
 `blocks` check, a uniqueness check (block ids; sub-plan and node ids within a block) and an
-`activeBlockId` fallback to the first block; the localStorage load path applies none of these.
+`activeBlockId` fallback to the first block; the localStorage load path applies none of these. A checked
+file is then added as a new plan by `importPlanAsNew`.
 
 ```
 AppState

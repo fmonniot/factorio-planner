@@ -3,12 +3,13 @@ import {
   useBlockStore,
   makeEmptyBlock,
   cloneBlock,
+  clonePlan,
   makeEmptySubPlan,
   findSubPlan,
   isSubPlanDescendant,
   selectAppState,
 } from './blockStore'
-import type { Block, RecipeNode, SubPlanNode } from '../data/types'
+import type { AppState, Block, RecipeNode, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
 
 // ---------------------------------------------------------------------------
@@ -584,6 +585,59 @@ describe('setHorizonTechnologyIds', () => {
 // ---------------------------------------------------------------------------
 // duplicateBlock
 // ---------------------------------------------------------------------------
+
+describe('clonePlan', () => {
+  function makePlan(): AppState {
+    const a = makeEmptyBlock('A', '#112233')
+    a.goals = [{ id: 'goal-a', itemId: 'iron-plate', rate: 30 }]
+    a.rootPlan.nodes = [{ ...ironNode, id: 'node-a' }]
+    const b = makeEmptyBlock('B', '#445566')
+    b.inputConnections = [{ id: 'conn-b', itemId: 'iron-plate', fromBlockId: a.id }]
+    return { blocks: [a, b], activeBlockId: b.id, horizonTechnologyIds: ['tech-x'] }
+  }
+
+  function collectIds(plan: AppState): string[] {
+    const ids: string[] = []
+    const walk = (p: Block['rootPlan']) => {
+      ids.push(p.id, ...p.nodes.map(n => n.id))
+      p.subPlans.forEach(walk)
+    }
+    for (const b of plan.blocks) {
+      ids.push(b.id, ...b.goals.map(g => g.id), ...b.inputConnections.map(c => c.id))
+      walk(b.rootPlan)
+    }
+    return ids
+  }
+
+  it('gives every id a fresh, unique value', () => {
+    const plan = makePlan()
+    const copy = clonePlan(plan)
+    const original = new Set(collectIds(plan))
+    const fresh = collectIds(copy)
+    expect(fresh.some(id => original.has(id))).toBe(false)
+    expect(new Set(fresh).size).toBe(fresh.length)
+  })
+
+  it('remaps connections and the active block to the copies', () => {
+    const copy = clonePlan(makePlan())
+    expect(copy.blocks[1].inputConnections[0].fromBlockId).toBe(copy.blocks[0].id)
+    expect(copy.activeBlockId).toBe(copy.blocks[1].id)
+  })
+
+  it('keeps names, colours and the horizon', () => {
+    const copy = clonePlan(makePlan())
+    expect(copy.blocks.map(b => b.name)).toEqual(['A', 'B'])
+    expect(copy.blocks.map(b => b.color)).toEqual(['#112233', '#445566'])
+    expect(copy.horizonTechnologyIds).toEqual(['tech-x'])
+  })
+
+  it('does not mutate its input', () => {
+    const plan = makePlan()
+    const before = structuredClone(plan)
+    clonePlan(plan)
+    expect(plan).toEqual(before)
+  })
+})
 
 describe('duplicateBlock', () => {
   function makeRichBlock(): Block {

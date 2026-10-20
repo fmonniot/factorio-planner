@@ -1,22 +1,40 @@
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import {
   LEGACY_APP_STATE_STORAGE_KEY,
-  planStorageKey,
   saveAppState,
-  loadPersistedAppState,
-  activatePlan,
+  activateDataSet,
   initAppStatePersistence,
   removeCustomPlans,
   checkPlanImport,
   findUnknownPlanIds,
-  replacePlan,
+  importPlanAsNew,
+  switchPlan,
+  createPlan,
+  duplicatePlan,
+  renamePlan,
+  deletePlan,
+  nextPlanName,
+  planNameFromFileName,
+  exportFileName,
 } from './persistence'
-import { useBlockStore, makeEmptyBlock } from './blockStore'
+import { useBlockStore, makeEmptyBlock, selectAppState } from './blockStore'
+import { usePlansStore } from './plansStore'
+import { legacyPlanStorageKey, planIndexKey, planKey } from './sourceId'
 import { HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore } from './gameDataStore'
-import type { AppState, GameData, Block, GameRecipeNode } from '../data/types'
+import type { AppState, GameData, Block, GameRecipeNode, PlanIndex } from '../data/types'
 
-const KEY = planStorageKey('nullius')
+/** Parsed plan index stored for a data set; throws when there is none. */
+function readIndex(sourceId: string): PlanIndex {
+  return JSON.parse(store[planIndexKey(sourceId)]) as PlanIndex
+}
+
+/** Storage key of the active plan of a data set. */
+function activePlanKey(sourceId: string): string {
+  return planKey(sourceId, readIndex(sourceId).activePlanId)
+}
+
+const KEY = () => activePlanKey('nullius')
 
 function loadedStatus(sourceId: string) {
   return { type: 'loaded' as const, gameData: {} as unknown as GameData, sourceId }
@@ -24,7 +42,7 @@ function loadedStatus(sourceId: string) {
 
 function storePlan(sourceId: string, name: string) {
   const block = makeEmptyBlock(name)
-  localStorageMock.setItem(planStorageKey(sourceId), JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+  localStorageMock.setItem(legacyPlanStorageKey(sourceId), JSON.stringify({ blocks: [block], activeBlockId: block.id }))
 }
 
 // ---------------------------------------------------------------------------
@@ -60,6 +78,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
+  usePlansStore.setState({ sourceId: null, index: null })
 })
 
 afterEach(() => {
@@ -73,14 +92,14 @@ afterEach(() => {
 describe('saveAppState', () => {
   it('writes the current app state under the active data set key', () => {
     const unsub = initAppStatePersistence()
-    activatePlan('nullius')
+    activateDataSet('nullius')
     vi.clearAllMocks()
     const block = makeEmptyBlock('Iron Setup')
     useBlockStore.setState({ blocks: [block], activeBlockId: block.id, history: {} })
     saveAppState()
     unsub()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      KEY,
+      KEY(),
       expect.stringContaining('"Iron Setup"'),
     )
   })
@@ -92,59 +111,11 @@ describe('saveAppState', () => {
 
   it('does not throw when localStorage.setItem throws', () => {
     const unsub = initAppStatePersistence()
-    activatePlan('nullius')
+    activateDataSet('nullius')
     unsub()
     localStorageMock.setItem.mockImplementationOnce(() => { throw new Error('QuotaExceededError') })
-    activatePlan('nullius')
+    activateDataSet('nullius')
     expect(() => saveAppState()).not.toThrow()
-  })
-})
-
-// ---------------------------------------------------------------------------
-// loadPersistedAppState
-// ---------------------------------------------------------------------------
-
-describe('loadPersistedAppState', () => {
-  it('returns missing when nothing is stored', () => {
-    const result = loadPersistedAppState('nullius')
-    expect(result).toEqual({ type: 'missing' })
-  })
-
-  it('returns ok and restores the app state on valid data', () => {
-    const block = makeEmptyBlock('Saved Plan')
-    const appState = { blocks: [block], activeBlockId: block.id }
-    localStorageMock.setItem(KEY, JSON.stringify(appState))
-    const result = loadPersistedAppState('nullius')
-    expect(result).toEqual({ type: 'ok' })
-    expect(useBlockStore.getState().blocks[0].name).toBe('Saved Plan')
-  })
-
-  it('returns error on malformed JSON', () => {
-    localStorageMock.setItem(KEY, 'not json')
-    const result = loadPersistedAppState('nullius')
-    expect(result.type).toBe('error')
-    if (result.type === 'error') {
-      expect(result.message).toMatch(/malformed json/i)
-    }
-  })
-
-  it('returns error on schema validation failure', () => {
-    localStorageMock.setItem(KEY, JSON.stringify({ id: 123 }))
-    const result = loadPersistedAppState('nullius')
-    expect(result.type).toBe('error')
-  })
-
-  it('leaves the block store unchanged on error', () => {
-    const original = useBlockStore.getState().blocks
-    localStorageMock.setItem(KEY, 'bad json')
-    loadPersistedAppState('nullius')
-    expect(useBlockStore.getState().blocks).toBe(original)
-  })
-
-  it('returns error when localStorage.getItem throws', () => {
-    localStorageMock.getItem.mockImplementationOnce(() => { throw new Error('SecurityError') })
-    const result = loadPersistedAppState('nullius')
-    expect(result.type).toBe('error')
   })
 })
 
@@ -155,18 +126,18 @@ describe('loadPersistedAppState', () => {
 describe('initAppStatePersistence', () => {
   it('auto-saves when the blocks change', () => {
     const unsub = initAppStatePersistence()
-    activatePlan('nullius')
+    activateDataSet('nullius')
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     unsub()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      KEY,
+      KEY(),
       expect.stringContaining('iron-plate'),
     )
   })
 
   it('does not save when only non-block state changes', () => {
     const unsub = initAppStatePersistence()
-    activatePlan('nullius')
+    activateDataSet('nullius')
     vi.clearAllMocks()
     // Change history (not blocks) — should not trigger a save.
     useBlockStore.setState({ history: { 'some-id': { undoStack: [], redoStack: [] } } })
@@ -176,7 +147,7 @@ describe('initAppStatePersistence', () => {
 
   it('stops auto-saving after unsubscribe', () => {
     const unsub = initAppStatePersistence()
-    activatePlan('nullius')
+    activateDataSet('nullius')
     unsub()
     vi.clearAllMocks()
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
@@ -194,16 +165,6 @@ describe('initAppStatePersistence', () => {
 // ---------------------------------------------------------------------------
 // Per-data-set plans
 // ---------------------------------------------------------------------------
-
-describe('planStorageKey', () => {
-  it('ignores trailing slashes in the source id', () => {
-    expect(planStorageKey('kompetenz-seablock/')).toBe(planStorageKey('kompetenz-seablock'))
-  })
-
-  it('differs per source', () => {
-    expect(planStorageKey('nullius')).not.toBe(planStorageKey('custom:a.json'))
-  })
-})
 
 describe('switching data sets', () => {
   let unsub: () => void
@@ -232,8 +193,8 @@ describe('switching data sets', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     useGameDataStore.setState({ status: loadedStatus('seablock') })
-    expect(store[planStorageKey('nullius')]).toContain('iron-plate')
-    expect(store[planStorageKey('seablock')]).not.toContain('iron-plate')
+    expect(store[activePlanKey('nullius')]).toContain('iron-plate')
+    expect(store[activePlanKey('seablock')]).not.toContain('iron-plate')
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     expect(useBlockStore.getState().blocks[0].goals[0]?.itemId).toBe('iron-plate')
   })
@@ -251,11 +212,11 @@ describe('switching data sets', () => {
     useGameDataStore.setState({ status: { type: 'error', message: 'boom' } })
     expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
     useBlockStore.getState().addGoal({ id: 'g2', itemId: 'copper-plate', rate: 60 })
-    expect(store[KEY]).toContain('copper-plate')
+    expect(store[KEY()]).toContain('copper-plate')
   })
 
   it('starts empty when the stored plan is unreadable', () => {
-    localStorageMock.setItem(planStorageKey('seablock'), 'not json')
+    localStorageMock.setItem(legacyPlanStorageKey('seablock'), 'not json')
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
     useGameDataStore.setState({ status: loadedStatus('seablock') })
@@ -263,12 +224,18 @@ describe('switching data sets', () => {
   })
 
   it('keeps an unreadable stored plan under :corrupt instead of overwriting it', () => {
-    localStorageMock.setItem(planStorageKey('seablock'), 'not json')
     useGameDataStore.setState({ status: loadedStatus('seablock') })
-    expect(store[planStorageKey('seablock') + ':corrupt'], 'raw value is recoverable').toBe('not json')
+    const key = activePlanKey('seablock')
+    unsub()
+    localStorageMock.setItem(key, 'not json')
+    unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    useGameDataStore.setState({ status: loadedStatus('seablock') })
+    expect(store[key + ':corrupt'], 'raw value is recoverable').toBe('not json')
+    expect(readIndex('seablock').plans, 'the plan stays in the list').toHaveLength(1)
     useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
-    expect(store[planStorageKey('seablock') + ':corrupt']).toBe('not json')
-    expect(store[planStorageKey('seablock')]).toContain('iron-plate')
+    expect(store[key + ':corrupt']).toBe('not json')
+    expect(store[key]).toContain('iron-plate')
   })
 })
 
@@ -278,26 +245,26 @@ describe('research horizon', () => {
   afterEach(() => { unsub() })
 
   it('autosaves when only the horizon changes', () => {
-    activatePlan('nullius')
+    activateDataSet('nullius')
     vi.clearAllMocks()
     useBlockStore.getState().setHorizonTechnologyIds(['x'])
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      KEY,
+      KEY(),
       expect.stringContaining('"horizonTechnologyIds":["x"]'),
     )
   })
 
   it('restores a stored horizon on activation', () => {
     const block = makeEmptyBlock('Stored')
-    localStorageMock.setItem(KEY, JSON.stringify({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['y'] }))
-    activatePlan('nullius')
+    localStorageMock.setItem(legacyPlanStorageKey('nullius'), JSON.stringify({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['y'] }))
+    activateDataSet('nullius')
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['y'])
   })
 
   it('resets the horizon when the stored plan is corrupt', () => {
     useBlockStore.getState().setHorizonTechnologyIds(['z'])
-    localStorageMock.setItem(KEY, 'not json')
-    activatePlan('nullius')
+    localStorageMock.setItem(legacyPlanStorageKey('nullius'), 'not json')
+    activateDataSet('nullius')
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
   })
 })
@@ -307,58 +274,337 @@ describe('custom plans', () => {
   beforeEach(() => { unsub = initAppStatePersistence() })
   afterEach(() => { unsub() })
 
-  it('removeCustomPlans drops custom plans but keeps bundled ones and the excepted key', () => {
-    storePlan('nullius', 'N')
-    storePlan('custom:a.json#1', 'A')
-    storePlan('custom:b.json#2', 'B')
-    removeCustomPlans(planStorageKey('custom:b.json#2'))
-    expect(store[planStorageKey('nullius')]).toBeDefined()
-    expect(store[planStorageKey('custom:a.json#1')]).toBeUndefined()
-    expect(store[planStorageKey('custom:b.json#2')]).toBeDefined()
+  /** Stores a plan list (index, one plan, an old-shape plan and a corrupt copy) for a data set. */
+  function storeAllKeys(sourceId: string) {
+    localStorageMock.setItem(planIndexKey(sourceId), JSON.stringify({ activePlanId: 'p', plans: [{ id: 'p', name: 'Plan 1' }] }))
+    localStorageMock.setItem(planKey(sourceId, 'p'), '{}')
+    localStorageMock.setItem(planKey(sourceId, 'p') + ':corrupt', 'x')
+    localStorageMock.setItem(legacyPlanStorageKey(sourceId), '{}')
+  }
+
+  it('removeCustomPlans drops custom plans but keeps bundled ones and the kept upload', () => {
+    storeAllKeys('nullius')
+    storeAllKeys('custom:a.json#1')
+    storeAllKeys('custom:b.json#2')
+    const bKeys = Object.keys(store).filter(k => k.includes('custom:b.json#2')).sort()
+    removeCustomPlans('custom:b.json#2')
+    expect(Object.keys(store).filter(k => k.includes('custom:a.json#1'))).toEqual([])
+    expect(Object.keys(store).filter(k => k.includes('custom:b.json#2')).sort()).toEqual(bKeys)
+    expect(Object.keys(store).filter(k => k.includes('nullius'))).toHaveLength(4)
     removeCustomPlans()
-    expect(store[planStorageKey('custom:b.json#2')]).toBeUndefined()
+    expect(Object.keys(store).filter(k => k.includes('custom:'))).toEqual([])
+    expect(Object.keys(store).filter(k => k.includes('nullius'))).toHaveLength(4)
   })
 
-  it('activating a new upload drops the plan of the replaced one', () => {
-    storePlan('custom:a.json#1', 'A')
+  it('keeps an upload whose file name merely starts like the kept one', () => {
+    storeAllKeys('custom:a.json#1')
+    storeAllKeys('custom:a.json#12')
+    removeCustomPlans('custom:a.json#1')
+    expect(Object.keys(store).some(k => k.includes('custom:a.json#12'))).toBe(false)
+    expect(Object.keys(store).some(k => k.includes('custom:a.json#1'))).toBe(true)
+  })
+
+  it('activating a new upload drops the plans of the replaced one', () => {
+    storeAllKeys('custom:a.json#1')
     useGameDataStore.setState({ status: loadedStatus('custom:b.json#2') })
-    expect(store[planStorageKey('custom:a.json#1')]).toBeUndefined()
+    expect(Object.keys(store).some(k => k.includes('custom:a.json#1'))).toBe(false)
+    expect(store[planIndexKey('custom:b.json#2')]).toBeDefined()
   })
 })
 
-describe('legacy plan migration', () => {
-  it('adopts the legacy plan for the first data set loaded and deletes the legacy key', () => {
-    const unsub = initAppStatePersistence()
-    const block = makeEmptyBlock('Legacy plan')
-    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+describe('migration of single-plan storage', () => {
+  let unsub: () => void
+  beforeEach(() => { unsub = initAppStatePersistence() })
+  afterEach(() => { unsub() })
+
+  it('moves a data set\'s old plan into the list as the active "Plan 1"', () => {
+    storePlan('nullius', 'Old plan')
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    expect(useBlockStore.getState().blocks[0].name).toBe('Legacy plan')
-    expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeUndefined()
-    expect(store[KEY]).toContain('Legacy plan')
-    unsub()
+    const index = readIndex('nullius')
+    expect(index.plans).toHaveLength(1)
+    expect(index.plans[0].name).toBe('Plan 1')
+    expect(index.activePlanId).toBe(index.plans[0].id)
+    expect(useBlockStore.getState().blocks[0].name).toBe('Old plan')
+    expect(store[legacyPlanStorageKey('nullius')]).toBeUndefined()
   })
 
-  it('does not touch the legacy plan when the data set already has one', () => {
-    const unsub = initAppStatePersistence()
+  it('keeps an unreadable old plan under :corrupt of its new key', () => {
+    localStorageMock.setItem(legacyPlanStorageKey('nullius'), 'not json')
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(store[legacyPlanStorageKey('nullius')]).toBeUndefined()
+    expect(store[KEY() + ':corrupt']).toBe('not json')
+    expect(useBlockStore.getState().blocks).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].name).toBe('Factory')
+  })
+
+  it('adopts an old plan that appears while an index exists as an extra active plan', () => {
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    const first = readIndex('nullius').activePlanId
+    const firstContent = store[planKey('nullius', first)]
+    unsub()
+    usePlansStore.setState({ sourceId: null, index: null })
+    storePlan('nullius', 'Re-seeded')
+    unsub = initAppStatePersistence()
+    const index = readIndex('nullius')
+    expect(index.plans.map(p => p.name)).toEqual(['Plan 1', 'Plan 2'])
+    expect(index.activePlanId).toBe(index.plans[1].id)
+    expect(useBlockStore.getState().blocks[0].name).toBe('Re-seeded')
+    expect(store[planKey('nullius', first)]).toBe(firstContent)
+    expect(store[legacyPlanStorageKey('nullius')]).toBeUndefined()
+  })
+
+  it('adopts the global key only with neither an index nor an old key, then deletes it', () => {
+    const block = makeEmptyBlock('Global plan')
+    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(useBlockStore.getState().blocks[0].name).toBe('Global plan')
+    expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeUndefined()
+    expect(readIndex('nullius').plans).toHaveLength(1)
+  })
+
+  it('leaves the global key alone when the data set already has an index', () => {
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    useGameDataStore.setState({ status: loadedStatus('seablock') })
+    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, JSON.stringify({ blocks: [makeEmptyBlock('Global')], activeBlockId: 'x' }))
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeDefined()
+    expect(readIndex('nullius').plans).toHaveLength(1)
+  })
+
+  it('does not adopt the global key for a data set with an old key', () => {
     storePlan('nullius', 'Own plan')
-    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, JSON.stringify({ blocks: [makeEmptyBlock('Legacy plan')], activeBlockId: 'x' }))
+    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, JSON.stringify({ blocks: [makeEmptyBlock('Global')], activeBlockId: 'x' }))
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     expect(useBlockStore.getState().blocks[0].name).toBe('Own plan')
     expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeDefined()
-    unsub()
   })
 
-  it('moves an unreadable legacy plan to :corrupt instead of deleting it', () => {
-    const unsub = initAppStatePersistence()
-    localStorageMock.setItem(LEGACY_APP_STATE_STORAGE_KEY, 'not json')
+  it('keeps the old key when it cannot be copied, and still shows the plan', () => {
+    storePlan('nullius', 'Old plan')
+    const realSet = localStorageMock.setItem.getMockImplementation()!
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      if (key.startsWith('factorio-planner:plan')) throw new Error('QuotaExceededError')
+      realSet(key, value)
+    })
+    try {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      expect(store[legacyPlanStorageKey('nullius')]).toBeDefined()
+      expect(useBlockStore.getState().blocks[0].name).toBe('Old plan')
+    } finally {
+      localStorageMock.setItem.mockImplementation(realSet)
+    }
+  })
+
+  it('starts a first visit with one empty "Plan 1" and writes the index', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    expect(store[LEGACY_APP_STATE_STORAGE_KEY]).toBeUndefined()
-    expect(store[LEGACY_APP_STATE_STORAGE_KEY + ':corrupt']).toBe('not json')
-    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
-    unsub()
+    expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['Plan 1'])
+    expect(useBlockStore.getState().blocks).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].name).toBe('Factory')
   })
 })
 
+describe('plan index', () => {
+  let unsub: () => void
+  beforeEach(() => { unsub = initAppStatePersistence() })
+  afterEach(() => { unsub() })
+
+  it('quarantines an unreadable index and recovers the plans from their keys', () => {
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    createPlan()
+    unsub()
+    usePlansStore.setState({ sourceId: null, index: null })
+    useGameDataStore.setState({ status: { type: 'empty' } })
+    localStorageMock.setItem(planIndexKey('nullius'), 'not json')
+    unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(store[planIndexKey('nullius') + ':corrupt']).toBe('not json')
+    expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['Plan 1', 'Plan 2'])
+  })
+
+  it('falls back to the first plan when the active id is unknown', () => {
+    localStorageMock.setItem(planIndexKey('nullius'), JSON.stringify({
+      activePlanId: 'gone', plans: [{ id: 'a', name: 'A' }, { id: 'b', name: 'B' }],
+    }))
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(usePlansStore.getState().index?.activePlanId).toBe('a')
+  })
+
+  it('remembers the active plan across a restart', () => {
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    createPlan()
+    renamePlan(readIndex('nullius').activePlanId, 'Second')
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    unsub()
+    usePlansStore.setState({ sourceId: null, index: null })
+    unsub = initAppStatePersistence()
+    const entry = usePlansStore.getState().index!
+    expect(entry.plans.find(p => p.id === entry.activePlanId)?.name).toBe('Second')
+    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
+  })
+})
+
+describe('plan actions', () => {
+  let unsub: () => void
+  beforeEach(() => {
+    unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+  })
+  afterEach(() => { unsub() })
+
+  const index = () => usePlansStore.getState().index!
+  const names = () => index().plans.map(p => p.name)
+  const activeName = () => index().plans.find(p => p.id === index().activePlanId)!.name
+
+  it('createPlan saves the current plan, then starts an empty "Plan 2"', () => {
+    const firstKey = KEY()
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.setState({ history: { x: { undoStack: [], redoStack: [] } } })
+    expect(createPlan()).toEqual({ type: 'ok' })
+    expect(names()).toEqual(['Plan 1', 'Plan 2'])
+    expect(activeName()).toBe('Plan 2')
+    expect(store[firstKey]).toContain('iron-plate')
+    expect(useBlockStore.getState().blocks).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
+    expect(useBlockStore.getState().history).toEqual({})
+    expect(store[KEY()], 'autosave writes the new key').toBeDefined()
+    expect(KEY()).not.toBe(firstKey)
+  })
+
+  it('createPlan saves a changed active block of the current plan', () => {
+    const firstKey = KEY()
+    const other = makeEmptyBlock('Other')
+    useBlockStore.setState({ blocks: [...useBlockStore.getState().blocks, other] })
+    useBlockStore.setState({ activeBlockId: other.id })
+    createPlan()
+    expect(JSON.parse(store[firstKey]).activeBlockId).toBe(other.id)
+  })
+
+  it('nextPlanName skips used names', () => {
+    expect(nextPlanName(null)).toBe('Plan 1')
+    expect(nextPlanName({ activePlanId: 'a', plans: [{ id: 'a', name: 'Plan 2' }] })).toBe('Plan 3')
+  })
+
+  it('switchPlan restores the other plan and leaves the old key unchanged', () => {
+    const firstId = index().activePlanId
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().setHorizonTechnologyIds(['x'])
+    createPlan()
+    const secondKey = KEY()
+    const firstContent = store[planKey('nullius', firstId)]
+    expect(switchPlan(firstId)).toEqual({ type: 'ok' })
+    expect(useBlockStore.getState().blocks[0].goals[0]?.itemId).toBe('iron-plate')
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['x'])
+    expect(store[planKey('nullius', firstId)]).toBe(firstContent)
+    expect(store[secondKey]).not.toContain('iron-plate')
+    expect(readIndex('nullius').activePlanId).toBe(firstId)
+  })
+
+  it('switchPlan is a no-op for the active plan and an error for an unknown one', () => {
+    const before = useBlockStore.getState().blocks
+    expect(switchPlan(index().activePlanId)).toEqual({ type: 'ok' })
+    expect(useBlockStore.getState().blocks).toBe(before)
+    expect(switchPlan('nope').type).toBe('error')
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('duplicatePlan copies the plan right after the source with fresh ids', () => {
+    const source = makeEmptyBlock('Source')
+    const consumer = { ...makeEmptyBlock('Consumer'), inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: source.id }] }
+    useBlockStore.setState({ blocks: [source, consumer], activeBlockId: consumer.id, horizonTechnologyIds: ['x'] })
+    const firstId = index().activePlanId
+    createPlan()
+    switchPlan(firstId)
+    const sourceContent = store[planKey('nullius', firstId)]
+    expect(duplicatePlan()).toEqual({ type: 'ok' })
+    expect(names()).toEqual(['Plan 1', 'Plan 1 (copy)', 'Plan 2'])
+    expect(activeName()).toBe('Plan 1 (copy)')
+    expect(store[planKey('nullius', firstId)]).toBe(sourceContent)
+    const { blocks, activeBlockId, horizonTechnologyIds } = useBlockStore.getState()
+    expect(blocks.map(b => b.name)).toEqual(['Source', 'Consumer'])
+    expect(blocks.some(b => b.id === source.id || b.id === consumer.id)).toBe(false)
+    expect(blocks[1].inputConnections[0].fromBlockId).toBe(blocks[0].id)
+    expect(activeBlockId).toBe(blocks[1].id)
+    expect(horizonTechnologyIds).toEqual(['x'])
+  })
+
+  it('renamePlan trims, cuts to 60 characters and refuses a blank name', () => {
+    const id = index().activePlanId
+    expect(renamePlan(id, '  Late game  ')).toEqual({ type: 'ok' })
+    expect(activeName()).toBe('Late game')
+    expect(renamePlan(id, '   ').type).toBe('error')
+    expect(activeName()).toBe('Late game')
+    renamePlan(id, 'x'.repeat(100))
+    expect(activeName()).toHaveLength(60)
+    expect(readIndex('nullius').plans[0].name).toHaveLength(60)
+  })
+
+  it('deletePlan of a non-active plan removes its key and keeps the store', () => {
+    const firstId = index().activePlanId
+    createPlan()
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    const before = useBlockStore.getState().blocks
+    expect(deletePlan(firstId)).toEqual({ type: 'ok' })
+    expect(store[planKey('nullius', firstId)]).toBeUndefined()
+    expect(names()).toEqual(['Plan 2'])
+    expect(useBlockStore.getState().blocks).toBe(before)
+  })
+
+  it('deletePlan of the active plan activates the next one, else the previous one', () => {
+    const firstId = index().activePlanId
+    createPlan()
+    createPlan()
+    const [, second, third] = index().plans
+    switchPlan(second.id)
+    deletePlan(second.id)
+    expect(index().activePlanId).toBe(third.id)
+    deletePlan(third.id)
+    expect(index().activePlanId).toBe(firstId)
+  })
+
+  it('deletePlan of the only plan leaves a fresh empty "Plan 1" and never re-saves the old key', () => {
+    const oldId = index().activePlanId
+    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    expect(deletePlan(oldId)).toEqual({ type: 'ok' })
+    expect(names()).toEqual(['Plan 1'])
+    expect(index().activePlanId).not.toBe(oldId)
+    expect(store[planKey('nullius', oldId)]).toBeUndefined()
+    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
+    useBlockStore.getState().addGoal({ id: 'g2', itemId: 'copper-plate', rate: 60 })
+    expect(store[planKey('nullius', oldId)]).toBeUndefined()
+  })
+
+  it('every action errors while game data is loading or another data set is loaded', () => {
+    const id = index().activePlanId
+    const listed = usePlansStore.getState()
+    for (const status of [{ type: 'loading' as const }, loadedStatus('seablock')]) {
+      useGameDataStore.setState({ status })
+      usePlansStore.setState(listed) // the nullius plan list outlives the data set change
+      expect(switchPlan('x').type).toBe('error')
+      expect(createPlan().type).toBe('error')
+      expect(duplicatePlan().type).toBe('error')
+      expect(renamePlan(id, 'y').type).toBe('error')
+      expect(deletePlan(id).type).toBe('error')
+    }
+    expect(names()).toEqual(['Plan 1'])
+  })
+})
+
+describe('plan names and files', () => {
+  it('planNameFromFileName strips the last extension and cuts to 60', () => {
+    expect(planNameFromFileName('block-connection.json')).toBe('block-connection')
+    expect(planNameFromFileName('a.b.json')).toBe('a.b')
+    expect(planNameFromFileName('.json')).toBe('')
+    expect(planNameFromFileName(`${'n'.repeat(100)}.json`)).toHaveLength(60)
+  })
+
+  it('exportFileName slugs the plan name', () => {
+    const date = new Date('2026-10-20T12:00:00Z')
+    expect(exportFileName('Early game!', date)).toBe('factorio-plan-early-game-2026-10-20.json')
+    expect(exportFileName('   ', date)).toBe('factorio-plan-2026-10-20.json')
+    const slug = exportFileName('a'.repeat(100), date).replace('factorio-plan-', '').replace('-2026-10-20.json', '')
+    expect(slug.length).toBeLessThanOrEqual(40)
+  })
+})
 describe('makeEmptyBlock', () => {
   it('produces a block with a root plan', () => {
     const block = makeEmptyBlock('New Plan')
@@ -506,38 +752,61 @@ describe('plan import', () => {
     })
   })
 
-  describe('replacePlan', () => {
-    it('refuses while no game data is loaded and leaves the store unchanged', () => {
+  describe('importPlanAsNew', () => {
+    let unsub: () => void
+    beforeEach(() => { unsub = initAppStatePersistence() })
+    afterEach(() => { unsub() })
+
+    it('refuses while no game data is loaded and leaves everything unchanged', () => {
       const before = useBlockStore.getState().blocks
-      const result = replacePlan(makeState(), 'nullius')
-      expect(result).toEqual({ type: 'error', message: 'Load game data before importing a plan.' })
+      expect(importPlanAsNew(makeState(), 'nullius', 'a.json')).toEqual({ type: 'error', message: 'Load game data first.' })
       expect(useBlockStore.getState().blocks).toBe(before)
+      expect(usePlansStore.getState().index).toBeNull()
     })
 
     it('refuses when the loaded game data changed since the check', () => {
       useGameDataStore.setState({ status: loadedStatus('seablock') })
       const before = useBlockStore.getState().blocks
-      expect(replacePlan(makeState(), 'nullius'))
+      expect(importPlanAsNew(makeState(), 'nullius', 'a.json'))
         .toEqual({ type: 'error', message: 'The loaded game data changed; pick the file again.' })
       expect(useBlockStore.getState().blocks).toBe(before)
+      expect(usePlansStore.getState().index!.plans).toHaveLength(1)
     })
 
-    it('replaces the plan, clears history and autosaves it', () => {
-      const unsub = initAppStatePersistence()
-      try {
-        useGameDataStore.setState({ status: loadedStatus('nullius') })
-        vi.clearAllMocks()
-        const imported = makeState('b2')
-        expect(replacePlan(imported, 'nullius')).toEqual({ type: 'ok' })
-        const state = useBlockStore.getState()
-        expect(state.blocks).toEqual(imported.blocks)
-        expect(state.activeBlockId).toBe('b2')
-        expect(state.horizonTechnologyIds).toEqual(['electronics'])
-        expect(state.history).toEqual({})
-        expect(localStorageMock.setItem).toHaveBeenCalledWith(KEY, JSON.stringify(imported))
-      } finally {
-        unsub()
-      }
+    it('adds a plan named after the file, makes it active and leaves the previous plan alone', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+      const previousId = usePlansStore.getState().index!.activePlanId
+      const previous = JSON.stringify(selectAppState(useBlockStore.getState()))
+      const imported = makeState('b2')
+      expect(importPlanAsNew(imported, 'nullius', 'block-connection.json')).toEqual({ type: 'ok' })
+      const index = readIndex('nullius')
+      expect(index.plans.map(p => p.name)).toEqual(['Plan 1', 'block-connection'])
+      expect(index.activePlanId).toBe(index.plans[1].id)
+      const state = useBlockStore.getState()
+      expect(state.blocks.map(b => b.name)).toEqual(['b1', 'b2'])
+      expect(state.blocks.some(b => imported.blocks.some(i => i.id === b.id)), 'ids are fresh').toBe(false)
+      expect(state.activeBlockId).toBe(state.blocks[1].id)
+      expect(state.horizonTechnologyIds).toEqual(['electronics'])
+      expect(state.history).toEqual({})
+      expect(JSON.stringify(JSON.parse(store[planKey('nullius', previousId)]))).toBe(previous)
+      expect(store[planKey('nullius', index.activePlanId)]).toContain('electronics')
+    })
+
+    it('names a plan "Plan N" when the file name has no usable base name', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      importPlanAsNew(makeState(), 'nullius', '.json')
+      expect(usePlansStore.getState().index!.plans.map(p => p.name)).toEqual(['Plan 1', 'Plan 2'])
+    })
+
+    it('importing the same plan twice gives two plans with no shared block ids', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      const imported = makeState()
+      importPlanAsNew(imported, 'nullius', 'same.json')
+      const firstIds = useBlockStore.getState().blocks.map(b => b.id)
+      importPlanAsNew(imported, 'nullius', 'same.json')
+      expect(usePlansStore.getState().index!.plans.map(p => p.name)).toEqual(['Plan 1', 'same', 'same'])
+      expect(useBlockStore.getState().blocks.some(b => firstIds.includes(b.id))).toBe(false)
     })
   })
 })

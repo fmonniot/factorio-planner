@@ -35,8 +35,8 @@ test.describe('Plan export', () => {
     // Trigger the download and capture it.
     const download = await exportPlan(page)
 
-    // Filename should match the pattern factorio-plan-YYYY-MM-DD.json.
-    expect(download.suggestedFilename()).toMatch(/^factorio-plan-\d{4}-\d{2}-\d{2}\.json$/)
+    // Filename carries the plan name: factorio-plan-<slug>-YYYY-MM-DD.json.
+    expect(download.suggestedFilename()).toMatch(/^factorio-plan-plan-1-\d{4}-\d{2}-\d{2}\.json$/)
 
     // Read and parse the downloaded content.
     const filePath = await download.path()

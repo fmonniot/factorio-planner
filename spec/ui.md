@@ -19,8 +19,8 @@ behind each feature so you can find it.
    table shows "Load game data to begin", the summary strip is hidden and the block
    tabs are disabled, so no edit can land in the wrong plan.
 2. Starts auto-saving (`initAppStatePersistence`, `src/store/persistence.ts`) on
-   every change, and subscribes to the game data store so the plan is swapped when
-   a data set finishes loading.
+   every change, and subscribes to the game data store so the data set's active plan
+   is swapped in when a data set finishes loading.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
    block store or the game data schedules a re-solve of **every block**
    after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
@@ -62,8 +62,43 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` is one row: block tabs on the left; on the right the block graph button, the
-horizon button, the tech tree button and the [Menu](#menu).
+`TopBar.tsx` is one row: on the left the [plan menu](#plans) and the block tabs; on the right
+the block graph button, the horizon button, the tech tree button and the [Menu](#menu).
+
+### Plans
+
+`PlanMenu` (`PlanMenu.tsx`) is the **Plan: <name> ▾** button at the left end of the top bar,
+before the block tabs (a "plan" is everything for one game data set: the block tabs, their
+contents and the horizon). It shares its dropdown behaviour with the Menu through `MenuButton`
+(`MenuButton.tsx`, see [Menu](#menu)) and opens a panel named "Plans":
+
+- a group of one radio item per plan of the loaded data set, the active one checked; picking one
+  switches to it;
+- a separator, then **New plan**, **Rename…**, **Duplicate** and **Delete…**, which act on the
+  active plan.
+
+The button is always mounted, is hidden until a data set is active, is disabled until game data has
+loaded, and truncates a long name. Plan state lives in `plansStore.ts` (plan list and active plan)
+and the actions in `persistence.ts`.
+
+- **Default names.** A first visit starts with "Plan 1"; **New plan** adds an empty plan named
+  "Plan N" (N is the plan count plus one, increased until the name is unused). No name is asked
+  for. Names need not be unique.
+- **Rename…** opens a dialog with a "Plan name" field, pre-filled and selected; Enter or
+  **Rename** saves, Escape or **Cancel** closes it, and **Rename** is disabled while the trimmed
+  name is empty. Names are trimmed and cut to 60 characters. (Renaming a block tab still uses
+  `window.prompt`.)
+- **Duplicate** copies the active plan right after it, named "<name> (copy)", and makes the copy
+  active. Every block, sub-plan, node, goal and connection in the copy has a fresh id (the
+  solver results and undo history are keyed by block id), with connections and the active block
+  pointing into the copy.
+- **Delete…** asks "Delete plan "<name>"?" (the block count, that it cannot be undone and to
+  export first; plus "An empty plan replaces it." for the only plan) with **Cancel** and
+  **Delete plan**. Deleting the active plan activates the next one (else the previous one).
+  Deleting the only plan is allowed and leaves an empty "Plan 1".
+- Creating, duplicating and switching save the current plan first, so nothing is lost, and
+  clear the undo history. The active plan is remembered per data set and restored on the next
+  visit; each data set has its own list. See [Game data set](#game-data-set) for storage.
 
 ### Block tabs
 
@@ -198,9 +233,11 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
 - a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file once there
   is one, and **Upload file…**; the current data set is the checked item (see
   [Game data set](#game-data-set));
-- a separator, then **Export plan** and **Import plan** (see [Export and import plan](#export-and-import-plan)).
+- a separator, then **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
 
-The "Loading…" / "Error loading data" label sits next to the button, outside the menu, so it
+The trigger, panel, keyboard handling and focus rules are the shared `MenuButton` component, also used by
+the [plan menu](#plans); `align` picks which edge of the button the panel lines up with (right here, left
+for the plan menu). The "Loading…" / "Error loading data" label sits next to the button, outside the menu, so it
 shows while the menu is closed. The menu is meant to collect more app-level entries over time.
 
 Opening with the keyboard (Enter, Space or ArrowDown) focuses the checked data set (else the first
@@ -216,26 +253,33 @@ pick and the confirmation dialog are asynchronous).
 
 ### Export and import plan
 
-The **Export plan** item (`exportPlan` in `AppMenu.tsx`) downloads the current `AppState`
-(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-YYYY-MM-DD.json`; a saved file
-is the same shape the app keeps in `localStorage`.
+The **Export plan** item (`exportPlan` in `AppMenu.tsx`) downloads the active plan's `AppState`
+(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-<slug>-YYYY-MM-DD.json`
+(`exportFileName`). The slug is the plan name lower-cased, with each run of characters other than
+`a-z0-9` replaced by `-`, outer dashes trimmed and cut to 40 characters; with an empty slug the file is
+`factorio-plan-YYYY-MM-DD.json`. A saved file is the same shape the app keeps in `localStorage`.
 
-The **Import plan** item (`usePlanImport` in `AppMenu.tsx`) loads such a file back. It is disabled until game data has loaded,
-because the plan belongs to the current data set and is written to that data set's plan key.
-Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and validates
-the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
+The **Import plan…** item (`usePlanImport` in `AppMenu.tsx`) loads such a file back **as a new plan**; the
+current plan is kept. It is disabled until game data has loaded, because the plans belong to the current
+data set. Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and
+validates the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
 ("The plan contains no blocks.") or a duplicated block, sub-plan or node id (ids must be unique per
 block; e.g. `Duplicate block id "b1".`) opens an error dialog; an `activeBlockId` that matches no block
-falls back to the first block. A valid file opens a confirmation dialog naming the file and the old
-and new block counts. If the file refers to recipes or goal items the loaded game data does not
-define, the dialog adds a warning that they cannot be produced, listing the first few ids
-(`import-unknown-ids`); the plan imports anyway (unknown recipes do nothing, unknown goals stay
-unsatisfiable), so a plan made for another data set looks mostly empty. Only "Replace plan" calls
-`replacePlan` with the source id of the data set it was checked against; it refuses with "The loaded
-game data changed; pick the file again." if another data set is loaded by then. Otherwise it replaces the whole plan (no merging) and clears the undo
-history; autosave persists it. It cannot be undone; export first to keep the current plan. The file
-input is created on each click, attached (hidden) to the page only while the pick is in flight,
-and removed on selection or cancel.
+falls back to the first block. A valid file whose recipes and goal items the loaded game data all defines
+is imported straight away, with no confirmation, since nothing is overwritten. If the file refers to
+recipes or goal items the loaded game data does not define, a warning dialog (`import-unknown-ids`) lists
+the first few ids and says they cannot be produced (unknown recipes do nothing, unknown goals stay
+unsatisfiable, so a plan made for another data set looks mostly empty); **Cancel** drops the file,
+**Import anyway** continues.
+
+Both paths call `importPlanAsNew` with the source id of the data set the file was checked against; it
+refuses with "The loaded game data changed; pick the file again." if another data set is loaded (or
+shown) by then, and with "Load game data first." while none is. Otherwise it saves the current plan,
+adds a plan named after the file without its last extension (`block-connection.json` becomes
+"block-connection", trimmed, cut to 60 characters; an empty result falls back to "Plan N"), makes it
+active, gives all its ids fresh values (as in Duplicate, so importing the same file twice shares nothing)
+and clears the undo history; autosave persists it. The file input is created on each click, attached
+(hidden) to the page only while the pick is in flight, and removed on selection or cancel.
 
 ### Game data set
 
@@ -258,10 +302,10 @@ checked, nothing is loaded and the empty table says to open Menu. A "Loading…"
 data" label appears next to the Menu button while loading or after a validation
 failure (the tooltip carries the error message).
 
-Each data set has its own plan. When a data set finishes loading and differs from
-the previous one, the plan stored for it replaces the one on screen (or an empty
-"Factory" block if it has none); switching back restores the earlier plan. The
-plan is identified by the loaded source id: the bundled data set's id for a bundled
+Each data set has its own list of plans (see [Plans](#plans)). When a data set finishes loading and
+differs from the previous one, its active plan replaces the one on screen (or an empty "Factory"
+block if it has none); switching back restores the earlier data set's active plan. The plans are
+identified by the loaded source id: the bundled data set's id for a bundled
 dataset, or `custom:<filename>#<fingerprint>` for an
 upload, where the fingerprint is a short hash of the data's `modSet`, so uploads
 with different names or different mod sets do not share a plan (two files with the
@@ -269,7 +313,7 @@ same name and the same mod set do; the menu still lists the file name).
 Reloading the same data set does not reset the plan, and a failed load leaves the
 current plan untouched.
 
-Only one upload exists at a time, so its plan does too: activating an upload
+Only one upload exists at a time, so its plans do too: activating an upload
 removes the plans of earlier uploads, and picking a bundled dataset (which clears
 the stored upload) removes every upload plan.
 
@@ -277,14 +321,23 @@ Legacy data-set id. A `kompetenz-seablock/` value stored in `localStorage` by
 older versions is normalised to `kompetenz-seablock` and rewritten on load; if the
 rewrite fails (quota full, storage blocked) the normalised id is still used.
 
-A stored plan that fails validation is not overwritten: its raw value is first
-copied to `<key>:corrupt` (e.g. `factorio-planner:app-state:nullius:corrupt`), and
-the data set starts with an empty plan.
+**Storage.** Each data set has an index key, `factorio-planner:plan-index:<sourceId>`, holding
+`{ activePlanId, plans: [{ id, name }] }`, and one key per plan,
+`factorio-planner:plan:<sourceId>/<planId>`, holding that plan's `AppState` (the autosave writes
+to the active one; switching tabs alone does not save). A stored plan that fails validation is not
+overwritten: its raw value is first copied to `<planKey>:corrupt`, and the plan starts empty (it stays in
+the list). An unreadable index is moved to `<indexKey>:corrupt` and rebuilt from the plan keys found
+(named "Plan 1", "Plan 2", …).
 
-**Legacy plan.** Before plans were per data set, the single plan lived under
-`factorio-planner:app-state`. The first data set activated without a plan of its
-own adopts it and the legacy key is deleted. If the legacy plan cannot be read it
-is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
+**Migration.** Older versions kept one plan per data set under
+`factorio-planner:app-state:<sourceId>`. When such a key exists at activation it is copied unchanged into
+a new plan key, added to the list (named "Plan N") and made active, and only then is the old key deleted.
+This also happens when an index already exists (an old tab of the previous version may still be writing
+the old key), so the old plan appears as an extra active plan. An unreadable old plan is quarantined by the
+normal load path. If the copy cannot be written, the old key stays and the plan is still shown. The oldest
+key, `factorio-planner:app-state` (before plans were per data set), is adopted the same way by the first
+data set that has neither an index nor an old key, then deleted. `:corrupt` values left by older versions
+are not touched.
 
 ---
 

@@ -1,83 +1,104 @@
 import { test, expect, type Page } from '@playwright/test'
+import fs from 'fs'
 import path from 'path'
-import { loadPlanFixture } from './support/loadPlan'
-import { exportPlan, pickPlanFile } from './support/appMenu'
+import { selectDataset, exportPlan, pickPlanFile } from './support/appMenu'
+import { planTrigger, planNames, switchToPlan } from './support/planMenu'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 
 const tab = (page: Page, name: string) => page.locator(`button[title="${name}"]`)
-const gearTile = (page: Page) => page.getByTitle('Iron gear', { exact: true }).first()
+const tabCount = (page: Page) => page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')
+const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHaveAccessibleName(`Plan: ${name}`)
 
-async function setup(page: Page) {
-  await loadPlanFixture(page, FIXTURE)
-  await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(tab(page, 'Gears')).toBeVisible()
+/** Add a goal of `amount` for the first item in the picker. */
+async function addGoal(page: Page, amount: string) {
+  const overlay = page.locator('.fixed.inset-0')
+  await page.getByTitle('Add goal').click()
+  await overlay.getByLabel('Amount').fill(amount)
+  await overlay.locator('[data-testid="item-slot"]').first().click()
+  await expect(overlay).not.toBeVisible()
 }
 
 async function expectFixtureTabs(page: Page) {
   await expect(tab(page, 'Plates')).toBeVisible()
   await expect(tab(page, 'Gears')).toBeVisible()
-  await expect(page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')).toHaveCount(2)
-  // The active block's name is shown next to the tabs.
-  await expect(page.locator('span.truncate', { hasText: 'Gears' })).toBeVisible()
+  await expect(tabCount(page)).toHaveCount(2)
 }
 
+/** Plan 1 with two blocks and a 250 goal, so it is distinguishable from the fixture. */
+async function expectPlanOne(page: Page) {
+  await expectPlan(page, 'Plan 1')
+  await expect(tabCount(page)).toHaveCount(2)
+  await expect(tab(page, 'Factory')).toBeVisible()
+  await tab(page, 'Factory').click()
+  await expect(page.locator('main')).toContainText('250')
+}
+
+// Starts from a clean profile: the fixture helper re-seeds the old plan key on
+// every navigation, which would add plans and hide what is persisted.
 test.describe('Plan import', () => {
-  test('imports a fixture, replacing the current plan, and autosaves it', async ({ page }) => {
-    await setup(page)
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await selectDataset(page, 'Nullius')
+    await addGoal(page, '250')
     await page.getByTitle('Add block').click()
-    await expect(page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')).toHaveCount(3)
+    await expect(tabCount(page)).toHaveCount(2)
+    await tab(page, 'Factory').click()
+  })
 
+  test('imports a file as a new plan and keeps the current one', async ({ page }) => {
     await pickPlanFile(page, FIXTURE)
-    await expect(page.getByText('Replace the current plan (3 blocks)')).toBeVisible()
-    await page.getByRole('button', { name: 'Replace plan' }).click()
-
+    await expectPlan(page, 'block-connection')
     await expectFixtureTabs(page)
-    await expect(gearTile(page)).toBeVisible()
+    expect(await planNames(page)).toEqual(['Plan 1', 'block-connection'])
+
+    await switchToPlan(page, 'Plan 1')
+    await expectPlanOne(page)
+  })
+
+  test('an imported plan persists across a reload', async ({ page }) => {
+    await pickPlanFile(page, FIXTURE)
+    await expectPlan(page, 'block-connection')
 
     await page.reload()
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expectPlan(page, 'block-connection')
     await expectFixtureTabs(page)
+    expect(await planNames(page)).toEqual(['Plan 1', 'block-connection'])
   })
 
-  test('a plan exported from the app can be imported back', async ({ page }) => {
-    await setup(page)
+  test('a plan exported from the app can be imported back as a second plan', async ({ page }) => {
     const download = await exportPlan(page)
-    const filePath = await download.path()
+    const exportedName = download.suggestedFilename()
+    expect(exportedName).toMatch(/^factorio-plan-plan-1-\d{4}-\d{2}-\d{2}\.json$/)
+    const buffer = fs.readFileSync((await download.path())!)
 
-    await page.getByTitle('Add block').click()
-    await expect(page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')).toHaveCount(3)
-
-    await pickPlanFile(page, filePath!)
-    await page.getByRole('button', { name: 'Replace plan' }).click()
-    await expectFixtureTabs(page)
+    await pickPlanFile(page, { name: exportedName, mimeType: 'application/json', buffer })
+    const importedName = exportedName.replace(/\.json$/, '')
+    await expectPlan(page, importedName)
+    expect(await planNames(page)).toEqual(['Plan 1', importedName])
+    await expect(tabCount(page)).toHaveCount(2)
+    await expect(tab(page, 'Factory')).toBeVisible()
+    await expect(page.locator('main')).toContainText('250')
   })
 
-  test('an invalid file leaves the plan intact', async ({ page }) => {
-    await setup(page)
-
+  test('an invalid file leaves the plans intact', async ({ page }) => {
     await pickPlanFile(page, { name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"blocks": 5}') })
     await expect(page.getByText('Could not import "bad.json"')).toBeVisible()
     await expect(page.locator('pre')).toContainText('blocks')
     await page.getByRole('button', { name: 'Close' }).click()
-    await expectFixtureTabs(page)
+    await expectPlanOne(page)
 
     await pickPlanFile(page, { name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('not json') })
     await expect(page.locator('pre')).toContainText('Not a valid JSON file')
     await page.getByRole('button', { name: 'Close' }).click()
-    await expectFixtureTabs(page)
+    await expectPlanOne(page)
+    expect(await planNames(page)).toEqual(['Plan 1'])
   })
 
-  test('cancel keeps the current plan', async ({ page }) => {
-    await setup(page)
-    await page.getByTitle('Add block').click()
-    await pickPlanFile(page, FIXTURE)
-    await page.getByRole('button', { name: 'Cancel' }).click()
-    await expect(page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')).toHaveCount(3)
-  })
-
-  test('unknown ids warn but the plan still imports', async ({ page }) => {
-    await setup(page)
+  test('unknown ids warn, Cancel adds nothing and Import anyway adds the plan', async ({ page }) => {
     const plan = {
       blocks: [{
         id: 'ghost-block', name: 'Ghost block', goals: [{ id: 'g1', itemId: 'nope-item', rate: 10 }], noImportItems: [],
@@ -89,19 +110,24 @@ test.describe('Plan import', () => {
       }],
       activeBlockId: 'ghost-block',
     }
-    await pickPlanFile(page, { name: 'ghost.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) })
+    const ghost = { name: 'ghost.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) }
+
+    await pickPlanFile(page, ghost)
     await expect(page.getByTestId('import-unknown-ids')).toContainText('does-not-exist')
-    await page.getByRole('button', { name: 'Replace plan' }).click()
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    await expectPlanOne(page)
+    expect(await planNames(page)).toEqual(['Plan 1'])
+
+    await pickPlanFile(page, ghost)
+    await page.getByRole('button', { name: 'Import anyway' }).click()
     await expect(tab(page, 'Ghost block')).toBeVisible()
+    await expectPlan(page, 'ghost')
   })
 
   test('the same file can be imported twice in a row', async ({ page }) => {
-    await setup(page)
     await pickPlanFile(page, FIXTURE)
-    await page.getByRole('button', { name: 'Replace plan' }).click()
-    await expect(page.getByRole('button', { name: 'Replace plan' })).not.toBeVisible()
-
+    await expectPlan(page, 'block-connection')
     await pickPlanFile(page, FIXTURE)
-    await expect(page.getByRole('button', { name: 'Replace plan' })).toBeVisible()
+    await expect.poll(() => planNames(page)).toEqual(['Plan 1', 'block-connection', 'block-connection'])
   })
 })

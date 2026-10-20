@@ -1,8 +1,11 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { AppMenu } from './AppMenu'
 import { useGameDataStore } from '../store/gameDataStore'
+import { usePlansStore } from '../store/plansStore'
+import { makeEmptyBlock } from '../store/blockStore'
+import { activateDataSet } from '../store/persistence'
 import type { GameData } from '../data/types'
 
 const KEY = 'factorio-planner:game-data-source'
@@ -77,14 +80,14 @@ describe('AppMenu import plan item', () => {
   it('is disabled until game data is loaded', async () => {
     render(<AppMenu />)
     await openMenu()
-    expect(screen.getByRole('menuitem', { name: 'Import plan' })).toBeDisabled()
+    expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toBeDisabled()
   })
 
   it('is enabled once game data is loaded', async () => {
     loaded()
     render(<AppMenu />)
     await openMenu()
-    expect(screen.getByRole('menuitem', { name: 'Import plan' })).toBeEnabled()
+    expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toBeEnabled()
   })
 })
 
@@ -103,7 +106,7 @@ describe('AppMenu', () => {
     render(<AppMenu />)
     await openMenu()
     const names = Array.from(screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')).map(el => el.textContent?.replace('✓', '').trim())
-    expect(names).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan'])
+    expect(names).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan…'])
   })
 
   it('focuses Nullius on first visit with nothing checked', async () => {
@@ -130,7 +133,7 @@ describe('AppMenu', () => {
     loaded()
     render(<AppMenu />)
     await openMenuWithKeyboard('{ArrowUp}')
-    expect(screen.getByRole('menuitem', { name: 'Import plan' })).toHaveFocus()
+    expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toHaveFocus()
   })
 
   it('ignores arrow keys while focus is outside the menu', async () => {
@@ -173,7 +176,7 @@ describe('AppMenu', () => {
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
-  it('wraps ArrowDown past the disabled Import plan item', async () => {
+  it('wraps ArrowDown past the disabled Import plan… item', async () => {
     render(<AppMenu />)
     await openMenuWithKeyboard()
     screen.getByRole('menuitem', { name: 'Export plan' }).focus()
@@ -269,5 +272,55 @@ describe('AppMenu', () => {
     useGameDataStore.setState({ status: { type: 'error', message: 'boom' } })
     render(<AppMenu />)
     expect(screen.getByText('Error loading data')).toBeInTheDocument()
+  })
+})
+
+describe('AppMenu plan import', () => {
+  beforeEach(() => {
+    usePlansStore.setState({ sourceId: null, index: null })
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { recipes: {}, items: {} } as unknown as GameData, sourceId: 'nullius' },
+    })
+    activateDataSet('nullius')
+  })
+
+  afterEach(() => { usePlansStore.setState({ sourceId: null, index: null }) })
+
+  const planCount = () => usePlansStore.getState().index?.plans.length
+  const planFile = (name: string, goalItem?: string) => {
+    const block = makeEmptyBlock('Imported')
+    if (goalItem) block.goals = [{ id: 'g', itemId: goalItem, rate: 60 }]
+    return new File([JSON.stringify({ blocks: [block], activeBlockId: block.id })], name, { type: 'application/json' })
+  }
+  async function pick(file: File) {
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Import plan…' }))
+    const input = document.querySelector<HTMLInputElement>('[data-plan-import-input]')!
+    Object.defineProperty(input, 'files', { value: [file] })
+    fireEvent.change(input)
+  }
+
+  it('imports a clean file as a new plan without asking', async () => {
+    render(<AppMenu />)
+    await pick(planFile('clean.json'))
+    await waitFor(() => expect(planCount()).toBe(2))
+    expect(usePlansStore.getState().index!.plans[1].name).toBe('clean')
+    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
+  })
+
+  it('warns about unknown ids and adds nothing on Cancel', async () => {
+    render(<AppMenu />)
+    await pick(planFile('ghost.json', 'ghost-item'))
+    expect(await screen.findByTestId('import-unknown-ids')).toHaveTextContent('ghost-item')
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(planCount()).toBe(1)
+    expect(screen.queryByTestId('import-unknown-ids')).not.toBeInTheDocument()
+  })
+
+  it('adds the plan on Import anyway', async () => {
+    render(<AppMenu />)
+    await pick(planFile('ghost.json', 'ghost-item'))
+    await userEvent.click(await screen.findByRole('button', { name: 'Import anyway' }))
+    expect(planCount()).toBe(2)
   })
 })

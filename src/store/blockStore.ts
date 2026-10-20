@@ -175,6 +175,25 @@ export function cloneBlock(block: Block, color: string): Block {
   }
 }
 
+/**
+ * Deep copy of a whole plan with fresh ids on every block (and below), so two
+ * plans never share ids that the solver results and undo history are keyed by.
+ * Names and colours are kept; connections and the active block are remapped
+ * to the copies. The input is not mutated.
+ */
+export function clonePlan(appState: AppState): AppState {
+  const copies = appState.blocks.map(b => ({ ...cloneBlock(b, b.color), name: b.name }))
+  const ids = new Map(appState.blocks.map((b, i) => [b.id, copies[i].id]))
+  return {
+    blocks: copies.map(b => ({
+      ...b,
+      inputConnections: b.inputConnections.map(c => ({ ...c, fromBlockId: ids.get(c.fromBlockId) ?? c.fromBlockId })),
+    })),
+    activeBlockId: ids.get(appState.activeBlockId) ?? appState.activeBlockId,
+    horizonTechnologyIds: [...appState.horizonTechnologyIds],
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store state and actions
 // ---------------------------------------------------------------------------
