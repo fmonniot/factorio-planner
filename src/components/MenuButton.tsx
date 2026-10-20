@@ -13,6 +13,12 @@ interface MenuButtonProps {
   /** Which edge of the trigger the panel lines up with. */
   align: 'left' | 'right'
   disabled?: boolean
+  /** Replaces the default trigger classes. */
+  triggerClassName?: string
+  /** Replaces the default `▾` after the label. */
+  caret?: ReactNode
+  /** Appended to the panel classes (e.g. a width). */
+  panelClassName?: string
   /** Panel content; `close(true)` also returns focus to the trigger. */
   children: (close: (returnFocus: boolean) => void) => ReactNode
 }
@@ -27,7 +33,7 @@ function PanelItems({ render, close }: { render: MenuButtonProps['children']; cl
  * navigation. Items are `role="menuitem*"` elements; checked radio items get
  * the initial focus on a keyboard open.
  */
-export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, children }: MenuButtonProps) {
+export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, triggerClassName, caret, panelClassName = '', children }: MenuButtonProps) {
   const [open, setOpen] = useState(false)
   const menuId = useId()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -118,7 +124,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
         aria-label={ariaLabel}
         title={title}
         disabled={disabled}
-        className="flex items-center gap-1 text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed"
+        className={triggerClassName ?? 'flex items-center gap-1 text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1 disabled:opacity-50 disabled:cursor-not-allowed'}
         // detail is 0 for clicks synthesised from Enter / Space.
         onClick={e => { openFocusRef.current = e.detail === 0 ? 'checked' : 'none'; setOpen(o => !o) }}
         onKeyDown={e => {
@@ -128,7 +134,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           setOpen(true)
         }}
       >
-        {label}<span aria-hidden className="text-[10px] opacity-60">▾</span>
+        {label}{caret ?? <span aria-hidden className="text-[10px] opacity-60">▾</span>}
       </button>
       {open && (
         <div
@@ -136,7 +142,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           id={menuId}
           role="menu"
           aria-label={menuLabel}
-          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-1 z-50 min-w-48 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col text-xs`}
+          className={`absolute top-full ${align === 'right' ? 'right-0' : 'left-0'} mt-1 z-50 min-w-48 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col text-xs ${panelClassName}`}
         >
           <PanelItems render={children} close={close} />
         </div>

@@ -1,8 +1,8 @@
 # Top bar: workspace menu and icon tools
 
-Status: Future
+Status: Shipped
 
-Redesign of the top bar ([spec/ui.md — TopBar](../../spec/ui.md#topbar)). Block tabs stay on the
+Redesign of the top bar ([spec/ui.md — TopBar](../../../spec/ui.md#topbar)). Block tabs stay on the
 left. The right side becomes three icon-only tool buttons (Horizon, Block graph, Tech tree), a
 divider, and one **workspace button** that merges today's plan menu (`PlanMenu`, left end) and the
 **Menu ▾** (`AppMenu`, right end). The Horizon button gets a targets popover.
@@ -233,17 +233,17 @@ E2E (Playwright):
 
 ### 6. Docs
 
-Per [CLAUDE.md](../../CLAUDE.md#spec-maintenance):
-- [spec/ui.md](../../spec/ui.md): Layout diagram; TopBar; Plans (now a section of the workspace
+Per [CLAUDE.md](../../../CLAUDE.md#spec-maintenance):
+- [spec/ui.md](../../../spec/ui.md): Layout diagram; TopBar; Plans (now a section of the workspace
   menu, action names); Block graph / Research horizon / Technology tree (icon buttons, dot,
   tooltip, targets popover); Menu (rename to "Workspace menu", merged contents, trigger states,
   status sub-line); Game data set ("open Menu" wording).
 - [README.md](../../README.md): "Using the planner" (Menu at the top right, Plan menu at the left,
   Horizon / Block graph / Tech tree buttons) and the repository map row naming `AppMenu.tsx` /
   `PlanMenu.tsx`; add `icons.tsx` and `IconButton.tsx`.
-- [backlog.md](../backlog.md): remove the top-bar item; add "Block counts in the plan list".
+- [backlog.md](../../backlog.md): remove the top-bar item; add "Block counts in the plan list".
 - When shipped: `git mv initiatives/top-bar-workspace initiatives/archive/top-bar-workspace` and
-  update [initiatives/README.md](../README.md).
+  update [initiatives/README.md](../../README.md).
 
 ---
 

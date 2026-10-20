@@ -50,7 +50,7 @@ test.describe('multiple plans per data set', () => {
     const goalSlots = pane(page, 'Products').getByTestId('summary-slot')
 
     await addGoal(page, '250')
-    await runPlanAction(page, 'Duplicate')
+    await runPlanAction(page, 'Duplicate plan')
     await expectPlan(page, 'Plan 1 (copy)')
     await expect(goalSlots).toHaveCount(1)
 

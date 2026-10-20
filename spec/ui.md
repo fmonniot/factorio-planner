@@ -38,7 +38,7 @@ session (see [Game data set](#game-data-set)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣ Plates][▣ Gears] +       [Graph] [Horizon: none] [Tech tree] [Menu ▾] │
+│ [▣ Plates][▣ Gears] +                        ⚑  ⊞  ⚗ │ [≡ Main base ▾]  │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
@@ -62,29 +62,36 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` is one row: on the left the [plan menu](#plans) and the block tabs; on the right
-the block graph button, the horizon button, the tech tree button and the [Menu](#menu).
+`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs. On the right
+are three icon-only tool buttons (the [horizon](#research-horizon) flag, the
+[block graph](#block-graph) and the [tech tree](#technology-tree)), a divider (shown only when
+game data is loaded, like the tools) and the [workspace menu](#workspace-menu).
+
+The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
+(shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
+glyphs come from `icons.tsx`, a set of small stroke SVG icons for the UI chrome (the game images
+are `Icon.tsx` / `TechIcon.tsx`).
 
 ### Plans
 
-`PlanMenu` (`PlanMenu.tsx`) is the **Plan: <name> ▾** button at the left end of the top bar,
-before the block tabs (a "plan" is everything for one game data set: the block tabs, their
-contents and the horizon). It shares its dropdown behaviour with the Menu through `MenuButton`
-(`MenuButton.tsx`, see [Menu](#menu)) and opens a panel named "Plans":
+The plans (a "plan" is everything for one game data set: the block tabs, their contents and the
+horizon) are the first section of the [workspace menu](#workspace-menu); `usePlanSection`
+(`PlanMenu.tsx`) renders it and owns its dialogs. The section appears once a data set is active
+and holds:
 
-- a group of one radio item per plan of the loaded data set, the active one checked; picking one
-  switches to it;
-- a separator, then **New plan**, **Rename…**, **Duplicate** and **Delete…**, which act on the
-  active plan.
+- a "Plans" heading and a group of one radio item per plan of the loaded data set, the active
+  one checked; picking one switches to it;
+- a row of four action tiles, **New**, **Rename**, **Duplicate** and **Delete** (accessible
+  names `New plan`, `Rename plan`, `Duplicate plan`, `Delete plan`), which act on the active plan.
+  The plan radio items and the tiles are disabled until game data has loaded.
 
-The button is always mounted, is hidden until a data set is active, is disabled until game data has
-loaded, and truncates a long name. Plan state lives in `plansStore.ts` (plan list and active plan)
-and the actions in `persistence.ts`.
+Plan state lives in `plansStore.ts` (plan list and active plan) and the actions in
+`persistence.ts`.
 
 - **Default names.** A first visit starts with "Plan 1"; **New plan** adds an empty plan named
   "Plan N" (N is the plan count plus one, increased until the name is unused). No name is asked
   for. Names need not be unique.
-- **Rename…** opens a dialog with a "Plan name" field, pre-filled and selected; Enter or
+- **Rename** opens a dialog with a "Plan name" field, pre-filled and selected; Enter or
   **Rename** saves, Escape or **Cancel** closes it, and **Rename** is disabled while the trimmed
   name is empty. Names are trimmed and cut to 60 characters. (Renaming a block tab still uses
   `window.prompt`.)
@@ -92,7 +99,7 @@ and the actions in `persistence.ts`.
   active. Every block, sub-plan, node, goal and connection in the copy has a fresh id (the
   solver results and undo history are keyed by block id), with connections and the active block
   pointing into the copy.
-- **Delete…** asks "Delete plan "<name>"?" (the block count, that it cannot be undone and to
+- **Delete** asks "Delete plan "<name>"?" (the block count, that it cannot be undone and to
   export first; plus "An empty plan replaces it." for the only plan) with **Cancel** and
   **Delete plan**. Deleting the active plan activates the next one (else the previous one).
   Deleting the only plan is allowed and leaves an empty "Plan 1".
@@ -130,7 +137,7 @@ and carries `aria-current`.
 
 ### Block graph
 
-`BlockGraph.tsx`. The **Block graph** button (hidden until game data is loaded) opens a
+`BlockGraph.tsx`. The **Block graph** icon button (a three-node graph glyph; hidden until game data is loaded) opens a
 near-full-screen modal showing every block and the connections between them, like the
 [technology tree](#technology-tree) but without pan or zoom: the viewport scrolls natively.
 
@@ -162,18 +169,23 @@ near-full-screen modal showing every block and the connections between them, lik
 ### Research horizon
 
 `HorizonButton` (in `HorizonPicker.tsx`) limits the recipes the pickers offer, and the
-items the goal picker offers, to those researched up to a chosen point. It is hidden
-unless the loaded data set has technology data. The label reads `Horizon: none`,
-`Horizon: <technology>` or `Horizon: N technologies`.
+items the goal picker offers, to those researched up to a chosen point. It is a flag icon
+button, hidden unless the loaded data set has technology data. Its accessible name and tooltip
+read `Horizon: none`, `Horizon: <technology>` or `Horizon: N technologies`. A blue dot
+(`data-testid="horizon-dot"`) sits on the flag exactly when at least one valid target (one
+present in the data set's technologies) is set.
 
-Clicking it opens the **Research horizon** modal:
-
-- Target chips (× removes one) and a **Clear** button. With no targets: "No limit:
-  every recipe is offered."
-- A line "N of M recipes available" (M counts non-hidden recipes; extraction recipes count as available).
-- A search box and a scrollable list of every exported technology, sorted by name;
-  clicking one adds or removes it as a target immediately.
-- **Done** closes the modal.
+Clicking the flag toggles the **targets popover** (`HorizonTargetsPopover`, a `Popover` named
+"Horizon targets" anchored under the flag). It lists each valid target with its icon and name and
+a remove button (`Remove <name>`), the list scrolling (`horizon-target-list`) so the popover never
+exceeds 70% of the viewport height, plus **Edit horizon…** and **Clear** (`Clear horizon`). With
+no targets it says so and offers **Choose technologies…** instead. Opening moves focus to the
+edit button (**Edit horizon…** / **Choose technologies…**), deliberately not the first remove
+button, so a second Enter or Space cannot delete a target; removing or clearing targets moves
+focus back to that button, which survives. Escape or an outside click closes it, and only Escape
+returns focus to the flag. **Edit horizon…** / **Choose technologies…** closes the popover and
+opens the [technology tree](#technology-tree), the only place to pick targets; closing the tree
+returns focus to the flag.
 
 The targets and all their prerequisites define the horizon (rule in
 [data-model.md](data-model.md#technology)). It belongs to the plan, so it is saved
@@ -192,8 +204,8 @@ has no machine: its machine count and power are 0 and the row is flagged (see
 
 ### Technology tree
 
-`TechTreeButton` (in `TechTree.tsx`, labelled **Tech tree**) sits next to the horizon
-button and is hidden unless the loaded data set has technology data. It opens a
+`TechTreeButton` (in `TechTree.tsx`, a flask icon button named **Tech tree**) sits next to the
+block graph button and is hidden unless the loaded data set has technology data. It opens a
 near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
 
 - **Layout** (`src/data/techTree.ts`): one column per prerequisite depth (the longest
@@ -213,9 +225,10 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   *locked* (gray, dimmed). Edges take the colour of their dependent's state. With no
   horizon nothing is researched and the roots are available; the header says
   "No horizon: every recipe is offered. Click a technology to research up to it."
-  Otherwise it reads "Horizon: N targets".
-- **Click** a card to toggle it as a horizon target, like the Research horizon modal;
-  targets get a ring. Adding a locked technology researches its whole prerequisite
+  Otherwise it reads "Horizon: N targets". Next to it, "N of M recipes available"
+  (`data-testid="tech-tree-recipe-count"`; M counts non-hidden recipes, extraction
+  recipes count as available) shows what the horizon unlocks.
+- **Click** a card to toggle it as a horizon target; targets get a ring. Adding a locked technology researches its whole prerequisite
   chain. **Clear horizon** empties the targets.
 - **Pan and zoom** (maths in `src/utils/viewTransform.ts`): drag the background to
   pan (a drag longer than 4 px never counts as a click), mouse wheel to zoom around
@@ -225,22 +238,35 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   wide tree still fits). The viewport never scrolls natively: focusing an off-screen
   card does not move the view. The modal opens centred on the furthest target, if any.
 
-### Menu
+### Workspace menu
 
-`AppMenu` (`AppMenu.tsx`) is the **Menu ▾** button at the right end of the top bar
-(`aria-haspopup="menu"`, `aria-expanded`). It opens a panel named "Plan and game data":
+`WorkspaceMenu` (`WorkspaceMenu.tsx`) is the button at the right end of the top bar
+(`aria-haspopup="menu"`, `aria-expanded`). It merges the plan list and the app-level entries and is
+never disabled, since the game data group must stay reachable. The trigger shows a layers icon, the
+active plan's name and a sub-line, and a chevron:
 
-- a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file once there
-  is one, and **Upload file…**; the current data set is the checked item (see
+| State | Top line | Sub-line | Accessible name |
+|---|---|---|---|
+| No data set chosen yet | Choose game data | none | `Choose game data` |
+| Loading | active plan name, else "Choose game data" | Loading… | `Plan: <name>, loading` (or `Choose game data, loading`) |
+| Error | active plan name, else "Choose game data" | Error loading data (red; the tooltip carries the error message) | `Plan: <name>, error loading data` (or `Choose game data, error loading data`) |
+| Loaded | active plan name | data set label: Nullius, Seablock or the uploaded file name | `Plan: <name>` |
+
+It opens a panel named "Plan and game data", in order:
+
+- the [Plans](#plans) section (heading, plan radio items, action tiles), only when a data set is
+  active;
+- a separator, then a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file
+  once there is one, and **Upload file…**; the current data set is the checked item (see
   [Game data set](#game-data-set));
 - a separator, then **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
 
-The trigger, panel, keyboard handling and focus rules are the shared `MenuButton` component, also used by
-the [plan menu](#plans); `align` picks which edge of the button the panel lines up with (right here, left
-for the plan menu). The "Loading…" / "Error loading data" label sits next to the button, outside the menu, so it
-shows while the menu is closed. The menu is meant to collect more app-level entries over time.
+The trigger, panel, keyboard handling and focus rules are the shared `MenuButton` component
+(`MenuButton.tsx`), which takes optional `triggerClassName`, `caret` and `panelClassName`; `align`
+picks which edge of the button the panel lines up with (right here). The menu is meant to collect
+more app-level entries over time.
 
-Opening with the keyboard (Enter, Space or ArrowDown) focuses the checked data set (else the first
+Opening with the keyboard (Enter, Space or ArrowDown) focuses the first checked item (the active plan, else the checked data set; failing that the first
 enabled item); ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
 button, so only the hovered row looks active. Arrow keys move between enabled items and wrap;
 Home / End jump to the ends; Tab closes the menu. Apart from Escape, these keys are only taken
@@ -248,18 +274,18 @@ while focus is inside the menu or on its button. Escape closes it and
 returns focus to the button; it is handled in the capture phase and prevented, so it does not
 also clear a summary pane selection. A click outside closes it; a click on the button toggles.
 The hidden data-set file input, the data-set auto-load on page load and the import dialogs live in
-`AppMenu` itself rather than in the panel, so they keep working after the panel closes (the file
+`WorkspaceMenu` itself rather than in the panel, so they keep working after the panel closes (the file
 pick and the confirmation dialog are asynchronous).
 
 ### Export and import plan
 
-The **Export plan** item (`exportPlan` in `AppMenu.tsx`) downloads the active plan's `AppState`
+The **Export plan** item (`exportPlan` in `WorkspaceMenu.tsx`) downloads the active plan's `AppState`
 (`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-<slug>-YYYY-MM-DD.json`
 (`exportFileName`). The slug is the plan name lower-cased, with each run of characters other than
 `a-z0-9` replaced by `-`, outer dashes trimmed and cut to 40 characters; with an empty slug the file is
 `factorio-plan-YYYY-MM-DD.json`. A saved file is the same shape the app keeps in `localStorage`.
 
-The **Import plan…** item (`usePlanImport` in `AppMenu.tsx`) loads such a file back **as a new plan**; the
+The **Import plan…** item (`usePlanImport` in `WorkspaceMenu.tsx`) loads such a file back **as a new plan**; the
 current plan is kept. It is disabled until game data has loaded, because the plans belong to the current
 data set. Importing has two phases. First `checkPlanImport` (`src/store/persistence.ts`) parses and
 validates the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
@@ -283,7 +309,7 @@ and clears the undo history; autosave persists it. The file input is created on 
 
 ### Game data set
 
-The menu's Game data group (`useGameDataSource` in `AppMenu.tsx`) is a set of radio items:
+The workspace menu's Game data group (`useGameDataSource` in `WorkspaceMenu.tsx`) is a set of radio items:
 
 - the bundled datasets, **Nullius** and **Seablock** (served from
   `public/data/<dataset>/game-data.json`);
@@ -298,8 +324,8 @@ stored upload has been read abandons that pending read.
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
 stored upload. An uploaded file is stored in IndexedDB (database
 `factorio-planner`) and reloaded on the next visit. With neither, no item is
-checked, nothing is loaded and the empty table says to open Menu. A "Loading…" or "Error loading
-data" label appears next to the Menu button while loading or after a validation
+checked, nothing is loaded and the empty table says to open the workspace menu, whose button reads "Choose game data". "Loading…"
+or "Error loading data" shows as the button's sub-line while loading or after a validation
 failure (the tooltip carries the error message).
 
 Each data set has its own list of plans (see [Plans](#plans)). When a data set finishes loading and
@@ -656,6 +682,10 @@ The same component in recipes mode (`source="recipes"`).
 - `Icon.tsx` — renders an `iconPath` as a `<picture>` with a WebP source and PNG
   fallback, via `src/utils/iconUrl.ts` (see [data-model.md](data-model.md#icon-paths)).
 - `Modal.tsx` — the modal frame.
+- `factory/Popover.tsx` — an absolutely positioned panel that closes on an outside pointerdown
+  (except inside its optional `ignoreRef`, the trigger, so a click on the trigger just toggles) and on
+  Escape, handled in the capture phase and prevented so it does not also clear a summary selection.
+- `icons.tsx`, `IconButton.tsx` — the stroke SVG icons and the tooltip icon button of the top bar.
 - `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
   centre) used by the technology tree.
 - `src/utils/blockGraphLayout.ts` — layered layout of the blocks and their

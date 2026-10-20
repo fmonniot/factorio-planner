@@ -60,7 +60,7 @@ test.describe('Technology tree', () => {
     await expect(card(page, 'space-science-pack')).toHaveAttribute('data-state', 'available')
     await page.keyboard.press('Escape')
     await expect(heading(page)).toHaveCount(0)
-    await expect(page.getByRole('button', { name: /^Horizon/ })).toHaveText('Horizon: Rocket silo')
+    await expect(page.getByRole('button', { name: /^Horizon/ })).toHaveAccessibleName('Horizon: Rocket silo')
   })
 
   test('pans and zooms', async ({ page }) => {

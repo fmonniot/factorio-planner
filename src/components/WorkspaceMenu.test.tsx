@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { AppMenu } from './AppMenu'
+import { WorkspaceMenu } from './WorkspaceMenu'
 import { useGameDataStore } from '../store/gameDataStore'
 import { usePlansStore } from '../store/plansStore'
 import { makeEmptyBlock } from '../store/blockStore'
@@ -45,7 +45,7 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-const trigger = () => screen.getByRole('button', { name: 'Menu' })
+const trigger = () => screen.getByRole('button', { name: /^(Plan: |Choose game data)/ })
 const openMenu = () => userEvent.click(trigger())
 /** Keyboard open: focus moves into the panel (a mouse open leaves it on the trigger). */
 const openMenuWithKeyboard = async (key = '{Enter}') => {
@@ -56,10 +56,10 @@ const loaded = () => useGameDataStore.setState({
   status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'nullius' },
 })
 
-describe('AppMenu persisted id', () => {
+describe('WorkspaceMenu persisted id', () => {
   it('normalises and rewrites a legacy kompetenz-seablock/ value', async () => {
     localStorage.setItem(KEY, 'kompetenz-seablock/')
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     expect(screen.getByRole('menuitemradio', { name: 'Seablock' }), 'Seablock is the checked data set').toHaveAttribute('aria-checked', 'true')
     expect(localStorage.getItem(KEY)).toBe('kompetenz-seablock')
@@ -70,30 +70,30 @@ describe('AppMenu persisted id', () => {
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota', 'QuotaExceededError')
     })
-    expect(() => render(<AppMenu />)).not.toThrow()
+    expect(() => render(<WorkspaceMenu />)).not.toThrow()
     await openMenu()
     expect(screen.getByRole('menuitemradio', { name: 'Seablock' }), 'Seablock is the checked data set').toHaveAttribute('aria-checked', 'true')
   })
 })
 
-describe('AppMenu import plan item', () => {
+describe('WorkspaceMenu import plan item', () => {
   it('is disabled until game data is loaded', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toBeDisabled()
   })
 
   it('is enabled once game data is loaded', async () => {
     loaded()
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toBeEnabled()
   })
 })
 
-describe('AppMenu', () => {
+describe('WorkspaceMenu', () => {
   it('exposes a menu button that toggles the panel', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     expect(trigger()).toHaveAttribute('aria-haspopup', 'menu')
     expect(trigger()).toHaveAttribute('aria-expanded', 'false')
     expect(screen.queryByRole('menu')).toBeNull()
@@ -103,14 +103,14 @@ describe('AppMenu', () => {
   })
 
   it('lists the items in order', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     const names = Array.from(screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')).map(el => el.textContent?.replace('✓', '').trim())
     expect(names).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan…'])
   })
 
   it('focuses Nullius on first visit with nothing checked', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenuWithKeyboard()
     expect(document.querySelectorAll('[role="menuitemradio"][aria-checked="true"]')).toHaveLength(0)
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveFocus()
@@ -118,26 +118,26 @@ describe('AppMenu', () => {
 
   it('focuses the checked data set when one is persisted', async () => {
     localStorage.setItem(KEY, 'kompetenz-seablock')
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenuWithKeyboard()
     expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).toHaveFocus()
   })
 
   it('leaves focus on the trigger after a mouse open', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     expect(trigger()).toHaveFocus()
   })
 
   it('focuses the last enabled item when opened with ArrowUp', async () => {
     loaded()
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenuWithKeyboard('{ArrowUp}')
     expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toHaveFocus()
   })
 
   it('ignores arrow keys while focus is outside the menu', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     const outside = document.body.appendChild(document.createElement('button'))
     outside.focus()
@@ -149,35 +149,35 @@ describe('AppMenu', () => {
   })
 
   it('still closes on Escape when focus is outside the menu', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     const outside = document.body.appendChild(document.createElement('button'))
     outside.focus()
     outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
-    expect(await screen.findByRole('button', { name: 'Menu' })).toHaveFocus()
+    expect(await screen.findByRole('button', { name: /^(Plan: |Choose game data)/ })).toHaveFocus()
     expect(screen.queryByRole('menu')).toBeNull()
     outside.remove()
   })
 
   it('closes on Escape, returns focus and prevents the default', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenuWithKeyboard()
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     document.activeElement!.dispatchEvent(event)
     expect(event.defaultPrevented, 'Escape must not reach the panes').toBe(true)
-    expect(await screen.findByRole('button', { name: 'Menu' })).toHaveFocus()
+    expect(await screen.findByRole('button', { name: /^(Plan: |Choose game data)/ })).toHaveFocus()
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('closes on an outside pointerdown', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     fireEvent.pointerDown(document.body)
     expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('wraps ArrowDown past the disabled Import plan… item', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenuWithKeyboard()
     screen.getByRole('menuitem', { name: 'Export plan' }).focus()
     await userEvent.keyboard('{ArrowDown}')
@@ -185,7 +185,7 @@ describe('AppMenu', () => {
   })
 
   it('loads the picked bundled data set and closes', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Seablock' }))
     expect(importGameDataUrl).toHaveBeenCalledWith(
@@ -197,7 +197,7 @@ describe('AppMenu', () => {
 
   it('does not reload when the checked data set is picked again', async () => {
     localStorage.setItem(KEY, 'nullius')
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     expect(importGameDataUrl).toHaveBeenCalledTimes(1)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Nullius' }))
@@ -210,7 +210,7 @@ describe('AppMenu', () => {
     const importGameData = vi.fn()
     vi.stubGlobal('indexedDB', fakeIndexedDb({ stored: { json: '{}', filename: 'mine.json' }, getGate }))
     useGameDataStore.setState({ importGameData })
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Nullius' }))
     release()
@@ -224,7 +224,7 @@ describe('AppMenu', () => {
   it('reports a failed switch and keeps the previous choice checked', async () => {
     localStorage.setItem(KEY, 'nullius')
     vi.stubGlobal('indexedDB', fakeIndexedDb({ failWrites: true }))
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Seablock' }))
     expect(await screen.findByText('Error loading data')).toHaveAttribute('title', expect.stringContaining('blocked'))
@@ -239,7 +239,7 @@ describe('AppMenu', () => {
     vi.stubGlobal('indexedDB', fakeIndexedDb({ failWrites: true }))
     const importGameDataFile = vi.fn()
     useGameDataStore.setState({ importGameDataFile })
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
     await userEvent.upload(input, new File(['{}'], 'mine.json', { type: 'application/json' }))
     expect(await screen.findByText('Error loading data')).toBeInTheDocument()
@@ -250,7 +250,7 @@ describe('AppMenu', () => {
 
   it('opens the hidden file input from Upload file…', async () => {
     const click = vi.spyOn(HTMLInputElement.prototype, 'click').mockImplementation(() => {})
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await openMenu()
     await userEvent.click(screen.getByRole('menuitem', { name: 'Upload file…' }))
     expect(click).toHaveBeenCalledTimes(1)
@@ -258,24 +258,43 @@ describe('AppMenu', () => {
   })
 
   it('keeps the hidden file input mounted while the menu is closed', () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     expect(document.querySelector('input[type="file"]')).toBeInTheDocument()
   })
 
-  it('shows Loading… outside the menu', () => {
-    useGameDataStore.setState({ status: { type: 'loading' } })
-    render(<AppMenu />)
-    expect(screen.getByText('Loading…')).toBeInTheDocument()
+  it('is enabled before game data loads and invites a data set pick', () => {
+    render(<WorkspaceMenu />)
+    expect(trigger()).toBeEnabled()
+    expect(trigger()).toHaveAccessibleName('Choose game data')
   })
 
-  it('shows the error label outside the menu', () => {
+  it('shows Loading… on the trigger', () => {
+    useGameDataStore.setState({ status: { type: 'loading' } })
+    render(<WorkspaceMenu />)
+    expect(trigger()).toHaveTextContent('Loading…')
+    expect(trigger()).toHaveAccessibleName('Choose game data, loading')
+    expect(trigger()).toBeEnabled()
+  })
+
+  it('shows the error label on the trigger', () => {
     useGameDataStore.setState({ status: { type: 'error', message: 'boom' } })
-    render(<AppMenu />)
-    expect(screen.getByText('Error loading data')).toBeInTheDocument()
+    render(<WorkspaceMenu />)
+    expect(trigger()).toHaveTextContent('Error loading data')
+    expect(trigger()).toHaveAccessibleName('Choose game data, error loading data')
+    expect(screen.getByText('Error loading data')).toHaveAttribute('title', 'boom')
+  })
+
+  it('shows the data set label under the plan name once loaded', () => {
+    localStorage.setItem(KEY, 'kompetenz-seablock')
+    loaded()
+    activateDataSet('kompetenz-seablock')
+    render(<WorkspaceMenu />)
+    expect(trigger()).toHaveAccessibleName('Plan: Plan 1')
+    expect(trigger()).toHaveTextContent('Seablock')
   })
 })
 
-describe('AppMenu plan import', () => {
+describe('WorkspaceMenu plan import', () => {
   beforeEach(() => {
     usePlansStore.setState({ sourceId: null, index: null })
     useGameDataStore.setState({
@@ -301,7 +320,7 @@ describe('AppMenu plan import', () => {
   }
 
   it('imports a clean file as a new plan without asking', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await pick(planFile('clean.json'))
     await waitFor(() => expect(planCount()).toBe(2))
     expect(usePlansStore.getState().index!.plans[1].name).toBe('clean')
@@ -309,7 +328,7 @@ describe('AppMenu plan import', () => {
   })
 
   it('warns about unknown ids and adds nothing on Cancel', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await pick(planFile('ghost.json', 'ghost-item'))
     expect(await screen.findByTestId('import-unknown-ids')).toHaveTextContent('ghost-item')
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }))
@@ -318,7 +337,7 @@ describe('AppMenu plan import', () => {
   })
 
   it('adds the plan on Import anyway', async () => {
-    render(<AppMenu />)
+    render(<WorkspaceMenu />)
     await pick(planFile('ghost.json', 'ghost-item'))
     await userEvent.click(await screen.findByRole('button', { name: 'Import anyway' }))
     expect(planCount()).toBe(2)

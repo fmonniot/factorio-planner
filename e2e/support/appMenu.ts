@@ -1,9 +1,10 @@
 import { expect, type Download, type FileChooser, type Locator, type Page } from '@playwright/test'
 
-export const menuTrigger = (page: Page) => page.getByRole('button', { name: 'Menu', exact: true })
+/** The workspace button: named after the active plan, or inviting a data set pick. */
+export const menuTrigger = (page: Page) => page.getByRole('button', { name: /^(Plan: |Choose game data)/ })
 export const appMenu = (page: Page) => page.getByRole('menu', { name: 'Plan and game data' })
 
-/** Open the top-bar menu (no-op when already open) and return it. */
+/** Open the workspace menu (no-op when already open) and return it. */
 export async function openAppMenu(page: Page): Promise<Locator> {
   if ((await menuTrigger(page).getAttribute('aria-expanded')) !== 'true') await menuTrigger(page).click()
   await expect(appMenu(page)).toBeVisible()
