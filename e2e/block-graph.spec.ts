@@ -10,7 +10,7 @@ import { loadPlanFixture } from './support/loadPlan'
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 
-const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to forbid"]')
+const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to find a producer recipe"]')
 const node = (page: Page, name: string) => page.getByTestId('graph-node').filter({ has: page.getByRole('button', { name, exact: true }) })
 
 async function setup(page: Page) {

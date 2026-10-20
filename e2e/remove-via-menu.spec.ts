@@ -1,0 +1,45 @@
+import { test, expect } from '@playwright/test'
+import path from 'path'
+import { loadPlanFixture } from './support/loadPlan'
+import { clickRowAction } from './support/rowMenu'
+
+/** Goals and sub-factories are removed from a right-click menu (no × buttons). */
+const FIXTURE = path.resolve('e2e/fixtures/byproduct-add-consumer.json')
+
+test.describe('Removal through right-click menus', () => {
+  test.beforeEach(async ({ page }) => {
+    await loadPlanFixture(page, FIXTURE)
+    await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+    await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+  })
+
+  test('right-click on a goal tile removes the goal', async ({ page }) => {
+    const goal = page.getByTitle(/^Hydrogen — click to add a producer recipe/)
+    await goal.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Remove goal' }).click()
+    await expect(goal).toHaveCount(0)
+  })
+
+  test('removing a sub-factory with contents asks for confirmation first', async ({ page }) => {
+    const rows = page.locator('main table tbody tr')
+    const firstRow = rows.first()
+
+    page.once('dialog', d => d.accept('Smelting'))
+    await clickRowAction(page, firstRow, 'Wrap in subfactory…')
+    const subRow = rows.filter({ hasText: 'Smelting' })
+    await expect(subRow).toBeVisible()
+
+    page.once('dialog', d => {
+      expect(d.type()).toBe('confirm')
+      expect(d.message()).toContain('"Smelting"')
+      expect(d.message()).toContain('1 recipe')
+      void d.dismiss()
+    })
+    await clickRowAction(page, subRow, 'Remove subfactory')
+    await expect(subRow).toBeVisible()
+
+    page.once('dialog', d => void d.accept())
+    await clickRowAction(page, subRow, 'Remove subfactory')
+    await expect(subRow).toHaveCount(0)
+  })
+})

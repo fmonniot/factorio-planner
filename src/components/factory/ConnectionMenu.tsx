@@ -4,13 +4,14 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { sourceCandidates } from '../../store/connections'
+import { sourceCandidates, isGoalItem } from '../../store/connections'
 import { Icon } from '../Icon'
 import { fmtRate } from './ItemTile'
 import type { BlockConnection, ConnectionFlow, Item } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
+// (non-goal items only), and forbid or allow imports of the item.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -25,6 +26,7 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
+  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const gameData = useGameDataStore(selectGameData)
@@ -61,6 +63,11 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
   const itemName = gameData?.items[itemId]?.name ?? itemId
   const unit = rateUnit === 'min' ? '/m' : '/s'
 
+  const activeBlock = blocks.find(b => b.id === activeBlockId)
+  const locked = activeBlock?.noImportItems.includes(itemId) ?? false
+  // A goal shortfall cannot be fed by a connection (goals never receive supply).
+  const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
+
   const candidates = sourceCandidates(blocks, activeBlockId, itemId, results, flows)
 
   return createPortal(
@@ -70,10 +77,12 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
       style={{ left: x, top: y }}
       className="fixed mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
     >
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
-        Receive {itemName} from
-      </div>
-      {candidates.length === 0 ? (
+      {connectable && (
+        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+          Receive {itemName} from
+        </div>
+      )}
+      {connectable && (candidates.length === 0 ? (
         <div className="px-3 py-1 text-xs text-gray-500 cursor-default">
           No other block produces this item
         </div>
@@ -95,7 +104,19 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
             </span>
           </button>
         ))
-      )}
+      ))}
+      {connectable && <div className="border-t border-gray-700 my-1" />}
+      <button
+        type="button"
+        role="menuitem"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        onClick={() => {
+          toggleNoImportItem(itemId)
+          onClose()
+        }}
+      >
+        {locked ? 'Allow imports' : 'Forbid imports'}
+      </button>
     </div>,
     document.body,
   )
@@ -115,7 +136,7 @@ interface ConnectionChipProps {
   /** items/min the block needs of this item in total (delivered plus still imported). */
   neededPerMin: number
   onSelectSource: () => void
-  onRemove: () => void
+  onContextMenu: React.MouseEventHandler<HTMLSpanElement>
 }
 
 export function ConnectionChip({
@@ -125,7 +146,7 @@ export function ConnectionChip({
   sourceName,
   neededPerMin,
   onSelectSource,
-  onRemove,
+  onContextMenu,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
@@ -147,18 +168,20 @@ export function ConnectionChip({
   } else if (status === 'missing-source') {
     label = '(deleted block)'
     tone = 'bg-gray-800 text-gray-500 border-gray-700'
-    title = `${itemName} — the source block was deleted; remove this connection`
+    title = `${itemName} — the source block was deleted; right-click to remove this connection`
   } else if (status === 'cycle') {
     label = `← ${sourceName ?? ''} (cycle, ignored)`
     tone = 'bg-gray-800 text-gray-500 border-gray-700'
     title = `${itemName} — ignored because the connection forms a cycle`
   }
+  if (status !== 'missing-source') title += ' — right-click to remove'
   const sourceGone = status === 'missing-source'
 
   return (
     <span
       data-testid="connection-chip"
       title={title}
+      onContextMenu={onContextMenu}
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${tone}`}
     >
       {item?.iconPath ? (
@@ -182,14 +205,6 @@ export function ConnectionChip({
           {label}
         </button>
       )}
-      <button
-        type="button"
-        onClick={onRemove}
-        title="Remove connection"
-        className="text-xs leading-none opacity-60 hover:opacity-100 hover:text-red-400"
-      >
-        ×
-      </button>
     </span>
   )
 }

@@ -13,6 +13,7 @@ import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
+import { countSubPlanContents } from './subPlanContents'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -152,7 +153,21 @@ export function RecipeRow({
 
   if (planNode.kind === 'subplan') {
     const childPlan = findSubPlanDeep(rootPlan, planNode.subPlanId)
-    const label = childPlan?.name ?? planNode.subPlanId
+    const subPlanId = planNode.subPlanId
+    const label = childPlan?.name ?? subPlanId
+
+    function handleRemoveSubPlan() {
+      const isEmpty = !childPlan || (childPlan.nodes.length === 0 && childPlan.subPlans.length === 0)
+      if (!isEmpty) {
+        const { recipes, subfactories } = countSubPlanContents(childPlan)
+        const parts = [
+          recipes > 0 && `${recipes} recipe${recipes !== 1 ? 's' : ''}`,
+          subfactories > 0 && `${subfactories} nested subfactor${subfactories !== 1 ? 'ies' : 'y'}`,
+        ].filter(Boolean)
+        if (!window.confirm(`Remove subfactory "${label}" and its ${parts.join(' and ') || 'contents'}?`)) return
+      }
+      removeSubPlan(subPlanId)
+    }
 
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
@@ -172,7 +187,15 @@ export function RecipeRow({
           <td colSpan={8} className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" />
         )}
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
-        <td className="px-2 py-0.5" colSpan={7} style={{ paddingLeft: `${8 + indentPx}px` }}>
+        <td
+          className="px-2 py-0.5"
+          colSpan={7}
+          style={{ paddingLeft: `${8 + indentPx}px` }}
+          onContextMenu={e => {
+            e.preventDefault()
+            setMenuPos({ x: e.clientX, y: e.clientY })
+          }}
+        >
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -187,15 +210,15 @@ export function RecipeRow({
                 </span>
               )}
             </button>
-            <button
-              type="button"
-              onClick={() => removeSubPlan(planNode.subPlanId)}
-              title="Remove subplan"
-              className="text-gray-500 hover:text-red-400 text-sm leading-none"
-            >
-              ×
-            </button>
           </div>
+          {menuPos && (
+            <RowActionsMenu
+              x={menuPos.x}
+              y={menuPos.y}
+              actions={[{ label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan }]}
+              onClose={() => setMenuPos(null)}
+            />
+          )}
         </td>
       </tr>
     )

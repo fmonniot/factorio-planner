@@ -178,11 +178,23 @@ describe('FactorySummary — GoalTile editing', () => {
 })
 
 describe('FactorySummary — GoalTile remove', () => {
-  it('× button removes the goal', () => {
+  const goalIcon = () => screen.getByTitle(/Iron Plate — click to add a producer recipe/)
+
+  it('right-click then "Remove goal" removes the goal', () => {
     render(<FactorySummary />)
-    const removeBtn = screen.getByTitle('Remove goal')
-    fireEvent.click(removeBtn)
+    expect(screen.queryByTitle('Remove goal')).not.toBeInTheDocument()
+    fireEvent.contextMenu(goalIcon())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove goal' }))
     expect(useBlockStore.getState().blocks[0].goals).toHaveLength(0)
+  })
+
+  it('Escape closes the goal menu and keeps the goal', () => {
+    render(<FactorySummary />)
+    fireEvent.contextMenu(goalIcon())
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
   })
 })
 
@@ -337,19 +349,21 @@ describe('FactorySummary — connections', () => {
     expect(screen.getByTestId('connection-chip').getAttribute('title')).toContain('Not used')
   })
 
-  it('labels a chip whose source block is gone and lets the user remove it', () => {
+  it('labels a chip whose source block is gone and lets the user remove it via right-click', () => {
     setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'missing-source', rate: 0, available: 0 })] })
     useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== 'miner') }))
     render(<FactorySummary />)
     expect(screen.getByTestId('connection-chip').textContent).toContain('deleted block')
-    fireEvent.click(screen.getByTitle('Remove connection'))
+    fireEvent.contextMenu(screen.getByTestId('connection-chip'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove connection' }))
     expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
   })
 
-  it('the × button removes the connection', () => {
+  it('right-click then "Remove connection" removes the connection', () => {
     setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Remove connection'))
+    fireEvent.contextMenu(screen.getByTestId('connection-chip'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove connection' }))
     expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
   })
 
@@ -363,7 +377,7 @@ describe('FactorySummary — connections', () => {
   it('right-clicking an ingredient tile offers the blocks that produce it', () => {
     setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
     render(<FactorySummary />)
-    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to find a producer recipe/))
     expect(screen.getByText('Receive Iron Ore from')).toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitem', { name: /Miner/ }))
     expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([
@@ -375,7 +389,7 @@ describe('FactorySummary — connections', () => {
   it('caps each summary pane height and scrolls its tiles', () => {
     setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
     render(<FactorySummary />)
-    const tiles = screen.getByTitle(/Iron Ore — click to forbid/).closest('.overflow-y-auto')
+    const tiles = screen.getByTitle(/Iron Ore — click to find a producer recipe/).closest('.overflow-y-auto')
     expect(tiles).not.toBeNull()
     expect(tiles!.parentElement).toHaveClass('max-h-[25vh]')
   })
@@ -385,7 +399,7 @@ describe('FactorySummary — connections', () => {
     const goalShortfall: SolverResult = { nodes: [], unsatisfied: [{ itemId: ironGoal.itemId, rate: 5 }], warnings: [] }
     setupBlocks({ activeId: 'consumer', connected: false, result: goalShortfall })
     render(<FactorySummary />)
-    const tile = screen.getAllByTitle(/click to forbid imports$/)[0]
+    const tile = screen.getAllByTitle(/click to find a producer recipe$/)[0]
     fireEvent.contextMenu(tile)
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
     expect(tile.getAttribute('title')).not.toContain('right-click')
@@ -397,7 +411,7 @@ describe('FactorySummary — connections', () => {
       flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 150 })],
     })
     const { unmount } = render(<FactorySummary />)
-    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to find a producer recipe/))
     // 200 offered - 150 already delivered = 50/min.
     expect(screen.getByRole('menuitem', { name: /Miner/ }).textContent).toContain('50.0')
     unmount()
@@ -407,15 +421,15 @@ describe('FactorySummary — connections', () => {
       flows: [flow({ connectionId: 'other', toBlockId: 'third', rate: 200 })],
     })
     render(<FactorySummary />)
-    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to find a producer recipe/))
+    expect(screen.queryByRole('menuitem', { name: /Miner/ })).not.toBeInTheDocument()
     expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
   })
 
   it('says so when no other block produces the item', () => {
     setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult, minerOffers: false })
     render(<FactorySummary />)
-    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to forbid/))
+    fireEvent.contextMenu(screen.getByTitle(/Iron Ore — click to find a producer recipe/))
     expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
   })
 
@@ -488,7 +502,7 @@ describe('FactorySummary — byproduct consumer recipe', () => {
 })
 
 describe('FactorySummary — goal tile producer picker', () => {
-  const producerTitle = 'Iron Plate — click to add a producer recipe'
+  const producerTitle = 'Iron Plate — click to add a producer recipe, right-click to remove'
 
   function withProducerRecipe() {
     const data = structuredClone(mockGameData)
@@ -530,5 +544,69 @@ describe('FactorySummary — goal tile producer picker', () => {
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
+  })
+})
+
+describe('FactorySummary — ingredient tile click and import lock', () => {
+  function withProducerRecipe() {
+    const data = structuredClone(mockGameData)
+    data.recipes['mine-iron'] = {
+      id: 'mine-iron', name: 'Mine Iron', category: 'mining', craftingTime: 1,
+      ingredients: [],
+      products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+      madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-ore',
+    } as unknown as GameData['recipes'][string]
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+  }
+  const oreTile = () => screen.getByTitle(/Iron Ore — click to find a producer recipe/)
+  const oreChip = () => screen.getByTitle(/Iron Ore — locked/)
+  const noImport = () => useBlockStore.getState().blocks[0].noImportItems
+
+  it('left click on a tile opens the producer picker and adds the recipe to the root plan', async () => {
+    withProducerRecipe()
+    render(<FactorySummary />)
+    fireEvent.click(oreTile())
+
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
+    expect(noImport()).toEqual([])
+
+    fireEvent.click(screen.getByTitle('Mine Iron'))
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('mine-iron')
+  })
+
+  it('right-click then "Forbid imports" locks the item, below the connection entries', () => {
+    render(<FactorySummary />)
+    fireEvent.contextMenu(oreTile())
+    expect(screen.getByText('Receive Iron Ore from')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Forbid imports' }))
+    expect(noImport()).toEqual(['iron-ore'])
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('left click on the locked chip unlocks without opening a picker', () => {
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ['iron-ore'] })) }))
+    render(<FactorySummary />)
+    fireEvent.click(oreChip())
+    expect(noImport()).toEqual([])
+    expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
+  })
+
+  it('right-click on the locked chip offers "Allow imports"', () => {
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ['iron-ore'] })) }))
+    render(<FactorySummary />)
+    fireEvent.contextMenu(oreChip())
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Allow imports' }))
+    expect(noImport()).toEqual([])
+  })
+
+  it('right-click on a locked goal item chip offers only "Allow imports"', () => {
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ['iron-plate'] })) }))
+    render(<FactorySummary />)
+    fireEvent.contextMenu(screen.getByTitle(/Iron Plate — locked/))
+    expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Allow imports'])
+    expect(screen.queryByText(/Receive .* from/)).not.toBeInTheDocument()
   })
 })

@@ -12,8 +12,8 @@ import { loadPlanFixture } from './support/loadPlan'
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 
-const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to forbid"]')
-const rodTile = (page: Page) => page.locator('button[title^="Iron rod — click to forbid"]')
+const plateTile = (page: Page) => page.locator('button[title^="Iron plate — click to find a producer recipe"]')
+const rodTile = (page: Page) => page.locator('button[title^="Iron rod — click to find a producer recipe"]')
 const chip = (page: Page) => page.getByTestId('connection-chip')
 
 async function setup(page: Page) {
@@ -54,7 +54,8 @@ test.describe('block connections', () => {
     await expect(plateTile(page)).toContainText('10.0')
 
     // Removing the connection brings the whole import back.
-    await page.getByTitle('Remove connection').click()
+    await chip(page).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Remove connection' }).click()
     await expect(chip(page)).toHaveCount(0)
     await expect(plateTile(page)).toContainText('30.0')
 
@@ -80,6 +81,6 @@ test.describe('block connections', () => {
     await overlay.locator('[data-testid="recipe-slot"][title="Iron plate"]').click()
 
     await expect(chip(page)).toHaveAttribute('title', /Not used/)
-    await expect(page.locator('button[title^="Iron ingot — click to forbid"]')).toBeVisible()
+    await expect(page.locator('button[title^="Iron ingot — click to find a producer recipe"]')).toBeVisible()
   })
 })

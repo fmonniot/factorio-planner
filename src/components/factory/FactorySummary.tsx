@@ -26,12 +26,12 @@ interface GoalTileProps {
   item: Item | undefined
   rateUnit: RateUnit
   onUpdateRate: (rate: number) => void
-  onRemove: () => void
+  onContextMenu: React.MouseEventHandler<HTMLDivElement>
   /** Open the recipe picker filtered to producers of this goal's item. */
   onFindProducer: () => void
 }
 
-function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove, onFindProducer }: GoalTileProps) {
+function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextMenu, onFindProducer }: GoalTileProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -61,12 +61,12 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove, 
   }
 
   return (
-    <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs group/goal">
+    <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs" onContextMenu={onContextMenu}>
       {/* Icon (or name) — opens the producer recipe picker */}
       <button
         type="button"
         onClick={onFindProducer}
-        title={`${item?.name ?? goal.itemId} — click to add a producer recipe`}
+        title={`${item?.name ?? goal.itemId} — click to add a producer recipe, right-click to remove`}
         className="shrink-0 flex items-center rounded hover:bg-gray-700"
       >
         {item?.iconPath ? (
@@ -119,16 +119,6 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove, 
       )}
 
       <span className="text-gray-600 text-[10px]">{unitLabel}</span>
-
-      {/* Remove */}
-      <button
-        type="button"
-        onClick={onRemove}
-        title="Remove goal"
-        className="text-gray-700 hover:text-red-400 leading-none text-xs ml-0.5 opacity-0 group-hover/goal:opacity-100 transition-opacity"
-      >
-        ×
-      </button>
     </div>
   )
 }
@@ -161,6 +151,8 @@ export function FactorySummary() {
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
+  const [goalMenu, setGoalMenu] = useState<{ goalId: string; x: number; y: number } | null>(null)
+  const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
   const goals: ProductionGoal[] = activeBlock?.goals ?? []
@@ -298,7 +290,10 @@ export function FactorySummary() {
                 item={gameData?.items[goal.itemId]}
                 rateUnit={rateUnit}
                 onUpdateRate={rate => updateGoalRate(goal.id, rate)}
-                onRemove={() => removeGoal(goal.id)}
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setGoalMenu({ goalId: goal.id, x: e.clientX, y: e.clientY })
+                }}
                 onFindProducer={() => setProducerPickerItemId(goal.itemId)}
               />
               {renderExportChips(goal.itemId)}
@@ -332,9 +327,9 @@ export function FactorySummary() {
           {exportedByproducts.flatMap(renderExportChips)}
         </SummaryPane>
 
-        {/* Ingredients (click an active tile to forbid the LP from importing it;
-            right-click it to receive it from another block; click a locked chip
-            to allow imports again). */}
+        {/* Ingredients (click a tile to add a producer recipe; right-click it to
+            receive it from another block or forbid imports; click a locked chip,
+            or right-click it, to allow imports again). */}
         <SummaryPane label="Ingredients">
           {connections.map(c => {
             const source = blocks.find(b => b.id === c.fromBlockId)
@@ -347,7 +342,10 @@ export function FactorySummary() {
                 sourceName={source?.name}
                 neededPerMin={neededPerMin.get(c.itemId) ?? 0}
                 onSelectSource={() => setActiveBlock(c.fromBlockId)}
-                onRemove={() => removeInputConnection(c.id)}
+                onContextMenu={e => {
+                  e.preventDefault()
+                  setConnectionChipMenu({ connectionId: c.id, x: e.clientX, y: e.clientY })
+                }}
               />
             )
           })}
@@ -359,14 +357,14 @@ export function FactorySummary() {
                 item={gameData?.items[itemId]}
                 ratePerSec={rate / 60}
                 variant="ingredient"
-                onClick={() => toggleNoImportItem(itemId)}
+                onClick={() => setProducerPickerItemId(itemId)}
                 // A goal shortfall cannot be fed by a connection (goals never receive supply).
                 onContextMenu={connectable ? e => {
                   e.preventDefault()
                   const rect = e.currentTarget.getBoundingClientRect()
                   setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
                 } : undefined}
-                title={`${gameData?.items[itemId]?.name ?? itemId} — click to forbid imports${connectable ? ', right-click to receive from another block' : ''}`}
+                title={`${gameData?.items[itemId]?.name ?? itemId} — click to find a producer recipe${connectable ? ', right-click to receive from another block or forbid imports' : ''}`}
               />
             )
           })}
@@ -376,6 +374,11 @@ export function FactorySummary() {
               item={gameData?.items[itemId]}
               itemId={itemId}
               onClick={() => toggleNoImportItem(itemId)}
+              onContextMenu={e => {
+                e.preventDefault()
+                const rect = e.currentTarget.getBoundingClientRect()
+                setConnectionMenu({ itemId, x: rect.left, y: rect.bottom })
+              }}
             />
           ))}
         </SummaryPane>
@@ -387,6 +390,28 @@ export function FactorySummary() {
           x={connectionMenu.x}
           y={connectionMenu.y}
           onClose={() => setConnectionMenu(null)}
+        />
+      )}
+
+      {goalMenu && (
+        <RowActionsMenu
+          x={goalMenu.x}
+          y={goalMenu.y}
+          actions={[{ label: 'Remove goal', danger: true, onSelect: () => removeGoal(goalMenu.goalId) }]}
+          onClose={() => setGoalMenu(null)}
+        />
+      )}
+
+      {connectionChipMenu && (
+        <RowActionsMenu
+          x={connectionChipMenu.x}
+          y={connectionChipMenu.y}
+          actions={[{
+            label: 'Remove connection',
+            danger: true,
+            onSelect: () => removeInputConnection(connectionChipMenu.connectionId),
+          }]}
+          onClose={() => setConnectionChipMenu(null)}
         />
       )}
 
@@ -433,23 +458,26 @@ export function FactorySummary() {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
-// NoImportChip — locked item: small grey chip with lock icon + click to unlock
+// NoImportChip — locked item: small grey chip with lock icon; click to unlock, right-click for the menu
 // ---------------------------------------------------------------------------
 
 function NoImportChip({
   item,
   itemId,
   onClick,
+  onContextMenu,
 }: {
   item: Item | undefined
   itemId: string
   onClick: () => void
+  onContextMenu: React.MouseEventHandler<HTMLButtonElement>
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      title={`${item?.name ?? itemId} — locked (LP cannot import). Click to allow imports.`}
+      onContextMenu={onContextMenu}
+      title={`${item?.name ?? itemId} — locked (LP cannot import). Click to allow imports, right-click for more.`}
       className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs bg-gray-800 text-gray-500 border border-gray-700 hover:text-gray-300 hover:border-gray-600"
     >
       {item?.iconPath ? (
