@@ -51,11 +51,12 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Auto-group recipes by tier.** (Manual grouping exists via subfactories.)
-- [ ] **Remove via right-click menu, not a cross icon.** Standardize on a context (right-click) menu for removing things instead of the small cross icon. Non-exhaustive list of affected removals: subfactories, goals.
 - [ ] **Byproduct menu and goal tile: hide "Add consumer recipe…" / "Add producer" when nothing matches the item.** The byproduct menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. The goal tile's icon click ("click to add a producer recipe") has the same flaw: for raw items, or when every producer is outside the research horizon, it opens an empty "Add recipe" picker. Disable or hide the entry (and drop the goal tile hint) in those cases.
-- [ ] **Indicator for byproduct-consumer rows.** A row marked "Absorb byproduct" (`byproductConsumer`, see [spec/ui.md](../spec/ui.md)) looks like any other row, so the user can forget it only soaks up surplus. Show a small badge next to the recipe icon as a reminder, with a tooltip explaining the mode.
-- [ ] **Item hover panel.** The goal picker (items mode) and the production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
 - [ ] **Fluid temperature indicator.** Fluids show their temperature nowhere in the UI (tiles, goals, pickers, production table). The schema carries `minimumTemperature` / `maximumTemperature` on fluids, but no component reads them and the solver ignores them.
+- [ ] **Indicator for byproduct-consumer rows.** A row marked "Absorb byproduct" (`byproductConsumer`, see [spec/ui.md](../spec/ui.md)) looks like any other row, so the user can forget it only soaks up surplus. Show a small badge next to the recipe icon as a reminder, with a tooltip explaining the mode.
+- [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
+- [ ] **Ingredients pane: left click opens the recipe picker.** Left-clicking an item chip in the Ingredients pane currently adds it to `noImportItems` (forbids the solver from importing it). Make a left click open the recipe selector for that item, as clicking an ingredient on a recipe row does, and move the import lock into the right-click `ConnectionMenu`, next to the connection entries. See [spec/ui.md](../spec/ui.md#ingredients-pane).
+- [ ] **Remove via right-click menu, not a cross icon.** Standardize on a context (right-click) menu for removing things instead of the small cross icon. Non-exhaustive list of affected removals: subfactories, goals.
 
 ## Data sets
 
