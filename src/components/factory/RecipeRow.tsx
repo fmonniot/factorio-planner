@@ -204,11 +204,14 @@ export function RecipeRow({
             >
               <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
               <span className="font-medium">{label}</span>
-              {childPlan && (
-                <span className="text-gray-600 text-[10px]">
-                  {childPlan.nodes.length} recipe{childPlan.nodes.length !== 1 ? 's' : ''}
-                </span>
-              )}
+              {childPlan && (() => {
+                const { recipes } = countSubPlanContents(childPlan)
+                return (
+                  <span className="text-gray-600 text-[10px]">
+                    {recipes} recipe{recipes !== 1 ? 's' : ''}
+                  </span>
+                )
+              })()}
             </button>
           </div>
           {menuPos && (

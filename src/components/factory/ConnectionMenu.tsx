@@ -194,7 +194,7 @@ export function ConnectionChip({
         <span className="opacity-60">{unit}</span>
       </span>
       {sourceGone ? (
-        <span className="text-[10px]">{label}</span>
+        <span tabIndex={0} className="text-[10px] rounded focus:outline focus:outline-1 focus:outline-gray-400">{label}</span>
       ) : (
         <button
           type="button"

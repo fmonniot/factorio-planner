@@ -813,6 +813,9 @@ describe('RecipeRow sub-factory removal', () => {
     const confirm = vi.fn().mockReturnValue(false)
     vi.stubGlobal('confirm', confirm)
 
+    // The badge counts recipes recursively, like the confirmation does.
+    expect(screen.getByText('2 recipes')).toBeInTheDocument()
+
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
     expect(confirm).toHaveBeenCalledWith('Remove subfactory "My Subfactory" and its 2 recipes and 1 nested subfactory?')

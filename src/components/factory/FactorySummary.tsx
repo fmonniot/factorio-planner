@@ -61,7 +61,14 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onContextM
   }
 
   return (
-    <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs" onContextMenu={onContextMenu}>
+    <div
+      className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs"
+      onContextMenu={e => {
+        // Leave the browser's own menu (copy/paste) on the rate input.
+        if (e.target instanceof HTMLInputElement) return
+        onContextMenu(e)
+      }}
+    >
       {/* Icon (or name) — opens the producer recipe picker */}
       <button
         type="button"
@@ -358,7 +365,8 @@ export function FactorySummary() {
                 ratePerSec={rate / 60}
                 variant="ingredient"
                 onClick={() => setProducerPickerItemId(itemId)}
-                // A goal shortfall cannot be fed by a connection (goals never receive supply).
+                // A goal shortfall has no menu: goals never receive supply, and forbidding imports
+                // has no effect on them (goals have no slack), so there is nothing to offer.
                 onContextMenu={connectable ? e => {
                   e.preventDefault()
                   const rect = e.currentTarget.getBoundingClientRect()

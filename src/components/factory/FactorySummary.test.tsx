@@ -177,6 +177,17 @@ describe('FactorySummary — GoalTile editing', () => {
   })
 })
 
+describe('FactorySummary — GoalTile rate input context menu', () => {
+  it('right-clicking the rate input keeps the native menu (no Remove goal menu)', () => {
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle(/Target:/))
+    const input = screen.getByLabelText('Goal target rate')
+    const notPrevented = fireEvent.contextMenu(input)
+    expect(notPrevented).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+})
+
 describe('FactorySummary — GoalTile remove', () => {
   const goalIcon = () => screen.getByTitle(/Iron Plate — click to add a producer recipe/)
 
@@ -354,6 +365,8 @@ describe('FactorySummary — connections', () => {
     useBlockStore.setState(s => ({ blocks: s.blocks.filter(b => b.id !== 'miner') }))
     render(<FactorySummary />)
     expect(screen.getByTestId('connection-chip').textContent).toContain('deleted block')
+    // Keyboard users reach the context menu (Menu key / Shift+F10) from the label.
+    expect(screen.getByText('(deleted block)').tabIndex).toBe(0)
     fireEvent.contextMenu(screen.getByTestId('connection-chip'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove connection' }))
     expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])

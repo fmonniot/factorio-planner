@@ -298,8 +298,11 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
 - Clicking a tile opens the [recipe picker](#recipe-picker) filtered to recipes
   producing the item; the chosen recipe is added to the root plan (as with the
   goal tile and the Byproducts pane).
-- Right-clicking a tile opens `ConnectionMenu`, except on a goal shortfall
-  (goals are never fed by connections, so those tiles have no menu). It lists
+- Right-clicking a tile opens `ConnectionMenu`, except on a goal shortfall,
+  which has no menu: goals are never fed by connections and have no import
+  slack, so forbidding imports would change nothing (see
+  [solver.md](solver.md)). A lock chip for a goal item can still exist (the lock
+  predates the goal, or comes from saved data); it stays removable. It lists
   "Receive <item> from" with one entry per other block that still has the item to give (the offered
   rate minus what it already delivers to other blocks; sources with nothing left
   are not listed),
@@ -428,7 +431,7 @@ reach) the rate cells are empty and the machine count is 0.
 
 ### Sub-factory rows
 
-A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count,
+A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
 and a right-click menu with **Remove subfactory**, which removes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.

@@ -29,13 +29,17 @@ test.describe('Removal through right-click menus', () => {
     const subRow = rows.filter({ hasText: 'Smelting' })
     await expect(subRow).toBeVisible()
 
+    let dialogType = ''
+    let dialogMessage = ''
     page.once('dialog', d => {
-      expect(d.type()).toBe('confirm')
-      expect(d.message()).toContain('"Smelting"')
-      expect(d.message()).toContain('1 recipe')
+      dialogType = d.type()
+      dialogMessage = d.message()
       void d.dismiss()
     })
     await clickRowAction(page, subRow, 'Remove subfactory')
+    expect(dialogType).toBe('confirm')
+    expect(dialogMessage).toContain('"Smelting"')
+    expect(dialogMessage).toContain('1 recipe')
     await expect(subRow).toBeVisible()
 
     page.once('dialog', d => void d.accept())
