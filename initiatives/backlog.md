@@ -40,6 +40,9 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
+- [ ] **Summary panes as item slots.** Replace the one-row-per-item Products, Byproducts and Ingredients panes with slots carrying an allocation micro-bar and a detail strip; adds a colour to each block. Design: [summary-panes-slots/design.md](summary-panes-slots/design.md).
+- [ ] **User-chosen block colour.** Depends on the summary panes initiative, which adds `Block.color` assigned at random. Let the user pick it (e.g. from the block tab's right-click menu), and consider deriving the default from the block's icon.
+- [ ] **Block colour in tabs and block graph.** Once blocks have a colour, show it in `BlockTabs` and on block graph nodes and edges so it matches the summary bars.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
