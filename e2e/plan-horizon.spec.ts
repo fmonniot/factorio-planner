@@ -18,7 +18,7 @@ const tech = (page: Page, id: string) => page.locator(`[data-tech-id="${id}"]`)
 const count = (page: Page) => page.getByTestId('horizon-recipe-count')
 
 async function pickerRecipeIds(page: Page): Promise<string[]> {
-  await page.getByText('+ Add recipe').click()
+  await page.getByRole('button', { name: 'Add recipe' }).click()
   await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
   const ids = await page.locator('[data-testid="recipe-slot"]').evaluateAll(
     els => els.map(e => e.getAttribute('data-recipe-id') ?? ''),
@@ -166,7 +166,7 @@ async function addGoal(page: Page, itemId: string) {
 }
 
 async function addRecipe(page: Page, recipeId: string) {
-  await page.getByText('+ Add recipe').click()
+  await page.getByRole('button', { name: 'Add recipe' }).click()
   await page.locator(`[data-testid="recipe-slot"][data-recipe-id="${recipeId}"]`).click()
 }
 

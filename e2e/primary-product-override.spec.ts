@@ -27,7 +27,7 @@ test.describe('Primary product override', () => {
     await overlay.locator('[data-testid="item-slot"][data-item-id="nullius-hydrogen"]').click()
 
     // Add the brine-electrolysis recipe.
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('nullius-brine-electrolysis')
     await overlay.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-brine-electrolysis"]').click()
 
@@ -66,7 +66,7 @@ test.describe('Primary product override', () => {
     await overlay.locator('[data-testid="item-slot"]').first().click()
 
     // Add Chemistry research 1 recipe (single-output).
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
     await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 

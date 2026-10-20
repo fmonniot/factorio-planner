@@ -24,7 +24,7 @@ test.describe('Plan export', () => {
     await overlay.locator('[data-testid="item-slot"]').first().click()
 
     // Add a recipe via ProductionTable
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     await overlay.getByPlaceholder('Search…').fill('Chemistry research 1')
     await overlay.locator('[data-testid="recipe-slot"][title="Chemistry research 1"]').click()
 

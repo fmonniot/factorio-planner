@@ -55,7 +55,7 @@ async function addGoal(page: Page, itemId: string, amount: string) {
 }
 
 async function addRecipe(page: Page, recipeId: string) {
-  await page.getByText('+ Add recipe').click()
+  await page.getByRole('button', { name: 'Add recipe' }).click()
   await page.locator(`[data-testid="recipe-slot"][data-recipe-id="${recipeId}"]`).click()
 }
 
@@ -92,7 +92,7 @@ test.describe('Extraction recipes', () => {
     await page.locator('[data-tech-id="electronics"]').click()
     await page.getByRole('button', { name: 'Done' }).click()
 
-    await page.getByText('+ Add recipe').click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
     const recipeIds = await page.locator('[data-testid="recipe-slot"]').evaluateAll(
       els => els.map(e => e.getAttribute('data-recipe-id') ?? ''),
     )

@@ -20,7 +20,7 @@ In the **Products** pane of the summary panel, use the **+** button in the pane 
 
 Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there (the row's pin, absorb, wrap and remove actions are in a menu you get by right-clicking the recipe icon):
 
-- **Add recipes** with **+ Add recipe** below the table. To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
+- **Add recipes** with the **+** button in the table header's left (reorder) column (or **+ Add recipe** in an empty block). To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons).
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
 - **Click an ingredient** on a row, or select it in the summary's **Ingredients** pane and use **Find recipe**, to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.

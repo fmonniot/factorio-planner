@@ -14,7 +14,7 @@ async function upload(page: Page, buffer: Buffer = fs.readFileSync(FIXTURE_PATH)
 }
 
 async function hoverRecipe(page: Page, id: string) {
-  await page.getByText('+ Add recipe').click()
+  await page.getByRole('button', { name: 'Add recipe' }).click()
   await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
   await page.locator(`[data-testid="recipe-slot"][data-recipe-id="${id}"]`).hover()
   return page.getByTestId('recipe-unlock')

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
 import { ProductionTable } from './ProductionTable'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -90,6 +90,24 @@ describe('ProductionTable', () => {
   it('clicking add-recipe in empty state shows recipe picker', async () => {
     render(<ProductionTable />)
     fireEvent.click(screen.getByText('+ Add recipe'))
+    await waitFor(() => {
+      expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
+    })
+  })
+
+  it('shows an Add recipe button in the header instead of a footer when nodes exist', async () => {
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlan = { ...block.rootPlan, nodes: [existingNode] }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    render(<ProductionTable />)
+    expect(screen.queryByText('+ Add recipe')).not.toBeInTheDocument()
+    const header = screen.getAllByRole('columnheader')[0]
+    const button = within(header).getByRole('button', { name: 'Add recipe' })
+    fireEvent.click(button)
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })

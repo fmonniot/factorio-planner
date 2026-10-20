@@ -50,10 +50,9 @@ session (see [Game data set](#game-data-set)).
 │ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
-│    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
+│ [+]│ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
 │ ▲▼ │ ▶ Smelting  3 recipes                                               │
 │ ▲▼ │ [icon]           │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
-│ + Add recipe                                                              │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -386,10 +385,12 @@ The popover closes on Escape or a click outside.
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" and a `+ Add recipe` link.
 - Otherwise: a table with a sticky header — reorder, Recipe, Machine, Beacon,
-  Products, Byproducts, Ingredients — and a `+ Add recipe` footer.
+  Products, Byproducts, Ingredients. The left (reorder) header column carries a `+`
+  button (Add recipe).
 
-`+ Add recipe` opens the [recipe picker](#recipe-picker); the chosen recipe is
-appended to the block's root plan as a new node with default settings.
+The header `+` button (and the empty-state `+ Add recipe` link) opens the
+[recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
+plan as a new node with default settings.
 
 Row order is the order of the nodes in each sub-plan. The table is not sortable;
 the user arranges rows by drag-and-drop or the ▲/▼ buttons.
