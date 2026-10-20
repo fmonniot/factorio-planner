@@ -62,7 +62,9 @@ test.describe('Byproduct consumer mode', () => {
     await expect(page.getByRole('button', { name: /warning/ })).toBeVisible()
 
     const row = nitricAcidRow(page)
+    await expect(row.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(0)
     await clickRowAction(page, row, 'Absorb byproduct')
+    await expect(row.getByRole('img', { name: 'Absorbs byproduct' })).toBeVisible()
 
     // The underdetermined warning should disappear (system becomes square 2×2).
     await expect(page.getByRole('button', { name: /warning/ })).not.toBeVisible({ timeout: 5000 })
@@ -97,6 +99,7 @@ test.describe('Byproduct consumer mode', () => {
 
     // Toggle off.
     await clickRowAction(page, row, 'Stop absorbing byproduct')
+    await expect(row.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(0)
 
     // Warning should reappear.
     const badge = page.getByRole('button', { name: /warning/ })
@@ -112,6 +115,9 @@ test.describe('Byproduct consumer mode', () => {
     // The "Nitric acid" row menu should offer to stop absorbing
     // and no pin item (throughput is derived, not user-set).
     const row = nitricAcidRow(page)
+    await expect(row.getByRole('img', { name: 'Absorbs byproduct' })).toBeVisible()
+    // Other rows are not marked.
+    await expect(page.getByRole('img', { name: 'Absorbs byproduct' })).toHaveCount(1)
     const menu = await openRowMenu(page, row)
     await expect(menu.getByRole('menuitem', { name: 'Stop absorbing byproduct' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: /pin rate/i })).toHaveCount(0)

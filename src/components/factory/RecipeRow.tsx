@@ -19,6 +19,9 @@ import { countSubPlanContents } from './subPlanContents'
 // RecipeRow
 // ---------------------------------------------------------------------------
 
+const BYPRODUCT_CONSUMER_HINT =
+  'Absorbs byproduct: runs only to consume surplus from other recipes and never imports its own inputs. Right-click the row to stop absorbing.'
+
 interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
   planNode: RecipeNode | SubPlanNode
@@ -318,22 +321,34 @@ export function RecipeRow({
         }}
       >
         <div className="flex items-center gap-1">
-          {/* Recipe icon derived from primary product */}
-          {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
-            <Icon
-              iconPath={gameData.items[primaryItemId]!.iconPath}
-              alt={recipe.name}
-              title={recipe.name}
-              className="w-8 h-8 object-contain shrink-0"
-            />
-          ) : (
-            <span
-              title={recipe.name}
-              className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
-            >
-              {recipe.name.substring(0, 2).toUpperCase()}
-            </span>
-          )}
+          <div className="relative shrink-0">
+            {/* Recipe icon derived from primary product */}
+            {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
+              <Icon
+                iconPath={gameData.items[primaryItemId]!.iconPath}
+                alt={recipe.name}
+                title={recipe.name}
+                className="w-8 h-8 object-contain shrink-0"
+              />
+            ) : (
+              <span
+                title={recipe.name}
+                className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
+              >
+                {recipe.name.substring(0, 2).toUpperCase()}
+              </span>
+            )}
+            {isByproductConsumer && (
+              <span
+                role="img"
+                aria-label="Absorbs byproduct"
+                title={BYPRODUCT_CONSUMER_HINT}
+                className="absolute -bottom-0.5 -right-0.5 w-3.5 h-3.5 rounded-full bg-amber-600 text-white text-[9px] leading-none flex items-center justify-center select-none"
+              >
+                ↓
+              </span>
+            )}
+          </div>
         </div>
         {menuPos && (
           <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />

@@ -543,6 +543,18 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('menuitem', { name: /pin rate/i })).not.toBeInTheDocument()
   })
 
+  it('a byproduct consumer shows the absorbs-byproduct badge with an explanatory title', () => {
+    const bc: RecipeNode = { ...ironPlateRecipeNode, byproductConsumer: true }
+    renderRow({ planNode: bc })
+    const badge = screen.getByRole('img', { name: 'Absorbs byproduct' })
+    expect(badge.getAttribute('title')).toContain('Absorbs byproduct')
+  })
+
+  it('a default row has no absorbs-byproduct badge', () => {
+    renderRow()
+    expect(screen.queryByRole('img', { name: 'Absorbs byproduct' })).toBeNull()
+  })
+
   it('Absorb byproduct marks the node as a byproduct consumer', () => {
     renderRow()
     openMenu()

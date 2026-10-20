@@ -26,7 +26,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Click an ingredient** (on a row, or in the summary's **Ingredients** pane) to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
 - **Right-click a byproduct** (in a row or in the summary's Byproducts pane) to add a recipe that consumes it.
-- **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs.
+- **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs; such rows are marked with a small badge on the recipe icon.
 - **Lock an item** by right-clicking it in the summary's **Ingredients** pane and choosing **Forbid imports**, so the solver never imports it (click the 🔒 chip, or right-click it and choose **Allow imports**, to unlock). Whatever it would have needed from outside then shows up as a shortfall.
 - **Group recipes into subfactories** with "Wrap in subfactory" (right-click a subfactory row to remove it; you are asked to confirm when it is not empty), and drag rows to reorder them, including between groups.
 
