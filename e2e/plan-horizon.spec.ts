@@ -109,6 +109,16 @@ test.describe('Plan horizon', () => {
   })
 })
 
+/** Replace the page with the horizon fixture plus 45 extra technologies; returns their ids. */
+async function uploadManyTechnologies(page: Page): Promise<string[]> {
+  const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
+  const ids = Array.from({ length: 45 }, (_, i) => `bulk-tech-${i}`)
+  for (const id of ids) data.technologies[id] = { id, name: `Bulk tech ${id.slice(10)}`, prerequisites: [], unlockedRecipes: [], iconPath: '' }
+  await page.goto('/')
+  await upload(page, Buffer.from(JSON.stringify(data)))
+  return ids
+}
+
 test.describe('Horizon popover', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
@@ -148,11 +158,7 @@ test.describe('Horizon popover', () => {
   })
 
   test('the popover stays within 70% of the viewport with many targets', async ({ page }) => {
-    const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
-    const ids = Array.from({ length: 45 }, (_, i) => `bulk-tech-${i}`)
-    for (const id of ids) data.technologies[id] = { id, name: `Bulk tech ${id.slice(10)}`, prerequisites: [], unlockedRecipes: [], iconPath: '' }
-    await page.goto('/')
-    await upload(page, Buffer.from(JSON.stringify(data)))
+    const ids = await uploadManyTechnologies(page)
     await setHorizon(page, ...ids)
     await expect(horizonButton(page)).toHaveAccessibleName('Horizon: 45 technologies')
 
@@ -170,6 +176,24 @@ test.describe('Horizon popover', () => {
     await expect(popover.getByRole('button', { name: 'Clear horizon' })).toBeInViewport()
     const list = popover.getByTestId('horizon-target-list')
     expect(await list.evaluate(el => el.scrollHeight > el.clientHeight)).toBe(true)
+  })
+
+  test('the edit modal keeps its technology list usable with many targets', async ({ page }) => {
+    const ids = await uploadManyTechnologies(page)
+    await setHorizon(page, ...ids)
+    await openHorizonDialog(page)
+
+    const viewportHeight = page.viewportSize()!.height
+    const modal = page.getByRole('heading', { name: 'Research horizon' }).locator('xpath=ancestor::div[contains(@class, "max-h-")][1]')
+    const box = (await modal.boundingBox())!
+    expect(box.height).toBeLessThanOrEqual(viewportHeight * 0.85 + 1)
+
+    // The chips must not crowd out the list of technologies, nor the Done button.
+    const list = page.getByTestId('horizon-tech').first()
+    const listBox = (await list.locator('xpath=..').boundingBox())!
+    expect(listBox.height).toBeGreaterThanOrEqual(viewportHeight * 0.25)
+    await expect(page.getByRole('button', { name: 'Done' })).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Clear', exact: true })).toBeInViewport()
   })
 
   test('the horizon follows plan switches', async ({ page }) => {

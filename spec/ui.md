@@ -186,7 +186,8 @@ focus back to that button, which survives. Escape or an outside click closes it,
 returns focus to the flag. **Edit horizon…** / **Choose technologies…** closes the popover and
 opens the **Research horizon** modal:
 
-- Target chips (× removes one) and a **Clear** button. With no targets: "No limit:
+- Target chips (× removes one; the chip area scrolls past about six rows so the technology list keeps
+  its room) and a **Clear** button that stays outside that scroll. With no targets: "No limit:
   every recipe is offered."
 - A line "N of M recipes available" (M counts non-hidden recipes; extraction recipes count as available).
 - A search box and a scrollable list of every exported technology, sorted by name;
