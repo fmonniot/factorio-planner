@@ -116,11 +116,13 @@ export function SummaryPane({
         {action}
       </div>
       <div className="relative flex-1 min-h-0">
+        {/* Two rows of slots fill exactly the cap (2 + 2×54 + 4 + 10 padding), so a pane with two rows
+            is as tall as one that scrolls; a scrolling grid shows a 10px sliver of the third row. */}
         <div
           ref={bodyRef}
           onScroll={onScroll}
           data-testid="summary-slot-grid"
-          className="max-h-[130px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2"
+          className="max-h-[124px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5"
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map(slot => (
@@ -149,7 +151,7 @@ export function SummaryPane({
           </div>
         </div>
         {hasMore && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-4 bg-gradient-to-t from-gray-900/90 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2.5 bg-gradient-to-t from-gray-900/90 to-transparent" />
         )}
       </div>
       <SummaryDetailStrip

@@ -782,7 +782,7 @@ describe('FactorySummary — pane layout', () => {
   it('caps the slot grid height and gives the strip a fixed height', () => {
     render(<FactorySummary />)
     const grid = within(pane('Products')).getByTestId('summary-slot-grid')
-    expect(grid).toHaveClass('max-h-[130px]')
+    expect(grid).toHaveClass('max-h-[124px]')
     expect(grid).toHaveClass('overflow-y-auto')
     expect(strip('Products')).toHaveClass('h-[110px]')
   })
