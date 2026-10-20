@@ -81,7 +81,10 @@ and carries `aria-current`.
 - `+` adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses.
-- Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**.
+- Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**,
+  plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
+  Picking a swatch sets the block's colour and closes the menu; several blocks may
+  share a colour, and like the other block actions it is not undoable.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original

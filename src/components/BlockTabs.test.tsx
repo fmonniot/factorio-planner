@@ -46,6 +46,26 @@ describe('BlockTabs context menu', () => {
     expect(screen.getByTitle('Test')).toBeInTheDocument()
     expect(screen.getByTitle('Test (copy)')).toBeInTheDocument()
   })
+
+  it('sets the block colour from a swatch and closes the menu', () => {
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },
+    })
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = makeEmptyBlock('Gears', '#f472b6')
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: gears.id, history: {} })
+    render(<BlockTabs />)
+    fireEvent.contextMenu(screen.getByTitle('Gears'))
+    expect(screen.getByLabelText('Colour #f472b6')).toHaveAttribute('aria-checked', 'true')
+    expect(document.querySelectorAll('[data-testid="block-color-swatch"][aria-checked="true"]')).toHaveLength(1)
+    fireEvent.click(screen.getByLabelText('Colour #a3e635'))
+    const [first, second] = useBlockStore.getState().blocks
+    expect(second.color).toBe('#a3e635')
+    expect(first.color).toBe('#60a5fa')
+    expect(screen.queryByRole('menu')).toBeNull()
+    const stripe = screen.getByTitle('Gears').querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
+    expect(stripe.style.background).toBe('#a3e635')
+  })
 })
 
 describe('BlockTabs tab look', () => {
