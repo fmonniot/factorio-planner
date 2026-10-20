@@ -260,6 +260,9 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
   default is `/min`. It changes how every rate in the summary and the table is
   displayed; stored values are always per minute.
 
+Each of the three panes is capped at 25% of the viewport height; when its
+tiles overflow, the tile area scrolls vertically while the pane label stays put.
+
 ### Products pane
 
 One `GoalTile` per block goal: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
@@ -302,8 +305,9 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
   excluding blocks already connected for that item and blocks that would close a
   cycle. Choosing one adds a connection to the active block. Connections can also be made
   from the source side in the [block graph](#block-graph). With no candidate
-  the menu reads "No other block produces this item". It closes on Escape or a
-  click outside.
+  the menu reads "No other block produces this item". It is rendered in a
+  portal at the tile's bottom-left corner (so the pane's scrolling cannot clip
+  it) and closes on Escape, a click outside, or a scroll.
 - Connections come first, as `ConnectionChip`s: item icon, `delivered/needed`,
   `← <source block>` (click to open the source) and `×` (removes the connection;
   undoable). `needed` is what is delivered plus what is still imported. States:
