@@ -478,3 +478,49 @@ describe('FactorySummary — byproduct consumer recipe', () => {
     expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
   })
 })
+
+describe('FactorySummary — goal tile producer picker', () => {
+  const producerTitle = 'Iron Plate — click to add a producer recipe'
+
+  function withProducerRecipe() {
+    const data = structuredClone(mockGameData)
+    data.recipes['smelt-iron'] = {
+      id: 'smelt-iron', name: 'Smelt Iron', category: 'smelting', craftingTime: 1,
+      ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+      products: [{ itemId: 'iron-plate', type: 'item', amount: 1 }],
+      madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-plate',
+    } as unknown as GameData['recipes'][string]
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+  }
+
+  it('clicking the goal icon opens the filtered picker and adds the recipe to the root plan', async () => {
+    withProducerRecipe()
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle(producerTitle))
+
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    expect(screen.getByText("Choose a recipe to produce 'Iron Plate'")).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTitle('Smelt Iron'))
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes
+    expect(nodes).toHaveLength(1)
+    expect(nodes[0].kind === 'game-recipe' && nodes[0].recipeId).toBe('smelt-iron')
+  })
+
+  it('clicking the target rate edits it without opening the picker', () => {
+    withProducerRecipe()
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle(/Target:/))
+    expect(screen.getByLabelText('Goal target rate')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
+  })
+
+  it('Escape closes the picker', async () => {
+    withProducerRecipe()
+    render(<FactorySummary />)
+    fireEvent.click(screen.getByTitle(producerTitle))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
+  })
+})

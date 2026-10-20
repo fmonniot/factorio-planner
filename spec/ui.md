@@ -262,9 +262,12 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
 
 ### Products pane
 
-One `GoalTile` per block goal: item icon, target rate, `→` actual rate, unit.
+One `GoalTile` per block goal: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
 
 - The target is clickable and edits inline (in the current display unit).
+- The icon (or name) is clickable and opens the [recipe picker](#recipe-picker)
+  filtered to recipes producing the item; the chosen recipe is added to the root
+  plan.
 - The actual rate is the item's net balance across all solved nodes; it appears
   once the solver has a result.
 - `×` (on hover) removes the goal.

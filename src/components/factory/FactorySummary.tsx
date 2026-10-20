@@ -27,9 +27,11 @@ interface GoalTileProps {
   rateUnit: RateUnit
   onUpdateRate: (rate: number) => void
   onRemove: () => void
+  /** Open the recipe picker filtered to producers of this goal's item. */
+  onFindProducer: () => void
 }
 
-function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }: GoalTileProps) {
+function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove, onFindProducer }: GoalTileProps) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState('')
 
@@ -60,19 +62,23 @@ function GoalTile({ goal, actualPerMin, item, rateUnit, onUpdateRate, onRemove }
 
   return (
     <div className="flex items-center gap-1 bg-gray-800 border border-gray-700 rounded px-1.5 py-0.5 text-xs group/goal">
-      {/* Icon */}
-      {item?.iconPath ? (
-        <Icon
-          iconPath={item.iconPath}
-          alt={item.name}
-          title={item.name}
-          className="w-5 h-5 object-contain shrink-0"
-        />
-      ) : (
-        <span className="text-gray-400 text-[10px] shrink-0" title={item?.name ?? goal.itemId}>
-          {item?.name ?? goal.itemId}
-        </span>
-      )}
+      {/* Icon (or name) — opens the producer recipe picker */}
+      <button
+        type="button"
+        onClick={onFindProducer}
+        title={`${item?.name ?? goal.itemId} — click to add a producer recipe`}
+        className="shrink-0 flex items-center rounded hover:bg-gray-700"
+      >
+        {item?.iconPath ? (
+          <Icon
+            iconPath={item.iconPath}
+            alt={item.name}
+            className="w-5 h-5 object-contain shrink-0"
+          />
+        ) : (
+          <span className="text-gray-400 text-[10px]">{item?.name ?? goal.itemId}</span>
+        )}
+      </button>
 
       {/* Target rate — editable */}
       {editing ? (
@@ -154,6 +160,7 @@ export function FactorySummary() {
   const addNode = useBlockStore(s => s.addNode)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
+  const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
   const [menuItemId, setMenuItemId] = useState<string | undefined>(undefined)
 
   const goals: ProductionGoal[] = activeBlock?.goals ?? []
@@ -292,6 +299,7 @@ export function FactorySummary() {
                 rateUnit={rateUnit}
                 onUpdateRate={rate => updateGoalRate(goal.id, rate)}
                 onRemove={() => removeGoal(goal.id)}
+                onFindProducer={() => setProducerPickerItemId(goal.itemId)}
               />
               {renderExportChips(goal.itemId)}
             </Fragment>
@@ -391,6 +399,15 @@ export function FactorySummary() {
           consumesItemId={consumerPickerItemId}
           onSelect={id => addNode(makeRecipeNode(id))}
           onClose={() => setConsumerPickerItemId(null)}
+        />
+      )}
+
+      {producerPickerItemId && (
+        <ItemPicker
+          source="recipes"
+          filterByItemId={producerPickerItemId}
+          onSelect={id => addNode(makeRecipeNode(id))}
+          onClose={() => setProducerPickerItemId(null)}
         />
       )}
 
