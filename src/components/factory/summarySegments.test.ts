@@ -205,6 +205,22 @@ describe('overviewRows', () => {
     ])
   })
 
+  it('takes the segment kind when an earlier slot created the row from an overlay', () => {
+    const unusedY = ingredientSlot(
+      ingredientRow({ itemId: 'copper-plate', connections: [conn('c1', 'B')] }),
+      new Map([['c1', flow({ rate: 0, status: 'unused' })]]),
+      new Set(['B']),
+    )
+    const sourceX = ingredientSlot(
+      ingredientRow({ connections: [conn('c2', 'B')] }),
+      new Map([['c2', flow({ rate: 30 })]]),
+      new Set(['B']),
+    )
+    const rows = overviewRows([unusedY, sourceX])
+    expect(rows).toHaveLength(1)
+    expect(rows[0]).toMatchObject({ key: 'from:B', kind: 'source', total: 30, count: 2 })
+  })
+
   it('flags a key as limited when any of its segments is', () => {
     const slot = ingredientSlot(
       ingredientRow({ connections: [conn('c1', 'A')] }),

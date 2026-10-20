@@ -42,8 +42,12 @@ session (see [Game data selector](#game-data-selector)).
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
-│ │ [icon 60 → ▼58.2] [→B]│ │ [icon 12 /m] [→ C]  │ │ [icon 30 /m] [← A]  │ │
-│ │                       │ │                     │ │ [icon 🔒]           │ │
+│ │ [slot 58▼] [slot ]    │ │ [slot 12 ] [slot ]  │ │ [slot 30 ] [slot ⊘] │ │
+│ │  ▂▂▂▂▂▂    micro-bars │ │  ▂▂▂▂▂▂             │ │  ▂▂▂▂▂▂             │ │
+│ ├───────────────────────┤ ├─────────────────────┤ ├─────────────────────┤ │
+│ │ detail strip: overview│ │ overview / preview /│ │ → B ▇▇▇▇ 40 · 2     │ │
+│ │ rows, or the selected │ │ selected slot with  │ │ Imported ▇▇ 5 · 1   │ │
+│ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
@@ -265,7 +269,7 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
-**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** along the bottom edge. Its accessible name is "<item>, <rate> per minute|second" and its tooltip the item name. The border is teal when selected, amber for a short goal or a limited connection, grey otherwise; a locked item or an unused connection dims the slot. The grid is capped at 25% of the viewport height (`max-h-[25vh]`) and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes.
+**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal when selected, amber for a short goal or a limited connection, grey otherwise; a locked item or an unused connection dims the slot. The grid is capped at 25% of the viewport height (`max-h-[25vh]`) and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes.
 
 **Allocation segments.** Every item is a bar whose segments add up to the bar's scale. The micro-bar, the detail bar and the overview all use the same encoding:
 
@@ -288,14 +292,14 @@ Products also draw a white tick at the target when the actual rate differs from 
 
 **Detail strip.** A fixed-height strip (`h-[136px]`, `data-testid="summary-detail"`, `data-state`) under the grid, always present, so slots never move when the selection changes. It has four states:
 
-- *overview* (nothing selected or hovered): one button per segment key in the pane (swatch, label such as `→ Sciences`, `Kept`, `Imported`, a bar sized against the pane's largest total, the total rate and `· N` items). Clicking a row traces that key: slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
+- *overview* (nothing selected or hovered): one button per segment key in the pane (swatch, label such as `→ Sciences`, `Kept`, `Imported`, a bar sized against the pane's largest total, the total rate and `· N` items). Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
 - *preview* (a slot is hovered): that slot's detail with a `preview` tag. Hovering the selected slot keeps the selected state.
 - *selected* (a slot is clicked): header (icon, name, rates, `×` back to the overview), the full-size bar with labels on segments at least 20% wide, a colour key listing every segment and overlay with its exact rate (it scrolls inside the strip), and the item's actions.
 - *editing* (Products only): as selected, with the target as an input. Hover does not change the strip meanwhile.
 
-Clicking a slot selects it and clicking it again clears the selection. Escape (when no input or menu handled it) clears the selection, or the trace when nothing is selected. Selection, hover and trace are view state: not saved.
+Clicking a slot selects it and clicking it again clears the selection. A double-click on a slot leaves it selected. Escape (heard on the document, so it works wherever focus is, and only when no input or menu handled it) clears the selection, or the trace when nothing is selected. Selection, hover and trace are view state: not saved. Slots are identified by a pane-unique id (the goal id in Products, so two goals for one item are separate slots; the item id elsewhere).
 
-Segments in the detail bar and entries in the colour key are interactive: an `export` or `source` whose block exists opens that block when clicked; right-clicking a `source`, or an unused / cycle / deleted-source entry, opens a `RowActionsMenu` with **Remove connection** (Ingredients pane only). Titles: `Sends <item> to <consumer> — click to open`, `<item> from <source> — click to open, right-click to remove`, `Limited: <source> only offers N — …`, `Not used: this block makes or needs none from outside — right-click to remove`, and for a deleted source or a cycle the corresponding explanation.
+Segments in the detail bar and entries in the colour key are interactive (an entry whose block was deleted is still focusable, so its context menu opens from the keyboard): an `export` or `source` whose block exists opens that block when clicked; right-clicking a `source`, or an unused / cycle / deleted-source entry, opens a `RowActionsMenu` with **Remove connection** (Ingredients pane only). Titles: `Sends <item> to <consumer> — click to open`, `<item> from <source> — click to open, right-click to remove`, `Limited: <source> only offers N — …`, `Not used: this block makes or needs none from outside — right-click to remove`, and for a deleted source or a cycle the corresponding explanation.
 
 ### Products pane
 

@@ -7,7 +7,7 @@ const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 export const pane = (page: Page, name: string): Locator =>
   page.getByRole('region', { name, exact: true })
 
-/** A slot by item name; its accessible name is "<item>, <rate> per minute|second". */
+/** A slot by item name; its accessible name is "<item>, <rate> per minute|second[, status]". */
 export const slot = (page: Page, paneName: string, itemName: string): Locator =>
   pane(page, paneName).getByRole('button', { name: new RegExp(`^${escapeRe(itemName)}, `) })
 

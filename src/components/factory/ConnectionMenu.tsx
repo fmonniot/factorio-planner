@@ -42,18 +42,21 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
       if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current()
     }
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') onCloseRef.current()
+      if (e.key !== 'Escape') return
+      // Mark the key as handled (capture phase, before the pane's listener) so it does not also clear a selection.
+      e.preventDefault()
+      onCloseRef.current()
     }
     // A fixed menu would float away from its tile, so close on scroll.
     function handleScroll() {
       onCloseRef.current()
     }
     document.addEventListener('mousedown', handleMouseDown)
-    document.addEventListener('keydown', handleKeyDown)
+    document.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('scroll', handleScroll, true)
     return () => {
       document.removeEventListener('mousedown', handleMouseDown)
-      document.removeEventListener('keydown', handleKeyDown)
+      document.removeEventListener('keydown', handleKeyDown, true)
       window.removeEventListener('scroll', handleScroll, true)
     }
   }, [])

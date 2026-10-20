@@ -76,14 +76,17 @@ export function SummaryPane({
     return () => observer.disconnect()
   }, [])
 
-  const rows = useMemo(() => overviewRows(slots), [slots])
-  const colorOf = (blockId: string) => blocks.find(b => b.id === blockId)?.color ?? MISSING_BLOCK_COLOR
-  const blockNameOf = (blockId: string) => blocks.find(b => b.id === blockId)?.name
+  const rows = overviewRows(slots)
+  // A trace on a key that no longer exists (connection or block removed) is ignored.
+  const activeTrace = traceKey !== null && rows.some(r => r.key === traceKey) ? traceKey : null
+  const blockById = useMemo(() => new Map(blocks.map(b => [b.id, b])), [blocks])
+  const colorOf = (blockId: string) => blockById.get(blockId)?.color ?? MISSING_BLOCK_COLOR
+  const blockNameOf = (blockId: string) => blockById.get(blockId)?.name
 
   // A selected or hovered item that has since disappeared simply misses the lookup.
-  const selected = slots.find(s => s.itemId === selectedId)
+  const selected = slots.find(s => s.id === selectedId)
   // Hovering the selected slot keeps showing it as selected.
-  const hovered = hoveredId !== selectedId ? slots.find(s => s.itemId === hoveredId) : undefined
+  const hovered = hoveredId !== selectedId ? slots.find(s => s.id === hoveredId) : undefined
 
   let state: StripState = 'overview'
   let shown: SlotModel | undefined
@@ -98,15 +101,27 @@ export function SummaryPane({
     shown = selected
   }
 
-  function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key !== 'Escape' || e.defaultPrevented) return
-    if (selectedId !== null) {
-      setSelectedId(null)
-      setEditing(false)
-    } else if (traceKey !== null) {
-      setTraceKey(null)
+  // Escape clears the selection, or the trace when nothing is selected. It listens on the
+  // document because browsers that do not focus a clicked button never deliver the key to the pane.
+  // An input or a menu that handled the key has marked it defaultPrevented (or stopped it).
+  const hasView = selectedId !== null || traceKey !== null
+  useEffect(() => {
+    if (!hasView) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (selectedId !== null) {
+        setSelectedId(null)
+        setEditing(false)
+      } else {
+        setTraceKey(null)
+      }
     }
-  }
+    document.addEventListener('keydown', onKeyDown)
+    return () => document.removeEventListener('keydown', onKeyDown)
+  }, [hasView, selectedId])
+
+  // A hovered item that disappeared never gets a mouseleave, so forget it (state adjusted during render).
+  if (hoveredId !== null && !slots.some(s => s.id === hoveredId)) setHoveredId(null)
 
   return (
     <section
@@ -114,7 +129,6 @@ export function SummaryPane({
       data-testid="summary-pane"
       data-pane={pane}
       data-overflow={hasMore ? 'true' : undefined}
-      onKeyDown={onKeyDown}
       className="border border-gray-700 rounded bg-gray-900/40 px-2 py-1.5 flex flex-col"
     >
       <div className="flex items-center justify-between gap-2 text-[10px] uppercase tracking-wide text-gray-600 mb-1 shrink-0">
@@ -134,24 +148,25 @@ export function SummaryPane({
           <div ref={contentRef} className="flex flex-wrap gap-1">
             {slots.map(slot => (
               <SummarySlot
-                key={slot.itemId}
+                key={slot.id}
                 slot={slot}
                 item={items[slot.itemId]}
                 rateUnit={rateUnit}
                 colorOf={colorOf}
-                selected={slot.itemId === selectedId}
-                traceKey={traceKey}
+                selected={slot.id === selectedId}
+                traceKey={activeTrace}
                 onClick={() => {
                   setEditing(false)
-                  setSelectedId(prev => (prev === slot.itemId ? null : slot.itemId))
+                  setSelectedId(prev => (prev === slot.id ? null : slot.id))
                 }}
-                onDoubleClick={editable ? () => {
-                  setSelectedId(slot.itemId)
-                  setEditing(true)
-                } : undefined}
+                // The two clicks of a double-click toggle the selection off, so select again.
+                onDoubleClick={() => {
+                  setSelectedId(slot.id)
+                  if (editable) setEditing(true)
+                }}
                 onContextMenu={e => onSlotContextMenu(slot, e)}
-                onMouseEnter={() => setHoveredId(slot.itemId)}
-                onMouseLeave={() => setHoveredId(prev => (prev === slot.itemId ? null : prev))}
+                onMouseEnter={() => setHoveredId(slot.id)}
+                onMouseLeave={() => setHoveredId(prev => (prev === slot.id ? null : prev))}
               />
             ))}
           </div>
@@ -168,12 +183,12 @@ export function SummaryPane({
         colorOf={colorOf}
         blockNameOf={blockNameOf}
         rows={rows}
-        traceKey={traceKey}
+        traceKey={activeTrace}
         onToggleTrace={key => setTraceKey(prev => (prev === key ? null : key))}
         rates={shown && renderRates(shown, {
           editing: state === 'editing',
           start: () => {
-            setSelectedId(shown.itemId)
+            setSelectedId(shown.id)
             setEditing(true)
           },
           stop: () => setEditing(false),

@@ -33,7 +33,7 @@ test.describe('LP solver — overconstrained Nullius plan', () => {
     // The slot's accessible name carries the actual rate; in /min mode 800/min renders as "800".
     await expect(slotById(page, 'Products', 'nullius-ethylene')).toHaveAttribute(
       'aria-label',
-      /, (8\d\d|[1-9]\d{3,}) per minute$/,
+      /, (8\d\d|[1-9]\d{3,}) per minute(, \w+)?$/,
       { timeout: 10000 },
     )
   })
@@ -41,7 +41,7 @@ test.describe('LP solver — overconstrained Nullius plan', () => {
   test('methane goal slot shows actual rate ≥ 400/min', async ({ page }) => {
     await expect(slotById(page, 'Products', 'nullius-methane')).toHaveAttribute(
       'aria-label',
-      /, (4\d\d|[5-9]\d\d|[1-9]\d{3,}) per minute$/,
+      /, (4\d\d|[5-9]\d\d|[1-9]\d{3,}) per minute(, \w+)?$/,
       { timeout: 10000 },
     )
   })

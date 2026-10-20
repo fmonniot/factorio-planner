@@ -49,6 +49,8 @@ export interface GoalInfo {
 }
 
 export interface SlotModel {
+  /** Unique within a pane: the goal id for products (two goals may share an item), the item id otherwise. */
+  id: string
   itemId: string
   /** items/min shown on the slot */
   rate: number
@@ -105,6 +107,7 @@ export function productSlot(
   const target = goal.rate
   if (actualPerMin === undefined) {
     return {
+      id: goal.id,
       itemId: goal.itemId,
       rate: target,
       scale: target,
@@ -123,6 +126,7 @@ export function productSlot(
   if (short) segments.push({ key: 'short', kind: 'short', amount: target - actualPerMin })
   const scale = Math.max(target, sum(segments))
   return {
+    id: goal.id,
     itemId: goal.itemId,
     rate: actualPerMin,
     scale,
@@ -144,6 +148,7 @@ export function byproductSlot(row: ByproductRow, exports: ConnectionFlow[]): Slo
   const segments = exportSegments(exports)
   if (row.leftPerMin !== undefined) segments.push({ key: 'left', kind: 'left', amount: row.leftPerMin })
   return {
+    id: row.itemId,
     itemId: row.itemId,
     rate: row.leftPerMin ?? 0,
     scale: sum(segments),
@@ -190,6 +195,7 @@ export function ingredientSlot(
 
   const need = sum(segments)
   return {
+    id: row.itemId,
     itemId: row.itemId,
     rate: need,
     scale: need,
@@ -207,6 +213,8 @@ const rankOf = (key: string) => RANK[key] ?? 0
 /** One row per segment key across the pane, blocks first, then what stays, then what is missing. */
 export function overviewRows(slots: SlotModel[]): OverviewRow[] {
   const rows = new Map<string, OverviewRow>()
+  // Keys whose row was created by an overlay and not yet seen on a segment.
+  const overlayOnly = new Set<string>()
   for (const slot of slots) {
     const seen = new Set<string>()
     const touch = (key: string, kind: OverviewRow['kind'], blockId: string | undefined) => {
@@ -221,13 +229,21 @@ export function overviewRows(slots: SlotModel[]): OverviewRow[] {
       }
       return row
     }
-    // Segments first so a key carried by both a segment and an overlay takes the segment's kind.
+    // A key carried by both a segment and an overlay takes the segment's kind, even when an
+    // overlay in an earlier slot created the row.
     for (const s of slot.segments) {
       const row = touch(s.key, s.kind, s.blockId)
+      if (overlayOnly.delete(s.key)) {
+        row.kind = s.kind
+        row.blockId = s.blockId
+      }
       row.total += s.amount
       if (s.limited) row.limited = true
     }
-    for (const o of slot.overlays) touch(o.key, o.kind, o.blockId)
+    for (const o of slot.overlays) {
+      if (!rows.has(o.key)) overlayOnly.add(o.key)
+      touch(o.key, o.kind, o.blockId)
+    }
   }
   return [...rows.values()]
     .map((row, i) => ({ row, i }))

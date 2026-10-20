@@ -90,14 +90,14 @@ describe('FactorySummary — panes', () => {
 
   it('names a slot after its item and rate, with the item name as tooltip', () => {
     render(<FactorySummary />)
-    const iron = screen.getByRole('button', { name: 'Iron Plate, 58.0 per minute' })
+    const iron = screen.getByRole('button', { name: 'Iron Plate, 58.0 per minute, short' })
     expect(iron).toHaveAttribute('title', 'Iron Plate')
   })
 
   it('words the slot name per second in /sec', () => {
     useUiStore.setState({ rateUnit: 'sec' })
     render(<FactorySummary />)
-    expect(screen.getByRole('button', { name: 'Iron Plate, 0.97 per second' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Iron Plate, 0.97 per second, short' })).toBeInTheDocument()
   })
 })
 
@@ -194,6 +194,27 @@ describe('FactorySummary — detail strip states', () => {
     select('Products', 'Iron Plate')
     fireEvent.keyDown(slot('Products', 'Iron Plate'), { key: 'Escape' })
     expect(strip('Products')).toHaveAttribute('data-state', 'overview')
+  })
+
+  it('Escape pressed anywhere (focus on the body) clears the selection', () => {
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(slot('Products', 'Iron Plate')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('a double-click on a non-editable slot leaves it selected', () => {
+    render(<FactorySummary />)
+    const slag = slot('Byproducts', 'Slag')
+    fireEvent.click(slag)
+    fireEvent.click(slag)
+    fireEvent.doubleClick(slag)
+    expect(slag).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('appends the status to the accessible name of a short slot', () => {
+    render(<FactorySummary />)
+    expect(slot('Products', 'Iron Plate')).toHaveAccessibleName('Iron Plate, 58.0 per minute, short')
   })
 
   it('resets the selection when the active block changes', () => {
@@ -509,6 +530,38 @@ describe('FactorySummary — connections', () => {
         { id: expect.any(String), itemId: 'iron-ore', fromBlockId: 'miner' },
       ])
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    })
+
+    it('Escape closes the menu but keeps the selection', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      const receive = within(strip('Ingredients')).getByRole('button', { name: 'Receive from…' })
+      fireEvent.click(receive)
+      expect(screen.getByRole('menu')).toBeInTheDocument()
+      fireEvent.keyDown(receive, { key: 'Escape' })
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+      fireEvent.keyDown(receive, { key: 'Escape' })
+      expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'false')
+    })
+
+    it('names the status on a limited slot and marks its overview row', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'limited', available: 30 })] })
+      render(<FactorySummary />)
+      expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 30.0 per minute, limited')
+      expect(overviewRow('Ingredients', 'from:miner')).toHaveAttribute('data-limited', 'true')
+    })
+
+    it('ignores a trace whose key disappeared', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      fireEvent.click(overviewRow('Ingredients', 'from:miner'))
+      expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-traced', 'in')
+      act(() => useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, inputConnections: [] } : b)),
+      })))
+      expect(slot('Ingredients', 'Iron Ore')).not.toHaveAttribute('data-traced')
     })
 
     it('the strip "Receive from…" action opens the same menu', () => {
@@ -925,5 +978,36 @@ describe('FactorySummary — import lock', () => {
     fireEvent.contextMenu(slot('Ingredients', 'Iron Plate'))
     expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Allow imports'])
     expect(screen.queryByText(/Receive .* from/)).not.toBeInTheDocument()
+  })
+})
+
+describe('FactorySummary — two goals for the same item', () => {
+  const second: ProductionGoal = { id: 'g2', itemId: 'iron-plate', rate: 30 }
+  const slots = () => within(pane('Products')).getAllByTestId('summary-slot')
+
+  beforeEach(() => setupStore([ironGoal, second]))
+
+  it('selects only the clicked slot', () => {
+    render(<FactorySummary />)
+    fireEvent.click(slots()[1])
+    expect(slots()[0]).toHaveAttribute('aria-pressed', 'false')
+    expect(slots()[1]).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('removes the second goal, not the first', () => {
+    render(<FactorySummary />)
+    fireEvent.click(slots()[1])
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
+    expect(useBlockStore.getState().blocks[0].goals.map(g => g.id)).toEqual(['g1'])
+  })
+
+  it('edits the target of the second goal', () => {
+    render(<FactorySummary />)
+    fireEvent.click(slots()[1])
+    fireEvent.click(screen.getByTitle(/Target:/))
+    const input = screen.getByLabelText('Goal target rate')
+    fireEvent.change(input, { target: { value: '45' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(useBlockStore.getState().blocks[0].goals.map(g => g.rate)).toEqual([60, 45])
   })
 })

@@ -1,7 +1,8 @@
 import type { Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { SegmentBar } from './SummarySlot'
+import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
+import { KEPT_COLOR, SHORT_COLOR, SegmentBar } from './SummarySlot'
 import { fmtRate } from './ItemTile'
 import { segmentLabel, segmentTitle } from './summarySegments'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
@@ -46,11 +47,11 @@ function swatchStyle(
     case 'unused':
     case 'cycle':
     case 'missing-source':
-      return { background: blockId !== undefined ? colorOf(blockId) : '#6b7280' }
+      return { background: blockId !== undefined ? colorOf(blockId) : MISSING_BLOCK_COLOR }
     case 'kept':
-    case 'left': return { background: '#4b5563' }
+    case 'left': return { background: KEPT_COLOR }
     case 'import': return { border: '1px solid #d1d5db' }
-    case 'short': return { background: 'rgba(245, 158, 11, .4)' }
+    case 'short': return { background: SHORT_COLOR }
     case 'locked':
       return { backgroundImage: 'repeating-linear-gradient(45deg, rgba(156,163,175,.7) 0 2px, transparent 2px 5px)' }
   }
@@ -87,12 +88,13 @@ export function SummaryDetailStrip({
             type="button"
             data-testid="summary-overview-row"
             data-key={row.key}
+            data-limited={row.limited ? 'true' : undefined}
             aria-pressed={traceKey === row.key}
             onClick={() => onToggleTrace(row.key)}
             className={`w-full flex items-center gap-1.5 px-1 py-0.5 rounded text-left hover:bg-gray-800 ${traceKey === row.key ? 'bg-gray-800' : ''}`}
           >
             <span className="shrink-0 w-2.5 h-2.5 rounded-sm" style={swatchStyle(row.kind, row.blockId, colorOf)} />
-            <span className="w-24 shrink-0 truncate text-gray-300">
+            <span className={`w-24 shrink-0 truncate ${row.limited ? 'text-amber-400' : 'text-gray-300'}`}>
               {segmentLabel(row, row.blockId !== undefined ? blockNameOf(row.blockId) : undefined)}
             </span>
             <span className="flex-1 min-w-0 h-1.5">
@@ -190,7 +192,7 @@ export function SummaryDetailStrip({
                   {body}
                 </button>
               ) : (
-                <div onContextMenu={onContextMenu} className={cls}>{body}</div>
+                <div onContextMenu={onContextMenu} tabIndex={onContextMenu ? 0 : undefined} className={cls}>{body}</div>
               )}
             </li>
           )

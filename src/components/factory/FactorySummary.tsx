@@ -204,6 +204,8 @@ export function FactorySummary() {
   ))
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
+  // A goal shortfall can neither receive supply nor be forbidden imports (goals have no slack).
+  const connectable = (itemId: string) => (activeBlock ? !isGoalItem(activeBlock, itemId) : false)
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
 
@@ -360,10 +362,8 @@ export function FactorySummary() {
           blocks={blocks}
           rateUnit={rateUnit}
           onSlotContextMenu={(slot, e) => {
-            // A goal shortfall has no menu: goals never receive supply, and forbidding imports
-            // has no effect on them (goals have no slack), so there is nothing to offer.
-            const connectable = activeBlock ? !isGoalItem(activeBlock, slot.itemId) : false
-            if (!connectable && !slot.locked) return
+            // A goal shortfall has no menu: there is nothing to offer.
+            if (!connectable(slot.itemId) && !slot.locked) return
             e.preventDefault()
             const rect = e.currentTarget.getBoundingClientRect()
             setConnectionMenu({ itemId: slot.itemId, x: rect.left, y: rect.bottom })
@@ -375,11 +375,11 @@ export function FactorySummary() {
             </span>
           )}
           actionsFor={slot => {
-            const connectable = activeBlock ? !isGoalItem(activeBlock, slot.itemId) : false
+            const canConnect = connectable(slot.itemId)
             const actions: StripAction[] = [
               { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
             ]
-            if (connectable) {
+            if (canConnect) {
               actions.push({
                 label: 'Receive from…',
                 onSelect: e => {
@@ -388,7 +388,7 @@ export function FactorySummary() {
                 },
               })
             }
-            if (connectable || slot.locked) {
+            if (canConnect || slot.locked) {
               actions.push({
                 label: slot.locked ? 'Allow imports' : 'Forbid imports',
                 onSelect: () => toggleNoImportItem(slot.itemId),

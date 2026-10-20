@@ -6,7 +6,9 @@ import { fmtRate } from './ItemTile'
 import { segmentLabel, segmentTitle, slotHasKey } from './summarySegments'
 import type { Overlay, Segment, SlotModel } from './summarySegments'
 
-const AMBER = '#f59e0b'
+export const AMBER = '#f59e0b'
+export const KEPT_COLOR = '#4b5563'
+export const SHORT_COLOR = 'rgba(245, 158, 11, .4)'
 
 // ---------------------------------------------------------------------------
 // SegmentBar — an item's allocation as a stacked bar. The micro variant sits
@@ -36,9 +38,9 @@ function segmentStyle(seg: Segment, variant: 'micro' | 'detail', colorOf: (block
       case 'export':
       case 'source': return { background: seg.limited ? AMBER : block }
       case 'kept':
-      case 'left': return { background: '#4b5563' }
+      case 'left': return { background: KEPT_COLOR }
       case 'import': return { background: '#9ca3af' }
-      case 'short': return { background: 'rgba(245, 158, 11, .4)' }
+      case 'short': return { background: SHORT_COLOR }
     }
   }
   switch (seg.kind) {
@@ -183,7 +185,7 @@ export function SummarySlot({
       data-dimmed={slot.dimmed || undefined}
       data-traced={traced}
       aria-pressed={selected}
-      aria-label={`${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}`}
+      aria-label={`${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}${slot.status ? `, ${slot.status}` : ''}`}
       title={name}
       onClick={onClick}
       onDoubleClick={onDoubleClick}

@@ -37,6 +37,19 @@ test.describe('Ingredients pane', () => {
     await expect(rows).toHaveCount(before + 1)
   })
 
+  test('Escape closes the Receive from… menu first, then clears the selection', async ({ page }) => {
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await stripAction(page, 'Receive from…').click()
+    await expect(page.getByRole('menu')).toBeVisible()
+
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('menu')).not.toBeVisible()
+    await expect(plateSlot(page)).toHaveAttribute('aria-pressed', 'true')
+
+    await page.keyboard.press('Escape')
+    await expect(plateSlot(page)).toHaveAttribute('aria-pressed', 'false')
+  })
+
   test('forbid and allow imports through the right-click menus', async ({ page }) => {
     await rodSlot(page).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Forbid imports' }).click()
