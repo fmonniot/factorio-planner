@@ -11,17 +11,17 @@ const importGameDataUrl = vi.fn()
 
 // Minimal IndexedDB stand-in: the mount effect reads the stored upload, and
 // there is never one here. Writes complete immediately.
-function fakeIndexedDb() {
-  const request = (result: unknown) => {
+function fakeIndexedDb(opts: { stored?: unknown; getGate?: Promise<void>; failWrites?: boolean } = {}) {
+  const request = (result: unknown, gate?: Promise<void>) => {
     const req: { result: unknown; onsuccess?: () => void } = { result }
-    queueMicrotask(() => req.onsuccess?.())
+    void (gate ?? Promise.resolve()).then(() => req.onsuccess?.())
     return req
   }
   const tx = () => {
-    const t: { oncomplete?: () => void; objectStore: () => unknown } = {
-      objectStore: () => ({ get: () => request(undefined), put: () => {}, delete: () => {} }),
+    const t: { oncomplete?: () => void; onerror?: () => void; error?: unknown; objectStore: () => unknown } = {
+      objectStore: () => ({ get: () => request(opts.stored, opts.getGate), put: () => {}, delete: () => {} }),
     }
-    queueMicrotask(() => t.oncomplete?.())
+    queueMicrotask(() => (opts.failWrites ? (t.error = new Error('blocked'), t.onerror?.()) : t.oncomplete?.()))
     return t
   }
   return { open: () => request({ transaction: tx, createObjectStore: () => {} }) }
@@ -44,6 +44,11 @@ afterEach(() => {
 
 const trigger = () => screen.getByRole('button', { name: 'Menu' })
 const openMenu = () => userEvent.click(trigger())
+/** Keyboard open: focus moves into the panel (a mouse open leaves it on the trigger). */
+const openMenuWithKeyboard = async (key = '{Enter}') => {
+  trigger().focus()
+  await userEvent.keyboard(key)
+}
 const loaded = () => useGameDataStore.setState({
   status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'nullius' },
 })
@@ -103,7 +108,7 @@ describe('AppMenu', () => {
 
   it('focuses Nullius on first visit with nothing checked', async () => {
     render(<AppMenu />)
-    await openMenu()
+    await openMenuWithKeyboard()
     expect(document.querySelectorAll('[role="menuitemradio"][aria-checked="true"]')).toHaveLength(0)
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveFocus()
   })
@@ -111,13 +116,49 @@ describe('AppMenu', () => {
   it('focuses the checked data set when one is persisted', async () => {
     localStorage.setItem(KEY, 'kompetenz-seablock')
     render(<AppMenu />)
-    await openMenu()
+    await openMenuWithKeyboard()
     expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).toHaveFocus()
+  })
+
+  it('leaves focus on the trigger after a mouse open', async () => {
+    render(<AppMenu />)
+    await openMenu()
+    expect(trigger()).toHaveFocus()
+  })
+
+  it('focuses the last enabled item when opened with ArrowUp', async () => {
+    loaded()
+    render(<AppMenu />)
+    await openMenuWithKeyboard('{ArrowUp}')
+    expect(screen.getByRole('menuitem', { name: 'Import plan' })).toHaveFocus()
+  })
+
+  it('ignores arrow keys while focus is outside the menu', async () => {
+    render(<AppMenu />)
+    await openMenu()
+    const outside = document.body.appendChild(document.createElement('button'))
+    outside.focus()
+    const event = new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })
+    outside.dispatchEvent(event)
+    expect(event.defaultPrevented, 'the page keeps its arrow keys').toBe(false)
+    expect(outside).toHaveFocus()
+    outside.remove()
+  })
+
+  it('still closes on Escape when focus is outside the menu', async () => {
+    render(<AppMenu />)
+    await openMenu()
+    const outside = document.body.appendChild(document.createElement('button'))
+    outside.focus()
+    outside.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }))
+    expect(await screen.findByRole('button', { name: 'Menu' })).toHaveFocus()
+    expect(screen.queryByRole('menu')).toBeNull()
+    outside.remove()
   })
 
   it('closes on Escape, returns focus and prevents the default', async () => {
     render(<AppMenu />)
-    await openMenu()
+    await openMenuWithKeyboard()
     const event = new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true })
     document.activeElement!.dispatchEvent(event)
     expect(event.defaultPrevented, 'Escape must not reach the panes').toBe(true)
@@ -134,7 +175,7 @@ describe('AppMenu', () => {
 
   it('wraps ArrowDown past the disabled Import plan item', async () => {
     render(<AppMenu />)
-    await openMenu()
+    await openMenuWithKeyboard()
     screen.getByRole('menuitem', { name: 'Export plan' }).focus()
     await userEvent.keyboard('{ArrowDown}')
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveFocus()
@@ -158,6 +199,50 @@ describe('AppMenu', () => {
     await openMenu()
     await userEvent.click(screen.getByRole('menuitemradio', { name: 'Nullius' }))
     expect(importGameDataUrl).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not let a pending stored-upload read override an early pick', async () => {
+    let release!: () => void
+    const getGate = new Promise<void>(r => { release = r })
+    const importGameData = vi.fn()
+    vi.stubGlobal('indexedDB', fakeIndexedDb({ stored: { json: '{}', filename: 'mine.json' }, getGate }))
+    useGameDataStore.setState({ importGameData })
+    render(<AppMenu />)
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Nullius' }))
+    release()
+    await new Promise(r => setTimeout(r, 0))
+    expect(importGameData, 'the stored upload is abandoned').not.toHaveBeenCalled()
+    await openMenu()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.queryByTitle('mine.json')).toBeNull()
+  })
+
+  it('reports a failed switch and keeps the previous choice checked', async () => {
+    localStorage.setItem(KEY, 'nullius')
+    vi.stubGlobal('indexedDB', fakeIndexedDb({ failWrites: true }))
+    render(<AppMenu />)
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitemradio', { name: 'Seablock' }))
+    expect(await screen.findByText('Error loading data')).toHaveAttribute('title', expect.stringContaining('blocked'))
+    expect(importGameDataUrl).toHaveBeenCalledTimes(1)
+    expect(localStorage.getItem(KEY)).toBe('nullius')
+    await openMenu()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).toHaveAttribute('aria-checked', 'false')
+  })
+
+  it('reports a failed upload save instead of rejecting', async () => {
+    vi.stubGlobal('indexedDB', fakeIndexedDb({ failWrites: true }))
+    const importGameDataFile = vi.fn()
+    useGameDataStore.setState({ importGameDataFile })
+    render(<AppMenu />)
+    const input = document.querySelector<HTMLInputElement>('input[type="file"]')!
+    await userEvent.upload(input, new File(['{}'], 'mine.json', { type: 'application/json' }))
+    expect(await screen.findByText('Error loading data')).toBeInTheDocument()
+    expect(importGameDataFile).not.toHaveBeenCalled()
+    await openMenu()
+    expect(screen.queryByTitle('mine.json')).toBeNull()
   })
 
   it('opens the hidden file input from Upload file…', async () => {

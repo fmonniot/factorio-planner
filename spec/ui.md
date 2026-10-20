@@ -201,8 +201,11 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
 The "Loading…" / "Error loading data" label sits next to the button, outside the menu, so it
 shows while the menu is closed. The menu is meant to collect more app-level entries over time.
 
-Opening focuses the checked data set (else the first enabled item). Arrow keys move between
-enabled items and wrap; Home / End jump to the ends; Tab closes the menu. Escape closes it and
+Opening with the keyboard (Enter, Space or ArrowDown) focuses the checked data set (else the first
+enabled item); ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
+button, so only the hovered row looks active. Arrow keys move between enabled items and wrap;
+Home / End jump to the ends; Tab closes the menu. Apart from Escape, these keys are only taken
+while focus is inside the menu or on its button. Escape closes it and
 returns focus to the button; it is handled in the capture phase and prevented, so it does not
 also clear a summary pane selection. A click outside closes it; a click on the button toggles.
 The hidden data-set file input, the data-set auto-load on page load and the import dialogs live in
@@ -241,7 +244,11 @@ The menu's Game data group (`useGameDataSource` in `AppMenu.tsx`) is a set of ra
 - **Upload file…**, which opens a file chooser for a custom `game-data.json`;
 - the name of the uploaded file, once there is one.
 
-Picking the checked data set again does nothing, unless its last load failed (then it retries).
+Picking the checked bundled data set again does nothing, unless its last load failed (then it
+retries); the uploaded file's item only closes the menu (upload the file again to retry).
+A failure to store the upload or to clear it when switching (IndexedDB blocked) shows the same
+"Error loading data" label and leaves the previous choice checked. Picking a data set before the
+stored upload has been read abandons that pending read.
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
 stored upload. An uploaded file is stored in IndexedDB (database
 `factorio-planner`) and reloaded on the next visit. With neither, no item is

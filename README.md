@@ -129,7 +129,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
 | `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology, extraction and place-result exports, locale resolution and bundled-name checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
-| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`, `block-color.spec.ts` block colours, `support/summary.ts` the slot and detail-strip helpers) |
+| `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`, `block-color.spec.ts` block colours, `support/summary.ts` the slot and detail-strip helpers, `support/appMenu.ts` the top-bar menu helpers) |
 | `spec/` | How the system works today |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `.github/workflows/` | CI (lint, doc links, unit, e2e, build on PRs) and GitHub Pages deploy on release |

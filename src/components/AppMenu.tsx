@@ -98,6 +98,12 @@ interface GameDataSource {
   handleUploadChange: (e: React.ChangeEvent<HTMLInputElement>) => Promise<void>
 }
 
+/** Surface a failed data set switch or upload through the inline status label. */
+function reportError(what: string, err: unknown) {
+  const detail = err instanceof Error ? err.message : String(err)
+  useGameDataStore.setState({ status: { type: 'error', message: `${what}: ${detail}` } })
+}
+
 /**
  * Owns the selected data set and the mount-time auto-load. It must live in a
  * component that is always mounted, since the load has to run on page load
@@ -108,6 +114,9 @@ function useGameDataSource(): GameDataSource {
   const importJson = useGameDataStore(s => s.importGameData)
   const importUrl = useGameDataStore(s => s.importGameDataUrl)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Set once the user picks a data set, so a still-pending read of the stored
+  // upload does not override the pick.
+  const userPickedRef = useRef(false)
 
   const [selectedValue, setSelectedValue] = useState<string>(() => {
     return readPersistedDatasetId() ?? ''
@@ -125,12 +134,12 @@ function useGameDataSource(): GameDataSource {
     let cancelled = false
     loadCustomData().then(entry => {
       // Ignore the stored upload if the user already picked something meanwhile.
-      if (cancelled || useGameDataStore.getState().status.type !== 'empty') return
+      if (cancelled || userPickedRef.current || useGameDataStore.getState().status.type !== 'empty') return
       if (entry) {
         importJson(entry.json, customSourceId(entry.filename))
         setSelectedValue(customSourceId(entry.filename))
       }
-    })
+    }).catch(() => { /* no readable stored upload: stay empty */ })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -141,9 +150,15 @@ function useGameDataSource(): GameDataSource {
     if (id === selectedValue && useGameDataStore.getState().status.type !== 'error') return
     const dataset = SERVER_DATASETS.find(d => d.id === id)
     if (!dataset) return
+    userPickedRef.current = true
+    try {
+      await clearCustomData()
+    } catch (err) {
+      reportError('Could not switch data set', err)
+      return
+    }
     setSelectedValue(id)
     localStorage.setItem(STORAGE_KEY, id)
-    await clearCustomData()
     removeCustomPlans()
     importUrl(dataset.url, dataset.id)
   }
@@ -152,8 +167,14 @@ function useGameDataSource(): GameDataSource {
     const file = e.target.files?.[0]
     if (!file) return
     e.target.value = ''
-    const json = await file.text()
-    await saveCustomData(json, file.name)
+    userPickedRef.current = true
+    try {
+      const json = await file.text()
+      await saveCustomData(json, file.name)
+    } catch (err) {
+      reportError('Could not store the uploaded file', err)
+      return
+    }
     localStorage.removeItem(STORAGE_KEY)
     setSelectedValue(customSourceId(file.name))
     importFile(file)
@@ -324,6 +345,9 @@ export function AppMenu() {
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
+  // Where focus goes on open: keyboard opens move into the panel, mouse opens
+  // leave it on the trigger so only the hovered row looks active.
+  const openFocusRef = useRef<'checked' | 'last' | 'none'>('none')
 
   function close(returnFocus: boolean) {
     setOpen(false)
@@ -333,9 +357,10 @@ export function AppMenu() {
   useLayoutEffect(() => {
     if (!open) return
     const panel = panelRef.current
-    if (!panel) return
-    const target = panel.querySelector<HTMLElement>('[aria-checked="true"]')
-      ?? panel.querySelector<HTMLElement>(ITEM_SELECTOR)
+    if (!panel || openFocusRef.current === 'none') return
+    const target = openFocusRef.current === 'last'
+      ? Array.from(panel.querySelectorAll<HTMLElement>(ITEM_SELECTOR)).pop()
+      : panel.querySelector<HTMLElement>('[aria-checked="true"]') ?? panel.querySelector<HTMLElement>(ITEM_SELECTOR)
     target?.focus()
   }, [open])
 
@@ -345,6 +370,11 @@ export function AppMenu() {
     // Capture phase + preventDefault so Escape does not also clear the
     // summary pane selection (see RowActionsMenu).
     function onKeyDown(e: KeyboardEvent) {
+      // Escape works anywhere; the other keys only when focus is in the menu
+      // (or on its trigger), so they do not hijack the rest of the page.
+      const active = document.activeElement
+      const inMenu = active === triggerRef.current || !!panelRef.current?.contains(active)
+      if (e.key !== 'Escape' && !inMenu) return
       const items = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(ITEM_SELECTOR) ?? [])
       const index = items.indexOf(document.activeElement as HTMLElement)
       const focusAt = (i: number) => items[(i + items.length) % items.length]?.focus()
@@ -407,9 +437,13 @@ export function AppMenu() {
             aria-controls={open ? menuId : undefined}
             title="Game data set, plan export and import"
             className="flex items-center gap-1 text-xs bg-gray-800 text-gray-400 hover:text-gray-100 border border-gray-600 rounded px-2 py-1"
-            onClick={() => setOpen(o => !o)}
+            // detail is 0 for clicks synthesised from Enter / Space.
+            onClick={e => { openFocusRef.current = e.detail === 0 ? 'checked' : 'none'; setOpen(o => !o) }}
             onKeyDown={e => {
-              if (e.key === 'ArrowDown' || e.key === 'ArrowUp') { e.preventDefault(); setOpen(true) }
+              if (open || (e.key !== 'ArrowDown' && e.key !== 'ArrowUp')) return
+              e.preventDefault()
+              openFocusRef.current = e.key === 'ArrowUp' ? 'last' : 'checked'
+              setOpen(true)
             }}
           >
             Menu<span aria-hidden className="text-[10px] opacity-60">▾</span>

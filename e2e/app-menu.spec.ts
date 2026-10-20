@@ -44,6 +44,17 @@ test.describe('top-bar menu', () => {
     await expect(menuTrigger(page)).toBeFocused()
   })
 
+  test('mouse open keeps focus on the button; ArrowUp opens on the last item', async ({ page }) => {
+    await setup(page)
+    await menuTrigger(page).click()
+    await expect(appMenu(page)).toBeVisible()
+    await expect(menuTrigger(page)).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(appMenu(page)).toBeHidden()
+    await page.keyboard.press('ArrowUp')
+    await expect(appMenu(page).getByRole('menuitem', { name: 'Import plan' })).toBeFocused()
+  })
+
   test('clicking outside closes the menu', async ({ page }) => {
     await setup(page)
     await openAppMenu(page)
