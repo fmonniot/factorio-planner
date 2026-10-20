@@ -41,8 +41,9 @@ session (see [Game data selector](#game-data-selector)).
 │ [▣][▣][+] Block name   [Graph] [Export plan] [Import plan] [Nullius ▾]   │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
-│ ┌ PRODUCTS ─────────────┐ ┌ BYPRODUCTS ─────────┐ ┌ INGREDIENTS ────────┐ │
-│ │ [icon 60 → 58.2 /m] + │ │ [icon 12 /m]        │ │ [icon 30 /m] [🔒]   │ │
+│ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
+│ │ [icon 60 → ▼58.2] [→B]│ │ [icon 12 /m] [→ C]  │ │ [icon 30 /m] [← A]  │ │
+│ │                       │ │                     │ │ [icon 🔒]           │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │    │ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
@@ -260,29 +261,45 @@ is moved to `factorio-planner:app-state:corrupt` instead of being deleted.
   default is `/min`. It changes how every rate in the summary and the table is
   displayed; stored values are always per minute.
 
-Each of the three panes is capped at 25% of the viewport height; when its
-tiles overflow, the tile area scrolls vertically while the pane label stays put.
+Each of the three panes has a header (label, an item count `· N`, and for
+Products the `+` button) above a list of rows, one row per item. A row has a lead
+tile on the left and that item's connection chips, wrapping, to its right; chips
+carry no icon when the lead already shows it. Items show their icon; an item without an icon falls back to its name. A pane
+is capped at 25% of the viewport height (`max-h-[25vh]`); when its rows overflow,
+the list scrolls vertically while the header stays put, and a gradient fades the
+bottom edge (the pane has `data-overflow="true"`) while more rows sit below. The
+fade is re-measured after every render and whenever the list's content resizes.
 
 ### Products pane
 
-One `GoalTile` per block goal: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
+One row per block goal, in goal order, led by a `GoalTile`: item icon (or name when there is no icon), target rate, `→` actual rate, unit.
 
 - The target is clickable and edits inline (in the current display unit).
 - The icon (or name) is clickable and opens the [recipe picker](#recipe-picker)
   filtered to recipes producing the item; the chosen recipe is added to the root
   plan.
 - The actual rate is the item's net balance across all solved nodes; it appears
-  once the solver has a result.
+  once the solver has a result. When it is below the target (by more than the
+  solver's flow tolerance, and by an amount that does not round to zero in the
+  displayed precision) it turns amber with a leading `▼` and its tooltip reads
+  "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal. Once the
+  solver has a result, a goal that no node produces counts as an actual of 0, so
+  it is fully short. "Short" compares the goal's net balance with its target and
+  does not subtract what the block exports, so a goal whose output is partly
+  delivered to other blocks is not marked short for that reason.
 - Right-clicking the tile opens a `RowActionsMenu` with **Remove goal**.
-- `+` opens the [item picker](#item-picker) to add a goal.
-- An `ExportChip` (`→ <consumer> <rate>`) follows the goal's tile for each block
-  that receives the item from this one. Click it to open that block.
+- `+`, pinned in the pane header so it never scrolls away, opens the
+  [item picker](#item-picker) to add a goal.
+- An `ExportChip` (`→ <consumer> <rate>`, no icon) sits on the goal's row for each
+  block that receives the item from this one. Click it to open that block.
 
 ### Byproducts pane
 
-Every item with a positive net balance that is not a goal, as `ItemTile`s. The
-rate shown is the net balance minus what other blocks receive; a tile is hidden
-when nothing is left. `ExportChip`s for exported non-goal items follow the tiles.
+One row per non-goal item with a positive net balance, led by an `ItemTile`. The
+rate shown is the net balance minus what other blocks receive. An item that is
+only exported (nothing left) has a row without a tile, whose first `ExportChip`
+keeps the item icon. Rows list leftover byproducts first, then export-only items;
+each row's `ExportChip`s follow its tile.
 
 Right-clicking a tile opens a `RowActionsMenu` with **Add consumer recipe…**,
 which opens a recipe picker filtered to recipes that take the item as an
@@ -293,7 +310,12 @@ opening the picker.
 ### Ingredients pane
 
 The solver's `unsatisfied` list: everything the block must import (goal
-shortfalls, intermediate slack, raw resources), as `ItemTile`s.
+shortfalls, intermediate slack, raw resources), together with the block's
+connections and locked items, grouped into one row per item. A row's lead is the
+import `ItemTile` when the item is still imported, otherwise the lock chip when
+it is locked, otherwise nothing; the item's connection chips follow. Rows are
+ordered by first appearance: connected items, then imported items, then locked
+items. A row without a lead shows the icon on its first chip only.
 
 - Clicking a tile opens the [recipe picker](#recipe-picker) filtered to recipes
   producing the item; the chosen recipe is added to the root plan (as with the
@@ -314,15 +336,16 @@ shortfalls, intermediate slack, raw resources), as `ItemTile`s.
   it) and closes on Escape, a click outside, or a scroll. After a divider it
   ends with **Forbid imports** (adds the item to the block's `noImportItems`,
   so the solver never imports it) or, for a locked item, **Allow imports**.
-- Connections come first, as `ConnectionChip`s: item icon, `delivered/needed`,
+- Connections follow the lead on the item's row, as `ConnectionChip`s: `delivered/needed`,
   `← <source block>` (click to open the source). Right-clicking a chip opens a
   `RowActionsMenu` with **Remove connection** (undoable). `needed` is what is delivered plus what is still imported. States:
   normal; `limited` (amber border, tooltip "Limited: <source> only offers N",
   the rest of the need stays in the tiles); `unused` (dimmed, tooltip "Not used:
   this block makes or needs none from outside"); `(deleted block)` or `(cycle,
   ignored)` (grey; remove with right-click).
-- Each no-import item is shown after the tiles as a dimmed chip with a 🔒; click
-  it to allow imports again. Right-clicking the chip opens the same
+- Each no-import item is shown as a dimmed chip with a 🔒: the row's lead, or,
+  when the item is also imported (a locked goal shortfall), the first chip after
+  the tile. Click it to allow imports again. Right-clicking the chip opens the same
   `ConnectionMenu`; for a goal item it holds only **Allow imports**.
 
 ### Warnings popover
