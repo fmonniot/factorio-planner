@@ -1,13 +1,13 @@
 import { useBlockStore, makeEmptyBlock, selectAppState, clonePlan } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import { usePlansStore } from './plansStore'
-import { parseAppState, parsePlanIndex, AppStateLoadError } from '../data/loader'
+import { parseAppState, parsePlanIndex, parsePlanDataSetStamp, AppStateLoadError } from '../data/loader'
 import {
-  legacyPlanStorageKey, planIndexKey, planKey, planKeyPrefix, normalizeDatasetId, isCustomSourceId, isStorageKeyOf,
+  legacyPlanStorageKey, planIndexKey, planKey, planKeyPrefix, normalizeDatasetId, isCustomSourceId, isStorageKeyOf, isSameDataSet,
   CORRUPT_SUFFIX, CUSTOM_LEGACY_PLAN_KEY_PREFIX, CUSTOM_PLAN_INDEX_KEY_PREFIX, CUSTOM_PLAN_KEY_PREFIX,
 } from './sourceId'
 import { flattenBlock } from '../solver/index'
-import type { AppState, GameData, PlanEntry, PlanIndex, SubPlan } from '../data/types'
+import type { AppState, GameData, PlanDataSetStamp, PlanEntry, PlanIndex, SubPlan } from '../data/types'
 
 // Each data set holds several plans: an index key (plan names and the active
 // plan) plus one key per plan. The key the autosave writes to is derived from
@@ -53,6 +53,11 @@ export function exportFileName(planName: string, date: Date): string {
   return `factorio-plan-${slug ? slug + '-' : ''}${date.toISOString().slice(0, 10)}.json`
 }
 
+/** The exported file: the app state plus the data set it was made for. */
+export function exportPlanJson(appState: AppState, dataSet: PlanDataSetStamp): string {
+  return JSON.stringify({ ...appState, dataSet }, null, 2)
+}
+
 // ---------------------------------------------------------------------------
 // Save
 // ---------------------------------------------------------------------------
@@ -82,12 +87,12 @@ export type LoadAppStateResult =
   | { type: 'ok' }
   | { type: 'error'; message: string }
 
-type ParseRawResult = { type: 'ok'; appState: AppState } | { type: 'error'; message: string }
+type ParseRawResult = { type: 'ok'; appState: AppState; raw: unknown } | { type: 'error'; message: string }
 
 function parseRawAppState(raw: string, malformedPrefix: string): ParseRawResult {
   try {
     const parsed = JSON.parse(raw) as unknown
-    return { type: 'ok', appState: parseAppState(parsed) }
+    return { type: 'ok', appState: parseAppState(parsed), raw: parsed }
   } catch (err) {
     if (err instanceof AppStateLoadError) {
       return { type: 'error', message: err.message }
@@ -145,13 +150,14 @@ function findDuplicateId(appState: AppState): string | null {
 }
 
 export type PlanImportCheck =
-  | { type: 'ok'; appState: AppState; unknownIds: string[]; sourceId: string }
+  | { type: 'ok'; appState: AppState; unknownIds: string[]; sourceId: string; stamp: PlanDataSetStamp | null; dataSetMismatch: boolean }
   | { type: 'error'; message: string }
 
 /**
  * Parse and validate an exported plan file against the loaded game data
  * (`sourceId` identifies it; `importPlanAsNew` refuses if it changed meanwhile).
- * Never touches the store.
+ * `stamp` is the data set the file was exported for (null for older files) and
+ * `dataSetMismatch` whether it differs from `sourceId`. Never touches the store.
  */
 export function checkPlanImport(json: string, gameData: GameData, sourceId: string): PlanImportCheck {
   const result = parseRawAppState(json, 'Not a valid JSON file')
@@ -163,7 +169,15 @@ export function checkPlanImport(json: string, gameData: GameData, sourceId: stri
   if (!appState.blocks.some(b => b.id === appState.activeBlockId)) {
     appState = { ...appState, activeBlockId: appState.blocks[0].id }
   }
-  return { type: 'ok', appState, unknownIds: findUnknownPlanIds(appState, gameData), sourceId }
+  const stamp = parsePlanDataSetStamp(result.raw)
+  return {
+    type: 'ok',
+    appState,
+    unknownIds: findUnknownPlanIds(appState, gameData),
+    sourceId,
+    stamp,
+    dataSetMismatch: stamp !== null && !isSameDataSet(stamp.id, sourceId),
+  }
 }
 
 

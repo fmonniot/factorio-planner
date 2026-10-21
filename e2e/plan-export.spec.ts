@@ -46,6 +46,10 @@ test.describe('Plan export', () => {
 
     expect(parsed).toHaveProperty('blocks')
     expect(parsed).toHaveProperty('activeBlockId')
+    expect(parsed.dataSet.id).toMatch(/^custom:game-data\.json#[0-9a-f]{8}$/)
+    expect(parsed.dataSet.name).toBe('game-data.json')
+    expect(typeof parsed.dataSet.factorioVersion).toBe('string')
+    expect(parsed.dataSet.factorioVersion.length).toBeGreaterThan(0)
     expect(Array.isArray(parsed.blocks)).toBe(true)
     expect(parsed.blocks.length).toBeGreaterThan(0)
 

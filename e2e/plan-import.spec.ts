@@ -84,6 +84,25 @@ test.describe('Plan import', () => {
     await expect(page.locator('main')).toContainText('250')
   })
 
+  test('a plan exported for another data set warns about the mismatch', async ({ page }) => {
+    const download = await exportPlan(page)
+    const exportedName = download.suggestedFilename()
+    const buffer = fs.readFileSync((await download.path())!)
+    await selectDataset(page, 'Seablock')
+
+    const file = { name: exportedName, mimeType: 'application/json', buffer }
+    await pickPlanFile(page, file)
+    const warning = page.getByTestId('import-data-set-mismatch')
+    await expect(warning).toContainText('Nullius')
+    await expect(warning).toContainText('Seablock')
+    await page.getByRole('button', { name: 'Cancel' }).click()
+    expect(await planNames(page)).toEqual(['Plan 1'])
+
+    await pickPlanFile(page, file)
+    await page.getByRole('button', { name: 'Import anyway' }).click()
+    await expectPlan(page, exportedName.replace(/\.json$/, ''))
+  })
+
   test('an invalid file leaves the plans intact', async ({ page }) => {
     await pickPlanFile(page, { name: 'bad.json', mimeType: 'application/json', buffer: Buffer.from('{"blocks": 5}') })
     await expect(page.getByText('Could not import "bad.json"')).toBeVisible()

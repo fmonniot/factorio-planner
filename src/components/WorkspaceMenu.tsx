@@ -3,9 +3,9 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useUiStore } from '../store/uiStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
 import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
-import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
-import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName } from '../store/persistence'
-import type { AppState, GameData } from '../data/types'
+import { customSourceId, customFilename, customDisplayName, normalizeDatasetId } from '../store/sourceId'
+import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName, exportPlanJson } from '../store/persistence'
+import type { AppState, GameData, PlanDataSetStamp } from '../data/types'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
@@ -200,8 +200,22 @@ function useGameDataSource(): GameDataSource {
 // Plan export and import
 // ---------------------------------------------------------------------------
 
+/** Display name of a data set id: the bundled label, the uploaded file name, else the id itself. */
+function dataSetName(sourceId: string): string {
+  const id = normalizeDatasetId(sourceId)
+  return SERVER_DATASETS.find(d => d.id === id)?.label ?? customDisplayName(sourceId) ?? sourceId
+}
+
 function exportPlan() {
-  const json = JSON.stringify(selectAppState(useBlockStore.getState()), null, 2)
+  const appState = selectAppState(useBlockStore.getState())
+  const status = useGameDataStore.getState().status
+  const json = status.type === 'loaded'
+    ? exportPlanJson(appState, {
+      id: normalizeDatasetId(status.sourceId),
+      name: dataSetName(status.sourceId),
+      factorioVersion: status.gameData.factorioVersion,
+    })
+    : JSON.stringify(appState, null, 2)
   const blob = new Blob([json], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
@@ -213,7 +227,10 @@ function exportPlan() {
 
 type ImportDialog =
   | null
-  | { kind: 'warning'; fileName: string; appState: AppState; unknownIds: string[]; sourceId: string }
+  | {
+    kind: 'warning'; fileName: string; appState: AppState; unknownIds: string[]; sourceId: string
+    stamp: PlanDataSetStamp | null; dataSetMismatch: boolean; loadedName: string; loadedVersion: string
+  }
   | { kind: 'error'; fileName: string; message: string }
 
 /**
@@ -240,12 +257,22 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
     const check = checkPlanImport(json, current.gameData, current.sourceId)
     if (check.type === 'error') {
       setDialog({ kind: 'error', fileName: file.name, message: check.message })
-    } else if (check.unknownIds.length === 0) {
+    } else if (check.unknownIds.length === 0 && !check.dataSetMismatch) {
       // Nothing is overwritten and nothing looks off: no need to ask.
       const result = importPlanAsNew(check.appState, check.sourceId, file.name)
       if (result.type === 'error') setDialog({ kind: 'error', fileName: file.name, message: result.message })
     } else {
-      setDialog({ kind: 'warning', fileName: file.name, appState: check.appState, unknownIds: check.unknownIds, sourceId: check.sourceId })
+      setDialog({
+        kind: 'warning',
+        fileName: file.name,
+        appState: check.appState,
+        unknownIds: check.unknownIds,
+        sourceId: check.sourceId,
+        stamp: check.stamp,
+        dataSetMismatch: check.dataSetMismatch,
+        loadedName: dataSetName(current.sourceId),
+        loadedVersion: current.gameData.factorioVersion,
+      })
     }
   }
 
@@ -277,9 +304,17 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
       {dialog?.kind === 'warning' && (
         <Modal onClose={close} className="p-4 w-96 text-sm">
           <h2 className="font-semibold text-gray-100 mb-2">Import &quot;{dialog.fileName}&quot;?</h2>
-          <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
-            {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and cannot be produced: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}. The plan may have been made for another data set.
-          </p>
+          {dialog.dataSetMismatch && dialog.stamp && (
+            <p className="text-amber-400 text-xs mb-3" data-testid="import-data-set-mismatch">
+              This plan was exported for {dialog.stamp.name ?? dialog.stamp.id}{dialog.stamp.factorioVersion ? ` (Factorio ${dialog.stamp.factorioVersion})` : ''}; the loaded game data is {dialog.loadedName} (Factorio {dialog.loadedVersion}).{dialog.unknownIds.length === 0 ? ' All its recipes and goal items exist in the loaded game data.' : ''}
+            </p>
+          )}
+          {dialog.unknownIds.length > 0 && (
+            <p className="text-amber-400 text-xs mb-3" data-testid="import-unknown-ids">
+              {dialog.unknownIds.length} recipe(s) or item(s) are not in the loaded game data and cannot be produced: {dialog.unknownIds.slice(0, 5).join(', ')}{dialog.unknownIds.length > 5 ? '…' : ''}.
+              {dialog.stamp === null ? ' The plan may have been made for another data set.' : dialog.dataSetMismatch ? '' : ' The game data may have changed since the plan was exported.'}
+            </p>
+          )}
           <p className="text-gray-300 mb-3">It will be added as a new plan.</p>
           <div className="flex justify-end gap-2">
             <button

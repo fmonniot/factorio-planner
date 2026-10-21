@@ -329,10 +329,20 @@ pick and the confirmation dialog are asynchronous).
 ### Export and import plan
 
 The **Export plan** item (`exportPlan` in `WorkspaceMenu.tsx`) downloads the active plan's `AppState`
-(`{ blocks, activeBlockId, horizonTechnologyIds }`) as `factorio-plan-<slug>-YYYY-MM-DD.json`
+(`{ blocks, activeBlockId, horizonTechnologyIds, defaultMachineOverrides, dataSet }`) as `factorio-plan-<slug>-YYYY-MM-DD.json`
 (`exportFileName`). The slug is the plan name lower-cased, with each run of characters other than
 `a-z0-9` replaced by `-`, outer dashes trimmed and cut to 40 characters; with an empty slug the file is
-`factorio-plan-YYYY-MM-DD.json`. A saved file is the same shape the app keeps in `localStorage`.
+`factorio-plan-YYYY-MM-DD.json`. A saved file is the shape the app keeps in `localStorage` plus `dataSet`,
+which import drops.
+
+`dataSet` (`PlanDataSetStamp`) records the data set the plan was exported from: `id` is the loaded source
+id without trailing slashes (`nullius`, `kompetenz-seablock`, or `custom:<filename>#<8-hex mod set
+fingerprint>` for an upload), `name` the bundled label ("Nullius", "Seablock") or the uploaded file name
+without the fingerprint, and `factorioVersion` the loaded data's Factorio version. Import compares the
+stamp's `id` with the loaded data set (`isSameDataSet`, `src/store/sourceId.ts`): bundled ids must be
+equal; two uploads match when their fingerprints are equal, whatever the file name; a bundled id never
+matches an upload. Versions are not compared. Files without a stamp (older exports, or a malformed
+one) are treated as before.
 
 The **Import plan…** item (`usePlanImport` in `WorkspaceMenu.tsx`) loads such a file back **as a new plan**; the
 current plan is kept. It is disabled until game data has loaded, because the plans belong to the current
@@ -340,12 +350,21 @@ data set. Importing has two phases. First `checkPlanImport` (`src/store/persiste
 validates the file without touching the store: malformed JSON, a schema failure, a plan with no blocks
 ("The plan contains no blocks.") or a duplicated block, sub-plan or node id (ids must be unique per
 block; e.g. `Duplicate block id "b1".`) opens an error dialog; an `activeBlockId` that matches no block
-falls back to the first block. A valid file whose recipes and goal items the loaded game data all defines
-is imported straight away, with no confirmation, since nothing is overwritten. If the file refers to
-recipes or goal items the loaded game data does not define, a warning dialog (`import-unknown-ids`) lists
-the first few ids and says they cannot be produced (unknown recipes do nothing, unknown goals stay
-unsatisfiable, so a plan made for another data set looks mostly empty); **Cancel** drops the file,
-**Import anyway** continues.
+falls back to the first block. A valid file whose recipes and goal items the loaded game data all defines,
+and whose stamp (if any) names the loaded data set, is imported straight away, with no confirmation,
+since nothing is overwritten. Otherwise a warning dialog opens with up to two paragraphs; **Cancel**
+drops the file, **Import anyway** continues.
+
+- `import-data-set-mismatch`, when the stamp names another data set: "This plan was exported for
+  <name> (Factorio <version>); the loaded game data is <name> (Factorio <version>)." (the stamp's
+  version part is left out when it has none), followed by "All its recipes and goal items exist in the
+  loaded game data." when no id is unknown.
+- `import-unknown-ids`, when the file refers to recipes or goal items the loaded game data does not
+  define: it lists the first few ids and says they cannot be produced (unknown recipes do nothing,
+  unknown goals stay unsatisfiable, so a plan made for another data set looks mostly empty). It ends with
+  "The plan may have been made for another data set." for an unstamped file, "The game data may have
+  changed since the plan was exported." when the stamp matches, and nothing extra when the stamp
+  mismatches (the other paragraph already says so).
 
 Both paths call `importPlanAsNew` with the source id of the data set the file was checked against; it
 refuses with "The loaded game data changed; pick the file again." if another data set is loaded (or

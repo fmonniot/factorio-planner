@@ -1,5 +1,5 @@
-import { GameDataSchema, AppStateSchema, PlanIndexSchema } from './schema'
-import type { GameData, AppState, PlanIndex } from './schema'
+import { GameDataSchema, AppStateSchema, PlanIndexSchema, PlanDataSetStampSchema } from './schema'
+import type { GameData, AppState, PlanIndex, PlanDataSetStamp } from './schema'
 
 export class GameDataLoadError extends Error {
   readonly issues: { path: string; message: string }[]
@@ -70,6 +70,16 @@ export function parseAppState(raw: unknown): AppState {
     throw new AppStateLoadError(formatZodError(result.error))
   }
   return result.data
+}
+
+/**
+ * The data set stamp of an exported plan file, or null when the file has none
+ * or it is malformed (the stamp is advisory, so it is never an error).
+ */
+export function parsePlanDataSetStamp(raw: unknown): PlanDataSetStamp | null {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw) || !('dataSet' in raw)) return null
+  const result = PlanDataSetStampSchema.safeParse(raw.dataSet)
+  return result.success ? result.data : null
 }
 
 /**

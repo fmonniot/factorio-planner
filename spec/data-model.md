@@ -392,8 +392,9 @@ plans, one of them active, and the app saves to `localStorage` on every change:
 - `factorio-planner:plan-index:<sourceId>` holds a `PlanIndex` (`src/data/schema.ts`, parsed by
   `parsePlanIndex` in `src/data/loader.ts`): `{ activePlanId: string, plans: PlanEntry[] }`, where a
   `PlanEntry` is `{ id: string, name: string }`. The list order is the menu order.
-- `factorio-planner:plan:<sourceId>/<planId>` holds one plan's `AppState`, the same shape as an
-  exported file.
+- `factorio-planner:plan:<sourceId>/<planId>` holds one plan's `AppState`. An exported file adds a
+  `dataSet` stamp (`PlanDataSetStamp`, `src/data/schema.ts`), read by `parsePlanDataSetStamp` and never
+  persisted.
 - An unreadable plan is kept under `<planKey>:corrupt`, an unreadable index under `<indexKey>:corrupt`.
 - Plans stored by older versions (`factorio-planner:app-state:<sourceId>`, and before that the global
   `factorio-planner:app-state`) are migrated into this layout lazily when the data set is activated (see
@@ -441,6 +442,20 @@ interface AppState {
 ```
 
 Ids that are not in the loaded data set's `technologies` are ignored and kept.
+
+### PlanDataSetStamp
+
+The data set an exported plan was made for. It sits beside the `AppState` keys at the top level of an
+exported file and is advisory: `AppStateSchema` strips it, and a missing or malformed one counts as no
+stamp.
+
+```ts
+interface PlanDataSetStamp {
+  id: string                // normalised source id: `nullius`, `kompetenz-seablock`, `custom:<filename>#<fingerprint>`
+  name?: string             // display name: bundled label, or the uploaded file name without fingerprint
+  factorioVersion?: string  // GameData.factorioVersion at export
+}
+```
 
 `defaultMachineOverrides` holds the user's default machine per crafting category. The effective
 default of a category is a valid override, else the horizon default (see

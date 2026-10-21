@@ -16,8 +16,10 @@ import {
   nextPlanName,
   planNameFromFileName,
   exportFileName,
+  exportPlanJson,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock, selectAppState } from './blockStore'
+import { parseAppState } from '../data/loader'
 import { usePlansStore } from './plansStore'
 import { legacyPlanStorageKey, planIndexKey, planKey } from './sourceId'
 import { HEX_COLOR_RE } from '../data/blockColors'
@@ -657,6 +659,20 @@ describe('plan names and files', () => {
     const slug = exportFileName('a'.repeat(100), date).replace('factorio-plan-', '').replace('-2026-10-20.json', '')
     expect(slug.length).toBeLessThanOrEqual(40)
   })
+
+  it('exportPlanJson adds the stamp and parses back to the same app state', () => {
+    const state: AppState = {
+      blocks: [makeEmptyBlock('Factory')],
+      activeBlockId: 'x',
+      horizonTechnologyIds: [],
+      defaultMachineOverrides: {},
+    }
+    state.activeBlockId = state.blocks[0].id
+    const dataSet = { id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' }
+    const out = exportPlanJson(state, dataSet)
+    expect(JSON.parse(out).dataSet).toEqual(dataSet)
+    expect(parseAppState(JSON.parse(out))).toEqual(state)
+  })
 })
 describe('makeEmptyBlock', () => {
   it('produces a block with a root plan', () => {
@@ -772,6 +788,42 @@ describe('plan import', () => {
       expect(result.type === 'ok' && result.sourceId).toBe('seablock')
     })
 
+    describe('data set stamp', () => {
+      const check = (dataSet: unknown, sourceId = 'nullius') =>
+        checkPlanImport(JSON.stringify({ ...makeState(), ...(dataSet === undefined ? {} : { dataSet }) }), knownData(), sourceId)
+
+      it('reports no stamp and no mismatch for an unstamped file', () => {
+        const result = check(undefined)
+        expect(result).toMatchObject({ type: 'ok', stamp: null, dataSetMismatch: false })
+      })
+
+      it('reports no mismatch when the stamp names the loaded data set', () => {
+        expect(check({ id: 'nullius' })).toMatchObject({ type: 'ok', dataSetMismatch: false })
+      })
+
+      it('reports a mismatch for another data set and keeps the stamp', () => {
+        const result = check({ id: 'kompetenz-seablock', name: 'Seablock' })
+        expect(result).toMatchObject({ type: 'ok', dataSetMismatch: true })
+        expect(result.type === 'ok' && result.stamp?.name).toBe('Seablock')
+      })
+
+      it('ignores a trailing slash in the stamp id', () => {
+        expect(check({ id: 'kompetenz-seablock/' }, 'kompetenz-seablock')).toMatchObject({ dataSetMismatch: false })
+      })
+
+      it('matches uploads by fingerprint, not file name', () => {
+        expect(check({ id: 'custom:a.json#0000abcd' }, 'custom:b.json#0000abcd')).toMatchObject({ dataSetMismatch: false })
+      })
+
+      it('reports a mismatch for uploads with different fingerprints', () => {
+        expect(check({ id: 'custom:a.json#0000abcd' }, 'custom:a.json#1111ffff')).toMatchObject({ dataSetMismatch: true })
+      })
+
+      it('treats a malformed stamp as no stamp', () => {
+        expect(check('junk')).toMatchObject({ type: 'ok', stamp: null, dataSetMismatch: false })
+      })
+    })
+
     it('accepts a legacy block with per-subplan goals', () => {
       const legacy = {
         id: 'b1', name: 'Block', noImportItems: [],
@@ -845,6 +897,17 @@ describe('plan import', () => {
       expect(state.history).toEqual({})
       expect(JSON.stringify(JSON.parse(store[planKey('nullius', previousId)]))).toBe(previous)
       expect(store[planKey('nullius', index.activePlanId)]).toContain('electronics')
+    })
+
+    it('never stores the data set stamp of an exported file', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      const check = checkPlanImport(JSON.stringify({ ...makeState(), dataSet: { id: 'nullius' } }), gameDataWith(['iron-plate'], ['iron-plate']), 'nullius')
+      expect(check.type).toBe('ok')
+      if (check.type !== 'ok') return
+      importPlanAsNew(check.appState, check.sourceId, 'stamped.json')
+      const stored = JSON.parse(store[planKey('nullius', readIndex('nullius').activePlanId)]) as unknown
+      expect(stored).toBeTypeOf('object')
+      expect(stored).not.toHaveProperty('dataSet')
     })
 
     it('names a plan "Plan N" when the file name has no usable base name', () => {

@@ -25,6 +25,15 @@ export function customFilename(sourceId: string): string | null {
   return isCustomSourceId(sourceId) ? sourceId.slice(CUSTOM_PREFIX.length) : null
 }
 
+/** The 8-hex mod set fingerprint `customPlanSourceId` appends to a file name. */
+const FINGERPRINT_RE = /#[0-9a-f]{8}$/
+
+/** The uploaded file name of a custom source id without its fingerprint, or null for bundled data sets. */
+export function customDisplayName(sourceId: string): string | null {
+  const filename = customFilename(sourceId)
+  return filename === null ? null : filename.replace(FINGERPRINT_RE, '')
+}
+
 /**
  * Source id under which a loaded custom data set is stored: the selector's id
  * plus a short fingerprint of its mod set, so two uploads that share a file
@@ -40,6 +49,21 @@ export function customPlanSourceId(filename: string, modSet: Record<string, stri
 /** Data set id without trailing slashes (the Seablock id used to end in one). */
 export function normalizeDatasetId(id: string): string {
   return id.replace(/\/+$/, '')
+}
+
+/**
+ * Whether two data set ids denote the same game data. Bundled ids compare
+ * after normalisation; two uploads compare by mod set fingerprint, so the file
+ * name does not matter. A bundled id never matches an upload.
+ */
+export function isSameDataSet(a: string, b: string): boolean {
+  const na = normalizeDatasetId(a)
+  const nb = normalizeDatasetId(b)
+  if (na === nb) return true
+  if (!isCustomSourceId(na) || !isCustomSourceId(nb)) return false
+  const fa = FINGERPRINT_RE.exec(na)
+  const fb = FINGERPRINT_RE.exec(nb)
+  return fa !== null && fb !== null && fa[0] === fb[0]
 }
 
 /**
