@@ -318,19 +318,21 @@ The build script turns resources and offshore pumps into ordinary recipes so the
 
 ### Icon paths
 
-Every `iconPath` is written by the build script as the path of the PNG it
-extracted (and composited, for layered icons) into the icons output directory.
-Because that directory is resolved to an absolute path, the committed bundles
-contain absolute filesystem paths of the form
-`/<…>/public/data/<dataset>/icons/<id>.png`. An empty string means no icon could
-be resolved.
+Every `iconPath` is the URL of the extracted PNG (composited, for layered
+icons) relative to `public/`: `/data/<dataset>/icons/<id>.png`, or
+`/data/<dataset>/icons/technology/<id>.png` for technologies. The build script
+derives it from the icons output directory relative to `public/`
+(`scripts/icon-url.js`), so no machine-specific path is committed. When the icons
+directory is outside `public/`, the script warns and falls back to a
+cwd-relative path. An empty string means no icon could be resolved.
 
 Technology icons are written to `icons/technology/<id>.png`, in their own folder
 because a technology can share its id with an item (`automation-science-pack`),
 and are capped at 128 px.
 
-`src/utils/iconUrl.ts` turns that into a URL: it keeps everything after
-`/public/` and prefixes Vite's `BASE_URL`. `iconUrlWebp` swaps `.png` for `.webp`;
+`src/utils/iconUrl.ts` turns that into a URL by prefixing Vite's `BASE_URL`; it
+also still accepts legacy absolute paths containing `/public/`, keeping what
+follows. `iconUrlWebp` swaps `.png` for `.webp`;
 the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 
 ### What the build script leaves out

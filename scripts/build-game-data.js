@@ -66,6 +66,7 @@ import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
+import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
 import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
@@ -256,7 +257,7 @@ function makeIconResolver(resolvers, iconsOut, maxSize = Infinity, { keepExistin
   // Map from output filename -> already written (deduplicate).
   const written = new Set()
 
-  const publicUrl = '/' + iconsOut.replace(/^public\//, '')
+  const publicUrl = iconPublicUrl(iconsOut)
 
   return async function resolveIcon(proto, id) {
     // --- Multi-layer path ---
