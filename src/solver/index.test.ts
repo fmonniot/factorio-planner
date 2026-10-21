@@ -93,6 +93,48 @@ describe('solve', () => {
 })
 
 // ---------------------------------------------------------------------------
+// allowProductivity
+// ---------------------------------------------------------------------------
+
+describe('solve — allowProductivity', () => {
+  const prodModule: GameData['modules'][string] = {
+    id: 'productivity-module-3', name: 'productivity-module-3', tier: 3,
+    category: 'productivity', iconPath: '', limitation: [], limitationBlacklist: [],
+    effects: { productivity: 0.1, consumption: 0.8, speed: -0.15, quality: 0 },
+  }
+
+  function planWithProdModules(allowProductivity: boolean) {
+    const gd = makeGameData({
+      recipes: {
+        'iron-plate': {
+          ...recipe('iron-plate', 1, [product('iron-ore', 1)], [product('iron-plate', 1)]),
+          allowProductivity,
+        },
+      },
+      modules: { 'productivity-module-3': prodModule },
+    })
+    const node: GameRecipeNode = {
+      ...planNode('n1', 'iron-plate'),
+      modules: [{ moduleId: 'productivity-module-3', count: 4 }],
+    }
+    return { gd, plan: { goals: [ironGoal], nodes: [node as RecipeNode] } }
+  }
+
+  it('applies productivity modules when the recipe allows productivity', () => {
+    const { gd, plan } = planWithProdModules(true)
+    const result = solve(plan, gd)
+    // +40 % output: 60 plates/min needs 60 / 1.4 executions/min.
+    expect(result.nodes[0].throughput).toBeCloseTo(60 / 1.4, 3)
+  })
+
+  it('ignores productivity modules when the recipe disallows productivity', () => {
+    const { gd, plan } = planWithProdModules(false)
+    const result = solve(plan, gd)
+    expect(result.nodes[0].throughput).toBeCloseTo(60, 3)
+  })
+})
+
+// ---------------------------------------------------------------------------
 // no-recipe warning
 // ---------------------------------------------------------------------------
 

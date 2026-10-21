@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ModulePopover, ModuleCell, isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
+import { ModulePopover, ModuleCell, isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './ModulePopover'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, GameRecipeNode, RecipeNode } from '../../data/types'
 
@@ -40,6 +40,21 @@ describe('isModuleAllowedForRecipe', () => {
   })
 })
 
+describe('isModuleAllowedByProductivity', () => {
+  it('allows a productivity module when the recipe allows productivity', () => {
+    expect(isModuleAllowedByProductivity({ effects: { productivity: 0.1, speed: -0.15 } }, true)).toBe(true)
+  })
+
+  it('blocks a productivity module when the recipe disallows productivity', () => {
+    expect(isModuleAllowedByProductivity({ effects: { productivity: 0.1, speed: -0.15 } }, false)).toBe(false)
+  })
+
+  it('allows a module without a positive productivity effect whatever the recipe', () => {
+    expect(isModuleAllowedByProductivity({ effects: { speed: 0.5 } }, false)).toBe(true)
+    expect(isModuleAllowedByProductivity({ effects: { productivity: 0, speed: 0.5 } }, false)).toBe(true)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // ModulePopover — mutation flow
 // ---------------------------------------------------------------------------
@@ -57,6 +72,7 @@ const speedModule = {
 
 const mockGameData = {
   modules: { 'speed-3': speedModule },
+  recipes: {},
 } as unknown as GameData
 
 const existingModule: GameRecipeNode['modules'][0] = { moduleId: 'speed-3', count: 2 }
@@ -171,5 +187,43 @@ describe('ModuleCell', () => {
     expect(cell()).toHaveAttribute('title', 'Edit modules')
     expect(cell()).not.toHaveAttribute('data-over-slots')
     expect(cell()).not.toHaveClass('ring-amber-500')
+  })
+})
+
+describe('ModulePopover — productivity modules', () => {
+  const prodModule = {
+    ...speedModule,
+    id: 'prod-3',
+    name: 'Prod 3',
+    effects: { productivity: 0.1, speed: -0.15 },
+  }
+
+  function renderPopover(allowProductivity: boolean) {
+    const gameData = {
+      modules: { 'speed-3': speedModule, 'prod-3': prodModule },
+      recipes: { 'iron-plate': { id: 'iron-plate', allowProductivity } },
+    } as unknown as GameData
+    render(
+      <ModulePopover
+        nodeId="n1"
+        modules={[]}
+        machineSlots={4}
+        allowedMachineEffects={['speed', 'consumption', 'productivity']}
+        recipeId="iron-plate"
+        gameData={gameData}
+        onClose={() => {}}
+      />
+    )
+  }
+
+  it('hides productivity modules from the add dropdown when the recipe disallows productivity', () => {
+    renderPopover(false)
+    expect(screen.getByRole('option', { name: 'Speed 3' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Prod 3' })).not.toBeInTheDocument()
+  })
+
+  it('offers productivity modules when the recipe allows productivity', () => {
+    renderPopover(true)
+    expect(screen.getByRole('option', { name: 'Prod 3' })).toBeInTheDocument()
   })
 })

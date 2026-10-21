@@ -28,6 +28,16 @@ export function isModuleAllowedForRecipe(
   return true
 }
 
+// A module with a positive productivity effect is only insertable in a recipe
+// that allows productivity.
+// eslint-disable-next-line react-refresh/only-export-components
+export function isModuleAllowedByProductivity(
+  module: { effects: Record<string, number | undefined> },
+  allowProductivity: boolean,
+): boolean {
+  return allowProductivity || (module.effects.productivity ?? 0) <= 0
+}
+
 // ---------------------------------------------------------------------------
 // ModulePopover
 // ---------------------------------------------------------------------------
@@ -60,7 +70,8 @@ export function ModulePopover({
   const allowedModules = Object.values(gameData.modules).filter(
     m =>
       isModuleAllowedInMachine(m, { allowedEffects: allowedMachineEffects }) &&
-      isModuleAllowedForRecipe(m, recipeId),
+      isModuleAllowedForRecipe(m, recipeId) &&
+      isModuleAllowedByProductivity(m, gameData.recipes[recipeId]?.allowProductivity ?? false),
   )
 
   const existingIds = new Set(modules.map(m => m.moduleId))

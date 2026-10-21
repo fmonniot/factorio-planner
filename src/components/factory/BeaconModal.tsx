@@ -6,6 +6,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
+import { isModuleAllowedByProductivity } from './ModulePopover'
 import type { EffectTotals } from './EditMachineModal'
 
 // ---------------------------------------------------------------------------
@@ -74,7 +75,10 @@ export function BeaconModal({
     .sort((a, b) => a.name.localeCompare(b.name))
 
   const availableModules = Object.values(gameData.modules)
-    .filter(m => withinHorizon(horizon.moduleIds, m.id))
+    .filter(m =>
+      withinHorizon(horizon.moduleIds, m.id) &&
+      isModuleAllowedByProductivity(m, recipe?.allowProductivity ?? false),
+    )
     .sort((a, b) => a.name.localeCompare(b.name))
 
   function update(patch: Partial<BeaconConfig>) {

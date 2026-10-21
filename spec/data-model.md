@@ -144,10 +144,13 @@ productivity bonuses; only `amount − ignoredByProductivity` scales. In Nullius
 appears on Kovarex enrichment and coal liquefaction. See [solver.md](solver.md) for
 the effective-amount formula.
 
-**`allowProductivity`.** The solver does not check it: `computeNodeEffects` applies
-whatever productivity the node's modules and beacon provide. The machine and beacon
-modals zero productivity in their "Recipe effects" panel when the recipe disallows
-it, but they do not stop the user from adding productivity modules.
+**`allowProductivity`.** When false, `computeNodeEffects` drops the productivity bonus
+of the node's modules and beacon (speed and consumption are kept), so the solver never
+applies productivity to the recipe. A recipe missing from the game data is treated as
+disallowing it. The machine, module and beacon pickers do not offer a module with a
+positive productivity effect for such a recipe, and the modals zero productivity in their
+"Recipe effects" panel. A productivity module already configured (from before, or from
+another recipe) stays removable and is ignored by the solver.
 
 ### Machine
 

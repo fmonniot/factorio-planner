@@ -562,7 +562,7 @@ without a machine", `data-beyond-horizon`); a module is outside the horizon ("Ed
 (beyond research horizon)", `data-beyond-horizon`); or the modules outnumber the slots
 (`data-over-slots`, "Edit modules (more modules than slots)", or "Edit modules (this machine has
 no module slots)" for a real machine with 0 slots). The plan and the solver are untouched:
-the solver applies every configured module, so the flag is the only sign of an overfilled row.
+the solver applies every configured module (except the productivity of a recipe that disallows it), so the flag is the only sign of an overfilled row.
 
 **Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
 button creates one — the first non-hidden beacon type by name, the first module by
@@ -701,7 +701,8 @@ The same component in recipes mode (`source="recipes"`).
 - **Modules** (when the machine has slots or modules are configured) — each configured
   module with −/+ counts, and an "add module" dropdown. Only modules inside the
   research horizon whose effects the machine allows (and whose recipe limitations
-  permit the recipe) are offered; the total never exceeds the machine's slots. A
+  permit the recipe) are offered, and a module with a positive productivity effect only
+  when the recipe allows productivity; the total never exceeds the machine's slots. A
   configured module outside the horizon carries a "Beyond research horizon" marker.
   Without a machine, modules can be removed but not added.
 - **Effects** — "Module effects" (raw totals) and "Recipe effects" (after the
@@ -719,9 +720,9 @@ The same component in recipes mode (`source="recipes"`).
   "Efficiency" fields appear instead.
 - **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
   the row has no machine within the horizon, a note says the row's machine count and
-  power are 0 while module and beacon productivity still applies to the output rates.
+  power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
 - **Module** — the module placed in every beacon slot (modules inside the research
-  horizon are offered).
+  horizon are offered; productivity modules only when the recipe allows productivity).
 - **Remove beacon**.
 
 ---

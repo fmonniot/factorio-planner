@@ -26,6 +26,23 @@ function makeGameData(
   }
 }
 
+function recipe(allowProductivity: boolean): GameData['recipes'][string] {
+  return {
+    id: 'r1',
+    name: 'r1',
+    category: 'crafting',
+    craftingTime: 1,
+    ingredients: [],
+    products: [],
+    madeIn: [],
+    allowProductivity,
+    mainProduct: undefined,
+    hidden: false,
+    subgroup: '',
+    order: '',
+  }
+}
+
 function node(
   id: string,
   recipeId: string,
@@ -99,12 +116,27 @@ describe('computeNodeEffects — no modules', () => {
 
 describe('computeNodeEffects — machine modules', () => {
   it('4× prod-3 gives +40% productivity, +320% consumption, −60% speed', () => {
-    const gd = makeGameData({}, { 'productivity-module-3': PROD3_MODULE })
+    const gd = makeGameData({ r1: recipe(true) }, { 'productivity-module-3': PROD3_MODULE })
     const n = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
     const fx = computeNodeEffects(n, gd)
     expect(fx.productivityBonus).toBeCloseTo(0.4)
     expect(fx.consumptionBonus).toBeCloseTo(3.2)
     expect(fx.speedBonus).toBeCloseTo(-0.6)
+  })
+
+  it('drops productivity but keeps speed and consumption when the recipe disallows it', () => {
+    const gd = makeGameData({ r1: recipe(false) }, { 'productivity-module-3': PROD3_MODULE })
+    const n = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.consumptionBonus).toBeCloseTo(3.2)
+    expect(fx.speedBonus).toBeCloseTo(-0.6)
+  })
+
+  it('drops productivity when the recipe is unknown', () => {
+    const gd = makeGameData({}, { 'productivity-module-3': PROD3_MODULE })
+    const n = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    expect(computeNodeEffects(n, gd).productivityBonus).toBe(0)
   })
 
   it('2× speed-3 gives +100% speed, +140% consumption', () => {
@@ -133,7 +165,7 @@ describe('computeNodeEffects — beacon', () => {
 
   it('machine + beacon effects stack additively', () => {
     const gd = makeGameData(
-      {},
+      { r1: recipe(true) },
       { 'speed-module-3': SPEED3_MODULE, 'productivity-module-3': PROD3_MODULE },
     )
     const n = node(
@@ -152,6 +184,19 @@ describe('computeNodeEffects — beacon', () => {
     expect(fx.speedBonus).toBeCloseTo(3.4)
     // Productivity: machine=0.40, beacon=0 (speed modules have no prod), total=0.40
     expect(fx.productivityBonus).toBeCloseTo(0.4)
+  })
+
+  it('drops beacon productivity when the recipe disallows it', () => {
+    const gd = makeGameData({ r1: recipe(false) }, { 'productivity-module-3': PROD3_MODULE })
+    const n = node('n1', 'r1', [], {
+      moduleId: 'productivity-module-3',
+      beaconCount: 1,
+      modulesPerBeacon: 2,
+      distributionEfficiency: 0.5,
+    })
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.speedBonus).toBeCloseTo(-0.15)
   })
 })
 

@@ -184,7 +184,7 @@ bonus = Σ moduleEffect · moduleCount
       + beaconModuleEffect · distributionEfficiency · modulesPerBeacon · beaconCount
 ```
 
-The solver does not check `allowProductivity`; it trusts the node configuration.
+The productivity bonus is dropped (treated as 0) when the recipe has `allowProductivity: false`, or is not in the game data; speed and consumption bonuses are unaffected. The machine's `allowedEffects` is not checked by the solver.
 
 Per node, given recipe throughput `x_j` (executions/minute) — `computeMachineMetrics`:
 

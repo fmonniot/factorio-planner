@@ -183,6 +183,32 @@ describe('EditMachineModal — machines, modules and the research horizon', () =
   })
 })
 
+describe('EditMachineModal — productivity modules', () => {
+  function gameDataWithProdModule(allowProductivity: boolean): GameData {
+    const gd = makeGameData()
+    gd.modules.prod = {
+      id: 'prod', name: 'Prod', category: 'productivity', tier: 1,
+      effects: { productivity: 0.1, speed: -0.15 }, limitation: [], limitationBlacklist: [], iconPath: '',
+    }
+    gd.machines['assembler-2'].allowedEffects = ['speed', 'productivity']
+    gd.recipes.plate.allowProductivity = allowProductivity
+    return gd
+  }
+
+  it('hides productivity modules from the add dropdown when the recipe disallows productivity', () => {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    renderModal(gameDataWithProdModule(false))
+    expect(screen.getByRole('option', { name: 'Speed' })).toBeInTheDocument()
+    expect(screen.queryByRole('option', { name: 'Prod' })).not.toBeInTheDocument()
+  })
+
+  it('offers productivity modules when the recipe allows productivity', () => {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    renderModal(gameDataWithProdModule(true))
+    expect(screen.getByRole('option', { name: 'Prod' })).toBeInTheDocument()
+  })
+})
+
 describe('EditMachineModal — default machine per category', () => {
   const nodeWith = (id: string, machineId?: string) => ({
     kind: 'game-recipe' as const, id, recipeId: 'plate', machineId, modules: [], byproductPolicy: {},
