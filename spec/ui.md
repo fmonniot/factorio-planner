@@ -674,8 +674,9 @@ backdrop and close on Escape or a click on the backdrop.
 
 The same component in recipes mode (`source="recipes"`).
 
-- Search box (substring on recipe name or id) and a **Hidden recipes** checkbox
-  (hidden recipes are excluded by default).
+- Search box (substring on recipe name or id), a **Hidden recipes** checkbox
+  (hidden recipes are excluded by default) and, when a research horizon is
+  active, a **Beyond research horizon** checkbox (see below).
 - Item-group tabs (only when results span more than one group), then recipe
   slots in subgroup rows. Each slot shows the icon of the recipe's main product.
 - Hovering or focusing a slot shows a side panel with the recipe's ingredients,
@@ -698,6 +699,13 @@ The same component in recipes mode (`source="recipes"`).
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
   (N outside it)".
+- The **Beyond research horizon** checkbox is only shown while a horizon is
+  active (technology data and at least one target). It starts unticked every time
+  the picker opens and is not persisted. Ticking it lifts the horizon filter so
+  the player can preview what is locked: the revealed non-hidden recipes are drawn
+  dimmed, carry `data-beyond-horizon="true"` and a "(beyond research horizon)"
+  tooltip suffix, and are selected like any other slot. Hidden recipes are
+  unaffected. While it is ticked the "outside it" empty-state message never appears.
 - Clicking a slot adds the recipe and closes the picker.
 
 ### Edit machine modal

@@ -258,12 +258,49 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
     expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'fill-water-barrel']))
     expect(slotIds()).not.toContain('secret-recipe')
+    expect(screen.queryByLabelText(/Beyond research horizon/)).not.toBeInTheDocument()
   })
 
   it('offers every non-hidden recipe without targets', () => {
     loadWithTechnologies()
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
     expect(slotIds()).toEqual(expect.arrayContaining(['iron-plate', 'fill-water-barrel']))
+    expect(screen.queryByLabelText(/Beyond research horizon/)).not.toBeInTheDocument()
+  })
+
+  it('shows recipes beyond the horizon when the checkbox is ticked', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const checkbox = screen.getByLabelText(/Beyond research horizon/, { selector: 'input' })
+    expect(checkbox).not.toBeChecked()
+    expect(slotIds()).not.toContain('fill-water-barrel')
+    fireEvent.click(checkbox)
+    expect(slotIds()).toContain('fill-water-barrel')
+    const slot = (id: string) => screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === id)!
+    expect(slot('fill-water-barrel')).toHaveAttribute('data-beyond-horizon', 'true')
+    expect(slot('iron-plate')).not.toHaveAttribute('data-beyond-horizon')
+    fireEvent.click(checkbox)
+    expect(slotIds()).not.toContain('fill-water-barrel')
+  })
+
+  it('does not mark hidden recipes as beyond the horizon', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    const secret = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'secret-recipe')!
+    expect(secret).not.toHaveAttribute('data-beyond-horizon')
+  })
+
+  it('clears the empty-state horizon message when the checkbox is ticked', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText(/Beyond research horizon/, { selector: 'input' }))
+    expect(screen.getAllByTestId('recipe-slot').length).toBeGreaterThan(0)
+    expect(screen.queryByText(/outside it/)).not.toBeInTheDocument()
   })
 
   it('explains an empty result caused by the horizon', () => {
