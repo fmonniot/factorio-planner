@@ -37,21 +37,21 @@ describe('Nullius game-data.json integration', () => {
   )
 
   it.skipIf(!sampleExists)(
-    'contains expected Nullius recipes from the test corpus',
+    'contains expected Nullius recipes from the synthetic test cases',
     () => {
       const json = readFileSync(SAMPLE_PATH, 'utf-8')
       const data = loadGameDataFromJson(json)
 
-      // Corpus case 1 & 2 (Nullius dropped the -1 suffix from basic recipes)
+      // Synthetic case 1 & 2 (Nullius dropped the -1 suffix from basic recipes)
       expect(data.recipes['nullius-iron-ingot']).toBeDefined()
       expect(data.recipes['nullius-iron-plate']).toBeDefined()
       expect(data.recipes['nullius-iron-rod']).toBeDefined()
       expect(data.recipes['nullius-iron-gear']).toBeDefined()
 
-      // Corpus case 3
+      // Synthetic case 3
       expect(data.recipes['nullius-air-separation-2']).toBeDefined()
 
-      // Corpus cases 4–6 (base-game recipes present in Nullius)
+      // Synthetic cases 4–6 (base-game recipes present in Nullius)
       expect(data.recipes['kovarex-enrichment-process']).toBeDefined()
       expect(data.recipes['uranium-processing']).toBeDefined()
     },

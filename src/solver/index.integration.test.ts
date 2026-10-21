@@ -5,10 +5,10 @@ import { solve, netBalance } from './index'
 import { loadGameDataFromJson } from '../data/loader'
 import type { GameRecipeNode, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
 
-// Real-data counterpart to the synthetic corpus.test.ts: runs the solver on the committed
+// Real-data counterpart to synthetic.test.ts: runs the solver on the committed
 // Nullius export (public/data/nullius/game-data.json) and asserts invariants (finite,
 // non-negative flows, positive machine counts, mass balance, a machine for every category).
-// The corpus stays on synthetic fixtures so a re-export cannot break it; this file reads the
+// synthetic.test.ts stays on synthetic fixtures so a re-export cannot break it; this file reads the
 // real export, so a re-export that renames or re-balances recipes may break it. That is intended.
 
 const GAME_DATA_PATH = resolve(import.meta.dirname, '../../public/data/nullius/game-data.json')
