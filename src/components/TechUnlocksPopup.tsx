@@ -55,9 +55,9 @@ export function TechUnlocksPopup({ tech, anchor, gameData, placers }: TechUnlock
       data-testid="tech-unlocks-popup"
       data-tech-id={tech.id}
       style={{ position: 'fixed', left: pos.left, top: pos.top }}
-      className="pointer-events-none z-[60] w-72 max-h-[80vh] overflow-hidden bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-sm"
+      className="pointer-events-none z-[60] flex flex-col w-72 max-h-[80vh] overflow-hidden bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-sm"
     >
-      <div className="px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
+      <div className="shrink-0 px-3 py-2 bg-gray-800 border-b border-gray-700 flex items-center gap-2">
         <TechIcon tech={tech} className="w-8 h-8 text-sm" />
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-gray-100">{tech.name}</span>
@@ -65,7 +65,7 @@ export function TechUnlocksPopup({ tech, anchor, gameData, placers }: TechUnlock
         </span>
       </div>
 
-      <div data-testid="tech-unlocks-recipes" className="px-3 py-2">
+      <div data-testid="tech-unlocks-recipes" className="flex-1 min-h-0 overflow-hidden px-3 py-2">
         {recipes.length === 0 ? (
           <div className="text-gray-500">Unlocks no recipes</div>
         ) : (
@@ -85,7 +85,7 @@ export function TechUnlocksPopup({ tech, anchor, gameData, placers }: TechUnlock
       </div>
 
       {machines.length > 0 && (
-        <div data-testid="tech-unlocks-machines" className="px-3 py-2 border-t border-gray-700">
+        <div data-testid="tech-unlocks-machines" className="shrink-0 px-3 py-2 border-t border-gray-700">
           <div className="text-xs text-gray-400 mb-1">Machines:</div>
           {machines.slice(0, PREVIEW_LIMIT).map(m => (
             <div key={m.id} data-testid="tech-unlocks-machine" data-machine-id={m.id} className="flex items-center gap-2">

@@ -40,6 +40,8 @@ const EDGE_COLOR: Record<TechState, string> = {
 const CURVE = 32
 const DRAG_THRESHOLD = 4
 const PREVIEW_DELAY_MS = 300
+// Leaving a card keeps a shown popup this long, so entering a neighbour switches without the delay.
+const HIDE_GRACE_MS = 100
 
 function rectOf(el: HTMLElement): Box {
   const { left, top, right, bottom } = el.getBoundingClientRect()
@@ -56,7 +58,7 @@ interface TechCardProps {
   movedRef: MutableRefObject<boolean>
   onToggle: (id: string) => void
   onPreviewStart: (id: string, el: HTMLElement, immediate: boolean) => void
-  onPreviewEnd: (id: string) => void
+  onPreviewEnd: (id: string, immediate?: boolean) => void
 }
 
 const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
@@ -71,9 +73,10 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       onMouseEnter={e => onPreviewStart(tech.id, e.currentTarget, false)}
       onMouseLeave={() => onPreviewEnd(tech.id)}
       onFocus={e => onPreviewStart(tech.id, e.currentTarget, true)}
-      onBlur={() => onPreviewEnd(tech.id)}
+      onBlur={() => onPreviewEnd(tech.id, true)}
       onClick={e => {
-        onPreviewEnd(tech.id)
+        // Keyboard activation (detail 0) keeps the popup: the card keeps focus.
+        if (e.detail > 0) onPreviewEnd(tech.id, true)
         // A drag that ended on this card suppresses its click; the flag is
         // consumed here so later (keyboard) activations are not ignored.
         // Keyboard activation (detail 0) is never a drag.
@@ -118,12 +121,15 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
   // The unlocks popup. Only the modal re-renders on a change: the memoized cards never see this state.
   const [preview, setPreview] = useState<{ techId: string; anchor: Box } | null>(null)
   const previewTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const graceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pointerDownRef = useRef(false) // any button, anywhere in the viewport
   const previewIdRef = useRef<string | null>(null) // pending or shown
   const previewShownRef = useRef(false)
   const placers = useMemo(() => placingItemIds(gameData), [gameData])
 
   const hidePreview = useCallback(() => {
     clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
     previewIdRef.current = null
     previewShownRef.current = false
     setPreview(null)
@@ -131,8 +137,18 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
 
   const onPreviewStart = useCallback((id: string, el: HTMLElement, immediate: boolean) => {
     // A pressed button means a drag, or the focus a mouse click causes.
-    if (dragRef.current !== null) return
+    if (dragRef.current !== null || pointerDownRef.current) return
+    // A card outside the visible canvas would anchor the popup to an edge with no card beside it.
+    if (immediate) {
+      const vp = viewportRef.current
+      if (vp) {
+        const c = el.getBoundingClientRect()
+        const v = vp.getBoundingClientRect()
+        if (c.right <= v.left || c.left >= v.right || c.bottom <= v.top || c.top >= v.bottom) return
+      }
+    }
     clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
     previewIdRef.current = id
     const show = () => {
       previewShownRef.current = true
@@ -142,11 +158,29 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
     else previewTimerRef.current = setTimeout(show, PREVIEW_DELAY_MS)
   }, [])
 
-  const onPreviewEnd = useCallback((id: string) => {
-    if (previewIdRef.current === id) hidePreview()
+  const onPreviewEnd = useCallback((id: string, immediate = false) => {
+    if (previewIdRef.current !== id) return
+    if (immediate || !previewShownRef.current) { hidePreview(); return }
+    // Keep `previewShownRef` through the grace period: the next card's mouseenter shows at once.
+    clearTimeout(graceTimerRef.current)
+    graceTimerRef.current = setTimeout(hidePreview, HIDE_GRACE_MS)
   }, [hidePreview])
 
-  useEffect(() => () => clearTimeout(previewTimerRef.current), [])
+  useEffect(() => () => {
+    clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
+  }, [])
+
+  // Any button press suppresses the popup until release, wherever the release happens.
+  useEffect(() => {
+    const release = () => { pointerDownRef.current = false }
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+    }
+  }, [])
 
   // The anchor goes stale when the window changes.
   useEffect(() => {
@@ -203,6 +237,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     hidePreview()
+    pointerDownRef.current = true
     if (e.button !== 0 || dragRef.current) return
     movedRef.current = false
     dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, captured: false, pointerId: e.pointerId }

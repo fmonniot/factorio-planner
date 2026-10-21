@@ -238,8 +238,10 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   recipes count as available) shows what the horizon unlocks.
 - **Unlocks popup** (`TechUnlocksPopup.tsx`): hovering a card for 300 ms, or focusing it, shows
   the recipes and machines the technology unlocks (`technologyUnlocks` in `src/data/horizon.ts`);
-  focus shows it at once, and moving between cards while a popup is shown switches without the
-  delay. The header repeats the icon, the full name and the cost with its time. **Recipes** lists
+  focus shows it at once (not for a card outside the visible canvas, and not for the focus a
+  pointer press causes, whatever the button), and moving the pointer between cards switches
+  without the delay: leaving a card keeps a shown popup for a 100 ms grace period, which entering
+  another card cancels. The header repeats the icon, the full name and the cost with its time. **Recipes** lists
   up to 8 with the icon of `recipeIconItem` (`src/data/recipeIcon.ts`, shared with the recipe
   picker) and a "+N more" row; a technology without recipes says "Unlocks no recipes".
   **Machines** (only when there are any) lists the non-hidden machines and beacons placed by an
@@ -249,8 +251,10 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   export keeps only recipe unlocks. The popup is a `pointer-events-none` portal on `document.body`
   (the scaled canvas and the modal clip their contents), placed by `anchoredPosition`
   (`src/utils/anchoredPosition.ts`) to the right of the card, flipped left and clamped to the
-  viewport. It hides on leaving or blurring the card, a click, a pointer down in the viewport,
-  wheel, zoom buttons, **Fit**, and window blur or resize. Escape dismisses the popup first
+  viewport. On short viewports it is height-limited and the recipe list is clipped first; the
+  header and the machines stay. It hides (after the grace period when the pointer leaves, at once
+  otherwise) on leaving or blurring the card, a pointer click (Enter or Space on a focused card
+  keeps it), a pointer down in the viewport, wheel, zoom buttons, **Fit**, and window blur or resize. Escape dismisses the popup first
   (captured before the modal's listener); a second Escape closes the tree. Cards carry no native
   `title` tooltip.
 - **Click** a card to toggle it as a horizon target; targets get a ring. Adding a locked technology researches its whole prerequisite

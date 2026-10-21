@@ -216,4 +216,40 @@ test.describe('Technology tree hover popup', () => {
     await expect(popup(page)).toBeVisible()
     await expect(popup(page)).toHaveAttribute('data-tech-id', 'electronics')
   })
+  test('moving straight to another card switches without the delay', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toHaveAttribute('data-tech-id', 'electronics')
+    await card(page, 'rocket-silo').hover()
+    // Well under the 300 ms hover delay.
+    await expect(popup(page)).toHaveAttribute('data-tech-id', 'rocket-silo', { timeout: 150 })
+    await expect(popup(page)).toHaveCount(1)
+  })
+
+  test('Enter on a focused card toggles it and keeps the popup', async ({ page }) => {
+    await card(page, 'electronics').focus()
+    await expect(popup(page)).toBeVisible()
+    await page.keyboard.press('Enter')
+    await expect(card(page, 'electronics')).toHaveAttribute('data-target', 'true')
+    await expect(popup(page)).toBeVisible()
+  })
+
+  test('a right-click shows no popup', async ({ page }) => {
+    await card(page, 'electronics').click({ button: 'right' })
+    await page.waitForTimeout(400)
+    await expect(popup(page)).toHaveCount(0)
+  })
+
+  test('focusing a card outside the visible canvas shows no popup', async ({ page }) => {
+    for (let i = 0; i < 8; i++) await page.getByRole('button', { name: 'Zoom in' }).click()
+    const vp = (await viewport(page).boundingBox())!
+    let target: string | undefined
+    for (const id of ['electronics', 'rocket-silo', 'space-science-pack', 'advanced-material-processing']) {
+      const b = (await card(page, id).boundingBox())!
+      if (b.x + b.width <= vp.x || b.x >= vp.x + vp.width || b.y + b.height <= vp.y || b.y >= vp.y + vp.height) { target = id; break }
+    }
+    expect(target, 'zooming in leaves at least one card off-screen').toBeDefined()
+    await card(page, target!).focus()
+    await page.waitForTimeout(400)
+    await expect(popup(page)).toHaveCount(0)
+  })
 })

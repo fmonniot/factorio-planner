@@ -142,7 +142,15 @@ describe('TechTreeButton', () => {
 describe('unlocks popup', () => {
   const popup = () => screen.queryByTestId('tech-unlocks-popup')
 
-  afterEach(() => { vi.useRealTimers() })
+  const rect = (l: number, t: number, r: number, b: number) =>
+    ({ left: l, top: t, right: r, bottom: b, width: r - l, height: b - t, x: l, y: t, toJSON: () => ({}) }) as DOMRect
+
+  // happy-dom lays nothing out: every element gets a 1000x800 rect, so cards count as visible.
+  beforeEach(() => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(() => rect(0, 0, 1000, 800))
+  })
+
+  afterEach(() => { vi.useRealTimers(); vi.restoreAllMocks() })
 
   it('shows after the hover delay with the recipes and machines', () => {
     vi.useFakeTimers()
@@ -186,9 +194,64 @@ describe('unlocks popup', () => {
   it('hides on click, which still toggles the target', () => {
     open()
     fireEvent.focus(card('rocket-silo'))
-    fireEvent.click(card('rocket-silo'))
+    fireEvent.click(card('rocket-silo'), { detail: 1 })
     expect(popup()).not.toBeInTheDocument()
     expect(card('rocket-silo').dataset.target).toBe('true')
+  })
+
+  it('keeps the popup on keyboard activation', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    fireEvent.click(card('rocket-silo'), { detail: 0 })
+    expect(popup()).toBeInTheDocument()
+    expect(card('rocket-silo').dataset.target).toBe('true')
+  })
+
+  it('switches between cards without the delay', () => {
+    vi.useFakeTimers()
+    open()
+    fireEvent.mouseEnter(card('rocket-silo'))
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(popup()?.getAttribute('data-tech-id')).toBe('rocket-silo')
+    fireEvent.mouseLeave(card('rocket-silo'))
+    fireEvent.mouseEnter(card('electronics'))
+    expect(screen.getAllByTestId('tech-unlocks-popup')).toHaveLength(1)
+    expect(popup()?.getAttribute('data-tech-id')).toBe('electronics')
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(popup()?.getAttribute('data-tech-id')).toBe('electronics')
+  })
+
+  it('hides after the grace period when leaving without entering another card', () => {
+    vi.useFakeTimers()
+    open()
+    fireEvent.mouseEnter(card('rocket-silo'))
+    act(() => { vi.advanceTimersByTime(300) })
+    fireEvent.mouseLeave(card('rocket-silo'))
+    expect(popup()).toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(100) })
+    expect(popup()).not.toBeInTheDocument()
+  })
+
+  it('shows no popup for the focus a right-button press causes', () => {
+    open()
+    fireEvent.pointerDown(card('rocket-silo'), { button: 2 })
+    fireEvent.focus(card('rocket-silo'))
+    expect(popup()).not.toBeInTheDocument()
+    fireEvent.pointerUp(window)
+    fireEvent.blur(card('rocket-silo'))
+    fireEvent.focus(card('rocket-silo'))
+    expect(popup()).toBeInTheDocument()
+  })
+
+  it('shows no popup on focusing a card outside the visible canvas', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
+      return this.dataset.techId === 'rocket-silo' ? rect(5000, 5000, 5200, 5040) : rect(0, 0, 1000, 800)
+    })
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    expect(popup()).not.toBeInTheDocument()
+    fireEvent.focus(card('electronics'))
+    expect(popup()).toBeInTheDocument()
   })
 
   it('hides on a pointer down in the viewport', () => {
