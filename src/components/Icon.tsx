@@ -8,7 +8,8 @@ interface IconProps extends Omit<ImgHTMLAttributes<HTMLImageElement>, 'src'> {
 export function Icon({ iconPath, ...rest }: IconProps) {
   return (
     <picture style={{ display: 'contents' }}>
-      <source srcSet={iconUrlWebp(iconPath)} type="image/webp" />
+      {/* Hidden: under display: contents a visible <source> is a zero-width flex item that adds a gap */}
+      <source srcSet={iconUrlWebp(iconPath)} type="image/webp" style={{ display: 'none' }} />
       <img
         src={iconUrl(iconPath)}
         loading="lazy"
