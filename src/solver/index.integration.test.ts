@@ -16,6 +16,8 @@ const gameData = loadGameDataFromJson(readFileSync(GAME_DATA_PATH, 'utf-8'))
 
 const EPS = 1e-9
 const FLOW_EPS = 1e-6
+// Matches the solver's own GOAL_SHORTFALL_TOLERANCE: below it a shortfall is not reported.
+const GOAL_EPS = 1e-4
 
 function planNode(recipeId: string): GameRecipeNode {
   return { kind: 'game-recipe', id: recipeId, recipeId, modules: [], byproductPolicy: {} }
@@ -50,10 +52,9 @@ function expectSane(result: SolverResult, plan: ReturnType<typeof makePlan>, lab
   expect(result.nodes.length, `solved nodes${at}`).toBeGreaterThan(0)
 
   for (const goal of plan.goals) {
-    expect(
-      result.nodes.some(n => (n.outputRates[goal.itemId] ?? 0) > 0),
-      `goal ${goal.itemId} is produced${at}`,
-    ).toBe(true)
+    // Delivered net of internal consumption, plus whatever the solver reports as a shortfall.
+    const delivered = (netBalance(result.nodes).get(goal.itemId) ?? 0) + (unsatisfiedRate(result, goal.itemId) ?? 0)
+    expect(delivered, `goal ${goal.itemId} reaches ${goal.rate}/min${at}`).toBeGreaterThanOrEqual(goal.rate - GOAL_EPS)
     expect(
       result.warnings.some(w => w.type === 'no-recipe' && w.itemId === goal.itemId),
       `no no-recipe warning for goal ${goal.itemId}${at}`,
@@ -79,12 +80,14 @@ function expectSane(result: SolverResult, plan: ReturnType<typeof makePlan>, lab
 
   // Mass balance: whatever the nodes consume beyond what they produce is listed as an import.
   const net = netBalance(result.nodes)
-  const imported = new Map(result.unsatisfied.map(u => [u.itemId, u.rate]))
+  // An item can appear twice in `unsatisfied` (goal shortfall and slack), so sum the entries.
+  const imported = new Map<string, number>()
+  for (const u of result.unsatisfied) imported.set(u.itemId, (imported.get(u.itemId) ?? 0) + u.rate)
   for (const [item, balance] of net) {
-    expect(
-      balance + (imported.get(item) ?? 0),
-      `mass balance of ${item}${at}`,
-    ).toBeGreaterThanOrEqual(-FLOW_EPS)
+    const covered = balance + (imported.get(item) ?? 0)
+    expect(covered, `mass balance of ${item}${at}`).toBeGreaterThanOrEqual(-FLOW_EPS)
+    // Imports must not exceed the deficit (surplus items are exempt: they import nothing extra).
+    if (balance < 0) expect(covered, `import of ${item} does not exceed its deficit${at}`).toBeLessThanOrEqual(FLOW_EPS)
   }
 }
 
@@ -107,6 +110,27 @@ describe('solver on the real Nullius data', () => {
     expect(r.warnings).toEqual([])
   })
 
+  it('reports slack when a pinned intermediate producer cannot meet demand', () => {
+    // Gear needs 20 plates/min for 60 gears/min, but the plate node is pinned to 5 crafts/min.
+    const plan = makePlan([['nullius-iron-gear', 60]], [
+      'nullius-iron-gear',
+      'nullius-iron-plate',
+      'nullius-iron-rod',
+      'nullius-iron-ingot',
+    ])
+    const plate = plan.nodes.find(n => n.id === 'nullius-iron-plate')
+    if (plate?.kind !== 'game-recipe') throw new Error('plate node missing')
+    plate.pinnedRate = 5
+    const r = solve(plan, gameData)
+    expectSane(r, plan)
+    expect(nodeOf(r, 'nullius-iron-plate').throughput).toBeCloseTo(5, 3)
+    const slack = unsatisfiedRate(r, 'nullius-iron-plate')
+    expect(slack, 'plate slack is reported as an import').toBeGreaterThan(0)
+    // Slack comes right after goal shortfalls and before raw consumption.
+    const ids = r.unsatisfied.map(u => u.itemId)
+    expect(ids.indexOf('nullius-iron-plate')).toBeLessThan(ids.indexOf('iron-ore'))
+  })
+
   it('uses the real crafting speed of the default machine', () => {
     const plan = makePlan([['nullius-iron-gear', 60]], [
       'nullius-iron-gear',
@@ -120,6 +144,7 @@ describe('solver on the real Nullius data', () => {
       const machine = gameData.machines[gameData.defaultMachines[recipe.category]]
       expect(machine, `default machine for ${recipe.category}`).toBeDefined()
       expect(machine.craftingSpeed, `${machine.id} is faster than speed 1`).toBeGreaterThan(1)
+      // Mirrors the solver's formula on purpose: this proves the real default machine is used.
       const node = nodeOf(r, recipeId)
       expect(node.machineCountExact, recipeId).toBeCloseTo(
         (node.throughput * recipe.craftingTime) / 60 / machine.craftingSpeed,
@@ -163,6 +188,8 @@ describe('solver on the real Nullius data', () => {
   })
 
   it('only skips the void recipes in the sweep', () => {
+    // Pinning the count closes the circularity of computing the skip list from the data it guards.
+    expect(SKIPPED_RECIPES.size, 'skipped void recipes').toBe(41)
     const skippedCategories = new Set([...SKIPPED_RECIPES.keys()].map(id => gameData.recipes[id].category))
     expect([...skippedCategories].sort()).toEqual(NULL_PRODUCT_CATEGORIES)
   })
@@ -171,7 +198,9 @@ describe('solver on the real Nullius data', () => {
     const sweep = visibleRecipes.filter(
       r => machinedCategories.has(r.category) && !SKIPPED_RECIPES.has(r.id) && r.products.length > 0,
     )
-    expect(sweep.length, 'recipes swept').toBeGreaterThan(500)
+    expect(sweep.length, 'recipes swept').toBeGreaterThan(1900)
+    // Only products[0] is driven as the goal; other products of multi-output recipes are
+    // exercised as byproducts, not as goals (known limitation of the sweep).
     for (const recipe of sweep) {
       const plan = makePlan([[recipe.products[0].itemId, 60]], [recipe.id])
       expectSane(solve(plan, gameData), plan, recipe.id)
