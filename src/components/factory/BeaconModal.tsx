@@ -6,7 +6,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
-import { isModuleAllowedByProductivity } from './ModulePopover'
+import { isModuleAllowedByProductivity } from './moduleRules'
 import type { EffectTotals } from './EditMachineModal'
 
 // ---------------------------------------------------------------------------

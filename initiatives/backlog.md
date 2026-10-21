@@ -64,7 +64,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Tests and tooling
 
-- [ ] **Dead code: `ModulePopover`.** The component is not rendered anywhere; only its file's `ModuleCell` and `isModuleAllowed*` exports are used. Delete the component (and its cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
 
 ## Ideas (not planned)
 

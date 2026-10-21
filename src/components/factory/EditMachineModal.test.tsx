@@ -261,3 +261,71 @@ describe('EditMachineModal — default machine per category', () => {
     expect(useUiStore.getState().defaultMachinesRequest).toEqual({ seq: 1, category: 'crafting' })
   })
 })
+
+describe('EditMachineModal — module counts and slots', () => {
+  function gameDataWithSlots(slots: number): GameData {
+    const gd = makeGameData()
+    gd.machines['assembler-2'].moduleSlots = slots
+    return gd
+  }
+  function setModules(modules: { moduleId: string; count: number }[]) {
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{
+        ...block,
+        rootPlan: {
+          ...block.rootPlan,
+          nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'plate', modules, byproductPolicy: {} }],
+        },
+      }],
+      activeBlockId: block.id,
+      history: {},
+    })
+  }
+  const storedModules = () => {
+    const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    return node.kind === 'game-recipe' ? node.modules : undefined
+  }
+
+  it('decrements a module that stays when its count is above 1', () => {
+    setModules([{ moduleId: 'speed', count: 2 }])
+    renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
+    fireEvent.click(screen.getByLabelText('Remove one Speed'))
+    expect(storedModules()).toEqual([{ moduleId: 'speed', count: 1 }])
+  })
+
+  it('increments a module while a slot is free', () => {
+    setModules([{ moduleId: 'speed', count: 1 }])
+    renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 1 }] })
+    fireEvent.click(screen.getByLabelText('Add one Speed'))
+    expect(storedModules()).toEqual([{ moduleId: 'speed', count: 2 }])
+  })
+
+  it('disables incrementing, and the add dropdown disappears, once the slots are full', () => {
+    setModules([{ moduleId: 'speed', count: 2 }])
+    renderModal(gameDataWithSlots(2), { modules: [{ moduleId: 'speed', count: 2 }] })
+    expect(screen.getByLabelText('Add one Speed')).toBeDisabled()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  })
+
+  it('adds a module from the dropdown with a count of 1', () => {
+    setModules([])
+    renderModal(gameDataWithSlots(4))
+    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'speed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(storedModules()).toEqual([{ moduleId: 'speed', count: 1 }])
+  })
+
+  it('does not add a module until one is chosen', () => {
+    setModules([])
+    renderModal(gameDataWithSlots(4))
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
+    expect(storedModules()).toEqual([])
+  })
+
+  it('shows the slot usage', () => {
+    setModules([{ moduleId: 'speed', count: 2 }])
+    renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
+    expect(screen.getByText('2 / 4 slots used')).toBeInTheDocument()
+  })
+})
