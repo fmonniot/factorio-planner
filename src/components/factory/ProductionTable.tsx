@@ -231,7 +231,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]" style={{ paddingLeft: `${8 + depth * 16}px` }}>
+      <td colSpan={7} className="py-2 text-center text-gray-700 text-[10px]" style={{ paddingLeft: `${8 + depth * 16}px` }}>
         Drop here
       </td>
     </tr>
@@ -271,7 +271,7 @@ function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCou
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]">
+      <td colSpan={7} className="py-2 text-center text-gray-700 text-[10px]">
         Drop here to append
       </td>
     </tr>
