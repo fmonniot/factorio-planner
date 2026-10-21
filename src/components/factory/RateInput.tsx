@@ -24,6 +24,12 @@ export function RateInput({
   const [draft, setDraft] = useState(initial)
 
   function commit() {
+    // Untouched field: the initial string is rounded for display, so committing
+    // it would silently rewrite the stored value.
+    if (draft === initial) {
+      onStop()
+      return
+    }
     if (allowClear && draft.trim() === '') {
       onCommit(undefined)
     } else {

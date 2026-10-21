@@ -505,7 +505,9 @@ describe('parseAppState — inputConnections', () => {
     })
 
     it('reads a limit of 0 as no limit', () => {
-      expect(parseWith(0).blocks[1].inputConnections[0].maxRate).toBeUndefined()
+      const c = parseWith(0).blocks[1].inputConnections[0]
+      expect(c.maxRate).toBeUndefined()
+      expect('maxRate' in c).toBe(false)
     })
 
     it('rejects a negative limit', () => {

@@ -519,7 +519,7 @@ contain a source that does not exist or a cycle: the solver ignores those
 connections and reports them as `missing-source` / `cycle`. Plans saved before
 connections existed have no `inputConnections` field and load with `[]`. A connection may carry
 an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
-no limit (`0` loads as absent, like `pinnedRate`); clearing a limit deletes the key; a duplicated
+no limit (`0` loads as an absent key; unlike `pinnedRate`, whose `0` loads as a present `undefined`); clearing a limit deletes the key; a duplicated
 block or plan copies it. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 

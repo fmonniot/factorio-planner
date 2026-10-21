@@ -14,6 +14,7 @@ import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
 import { fmtRate } from './ItemTile'
 import { RateInput } from './RateInput'
+import { cappedTitle, cappingLimit } from './summarySegments'
 import type { Block, ConnectionFlow, GameData, Item } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -213,8 +214,9 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
         const itemName = item?.name ?? connection.itemId
 
         let title = `${itemName}: ${sourceName} → ${targetName}`
-        if (status === 'limited' && flow?.capped && connection.maxRate !== undefined) {
-          title = `Limited by this connection's limit of ${fmt(connection.maxRate)}${unit}`
+        const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
+        if (cap !== undefined) {
+          title = cappedTitle(`${fmt(cap)}${unit}`)
         } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
         else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
         else if (status === 'cycle') title = 'Ignored: this connection forms a cycle'

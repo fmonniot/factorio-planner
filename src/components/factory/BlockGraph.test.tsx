@@ -218,6 +218,22 @@ describe('BlockGraph', () => {
       expect('maxRate' in consumerIn().inputConnections[0]).toBe(false)
     })
 
+    it('keeps the exact limit when the editor is opened and left untouched', () => {
+      setup({ connected: true, maxRate: 19.98 })
+      useUiStore.setState({ rateUnit: 'sec' })
+      render(<BlockGraphButton />)
+      open()
+      startEdit()
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      expect((input as HTMLInputElement).value).toBe('0.33')
+      const undoDepth = () => useBlockStore.getState().history.consumer?.undoStack.length ?? 0
+      const before = undoDepth()
+      fireEvent.blur(input)
+      expect(limitOf()).toBe(19.98)
+      expect(undoDepth()).toBe(before)
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
+    })
+
     it('cancels with Escape without closing the graph', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)

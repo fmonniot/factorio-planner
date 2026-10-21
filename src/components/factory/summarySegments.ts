@@ -4,6 +4,23 @@ import { FLOW_TOLERANCE } from '../../solver/index'
 import { fmtRate } from './ItemTile'
 import type { ByproductRow, IngredientRow } from './summaryRows'
 
+/**
+ * The connection limit that is holding a flow back, or undefined when the flow
+ * is not limited by its own limit (unlimited, or limited by the source's offer).
+ */
+export function cappingLimit(
+  limited: boolean | undefined,
+  capped: boolean | undefined,
+  maxRate: number | undefined,
+): number | undefined {
+  return limited && capped ? maxRate : undefined
+}
+
+/** Tooltip text for a flow held back by its connection's limit; `shown` is the formatted limit with unit. */
+export function cappedTitle(shown: string): string {
+  return `Limited by this connection's limit of ${shown}`
+}
+
 // Pure model for the summary panes: each item becomes a slot whose rate is
 // split into allocation segments (who takes it, what stays, what is missing).
 // The micro-bar, the detail bar and the overview strip all draw from this.
@@ -186,7 +203,7 @@ export function ingredientSlot(
           connectionId: c.id,
           available: flow!.available,
           ...(status === 'limited' ? { limited: true } : {}),
-          ...(status === 'limited' && flow!.capped && c.maxRate !== undefined
+          ...(cappingLimit(status === 'limited', flow!.capped, c.maxRate) !== undefined
             ? { capped: true as const, maxRate: c.maxRate }
             : {}),
         })
@@ -296,8 +313,9 @@ export function segmentTitle(
       return `Sends ${itemName} to ${blockName ?? GONE} — click to open`
     case 'source': {
       const seg = e as Segment
-      if (seg.limited && seg.capped && seg.maxRate !== undefined) {
-        return `Limited by this connection's limit of ${fmt(seg.maxRate)}${unit} — click to open, right-click to remove`
+      const cap = cappingLimit(seg.limited, seg.capped, seg.maxRate)
+      if (cap !== undefined) {
+        return `${cappedTitle(`${fmt(cap)}${unit}`)} — click to open, right-click to remove`
       }
       return seg.limited
         ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit} — click to open, right-click to remove`
