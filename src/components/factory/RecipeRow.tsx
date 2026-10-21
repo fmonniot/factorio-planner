@@ -127,7 +127,9 @@ export function RecipeRow({
     setDropZone(zone)
   }
 
-  function handleDragLeave() {
+  function handleDragLeave(e: React.DragEvent) {
+    // dragleave bubbles from child elements; only clear when the pointer leaves the row itself.
+    if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
     setDropZone(null)
   }
 
@@ -192,19 +194,17 @@ export function RecipeRow({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        {dropZone === 'before' && (
-          <td colSpan={8} className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" />
-        )}
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
         <td
           className="px-2 py-0.5"
-          colSpan={7}
+          colSpan={6}
           style={{ paddingLeft: `${8 + indentPx}px` }}
           onContextMenu={e => {
             e.preventDefault()
             setMenuPos({ x: e.clientX, y: e.clientY })
           }}
         >
+          {dropZone === 'before' && <DropLine edge="top" />}
           <div className="flex items-center gap-1.5">
             <button
               type="button"
@@ -309,12 +309,6 @@ export function RecipeRow({
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
     >
-      {dropZone === 'before' && (
-        <td colSpan={8} className="absolute top-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" style={{ zIndex: 10 }} />
-      )}
-      {dropZone === 'after' && (
-        <td colSpan={8} className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-500 pointer-events-none" style={{ zIndex: 10 }} />
-      )}
       {/* Reorder */}
       <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
@@ -328,6 +322,8 @@ export function RecipeRow({
           setMenuPos({ x: e.clientX, y: e.clientY })
         }}
       >
+        {dropZone === 'before' && <DropLine edge="top" />}
+        {dropZone === 'after' && <DropLine edge="bottom" />}
         <div className="flex items-center gap-1">
           <div className="relative shrink-0">
             {/* Recipe icon derived from primary product */}
@@ -545,6 +541,21 @@ interface ReorderCellProps {
   isLast: boolean
   moveUp: (id: string) => void
   moveDown: (id: string) => void
+}
+
+/**
+ * Blue drop indicator. An overlay inside a cell, never a table cell itself (a
+ * cell would take part in column sizing and shift the rows). The cell is not
+ * positioned, so the line spans the (relative) row.
+ */
+function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
+  return (
+    <div
+      aria-hidden
+      className={`absolute left-0 right-0 h-0.5 bg-blue-500 pointer-events-none ${edge === 'top' ? 'top-0' : 'bottom-0'}`}
+      style={{ zIndex: 10 }}
+    />
+  )
 }
 
 function ReorderCell({ nodeId, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {

@@ -659,7 +659,8 @@ Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop.
 `RecipeRow` and `ProductionTable`.
 
 - Dropping on the top or bottom half of a recipe row inserts before or after it
-  (a blue line marks the spot).
+  (a blue line marks the spot). The line is an overlay inside the row, not a
+  table cell, so neighbouring rows and column widths do not move during a drag.
 - Dropping on a collapsed sub-factory row appends into it; on an expanded one, the
   top half inserts before the group and the bottom half appends into it.
 - An empty expanded sub-factory accepts drops on its "Drop here" row.
