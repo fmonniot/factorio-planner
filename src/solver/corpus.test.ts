@@ -4,6 +4,7 @@ import type { GameData, GameRecipeNode, Machine, ProductionGoal, RecipeNode, Sol
 
 // Synthetic fixtures mirroring the recipes of spec/test-corpus.md (Nullius export).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
+// Real-data checks are in index.integration.test.ts.
 
 type GameRecipe = GameData['recipes'][string]
 type Ingredient = GameRecipe['ingredients'][number]

@@ -55,7 +55,7 @@ To regenerate game data, follow [README.md — Exporting game data](README.md#ex
 ## Tests
 
 - Unit tests live beside the source as `*.test.ts` / `*.test.tsx`; build-script tests live in `scripts/__tests__/`; Playwright specs in `e2e/`.
-- **Corpus cases** in [spec/test-corpus.md](spec/test-corpus.md) are the ground truth for solver behaviour. They are automated in `src/solver/corpus.test.ts`; update the spec and that test together when a corpus value changes.
+- **Corpus cases** in [spec/test-corpus.md](spec/test-corpus.md) are the ground truth for solver behaviour. They are automated in `src/solver/corpus.test.ts`; update the spec and that test together when a corpus value changes. They stay on synthetic fixtures; real-data solver invariants live in `src/solver/index.integration.test.ts`.
 - **Fixture hygiene:** fixture factory functions must return a fresh object each call (a new literal or `structuredClone(...)`). Shared mutable fixtures cause hard-to-diagnose test ordering bugs.
 - **Vitest API:** the message goes on `expect(value, 'message')`, not `expect(value).toBe(true, 'message')` — the latter is a TypeScript error.
 - **Testing preference:** when a plan includes validation steps, prefer Playwright e2e tests (in `e2e/`) over manual browser checks. Fall back to manual testing only when the scenario cannot be automated.

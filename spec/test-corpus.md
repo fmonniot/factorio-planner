@@ -7,7 +7,8 @@ Nullius export (`public/data/nullius/game-data.json`; see the README section
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/corpus.test.ts`, which uses synthetic fixtures mirroring
 the Nullius recipes at crafting speed 1. When a corpus value changes, update this
-file and that test together.
+file and that test together. Real-data coverage lives separately in
+`src/solver/index.integration.test.ts`; the corpus must not be pinned to the real data.
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
 Real default machines have other speeds (e.g. the default `centrifuging` machine),
