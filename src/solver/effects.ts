@@ -33,7 +33,7 @@ export interface NodeEffects {
  * Compute the combined module + beacon effects for a single recipe node.
  * Returns zero for all bonuses if the node has no modules or beacons. The
  * productivity bonus is zero when the recipe disallows productivity (or is
- * unknown), matching the machine and beacon modals' effect preview.
+ * unknown). The machine's `allowedEffects` is not checked here.
  *
  * @param node     - the recipe node from the plan
  * @param gameData - used to look up module effect values
