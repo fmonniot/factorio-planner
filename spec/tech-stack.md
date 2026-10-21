@@ -69,7 +69,7 @@ Vitest runs three projects (see `vitest.config.ts`): `dom` (component tests unde
 | Build scripts | Vitest (`scripts`) | Icon layer compositing against golden images |
 | E2E | Playwright | Full plan creation flows against the dev server (Nullius data) |
 
-The corpus cases in [test-corpus.md](test-corpus.md) are the reference values for the solver; they are not currently automated as tests.
+The corpus cases in [test-corpus.md](test-corpus.md) are the reference values for the solver; they are automated in `src/solver/corpus.test.ts`.
 
 ---
 

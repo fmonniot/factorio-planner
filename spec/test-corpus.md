@@ -4,9 +4,10 @@ Six recipe chains of increasing complexity, all using recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it).
 
-These cases are the ground truth for the solver's expected output. They are not
-currently automated as tests; any solver change should be checked against them by
-hand or by a throwaway probe.
+These cases are the ground truth for the solver's expected output. They are
+automated in `src/solver/corpus.test.ts`, which uses synthetic fixtures mirroring
+the Nullius recipes at crafting speed 1. When a corpus value changes, update this
+file and that test together.
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
 Real default machines have other speeds (e.g. the default `centrifuging` machine),
@@ -267,6 +268,9 @@ Net per execution: **U-235 +1.40, U-238 −3.00**
 | `kovarex-enrichment-process` | ≈3.571 | ≈3.571 |
 
 External import: **uranium-238 ≈ 10.714 / min** (intermediate slack, as in Case 4)
+
+The machine count above assumes the modules cost no speed. Four productivity-module-3
+slow the machine by 60%, so `solve()` reports ≈8.929 machines (3.571 / 0.4).
 
 ### Derivation
 

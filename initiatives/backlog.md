@@ -64,7 +64,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Tests and tooling
 
-- [ ] **Encode the 6 corpus cases as solver unit tests.** [spec/test-corpus.md](../spec/test-corpus.md) is the solver's ground truth, but its cases were deleted with the v1 solver (`f55c2db`) and never ported. Multi-output (case 3), the Kovarex cycle (case 4), probability (case 5) and `ignoredByProductivity` (case 6) have no solver test at all. Expected values still match today's `solve()` output.
 - [ ] **Solver integration test on real data.** A `src/solver/index.integration.test.ts` that runs the solver against `public/data/nullius/game-data.json` with corpus-like goals, to catch what synthetic tests cannot (missing machine for a category, unexpected classifications, real crafting speeds). An earlier version existed and was deleted in `f55c2db`. The data file is committed, so no skip gate is needed.
 - [ ] **Dead code: `ModulePopover`.** The component is not rendered anywhere; only its file's `ModuleCell` and `isModuleAllowed*` exports are used. Delete the component (and its cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
 
