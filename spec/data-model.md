@@ -267,7 +267,7 @@ by a targeted technology or any of its prerequisites (followed transitively).
 Recipes that are neither starting recipes nor unlocked by any exported technology
 (for example ones only a script unlocks) are outside every horizon. The horizon
 applies only to non-hidden recipes: hidden recipes are not part of research
-progression and are shown whenever "Hidden recipes" is ticked. Extraction recipes (`Recipe.extraction`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. No targets,
+progression and are shown whenever "Hidden recipes" is ticked. The recipe picker can also temporarily lift the horizon (its "Beyond research horizon" checkbox, picker-local and not persisted). Extraction recipes (`Recipe.extraction`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. No targets,
 or no technology data in the bundle, means no limit.
 
 An item is offered as a goal under a horizon if no recipe produces it or at least one non-hidden recipe producing it is inside the horizon.

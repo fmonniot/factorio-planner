@@ -62,6 +62,34 @@ test.describe('Plan horizon', () => {
     expect(await pickerRecipeIds(page)).toEqual(['electronic-circuit', 'iron-gear-wheel', 'iron-plate'])
   })
 
+  test('the recipe picker can reveal recipes beyond the horizon temporarily', async ({ page }) => {
+    await upload(page)
+    const slots = page.locator('[data-testid="recipe-slot"]')
+    const beyondBox = page.getByLabel('Beyond research horizon')
+
+    // No horizon: the checkbox would be inert, so it is not offered.
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
+    await expect(beyondBox).toHaveCount(0)
+    await page.getByRole('button', { name: 'Close' }).click()
+
+    await openHorizonTree(page)
+    await tech(page, 'electronics').click()
+    await closeHorizonTree(page)
+
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await expect(slots).toHaveCount(3)
+    await beyondBox.check()
+    await expect(slots).toHaveCount(6)
+    await expect(page.locator('[data-testid="recipe-slot"][data-beyond-horizon="true"]')).toHaveCount(3)
+
+    // The checkbox is picker-local: reopening starts unticked again.
+    await page.getByRole('button', { name: 'Close' }).click()
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await expect(beyondBox).not.toBeChecked()
+    await expect(slots).toHaveCount(3)
+  })
+
   test('setting a horizon limits the goal picker', async ({ page }) => {
     await upload(page)
     await openHorizonTree(page)

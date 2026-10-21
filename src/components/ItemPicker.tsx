@@ -213,6 +213,7 @@ interface RecipePickerBodyProps {
 function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQuery, onSelect, onClose }: RecipePickerBodyProps) {
   const [query, setQuery] = useState(initialQuery)
   const [showHidden, setShowHidden] = useState(false)
+  const [showBeyondHorizon, setShowBeyondHorizon] = useState(false)
   const [hoveredRecipeId, setHoveredRecipeId] = useState<string | null>(null)
   const [pinnedGroupId, setPinnedGroupId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -230,9 +231,10 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
       .filter(r => !consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId))
       .filter(r => matchesRecipe(query, r))
     // Hidden recipes are never part of research progression: the horizon only applies to the others.
-    const inside = available ? matching.filter(r => r.hidden || available.has(r.id)) : matching
+    // Ticking "Beyond research horizon" lifts the filter for this picker session only.
+    const inside = available && !showBeyondHorizon ? matching.filter(r => r.hidden || available.has(r.id)) : matching
     return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
-  }, [gameData, showHidden, filterByItemId, consumesItemId, query, available])
+  }, [gameData, showHidden, filterByItemId, consumesItemId, query, available, showBeyondHorizon])
 
   // Top-level item-groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {
@@ -328,6 +330,17 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
           />
           <span className={showHidden ? 'text-amber-300' : 'text-gray-500'}>Hidden recipes</span>
         </label>
+        {available && (
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showBeyondHorizon}
+              onChange={e => setShowBeyondHorizon(e.target.checked)}
+              className="accent-amber-400"
+            />
+            <span className={showBeyondHorizon ? 'text-amber-300' : 'text-gray-500'}>Beyond research horizon</span>
+          </label>
+        )}
       </div>
 
       {/* Item-group tabs (hidden when there's nothing to switch between) */}
@@ -379,19 +392,26 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
               const product = candidates
                 .map(id => gameData.items[id])
                 .find(it => it?.iconPath)
+              // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
+              const beyond = !!available && !r.hidden && !available.has(r.id)
               return (
                 <button
                   key={r.id}
                   type="button"
                   data-testid="recipe-slot"
                   data-recipe-id={r.id}
-                  title={r.name}
+                  data-beyond-horizon={beyond ? 'true' : undefined}
+                  title={beyond ? `${r.name} (beyond research horizon)` : r.name}
                   onClick={() => { onSelect(r.id); onClose() }}
                   onMouseEnter={() => setHoveredRecipeId(r.id)}
                   onMouseLeave={() => setHoveredRecipeId(null)}
                   onFocus={() => setHoveredRecipeId(r.id)}
                   onBlur={() => setHoveredRecipeId(null)}
-                  className="aspect-square flex items-center justify-center bg-green-900/40 hover:bg-green-700/60 border border-green-800/60 rounded outline-none focus:ring-1 focus:ring-blue-500"
+                  className={`aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
+                    beyond
+                      ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
+                      : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
+                  }`}
                 >
                   {product
                     ? <Icon iconPath={product.iconPath} alt={product.name} className="w-7 h-7 object-contain" />
