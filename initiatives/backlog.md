@@ -64,7 +64,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Tests and tooling
 
-- [ ] **Solver integration test on real data, kept separate from the synthetic corpus.** A `src/solver/index.integration.test.ts` that runs the solver against `public/data/nullius/game-data.json` to catch what synthetic tests cannot (missing machine for a category, unexpected classifications, real crafting speeds). Assert invariants (the solve succeeds, mass balance holds, no negative flows, positive machine counts) rather than exact numbers, and pin exact values only for recipes stable enough to be worth it. An earlier version existed and was deleted in `f55c2db`. The data file is committed, so no skip gate is needed. The corpus cases in `spec/test-corpus.md` and `src/solver/corpus.test.ts` stay on synthetic fixtures so a mod-set re-export cannot break them (today the fixtures match the Nullius export, but nothing enforces it); do not pin them to the real data. To make that split explicit, consider renaming the corpus to "synthetic" (`spec/test-synthetic.md`, `src/solver/synthetic.test.ts`) and updating the references in `CLAUDE.md`, `spec/tech-stack.md`, `initiatives/README.md` and the archived docs so `npm run lint:docs` stays green.
 - [ ] **Dead code: `ModulePopover`.** The component is not rendered anywhere; only its file's `ModuleCell` and `isModuleAllowed*` exports are used. Delete the component (and its cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
 
 ## Ideas (not planned)

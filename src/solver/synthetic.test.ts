@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import type { GameData, GameRecipeNode, Machine, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
 
-// Synthetic fixtures mirroring the recipes of spec/test-corpus.md (Nullius export).
+// Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius export).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
+// Real-data checks are in index.integration.test.ts.
 
 type GameRecipe = GameData['recipes'][string]
 type Ingredient = GameRecipe['ingredients'][number]
@@ -146,7 +147,7 @@ function unsatisfiedRate(result: SolverResult, itemId: string): number | undefin
   return result.unsatisfied.find(u => u.itemId === itemId)?.rate
 }
 
-describe('solver corpus', () => {
+describe('solver synthetic cases', () => {
   it('case 1: linear chain with byproduct', () => {
     const r = run([['nullius-iron-plate', 60]], ['nullius-iron-plate', 'nullius-iron-ingot'])
     const plate = nodeOf(r, 'nullius-iron-plate')

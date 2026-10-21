@@ -1,13 +1,14 @@
-# Solver Test Corpus
+# Solver Synthetic Test Cases
 
 Six recipe chains of increasing complexity, all using recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it).
 
 These cases are the ground truth for the solver's expected output. They are
-automated in `src/solver/corpus.test.ts`, which uses synthetic fixtures mirroring
-the Nullius recipes at crafting speed 1. When a corpus value changes, update this
-file and that test together.
+automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
+the Nullius recipes at crafting speed 1. When a case value changes, update this
+file and that test together. Real-data coverage lives separately in
+`src/solver/index.integration.test.ts`; these cases must not be pinned to the real data.
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
 Real default machines have other speeds (e.g. the default `centrifuging` machine),
@@ -23,7 +24,7 @@ cases.
 Formula: `machineCount = throughput_exec_per_min × craftingTime_s / 60`
 
 Raw resources confirmed: `iron-ore` has no non-packaging non-hidden producer;
-`nullius-air` has no recipe at all (pump-only). The corpus plans contain no extraction rows (mining or offshore pump recipes), so ores and pumped fluids stay raw in every case.
+`nullius-air` has no recipe at all (pump-only). The synthetic plans contain no extraction rows (mining or offshore pump recipes), so ores and pumped fluids stay raw in every case.
 
 ---
 
