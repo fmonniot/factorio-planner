@@ -517,7 +517,10 @@ Deleting a block removes the connections
 that read from it (`removeBlock`), but imported or hand-edited JSON can still
 contain a source that does not exist or a cycle: the solver ignores those
 connections and reports them as `missing-source` / `cycle`. Plans saved before
-connections existed have no `inputConnections` field and load with `[]`. How the
+connections existed have no `inputConnections` field and load with `[]`. A connection may carry
+an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
+no limit (`0` loads as absent, like `pinnedRate`); clearing a limit deletes the key; a duplicated
+block or plan copies it. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan
@@ -658,7 +661,8 @@ interface ConnectionFlow {
   fromBlockId: string
   toBlockId: string
   itemId: string
-  available: number   // items/min the source still offered when this consumer was solved
+  available: number   // items/min this consumer could take: the source's unclaimed offer, limited by maxRate
+  capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`)
   rate: number        // items/min actually delivered
   status: ConnectionFlowStatus
 }
@@ -667,8 +671,9 @@ type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'cy
 ```
 
 `unused` means nothing is delivered and the consumer does not need an outside
-supply of the item; `limited` means the consumer takes everything on offer and
-still imports the item. `missing-source` and `cycle` flows have `rate` and
+supply of the item; `limited` means the consumer takes everything the connection
+allows (the source's offer or its `maxRate`; `capped` tells which) and still imports
+the item. `missing-source` and `cycle` flows have `rate` and
 `available` 0.
 
 What triggers each warning is described in [solver.md](solver.md); how the UI

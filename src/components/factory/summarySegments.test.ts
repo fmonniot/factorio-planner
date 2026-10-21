@@ -21,6 +21,7 @@ const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   toBlockId: 'B',
   itemId: 'iron-plate',
   available: 100,
+  capped: false,
   rate: 30,
   status: 'ok',
   ...over,
@@ -125,6 +126,12 @@ describe('ingredientSlot', () => {
     const slot = ingredientSlot(row, new Map([['c1', flow({ rate: 30 })]]), blocks)
     expect(shape(slot.segments)).toEqual([['from:A', 30], ['import', 10]])
     expect(slot.scale).toBe(40)
+  })
+
+  it('carries the connection limit on a capped source', () => {
+    const row = ingredientRow({ connections: [{ ...conn('c1', 'A'), maxRate: 30 }] })
+    const slot = ingredientSlot(row, new Map([['c1', flow({ rate: 30, status: 'limited', capped: true })]]), blocks)
+    expect(slot.segments[0]).toMatchObject({ limited: true, capped: true, maxRate: 30 })
   })
 
   it('marks a limited source', () => {
@@ -269,6 +276,9 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentTitle(seg('source'), ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
     expect(segmentTitle(seg('source', { limited: true }), ctx)).toBe(
       'Limited: Miner only offers 12.0/m — click to open, right-click to remove',
+    )
+    expect(segmentTitle(seg('source', { limited: true, capped: true, maxRate: 8 }), ctx)).toBe(
+      "Limited by this connection's limit of 8.0/m — click to open, right-click to remove",
     )
     expect(segmentTitle(ov('unused'), ctx)).toMatch(/^Not used: /)
     expect(segmentTitle(ov('missing-source'), ctx)).toMatch(/source block was deleted/)

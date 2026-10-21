@@ -366,6 +366,7 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
       toBlockId: block.id,
       itemId: c.itemId,
       available: 0,
+      capped: false,
       rate: 0,
       status,
     }
@@ -377,6 +378,7 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
     const caps = new Map<string, number>()      // item id → total on offer
     const seen = new Set<string>()
     const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
+    const capped = new Set<string>() // connection ids whose maxRate is below the source's offer
     for (const c of block.inputConnections) {
       if (!blockIds.has(c.fromBlockId)) {
         flows.push(ignoredFlow(block, c, 'missing-source'))
@@ -387,7 +389,9 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
         const key = `${c.fromBlockId}\0${c.itemId}`
         const duplicate = seen.has(key)
         if (duplicate) duplicates.add(c.id)
-        const offer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        const sourceOffer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+        const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
+        if (c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE) capped.add(c.id)
         seen.add(key)
         active.push(c)
         available.set(c.id, offer)
@@ -436,6 +440,7 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
         toBlockId: block.id,
         itemId: c.itemId,
         available: offer,
+        capped: capped.has(c.id),
         rate,
         status,
       })

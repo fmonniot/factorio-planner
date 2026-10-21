@@ -25,7 +25,7 @@ function result(produces: Record<string, number> = {}, needs: Record<string, num
 }
 
 const flow = (over: Partial<ConnectionFlow>): ConnectionFlow => ({
-  connectionId: 'c', fromBlockId: 'S', toBlockId: 'T', itemId: 'plate', available: 0, rate: 0, status: 'ok', ...over,
+  connectionId: 'c', fromBlockId: 'S', toBlockId: 'T', itemId: 'plate', available: 0, capped: false, rate: 0, status: 'ok', ...over,
 })
 
 describe('isGoalItem', () => {

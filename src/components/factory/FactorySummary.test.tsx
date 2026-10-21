@@ -426,7 +426,7 @@ describe('FactorySummary — connections', () => {
   })
   const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
     connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-ore',
-    available: 30, rate: 30, status: 'ok', ...over,
+    available: 30, capped: false, rate: 30, status: 'ok', ...over,
   })
 
   function setupBlocks(opts: { activeId: 'consumer' | 'miner', connected: boolean, result?: SolverResult, flows?: ConnectionFlow[], minerOffers?: boolean }) {

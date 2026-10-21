@@ -36,16 +36,18 @@ const consumerResult = (): SolverResult => ({
   unsatisfied: [{ itemId: 'iron-ore', rate: 30 }],
   warnings: [],
 })
-const flow = (): ConnectionFlow => ({
+const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-ore',
-  available: 30, rate: 30, status: 'ok',
+  available: 30, capped: false, rate: 30, status: 'ok', ...over,
 })
 
-function setup(opts: { connected?: boolean } = {}) {
+function setup(opts: { connected?: boolean; maxRate?: number; flow?: Partial<ConnectionFlow> } = {}) {
   const consumer: Block = {
     ...makeEmptyBlock('Consumer'), id: 'consumer',
     goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
-    inputConnections: opts.connected ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner' }] : [],
+    inputConnections: opts.connected
+      ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }) }]
+      : [],
   }
   const miner: Block = {
     ...makeEmptyBlock('Miner'), id: 'miner',
@@ -55,7 +57,7 @@ function setup(opts: { connected?: boolean } = {}) {
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     lastResults: { miner: minerResult(), consumer: consumerResult() },
-    flows: opts.connected ? [flow()] : [],
+    flows: opts.connected ? [flow(opts.flow)] : [],
     _setStatus: () => {},
   })
 }
@@ -174,6 +176,66 @@ describe('BlockGraph', () => {
     fireEvent.click(screen.getByTestId('graph-edge-remove'))
     expect(consumerIn().inputConnections).toEqual([])
     expect(useBlockStore.getState().activeBlockId).toBe('consumer')
+  })
+
+  describe('connection limit', () => {
+    const limitOf = () => consumerIn().inputConnections[0].maxRate
+    const startEdit = () => fireEvent.click(screen.getByTestId('graph-edge-limit'))
+    const type = (value: string) => fireEvent.change(screen.getByRole('spinbutton', { name: 'Connection limit' }), { target: { value } })
+    const enter = () => fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Enter' })
+
+    it('sets a limit from the edge label', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      startEdit()
+      type('10')
+      enter()
+      expect(limitOf()).toBe(10)
+      expect(screen.getByTestId('graph-edge-limit').textContent).toContain('≤')
+    })
+
+    it('converts the typed value from items/s', () => {
+      setup({ connected: true })
+      useUiStore.setState({ rateUnit: 'sec' })
+      render(<BlockGraphButton />)
+      open()
+      startEdit()
+      type('1')
+      enter()
+      expect(limitOf()).toBe(60)
+    })
+
+    it('shows an existing limit and clears it with an empty input', () => {
+      setup({ connected: true, maxRate: 20 })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-edge-limit').textContent).toContain('≤ 20')
+      startEdit()
+      type('')
+      enter()
+      expect(limitOf()).toBeUndefined()
+      expect('maxRate' in consumerIn().inputConnections[0]).toBe(false)
+    })
+
+    it('cancels with Escape without closing the graph', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      startEdit()
+      type('10')
+      fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
+      expect(limitOf()).toBeUndefined()
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    })
+
+    it('titles a chip held back by its limit', () => {
+      setup({ connected: true, maxRate: 20, flow: { status: 'limited', capped: true, available: 20, rate: 20 } })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-edge-label').getAttribute('title')).toMatch(/^Limited by this connection's limit/)
+    })
   })
 
   it('shows a dash for a connection that has not been solved yet', () => {

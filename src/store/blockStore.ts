@@ -195,6 +195,20 @@ export function clonePlan(appState: AppState): AppState {
   }
 }
 
+/** Set or clear a connection's limit; clearing deletes the key so undo restores equality. */
+function withMaxRate(block: Block, connectionId: string, maxRate: number | undefined): Block {
+  return {
+    ...block,
+    inputConnections: block.inputConnections.map(c => {
+      if (c.id !== connectionId) return c
+      if (maxRate !== undefined) return { ...c, maxRate }
+      const rest = { ...c }
+      delete rest.maxRate
+      return rest
+    }),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store state and actions
 // ---------------------------------------------------------------------------
@@ -231,6 +245,8 @@ export interface BlockStoreState {
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
   addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string) => void
   removeInputConnection: (connectionId: string, toBlockId?: string) => void
+  /** Cap what the consumer takes over a connection (items/min); undefined removes the cap. */
+  setConnectionMaxRate: (connectionId: string, maxRate: number | undefined, toBlockId?: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -550,6 +566,22 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         },
         // Undoing a removal re-adds the edge, which may close a cycle by now.
         canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
+      }
+      return applyCommand(state, cmd, targetId)
+    }),
+
+  setConnectionMaxRate: (connectionId, maxRate, toBlockId) =>
+    set(state => {
+      const targetId = toBlockId ?? state.activeBlockId
+      const block = state.blocks.find(b => b.id === targetId)
+      const connection = block?.inputConnections.find(c => c.id === connectionId)
+      if (!block || !connection) return state
+      if (connection.maxRate === maxRate) return state
+      if (maxRate !== undefined && !(isFinite(maxRate) && maxRate > 0)) return state
+      const oldMax = connection.maxRate
+      const cmd: Command = {
+        apply: b => withMaxRate(b, connectionId, maxRate),
+        undo: b => withMaxRate(b, connectionId, oldMax),
       }
       return applyCommand(state, cmd, targetId)
     }),

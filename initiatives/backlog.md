@@ -25,7 +25,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
-- [ ] **Connection management.** Let the user limit how much a consumer may take (per-connection cap). Also let the user remove a connection.
 - [ ] **Skip re-solving unchanged blocks.** Every edit re-solves all blocks (up to two LPs each); memoise per block or move the solve to a worker if large plans get slow.
 - [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).
 - [ ] **Recipe picker "Made in" tooltip ignores the horizon.** It lists every machine of the category.

@@ -25,6 +25,10 @@ export interface Segment {
   limited?: boolean
   /** items/min the source offered; source only, for the limited-source title */
   available?: number
+  /** source only: the connection's limit, not the source, bounds `available` */
+  capped?: true
+  /** items/min limit of the connection; set with `capped` */
+  maxRate?: number
 }
 
 /** Marks drawn across the whole bar instead of taking a share of it. */
@@ -182,6 +186,9 @@ export function ingredientSlot(
           connectionId: c.id,
           available: flow!.available,
           ...(status === 'limited' ? { limited: true } : {}),
+          ...(status === 'limited' && flow!.capped && c.maxRate !== undefined
+            ? { capped: true as const, maxRate: c.maxRate }
+            : {}),
         })
       }
     } else {
@@ -287,10 +294,15 @@ export function segmentTitle(
   switch (e.kind) {
     case 'export':
       return `Sends ${itemName} to ${blockName ?? GONE} — click to open`
-    case 'source':
-      return (e as Segment).limited
+    case 'source': {
+      const seg = e as Segment
+      if (seg.limited && seg.capped && seg.maxRate !== undefined) {
+        return `Limited by this connection's limit of ${fmt(seg.maxRate)}${unit} — click to open, right-click to remove`
+      }
+      return seg.limited
         ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit} — click to open, right-click to remove`
         : `${itemName} from ${blockName ?? GONE} — click to open, right-click to remove`
+    }
     case 'unused':
       return 'Not used: this block makes or needs none from outside — right-click to remove'
     case 'missing-source':

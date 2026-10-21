@@ -342,6 +342,8 @@ export const BlockConnectionSchema = z.object({
   itemId: z.string(),
   /** Block whose net output of itemId supplies this block. */
   fromBlockId: z.string(),
+  /** Most this consumer takes over this connection, items/min; absent = no limit. */
+  maxRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
 })
 
 export const BlockSchema = z.preprocess(

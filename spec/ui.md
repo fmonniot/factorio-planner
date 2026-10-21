@@ -156,7 +156,11 @@ near-full-screen modal showing every block and the connections between them, lik
   block has a teal ring. Clicking a node makes that block active and closes the graph.
 - **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
   then ok, then not used, then cycle, which is dashed). Each connection is a chip: item icon,
-  delivered rate (`—` before the first solve) and `×`, which removes the connection at once.
+  delivered rate (`—` before the first solve), the limit control and `×`, which removes the
+  connection at once. The limit control reads `≤` (no limit) or `≤ N` and opens an inline number
+  input (display unit); Enter or blur commits, an empty field clears the limit, Escape cancels
+  without closing the graph. A chip held back by its limit has the title "Limited by this
+  connection's limit of N".
   The chips of an edge are stacked in the gutter just before the consumer's column, which never
   holds a node, at the height of the edge there; chips of different edges sharing a gutter are
   pushed apart so none covers another; if a tall stack would reach above the first row, the whole
@@ -525,7 +529,7 @@ The solver's `unsatisfied` list: everything the block must import (goal shortfal
 
 - Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Receive from…** opens `ConnectionMenu` under the button; **Forbid imports** / **Allow imports**. A plain left click on a slot only selects it, locked or not.
 - Right-clicking a slot opens `ConnectionMenu` under the slot, except on a goal shortfall, which has no menu: goals are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a goal item can still exist (the lock predates the goal, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu lists "Receive <item> from" with one entry per other block that still has the item to give (the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed), excluding blocks already connected for that item and blocks that would close a cycle. Choosing one adds a connection to the active block. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block produces this item". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
-- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N"; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · cycle, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable).
+- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · cycle, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable).
 - A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
 ### Warnings popover

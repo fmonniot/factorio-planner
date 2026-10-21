@@ -484,6 +484,34 @@ describe('parseAppState — inputConnections', () => {
     expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
     expect(state.blocks[1].inputConnections).toEqual(connections)
   })
+
+  describe('maxRate', () => {
+    const parseWith = (maxRate?: number) => parseAppState({
+      blocks: [
+        blockJson({ id: 'b0' }),
+        blockJson({ inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: 'b0', ...(maxRate === undefined ? {} : { maxRate }) }] }),
+      ],
+      activeBlockId: 'b1',
+    })
+
+    it('round-trips a limit through JSON', () => {
+      const state = parseWith(25)
+      expect(state.blocks[1].inputConnections[0].maxRate).toBe(25)
+      expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+    })
+
+    it('loads a connection without a limit with no key', () => {
+      expect('maxRate' in parseWith().blocks[1].inputConnections[0]).toBe(false)
+    })
+
+    it('reads a limit of 0 as no limit', () => {
+      expect(parseWith(0).blocks[1].inputConnections[0].maxRate).toBeUndefined()
+    })
+
+    it('rejects a negative limit', () => {
+      expect(() => parseWith(-1)).toThrow(AppStateLoadError)
+    })
+  })
 })
 
 describe('parsePlanDataSetStamp', () => {

@@ -4,6 +4,7 @@ import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solv
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
+import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
@@ -43,10 +44,11 @@ function GoalRates({ goal, info, rateUnit, editing, onStart, onStop, onUpdateRat
     <span className="flex items-center gap-1 text-xs">
       {/* Target rate — editable */}
       {editing ? (
-        <TargetInput
+        <RateInput
           initial={targetDisplay}
           rateUnit={rateUnit}
-          onCommit={onUpdateRate}
+          ariaLabel="Goal target rate"
+          onCommit={perMin => perMin !== undefined && onUpdateRate(perMin)}
           onStop={onStop}
         />
       ) : (
@@ -78,54 +80,6 @@ function GoalRates({ goal, info, rateUnit, editing, onStart, onStop, onUpdateRat
 
       <span className="text-gray-600 text-[10px]">{unitLabel}</span>
     </span>
-  )
-}
-
-function TargetInput({
-  initial,
-  rateUnit,
-  onCommit,
-  onStop,
-}: {
-  initial: string
-  rateUnit: RateUnit
-  onCommit: (perMin: number) => void
-  onStop: () => void
-}) {
-  const [draft, setDraft] = useState(initial)
-
-  function commit() {
-    const v = parseFloat(draft)
-    if (isFinite(v) && v > 0) {
-      // Convert from display unit back to items/min for storage
-      onCommit(rateUnit === 'min' ? v : v * 60)
-    }
-    onStop()
-  }
-
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commit()
-    if (e.key === 'Escape') {
-      // Cancel the edit only: the pane must not also clear the selection.
-      e.preventDefault()
-      e.stopPropagation()
-      onStop()
-    }
-  }
-
-  return (
-    <input
-      type="number"
-      min="0.001"
-      step="any"
-      autoFocus
-      aria-label="Goal target rate"
-      value={draft}
-      onChange={e => setDraft(e.target.value)}
-      onBlur={commit}
-      onKeyDown={handleKeyDown}
-      className="w-14 bg-gray-700 text-yellow-300 rounded px-1 py-0 border border-yellow-600 outline-none text-right tabular-nums text-[11px]"
-    />
   )
 }
 
