@@ -55,7 +55,7 @@ To regenerate game data, follow [README.md — Exporting game data](README.md#ex
 ## Tests
 
 - Unit tests live beside the source as `*.test.ts` / `*.test.tsx`; build-script tests live in `scripts/__tests__/`; Playwright specs in `e2e/`.
-- **Corpus cases** in [spec/test-corpus.md](spec/test-corpus.md) are the ground truth for solver behaviour. They are automated in `src/solver/corpus.test.ts`; update the spec and that test together when a corpus value changes.
+- **Synthetic cases** in [spec/test-synthetic.md](spec/test-synthetic.md) are the ground truth for solver behaviour. They are automated in `src/solver/synthetic.test.ts`; update the spec and that test together when a synthetic-case value changes. They stay on synthetic fixtures; real-data solver invariants live in `src/solver/index.integration.test.ts`.
 - **Fixture hygiene:** fixture factory functions must return a fresh object each call (a new literal or `structuredClone(...)`). Shared mutable fixtures cause hard-to-diagnose test ordering bugs.
 - **Vitest API:** the message goes on `expect(value, 'message')`, not `expect(value).toBe(true, 'message')` — the latter is a TypeScript error.
 - **Testing preference:** when a plan includes validation steps, prefer Playwright e2e tests (in `e2e/`) over manual browser checks. Fall back to manual testing only when the scenario cannot be automated.
@@ -72,7 +72,7 @@ Read these before making decisions that affect core behaviour:
 | [spec/tech-stack.md](spec/tech-stack.md) | Technology choices, rationale, CI and deploy |
 | [spec/solver.md](spec/solver.md) | LP formulation, solver pipeline, warnings, machine metrics |
 | [spec/data-model.md](spec/data-model.md) | Field-level game-data and plan-state model |
-| [spec/test-corpus.md](spec/test-corpus.md) | 6 corpus cases with full derivations — ground truth for the solver |
+| [spec/test-synthetic.md](spec/test-synthetic.md) | 6 synthetic cases with full derivations — ground truth for the solver |
 | [spec/ui.md](spec/ui.md) | The production-table UI as it is today |
 | [initiatives/README.md](initiatives/README.md) | Index of active and archived initiatives |
 | [initiatives/backlog.md](initiatives/backlog.md) | Planned and possible work, known bugs |
@@ -107,11 +107,11 @@ After changing source files, update the relevant docs so that a new session can 
 
 | What changed | What to update |
 |---|---|
-| Solver algorithm (`src/solver/`) | [spec/solver.md](spec/solver.md); [spec/test-corpus.md](spec/test-corpus.md) if expected corpus values changed |
+| Solver algorithm (`src/solver/`) | [spec/solver.md](spec/solver.md); [spec/test-synthetic.md](spec/test-synthetic.md) if expected synthetic-case values changed |
 | Data model (`src/data/schema.ts`, `types.ts`) | [spec/data-model.md](spec/data-model.md) |
 | UI behaviour or layout (`src/components/`) | [spec/ui.md](spec/ui.md); README "Using the planner" if user-visible |
 | File or directory added/removed/renamed | README [repository map](README.md#repository-map) |
 | Technology or tooling change | [spec/tech-stack.md](spec/tech-stack.md); Commands section in this file |
 | Backlog item done | Remove it from [initiatives/backlog.md](initiatives/backlog.md) (or update its `[~]` note) |
 | Initiative shipped | `git mv initiatives/<name> initiatives/archive/<name>`, fix in-folder paths, update [initiatives/README.md](initiatives/README.md) |
-| New corpus case added | [spec/test-corpus.md](spec/test-corpus.md) |
+| New synthetic case added | [spec/test-synthetic.md](spec/test-synthetic.md) |

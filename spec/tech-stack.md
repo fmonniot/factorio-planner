@@ -64,12 +64,12 @@ Vitest runs three projects (see `vitest.config.ts`): `dom` (component tests unde
 |---|---|---|
 | Solver unit tests | Vitest (`node`) | LP construction, slack and surplus reporting, pins, byproduct consumers, effects and machine metrics |
 | Store / data tests | Vitest (`node`) | Store actions, persistence and migration, schema parsing |
-| Integration | Vitest (`node`) | Loading the committed Nullius `game-data.json` against the schema |
+| Integration | Vitest (`node`) | Loading the committed Nullius `game-data.json` against the schema; solver invariants on that real data (`src/solver/index.integration.test.ts`) |
 | Component tests | React Testing Library + Vitest (`dom`) | Item picker, recipe row interactions, modal flows, goal CRUD |
 | Build scripts | Vitest (`scripts`) | Icon layer compositing against golden images |
 | E2E | Playwright | Full plan creation flows against the dev server (Nullius data) |
 
-The corpus cases in [test-corpus.md](test-corpus.md) are the reference values for the solver; they are automated in `src/solver/corpus.test.ts`.
+The synthetic cases in [test-synthetic.md](test-synthetic.md) are the reference values for the solver; they are automated in `src/solver/synthetic.test.ts`. They stay on synthetic fixtures so a re-export cannot break it, while `src/solver/index.integration.test.ts` asserts invariants (finite non-negative flows, positive machine counts, mass balance, a machine for every recipe category) on the real export and may need updating when the data is re-exported.
 
 ---
 
