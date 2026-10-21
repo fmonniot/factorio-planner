@@ -1,4 +1,9 @@
 import { describe, it, expect } from 'vitest'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, dirname } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import {
   parseCfg, buildLocaleMap, expandPlaceholders, resolveLocale,
   resolveTechnologyName, resolveRecipeName, parsePrototypeLocale, gameName,
@@ -249,6 +254,20 @@ describe('game-resolved names', () => {
     expect(resolveTechnologyName({ name: 'mining-productivity-2' }, l, makeGame())).toBe('Mining productivity 2')
   })
 
+  it('technology: an infinite level whose game name duplicates the base or a sibling gets its level', () => {
+    const game = { technology: { toolbelt: 'Toolbelt', 'toolbelt-2': 'Toolbelt 2', 'toolbelt-5': 'Toolbelt' } }
+    expect(resolveTechnologyName({ name: 'toolbelt-5' }, makeLocale(), game)).toBe('Toolbelt 5')
+    expect(resolveTechnologyName({ name: 'toolbelt-2' }, makeLocale(), game)).toBe('Toolbelt 2')
+    const sib = { technology: { 'x-1': 'Foo', 'x-2': 'Foo' } }
+    expect(resolveTechnologyName({ name: 'x-2' }, makeLocale(), sib)).toBe('Foo 2')
+  })
+
+  it('technology: a distinct unnumbered game name is kept as is', () => {
+    const game = { technology: { 'mining-productivity-3': 'Mining productivity 3', 'mining-productivity-4': 'Mining productivity' } }
+    expect(resolveTechnologyName({ name: 'mining-productivity-4' }, makeLocale(), game)).toBe('Mining productivity')
+    expect(resolveTechnologyName({ name: 'lonely-1' }, makeLocale(), { technology: { 'lonely-1': 'Lonely' } })).toBe('Lonely')
+  })
+
   it('recipe: the game name wins', () => {
     const l = makeLocale()
     l['recipe-name.r'] = 'Flat recipe'
@@ -261,5 +280,39 @@ describe('game-resolved names', () => {
     expect(resolveRecipeName({ name: 's' }, 'iron-plate', l, makeGame())).toBe('Flat recipe')
     expect(resolveRecipeName({ name: 't', localised_name: ['entity-name.boiler'] }, undefined, l, makeGame())).toBe('Boiler')
     expect(resolveRecipeName({ name: 'u' }, 'iron-plate', l, makeGame())).toBe('Iron plate')
+  })
+})
+
+describe('build-game-data locale files (CLI)', () => {
+  const script = join(dirname(fileURLToPath(import.meta.url)), '..', 'build-game-data.js')
+
+  function run(files, extra = []) {
+    const dir = mkdtempSync(join(tmpdir(), 'locale-cli-'))
+    mkdirSync(join(dir, 'f')); mkdirSync(join(dir, 'm'))
+    writeFileSync(join(dir, 'dump.json'), '{}')
+    for (const [name, text] of Object.entries(files)) writeFileSync(join(dir, name), text)
+    const r = spawnSync('node', [script, '--dump', join(dir, 'dump.json'), '--factorio-dir', join(dir, 'f'),
+      '--mods-dir', join(dir, 'm'), '--output', join(dir, 'out.json'), '--icons-out', join(dir, 'i'), ...extra],
+    { encoding: 'utf8' })
+    return { ...r, dir }
+  }
+
+  it('fails naming the file when a locale file is not valid JSON', () => {
+    const r = run({ 'item-locale.json': '{bad' })
+    expect(r.status).not.toBe(0)
+    expect(r.stderr).toContain('item-locale.json')
+  })
+
+  it('does not count a file without names and warns about it', () => {
+    const r = run({ 'item-locale.json': '{}', 'fluid-locale.json': '{"names":{"water":"Water"}}' })
+    expect(r.stderr).toContain('item-locale.json has no names')
+    expect(r.stderr).toContain('Game locale files: 1/6')
+    expect(r.stderr).toContain('missing for: item, entity')
+  })
+
+  it('--patch-names exits non-zero unless all game locale files are loaded', () => {
+    const r = run({ 'fluid-locale.json': '{"names":{"water":"Water"}}' }, ['--patch-names'])
+    expect(r.status).toBe(1)
+    expect(r.stderr).toContain('--locale-dir')
   })
 })

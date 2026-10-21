@@ -36,7 +36,9 @@
  * bundle (the research horizon uses it to gate machines and beacons).
  *
  * Names patch mode: recompute only the `name` fields of an existing bundle
- * (locale placeholders such as `__ITEM__x__` are expanded). Same mod-set check:
+ * from the game's resolved names (the <type>-locale.json files in --locale-dir,
+ * default: the dump's directory; all of them are required, else it exits).
+ * Same mod-set check:
  *   node scripts/build-game-data.js --patch-names \
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
@@ -381,11 +383,15 @@ const ITEM_SUBTYPES = [
   'spidertron-remote',
 ]
 
-const itemName    = (proto, locale) => gameName(locale.game, ['item'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-name', 'entity-name')
-const fluidName   = (proto, locale) => gameName(locale.game, ['fluid'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'fluid-name')
-const entityName  = (proto, locale) => gameName(locale.game, ['entity'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'entity-name')
-const moduleName  = (proto, locale) => gameName(locale.game, ['item'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-name')
-const groupName   = (proto, locale) => gameName(locale.game, ['item-group'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-group-name')
+/** Game-resolved name of `proto` (first of `types` that has it), else the merged-locale-map resolution. */
+const resolveName = (proto, locale, types, scopes) =>
+  gameName(locale.game, types, proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, ...scopes)
+
+const itemName    = (proto, locale) => resolveName(proto, locale, ['item'], ['item-name', 'entity-name'])
+const fluidName   = (proto, locale) => resolveName(proto, locale, ['fluid'], ['fluid-name'])
+const entityName  = (proto, locale) => resolveName(proto, locale, ['entity'], ['entity-name'])
+const moduleName  = (proto, locale) => resolveName(proto, locale, ['item'], ['item-name'])
+const groupName   = (proto, locale) => resolveName(proto, locale, ['item-group'], ['item-group-name'])
 
 async function exportItems(raw, locale, resolveIcon) {
   const items = {}
@@ -697,20 +703,38 @@ const resolvers = buildResolverMap(factorioDir, modsDir)
 process.stderr.write(`[build-game-data] Loaded ${Object.keys(resolvers).length} mod resolvers\n`)
 
 process.stderr.write(`[build-game-data] Parsing locale files...\n`)
-const localeMapEntries = buildLocaleMap(resolvers)
-process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMapEntries).length}\n`)
+const localeMap = buildLocaleMap(resolvers)
+process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap).length}\n`)
 
 // The game's own resolved names (`factorio --dump-prototype-locale`).
 const game = {}
+const emptyGameFiles = []
 for (const type of GAME_NAME_FILES) {
   const file = join(localeDir, `${type}-locale.json`)
-  if (existsSync(file)) game[type] = parsePrototypeLocale(readFileSync(file, 'utf8'))
+  if (!existsSync(file)) continue
+  let names
+  try {
+    names = parsePrototypeLocale(readFileSync(file, 'utf8'))
+  } catch (err) {
+    process.stderr.write(`[build-game-data] Cannot parse ${file}: ${err.message}\n`)
+    process.exit(1)
+  }
+  if (Object.keys(names).length === 0) emptyGameFiles.push(file)
+  else game[type] = names
 }
+for (const file of emptyGameFiles) process.stderr.write(`[warn] ${file} has no names; ignoring it\n`)
+const missingGameTypes = GAME_NAME_FILES.filter(t => !(t in game))
 process.stderr.write(`[build-game-data] Game locale files: ${Object.keys(game).length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
 if (Object.keys(game).length === 0) {
-  process.stderr.write(`[warn] No game locale files found: names come from the merged locale map only (ignores mod load order). Run factorio --dump-prototype-locale.\n`)
+  process.stderr.write(`[warn] No game locale files found: names come from the merged locale map only (ignores mod load order). Run factorio --dump-prototype-locale or pass --locale-dir.\n`)
+} else if (missingGameTypes.length > 0) {
+  process.stderr.write(`[warn] Game locale files missing for: ${missingGameTypes.join(', ')}; those names come from the merged locale map.\n`)
 }
-const locale = { map: localeMapEntries, game }
+if (args.patchNames && missingGameTypes.length > 0) {
+  process.stderr.write(`[build-game-data] --patch-names needs all ${GAME_NAME_FILES.length} game locale files (missing: ${missingGameTypes.join(', ')}); patching from the merged locale map alone would regress names. Pass --locale-dir or run factorio --dump-prototype-locale.\n`)
+  process.exit(1)
+}
+const locale = { map: localeMap, game }
 
 const { modSet, factorioVersion } = computeModSet()
 
