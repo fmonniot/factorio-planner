@@ -509,6 +509,65 @@ describe('input connections', () => {
     expect(useBlockStore.getState().history[otherId()].undoStack).toHaveLength(1)
   })
 
+  describe('setConnectionMaxRate', () => {
+    const store = () => useBlockStore.getState()
+    const connect = () => {
+      store().addInputConnection('plate', sourceId)
+      return active().inputConnections[0].id
+    }
+
+    it('sets a limit, undo removes the key and redo restores it', () => {
+      const id = connect()
+      store().setConnectionMaxRate(id, 20)
+      expect(active().inputConnections[0].maxRate).toBe(20)
+      store().undo()
+      expect(active().inputConnections[0]).toEqual({ id, itemId: 'plate', fromBlockId: sourceId })
+      expect('maxRate' in active().inputConnections[0]).toBe(false)
+      store().redo()
+      expect(active().inputConnections[0].maxRate).toBe(20)
+    })
+
+    it('clearing a limit drops the key and undo restores the old value', () => {
+      const id = connect()
+      store().setConnectionMaxRate(id, 20)
+      store().setConnectionMaxRate(id, undefined)
+      expect('maxRate' in active().inputConnections[0]).toBe(false)
+      store().undo()
+      expect(active().inputConnections[0].maxRate).toBe(20)
+    })
+
+    it.each([0, -5, NaN, Infinity])('ignores %s', value => {
+      const id = connect()
+      const depth = store().history[activeId].undoStack.length
+      store().setConnectionMaxRate(id, value)
+      expect('maxRate' in active().inputConnections[0]).toBe(false)
+      expect(store().history[activeId].undoStack).toHaveLength(depth)
+    })
+
+    it('is a no-op for the same value or an unknown connection', () => {
+      const id = connect()
+      store().setConnectionMaxRate(id, 20)
+      const before = store().blocks
+      store().setConnectionMaxRate(id, 20)
+      store().setConnectionMaxRate('ghost', 5)
+      expect(store().blocks).toBe(before)
+    })
+
+    it('can target a block that is not active and its undo lives there', () => {
+      store().addInputConnection('plate', sourceId, otherId())
+      const other = () => store().blocks.find(b => b.id === otherId())!
+      const id = other().inputConnections[0].id
+      store().setConnectionMaxRate(id, 15, otherId())
+      expect(other().inputConnections[0].maxRate).toBe(15)
+      expect(store().history[otherId()].undoStack).toHaveLength(2)
+      store().undo()
+      expect(other().inputConnections[0].maxRate).toBe(15)
+      store().setActiveBlock(otherId())
+      store().undo()
+      expect(other().inputConnections[0].maxRate).toBeUndefined()
+    })
+  })
+
   it('addInputConnection ignores an unknown target block', () => {
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().addInputConnection('plate', sourceId, 'ghost')
@@ -689,6 +748,12 @@ describe('clonePlan', () => {
     expect(new Set(fresh).size).toBe(fresh.length)
   })
 
+  it('copies a connection limit', () => {
+    const plan = makePlan()
+    plan.blocks[1].inputConnections[0].maxRate = 25
+    expect(clonePlan(plan).blocks[1].inputConnections[0].maxRate).toBe(25)
+  })
+
   it('remaps connections and the active block to the copies', () => {
     const copy = clonePlan(makePlan())
     expect(copy.blocks[1].inputConnections[0].fromBlockId).toBe(copy.blocks[0].id)
@@ -784,6 +849,12 @@ describe('duplicateBlock', () => {
     const node = copy.rootPlan.nodes.find(n => n.kind === 'subplan')
     expect(node?.kind === 'subplan' && node.subPlanId).toBe(copy.rootPlan.subPlans[0].id)
     expect(copy.rootPlan.subPlans[0].id).not.toBe(original.rootPlan.subPlans[0].id)
+  })
+
+  it('copies a connection limit', () => {
+    original.inputConnections[0].maxRate = 25
+    useBlockStore.getState().duplicateBlock(original.id)
+    expect(blocks()[1].inputConnections[0]).toMatchObject({ itemId: 'iron-plate', maxRate: 25 })
   })
 
   it('copies input connections but not connections reading from the original', () => {

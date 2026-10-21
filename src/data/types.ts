@@ -75,13 +75,16 @@ export interface ConnectionFlow {
   fromBlockId: string
   toBlockId: string
   itemId: string
-  /** items/min the source still offered when this consumer was solved */
+  /** items/min this consumer could take over this connection: the source's unclaimed offer, limited by `maxRate` */
   available: number
+  /** true when `maxRate` is below the source's unclaimed offer, so the limit, not the source, bounds `available` */
+  capped: boolean
   /** items/min actually delivered */
   rate: number
   /**
    * unused: rate ≤ 1e-6 (the consumer makes the item itself or needs none);
-   * limited: rate ≥ available − 1e-6 and the consumer still imports the item.
+   * limited: rate ≥ available − 1e-6 and the consumer still imports the item
+   * (the source or the connection's limit is the bound; `capped` tells which).
    */
   status: ConnectionFlowStatus
 }

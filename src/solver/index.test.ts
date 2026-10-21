@@ -386,6 +386,59 @@ describe('solveAll', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
   })
 
+  it('stops a connection at its limit and reports the shortfall as imported', () => {
+    const all = solveAll([
+      block('A', plateGoal(100), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 20 }]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1')).toMatchObject({ available: 20, capped: true, status: 'limited' })
+    expect(flowOf(all, 'c1').rate).toBeCloseTo(20, 4)
+    expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(40, 4)
+  })
+
+  it('keeps a limit above the need ok but capped', () => {
+    const all = solveAll([
+      block('A', plateGoal(200), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 100 }]),
+    ], connectionGameData())
+    expect(flowOf(all, 'c1')).toMatchObject({ capped: true, status: 'ok' })
+    expect(flowOf(all, 'c1').rate).toBeCloseTo(60, 4)
+  })
+
+  it('does not call a limit above the source offer capped', () => {
+    const all = solveAll([
+      block('A', plateGoal(30), [planNode('p', 'plate')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 50 }]),
+    ], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.available).toBeCloseTo(30, 4)
+    expect(f.capped).toBe(false)
+    expect(f.status).toBe('limited')
+  })
+
+  it('leaves what a limit holds back on offer for the next consumer', () => {
+    const all = solveAll([
+      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('B', gearGoal(15), [planNode('g', 'gear')], [{ ...link('cb', 'A'), maxRate: 10 }]),
+      block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
+    ], connectionGameData())
+    expect(flowOf(all, 'cb').rate).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'cc').rate).toBeCloseTo(30, 4)
+    expect(flowOf(all, 'cc').available).toBeCloseTo(30, 4)
+  })
+
+  it('applies a limit below the residual of an item the consumer also makes', () => {
+    const all = solveAll([
+      block('A', plateGoal(100), [planNode('p', 'plate')]),
+      block('B', gearGoal(25), [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)], [{ ...link('c1', 'A'), maxRate: 10 }]),
+    ], connectionGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.rate).toBeCloseTo(10, 4)
+    expect(f.capped).toBe(true)
+    expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+    expect(all.results.B.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+  })
+
   it('marks the flow unused when the consumer makes the item itself', () => {
     const all = solveAll([
       block('A', plateGoal(60), [planNode('p', 'plate')]),

@@ -13,6 +13,8 @@ import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
 import { fmtRate } from './ItemTile'
+import { RateInput } from './RateInput'
+import { cappedTitle, cappingLimit } from './summarySegments'
 import type { Block, ConnectionFlow, GameData, Item } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -185,9 +187,11 @@ interface EdgeLabelsProps {
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
   onRemove: (connectionId: string, toBlockId: string) => void
+  onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
 
-function EdgeLabels({ edge, blocks, flowsById, items, onRemove }: EdgeLabelsProps) {
+function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: EdgeLabelsProps) {
+  const [editingId, setEditingId] = useState<string | null>(null)
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
@@ -210,7 +214,10 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove }: EdgeLabelsProp
         const itemName = item?.name ?? connection.itemId
 
         let title = `${itemName}: ${sourceName} → ${targetName}`
-        if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
+        const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
+        if (cap !== undefined) {
+          title = cappedTitle(`${fmt(cap)}${unit}`)
+        } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
         else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
         else if (status === 'cycle') title = 'Ignored: this connection forms a cycle'
 
@@ -232,6 +239,31 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove }: EdgeLabelsProp
               {flow ? fmt(flow.rate) : '—'}
               {flow && <span className="opacity-60">{unit}</span>}
             </span>
+            {editingId === id ? (
+              <RateInput
+                key={`${id}-${rateUnit}`}
+                initial={connection.maxRate !== undefined ? fmt(connection.maxRate) : ''}
+                rateUnit={rateUnit}
+                ariaLabel="Connection limit"
+                allowClear
+                onCommit={perMin => onSetLimit(id, edge.to, perMin)}
+                onStop={() => setEditingId(null)}
+              />
+            ) : (
+              <button
+                type="button"
+                data-testid="graph-edge-limit"
+                aria-label={`${connection.maxRate !== undefined ? 'Change limit of' : 'Limit'} ${itemName} from ${sourceName} to ${targetName}`}
+                title={`Most ${targetName} takes over this connection; click to edit, clear to remove`}
+                onClick={e => {
+                  e.stopPropagation()
+                  setEditingId(id)
+                }}
+                className={`text-[10px] font-mono tabular-nums leading-none hover:text-yellow-300 ${connection.maxRate !== undefined ? '' : 'opacity-60 hover:opacity-100'}`}
+              >
+                ≤{connection.maxRate !== undefined && ` ${fmt(connection.maxRate)}`}
+              </button>
+            )}
             <button
               type="button"
               data-testid="graph-edge-remove"
@@ -254,6 +286,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
 
@@ -386,6 +419,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 flowsById={flowsById}
                 items={gameData.items}
                 onRemove={(id, to) => removeInputConnection(id, to)}
+                onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
               />
             ))}
             {blocks.map(b => {

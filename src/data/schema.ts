@@ -337,12 +337,20 @@ function migrateBlock(input: unknown): unknown {
   }
 }
 
-export const BlockConnectionSchema = z.object({
-  id: z.string(),
-  itemId: z.string(),
-  /** Block whose net output of itemId supplies this block. */
-  fromBlockId: z.string(),
-})
+export const BlockConnectionSchema = z
+  .object({
+    id: z.string(),
+    itemId: z.string(),
+    /** Block whose net output of itemId supplies this block. */
+    fromBlockId: z.string(),
+    /** Most this consumer takes over this connection, items/min; absent = no limit. */
+    maxRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
+  })
+  // A saved 0 parses to a present-but-undefined key; keep the key truly absent.
+  .transform(c => {
+    if (c.maxRate === undefined) delete c.maxRate
+    return c
+  })
 
 export const BlockSchema = z.preprocess(
   migrateBlock,

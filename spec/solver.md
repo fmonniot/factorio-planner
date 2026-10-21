@@ -136,9 +136,9 @@ A `BlockConnection` on block B says "B receives item X from block A" (see [data-
 
 **Offer.** What a source can offer of X is `max(0, Σ outputRates[X] − Σ inputRates[X])` over its solved nodes (`netBalance`): goal output, surplus intermediates and byproducts. A block's received items are consumed by its own recipes, so it never re-exports them.
 
-**Solve order.** `orderBlocks` sorts blocks topologically (Kahn's algorithm, ties broken by position in `blocks`). `solveAll` keeps, per block, the offer still unclaimed. Several consumers of the same `(A, X)` are served in solve order, each getting what earlier ones left. Several sources of the same `(B, X)` are summed into one cap, and the amount delivered is split between them in `inputConnections` order. A block with no goals or no nodes offers and receives nothing.
+**Solve order.** `orderBlocks` sorts blocks topologically (Kahn's algorithm, ties broken by position in `blocks`). `solveAll` keeps, per block, the offer still unclaimed. Several consumers of the same `(A, X)` are served in solve order, each getting what earlier ones left. Several sources of the same `(B, X)` are summed into one cap, and the amount delivered is split between them in `inputConnections` order. A connection's optional `maxRate` caps its share of the offer; whatever the cap holds back stays on offer for consumers solved later. A block with no goals or no nodes offers and receives nothing.
 
-**What B takes.** `delivered = min(what B would otherwise import, what is still on offer)`, where "would otherwise import" depends on how X is classified in B:
+**What B takes.** `delivered = min(what B would otherwise import, what is still on offer, maxRate)`, where "would otherwise import" depends on how X is classified in B:
 
 - **Raw in B** (no recipe in B makes X): all of B's consumption of X. No LP change; after the solve `received = min(consumption, cap)` and the `rawConsumption` entry is reduced by it.
 - **Intermediate in B** (B can make X): the slack B needs for X after running its own recipes as far as they go. Pins, locked upstream items or missing upstream recipes limit how far that is.
@@ -155,7 +155,7 @@ Diagnostics come from the final pass only. The amount actually received is compu
 
 **Flow status** (`ConnectionFlow.status`, per connection):
 
-- `limited` — B still imports the item and takes everything on offer (`rate ≥ available − 1e-6`).
+- `limited` — B still imports the item and takes everything the connection allows, whether that is the source's offer or the connection's `maxRate` (`rate ≥ available − 1e-6`); `capped` tells which bound applies.
 - `unused` — otherwise, when `rate ≤ 1e-6` (B makes the item, or does not need it from outside), and always for a repeated `(fromBlockId, itemId)` pair. A goal item is never fed, so the UI does not offer a connection on a goal shortfall; a goal connection from imported JSON just reads `unused`.
 - `ok` — otherwise.
 - `missing-source` — the source block does not exist; the connection is ignored.

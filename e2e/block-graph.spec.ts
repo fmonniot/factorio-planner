@@ -106,6 +106,33 @@ test.describe('block graph', () => {
     await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
   })
 
+  test('limits a connection from its edge', async ({ page }) => {
+    await setup(page)
+    await openGraph(page)
+    await connectPlatesToGears(page)
+
+    await page.getByTestId('graph-edge-limit').click()
+    await page.getByRole('spinbutton', { name: 'Connection limit' }).fill('10')
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('graph-edge-label')).toContainText('10')
+    await expect(page.getByTestId('graph-edge-limit')).toContainText('≤')
+
+    // Gears (still the active block) takes 10 from Plates and imports the rest.
+    await closeGraph(page)
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('10.0')
+    await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
+
+    // Clearing the limit from the edge gives the plates back.
+    await openGraph(page)
+    await page.getByTestId('graph-edge-limit').click()
+    await page.getByRole('spinbutton', { name: 'Connection limit' }).fill('')
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('graph-edge-limit')).not.toContainText('10')
+    await closeGraph(page)
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('30.0')
+  })
+
   test('clicking a block opens it', async ({ page }) => {
     await setup(page)
     await openGraph(page)
