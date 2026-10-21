@@ -35,6 +35,7 @@ beforeEach(() => {
     blocks: [block],
     activeBlockId: block.id,
     horizonTechnologyIds: [],
+    defaultMachineOverrides: {},
     history: {},
   })
 })
@@ -567,7 +568,7 @@ describe('setHorizonTechnologyIds', () => {
   it('setAppState replaces the horizon', () => {
     const block = makeEmptyBlock('Other')
     useBlockStore.getState().setHorizonTechnologyIds(['a'])
-    useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['b'] })
+    useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: ['b'], defaultMachineOverrides: {} })
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['b'])
   })
 
@@ -578,6 +579,7 @@ describe('setHorizonTechnologyIds', () => {
       blocks: state.blocks,
       activeBlockId: state.activeBlockId,
       horizonTechnologyIds: ['a'],
+      defaultMachineOverrides: {},
     })
   })
 })
@@ -586,6 +588,49 @@ describe('setHorizonTechnologyIds', () => {
 // duplicateBlock
 // ---------------------------------------------------------------------------
 
+describe('default machine overrides', () => {
+  it('setDefaultMachine keeps the same state when the category already maps to that machine', () => {
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    const before = useBlockStore.getState()
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    expect(useBlockStore.getState()).toBe(before)
+    expect(useBlockStore.getState().defaultMachineOverrides).toBe(before.defaultMachineOverrides)
+  })
+
+  it('setDefaultMachine stores a new object and leaves blocks and history alone', () => {
+    const { blocks, history, defaultMachineOverrides: before } = useBlockStore.getState()
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    useBlockStore.getState().setDefaultMachine('smelting', 'furnace-2')
+    const state = useBlockStore.getState()
+    expect(state.defaultMachineOverrides).toEqual({ crafting: 'asm-1', smelting: 'furnace-2' })
+    expect(state.defaultMachineOverrides).not.toBe(before)
+    expect(before).toEqual({})
+    expect(state.blocks).toBe(blocks)
+    expect(state.history).toBe(history)
+  })
+
+  it('resetDefaultMachines clears the overrides and is a no-op when there are none', () => {
+    const empty = useBlockStore.getState().defaultMachineOverrides
+    useBlockStore.getState().resetDefaultMachines()
+    expect(useBlockStore.getState().defaultMachineOverrides, 'unchanged when empty').toBe(empty)
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    useBlockStore.getState().resetDefaultMachines()
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({})
+  })
+
+  it('setAppState and selectAppState round-trip the overrides', () => {
+    const block = makeEmptyBlock('Other')
+    useBlockStore.getState().setAppState({
+      blocks: [block],
+      activeBlockId: block.id,
+      horizonTechnologyIds: [],
+      defaultMachineOverrides: { crafting: 'asm-2' },
+    })
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
+    expect(selectAppState(useBlockStore.getState()).defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
+  })
+})
+
 describe('clonePlan', () => {
   function makePlan(): AppState {
     const a = makeEmptyBlock('A', '#112233')
@@ -593,7 +638,7 @@ describe('clonePlan', () => {
     a.rootPlan.nodes = [{ ...ironNode, id: 'node-a' }]
     const b = makeEmptyBlock('B', '#445566')
     b.inputConnections = [{ id: 'conn-b', itemId: 'iron-plate', fromBlockId: a.id }]
-    return { blocks: [a, b], activeBlockId: b.id, horizonTechnologyIds: ['tech-x'] }
+    return { blocks: [a, b], activeBlockId: b.id, horizonTechnologyIds: ['tech-x'], defaultMachineOverrides: { crafting: 'asm' } }
   }
 
   function collectIds(plan: AppState): string[] {
@@ -629,6 +674,13 @@ describe('clonePlan', () => {
     expect(copy.blocks.map(b => b.name)).toEqual(['A', 'B'])
     expect(copy.blocks.map(b => b.color)).toEqual(['#112233', '#445566'])
     expect(copy.horizonTechnologyIds).toEqual(['tech-x'])
+  })
+
+  it('copies the default machine overrides into a new object', () => {
+    const plan = makePlan()
+    const copy = clonePlan(plan)
+    expect(copy.defaultMachineOverrides).toEqual({ crafting: 'asm' })
+    expect(copy.defaultMachineOverrides).not.toBe(plan.defaultMachineOverrides)
   })
 
   it('does not mutate its input', () => {

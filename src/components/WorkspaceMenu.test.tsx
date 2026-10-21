@@ -1,12 +1,14 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { WorkspaceMenu } from './WorkspaceMenu'
 import { useGameDataStore } from '../store/gameDataStore'
 import { usePlansStore } from '../store/plansStore'
-import { makeEmptyBlock } from '../store/blockStore'
+import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
+import { useUiStore } from '../store/uiStore'
 import { activateDataSet } from '../store/persistence'
 import type { GameData } from '../data/types'
+import { makeMenuGameData } from '../test/menuGameData'
 
 const KEY = 'factorio-planner:game-data-source'
 
@@ -33,6 +35,8 @@ function fakeIndexedDb(opts: { stored?: unknown; getGate?: Promise<void>; failWr
 beforeEach(() => {
   vi.stubGlobal('indexedDB', fakeIndexedDb())
   localStorage.clear()
+  useBlockStore.setState({ defaultMachineOverrides: {} })
+  useUiStore.setState({ rateUnit: 'min', defaultMachinesRequest: null })
   importGameDataUrl.mockReset().mockResolvedValue(undefined)
   useGameDataStore.setState({
     status: { type: 'empty' },
@@ -53,8 +57,12 @@ const openMenuWithKeyboard = async (key = '{Enter}') => {
   await userEvent.keyboard(key)
 }
 const loaded = () => useGameDataStore.setState({
-  status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'nullius' },
+  status: { type: 'loaded', gameData: makeMenuGameData(), sourceId: 'nullius' },
 })
+const itemNames = () =>
+  Array.from(screen.getByRole('menu', { name: 'Plan and game data' }).querySelectorAll('[role^="menuitem"]'))
+    .filter(el => el.closest('[role="menu"]') === screen.getByRole('menu', { name: 'Plan and game data' }))
+    .map(el => el.getAttribute('aria-label') ?? el.textContent?.replace('✓', '').trim())
 
 describe('WorkspaceMenu persisted id', () => {
   it('normalises and rewrites a legacy kompetenz-seablock/ value', async () => {
@@ -105,8 +113,14 @@ describe('WorkspaceMenu', () => {
   it('lists the items in order', async () => {
     render(<WorkspaceMenu />)
     await openMenu()
-    const names = Array.from(screen.getByRole('menu').querySelectorAll('[role^="menuitem"]')).map(el => el.textContent?.replace('✓', '').trim())
-    expect(names).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan…'])
+    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan…'])
+  })
+
+  it('adds the rate unit and default machines entries once game data is loaded', async () => {
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', '/sec', '/min', 'Default machines', 'Export plan', 'Import plan…'])
   })
 
   it('focuses Nullius on first visit with nothing checked', async () => {
@@ -134,6 +148,15 @@ describe('WorkspaceMenu', () => {
     render(<WorkspaceMenu />)
     await openMenuWithKeyboard('{ArrowUp}')
     expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toHaveFocus()
+  })
+
+  it('focuses the checked data set, not the checked rate unit, on a keyboard open when loaded', async () => {
+    localStorage.setItem(KEY, 'nullius')
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenuWithKeyboard()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveFocus()
+    expect(screen.getByRole('menuitemradio', { name: '/min' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('ignores arrow keys while focus is outside the menu', async () => {
@@ -294,11 +317,102 @@ describe('WorkspaceMenu', () => {
   })
 })
 
+describe('WorkspaceMenu game data info', () => {
+  it('describes the checked data set with version, mod and recipe counts', async () => {
+    localStorage.setItem(KEY, 'nullius')
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    const radio = screen.getByRole('menuitemradio', { name: 'Nullius' })
+    expect(radio).toHaveAccessibleDescription('Factorio 2.0.0 · 1 mod · 1 recipe')
+    expect(screen.getByRole('menuitemradio', { name: 'Seablock' })).not.toHaveAccessibleDescription()
+  })
+
+  it('shows no description while nothing is loaded', async () => {
+    localStorage.setItem(KEY, 'nullius')
+    render(<WorkspaceMenu />)
+    await openMenu()
+    expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).not.toHaveAccessibleDescription()
+  })
+})
+
+describe('WorkspaceMenu rate unit', () => {
+  it('reflects the rate unit and sets it without closing the menu', async () => {
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    const group = screen.getByRole('group', { name: 'Rate unit' })
+    expect(within(group).getByRole('menuitemradio', { name: '/min' })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(within(group).getByRole('menuitemradio', { name: '/sec' }))
+    expect(useUiStore.getState().rateUnit).toBe('sec')
+    expect(within(group).getByRole('menuitemradio', { name: '/sec' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menu', { name: 'Plan and game data' })).toBeInTheDocument()
+  })
+})
+
+describe('WorkspaceMenu default machines', () => {
+  const openFlyout = async () => {
+    loaded()
+    render(<WorkspaceMenu />)
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Default machines' }))
+    return screen.getByRole('menu', { name: 'Default machines' })
+  }
+  const defaultRowBlock = () => {
+    const block = makeEmptyBlock('Factory')
+    block.rootPlan.nodes = [{ kind: 'game-recipe', id: 'n1', recipeId: 'r1', modules: [], byproductPolicy: {} }]
+    useBlockStore.setState({ blocks: [block], activeBlockId: block.id })
+  }
+
+  it('lists the categories with several machines, not those with one', async () => {
+    const flyout = await openFlyout()
+    expect(within(flyout).getByRole('group', { name: 'Crafting' })).toBeInTheDocument()
+    expect(within(flyout).queryByRole('group', { name: 'Smelting' })).not.toBeInTheDocument()
+  })
+
+  it('checks the effective default and sets an override on click, keeping the menu open', async () => {
+    const flyout = await openFlyout()
+    const group = within(flyout).getByRole('group', { name: 'Crafting' })
+    expect(within(group).getByRole('menuitemradio', { name: 'Assembler 1' })).toHaveAttribute('aria-checked', 'true')
+    await userEvent.click(within(group).getByRole('menuitemradio', { name: 'Assembler 2' }))
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'asm2' })
+    expect(within(group).getByRole('menuitemradio', { name: 'Assembler 2' })).toHaveAttribute('aria-checked', 'true')
+    expect(screen.getByRole('menu', { name: 'Default machines' })).toBeInTheDocument()
+  })
+
+  it('disables Reset all without overrides and clears them otherwise', async () => {
+    const flyout = await openFlyout()
+    expect(within(flyout).getByRole('menuitem', { name: 'Reset all' })).toBeDisabled()
+    await userEvent.click(within(flyout).getByRole('menuitemradio', { name: 'Assembler 2' }))
+    await userEvent.click(within(flyout).getByRole('menuitem', { name: 'Reset all' }))
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({})
+    expect(within(flyout).getByRole('menuitemradio', { name: 'Assembler 1' })).toHaveAttribute('aria-checked', 'true')
+  })
+
+  it('puts a category used by a default row under "Used in this plan"', async () => {
+    defaultRowBlock()
+    const flyout = await openFlyout()
+    expect(within(flyout).getByRole('group', { name: 'Crafting' })).toHaveTextContent('1 row')
+    expect(flyout).toHaveTextContent('Used in this plan')
+    expect(flyout).not.toHaveTextContent('Other categories')
+  })
+
+  it('opens the menu and the flyout, focused on the requested category, on a request', async () => {
+    loaded()
+    render(<WorkspaceMenu />)
+    act(() => useUiStore.getState().requestDefaultMachines('crafting'))
+    const flyout = await screen.findByRole('menu', { name: 'Default machines' })
+    const checked = within(within(flyout).getByRole('group', { name: 'Crafting' })).getByRole('menuitemradio', { name: 'Assembler 1' })
+    await waitFor(() => expect(checked).toHaveFocus())
+    expect(useUiStore.getState().defaultMachinesRequest, 'the request is consumed').toBeNull()
+  })
+})
+
 describe('WorkspaceMenu plan import', () => {
   beforeEach(() => {
     usePlansStore.setState({ sourceId: null, index: null })
     useGameDataStore.setState({
-      status: { type: 'loaded', gameData: { recipes: {}, items: {} } as unknown as GameData, sourceId: 'nullius' },
+      status: { type: 'loaded', gameData: { ...makeMenuGameData(), recipes: {}, items: {} } as GameData, sourceId: 'nullius' },
     })
     activateDataSet('nullius')
   })

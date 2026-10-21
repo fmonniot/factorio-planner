@@ -6,17 +6,17 @@ import { useGameDataStore } from '../store/gameDataStore'
 import { usePlansStore } from '../store/plansStore'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { activateDataSet } from '../store/persistence'
-import type { GameData } from '../data/types'
+import { makeMenuGameData } from '../test/menuGameData'
 
 const loaded = () => useGameDataStore.setState({
-  status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'nullius' },
+  status: { type: 'loaded', gameData: makeMenuGameData(), sourceId: 'nullius' },
 })
 
 beforeEach(() => {
   localStorage.clear()
   usePlansStore.setState({ sourceId: null, index: null })
   const block = makeEmptyBlock('Factory')
-  useBlockStore.setState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [], history: {} })
+  useBlockStore.setState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [], defaultMachineOverrides: {}, history: {} })
   useGameDataStore.setState({ status: { type: 'empty' } })
 })
 
@@ -142,7 +142,7 @@ describe('Plans section of the workspace menu', () => {
     await userEvent.clear(input)
     await userEvent.type(input, 'New name')
     // The loaded game data changes under the open dialog.
-    useGameDataStore.setState({ status: { type: 'loaded', gameData: {} as unknown as GameData, sourceId: 'kompetenz-seablock' } })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: makeMenuGameData(), sourceId: 'kompetenz-seablock' } })
     await userEvent.click(screen.getByRole('button', { name: 'Rename' }))
     expect(screen.getByText('The loaded game data changed; pick the file again.')).toBeInTheDocument()
     expect(planNames()).toEqual(['Plan 1'])

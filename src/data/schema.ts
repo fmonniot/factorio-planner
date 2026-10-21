@@ -368,6 +368,10 @@ export const AppStateSchema = z.preprocess(
     activeBlockId: z.string(),
     /** Technologies the plan targets; their prerequisites are implied. Empty = no limit. */
     horizonTechnologyIds: z.array(z.string()).default([]),
+    /** User-chosen default machine per crafting category (category -> machine id). Layered over the
+     *  horizon defaults; an override that is unknown, hidden, cannot craft the category or is outside
+     *  the horizon is ignored but kept. */
+    defaultMachineOverrides: z.record(z.string(), z.string()).default({}),
   }),
 )
 

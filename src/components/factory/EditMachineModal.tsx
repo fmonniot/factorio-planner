@@ -1,8 +1,10 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
+import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
+import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
@@ -124,6 +126,9 @@ export function EditMachineModal({
   const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
+  const setDefaultMachine = useBlockStore(s => s.setDefaultMachine)
+  const blocks = useBlockStore(s => s.blocks)
+  const requestDefaultMachines = useUiStore(s => s.requestDefaultMachines)
   const available = useAvailableRecipeIds()
   const horizon = useHorizon(gameData)
 
@@ -139,9 +144,12 @@ export function EditMachineModal({
   const remaining = machineSlots - usedSlots
 
   // Available machines for this recipe category
-  const availableMachines = Object.values(gameData.machines)
-    .filter(m => !m.hidden && m.craftingCategories.includes(recipeCategory) && withinHorizon(horizon.machineIds, m.id))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const availableMachines = availableMachinesFor(gameData, horizon, recipeCategory)
+
+  const defaultMachineId = horizon.defaultMachines[recipeCategory]
+  const defaultMachineName = defaultMachineId ? gameData.machines[defaultMachineId]?.name : undefined
+  const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
+  const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
@@ -176,6 +184,17 @@ export function EditMachineModal({
   function selectMachine(id: string | undefined) {
     updateNodeMachine(nodeId, id)
     setShowMachinePicker(false)
+  }
+
+  function makeDefault(id: string) {
+    setDefaultMachine(recipeCategory, id)
+    if (machineId !== undefined) updateNodeMachine(nodeId, undefined)
+    setShowMachinePicker(false)
+  }
+
+  function openAllDefaults() {
+    onClose()
+    requestDefaultMachines(recipeCategory)
   }
 
   function selectRecipe(newRecipeId: string) {
@@ -265,7 +284,7 @@ export function EditMachineModal({
                 onClick={() => selectMachine(undefined)}
                 className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${!machineId ? 'text-teal-400' : 'text-gray-300'}`}
               >
-                Default
+                {defaultMachineName ? `Default (${defaultMachineName})` : 'Default'}
               </button>
               {availableMachines.length === 0 && (
                 <div data-testid="machine-picker-empty" className="px-2 py-1 text-xs text-gray-500 italic">
@@ -273,19 +292,43 @@ export function EditMachineModal({
                 </div>
               )}
               {availableMachines.map(m => (
-                <button
-                  key={m.id}
-                  data-testid="machine-option"
-                  data-machine-id={m.id}
-                  onClick={() => selectMachine(m.id)}
-                  className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
-                >
-                  {m.iconPath && (
-                    <Icon iconPath={m.iconPath} alt={m.name} className="w-5 h-5 object-contain shrink-0" />
+                <div key={m.id} className="group flex items-center">
+                  <button
+                    data-testid="machine-option"
+                    data-machine-id={m.id}
+                    onClick={() => selectMachine(m.id)}
+                    className={`flex-1 min-w-0 text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
+                  >
+                    {m.iconPath && (
+                      <Icon iconPath={m.iconPath} alt={m.name} className="w-5 h-5 object-contain shrink-0" />
+                    )}
+                    {m.name}
+                  </button>
+                  {m.id === defaultMachineId ? (
+                    <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-500">default</span>
+                  ) : (
+                    <button
+                      type="button"
+                      aria-label={`Make ${m.name} the ${categoryLabel(recipeCategory)} default`}
+                      onClick={() => makeDefault(m.id)}
+                      className="px-1.5 py-0.5 rounded text-[10px] text-teal-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 focus:opacity-100"
+                    >
+                      Make default
+                    </button>
                   )}
-                  {m.name}
-                </button>
+                </div>
               ))}
+              <div
+                data-testid="default-machine-usage"
+                className="flex items-center justify-between gap-2 px-2 pt-1 border-t border-gray-700 mt-1 text-[10px] text-gray-500"
+              >
+                <span>
+                  {categoryLabel(recipeCategory)} default is used by {defaultRowCount} {defaultRowCount === 1 ? 'row' : 'rows'}
+                </span>
+                <button type="button" onClick={openAllDefaults} className="text-teal-400 hover:underline">
+                  All defaults…
+                </button>
+              </div>
               {altRecipes.length > 0 && (
                 <>
                   <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>

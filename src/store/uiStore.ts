@@ -15,6 +15,13 @@ export type RateUnit = 'sec' | 'min'
 export interface UiStoreState {
   rateUnit: RateUnit
   setRateUnit: (unit: RateUnit) => void
+  /**
+   * Transient (not persisted) ask to open the workspace menu on its "Default machines"
+   * flyout, optionally focused on one crafting category. `seq` changes on every request.
+   */
+  defaultMachinesRequest: { seq: number; category: string | undefined } | null
+  requestDefaultMachines: (category?: string) => void
+  clearDefaultMachinesRequest: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -24,6 +31,10 @@ export interface UiStoreState {
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
   setRateUnit: (unit) => set({ rateUnit: unit }),
+  defaultMachinesRequest: null,
+  requestDefaultMachines: (category) =>
+    set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
+  clearDefaultMachinesRequest: () => set({ defaultMachinesRequest: null }),
 }))
 
 // ---------------------------------------------------------------------------

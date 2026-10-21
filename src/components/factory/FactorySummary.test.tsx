@@ -114,18 +114,13 @@ describe('FactorySummary — without loaded game data', () => {
   })
 })
 
-describe('FactorySummary — rate unit toggle', () => {
-  it('toggling /sec changes rateUnit in uiStore', () => {
+describe('FactorySummary — header row', () => {
+  it('has no header row: no rate toggle, no rename button and no warnings button', () => {
     render(<FactorySummary />)
-    fireEvent.click(screen.getByText('/sec'))
-    expect(useUiStore.getState().rateUnit).toBe('sec')
-  })
-
-  it('toggling /min changes rateUnit in uiStore', () => {
-    useUiStore.setState({ rateUnit: 'sec' })
-    render(<FactorySummary />)
-    fireEvent.click(screen.getByText('/min'))
-    expect(useUiStore.getState().rateUnit).toBe('min')
+    expect(screen.queryByText('/sec')).not.toBeInTheDocument()
+    expect(screen.queryByText('/min')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Click to rename')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Show solver warnings')).not.toBeInTheDocument()
   })
 })
 
@@ -811,10 +806,10 @@ describe('FactorySummary — scroll fade', () => {
     render(<FactorySummary />)
     expect(pane('Products')).not.toHaveAttribute('data-overflow')
     contentHeight = 100
-    fireEvent.click(screen.getByText('/sec'))
+    act(() => useUiStore.getState().setRateUnit('sec'))
     expect(pane('Products')).toHaveAttribute('data-overflow', 'true')
     contentHeight = 50
-    fireEvent.click(screen.getByText('/min'))
+    act(() => useUiStore.getState().setRateUnit('min'))
     expect(pane('Products')).not.toHaveAttribute('data-overflow')
   })
 

@@ -97,13 +97,17 @@ export function WarningsPopover() {
   if (warnings.length === 0 || !gameData) return null
 
   const hasCritical = warnings.some(isCritical)
-  const badgeColor = hasCritical ? 'text-red-400 hover:text-red-300' : 'text-yellow-400 hover:text-yellow-300'
+  const badgeColor = hasCritical
+    ? 'bg-red-500/10 border-red-500/40 text-red-300 hover:bg-red-500/20'
+    : 'bg-yellow-500/10 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/20'
 
   return (
-    <div ref={ref} className="relative shrink-0">
+    <div ref={ref} className="relative shrink-0 mr-1.5">
       <button
         onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-1 text-xs ${badgeColor}`}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        className={`flex items-center gap-1 h-7 px-2.5 rounded-full border text-xs ${badgeColor}`}
         title="Show solver warnings"
       >
         <span>⚠</span>

@@ -75,6 +75,7 @@ beforeEach(() => {
     blocks: [block],
     activeBlockId: block.id,
     horizonTechnologyIds: [],
+    defaultMachineOverrides: {},
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
@@ -263,6 +264,16 @@ describe('research horizon', () => {
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       KEY(),
       expect.stringContaining('"horizonTechnologyIds":["x"]'),
+    )
+  })
+
+  it('autosaves when only the default machine overrides change', () => {
+    activateDataSet('nullius')
+    vi.clearAllMocks()
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-2')
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      KEY(),
+      expect.stringContaining('"defaultMachineOverrides":{"crafting":"asm-2"}'),
     )
   })
 
@@ -546,7 +557,12 @@ describe('plan actions', () => {
   it('duplicatePlan copies the plan right after the source with fresh ids', () => {
     const source = makeEmptyBlock('Source')
     const consumer = { ...makeEmptyBlock('Consumer'), inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: source.id }] }
-    useBlockStore.setState({ blocks: [source, consumer], activeBlockId: consumer.id, horizonTechnologyIds: ['x'] })
+    useBlockStore.setState({
+      blocks: [source, consumer],
+      activeBlockId: consumer.id,
+      horizonTechnologyIds: ['x'],
+      defaultMachineOverrides: { crafting: 'asm-2' },
+    })
     const firstId = index().activePlanId
     createPlan()
     switchPlan(firstId)
@@ -555,7 +571,8 @@ describe('plan actions', () => {
     expect(names()).toEqual(['Plan 1', 'Plan 1 (copy)', 'Plan 2'])
     expect(activeName()).toBe('Plan 1 (copy)')
     expect(store[planKey('nullius', firstId)]).toBe(sourceContent)
-    const { blocks, activeBlockId, horizonTechnologyIds } = useBlockStore.getState()
+    const { blocks, activeBlockId, horizonTechnologyIds, defaultMachineOverrides } = useBlockStore.getState()
+    expect(defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
     expect(blocks.map(b => b.name)).toEqual(['Source', 'Consumer'])
     expect(blocks.some(b => b.id === source.id || b.id === consumer.id)).toBe(false)
     expect(blocks[1].inputConnections[0].fromBlockId).toBe(blocks[0].id)
@@ -680,6 +697,7 @@ describe('plan import', () => {
       blocks: [makeBlock('b1', { goal: 'iron-plate', recipes: ['iron-plate'] }), makeBlock('b2')],
       activeBlockId,
       horizonTechnologyIds: ['electronics'],
+      defaultMachineOverrides: {},
     }
   }
 

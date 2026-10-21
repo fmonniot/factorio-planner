@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds,
   withinHorizon, placingItemIds, availableMachineIds, availableBeaconIds, availableModuleIds,
-  horizonDefaultMachines, resolveRowMachine, computeHorizon, recipeUnlock,
+  horizonDefaultMachines, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock,
 } from './horizon'
 import type { GameData } from './types'
 
@@ -350,6 +350,40 @@ describe('horizonDefaultMachines', () => {
     const r = horizonDefaultMachines(d, computeHorizon(d, ['c']).machineIds)
     expect(r['adv-smelting']).toBe('adv-furnace')
     expect(r.crafting).toBe('am2')
+  })
+})
+
+describe('applyDefaultMachineOverrides', () => {
+  const all = null
+  it('returns the defaults themselves when there are no overrides', () => {
+    const d = makeEquipmentData()
+    expect(applyDefaultMachineOverrides(d, all, d.defaultMachines, {})).toBe(d.defaultMachines)
+  })
+  it('replaces the default of the category with a valid override without mutating its inputs', () => {
+    const d = makeEquipmentData()
+    const defaults = { ...d.defaultMachines }
+    const overrides = { crafting: 'am1' }
+    const r = applyDefaultMachineOverrides(d, all, defaults, overrides)
+    expect(r.crafting).toBe('am1')
+    expect(r.smelting).toBe('furnace')
+    expect(defaults.crafting, 'input defaults untouched').toBe('am2')
+    expect(overrides).toEqual({ crafting: 'am1' })
+  })
+  it('ignores an override outside the horizon', () => {
+    const d = makeEquipmentData()
+    const ids = computeHorizon(d, ['x']).machineIds
+    const defaults = horizonDefaultMachines(d, ids)
+    expect(applyDefaultMachineOverrides(d, ids, defaults, { crafting: 'am2' })).toBe(defaults)
+  })
+  it('ignores hidden, unknown and wrong-category machines', () => {
+    const d = makeEquipmentData()
+    expect(applyDefaultMachineOverrides(d, all, d.defaultMachines, { crafting: 'hidden-fast' })).toBe(d.defaultMachines)
+    expect(applyDefaultMachineOverrides(d, all, d.defaultMachines, { crafting: 'nope' })).toBe(d.defaultMachines)
+    expect(applyDefaultMachineOverrides(d, all, d.defaultMachines, { crafting: 'furnace' })).toBe(d.defaultMachines)
+  })
+  it('applies without a limit (null machine ids)', () => {
+    const d = makeEquipmentData()
+    expect(applyDefaultMachineOverrides(d, null, d.defaultMachines, { 'adv-smelting': 'adv-furnace', crafting: 'orphan' }).crafting).toBe('orphan')
   })
 })
 

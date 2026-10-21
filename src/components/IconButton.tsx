@@ -13,13 +13,15 @@ interface IconButtonProps {
   buttonRef?: Ref<HTMLButtonElement>
   /** Rendered next to the button, positioned against its wrapper (a dot, a popover). */
   extra?: ReactNode
+  /** Wider button for a short text label: `h-8 px-2 gap-1 text-xs` in place of the 32px square. */
+  wide?: boolean
 }
 
 /**
  * A borderless 32px icon button with a CSS-only tooltip. The wrapper is
  * `relative` so `extra` can be anchored to it.
  */
-export function IconButton({ label, onClick, children, expanded, hasPopup, hideTooltip, buttonRef, extra }: IconButtonProps) {
+export function IconButton({ label, onClick, children, expanded, hasPopup, hideTooltip, buttonRef, extra, wide }: IconButtonProps) {
   return (
     <span className="relative group">
       <button
@@ -29,7 +31,7 @@ export function IconButton({ label, onClick, children, expanded, hasPopup, hideT
         aria-expanded={expanded}
         aria-haspopup={hasPopup}
         onClick={onClick}
-        className="relative w-8 h-8 rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none"
+        className={`relative ${wide ? 'h-8 px-2 gap-1 text-xs' : 'w-8 h-8'} rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none`}
       >
         {children}
       </button>

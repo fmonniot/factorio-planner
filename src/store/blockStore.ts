@@ -191,6 +191,7 @@ export function clonePlan(appState: AppState): AppState {
     })),
     activeBlockId: ids.get(appState.activeBlockId) ?? appState.activeBlockId,
     horizonTechnologyIds: [...appState.horizonTechnologyIds],
+    defaultMachineOverrides: { ...appState.defaultMachineOverrides },
   }
 }
 
@@ -203,6 +204,8 @@ export interface BlockStoreState {
   activeBlockId: string
   /** Technologies the plan targets (see AppState.horizonTechnologyIds). */
   horizonTechnologyIds: string[]
+  /** Default machine per category chosen by the user (see AppState.defaultMachineOverrides). */
+  defaultMachineOverrides: Record<string, string>
   history: Record<string, BlockHistory>
 
   // Block management
@@ -247,6 +250,10 @@ export interface BlockStoreState {
 
   // Research horizon (plan-wide; not undoable)
   setHorizonTechnologyIds: (ids: string[]) => void
+
+  // Default machines (not undoable, like the horizon)
+  setDefaultMachine: (category: string, machineId: string) => void
+  resetDefaultMachines: () => void
 
   // Undo/redo (per active block)
   undo: () => void
@@ -331,6 +338,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   blocks: [initialBlock],
   activeBlockId: initialBlock.id,
   horizonTechnologyIds: [],
+  defaultMachineOverrides: {},
   history: {},
 
   // ── Block management ──────────────────────────────────────────────────────
@@ -944,6 +952,18 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   setHorizonTechnologyIds: (ids) => set({ horizonTechnologyIds: [...new Set(ids)] }),
 
+  // ── Default machines ──────────────────────────────────────────────────────
+
+  setDefaultMachine: (category, machineId) =>
+    set(state =>
+      state.defaultMachineOverrides[category] === machineId
+        ? state
+        : { defaultMachineOverrides: { ...state.defaultMachineOverrides, [category]: machineId } },
+    ),
+
+  resetDefaultMachines: () =>
+    set(state => (Object.keys(state.defaultMachineOverrides).length === 0 ? state : { defaultMachineOverrides: {} })),
+
   // ── Full replace (persistence) ────────────────────────────────────────────
 
   setAppState: (appState) =>
@@ -951,6 +971,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       blocks: appState.blocks,
       activeBlockId: appState.activeBlockId,
       horizonTechnologyIds: appState.horizonTechnologyIds,
+      defaultMachineOverrides: appState.defaultMachineOverrides,
       history: {},
     }),
 }))
@@ -961,7 +982,12 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
 /** The persisted/exported part of the store. */
 export function selectAppState(s: BlockStoreState): AppState {
-  return { blocks: s.blocks, activeBlockId: s.activeBlockId, horizonTechnologyIds: s.horizonTechnologyIds }
+  return {
+    blocks: s.blocks,
+    activeBlockId: s.activeBlockId,
+    horizonTechnologyIds: s.horizonTechnologyIds,
+    defaultMachineOverrides: s.defaultMachineOverrides,
+  }
 }
 
 export function selectActiveBlock(state: BlockStoreState): Block | undefined {

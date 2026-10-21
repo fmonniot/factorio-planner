@@ -7,7 +7,6 @@ import { fmtRate } from './ItemTile'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { WarningsPopover } from './WarningsPopover'
 import { isGoalItem } from '../../store/connections'
 import { RowActionsMenu } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
@@ -136,17 +135,13 @@ function TargetInput({
 
 export function FactorySummary() {
   const activeBlock = useBlockStore(selectActiveBlock)
-  const renameBlock = useBlockStore(s => s.renameBlock)
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
-  const setRateUnit = useUiStore(s => s.setRateUnit)
   const addGoal = useBlockStore(s => s.addGoal)
   const removeGoal = useBlockStore(s => s.removeGoal)
   const updateGoalRate = useBlockStore(s => s.updateGoalRate)
   const [showGoalPicker, setShowGoalPicker] = useState(false)
-  const [editingName, setEditingName] = useState(false)
-  const [nameDraft, setNameDraft] = useState('')
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
@@ -213,75 +208,14 @@ export function FactorySummary() {
     addGoal({ id: crypto.randomUUID(), itemId, rate })
   }
 
-  function startNameEdit() {
-    setNameDraft(activeBlock?.name ?? '')
-    setEditingName(true)
-  }
-
-  function commitNameEdit() {
-    const trimmed = nameDraft.trim()
-    if (trimmed && activeBlock) renameBlock(activeBlock.id, trimmed)
-    setEditingName(false)
-  }
-
-  function handleNameKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commitNameEdit()
-    if (e.key === 'Escape') setEditingName(false)
-  }
-
   // The plan may not belong to the selected data set until its data has loaded,
   // so nothing here can be edited before then.
   if (!gameData) return null
 
   return (
     <div className="border-b border-gray-700 bg-gray-900 shrink-0">
-      {/* Block name + rate unit toggle */}
-      <div className="flex items-center justify-between px-3 pt-1.5 gap-2 text-xs text-gray-500">
-        {editingName ? (
-          <input
-            type="text"
-            aria-label="Block name"
-            autoFocus
-            value={nameDraft}
-            onChange={e => setNameDraft(e.target.value)}
-            onBlur={commitNameEdit}
-            onKeyDown={handleNameKeyDown}
-            className="bg-gray-800 text-gray-100 text-xs font-semibold rounded px-1.5 py-0.5 border border-gray-600 outline-none focus:ring-1 focus:ring-teal-500 w-32"
-          />
-        ) : (
-          <button
-            type="button"
-            onClick={startNameEdit}
-            title="Click to rename"
-            className="font-semibold text-gray-300 hover:text-gray-100 text-xs"
-          >
-            {activeBlock?.name ?? 'Factory'}
-          </button>
-        )}
-        <div className="flex items-center gap-3">
-          <WarningsPopover />
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setRateUnit('sec')}
-              className={`hover:text-gray-200 ${rateUnit === 'sec' ? 'text-teal-400' : ''}`}
-            >
-              /sec
-            </button>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={() => setRateUnit('min')}
-              className={`hover:text-gray-200 ${rateUnit === 'min' ? 'text-teal-400' : ''}`}
-            >
-              /min
-            </button>
-          </div>
-        </div>
-      </div>
-
       {/* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */}
-      <div className="grid grid-cols-3 gap-2 px-3 pb-2 pt-1">
+      <div className="grid grid-cols-3 gap-2 px-3 pb-2 pt-2">
         <SummaryPane
           key={`products-${activeBlock?.id}`}
           pane="products"

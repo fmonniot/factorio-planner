@@ -113,3 +113,19 @@ describe('WarningsPopover — infeasible-pins', () => {
     expect(screen.getByText(/unpin/i)).toBeInTheDocument()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Pill
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — pill', () => {
+  it('reports whether the popover is open', () => {
+    setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
+    render(<WarningsPopover />)
+    const pill = screen.getByTitle('Show solver warnings')
+    expect(pill).toHaveAttribute('aria-haspopup', 'dialog')
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(pill)
+    expect(pill).toHaveAttribute('aria-expanded', 'true')
+  })
+})

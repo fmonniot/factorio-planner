@@ -38,9 +38,8 @@ session (see [Game data set](#game-data-set)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣ Plates][▣ Gears] +                        ⚑  ⊞  ⚗ │ [≡ Main base ▾]  │
+│ [▣ Plates][▣ Gears] +      (⚠ 2 warnings)  /min ⇄  ⚑  ⊞  ⚗ │ [≡ Main base ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
-│ Block name                                    ⚠ 2 warnings ▼   /sec·/min │
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
 │ │ [slot 58▼] [slot ]    │ │ [slot 12 ] [slot ]  │ │ [slot 30 ] [slot ⊘] │ │
 │ │  ▂▂▂▂▂▂    micro-bars │ │  ▂▂▂▂▂▂             │ │  ▂▂▂▂▂▂             │ │
@@ -63,9 +62,18 @@ The layout is designed for desktop widths; there is no mobile layout.
 ## TopBar
 
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs. On the right
-are three icon-only tool buttons (the [horizon](#research-horizon) flag, the
-[block graph](#block-graph) and the [tech tree](#technology-tree)), a divider (shown only when
-game data is loaded, like the tools) and the [workspace menu](#workspace-menu).
+are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
+warnings), the rate unit toggle, three icon-only tool buttons (the [horizon](#research-horizon)
+flag, the [block graph](#block-graph) and the [tech tree](#technology-tree)), a divider (shown only
+when game data is loaded, like the tools) and the [workspace menu](#workspace-menu). The root
+carries `data-testid="top-bar"`.
+
+The rate unit toggle (`RateUnitButton.tsx`, shown only when game data is loaded) is a wide
+`IconButton` (`wide`: `h-8 px-2 gap-1 text-xs`) showing `/min` or `/sec` and a swap icon. Its
+accessible name and tooltip are "Rates per minute, switch to per second" or "Rates per second, switch
+to per minute"; a click flips the unit. The unit is stored in `uiStore` and persisted; the default is
+per minute. It changes how every rate in the summary and the table is displayed; stored values are
+always per minute. The workspace menu has the same switch (see below).
 
 The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
@@ -122,7 +130,7 @@ and carries `aria-current`.
 - `+` adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses.
-- Right-click a tab for a small menu: **Rename** (browser prompt), **Duplicate** and **Delete**,
+- Right-click a tab for a small menu: **Rename** (browser prompt; the only way to rename a block), **Duplicate** and **Delete**,
   plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
   share a colour, and like the other block actions it is not undoable.
@@ -258,16 +266,57 @@ It opens a panel named "Plan and game data", in order:
   active;
 - a separator, then a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file
   once there is one, and **Upload file…**; the current data set is the checked item (see
-  [Game data set](#game-data-set));
-- a separator, then **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
+  [Game data set](#game-data-set)). The radio items carry their label as `aria-label`;
+- a separator, then, only once game data is loaded: a **Rate unit** group with `/sec` and `/min`
+  radio items (a segmented control; picking one sets the unit and leaves the menu open), the
+  **Default machines** submenu item (see below) and another separator;
+- **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
 
 The trigger, panel, keyboard handling and focus rules are the shared `MenuButton` component
-(`MenuButton.tsx`), which takes optional `triggerClassName`, `caret` and `panelClassName`; `align`
-picks which edge of the button the panel lines up with (right here). The menu is meant to collect
-more app-level entries over time.
+(`MenuButton.tsx`), which takes optional `triggerClassName`, `caret`, `panelClassName` and
+`openSignal`; `align` picks which edge of the button the panel lines up with (right here). The menu
+is meant to collect more app-level entries over time. A non-zero `openSignal` that changes opens the
+menu without moving focus (the workspace menu passes the `seq` of `uiStore.defaultMachinesRequest`).
+
+**Default machines.** `DefaultMachinesMenuItem` (`DefaultMachinesMenu.tsx`) is a `SubmenuItem`: a
+`menuitem` with `aria-haspopup="menu"`, `aria-expanded` and a chevron, opening a flyout menu named
+"Default machines" to its left (`absolute right-full`, `max-h-[calc(100vh-4rem)]`, scrolling
+inside). The flyout lists the crafting categories that have at least two non-hidden machines inside
+the [research horizon](#research-horizon) (`defaultMachineCategories`), in two sections: "Used in
+this plan" (categories with at least one row left on "Default", across all blocks) and, after a
+separator, "Other categories". Each category is a group named after its label (`categoryLabel`: the
+id with `:`, `_` and `-` as spaces, first letter capitalised; the id is the tooltip) with the number
+of such rows and one radio item per machine (24px tile with the icon, or the name's first letter;
+the name is the accessible name and tooltip). The checked one is the effective default; picking one
+sets the plan's `defaultMachineOverrides` entry and leaves the menu open. Rows set to an explicit
+machine are not affected. The footer has **Reset all** (clears every override; disabled with none) and
+the note "Used by rows set to 'Default'". Overrides are not undoable.
+
+Opening the flyout programmatically: `uiStore.requestDefaultMachines(category?)` (used by the Edit
+machine modal's "All defaults…") opens the workspace menu with the flyout open and focus on the
+checked machine of that category (else the first checked item). The request is transient; the item
+captures it on mount and clears it.
+
+The checked data set's radio item carries a second line, "Factorio <version> · N mods · N recipes"
+(singular for 1; `aria-describedby`, so it is its accessible description; the tooltip lists the mod
+names). Mods are the `modSet` entries other than `base`, `elevated-rails`, `quality` and
+`space-age`; recipes are the non-hidden ones. It shows only once the data has loaded.
+
+**Nested menus.** `SubmenuItem` (`MenuButton.tsx`) is the one nested-menu primitive. Arrow keys,
+Home and End move within the menu that holds focus (the panel or the flyout) and wrap there.
+ArrowRight (or Enter / Space) on a submenu item opens its flyout and focuses its checked item (else
+its first item, or the `initialFocus` target). Escape or ArrowLeft inside a flyout closes just the
+flyout and focuses its item; Escape at the top level closes the menu and ArrowLeft there does
+nothing. Tab closes everything. With the mouse, hovering the item opens the flyout without moving
+focus and leaving it closes it after 200 ms, unless focus is inside the flyout. Moving focus out of
+the item and flyout (to a point the mouse is not over) also closes it. When focus is in the flyout
+because of a click, leaving with the mouse closes it after the same delay and moves focus back to its
+item; a flyout focused with the keyboard stays open. ArrowRight opens and ArrowLeft closes the flyout
+although it opens to the item's left (the usual menu convention).
 
 Opening with the keyboard (Enter, Space or ArrowDown) focuses the first checked item (the active plan, else the checked data set; failing that the first
-enabled item); ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
+enabled item). The rate unit radio is never focused first, since a checked plan or data set radio
+always precedes it, and it only renders once data is loaded. ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
 button, so only the hovered row looks active. Arrow keys move between enabled items and wrap;
 Home / End jump to the ends; Tab closes the menu. Apart from Escape, these keys are only taken
 while focus is inside the menu or on its button. Escape closes it and
@@ -318,7 +367,8 @@ The workspace menu's Game data group (`useGameDataSource` in `WorkspaceMenu.tsx`
 
 Picking the checked bundled data set again does nothing, unless its last load failed (then it
 retries); the uploaded file's item only closes the menu (upload the file again to retry).
-A failure to store the upload or to clear it when switching (IndexedDB blocked) shows the same
+Once loaded, the checked item shows the data set's version and mod and recipe counts (see
+[Workspace menu](#workspace-menu)). A failure to store the upload or to clear it when switching (IndexedDB blocked) shows the same
 "Error loading data" label and leaves the previous choice checked. Picking a data set before the
 stored upload has been read abandons that pending read.
 Picking a bundled dataset remembers the choice in `localStorage` and clears any
@@ -371,14 +421,8 @@ are not touched.
 
 `FactorySummary.tsx` is the summary strip for the active block.
 
-### Header row
-
-- **Block name** — click to edit inline; Enter or blur saves, Escape cancels.
-- **Warnings** — `WarningsPopover` (see below), shown only when the last solve
-  produced warnings.
-- **Rate unit toggle** — `/sec · /min`, stored in `uiStore` and persisted. The
-  default is `/min`. It changes how every rate in the summary and the table is
-  displayed; stored values are always per minute.
+There is no header row: the block name is on its tab (renamed from the tab's context menu), and the
+warnings pill and the rate unit toggle are in the [top bar](#topbar).
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
@@ -442,8 +486,9 @@ The solver's `unsatisfied` list: everything the block must import (goal shortfal
 
 ### Warnings popover
 
-`WarningsPopover.tsx`. A `⚠ N warnings` button, yellow, or red when any warning is
-`infeasible-pins`. Clicking it opens a list where each warning has a title, an
+`WarningsPopover.tsx`, in the [top bar](#topbar). A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
+`aria-expanded`), amber, or red when any warning is
+`infeasible-pins`; it renders only while the last solve produced warnings. Clicking it opens a list where each warning has a title, an
 explanation naming the items or recipes involved, and a hint:
 
 | Warning | Title |
@@ -636,8 +681,14 @@ The same component in recipes mode (`source="recipes"`).
 `EditMachineModal.tsx`, opened from the Machine cell.
 
 - **Machine** — the current machine; clicking it lists **Default** (use the
-  category's default machine) and every non-hidden machine inside the research
-  horizon that can craft the recipe's category. When none is, the list shows "No
+  category's default machine, labelled "Default (<machine name>)" when there is one) and every non-hidden machine inside the research
+  horizon that can craft the recipe's category (`availableMachinesFor`). The machine that is the
+  plan's current default for the category carries a "default" badge; every other machine has a
+  **Make default** button (accessible name "Make <machine> the <category> default", shown on hover
+  and focus) that sets the plan's default for the category, resets this row to "Default" and closes
+  the list; the row reset is undoable with the block, the default change is not (defaults are not part of block history). The list's footer reads "<Category> default is used by N rows" (rows of the category
+  left on "Default", across all blocks) with an **All defaults…** link that closes the modal and
+  opens the workspace menu's [Default machines](#workspace-menu) flyout on that category. When none is, the list shows "No
   machine for this recipe within the research horizon. Widen the horizon to choose
   one." The current-machine label reads "No machine within research horizon" in amber
   when the row has no machine, and carries a "Beyond research horizon" marker for an

@@ -346,3 +346,73 @@ test.describe('Plan horizon: machines and modules', () => {
     await expect(page.getByTitle('Beacon', { exact: true })).toBeVisible()
   })
 })
+
+// ---------------------------------------------------------------------------
+// Default machine per category
+// ---------------------------------------------------------------------------
+
+test.describe('Default machines', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await upload(page, Buffer.from(JSON.stringify(machineFixture())))
+    await addGoal(page, 'iron-gear-wheel')
+    await addRecipe(page, 'iron-gear-wheel')
+  })
+
+  const firstRow = (page: Page) => page.locator('main table tbody tr').first()
+
+  async function openDefaultMachines(page: Page) {
+    await page.getByRole('button', { name: /^Plan: / }).click()
+    await page.getByRole('menuitem', { name: 'Default machines' }).click()
+    const flyout = page.getByRole('menu', { name: 'Default machines' })
+    await expect(flyout).toBeVisible()
+    return flyout
+  }
+
+  test('"Make default" in the edit modal changes the row and persists', async ({ page }) => {
+    const row = firstRow(page)
+    await row.getByTitle('Assembling machine 2', { exact: true }).click()
+    await page.getByText(/machines$/).click()
+    await page.getByRole('button', { name: 'Make Assembling machine the Crafting default' }).click()
+    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+
+    await row.getByTitle('Assembling machine', { exact: true }).click()
+    await page.getByText(/machines$/).click()
+    await expect(page.getByTestId('default-machine-usage')).toContainText('Crafting default is used by 1 row')
+    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    await page.reload()
+    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible({ timeout: 10000 })
+  })
+
+  test('the workspace menu sets and resets the default', async ({ page }) => {
+    const row = firstRow(page)
+    const flyout = await openDefaultMachines(page)
+    await flyout.getByRole('group', { name: 'Crafting' }).getByRole('menuitemradio', { name: 'Assembling machine', exact: true }).click()
+    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await flyout.getByRole('menuitem', { name: 'Reset all' }).click()
+    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+  })
+
+  test('an override outside the horizon is ignored, then applies again', async ({ page }) => {
+    const row = firstRow(page)
+    const flyout = await openDefaultMachines(page)
+    await flyout.getByRole('group', { name: 'Crafting' }).getByRole('menuitemradio', { name: 'Assembling machine 2' }).click()
+    await page.keyboard.press('Escape')
+    await page.keyboard.press('Escape')
+    await setHorizon(page, 'electronics')
+    await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
+    await setHorizon(page)
+    await expect(row.getByTitle('Assembling machine 2', { exact: true })).toBeVisible()
+  })
+
+  test('"All defaults…" opens the flyout on the category', async ({ page }) => {
+    await firstRow(page).getByTitle('Assembling machine 2', { exact: true }).click()
+    await page.getByText(/machines$/).click()
+    await page.getByRole('button', { name: 'All defaults…' }).click()
+    const flyout = page.getByRole('menu', { name: 'Default machines' })
+    await expect(flyout).toBeVisible()
+    await expect(flyout.getByRole('group', { name: 'Crafting' }).getByRole('menuitemradio', { checked: true })).toBeFocused()
+  })
+})

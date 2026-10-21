@@ -1,13 +1,15 @@
-import { useRef, useState, useEffect, type ReactNode } from 'react'
-import { useGameDataStore } from '../store/gameDataStore'
+import { useRef, useState, useEffect, useId, useMemo, type ReactNode } from 'react'
+import { useGameDataStore, selectGameData } from '../store/gameDataStore'
+import { useUiStore } from '../store/uiStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
 import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
 import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
 import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName } from '../store/persistence'
-import type { AppState } from '../data/types'
+import type { AppState, GameData } from '../data/types'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
+import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
 import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
 
 // ---------------------------------------------------------------------------
@@ -326,6 +328,19 @@ function usePlanImport(): { startImport: () => void; dialog: ReactNode } {
 // WorkspaceMenu
 // ---------------------------------------------------------------------------
 
+const BUILT_IN_MODS = ['base', 'elevated-rails', 'quality', 'space-age']
+
+/** What the menu shows about a loaded data set: the game version and the size of what was exported. */
+function gameDataInfo(gd: GameData) {
+  const mods = Object.keys(gd.modSet).filter(m => !BUILT_IN_MODS.includes(m))
+  return {
+    version: gd.factorioVersion,
+    modCount: mods.length,
+    recipeCount: Object.values(gd.recipes).filter(r => !r.hidden).length,
+    mods,
+  }
+}
+
 const DATASET_LABELS: Record<string, string> = Object.fromEntries(SERVER_DATASETS.map(d => [d.id, d.label]))
 
 /**
@@ -342,6 +357,15 @@ export function WorkspaceMenu() {
   } = useGameDataSource()
   const { startImport, dialog } = usePlanImport()
   const plans = usePlanSection()
+  const gameData = useGameDataStore(selectGameData)
+  const rateUnit = useUiStore(s => s.rateUnit)
+  const setRateUnit = useUiStore(s => s.setRateUnit)
+  const defaultMachinesSignal = useUiStore(s => s.defaultMachinesRequest?.seq)
+  const infoId = useId()
+  const info = useMemo(() => (gameData ? gameDataInfo(gameData) : null), [gameData])
+  const infoText = info
+    ? `Factorio ${info.version} · ${info.modCount} ${info.modCount === 1 ? 'mod' : 'mods'} · ${info.recipeCount} ${info.recipeCount === 1 ? 'recipe' : 'recipes'}`
+    : null
 
   const topLine = plans.active?.name ?? 'Choose game data'
   const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
@@ -375,6 +399,7 @@ export function WorkspaceMenu() {
         triggerClassName="h-9 flex items-center gap-2.5 pl-1.5 pr-2 bg-gray-800 border border-gray-600 hover:border-gray-500 rounded-lg"
         caret={<ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />}
         panelClassName="w-72"
+        openSignal={defaultMachinesSignal}
       >
         {close => (
           <>
@@ -384,17 +409,29 @@ export function WorkspaceMenu() {
               <div aria-hidden className="text-[11px] uppercase tracking-wide text-gray-400 px-3 pt-1 pb-1">Game data</div>
               {SERVER_DATASETS.map(d => {
                 const checked = selectedValue === d.id
+                const showInfo = checked && infoText !== null
                 return (
                   <button
                     key={d.id}
                     type="button"
                     role="menuitemradio"
                     aria-checked={checked}
+                    aria-label={d.label}
+                    aria-describedby={showInfo ? infoId : undefined}
                     tabIndex={-1}
                     className={ITEM_CLASS}
                     onClick={() => { void selectServerDataset(d.id); close(true) }}
                   >
-                    <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
+                    <span className="flex flex-col items-start">
+                      <span className="flex items-center gap-1">
+                        <span aria-hidden className="w-3 inline-block">{checked ? '✓' : ''}</span>{d.label}
+                      </span>
+                      {showInfo && info && (
+                        <span id={infoId} className="block text-[11px] text-gray-400 pl-4" title={info.mods.join('\n')}>
+                          {infoText}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 )
               })}
@@ -403,13 +440,24 @@ export function WorkspaceMenu() {
                   type="button"
                   role="menuitemradio"
                   aria-checked={true}
+                  aria-label={uploadedFilename}
+                  aria-describedby={infoText !== null ? infoId : undefined}
                   title={uploadedFilename}
                   tabIndex={-1}
                   className={ITEM_CLASS}
                   onClick={() => close(true)}
                 >
-                  <span aria-hidden className="w-3 inline-block">✓</span>
-                  <span className="truncate max-w-64">{uploadedFilename}</span>
+                  <span className="flex flex-col items-start min-w-0">
+                    <span className="flex items-center gap-1">
+                      <span aria-hidden className="w-3 inline-block">✓</span>
+                      <span className="truncate max-w-64">{uploadedFilename}</span>
+                    </span>
+                    {info && (
+                      <span id={infoId} className="block text-[11px] text-gray-400 pl-4" title={info.mods.join('\n')}>
+                        {infoText}
+                      </span>
+                    )}
+                  </span>
                 </button>
               )}
               <button
@@ -423,6 +471,30 @@ export function WorkspaceMenu() {
               </button>
             </div>
             <div role="separator" className="my-1 border-t border-gray-700" />
+            {status.type === 'loaded' && gameData && (
+              <>
+                <div role="group" aria-label="Rate unit" className="flex items-center px-3 py-1 gap-2">
+                  <span aria-hidden className="text-gray-400 mr-auto">Rate unit</span>
+                  <div className="flex rounded border border-gray-600 overflow-hidden">
+                    {(['sec', 'min'] as const).map(unit => (
+                      <button
+                        key={unit}
+                        type="button"
+                        role="menuitemradio"
+                        aria-checked={rateUnit === unit}
+                        tabIndex={-1}
+                        className={`px-2 py-0.5 outline-none focus:bg-gray-600 ${rateUnit === unit ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
+                        onClick={() => setRateUnit(unit)}
+                      >
+                        /{unit}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <DefaultMachinesMenuItem gameData={gameData} />
+                <div role="separator" className="my-1 border-t border-gray-700" />
+              </>
+            )}
             <button
               type="button"
               role="menuitem"

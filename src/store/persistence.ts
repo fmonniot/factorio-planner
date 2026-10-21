@@ -173,7 +173,12 @@ export function checkPlanImport(json: string, gameData: GameData, sourceId: stri
 
 function resetToEmptyPlan(): void {
   const block = makeEmptyBlock('Factory')
-  useBlockStore.getState().setAppState({ blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [] })
+  useBlockStore.getState().setAppState({
+    blocks: [block],
+    activeBlockId: block.id,
+    horizonTechnologyIds: [],
+    defaultMachineOverrides: {},
+  })
 }
 
 /** Copy an unreadable stored value to `<key>:corrupt` and drop the original. */
@@ -506,7 +511,11 @@ export function importPlanAsNew(appState: AppState, sourceId: string, fileName: 
  */
 export function initAppStatePersistence(): () => void {
   const unsubBlocks = useBlockStore.subscribe((state, prevState) => {
-    if (state.blocks !== prevState.blocks || state.horizonTechnologyIds !== prevState.horizonTechnologyIds) {
+    if (
+      state.blocks !== prevState.blocks ||
+      state.horizonTechnologyIds !== prevState.horizonTechnologyIds ||
+      state.defaultMachineOverrides !== prevState.defaultMachineOverrides
+    ) {
       saveAppState()
     }
   })

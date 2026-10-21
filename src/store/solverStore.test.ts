@@ -274,6 +274,7 @@ describe('wireSolver — research horizon machines', () => {
 
   function setup() {
     useBlockStore.getState().setHorizonTechnologyIds([])
+    useBlockStore.getState().resetDefaultMachines()
     loadGameData({
       items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
       recipes: {
@@ -309,6 +310,23 @@ describe('wireSolver — research horizon machines', () => {
     expect(solvedNode().machineCountExact).toBeCloseTo(full * 2)
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
+  })
+
+  it('solves rows without a machine with the plan override over the data default', () => {
+    setup()
+    const full = solvedNode().machineCountExact
+    useBlockStore.getState().setDefaultMachine('crafting', 'am1')
+    vi.runAllTimers()
+    expect(solvedNode().machineCountExact).toBeCloseTo(full * 2)
+  })
+
+  it('ignores an override outside the horizon', () => {
+    setup()
+    const full = solvedNode().machineCountExact
+    useBlockStore.getState().setHorizonTechnologyIds(['base'])
+    useBlockStore.getState().setDefaultMachine('crafting', 'am2')
+    vi.runAllTimers()
+    expect(solvedNode().machineCountExact, 'falls back to the horizon default am1').toBeCloseTo(full * 2)
   })
 
   it('solves a category with no machine in the horizon to zero machines', () => {
