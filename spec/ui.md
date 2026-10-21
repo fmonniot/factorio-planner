@@ -719,7 +719,7 @@ The same component in recipes mode (`source="recipes"`).
   "Efficiency" fields appear instead.
 - **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
   the row has no machine within the horizon, a note says the row's machine count and
-  power are 0 while module and beacon productivity still applies to the output rates.
+  power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
 - **Module** — the module placed in every beacon slot (modules inside the research
   horizon are offered).
 - **Remove beacon**.

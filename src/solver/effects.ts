@@ -13,6 +13,9 @@ import type { GameData, GameRecipeNode, Machine } from '../data/types'
 // All bonuses are additive (summed, then added to 1 for the multiplier).
 // Example: 4 prod-3 modules with +10% productivity each = +40% total bonus.
 //
+// Productivity is dropped (treated as zero) for a recipe with
+// `allowProductivity: false`, whatever modules or beacons are configured.
+//
 // Productivity adjusts the stoichiometry matrix before solving (handled by
 // buildClassifiedSystem via productivityMap).
 //
@@ -28,7 +31,9 @@ export interface NodeEffects {
 
 /**
  * Compute the combined module + beacon effects for a single recipe node.
- * Returns zero for all bonuses if the node has no modules or beacons.
+ * Returns zero for all bonuses if the node has no modules or beacons. The
+ * productivity bonus is zero when the recipe disallows productivity (or is
+ * unknown), matching the machine and beacon modals' effect preview.
  *
  * @param node     - the recipe node from the plan
  * @param gameData - used to look up module effect values
@@ -37,12 +42,13 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
   let productivityBonus = 0
   let speedBonus = 0
   let consumptionBonus = 0
+  const allowProductivity = gameData.recipes[node.recipeId]?.allowProductivity ?? false
 
   // Machine module contributions (full effect per module).
   for (const mc of node.modules) {
     const mod = gameData.modules[mc.moduleId]
     if (!mod) continue
-    productivityBonus += (mod.effects.productivity ?? 0) * mc.count
+    if (allowProductivity) productivityBonus += (mod.effects.productivity ?? 0) * mc.count
     speedBonus        += (mod.effects.speed ?? 0) * mc.count
     consumptionBonus  += (mod.effects.consumption ?? 0) * mc.count
   }
@@ -54,7 +60,7 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
     if (mod) {
       const multiplier =
         beacon.distributionEfficiency * beacon.modulesPerBeacon * beacon.beaconCount
-      productivityBonus += (mod.effects.productivity ?? 0) * multiplier
+      if (allowProductivity) productivityBonus += (mod.effects.productivity ?? 0) * multiplier
       speedBonus        += (mod.effects.speed ?? 0) * multiplier
       consumptionBonus  += (mod.effects.consumption ?? 0) * multiplier
     }
