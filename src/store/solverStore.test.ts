@@ -282,10 +282,13 @@ describe('wireSolver — several blocks', () => {
     const [plates, gears] = setupTwoBlocks(1)
     useBlockStore.getState().removeBlock(gears.id)
     vi.runAllTimers()
+    const before = useSolverStore.getState().lastResults[plates.id]
     expect(Object.keys(useSolverStore.getState().lastResults)).toEqual([plates.id])
     useBlockStore.getState().renameBlock(plates.id, 'P2')
     vi.runAllTimers()
-    expect(useSolverStore.getState().lastResults[plates.id].nodes).toHaveLength(1)
+    const after = useSolverStore.getState().lastResults
+    expect(after[plates.id], 'remaining block keeps its result').toBe(before)
+    expect(after[gears.id]).toBeUndefined()
   })
 })
 
@@ -353,6 +356,18 @@ describe('wireSolver — research horizon machines', () => {
     useBlockStore.getState().renameBlock(id, 'Renamed')
     vi.runAllTimers()
     expect(useSolverStore.getState().lastResults[id], 'override solverData is memoised').toBe(before)
+  })
+
+  it('keeps results when a change leaves the effective default machines the same', () => {
+    setup()
+    useBlockStore.getState().setDefaultMachine('crafting', 'am1')
+    vi.runAllTimers()
+    const id = useBlockStore.getState().blocks[0].id
+    const before = useSolverStore.getState().lastResults[id]
+    useBlockStore.getState().setHorizonTechnologyIds(['base', 'late'])
+    useBlockStore.getState().setDefaultMachine('crafting', 'am1')
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResults[id], 'same effective defaults').toBe(before)
   })
 
   it('re-solves when the game data is loaded again', () => {

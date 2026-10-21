@@ -579,8 +579,14 @@ describe('solveAll', () => {
         const gd = connectionGameData()
         const cache = createSolveCache()
         const expected = solveAll(make(), gd)
-        expect(solveAll(make(), gd, cache)).toEqual(expected)
-        expect(solveAll(make(), gd, cache), 'all hits').toEqual(expected)
+        const first = solveAll(make(), gd, cache)
+        expect(first).toEqual(expected)
+        const second = solveAll(make(), gd, cache)
+        expect(second).toEqual(expected)
+        for (const id of Object.keys(first.results)) {
+          if (!cache.has(id)) continue // failed solves are deliberately not cached
+          expect(second.results[id], 'second run reuses every block').toBe(first.results[id])
+        }
       })
     }
 
@@ -702,8 +708,11 @@ describe('solveAll', () => {
     })
 
     it('leaves no entry for a block with goals but no nodes', () => {
+      const gd = connectionGameData()
       const cache = createSolveCache()
-      solveAll([block('E', plateGoal(10), [])], connectionGameData(), cache)
+      solveAll([block('E', plateGoal(10), [planNode('p', 'plate')])], gd, cache)
+      expect(cache.has('E')).toBe(true)
+      solveAll([block('E', plateGoal(10), [])], gd, cache)
       expect(cache.has('E')).toBe(false)
     })
   })

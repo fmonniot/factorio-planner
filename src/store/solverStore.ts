@@ -79,6 +79,11 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 
 const DEBOUNCE_MS = 150
 
+function sameMachines(a: GameData['defaultMachines'], b: GameData['defaultMachines']): boolean {
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every(k => Object.hasOwn(b, k) && a[k] === b[k])
+}
+
 export function wireSolver(): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined
   const cache = createSolveCache()
@@ -88,8 +93,11 @@ export function wireSolver(): () => void {
     | undefined
 
   function solverDataFor(gameData: GameData, defaultMachines: GameData['defaultMachines']): GameData {
-    if (defaultMachines === gameData.defaultMachines) return gameData
-    if (solverDataMemo?.gameData !== gameData || solverDataMemo.defaultMachines !== defaultMachines) {
+    if (defaultMachines === gameData.defaultMachines) {
+      solverDataMemo = undefined
+      return gameData
+    }
+    if (solverDataMemo?.gameData !== gameData || !sameMachines(solverDataMemo.defaultMachines, defaultMachines)) {
       solverDataMemo = { gameData, defaultMachines, data: { ...gameData, defaultMachines } }
     }
     return solverDataMemo.data
