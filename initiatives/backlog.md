@@ -64,7 +64,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Tests and tooling
 
-- [ ] **`EditMachineModal` module-count tests.** `EditMachineModal.test.tsx` only removes a module of count 1. Add cases for decrementing a module that stays (count 2 → 1), adding one, and the slot-usage text (`2/4`); the cases that covered this logic lived in the deleted `ModulePopover.test.tsx` and only exercised dead code.
 
 ## Ideas (not planned)
 
