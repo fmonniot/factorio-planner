@@ -20,6 +20,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
+| Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Top bar workspace menu      | Shipped  | [archive/top-bar-workspace/](archive/top-bar-workspace/) |
 | Summary panes as slots      | Shipped  | [archive/summary-panes-slots/](archive/summary-panes-slots/) |
 | Reorder recipes (DnD)       | Shipped  | [archive/reorder-recipes-dnd/](archive/reorder-recipes-dnd/) |

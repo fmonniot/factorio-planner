@@ -1,0 +1,1653 @@
+{
+  "blocks": [
+    {
+      "id": "f852f90c-beee-4526-989b-cebda36dfeb4",
+      "name": "Sciences",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "ff5a3815-c514-4e15-854d-284f6e270eb4",
+          "itemId": "automation-science-pack",
+          "rate": 10
+        },
+        {
+          "id": "cc17104d-72a8-4fd9-818e-90f873ce3d64",
+          "itemId": "logistic-science-pack",
+          "rate": 10
+        },
+        {
+          "id": "07f92147-4dec-4c91-a723-34d66864429c",
+          "itemId": "military-science-pack",
+          "rate": 5
+        },
+        {
+          "id": "53fb315b-de82-4b1a-90bc-747fc2a180ea",
+          "itemId": "chemical-science-pack",
+          "rate": 10
+        },
+        {
+          "id": "ad0f1605-b23d-4948-bfc9-53fdb2a01b91",
+          "itemId": "bob-advanced-logistic-science-pack",
+          "rate": 10
+        },
+        {
+          "id": "45d83aa8-031e-455a-ae37-45bc1038caf4",
+          "itemId": "production-science-pack",
+          "rate": 10
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "bc0e52b0-5810-43ef-addf-296e0b849f04",
+          "itemId": "bob-basic-circuit-board",
+          "fromBlockId": "6d69a147-76c7-4407-a888-a3b28efa3f68"
+        },
+        {
+          "id": "a6d6733b-693d-4319-8c40-18339a570f64",
+          "itemId": "electronic-circuit",
+          "fromBlockId": "6d69a147-76c7-4407-a888-a3b28efa3f68"
+        },
+        {
+          "id": "40177a3d-b18f-4ce5-b507-799e6d7eff60",
+          "itemId": "advanced-circuit",
+          "fromBlockId": "6d69a147-76c7-4407-a888-a3b28efa3f68"
+        },
+        {
+          "id": "df090d74-bd37-447f-9d14-718c91378731",
+          "itemId": "processing-unit",
+          "fromBlockId": "6d69a147-76c7-4407-a888-a3b28efa3f68"
+        },
+        {
+          "id": "822f5d6e-72d8-4edc-aa47-03c65b05c22d",
+          "itemId": "bob-integrated-electronics",
+          "fromBlockId": "6d69a147-76c7-4407-a888-a3b28efa3f68"
+        },
+        {
+          "id": "eb269e70-1d88-42cf-a0fb-d4b1603470e6",
+          "itemId": "angels-roll-iron",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "98f07e2b-a60f-406a-9d14-bee93d5bf89a",
+          "itemId": "angels-roll-copper",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "740ba871-60bb-44c6-a534-4260bccc20e1",
+          "itemId": "angels-roll-tin",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "d3b7af9b-9270-4cc8-99d9-fb0515add474",
+          "itemId": "angels-roll-lead",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "484e8a58-467e-4a80-ab96-28fff41e2a96",
+          "itemId": "angels-wire-coil-tin",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "7a625104-d1e8-4ab1-9c90-ae2c6ca82335",
+          "itemId": "angels-roll-silver",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "a0fea9ef-bbf4-4983-847a-01cfd68ee874",
+          "itemId": "angels-roll-aluminium",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "3f4355f6-fa9d-45af-a039-b866478015f5",
+          "itemId": "angels-roll-steel",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "14166691-b1cc-4d0c-a92c-b057795a628e",
+          "itemId": "bob-invar-alloy",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "a733182e-94e9-4ec5-acd9-d5c22aaf1a19",
+          "itemId": "bob-brass-alloy",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "97c30ea2-2548-41cd-83ed-ae8c7b6ddbad",
+          "itemId": "bob-gold-plate",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "4c215113-f8e5-4d97-a810-6b0149b24cb8",
+          "itemId": "angels-wire-coil-copper",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "2a1d64f4-1e69-42b7-92c4-fc630707c005",
+          "itemId": "angels-roll-solder",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        }
+      ],
+      "rootPlan": {
+        "id": "74a4e690-1e07-4ee1-9c26-03e2999d8560",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "subplan",
+            "id": "465d2d05-6457-43a1-9d71-16525a260448",
+            "subPlanId": "c73ebc16-d6fa-4c77-8fcc-88d500ee4224"
+          },
+          {
+            "kind": "subplan",
+            "id": "74d698c0-ee14-4779-8c56-60a3f0dd71ca",
+            "subPlanId": "63b5705e-227b-49b9-96d7-5300197a1bc0"
+          },
+          {
+            "kind": "subplan",
+            "id": "6511f4f0-0619-46cc-b045-1aa92c0cf609",
+            "subPlanId": "198deaed-ac25-4421-a902-e5c789724d4e"
+          },
+          {
+            "kind": "subplan",
+            "id": "7c836610-2c7d-45ef-bedb-f9d85d5c37d2",
+            "subPlanId": "edf8f764-b739-4422-99e1-89535bf1c683"
+          },
+          {
+            "kind": "subplan",
+            "id": "544b4f3a-5735-41c1-80e4-475201f6850b",
+            "subPlanId": "f4a5fe7c-0f98-4cc9-acab-1abc8895922a"
+          },
+          {
+            "kind": "subplan",
+            "id": "aaec6867-7cd0-465a-a457-06a214e4c4f9",
+            "subPlanId": "18fe3266-dbde-4a18-afcb-3e2ea2a34c49"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "4caf4de8-24e3-4cd4-877a-528156135f0e",
+            "recipeId": "angels-plate-iron-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "474f16c1-7f92-4510-8be7-641ba4374db5",
+            "recipeId": "angels-plate-copper-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "e83db9f9-20ba-4819-8efc-c6aa6f2efbc9",
+            "recipeId": "angels-plate-tin-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "7d6327cd-c33c-4078-afee-389ef7d799db",
+            "recipeId": "angels-wire-tin-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "352aeabc-92a0-4069-9fb3-30397e956c28",
+            "recipeId": "angels-solder-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "0d819d1e-7c7b-4d20-942f-34460d82e4a8",
+            "recipeId": "angels-plate-lead-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "953bce65-bb8e-452e-9305-79679b72243e",
+            "recipeId": "angels-plate-silver-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "8c7cc70e-7831-4e6f-9abd-16cf22dd15a8",
+            "recipeId": "angels-plate-aluminium-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "6e046083-f235-4390-8573-0318ef01eca0",
+            "recipeId": "angels-plate-steel-2",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "c73ebc16-d6fa-4c77-8fcc-88d500ee4224",
+            "name": "Science pack: Sacrificial electromagnet",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "9b622475-5c80-47c4-98d3-85867e036d60",
+                "recipeId": "automation-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "a28eee87-3889-407b-ac15-b6e0f548e630",
+                "recipeId": "sct-t1-magnet-coils",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "66e0a077-59ca-4241-82f8-7e88a037ebbd",
+                "recipeId": "sct-t1-ironcore",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:55:44.837Z",
+            "updatedAt": "2026-10-19T23:49:14.377Z"
+          },
+          {
+            "id": "63b5705e-227b-49b9-96d7-5300197a1bc0",
+            "name": "Science pack: Single-use ATMOS set",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "4645d581-ebba-4330-8644-b91b6ac30614",
+                "recipeId": "logistic-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "1009089e-dcfe-4e93-acb1-143874f76c12",
+                "recipeId": "sct-t2-instruments",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "daa19179-9c05-426c-9fb9-82e6df819ed7",
+                "recipeId": "sct-t2-microcircuits",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "cf4b9f67-9900-4853-9f21-6bf6690d7aa9",
+                "recipeId": "sct-t2-micro-wafer",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "ca7e474e-a89f-4913-aa8b-f3f688d5a713",
+                "recipeId": "sct-t2-wafer-stamp",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "6b08473b-28ee-445e-a9b7-c9e61b953c19",
+                "recipeId": "sct-t2-reaction-nodes",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:56:01.303Z",
+            "updatedAt": "2026-10-20T00:31:06.234Z"
+          },
+          {
+            "id": "198deaed-ac25-4421-a902-e5c789724d4e",
+            "name": "Science pack: Uni-lived atomic manipulator",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "5c541dd8-dd4d-42a5-b5ab-c67dfa9089ea",
+                "recipeId": "chemical-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "72d4e7cf-2d3e-4bfa-9806-029ae1e2fb0d",
+                "recipeId": "sct-t3-femto-lasers",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "ad8b307b-e1c5-49b2-a99f-eb651cb6e574",
+                "recipeId": "sct-t3-laser-emitter",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "0c336a68-b8a1-4a07-94c0-c245b1b294bf",
+                "recipeId": "sct-t3-laser-foci",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "86ee9a43-4c6b-49b4-a55c-1020b0d79eb5",
+                "recipeId": "sct-t3-flash-fuel",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "e7ab778e-889a-4792-bc28-e3d942e1ed3c",
+                "recipeId": "sct-t3-atomic-sensors",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:57:53.637Z",
+            "updatedAt": "2026-10-20T00:33:48.367Z"
+          },
+          {
+            "id": "edf8f764-b739-4422-99e1-89535bf1c683",
+            "name": "Science pack: Ablative weapons testing kit",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "7a8c08d1-fc1d-4f2a-9629-e53971ce83b0",
+                "recipeId": "military-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "6c362d94-3e0d-4f65-827c-856b5ffee3a8",
+                "recipeId": "sct-mil-circuit3",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "sct-mil-circuit3"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "65d728e3-1be6-4126-8229-160218ffb6f1",
+                "recipeId": "sct-mil-circuit2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "db3d3f54-e1aa-474c-b260-e49311d3a35a",
+                "recipeId": "sct-mil-plating",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "56e14f61-9eb9-4099-b527-31b7d72e90de",
+                "recipeId": "sct-mil-subplating",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:58:26.692Z",
+            "updatedAt": "2026-10-20T00:36:15.300Z"
+          },
+          {
+            "id": "f4a5fe7c-0f98-4cc9-acab-1abc8895922a",
+            "name": "Transport science pack",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "2a9a683e-1726-4d07-9331-b236e1dfa724",
+                "recipeId": "bob-advanced-logistic-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "eeef1497-738b-4219-9ee4-4386e1f4abf6",
+                "recipeId": "sct-logistic-cargo-unit",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3e873cd6-e2c1-422c-a739-0a50e5cbc724",
+                "recipeId": "sct-logistic-unimover",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "a3003ef1-4c4e-4d60-b4f6-d324ecdc6bc6",
+                "recipeId": "sct-logistic-automated-storage",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "99020221-d073-4e8d-87b1-3a6a80d02fc0",
+                "recipeId": "sct-logistic-memory-unit",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "efdedfd6-1b86-4d41-919b-8de05303563b",
+                "recipeId": "angels-wire-gold",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "a5ac7f2c-ac1e-474c-827f-a8d62259f101",
+                "recipeId": "angels-wire-copper-2",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:58:29.722Z",
+            "updatedAt": "2026-10-20T00:49:24.831Z"
+          },
+          {
+            "id": "18fe3266-dbde-4a18-afcb-3e2ea2a34c49",
+            "name": "Science pack: Burns-out QL Bio-processor",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "8124c5f8-52db-4ec9-a782-51fdc0f9fbc5",
+                "recipeId": "production-science-pack",
+                "machineId": "assembling-machine-3",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "5833ab04-bf9f-4c1e-95d2-08a7fdc0c0c9",
+                "recipeId": "sct-prod-bioprocessor",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3d5ce1a8-5cde-44dd-aded-5653e4ed6075",
+                "recipeId": "sct-prod-baked-biopaste",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "576e5073-23a0-4cdc-ae65-2ab3f7283f4d",
+                "recipeId": "sct-prod-biosilicate",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "6522ce7e-4def-4c4b-9927-e1ca2b5d1f6a",
+                "recipeId": "sct-magenta-wire",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c287def2-c2ad-4e47-a176-c6a32736bb55",
+                "recipeId": "sct-prod-overclocker",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3636e3ce-3159-4083-abec-c0fa6d2aa090",
+                "recipeId": "angels-gas-sulfur-dioxide",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "376df4b5-ddd7-49c8-bf3e-cc67fcc851a0",
+                "recipeId": "sct-prod-chipcase",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3b113b4f-4736-4782-8145-604bfd2f8332",
+                "recipeId": "sct-cyan-wire",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-18T16:58:32.305Z",
+            "updatedAt": "2026-10-18T17:01:14.988Z"
+          }
+        ],
+        "createdAt": "2026-05-08T08:20:27.568Z",
+        "updatedAt": "2026-10-20T00:49:24.831Z"
+      }
+    },
+    {
+      "id": "3ba13fa4-a05e-4d43-a4ad-d71fb874185d",
+      "name": "Agricultural Science",
+      "color": "#7dd3fc",
+      "goals": [
+        {
+          "id": "2a0fdeaf-d98c-4576-a0ef-9d4d91cb05fb",
+          "itemId": "sct-bio-science-pack",
+          "rate": 10
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "89121efd-0d16-4ed5-bd9f-b86e572e87db",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ade18b16-0f41-4131-92cb-986f1a4ceeeb",
+            "recipeId": "sct-bio-science-pack",
+            "machineId": "assembling-machine-3",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "b8fa218e-b1d9-468f-8bb3-ca3560aeb1e4",
+            "subPlanId": "0d9d8e60-8207-4ab4-baaa-380bf8506562"
+          },
+          {
+            "kind": "subplan",
+            "id": "6a222691-4ab7-4754-9024-4312493f7428",
+            "subPlanId": "6ab0ece4-b060-4799-82ed-e54fa4717357"
+          },
+          {
+            "kind": "subplan",
+            "id": "8dd9fc47-d403-4b8f-8d11-1607469e4354",
+            "subPlanId": "dae1bd38-d5ef-4082-aa37-0e292e7db48e"
+          },
+          {
+            "kind": "subplan",
+            "id": "15e96d27-3c13-4508-bb44-bcfa541794de",
+            "subPlanId": "0e252b9e-129c-4a2f-bed1-8a0862d94353"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "0d9d8e60-8207-4ab4-baaa-380bf8506562",
+            "name": "Ground sample",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "b3b6bfce-440a-4af9-ab6e-9f22d1734bd3",
+                "recipeId": "sct-bio-ground-sample",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "56123418-a60b-417a-87e0-7426fbe928e4",
+                "recipeId": "sct-bio-sample-scaffold",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "a24033c4-ece3-4de2-98f5-558aee688799",
+                "recipeId": "sct-bio-sample-filling",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "aadf0b8f-04ad-4ce4-b974-bfd2c03a798e",
+                "recipeId": "angels-solid-soil",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "d493ca45-8677-4032-8ec3-d5bafb8cdd21",
+                "recipeId": "angels-solid-soil-alternative",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": false
+              },
+              {
+                "kind": "game-recipe",
+                "id": "40b76cf6-cb47-4662-b843-d2b0f77d7d13",
+                "recipeId": "angels-solid-sand",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": false
+              },
+              {
+                "kind": "game-recipe",
+                "id": "a5d99309-45d6-4361-a739-448890980161",
+                "recipeId": "angels-water-thin-mud",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3e1aecfe-8e45-476d-8a55-c394fb39bbcc",
+                "recipeId": "angels-water-light-mud",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "8de1b505-ff94-4d61-ba69-f02ee0fc01fd",
+                "recipeId": "angels-water-concentrated-mud",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "30e9264f-86fd-490f-8f12-42bc78b97507",
+                "recipeId": "angels-chemical-void-angels-gas-hydrogen-sulfide",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "e1417173-f53c-4dea-9351-2ae76ebd9c3d",
+                "recipeId": "angels-water-heavy-mud",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-water-heavy-mud"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "510af8e0-569d-40ce-8706-9d5bdb3de86a",
+                "recipeId": "offshore:angels-water-viscous-mud",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c7caf7e3-bbc5-40cf-9876-92addebebe3a",
+                "recipeId": "offshore:water",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-19T15:26:28.946Z",
+            "updatedAt": "2026-10-19T17:37:51.168Z"
+          },
+          {
+            "id": "6ab0ece4-b060-4799-82ed-e54fa4717357",
+            "name": "Paper bleaching 1",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "fbe3fc5b-6a39-4c71-9ff1-770830757109",
+                "recipeId": "angels-solid-paper",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "545ad12c-aa2d-4ec1-b0bd-fcc40a4279b7",
+                "recipeId": "angels-solid-wood-pulp",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "8b512238-d7a1-4d42-a82e-80d58b15db2a",
+                "recipeId": "angels-solid-alginic-acid",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "4ab2b2f5-6aa7-4ac3-8756-d4de26a7860d",
+                "recipeId": "angels-cellulose-fiber-raw-wood",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "ae45a7be-9db7-4e3a-8a22-671798ac2dc7",
+                "recipeId": "angels-algae-brown",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "01ef8c7e-a453-4d43-be31-494693d2d825",
+                "recipeId": "angels-water-saline-from-water",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-19T15:38:04.402Z",
+            "updatedAt": "2026-10-19T17:21:43.853Z"
+          },
+          {
+            "id": "dae1bd38-d5ef-4082-aa37-0e292e7db48e",
+            "name": "Compost",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "3858b232-9f12-4445-97e3-7cbe311bec1f",
+                "recipeId": "angels-bio-void-angels-algae-green",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b6fbcf7a-dce3-490e-9432-0a8e7e7944e4",
+                "recipeId": "angels-bio-void-angels-algae-brown",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "f7f7851b-685d-4a97-af9e-00d6e641fcc2",
+                "recipeId": "angels-algae-green-simple",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-19T17:20:48.002Z",
+            "updatedAt": "2026-10-19T17:21:22.103Z"
+          },
+          {
+            "id": "0e252b9e-129c-4a2f-bed1-8a0862d94353",
+            "name": "Desert garden cultivation",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "91cc8402-3a78-45cb-8b9b-eb96985563a4",
+                "recipeId": "angels-desert-garden-cultivating-a",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "63c993bd-4981-4653-95a4-434ab8d634bc",
+                "recipeId": "angels-desert-garden",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "aeabcc15-a3be-4fbe-bf57-5c44a49e69a6",
+                "recipeId": "angels-solid-alienated-fertilizer",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "e086bc29-6950-471c-b353-4c7f62c7bd3d",
+                "recipeId": "angels-alien-goo",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "1613b2df-f06f-4345-a7a6-e994bc73bf5b",
+                "recipeId": "angels-alien-bacteria",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "e12cd21b-b21c-4759-a7fd-02920615e98e",
+                "recipeId": "angels-solid-fertilizer",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "50eb7307-168d-401d-acb8-6513cd1daee7",
+                "recipeId": "angels-water-void-angels-water-purified",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "d2ec134d-1a17-409b-beca-540b893873d5",
+                "recipeId": "angels-gas-urea",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-gas-urea"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "97439740-9396-4abe-906a-405ecf823273",
+                "recipeId": "angels-gas-ammonia-from-blue-fiber",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "939d9548-cde3-4799-a3ee-e8cdc5df266c",
+                "recipeId": "angels-blue-cellulose-fiber",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "7e40abe8-294b-46b4-b0de-06c58a7942db",
+                "recipeId": "angels-algae-blue",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b4e47712-8fe5-499a-9832-88284f4a76e6",
+                "recipeId": "angels-chemical-void-angels-alien-spores",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c7dcb50e-7e70-41ab-a716-706c99fdc809",
+                "recipeId": "angels-alien-spores",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-alien-spores"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b7d73277-8e76-46ad-9a7f-bc2779798fa2",
+                "recipeId": "angels-alien-fish-0-raw",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-liquid-polluted-fish-atmosphere"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "d89db541-1976-40e7-bdb9-64677fec68d9",
+                "recipeId": "angels-solid-calcium-carbonate",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "641c5d57-3e27-470e-bba4-d2f0eb61f632",
+                "recipeId": "angels-red-cellulose-fiber",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "441f175d-c7f1-421a-a75f-1fe3ab405d12",
+                "recipeId": "angels-algae-red",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c6ded756-1c7c-4c98-a651-8d338217b8b3",
+                "recipeId": "sb-thermal-bore-water",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "87c2ac70-0dd5-4203-9c61-3e3050488e2d",
+                "recipeId": "angels-algae-brown-burning",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "27f50186-c77b-49b0-bc9b-f2e369e207af",
+                "recipeId": "angels-liquid-hydrochloric-acid-solid-sodium-sulfate",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "97c4ec48-53bb-435c-b7ea-0c3e82ed5e41",
+                "recipeId": "angels-solid-sodium-sulfate-separation",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "sulfur"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "bd04d268-fb88-4f35-8fff-44f0548398e4",
+                "recipeId": "angels-liquid-sulfuric-acid",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "06e8885a-47b1-4371-91ee-a33d04108159",
+                "recipeId": "angels-gas-sulfur-dioxide",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "54bad735-b136-42c1-9eb6-d49a23783d8a",
+                "recipeId": "angels-chemical-void-angels-gas-urea",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-19T17:38:15.497Z",
+            "updatedAt": "2026-10-19T17:52:54.835Z"
+          }
+        ],
+        "createdAt": "2026-05-08T08:20:27.568Z",
+        "updatedAt": "2026-10-19T17:38:15.497Z"
+      }
+    },
+    {
+      "id": "6d69a147-76c7-4407-a888-a3b28efa3f68",
+      "name": "Circuits",
+      "color": "#818cf8",
+      "goals": [
+        {
+          "id": "78553a3c-5db2-467c-bb1f-e3b148065bce",
+          "itemId": "processing-unit",
+          "rate": 15
+        },
+        {
+          "id": "4ce8ebc8-60d8-4926-9f90-d137687fd0e3",
+          "itemId": "advanced-circuit",
+          "rate": 40
+        },
+        {
+          "id": "e7b4cd0a-9fc2-4f35-85ce-a1d147db00b4",
+          "itemId": "electronic-circuit",
+          "rate": 100
+        },
+        {
+          "id": "cd45b358-6703-49a9-8a7d-917f41bc2041",
+          "itemId": "bob-basic-circuit-board",
+          "rate": 10
+        },
+        {
+          "id": "fe3f7ada-ddaf-40d6-897a-21a382218bb8",
+          "itemId": "bob-integrated-electronics",
+          "rate": 10
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "17aab646-e1f6-4a67-9c20-a0e02f7f5aaf",
+          "itemId": "angels-wire-coil-copper",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "c245bd04-efc9-4530-b81e-ad7aa4899aa5",
+          "itemId": "bob-titanium-plate",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "b969962b-cff5-4f8b-be9c-e0092f0672c3",
+          "itemId": "angels-roll-copper",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "3ba80215-192a-4a05-96fc-42e380179431",
+          "itemId": "angels-roll-solder",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "d300ea8b-481a-4d21-a1bd-e4e5abac148e",
+          "itemId": "angels-wire-coil-tin",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        },
+        {
+          "id": "6d35ab46-94b4-43bb-a52f-213513933f47",
+          "itemId": "angels-roll-silver",
+          "fromBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5"
+        }
+      ],
+      "rootPlan": {
+        "id": "6a81bdd3-3f22-453f-ae53-af2f281be81c",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "subplan",
+            "id": "d438d1d1-f596-4d19-807f-11208e9fe2eb",
+            "subPlanId": "1787f35b-0992-4432-b1f4-f2b0796798df"
+          },
+          {
+            "kind": "subplan",
+            "id": "c26679ef-daf3-44cf-9c4c-fc3ec15493eb",
+            "subPlanId": "f37af099-3410-4deb-aba7-680d7c53eba3"
+          },
+          {
+            "kind": "subplan",
+            "id": "917aa940-b690-4b84-a736-beeaa7e0efce",
+            "subPlanId": "9e4a32b8-e39a-4915-bd2d-1aabcbe4938c"
+          },
+          {
+            "kind": "subplan",
+            "id": "73ec005f-06a1-464b-8ac0-2f974c53fd2f",
+            "subPlanId": "692f00cf-da3c-49ef-844b-eb4e80059016"
+          },
+          {
+            "kind": "subplan",
+            "id": "4d847a50-5278-40b9-a0ca-1fb40a65c4e1",
+            "subPlanId": "1ca7e04a-379c-4292-a8c4-2559ae398c2a"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "362d1e4f-f54d-4d95-94c4-aa6c294ac49e",
+            "recipeId": "angels-wire-copper-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "ea4cc4d0-731c-46eb-b0ba-fdee2aa34168",
+            "recipeId": "angels-plate-copper-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "0ec85507-ef32-46d6-af2c-7ed44bf2b9ec",
+            "recipeId": "angels-solder-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "bf090823-0aad-4d67-b0e7-2ae3f966b792",
+            "recipeId": "angels-plate-silver-2",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "1787f35b-0992-4432-b1f4-f2b0796798df",
+            "name": "Processing board",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "a3faf6f0-502b-45c3-a6f8-c1257f8ab795",
+                "recipeId": "processing-unit",
+                "machineId": "assembling-machine-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b67773b5-1079-447a-84ca-91cc1e7eea8d",
+                "recipeId": "cp-processing-board",
+                "machineId": "assembling-machine-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "2221041f-dbe7-4f98-95e8-5635ef1bd076",
+                "recipeId": "bob-superior-circuit-board",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-17T15:36:51.197Z",
+            "updatedAt": "2026-10-17T15:42:00.773Z"
+          },
+          {
+            "id": "f37af099-3410-4deb-aba7-680d7c53eba3",
+            "name": "Advanced circuit board",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "d5bc25ac-8be4-48ad-9bea-d597a95287f0",
+                "recipeId": "advanced-circuit",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3f50a369-850b-420d-909a-ad2c3ec4d298",
+                "recipeId": "cp-advanced-circuit-board",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "f4fef7ff-c1f1-427d-b220-5950404c0deb",
+                "recipeId": "bob-circuit-board",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-17T15:37:17.380Z",
+            "updatedAt": "2026-10-17T15:42:03.854Z"
+          },
+          {
+            "id": "692f00cf-da3c-49ef-844b-eb4e80059016",
+            "name": "Wooden board",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "64ddf451-bd96-4381-b49a-3445155e8a9a",
+                "recipeId": "bob-basic-circuit-board",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "25501ae5-9d38-48d1-8c03-026205b79a91",
+                "recipeId": "bob-wooden-board",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-17T15:38:39.345Z",
+            "updatedAt": "2026-10-19T06:52:53.668Z"
+          },
+          {
+            "id": "9e4a32b8-e39a-4915-bd2d-1aabcbe4938c",
+            "name": "Electronic circuit board",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "5ba7dbf1-bd69-4a66-8bf2-16bf8267445c",
+                "recipeId": "electronic-circuit",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c39e86bd-accb-44b3-890e-05e41acd6d0f",
+                "recipeId": "cp-electronic-circuit-board",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-17T15:38:53.447Z",
+            "updatedAt": "2026-10-17T15:42:06.154Z"
+          },
+          {
+            "id": "1ca7e04a-379c-4292-a8c4-2559ae398c2a",
+            "name": "Electronics Components",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "ee6b3d0c-e181-4602-b7ae-1dadda87928f",
+                "recipeId": "bob-integrated-electronics",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "461d8a65-8086-417e-9c7d-08403faebc0c",
+                "recipeId": "angels-wire-gold-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "cf64713b-e4fc-462a-9958-3e957ab10a37",
+                "recipeId": "bob-electronic-components",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "3735f3d3-7b71-4bcf-8191-80bd8f308c0c",
+                "recipeId": "angels-wire-silver-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "8978375d-e17e-4ce7-85b0-ceb7cae195ac",
+                "recipeId": "bob-basic-electronic-components",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "5508f677-fe63-41e2-b629-c2edf5888aba",
+                "recipeId": "angels-wire-tin-2",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "c8640a83-e086-4797-97fa-3f9c8f38bc0b",
+                "recipeId": "angels-solid-carbon",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "1404db8c-5750-46fa-8006-41ba9509a2df",
+                "recipeId": "bob-silicon-wafer",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "5ec21186-4433-4b2d-b893-5208094446fa",
+                "recipeId": "angels-steam-water",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "434e3614-c9ad-48b7-924a-074712ada915",
+                "recipeId": "offshore:water",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-17T15:39:36.881Z",
+            "updatedAt": "2026-10-18T21:45:48.554Z"
+          }
+        ],
+        "createdAt": "2026-10-17T15:32:37.041Z",
+        "updatedAt": "2026-10-20T01:11:12.288Z"
+      }
+    },
+    {
+      "id": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5",
+      "name": "Metals",
+      "color": "#818cf8",
+      "goals": [
+        {
+          "id": "3dab9e71-5115-4c8b-9665-1c841285f364",
+          "itemId": "angels-roll-iron",
+          "rate": 60
+        },
+        {
+          "id": "f1f9b7b2-565d-495f-bd7a-61682996539a",
+          "itemId": "angels-roll-copper",
+          "rate": 100
+        },
+        {
+          "id": "3eade6b2-cf6b-405e-8e0b-6c4355e70093",
+          "itemId": "angels-roll-tin",
+          "rate": 60
+        },
+        {
+          "id": "b4dbdbf8-817f-4cf2-a477-4572a71268c8",
+          "itemId": "angels-roll-lead",
+          "rate": 60
+        },
+        {
+          "id": "a1a79cf4-3adf-4bfe-a873-f9dc0cfbe9fb",
+          "itemId": "angels-roll-aluminium",
+          "rate": 60
+        },
+        {
+          "id": "561d60b8-aa70-4221-bb72-275916ce3ec6",
+          "itemId": "angels-wire-coil-tin",
+          "rate": 150
+        },
+        {
+          "id": "8e6b711d-abb0-4715-8b5f-34e22dffad0c",
+          "itemId": "angels-roll-silver",
+          "rate": 60
+        },
+        {
+          "id": "b0496280-1102-4162-bb41-c9ef85169785",
+          "itemId": "angels-roll-aluminium",
+          "rate": 60
+        },
+        {
+          "id": "60d24613-034e-46eb-ae6c-b81f867aa5ab",
+          "itemId": "angels-roll-steel",
+          "rate": 60
+        },
+        {
+          "id": "adfd50b6-c494-4890-9ab8-74b8f4e99264",
+          "itemId": "bob-invar-alloy",
+          "rate": 87.5
+        },
+        {
+          "id": "22dfbf1a-4404-4259-a17a-92c795a169e4",
+          "itemId": "bob-brass-alloy",
+          "rate": 60
+        },
+        {
+          "id": "a520a9b0-20b6-44c1-8fef-3d313f6ef13d",
+          "itemId": "bob-gold-plate",
+          "rate": 70
+        },
+        {
+          "id": "860ce738-a864-4d3f-a35f-5e5e58d09f53",
+          "itemId": "angels-wire-coil-copper",
+          "rate": 360
+        },
+        {
+          "id": "b1238a2d-430c-4068-a1e9-3f2a785c3e4d",
+          "itemId": "angels-roll-solder",
+          "rate": 215
+        },
+        {
+          "id": "5b375a29-d22c-4327-9c7a-dea221347353",
+          "itemId": "bob-titanium-plate",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "683839f6-7b04-489d-9e44-5fe52b07e852",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "202c01ac-ae54-4bd5-83f9-0eb5c1f02bad",
+            "recipeId": "angels-roll-aluminium",
+            "machineId": "angels-strand-casting-machine-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "d3b9ed2f-48e7-4c5b-8eb7-379ff3f326d1",
+            "recipeId": "angels-roll-iron-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "c3c0e3bf-19b2-4a6b-aed4-ea81fb180aa4",
+            "recipeId": "angels-roll-copper-2",
+            "modules": [],
+            "byproductPolicy": {},
+            "primaryProduct": "angels-roll-copper"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "160da48b-1b8f-4530-9d04-12159f5701d0",
+            "recipeId": "angels-wire-coil-copper-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "8fa080d3-98b4-47cd-9fc0-8b4501f537ab",
+            "recipeId": "angels-roll-tin-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "e66aa81f-fcd5-47de-839d-50ea53c68b40",
+            "recipeId": "angels-wire-coil-tin-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "f7f2746c-5bd5-40a7-8099-f23f238263bb",
+            "recipeId": "angels-roll-lead-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "74eb7282-c138-42ed-8d59-fc86a0181e8d",
+            "recipeId": "angels-roll-steel-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "202905d1-0220-40ff-8d6f-80ff41d73c2a",
+            "recipeId": "angels-roll-silver",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "1e24c88b-d326-43aa-869a-6f346ebcf3af",
+            "recipeId": "angels-plate-invar",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "984fb3d9-98fd-43e9-96c4-f27bbe176975",
+            "recipeId": "angels-plate-brass",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "8b6fffdc-ab89-4a37-9b1a-d83181ac0182",
+            "recipeId": "angels-plate-gold",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "1bf93d84-cae3-425c-b9c4-835c387ec6e2",
+            "recipeId": "angels-roll-solder-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "56510b95-4ec5-40e1-aacb-640ce4afefdf",
+            "recipeId": "angels-plate-titanium",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "d8d66821-1856-41d1-98ad-10b079627ebb",
+            "subPlanId": "294b5caf-3160-41c0-9acd-47b3862619a4"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "294b5caf-3160-41c0-9acd-47b3862619a4",
+            "name": "Coolant",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "0f4fff4a-cd7e-4b90-9bfb-798952d85b15",
+                "recipeId": "angels-coolant-used-filtration-1",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "4b312f32-a324-471c-beba-e05778f77789",
+                "recipeId": "angels-filter-coal",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "bb8e9293-2136-461e-959c-ea6ed07c3bed",
+                "recipeId": "angels-liquid-raw-fish-oil-filtering-1",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-liquid-mineral-oil"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "40b01906-bda6-4625-ace3-169daa190d0d",
+                "recipeId": "angels-liquid-coolant",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "b7f6b8ad-1ee6-45a8-831d-b8b1d5bbead1",
+                "recipeId": "angels-advanced-liquid-fish-oil-refining",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-liquid-mineral-oil",
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "1ce11576-e9ff-4e35-b0e2-9eb7e02dfbb6",
+                "recipeId": "angels-gas-ethanol",
+                "modules": [],
+                "byproductPolicy": {},
+                "primaryProduct": "angels-solid-compost",
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "080a00f5-5dba-4c09-a5da-72a82d5fde4a",
+                "recipeId": "angels-bio-void-angels-solid-compost",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              },
+              {
+                "kind": "game-recipe",
+                "id": "6107c5b5-400a-4b55-b6e2-3b320e2aa8aa",
+                "recipeId": "angels-chemical-void-angels-gas-ethanol",
+                "modules": [],
+                "byproductPolicy": {},
+                "byproductConsumer": true
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-10-20T01:05:18.174Z",
+            "updatedAt": "2026-10-20T01:06:42.387Z"
+          }
+        ],
+        "createdAt": "2026-10-19T06:48:13.263Z",
+        "updatedAt": "2026-10-21T02:31:36.297Z"
+      }
+    }
+  ],
+  "activeBlockId": "92489677-c0c2-4b1f-a0bc-f7af1b4eeaf5",
+  "horizonTechnologyIds": [
+    "production-science-pack",
+    "bob-advanced-logistic-science-pack",
+    "bob-electric-energy-accumulators-2",
+    "angels-bio-refugium-puffer-4",
+    "bob-artillery-turret-2",
+    "angels-rocket-booster-2",
+    "power-armor-mk2",
+    "angels-bio-yield-module-2",
+    "bob-exoskeleton-equipment-2",
+    "angels-bio-plastic-2",
+    "angels-plastic-2",
+    "angels-advanced-oil-processing",
+    "angels-resin-2",
+    "angels-rubber",
+    "effect-transmission",
+    "nuclear-power",
+    "angels-electric-boiler-2",
+    "bob-personal-roboport-modular-equipment-2",
+    "angels-steel-smelting-3",
+    "angels-iron-casting-3",
+    "angels-copper-casting-3",
+    "angels-silver-casting-2",
+    "angels-lead-casting-3",
+    "angels-aluminium-casting-2",
+    "angels-solder-smelting-3",
+    "angels-tin-casting-3",
+    "bob-personal-laser-defense-equipment-2",
+    "angels-manganese-smelting-3",
+    "angels-aluminium-smelting-2",
+    "angels-tin-smelting-3",
+    "angels-silicon-smelting-2",
+    "angels-silver-smelting-2",
+    "angels-nickel-smelting-2",
+    "angels-lead-smelting-3",
+    "angels-zinc-smelting-2",
+    "angels-copper-smelting-3",
+    "bob-robots-1",
+    "bob-robo-modular-2",
+    "angels-bio-processing-alien-3",
+    "angels-bio-pressing-fish-2",
+    "angels-bio-refugium-butchery-2",
+    "angels-geode-processing-3",
+    "bob-bulk-inserter-2",
+    "angels-brass-smelting-2",
+    "angels-silicon-casting-2",
+    "angels-bio-desert-farming-2",
+    "angels-bio-swamp-farming-2",
+    "angels-bronze-smelting-3",
+    "angels-bio-temperate-farming-2",
+    "angels-gardens-3",
+    "angels-bio-arboretum-swamp-3",
+    "bob-electric-mixing-furnace",
+    "angels-bio-processing-crystal-splinter-3",
+    "angels-sulfur-processing-3",
+    "bob-electric-substation-2",
+    "angels-bio-arboretum-temperate-3",
+    "bob-steam-turbine-1",
+    "bob-burner-reactor-2",
+    "bob-sniper-turrets-2",
+    "bob-oil-boiler-2",
+    "bob-repair-pack-3",
+    "bob-fluid-handling-2",
+    "bob-boiler-3",
+    "advanced-combinators",
+    "bob-railway-2",
+    "bob-fluid-wagon-2",
+    "bob-heat-exchanger-2",
+    "bob-electric-pole-2",
+    "angels-bio-arboretum-desert-3",
+    "sb-bio-processing-advanced",
+    "bob-solar-panel-equipment-2",
+    "rocketry",
+    "automation-3",
+    "bob-solar-energy-2",
+    "angels-bio-refugium-fish-2",
+    "bob-artifact-radar",
+    "bob-fluid-mixing-furnace",
+    "bob-reinforced-wall",
+    "angels-pressure-tanks",
+    "bob-gas-canisters",
+    "cybersyn-train-network",
+    "cliff-explosives",
+    "bob-electronics-machine-1",
+    "angels-bio-wood-processing-3",
+    "angels-bio-arboretum-3"
+  ],
+  "defaultMachineOverrides": {},
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Seablock",
+    "factorioVersion": "2.0.77"
+  }
+}

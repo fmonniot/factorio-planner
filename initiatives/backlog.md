@@ -19,7 +19,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Sharing
 
-- [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import.
+- [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import. Size measurements and a proposed design are in [share-by-url/](share-by-url/plan.md).
 
 ## Planning features
 
