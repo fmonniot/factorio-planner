@@ -27,6 +27,7 @@ export type {
   BlockConnection,
   Block,
   AppState,
+  PlanDataSetStamp,
   PlanEntry,
   PlanIndex,
 } from './schema'

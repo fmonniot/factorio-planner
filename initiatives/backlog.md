@@ -17,9 +17,9 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
 
-## Sharing and import
+## Sharing
 
-- [ ] **Record the data set in exported plans.** Export does not record which data set a plan was made for; stamping the data-set id would let import warn on a mismatch instead of only listing unknown ids (changes the export format).
+- [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import. Size measurements and a proposed design are in [share-by-url/](share-by-url/plan.md).
 
 ## Planning features
 

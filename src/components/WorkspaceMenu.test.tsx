@@ -420,11 +420,13 @@ describe('WorkspaceMenu plan import', () => {
   afterEach(() => { usePlansStore.setState({ sourceId: null, index: null }) })
 
   const planCount = () => usePlansStore.getState().index?.plans.length
-  const planFile = (name: string, goalItem?: string) => {
+  const planFile = (name: string, goalItem?: string, dataSet?: unknown) => {
     const block = makeEmptyBlock('Imported')
     if (goalItem) block.goals = [{ id: 'g', itemId: goalItem, rate: 60 }]
-    return new File([JSON.stringify({ blocks: [block], activeBlockId: block.id })], name, { type: 'application/json' })
+    const state = { blocks: [block], activeBlockId: block.id, ...(dataSet === undefined ? {} : { dataSet }) }
+    return new File([JSON.stringify(state)], name, { type: 'application/json' })
   }
+  const seablockStamp = { id: 'kompetenz-seablock', name: 'Seablock', factorioVersion: '2.0.9' }
   async function pick(file: File) {
     await openMenu()
     await userEvent.click(screen.getByRole('menuitem', { name: 'Import plan…' }))
@@ -455,5 +457,77 @@ describe('WorkspaceMenu plan import', () => {
     await pick(planFile('ghost.json', 'ghost-item'))
     await userEvent.click(await screen.findByRole('button', { name: 'Import anyway' }))
     expect(planCount()).toBe(2)
+  })
+
+  it('imports silently when the stamp names the loaded data set', async () => {
+    render(<WorkspaceMenu />)
+    await pick(planFile('same.json', undefined, { id: 'nullius' }))
+    await waitFor(() => expect(planCount()).toBe(2))
+    expect(screen.queryByTestId('import-data-set-mismatch')).not.toBeInTheDocument()
+  })
+
+  it('warns about a data set mismatch even when every id exists', async () => {
+    render(<WorkspaceMenu />)
+    await pick(planFile('other.json', undefined, seablockStamp))
+    const warning = await screen.findByTestId('import-data-set-mismatch')
+    expect(warning).toHaveTextContent('Seablock (Factorio 2.0.9)')
+    expect(warning).toHaveTextContent('All its recipes')
+    expect(screen.queryByTestId('import-unknown-ids')).not.toBeInTheDocument()
+    expect(planCount()).toBe(1)
+    await userEvent.click(screen.getByRole('button', { name: 'Import anyway' }))
+    expect(planCount()).toBe(2)
+  })
+
+  it('shows both warnings for a mismatch with unknown ids, without the generic hint', async () => {
+    render(<WorkspaceMenu />)
+    await pick(planFile('other.json', 'ghost-item', seablockStamp))
+    expect(await screen.findByTestId('import-data-set-mismatch')).toBeInTheDocument()
+    const unknown = screen.getByTestId('import-unknown-ids')
+    expect(unknown).toHaveTextContent('ghost-item')
+    expect(unknown).not.toHaveTextContent('another data set')
+  })
+
+  it('says the game data may have changed when the stamp matches but ids are unknown', async () => {
+    render(<WorkspaceMenu />)
+    await pick(planFile('ghost.json', 'ghost-item', { id: 'nullius' }))
+    expect(await screen.findByTestId('import-unknown-ids')).toHaveTextContent('may have changed')
+    expect(screen.queryByTestId('import-data-set-mismatch')).not.toBeInTheDocument()
+  })
+
+  it('keeps the generic hint for an unstamped file with unknown ids', async () => {
+    render(<WorkspaceMenu />)
+    await pick(planFile('ghost.json', 'ghost-item'))
+    expect(await screen.findByTestId('import-unknown-ids')).toHaveTextContent('another data set')
+  })
+})
+
+describe('WorkspaceMenu plan export', () => {
+  let blobs: Blob[]
+  const originalUrl = { create: URL.createObjectURL, revoke: URL.revokeObjectURL }
+  beforeEach(() => {
+    blobs = []
+    usePlansStore.setState({ sourceId: null, index: null })
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { ...makeMenuGameData(), recipes: {}, items: {} } as GameData, sourceId: 'nullius' },
+    })
+    activateDataSet('nullius')
+    URL.createObjectURL = vi.fn((blob: Blob) => { blobs.push(blob); return 'blob:test' })
+    URL.revokeObjectURL = vi.fn()
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+  })
+
+  afterEach(() => {
+    URL.createObjectURL = originalUrl.create
+    URL.revokeObjectURL = originalUrl.revoke
+    usePlansStore.setState({ sourceId: null, index: null })
+  })
+
+  it('stamps the exported file with the loaded data set', async () => {
+    render(<WorkspaceMenu />)
+    await openMenu()
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Export plan' }))
+    expect(blobs).toHaveLength(1)
+    const exported = JSON.parse(await blobs[0].text()) as { dataSet: unknown }
+    expect(exported.dataSet).toEqual({ id: 'nullius', name: 'Nullius', factorioVersion: '2.0.0' })
   })
 })

@@ -50,7 +50,7 @@ The **Tech tree** icon button opens the technology tree: cards with icons and re
 
 ### Saving and sharing
 
-Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the workspace menu at the right of the top bar lists them and switches between them, with tiles to create, rename, duplicate and delete, and switching data sets brings back that data set's active plan. **Export plan**, in the same menu, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears only if it uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
+Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the workspace menu at the right of the top bar lists them and switches between them, with tiles to create, rename, duplicate and delete, and switching data sets brings back that data set's active plan. **Export plan**, in the same menu, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears if it was exported for another data set or uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
 
 ## How it works
 

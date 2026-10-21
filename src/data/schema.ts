@@ -375,6 +375,13 @@ export const AppStateSchema = z.preprocess(
   }),
 )
 
+/** Data set an exported plan was made for; only in exported files, never in localStorage. */
+export const PlanDataSetStampSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().optional(),
+  factorioVersion: z.string().optional(),
+})
+
 /** One saved plan of a data set, as listed in its plan index. */
 export const PlanEntrySchema = z.object({ id: z.string().min(1), name: z.string() })
 
@@ -417,6 +424,7 @@ export type SubPlan = SubPlanType
 export type BlockConnection = z.output<typeof BlockConnectionSchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
+export type PlanDataSetStamp = z.output<typeof PlanDataSetStampSchema>
 export type PlanEntry = z.output<typeof PlanEntrySchema>
 export type PlanIndex = z.output<typeof PlanIndexSchema>
 

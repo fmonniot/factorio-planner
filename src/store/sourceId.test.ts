@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   normalizeDatasetId, legacyPlanStorageKey, planIndexKey, planKey, planKeyPrefix, isStorageKeyOf,
+  isSameDataSet, customDisplayName,
 } from './sourceId'
 
 describe('normalizeDatasetId', () => {
@@ -45,5 +46,29 @@ describe('isStorageKeyOf', () => {
     for (const key of [legacyPlanStorageKey(other), planIndexKey(other), planKey(other, 'p'), legacyPlanStorageKey(other) + ':corrupt']) {
       expect(isStorageKeyOf(key, id), key).toBe(false)
     }
+  })
+})
+
+describe('isSameDataSet', () => {
+  it.each([
+    ['nullius', 'nullius', true],
+    ['kompetenz-seablock/', 'kompetenz-seablock', true],
+    ['kompetenz-seablock', 'nullius', false],
+    ['custom:a.json#0000abcd', 'custom:b.json#0000abcd', true],
+    ['custom:a.json#0000abcd', 'custom:a.json#1111ffff', false],
+    ['custom:a.json', 'custom:b.json', false],
+    ['nullius', 'custom:nullius#0000abcd', false],
+  ])('%s vs %s is %s', (a, b, expected) => {
+    expect(isSameDataSet(a, b)).toBe(expected)
+  })
+})
+
+describe('customDisplayName', () => {
+  it('drops the fingerprint of an upload id', () => {
+    expect(customDisplayName('custom:my#file.json#0000abcd')).toBe('my#file.json')
+  })
+
+  it('is null for bundled ids', () => {
+    expect(customDisplayName('nullius')).toBeNull()
   })
 })

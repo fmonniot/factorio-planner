@@ -4,6 +4,7 @@ import {
   loadGameDataFromJson,
   parseAppState,
   parsePlanIndex,
+  parsePlanDataSetStamp,
   AppStateLoadError,
   GameDataLoadError,
 } from './loader'
@@ -482,6 +483,38 @@ describe('parseAppState — inputConnections', () => {
     })
     expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
     expect(state.blocks[1].inputConnections).toEqual(connections)
+  })
+})
+
+describe('parsePlanDataSetStamp', () => {
+  it('returns a full stamp whole', () => {
+    const dataSet = { id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' }
+    expect(parsePlanDataSetStamp({ dataSet })).toEqual(dataSet)
+  })
+
+  it('accepts a stamp with only an id', () => {
+    expect(parsePlanDataSetStamp({ dataSet: { id: 'x' } })).toEqual({ id: 'x' })
+  })
+
+  it.each([
+    ['no dataSet key', {}],
+    ['a non-object stamp', { dataSet: 5 }],
+    ['an empty id', { dataSet: { id: '' } }],
+    ['a missing id', { dataSet: { name: 'N' } }],
+    ['null', null],
+    ['an array', []],
+  ])('returns null for %s', (_label, raw) => {
+    expect(parsePlanDataSetStamp(raw)).toBeNull()
+  })
+
+  it('is stripped by parseAppState', () => {
+    const now = '2026-01-01T00:00:00.000Z'
+    const block = {
+      id: 'b1', name: 'Block', goals: [], noImportItems: [],
+      rootPlan: { id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
+    }
+    const state = parseAppState({ blocks: [block], activeBlockId: 'b1', dataSet: { id: 'nullius' } })
+    expect(state, 'stamp is stripped').not.toHaveProperty('dataSet')
   })
 })
 
