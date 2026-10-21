@@ -641,7 +641,9 @@ reach) the rate cells are empty and the machine count is 0.
 ### Sub-factory rows
 
 A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
-and a right-click menu with **Remove subfactory**, which removes it **with all
+and a right-click menu with **Rename subfactory…** and **Remove subfactory**.
+Rename opens a browser prompt prefilled with the current name; cancelling or a
+blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.
 Removal is not undoable. Expanding shows its
@@ -649,7 +651,6 @@ nodes indented beneath it (including nested sub-factories); an empty expanded
 group shows a "Drop here" target. Expanded/collapsed state is not saved.
 
 Sub-factories exist only to organise the table; the solver ignores the grouping.
-There is no UI to rename a sub-factory after creating it.
 
 ### Drag and drop
 
@@ -803,7 +804,7 @@ The same component in recipes mode (`source="recipes"`).
 ## Not in the UI
 
 Some store capabilities have no UI: undo/redo (`blockStore` keeps a per-block
-history), renaming a sub-factory, and the per-product `byproductPolicy`
+history) and the per-product `byproductPolicy`
 (`'discard'`). There is no URL sharing, settings panel, totals bar,
 or responsive layout. Planned work lives in
 [initiatives/backlog.md](../initiatives/backlog.md).

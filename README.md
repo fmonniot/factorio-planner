@@ -28,7 +28,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Right-click a byproduct** (in a row or in the summary's Byproducts pane) to add a recipe that consumes it.
 - **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs; such rows are marked with a small badge on the recipe icon.
 - **Lock an item** by selecting it in the summary's **Ingredients** pane and choosing **Forbid imports** (or right-click it), so the solver never imports it (select it and choose **Allow imports** to unlock). Whatever it would have needed from outside then shows up as a shortfall.
-- **Group recipes into subfactories** with "Wrap in subfactory" (right-click a subfactory row to remove it; you are asked to confirm when it is not empty), and drag rows to reorder them, including between groups.
+- **Group recipes into subfactories** with "Wrap in subfactory" (right-click a subfactory row to rename or remove it; you are asked to confirm removal when it is not empty), and drag rows to reorder them, including between groups.
 
 If the plan can't be solved cleanly (a goal with no recipe, the same recipe added twice, conflicting pins, or surplus that nothing consumes), a warnings pill appears in the top bar, next to the rate unit toggle, and lists what the solver found.
 
