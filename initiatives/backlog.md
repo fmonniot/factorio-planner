@@ -17,6 +17,10 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
 
+## Sharing
+
+- [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import.
+
 ## Planning features
 
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).

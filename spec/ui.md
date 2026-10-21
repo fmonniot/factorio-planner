@@ -341,8 +341,10 @@ fingerprint>` for an upload), `name` the bundled label ("Nullius", "Seablock") o
 without the fingerprint, and `factorioVersion` the loaded data's Factorio version. Import compares the
 stamp's `id` with the loaded data set (`isSameDataSet`, `src/store/sourceId.ts`): bundled ids must be
 equal; two uploads match when their fingerprints are equal, whatever the file name; a bundled id never
-matches an upload. Versions are not compared. Files without a stamp (older exports, or a malformed
-one) are treated as before.
+matches an upload, so a bundled data set and an upload of the same files count as different. Only the
+id is compared: the fingerprint covers mod names and versions, while `factorioVersion` is shown in the warning
+but never compared, so two data sets with equal mods count as the same. A file without a stamp (or with a
+malformed one) skips the mismatch check, and its unknown-ids paragraph ends with "The plan may have been made for another data set."
 
 The **Import plan…** item (`usePlanImport` in `WorkspaceMenu.tsx`) loads such a file back **as a new plan**; the
 current plan is kept. It is disabled until game data has loaded, because the plans belong to the current
@@ -358,7 +360,9 @@ drops the file, **Import anyway** continues.
 - `import-data-set-mismatch`, when the stamp names another data set: "This plan was exported for
   <name> (Factorio <version>); the loaded game data is <name> (Factorio <version>)." (the stamp's
   version part is left out when it has none), followed by "All its recipes and goal items exist in the
-  loaded game data." when no id is unknown.
+  loaded game data." when no id is unknown. When both names are equal (two uploads of one file name with
+  different mod sets) the loaded name is followed by "(a different mod set)" (`dataSetMismatchMessage`,
+  `src/store/persistence.ts`).
 - `import-unknown-ids`, when the file refers to recipes or goal items the loaded game data does not
   define: it lists the first few ids and says they cannot be produced (unknown recipes do nothing,
   unknown goals stay unsatisfiable, so a plan made for another data set looks mostly empty). It ends with

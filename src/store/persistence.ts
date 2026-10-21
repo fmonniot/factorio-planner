@@ -53,6 +53,22 @@ export function exportFileName(planName: string, date: Date): string {
   return `factorio-plan-${slug ? slug + '-' : ''}${date.toISOString().slice(0, 10)}.json`
 }
 
+/** The stamp for a plan exported from the data set `sourceId`; `name` is its display name. */
+export function makeDataSetStamp(sourceId: string, name: string, factorioVersion: string): PlanDataSetStamp {
+  return { id: normalizeDatasetId(sourceId), name, factorioVersion }
+}
+
+/**
+ * The import warning for a plan stamped for another data set than the loaded one. When both names read alike
+ * (two uploads of one file name with different mod sets) the loaded one is told apart.
+ */
+export function dataSetMismatchMessage(stamp: PlanDataSetStamp, loadedName: string, loadedVersion: string): string {
+  const exportedName = stamp.name ?? stamp.id
+  const exported = `${exportedName}${stamp.factorioVersion ? ` (Factorio ${stamp.factorioVersion})` : ''}`
+  const loaded = loadedName === exportedName ? `${loadedName} (a different mod set)` : loadedName
+  return `This plan was exported for ${exported}; the loaded game data is ${loaded} (Factorio ${loadedVersion}).`
+}
+
 /** The exported file: the app state plus the data set it was made for. */
 export function exportPlanJson(appState: AppState, dataSet: PlanDataSetStamp): string {
   return JSON.stringify({ ...appState, dataSet }, null, 2)

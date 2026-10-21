@@ -17,6 +17,8 @@ import {
   planNameFromFileName,
   exportFileName,
   exportPlanJson,
+  makeDataSetStamp,
+  dataSetMismatchMessage,
 } from './persistence'
 import { useBlockStore, makeEmptyBlock, selectAppState } from './blockStore'
 import { parseAppState } from '../data/loader'
@@ -658,6 +660,21 @@ describe('plan names and files', () => {
     expect(exportFileName('   ', date)).toBe('factorio-plan-2026-10-20.json')
     const slug = exportFileName('a'.repeat(100), date).replace('factorio-plan-', '').replace('-2026-10-20.json', '')
     expect(slug.length).toBeLessThanOrEqual(40)
+  })
+
+  it('makeDataSetStamp normalises the source id', () => {
+    expect(makeDataSetStamp('nullius/', 'Nullius', '2.0.9')).toEqual({ id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' })
+    expect(makeDataSetStamp('custom:a.json#aaaa1111', 'a.json', '2.0.9').id).toBe('custom:a.json#aaaa1111')
+  })
+
+  it('dataSetMismatchMessage names both data sets', () => {
+    expect(dataSetMismatchMessage({ id: 'kompetenz-seablock', name: 'Seablock', factorioVersion: '2.0.1' }, 'Nullius', '2.0.9'))
+      .toBe('This plan was exported for Seablock (Factorio 2.0.1); the loaded game data is Nullius (Factorio 2.0.9).')
+  })
+
+  it('dataSetMismatchMessage tells apart two uploads that share a file name', () => {
+    const msg = dataSetMismatchMessage({ id: 'custom:game-data.json#aaaa1111', name: 'game-data.json', factorioVersion: '2.0.9' }, 'game-data.json', '2.0.9')
+    expect(msg).toBe('This plan was exported for game-data.json (Factorio 2.0.9); the loaded game data is game-data.json (a different mod set) (Factorio 2.0.9).')
   })
 
   it('exportPlanJson adds the stamp and parses back to the same app state', () => {
