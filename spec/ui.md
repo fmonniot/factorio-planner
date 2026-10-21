@@ -540,7 +540,8 @@ clamped to the viewport) with:
   byproduct from other recipes" (sets `byproductConsumer`).
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
-  becomes a number input for the pinned rate.
+  becomes a number input for the pinned rate, shown in the current rate unit
+  and stored per minute (executions per minute).
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
 - **Remove recipe** (red).
