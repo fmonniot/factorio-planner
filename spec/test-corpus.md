@@ -4,9 +4,10 @@ Six recipe chains of increasing complexity, all using recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it).
 
-These cases are the ground truth for the solver's expected output. They are not
-currently automated as tests; any solver change should be checked against them by
-hand or by a throwaway probe.
+These cases are the ground truth for the solver's expected output. They are
+automated in `src/solver/corpus.test.ts`, which uses synthetic fixtures mirroring
+the Nullius recipes at crafting speed 1. When a corpus value changes, update this
+file and that test together.
 
 All machine counts use **crafting_speed = 1, no modules** unless stated otherwise.
 Real default machines have other speeds (e.g. the default `centrifuging` machine),
@@ -264,17 +265,24 @@ Net per execution: **U-235 +1.40, U-238 −3.00**
 
 | Recipe | Throughput (exec/min) | Machine count (exact) |
 |---|---|---|
-| `kovarex-enrichment-process` | ≈3.571 | ≈3.571 |
+| `kovarex-enrichment-process` | ≈3.571 | ≈8.929 |
 
 External import: **uranium-238 ≈ 10.714 / min** (intermediate slack, as in Case 4)
+
+Four vanilla `productivity-module-3` modules (`speed` −0.15 each) slow the machine by 60%
+(effective speed 0.4), so the machine count is the throughput divided by 0.4
+(3.571 / 0.4 ≈ 8.929), not the throughput itself. Nullius's own
+`nullius-productivity-module-3` has no speed penalty and would leave the count at 3.571.
 
 ### Derivation
 
 ```
 Throughput: 5/min ÷ 1.40 net U-235/exec ≈ 3.571 exec/min
 U-238 import (slack): 3.571 × 3 ≈ 10.714/min
+Machine count: 3.571 exec/min × 60 s ÷ 60 ÷ (1 − 4 × 0.15) = 3.571 ÷ 0.4 ≈ 8.929
 ```
 
 Compared to Case 4 (no modules): throughput 5.000 → 3.571 (−29%),
 U-238 consumption 15 → 10.714 (−29%). Productivity reduces both proportionally
 because U-238's `ignoredByProductivity` covers all its output — it is unaffected.
+The machine count goes the other way, 5 → 8.929, because the speed penalty outweighs the lower throughput.
