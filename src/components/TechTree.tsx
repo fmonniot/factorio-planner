@@ -3,16 +3,18 @@ import type { MutableRefObject } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import { useAvailableRecipeIds } from '../store/horizon'
-import { hasTechnologies } from '../data/horizon'
+import { hasTechnologies, placingItemIds } from '../data/horizon'
 import { layoutTechTree, techStates, CARD_W, CARD_H } from '../data/techTree'
 import type { TechState } from '../data/techTree'
 import {
   zoomAt, panBy, fitTransform, centerOn, transformCss, wheelZoomFactor, ZOOM_STEP,
 } from '../utils/viewTransform'
 import type { ViewTransform } from '../utils/viewTransform'
+import type { Box } from '../utils/anchoredPosition'
 import { Modal } from './Modal'
 import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
+import { TechUnlocksPopup } from './TechUnlocksPopup'
 import { IconButton } from './IconButton'
 import { FlaskIcon } from './icons'
 import type { GameData, Technology } from '../data/types'
@@ -37,6 +39,14 @@ const EDGE_COLOR: Record<TechState, string> = {
 
 const CURVE = 32
 const DRAG_THRESHOLD = 4
+const PREVIEW_DELAY_MS = 300
+// Leaving a card keeps a shown popup this long, so entering a neighbour switches without the delay.
+const HIDE_GRACE_MS = 100
+
+function rectOf(el: HTMLElement): Box {
+  const { left, top, right, bottom } = el.getBoundingClientRect()
+  return { left, top, right, bottom }
+}
 
 interface TechCardProps {
   tech: Technology
@@ -47,9 +57,11 @@ interface TechCardProps {
   items: GameData['items']
   movedRef: MutableRefObject<boolean>
   onToggle: (id: string) => void
+  onPreviewStart: (id: string, el: HTMLElement, immediate: boolean) => void
+  onPreviewEnd: (id: string, immediate?: boolean) => void
 }
 
-const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, movedRef, onToggle }: TechCardProps) {
+const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
   return (
     <button
       type="button"
@@ -58,8 +70,13 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       data-state={state}
       data-target={isTarget ? 'true' : 'false'}
       aria-pressed={isTarget}
-      title={tech.name}
+      onMouseEnter={e => onPreviewStart(tech.id, e.currentTarget, false)}
+      onMouseLeave={() => onPreviewEnd(tech.id)}
+      onFocus={e => onPreviewStart(tech.id, e.currentTarget, true)}
+      onBlur={() => onPreviewEnd(tech.id, true)}
       onClick={e => {
+        // Keyboard activation (detail 0) keeps the popup: the card keeps focus.
+        if (e.detail > 0) onPreviewEnd(tech.id, true)
         // A drag that ended on this card suppresses its click; the flag is
         // consumed here so later (keyboard) activations are not ignored.
         // Keyboard activation (detail 0) is never a drag.
@@ -101,6 +118,93 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
   const movedRef = useRef(false)
   const dragRef = useRef<{ x: number; y: number; startX: number; startY: number; captured: boolean; pointerId: number } | null>(null)
 
+  // The unlocks popup. Only the modal re-renders on a change: the memoized cards never see this state.
+  const [preview, setPreview] = useState<{ techId: string; anchor: Box } | null>(null)
+  const previewTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const graceTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const pointerDownRef = useRef(false) // any button, anywhere in the viewport
+  const previewIdRef = useRef<string | null>(null) // pending or shown
+  const previewShownRef = useRef(false)
+  const placers = useMemo(() => placingItemIds(gameData), [gameData])
+
+  const hidePreview = useCallback(() => {
+    clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
+    previewIdRef.current = null
+    previewShownRef.current = false
+    setPreview(null)
+  }, [])
+
+  const onPreviewStart = useCallback((id: string, el: HTMLElement, immediate: boolean) => {
+    // A pressed button means a drag, or the focus a mouse click causes.
+    if (dragRef.current !== null || pointerDownRef.current) return
+    // A card outside the visible canvas would anchor the popup to an edge with no card beside it.
+    if (immediate) {
+      const vp = viewportRef.current
+      if (vp) {
+        const c = el.getBoundingClientRect()
+        const v = vp.getBoundingClientRect()
+        if (c.right <= v.left || c.left >= v.right || c.bottom <= v.top || c.top >= v.bottom) return
+      }
+    }
+    clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
+    previewIdRef.current = id
+    const show = () => {
+      previewShownRef.current = true
+      setPreview({ techId: id, anchor: rectOf(el) })
+    }
+    if (immediate || previewShownRef.current) show()
+    else previewTimerRef.current = setTimeout(show, PREVIEW_DELAY_MS)
+  }, [])
+
+  const onPreviewEnd = useCallback((id: string, immediate = false) => {
+    if (previewIdRef.current !== id) return
+    if (immediate || !previewShownRef.current) { hidePreview(); return }
+    // Keep `previewShownRef` through the grace period: the next card's mouseenter shows at once.
+    clearTimeout(graceTimerRef.current)
+    graceTimerRef.current = setTimeout(hidePreview, HIDE_GRACE_MS)
+  }, [hidePreview])
+
+  useEffect(() => () => {
+    clearTimeout(previewTimerRef.current)
+    clearTimeout(graceTimerRef.current)
+  }, [])
+
+  // Any button press suppresses the popup until release, wherever the release happens.
+  useEffect(() => {
+    const release = () => { pointerDownRef.current = false }
+    window.addEventListener('pointerup', release)
+    window.addEventListener('pointercancel', release)
+    return () => {
+      window.removeEventListener('pointerup', release)
+      window.removeEventListener('pointercancel', release)
+    }
+  }, [])
+
+  // The anchor goes stale when the window changes.
+  useEffect(() => {
+    window.addEventListener('blur', hidePreview)
+    window.addEventListener('resize', hidePreview)
+    return () => {
+      window.removeEventListener('blur', hidePreview)
+      window.removeEventListener('resize', hidePreview)
+    }
+  }, [hidePreview])
+
+  // Escape dismisses the popup before it closes the modal: stop it in the capture phase, ahead of Modal's window listener.
+  const previewOpen = preview !== null
+  useEffect(() => {
+    if (!previewOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      hidePreview()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [previewOpen, hidePreview])
+
   // Open centred on the furthest target.
   useLayoutEffect(() => {
     const vp = viewportRef.current
@@ -122,15 +226,18 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
     if (!vp) return
     function onWheel(e: WheelEvent) {
       e.preventDefault()
+      hidePreview()
       const rect = vp!.getBoundingClientRect()
       const factor = wheelZoomFactor(e.deltaY, e.deltaMode)
       setView(t => zoomAt(t, factor, e.clientX - rect.left, e.clientY - rect.top))
     }
     vp.addEventListener('wheel', onWheel, { passive: false })
     return () => vp.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [hidePreview])
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    hidePreview()
+    pointerDownRef.current = true
     if (e.button !== 0 || dragRef.current) return
     movedRef.current = false
     dragRef.current = { x: e.clientX, y: e.clientY, startX: e.clientX, startY: e.clientY, captured: false, pointerId: e.pointerId }
@@ -164,6 +271,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
   }
 
   function zoomBy(factor: number) {
+    hidePreview()
     const vp = viewportRef.current
     const cx = vp ? vp.clientWidth / 2 : 0
     const cy = vp ? vp.clientHeight / 2 : 0
@@ -171,6 +279,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
   }
 
   function fit() {
+    hidePreview()
     const vp = viewportRef.current
     if (!vp) return
     setView(fitTransform(layout.width, layout.height, vp.clientWidth, vp.clientHeight))
@@ -207,10 +316,12 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           items={gameData.items}
           movedRef={movedRef}
           onToggle={onToggle}
+          onPreviewStart={onPreviewStart}
+          onPreviewEnd={onPreviewEnd}
         />
       ))}
     </>
-  ), [layout, states, targets, gameData, onToggle])
+  ), [layout, states, targets, gameData, onToggle, onPreviewStart, onPreviewEnd])
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
 
@@ -266,6 +377,10 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           {content}
         </div>
       </div>
+
+      {preview && gameData.technologies[preview.techId] && (
+        <TechUnlocksPopup tech={gameData.technologies[preview.techId]} anchor={preview.anchor} gameData={gameData} placers={placers} />
+      )}
     </Modal>
   )
 }

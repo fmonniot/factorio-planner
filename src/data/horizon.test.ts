@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds,
   withinHorizon, placingItemIds, availableMachineIds, availableBeaconIds, availableModuleIds,
-  horizonDefaultMachines, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock,
+  horizonDefaultMachines, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock, technologyUnlocks,
 } from './horizon'
 import type { GameData } from './types'
 
@@ -534,5 +534,65 @@ describe('recipeUnlock', () => {
   })
   it('reports none for a recipe nothing unlocks, even without a recipe entry', () => {
     expect(recipeUnlock(makeGameData(), 'orphan')).toEqual({ kind: 'none' })
+  })
+})
+
+describe('technologyUnlocks', () => {
+  const ids = (xs: { id: string }[]) => xs.map(x => x.id)
+
+  it('lists the recipes and the machines and beacons they produce items for', () => {
+    const d = makeEquipmentData()
+    const a = technologyUnlocks(d, 'a')
+    expect(ids(a.recipes)).toEqual(['r-am2'])
+    expect(ids(a.machines)).toEqual(['am2'])
+    // The beacon is included, the module is not.
+    const b = technologyUnlocks(d, 'b')
+    expect(ids(b.recipes)).toEqual(['r-speed', 'r-beacon'])
+    expect(ids(b.machines)).toEqual(['beacon'])
+  })
+
+  it('is empty for a technology without recipes and for an unknown id', () => {
+    const d = makeEquipmentData()
+    expect(technologyUnlocks(d, 'x')).toEqual({ recipes: [], machines: [] })
+    expect(technologyUnlocks(d, 'nope')).toEqual({ recipes: [], machines: [] })
+  })
+
+  it('leaves out hidden recipes, also for the machine lookup', () => {
+    const d = makeEquipmentData()
+    d.recipes['r-am2'].hidden = true
+    expect(technologyUnlocks(d, 'a')).toEqual({ recipes: [], machines: [] })
+  })
+
+  it('leaves out hidden machines', () => {
+    const d = makeEquipmentData()
+    d.machines.am2.hidden = true
+    const a = technologyUnlocks(d, 'a')
+    expect(ids(a.recipes)).toEqual(['r-am2'])
+    expect(a.machines).toEqual([])
+  })
+
+  it('skips recipe ids missing from the bundle', () => {
+    const d = makeEquipmentData()
+    d.technologies.a.unlockedRecipes = ['gone', 'r-am2']
+    expect(ids(technologyUnlocks(d, 'a').recipes)).toEqual(['r-am2'])
+  })
+
+  it('falls back to the item with the same id when no item has placeResult', () => {
+    const d = makeEquipmentData()
+    for (const i of Object.values(d.items)) delete i.placeResult
+    expect(ids(technologyUnlocks(d, 'a').machines)).toEqual(['am2'])
+  })
+
+  it('lists a machine once when several recipes produce it', () => {
+    const d = makeEquipmentData()
+    d.recipes['r-am2b'] = makeRecipe('r-am2b', 'am2')
+    d.technologies.a.unlockedRecipes = ['r-am2', 'r-am2b']
+    expect(ids(technologyUnlocks(d, 'a').machines)).toEqual(['am2'])
+  })
+
+  it('keeps the order of unlockedRecipes', () => {
+    const d = makeEquipmentData()
+    d.technologies.b.unlockedRecipes = ['r-beacon', 'r-speed']
+    expect(ids(technologyUnlocks(d, 'b').recipes)).toEqual(['r-beacon', 'r-speed'])
   })
 })

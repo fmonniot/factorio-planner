@@ -5,6 +5,7 @@ import { Icon } from './Icon'
 import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
+import { recipeIconItem } from '../data/recipeIcon'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -386,12 +387,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
             className="grid grid-cols-10 gap-1"
           >
             {recipes.map(r => {
-              // Pick the first product (main first) that actually has an icon.
-              const candidates = [r.mainProduct, ...r.products.map(p => p.itemId)]
-                .filter((id): id is string => !!id)
-              const product = candidates
-                .map(id => gameData.items[id])
-                .find(it => it?.iconPath)
+              const product = recipeIconItem(gameData, r)
               // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
               const beyond = !!available && !r.hidden && !available.has(r.id)
               return (
