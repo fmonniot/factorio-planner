@@ -265,12 +265,12 @@ Net per execution: **U-235 +1.40, U-238 −3.00**
 
 | Recipe | Throughput (exec/min) | Machine count (exact) |
 |---|---|---|
-| `kovarex-enrichment-process` | ≈3.571 | ≈3.571 |
+| `kovarex-enrichment-process` | ≈3.571 | ≈8.929 |
 
 External import: **uranium-238 ≈ 10.714 / min** (intermediate slack, as in Case 4)
 
-The machine count above assumes the modules cost no speed. Four productivity-module-3
-slow the machine by 60%, so `solve()` reports ≈8.929 machines (3.571 / 0.4).
+Four productivity-module-3 slow the machine by 60% (effective speed 0.4), so the
+machine count is the throughput divided by 0.4 (3.571 / 0.4 ≈ 8.929), not the throughput itself.
 
 ### Derivation
 
