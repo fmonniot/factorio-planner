@@ -7,7 +7,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
-import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './ModulePopover'
+import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './moduleRules'
 
 // ---------------------------------------------------------------------------
 // Effect computation helpers
