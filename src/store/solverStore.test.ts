@@ -255,6 +255,38 @@ describe('wireSolver — several blocks', () => {
     vi.runAllTimers()
     expect(useSolverStore.getState().status.type).toBe('error')
   })
+
+  it('keeps every result reference when a block is renamed', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    const before = useSolverStore.getState().lastResults
+    useBlockStore.getState().renameBlock(gears.id, 'G2')
+    vi.runAllTimers()
+    const state = useSolverStore.getState()
+    expect(state.lastResults[plates.id]).toBe(before[plates.id])
+    expect(state.lastResults[gears.id]).toBe(before[gears.id])
+    expect(state.status.type).toBe('solved')
+  })
+
+  it('re-solves only the block whose goal changed', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    const before = useSolverStore.getState().lastResults
+    useBlockStore.getState().updateGoalRate('gg', 20)
+    vi.runAllTimers()
+    const state = useSolverStore.getState()
+    expect(state.lastResults[plates.id]).toBe(before[plates.id])
+    expect(state.lastResults[gears.id]).not.toBe(before[gears.id])
+    expect(state.flows[0].rate).toBeCloseTo(40, 4)
+  })
+
+  it('keeps solving after a block is removed', () => {
+    const [plates, gears] = setupTwoBlocks(1)
+    useBlockStore.getState().removeBlock(gears.id)
+    vi.runAllTimers()
+    expect(Object.keys(useSolverStore.getState().lastResults)).toEqual([plates.id])
+    useBlockStore.getState().renameBlock(plates.id, 'P2')
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResults[plates.id].nodes).toHaveLength(1)
+  })
 })
 
 describe('wireSolver — research horizon machines', () => {
@@ -310,6 +342,36 @@ describe('wireSolver — research horizon machines', () => {
     expect(solvedNode().machineCountExact).toBeCloseTo(full * 2)
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
+  })
+
+  it('reuses the solver data while overrides are unchanged', () => {
+    setup()
+    useBlockStore.getState().setDefaultMachine('crafting', 'am1')
+    vi.runAllTimers()
+    const id = useBlockStore.getState().blocks[0].id
+    const before = useSolverStore.getState().lastResults[id]
+    useBlockStore.getState().renameBlock(id, 'Renamed')
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResults[id], 'override solverData is memoised').toBe(before)
+  })
+
+  it('re-solves when the game data is loaded again', () => {
+    setup()
+    const id = useBlockStore.getState().blocks[0].id
+    const before = useSolverStore.getState().lastResults[id]
+    loadGameData({
+      items: { am1: item('am1', 'am1'), am2: item('am2', 'am2') },
+      recipes: {
+        plate: plate(), 'r-am1': { ...plate(), id: 'r-am1', products: [{ itemId: 'am1', type: 'item', amount: 1 }] },
+        'r-am2': { ...plate(), id: 'r-am2', products: [{ itemId: 'am2', type: 'item', amount: 1 }] },
+      } as unknown as GameData['recipes'],
+      machines: { am1: machine('am1', 1), am2: machine('am2', 2) } as unknown as GameData['machines'],
+      defaultMachines: { crafting: 'am2' },
+      technologies: { base: tech('base', ['plate', 'r-am1']), late: tech('late', ['r-am2']) },
+      startingRecipes: [],
+    })
+    vi.runAllTimers()
+    expect(useSolverStore.getState().lastResults[id]).not.toBe(before)
   })
 
   it('solves rows without a machine with the plan override over the data default', () => {

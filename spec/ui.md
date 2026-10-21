@@ -22,8 +22,9 @@ behind each feature so you can find it.
    every change, and subscribes to the game data store so the data set's active plan
    is swapped in when a data set finishes loading.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
-   block store or the game data schedules a re-solve of **every block**
-   after a 150 ms debounce. A block with no goals or no recipe nodes gets an empty
+   block store or the game data schedules a re-solve after a 150 ms debounce; only
+   blocks whose plan, supply or game data changed are solved again, the others keep
+   their previous result. A block with no goals or no recipe nodes gets an empty
    result without calling the solver.
 4. Mounts `FactoryShell`.
 

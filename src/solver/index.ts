@@ -16,6 +16,7 @@ import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
 import { orderBlocks } from './blockGraph'
+import { planKey, type SolveCache } from './solveCache'
 
 interface SolverPlan {
   goals: ProductionGoal[]
@@ -76,6 +77,9 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  *   2. Only if a connected intermediate is short, solve again with the original
  *      locks and a supply variable per short item, capped at min(offer, shortfall).
  * `received` is what the block actually takes from each offer (items/min).
+ *
+ * The solve cache key (see solveCache.ts) must grow if this ever reads
+ * anything beyond `plan`, `gameData` and `supplyCaps`.
  */
 export function solveBlock(
   plan: SolverPlan,
@@ -349,8 +353,10 @@ function emptyResult(): SolverResult {
  * Solve every block in dependency order, feeding each block the net output its
  * sources still have on offer. Several consumers of one source are served in
  * solve order; several sources of one item are drained in connection order.
+ * With a `cache`, a block whose flattened plan, game data and caps are unchanged
+ * reuses its previous result (same object) instead of solving again.
  */
-export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
+export function solveAll(blocks: Block[], gameData: GameData, cache?: SolveCache): MultiBlockSolve {
   const { order, cyclicConnectionIds } = orderBlocks(blocks)
   const blockIds = new Set(blocks.map(b => b.id))
   const results: Record<string, SolverResult> = {}
@@ -403,13 +409,24 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
     let received = new Map<string, number>()
     const plan = flattenBlock(block)
     if (plan.goals.length > 0 && plan.nodes.length > 0) {
-      try {
-        ;({ result, received } = solveBlock(plan, gameData, caps))
-      } catch (err) {
-        errors[block.id] = err instanceof Error ? err.message : String(err)
-        result = emptyResult()
-        received = new Map()
+      const key = cache ? planKey(plan) : ''
+      const hit = cache?.get(block.id, gameData, key, caps)
+      if (hit) {
+        ;({ result, received } = hit)
+      } else {
+        try {
+          const solved = solveBlock(plan, gameData, caps)
+          ;({ result, received } = solved)
+          cache?.set(block.id, gameData, key, caps, solved)
+        } catch (err) {
+          cache?.delete(block.id)
+          errors[block.id] = err instanceof Error ? err.message : String(err)
+          result = emptyResult()
+          received = new Map()
+        }
       }
+    } else {
+      cache?.delete(block.id)
     }
     results[block.id] = result
 
@@ -453,5 +470,6 @@ export function solveAll(blocks: Block[], gameData: GameData): MultiBlockSolve {
     remaining.set(block.id, offers)
   }
 
+  cache?.retain(blockIds)
   return { results, flows, errors }
 }
