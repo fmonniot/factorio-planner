@@ -734,6 +734,8 @@ The same component in recipes mode (`source="recipes"`).
   0–2 decimals depending on magnitude.
 - `Icon.tsx` — renders an `iconPath` as a `<picture>` with a WebP source and PNG
   fallback, via `src/utils/iconUrl.ts` (see [data-model.md](data-model.md#icon-paths)).
+  The `<picture>` is `display: contents` and its `<source>` is `display: none`, so the `<img>` is
+  the only flex item it contributes and a parent's `gap` adds no extra space before it.
 - `Modal.tsx` — the modal frame.
 - `factory/Popover.tsx` — an absolutely positioned panel that closes on an outside pointerdown
   (except inside its optional `ignoreRef`, the trigger, so a click on the trigger just toggles) and on

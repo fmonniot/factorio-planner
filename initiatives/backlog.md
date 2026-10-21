@@ -16,7 +16,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
 - [ ] **Duplicate recipe nodes share one LP variable.** Two rows with the same recipe collapse into one variable; the last node's effects and pin win. Either merge them explicitly or give each node its own variable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
-- [ ] **`Icon` adds a phantom flex item.** `Icon` wraps its `<img>` in a `<picture>` with `display: contents`, so its `<source>` element becomes a zero-width flex item of the parent; in a flex row with `gap` this adds one extra gap (6px with `gap-1.5`) before the image. `BlockTabs` works around it by wrapping the icon in a span; fix it in `Icon` (e.g. hide the `<source>`, or render `<picture>` as an inline-flex box) and check the layouts that shift.
 
 ## Sharing and import
 

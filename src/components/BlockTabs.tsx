@@ -153,16 +153,13 @@ function BlockTab({ blockId, isActive, onClick, disabled }: BlockTabProps) {
           className={`absolute -left-px -right-px -top-px rounded-t ${isActive ? 'h-[3px]' : 'h-0.5'}`}
           style={{ background: isActive ? block.color : withAlpha(block.color, 0.55) }}
         />
-        {/* Wrapped so Icon's <picture>/<source> count as one flex item, not an extra gap */}
         {firstItem && (
-          <span className="flex shrink-0">
-            <Icon
-              iconPath={firstItem.iconPath}
-              alt=""
-              className="w-5 h-5 object-contain"
-              onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
-            />
-          </span>
+          <Icon
+            iconPath={firstItem.iconPath}
+            alt=""
+            className="w-5 h-5 object-contain shrink-0"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
         )}
         <span className="truncate">{block.name}</span>
       </button>
