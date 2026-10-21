@@ -152,6 +152,7 @@ beforeEach(() => {
     activeBlockId: block.id,
     history: {},
     horizonTechnologyIds: [],
+    defaultMachineOverrides: {},
   })
 })
 
@@ -678,6 +679,12 @@ describe('RecipeRow — research horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     renderRow({ gameData: makeHorizonGameData() })
     expect(screen.getByTitle('Furnace 1')).not.toHaveAttribute('data-beyond-horizon')
+  })
+
+  it('uses the plan override as the default machine', () => {
+    useBlockStore.setState({ defaultMachineOverrides: { smelting: 'furnace-1' } })
+    renderRow({ gameData: makeHorizonGameData() })
+    expect(screen.getByTitle('Furnace 1')).toBeInTheDocument()
   })
 
   it('flags an explicit machine outside the horizon', () => {

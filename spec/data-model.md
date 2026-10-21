@@ -285,7 +285,13 @@ it is the static default. No limit means everything is available.
 A row without an explicit machine uses the horizon's default machine for its recipe
 category: the category's static `defaultMachines` entry if that machine is available, else the
 fastest available non-hidden machine of the category (first one wins a tie), else none (the
-category has no entry). A category the data has no default for at all is not affected. Machine,
+category has no entry). A category the data has no default for at all is not affected. The plan's
+`defaultMachineOverrides` (see [AppState](#appstate)) are then layered on top
+(`applyDefaultMachineOverrides`): an override replaces the category's default when its machine exists,
+is not hidden, crafts the category and is inside the horizon; any other override is ignored but kept,
+so it applies again when the horizon widens. `horizonFor` (`src/store/horizon.ts`) returns the horizon
+with the overrides applied, and every reader (the solver wiring, the table, the machine and beacon
+modals) goes through it. Machine,
 module and beacon choices already stored in the plan are never rewritten when the horizon
 narrows; they are kept and flagged in the UI.
 
@@ -425,10 +431,17 @@ interface AppState {
   blocks: Block[]
   activeBlockId: string
   horizonTechnologyIds: string[]   // technologies the plan targets; default [] = no limit
+  defaultMachineOverrides: Record<string, string>   // crafting category -> machine id; default {}
 }
 ```
 
 Ids that are not in the loaded data set's `technologies` are ignored and kept.
+
+`defaultMachineOverrides` holds the user's default machine per crafting category. The effective
+default of a category is a valid override, else the horizon default (see
+[Technology](#technology)); an override whose machine is unknown, hidden, cannot craft the category or
+is outside the horizon is ignored but never removed. Like the horizon, it is per plan, not undoable,
+saved with the plan and copied by duplicate and import.
 
 ### Block
 
@@ -521,7 +534,7 @@ interface GameRecipeNode {
   kind: 'game-recipe'
   id: string
   recipeId: string
-  machineId?: string            // overrides defaultMachines[recipe.category]
+  machineId?: string            // undefined = the plan's effective default for recipe.category (horizon default, then defaultMachineOverrides)
   modules: ModuleConfig[]
   beaconConfig?: BeaconConfig
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute

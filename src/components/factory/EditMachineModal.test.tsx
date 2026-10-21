@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
 import { EditMachineModal } from './EditMachineModal'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useGameDataStore } from '../../store/gameDataStore'
+import { useUiStore } from '../../store/uiStore'
 import type { GameData } from '../../data/types'
 
 function recipe(id: string, name: string): GameData['recipes'][string] {
@@ -90,7 +91,8 @@ function renderModal(
 const optionIds = () => screen.queryAllByTestId('machine-option').map(e => e.getAttribute('data-machine-id'))
 
 beforeEach(() => {
-  useBlockStore.setState({ horizonTechnologyIds: [] })
+  useBlockStore.setState({ horizonTechnologyIds: [], defaultMachineOverrides: {} })
+  useUiStore.setState({ defaultMachinesRequest: null })
 })
 
 describe('EditMachineModal — alternate recipes and the research horizon', () => {
@@ -178,5 +180,58 @@ describe('EditMachineModal — machines, modules and the research horizon', () =
     useBlockStore.setState({ horizonTechnologyIds: ['base', 'asm', 'alt'] })
     renderModal(makeGameData())
     expect(screen.getByRole('option', { name: 'Speed' })).toBeInTheDocument()
+  })
+})
+
+describe('EditMachineModal — default machine per category', () => {
+  const nodeWith = (id: string, machineId?: string) => ({
+    kind: 'game-recipe' as const, id, recipeId: 'plate', machineId, modules: [], byproductPolicy: {},
+  })
+  function setNodes(...nodes: ReturnType<typeof nodeWith>[]) {
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+  }
+  const optionRow = (id: string) => screen.getAllByTestId('machine-option').find(e => e.getAttribute('data-machine-id') === id)!.parentElement!
+
+  it('badges the horizon default machine and offers "Make default" on the others', () => {
+    renderModal(makeGameData())
+    expect(within(optionRow('assembler-2')).getByTestId('default-machine-badge')).toBeInTheDocument()
+    expect(within(optionRow('assembler')).queryByTestId('default-machine-badge')).not.toBeInTheDocument()
+    expect(within(optionRow('assembler')).getByRole('button', { name: 'Make Assembler the Crafting default' })).toBeInTheDocument()
+  })
+
+  it('labels the Default option with the effective machine', () => {
+    renderModal(makeGameData())
+    expect(screen.getByRole('button', { name: 'Default (Assembler 2)' })).toBeInTheDocument()
+  })
+
+  it('"Make default" sets the override, resets the row to Default and moves the badge', () => {
+    setNodes(nodeWith('n1', 'assembler-2'))
+    renderModal(makeGameData(), { machineId: 'assembler-2' })
+    fireEvent.click(screen.getByRole('button', { name: 'Make Assembler the Crafting default' }))
+    expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'assembler' })
+    const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
+    fireEvent.click(screen.getByText(/machines$/))
+    expect(within(optionRow('assembler')).getByTestId('default-machine-badge')).toBeInTheDocument()
+    expect(within(optionRow('assembler-2')).queryByTestId('default-machine-badge')).not.toBeInTheDocument()
+  })
+
+  it('reports how many rows follow the category default', () => {
+    setNodes(nodeWith('n1'), nodeWith('n2'), nodeWith('n3', 'assembler'))
+    renderModal(makeGameData())
+    expect(screen.getByTestId('default-machine-usage')).toHaveTextContent('Crafting default is used by 2 rows')
+  })
+
+  it('"All defaults…" closes the modal and requests the default machines menu', () => {
+    const onClose = vi.fn()
+    renderModal(makeGameData(), { onClose })
+    fireEvent.click(screen.getByRole('button', { name: 'All defaults…' }))
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(useUiStore.getState().defaultMachinesRequest).toEqual({ seq: 1, category: 'crafting' })
   })
 })

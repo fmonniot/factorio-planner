@@ -34,7 +34,7 @@ test.describe('workspace menu', () => {
     const menu = await openAppMenu(page)
     const items = menu.locator('[role^="menuitem"]')
     await expect(items).toHaveText([
-      /^✓?Plan 1$/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, 'Export plan', 'Import plan…',
+      /^✓?Plan 1$/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, '/sec', '/min', /Default machines/, 'Export plan', 'Import plan…',
     ])
     await expect(menu.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
   })
@@ -53,6 +53,42 @@ test.describe('workspace menu', () => {
     await page.keyboard.press('Escape')
     await expect(menu).toBeHidden()
     await expect(menuTrigger(page)).toBeFocused()
+  })
+
+  test('keyboard: ArrowRight opens the default machines flyout, Escape steps back out', async ({ page }) => {
+    await setup(page)
+    await menuTrigger(page).focus()
+    await page.keyboard.press('Enter')
+    const menu = appMenu(page)
+    const defaults = menu.getByRole('menuitem', { name: 'Default machines' })
+    await defaults.focus()
+    await page.keyboard.press('ArrowRight')
+    const flyout = page.getByRole('menu', { name: 'Default machines' })
+    await expect(flyout).toBeVisible()
+    await expect(flyout.getByRole('menuitemradio', { checked: true }).first()).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(flyout).toBeHidden()
+    await expect(menu).toBeVisible()
+    await expect(defaults).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(menu).toBeHidden()
+    await expect(menuTrigger(page)).toBeFocused()
+  })
+
+  test('the checked data set describes the loaded data', async ({ page }) => {
+    await setup(page)
+    const menu = await openAppMenu(page)
+    await expect(menu.getByRole('menuitemradio', { name: 'Nullius' }))
+      .toHaveAccessibleDescription(/^Factorio 2\.0\.76 · \d+ mods · \d+ recipes$/)
+  })
+
+  test('the top bar rate toggle switches the slot rates and persists', async ({ page }) => {
+    await setup(page)
+    await page.getByRole('button', { name: 'Rates per minute, switch to per second' }).click()
+    await expect(page.getByRole('button', { name: 'Rates per second, switch to per minute' })).toBeVisible()
+    await expect(page.getByRole('button', { name: /^Iron gear, .* per second/ }).first()).toBeVisible()
+    await page.reload()
+    await expect(page.getByRole('button', { name: 'Rates per second, switch to per minute' })).toBeVisible({ timeout: 10000 })
   })
 
   test('mouse open keeps focus on the button; ArrowUp opens on the last item', async ({ page }) => {

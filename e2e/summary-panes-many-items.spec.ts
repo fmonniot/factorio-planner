@@ -156,7 +156,7 @@ test.describe('summary panes with many items', () => {
       .locator('[data-testid="summary-segment"][data-kind="export"]')
       .filter({ hasText: 'Sciences' })
       .click()
-    await expect(page.getByTitle('Click to rename')).toHaveText('Sciences')
+    await expect(page.locator('button[title="Sciences"][aria-current="true"]')).toBeVisible()
 
     // Back in Metals, the Ingredients overview counts the 12 connected items.
     await page.locator('button[title="Metals"]').click()

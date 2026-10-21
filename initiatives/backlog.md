@@ -47,8 +47,8 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
-- [~] **Solver warnings on rows.** Warnings show in the summary-header popover (`WarningsPopover`); they are not yet marked on the affected recipe rows.
-- [~] **Settings.** The rate unit (sec/min) toggle exists. Missing: default machine per category, game-data info (modset, version, counts).
+- [~] **Solver warnings on rows.** Warnings show in the top-bar popover (`WarningsPopover`); they are not yet marked on the affected recipe rows.
+- [ ] **Localised crafting-category names.** The default-machines flyout and the edit-machine modal label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
 - [ ] **Beacons: several beacon types per recipe.** `RecipeNode.beaconConfig` holds a single beacon config today.
 - [ ] **Beacons: enforce module restrictions** (e.g. no productivity in Nullius beacons — verify in game first). `BeaconModal` lists every non-hidden module.
 - [ ] **Rate-changed highlight.** Briefly highlight rows whose rate changed after a solve.

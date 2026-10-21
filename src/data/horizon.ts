@@ -209,6 +209,29 @@ export function horizonDefaultMachines(
   return result
 }
 
+/**
+ * Layers the plan's default-machine overrides over the horizon defaults. An override
+ * applies iff its machine exists, is not hidden, crafts the category and is inside the
+ * horizon; the others are ignored. Returns `defaults` itself when nothing applies and
+ * never mutates its inputs.
+ */
+export function applyDefaultMachineOverrides(
+  gameData: GameData,
+  machineIds: ReadonlySet<string> | null,
+  defaults: Record<string, string>,
+  overrides: Readonly<Record<string, string>>,
+): Record<string, string> {
+  let result: Record<string, string> | undefined
+  for (const [category, machineId] of Object.entries(overrides)) {
+    const machine = gameData.machines[machineId]
+    if (!machine || machine.hidden || !machine.craftingCategories.includes(category)) continue
+    if (!withinHorizon(machineIds, machineId)) continue
+    result ??= { ...defaults }
+    result[category] = machineId
+  }
+  return result ?? defaults
+}
+
 export interface Horizon {
   recipeIds: Set<string> | null
   itemIds: Set<string> | null

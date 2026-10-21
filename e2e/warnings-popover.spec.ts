@@ -22,6 +22,10 @@ test.describe('Warnings popover', () => {
     await expect(badge).toContainText('warning')
   })
 
+  test('the badge lives in the top bar', async ({ page }) => {
+    await expect(page.getByTestId('top-bar').getByRole('button', { name: /warning/ })).toBeVisible()
+  })
+
   test('clicking the badge opens the popover with title, body and hint', async ({ page }) => {
     const badge = page.getByRole('button', { name: /warning/ })
     await badge.click()
@@ -59,6 +63,6 @@ test.describe('Warnings popover', () => {
   test('duplicate-recipe warning badge is yellow (non-critical)', async ({ page }) => {
     // duplicate-recipe is a non-critical warning — badge should be yellow.
     const badge = page.getByRole('button', { name: /warning/ })
-    await expect(badge).toHaveClass(/text-yellow-400/)
+    await expect(badge).toHaveClass(/text-yellow-300/)
   })
 })

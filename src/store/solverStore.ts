@@ -86,7 +86,7 @@ export function wireSolver(): () => void {
     if (timer !== undefined) clearTimeout(timer)
     timer = setTimeout(() => {
       timer = undefined
-      const { blocks, activeBlockId, horizonTechnologyIds } = useBlockStore.getState()
+      const { blocks, activeBlockId, horizonTechnologyIds, defaultMachineOverrides } = useBlockStore.getState()
       const gameData = selectGameData(useGameDataStore.getState())
 
       if (!gameData) {
@@ -96,7 +96,7 @@ export function wireSolver(): () => void {
 
       try {
         // Rows without an explicit machine solve with the horizon's default machine.
-        const { defaultMachines } = horizonFor(gameData, horizonTechnologyIds)
+        const { defaultMachines } = horizonFor(gameData, horizonTechnologyIds, defaultMachineOverrides)
         const solverData =
           defaultMachines === gameData.defaultMachines ? gameData : { ...gameData, defaultMachines }
         useSolverStore.getState()._setSolved(solveAll(blocks, solverData), activeBlockId)

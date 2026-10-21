@@ -555,6 +555,12 @@ describe('parseAppState — horizonTechnologyIds', () => {
     const state = parseAppState({ blocks: [block], activeBlockId: 'b1', horizonTechnologyIds: ['electronics'] })
     expect(parseAppState(JSON.parse(JSON.stringify(state))).horizonTechnologyIds).toEqual(['electronics'])
   })
+
+  it('defaults missing default machine overrides to an empty record and keeps stored ones', () => {
+    expect(parseAppState({ blocks: [block], activeBlockId: 'b1' }).defaultMachineOverrides).toEqual({})
+    const state = parseAppState({ blocks: [block], activeBlockId: 'b1', defaultMachineOverrides: { crafting: 'asm-2' } })
+    expect(state.defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
+  })
 })
 
 describe('parsePlanIndex', () => {
