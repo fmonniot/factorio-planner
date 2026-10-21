@@ -120,7 +120,7 @@ Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
 The first three knobs sit on individual recipe nodes; `noImportItems` sits on the `Block`.
 
-- **`pinnedRate`** — translates to `x_j = rate` (equality constraint). Useful for "I want exactly N machines of this".
+- **`pinnedRate`** — translates to `x_j = rate` (equality constraint), where `rate` is in executions per minute. Useful for "I want exactly N executions per minute of this" (and so a fixed machine count).
 - **`byproductPolicy[itemId] = 'discard'`** — zeroes the recipe's positive coefficient for that item in `S`. This happens **after** classification and before the LP, so the item keeps its classification; it affects only the LP rows. `SolvedNode.outputRates` still include the discarded product.
 - **`byproductPolicy[itemId] = 'feed-back'`** — the default in the UI. A no-op for the solver.
 - **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. Its ingredients are added to the no-import set, so the LP can't import them just to fire the bonus — they must come from another in-plan producer.

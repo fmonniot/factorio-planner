@@ -380,7 +380,18 @@ describe('T12 — Pin rate UI', () => {
     }
   })
 
-  it('changing pinned input in /min mode stores rate / 60 in blockStore', () => {
+  it('shows the per-minute pinned rate in the current unit', () => {
+    useUiStore.setState({ rateUnit: 'min' })
+    const pinned = setupElectrolysis(120)
+    const { unmount } = renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    expect(screen.getByLabelText('Pinned rate')).toHaveValue(120)
+    unmount()
+    useUiStore.setState({ rateUnit: 'sec' })
+    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
+    expect(screen.getByLabelText('Pinned rate')).toHaveValue(2)
+  })
+
+  it('changing pinned input in /min mode stores the typed value as is', () => {
     useUiStore.setState({ rateUnit: 'min' })
     const pinned = setupElectrolysis(1)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
@@ -388,11 +399,11 @@ describe('T12 — Pin rate UI', () => {
     fireEvent.change(input, { target: { value: '120' } })
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(2) // 120 / 60 = 2
+      expect(updated.pinnedRate).toBeCloseTo(120)
     }
   })
 
-  it('changing pinned input in /sec mode stores the value directly', () => {
+  it('changing pinned input in /sec mode stores value * 60', () => {
     useUiStore.setState({ rateUnit: 'sec' })
     const pinned = setupElectrolysis(1)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
@@ -400,7 +411,7 @@ describe('T12 — Pin rate UI', () => {
     fireEvent.change(input, { target: { value: '5' } })
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(5)
+      expect(updated.pinnedRate).toBeCloseTo(300) // 5 * 60
     }
   })
 })

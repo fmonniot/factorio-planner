@@ -248,9 +248,6 @@ export function RecipeRow({
   const inputEntries = solvedNode ? Object.entries(solvedNode.inputRates) : []
   const powerKw = solvedNode?.powerKw ?? 0
 
-  // Rate for the pinned input — expressed in the current unit.
-  const unitMultiplier = rateUnit === 'min' ? 60 : 1
-
   function handlePin() {
     const seedRate = Math.max(solvedNode?.throughput ?? 0, 1)
     updateNodePinnedRate(planNode.id, seedRate)
@@ -281,10 +278,12 @@ export function RecipeRow({
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
+  // `pinnedRate` is stored per minute; the input shows it in the current unit.
+  // This conversion and the `/ 60` in the input's defaultValue are inverses: keep them in sync.
   function handlePinnedRateChange(raw: string) {
     const v = parseFloat(raw)
     if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, v / unitMultiplier)
+      updateNodePinnedRate(planNode.id, rateUnit === 'min' ? v : v * 60)
     }
   }
 
@@ -414,7 +413,8 @@ export function RecipeRow({
                     min="0.001"
                     step="any"
                     aria-label="Pinned rate"
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * unitMultiplier, rateUnit)}
+                    // per-minute -> display unit (inverse of handlePinnedRateChange)
+                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) / 60, rateUnit)}
                     key={`${planNode.id}-pin-${rateUnit}`}
                     onChange={e => handlePinnedRateChange(e.target.value)}
                     className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"

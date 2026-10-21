@@ -12,7 +12,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Bugs
 
 
-- [ ] **Pinned rate unit mismatch.** The solver treats `pinnedRate` as executions per minute, but `RecipeRow` displays and stores it as if it were per second. Verify and fix (found during the docs-cleanup audit).
 - [ ] **`allowProductivity` not enforced by the solver.** Productivity modules can be added to recipes that disallow productivity and the solver applies them; only the Edit machine modal's effect preview honours the flag.
 - [ ] **Beacon modal ignores `allowedEffects`.** `BeaconModal` offers modules without checking the beacon's `allowedEffects`.
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
