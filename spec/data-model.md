@@ -52,7 +52,7 @@ Items and fluids share one record, distinguished by `type`.
 ```ts
 interface Item {
   id: string            // prototype name, e.g. "iron-plate"
-  name: string          // English display name (locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
+  name: string          // English display name (the game's resolved name from `<type>-locale.json` when the dump has it, otherwise locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
   type: 'item' | 'fluid'
   iconPath: string      // see "Icon paths" below
   hidden: boolean       // default false
@@ -75,7 +75,7 @@ The build script exports every item-like prototype type (`item`, `tool`, `armor`
 ```ts
 interface Recipe {
   id: string
-  name: string               // display name, see below
+  name: string               // display name; the game's resolved name first, see below
   category: string           // open string; absent in the dump means "crafting"
   craftingTime: number       // seconds at crafting speed 1 (dump: energy_required, default 0.5); > 0
   ingredients: Ingredient[]
@@ -112,7 +112,7 @@ interface Product {
 `limitationBlacklist`) accept an empty object `{}` as an empty array. This is a
 compatibility shim for bundles that serialised empty tables as objects.
 
-**Recipe name.** The build script uses, in order: the recipe's `localised_name`,
+**Recipe name.** The build script uses, in order: the game's resolved name (`recipe-locale.json`, when present), the recipe's `localised_name`,
 its `recipe-name` locale key, then the display name of its main product. A name whose placeholders cannot be resolved (in a locale value, a plain `localised_name` string, a format argument, or any part of a `["", ...]` concatenation) counts as missing as a whole, so the build script moves on to the next source and finally to the id. Only `__ITEM__`, `__ENTITY__`, `__FLUID__` and `__TILE__` are expanded or treated as unresolved; other Factorio tokens such as `__CONTROL__x__` are left untouched.
 
 **Recipe subgroup.** When the recipe has no `subgroup`, the build script uses the
@@ -154,7 +154,7 @@ it, but they do not stop the user from adding productivity modules.
 ```ts
 interface Machine {
   id: string
-  name: string
+  name: string              // English display name; the game's resolved name (`entity-locale.json`) first, else the locale map
   type: 'assembling-machine' | 'furnace' | 'rocket-silo' | 'mining-drill' | 'offshore-pump'
   craftingSpeed: number          // > 0; default 1 when absent; the mining or pumping speed for a drill or pump
   energyUsageKw: number          // kW at full load
@@ -180,7 +180,7 @@ parser accepts W, kW, MW, GW and TW suffixes, and a bare number is read as watts
 ```ts
 interface Module {
   id: string
-  name: string
+  name: string              // English display name; the game's resolved name (`item-locale.json`) first, else the locale map
   category: string                               // open string; 'unknown' when absent
   tier: number                                   // int >= 0
   effects: Partial<Record<EffectName, number>>   // additive fraction, e.g. 0.2 = +20%
@@ -199,7 +199,7 @@ so in practice every module is unrestricted; the UI still honours them if presen
 ```ts
 interface BeaconEntity {
   id: string
-  name: string
+  name: string              // English display name; the game's resolved name (`entity-locale.json`) first, else the locale map
   iconPath: string
   hidden: boolean                 // default false
   moduleSlots: number             // int >= 0
@@ -215,7 +215,7 @@ Used by the item and recipe pickers to lay out tabs (groups) and rows (subgroups
 ```ts
 interface ItemGroup {
   id: string
-  name: string
+  name: string              // English display name; the game's resolved name (`item-group-locale.json`) first, else the locale map
   order: string      // default ''
   iconPath: string   // default ''
 }
@@ -235,7 +235,7 @@ technology tree (the solver ignores it).
 ```ts
 interface Technology {
   id: string
-  name: string
+  name: string              // English display name; the game's resolved name (`technology-locale.json`) first, see below
   prerequisites: string[]     // Technology ids
   unlockedRecipes: string[]   // recipe ids from `unlock-recipe` effects
   iconPath: string            // default ''
@@ -248,6 +248,8 @@ interface TechnologyCost {
   time: number                // seconds per unit
 }
 ```
+
+**Technology name.** The build script uses, in order: the game's resolved name (`technology-locale.json`), the technology's `localised_name`, its `technology-name` locale key, then for a leveled id (`<base>-<n>`) `"<base name> <n>"`, then the id. The game names the last level of an infinite technology without its number (`toolbelt-5` is "Toolbelt"); when such a name has no trailing digit and equals the game's name for the base id or for another level of the same base, the level is appended (`"Toolbelt 5"`). Names that are already distinct are kept as the game gives them.
 
 `cost` is `undefined` when the bundle was exported without cost data and `null`
 for a technology that is not researched in labs (completed by a research

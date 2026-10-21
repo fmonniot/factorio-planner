@@ -80,8 +80,9 @@ The stack is React, TypeScript, Vite, Zustand, Zod and Tailwind. The reasoning b
 The planner is data-driven. The recipes, machines and icons it shows come from a JSON file generated from a real Factorio install with the target mods enabled. The Nullius export in `public/data/nullius/` and the Seablock export in `public/data/kompetenz-seablock/` are committed. To regenerate it or build one for another mod set:
 
 ```sh
-# 1. Dump Factorio's prototype data with the mods active
+# 1. Dump Factorio's prototype data and its resolved names with the mods active
 factorio --dump-data
+factorio --dump-prototype-locale
 
 # 2. Convert the dump into game-data.json and extract icons
 node scripts/build-game-data.js \
@@ -91,6 +92,8 @@ node scripts/build-game-data.js \
   --icons-out public/data/nullius/icons \
   --output    public/data/nullius/game-data.json
 ```
+
+The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
 
 To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode:
 
@@ -104,7 +107,7 @@ node scripts/build-game-data.js --patch-technologies \
 
 Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
 
-`--patch-names` works the same way but recomputes only the `name` fields (locale placeholders such as `__ITEM__x__` are expanded); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`) and of drills and pumps.
+`--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`) and of drills and pumps.
 
 The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
 
@@ -120,7 +123,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
-| `scripts/locale.js` | Locale parsing and name resolution (used by the build script) |
+| `scripts/locale.js` | Locale parsing, name resolution and the game's resolved-name lookup (used by the build script) |
 | `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
 | `scripts/extraction.js` | Exports mining and offshore-pump recipes and the drills and pumps that run them (used by the build script) |
 | `scripts/energy.js` | Energy-string parsing and energy-type inference shared by the export scripts |

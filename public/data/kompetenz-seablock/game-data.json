@@ -70,7 +70,7 @@
     },
     "parameter-0": {
       "id": "parameter-0",
-      "name": "parameter-0",
+      "name": "Parameter 0",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-0.png",
       "hidden": false,
@@ -79,7 +79,7 @@
     },
     "parameter-1": {
       "id": "parameter-1",
-      "name": "parameter-1",
+      "name": "Parameter 1",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-1.png",
       "hidden": false,
@@ -88,7 +88,7 @@
     },
     "parameter-2": {
       "id": "parameter-2",
-      "name": "parameter-2",
+      "name": "Parameter 2",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-2.png",
       "hidden": false,
@@ -97,7 +97,7 @@
     },
     "parameter-3": {
       "id": "parameter-3",
-      "name": "parameter-3",
+      "name": "Parameter 3",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-3.png",
       "hidden": false,
@@ -106,7 +106,7 @@
     },
     "parameter-4": {
       "id": "parameter-4",
-      "name": "parameter-4",
+      "name": "Parameter 4",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-4.png",
       "hidden": false,
@@ -115,7 +115,7 @@
     },
     "parameter-5": {
       "id": "parameter-5",
-      "name": "parameter-5",
+      "name": "Parameter 5",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-5.png",
       "hidden": false,
@@ -124,7 +124,7 @@
     },
     "parameter-6": {
       "id": "parameter-6",
-      "name": "parameter-6",
+      "name": "Parameter 6",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-6.png",
       "hidden": false,
@@ -133,7 +133,7 @@
     },
     "parameter-7": {
       "id": "parameter-7",
-      "name": "parameter-7",
+      "name": "Parameter 7",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-7.png",
       "hidden": false,
@@ -142,7 +142,7 @@
     },
     "parameter-8": {
       "id": "parameter-8",
-      "name": "parameter-8",
+      "name": "Parameter 8",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-8.png",
       "hidden": false,
@@ -151,7 +151,7 @@
     },
     "parameter-9": {
       "id": "parameter-9",
-      "name": "parameter-9",
+      "name": "Parameter 9",
       "type": "fluid",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/parameter-9.png",
       "hidden": false,
@@ -351,7 +351,7 @@
     },
     "long-handed-inserter": {
       "id": "long-handed-inserter",
-      "name": "Long-handed inserter",
+      "name": "Fast inserter",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/long-handed-inserter.png",
       "hidden": false,
@@ -726,7 +726,7 @@
     },
     "accumulator": {
       "id": "accumulator",
-      "name": "Accumulator",
+      "name": "High capacity accumulator",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/accumulator.png",
       "hidden": false,
@@ -1473,7 +1473,7 @@
     },
     "solar-panel-equipment": {
       "id": "solar-panel-equipment",
-      "name": "solar-panel-equipment",
+      "name": "Portable solar panel",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/solar-panel-equipment.png",
       "hidden": false,
@@ -1483,7 +1483,7 @@
     },
     "fission-reactor-equipment": {
       "id": "fission-reactor-equipment",
-      "name": "fission-reactor-equipment",
+      "name": "Portable fission reactor",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/fission-reactor-equipment.png",
       "hidden": false,
@@ -1493,7 +1493,7 @@
     },
     "battery-equipment": {
       "id": "battery-equipment",
-      "name": "battery-equipment",
+      "name": "Personal battery",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/battery-equipment.png",
       "hidden": false,
@@ -1503,7 +1503,7 @@
     },
     "battery-mk2-equipment": {
       "id": "battery-mk2-equipment",
-      "name": "battery-mk2-equipment",
+      "name": "Personal battery MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/battery-mk2-equipment.png",
       "hidden": false,
@@ -1523,7 +1523,7 @@
     },
     "exoskeleton-equipment": {
       "id": "exoskeleton-equipment",
-      "name": "exoskeleton-equipment",
+      "name": "Exoskeleton",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/exoskeleton-equipment.png",
       "hidden": false,
@@ -1533,7 +1533,7 @@
     },
     "personal-roboport-equipment": {
       "id": "personal-roboport-equipment",
-      "name": "personal-roboport-equipment",
+      "name": "Personal roboport",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/personal-roboport-equipment.png",
       "hidden": false,
@@ -1543,7 +1543,7 @@
     },
     "personal-roboport-mk2-equipment": {
       "id": "personal-roboport-mk2-equipment",
-      "name": "personal-roboport-mk2-equipment",
+      "name": "Personal roboport MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/personal-roboport-mk2-equipment.png",
       "hidden": false,
@@ -1553,7 +1553,7 @@
     },
     "night-vision-equipment": {
       "id": "night-vision-equipment",
-      "name": "night-vision-equipment",
+      "name": "Nightvision",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/night-vision-equipment.png",
       "hidden": false,
@@ -1563,7 +1563,7 @@
     },
     "energy-shield-equipment": {
       "id": "energy-shield-equipment",
-      "name": "energy-shield-equipment",
+      "name": "Energy shield",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/energy-shield-equipment.png",
       "hidden": false,
@@ -1573,7 +1573,7 @@
     },
     "energy-shield-mk2-equipment": {
       "id": "energy-shield-mk2-equipment",
-      "name": "energy-shield-mk2-equipment",
+      "name": "Energy shield MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/energy-shield-mk2-equipment.png",
       "hidden": false,
@@ -1583,7 +1583,7 @@
     },
     "personal-laser-defense-equipment": {
       "id": "personal-laser-defense-equipment",
-      "name": "personal-laser-defense-equipment",
+      "name": "Personal laser defense",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/personal-laser-defense-equipment.png",
       "hidden": false,
@@ -1593,7 +1593,7 @@
     },
     "discharge-defense-equipment": {
       "id": "discharge-defense-equipment",
-      "name": "discharge-defense-equipment",
+      "name": "Discharge defense",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/discharge-defense-equipment.png",
       "hidden": true,
@@ -16824,7 +16824,7 @@
     },
     "bob-gas-canister": {
       "id": "bob-gas-canister",
-      "name": "Gas bottle",
+      "name": "Empty bottle",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-gas-canister.png",
       "hidden": false,
@@ -17255,7 +17255,7 @@
     },
     "bob-stone-mixing-furnace": {
       "id": "bob-stone-mixing-furnace",
-      "name": "Stone metal mixing furnace",
+      "name": "Stone filtering furnace",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-stone-mixing-furnace.png",
       "hidden": false,
@@ -17266,7 +17266,7 @@
     },
     "bob-steel-mixing-furnace": {
       "id": "bob-steel-mixing-furnace",
-      "name": "Steel metal mixing furnace",
+      "name": "Steel filtering furnace",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-steel-mixing-furnace.png",
       "hidden": false,
@@ -17277,7 +17277,7 @@
     },
     "bob-electric-mixing-furnace": {
       "id": "bob-electric-mixing-furnace",
-      "name": "Electric metal mixing furnace",
+      "name": "Electric filtering furnace 1",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-mixing-furnace.png",
       "hidden": false,
@@ -17670,7 +17670,7 @@
     },
     "ee-infinity-fission-reactor-equipment": {
       "id": "ee-infinity-fission-reactor-equipment",
-      "name": "ee-infinity-fission-reactor-equipment",
+      "name": "Infinity fission reactor",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-infinity-fission-reactor-equipment.png",
       "hidden": true,
@@ -17761,7 +17761,7 @@
     },
     "ee-super-energy-shield-equipment": {
       "id": "ee-super-energy-shield-equipment",
-      "name": "ee-super-energy-shield-equipment",
+      "name": "Super energy shield",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-super-energy-shield-equipment.png",
       "hidden": true,
@@ -17771,7 +17771,7 @@
     },
     "ee-super-exoskeleton-equipment": {
       "id": "ee-super-exoskeleton-equipment",
-      "name": "ee-super-exoskeleton-equipment",
+      "name": "Super exoskeleton",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-super-exoskeleton-equipment.png",
       "hidden": true,
@@ -17821,7 +17821,7 @@
     },
     "ee-super-night-vision-equipment": {
       "id": "ee-super-night-vision-equipment",
-      "name": "ee-super-night-vision-equipment",
+      "name": "Super night vision",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-super-night-vision-equipment.png",
       "hidden": true,
@@ -17831,7 +17831,7 @@
     },
     "ee-super-battery-equipment": {
       "id": "ee-super-battery-equipment",
-      "name": "ee-super-battery-equipment",
+      "name": "Super personal battery",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-super-battery-equipment.png",
       "hidden": true,
@@ -17841,7 +17841,7 @@
     },
     "ee-super-personal-roboport-equipment": {
       "id": "ee-super-personal-roboport-equipment",
-      "name": "ee-super-personal-roboport-equipment",
+      "name": "Super personal roboport",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/ee-super-personal-roboport-equipment.png",
       "hidden": true,
@@ -17979,7 +17979,7 @@
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
-      "name": "Electric multi-purpose furnace",
+      "name": "Electric filtering furnace 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace.png",
       "hidden": false,
@@ -17990,7 +17990,7 @@
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
-      "name": "Electric multi-purpose furnace 2",
+      "name": "Electric filtering furnace 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-electric-chemical-mixing-furnace-2.png",
       "hidden": false,
@@ -18012,7 +18012,7 @@
     },
     "bob-fluid-mixing-furnace": {
       "id": "bob-fluid-mixing-furnace",
-      "name": "Fluid burning metal mixing furnace",
+      "name": "Fluid burning filtering furnace",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-fluid-mixing-furnace.png",
       "hidden": false,
@@ -18176,7 +18176,7 @@
     },
     "bob-basic-circuit-board": {
       "id": "bob-basic-circuit-board",
-      "name": "Basic circuit board",
+      "name": "Basic circuit",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-basic-circuit-board.png",
       "hidden": false,
@@ -18186,7 +18186,7 @@
     },
     "bob-circuit-board": {
       "id": "bob-circuit-board",
-      "name": "Circuit board",
+      "name": "Advanced circuit substrate",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-circuit-board.png",
       "hidden": false,
@@ -18196,7 +18196,7 @@
     },
     "bob-superior-circuit-board": {
       "id": "bob-superior-circuit-board",
-      "name": "Superior circuit board",
+      "name": "Processing substrate",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-superior-circuit-board.png",
       "hidden": false,
@@ -18206,7 +18206,7 @@
     },
     "bob-multi-layer-circuit-board": {
       "id": "bob-multi-layer-circuit-board",
-      "name": "Multi-layer circuit board",
+      "name": "Advanced processing substrate",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-multi-layer-circuit-board.png",
       "hidden": false,
@@ -18366,7 +18366,7 @@
     },
     "bob-valve": {
       "id": "bob-valve",
-      "name": "bob-valve",
+      "name": "One-way valve",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-valve.png",
       "hidden": true,
@@ -18376,7 +18376,7 @@
     },
     "bob-overflow-valve": {
       "id": "bob-overflow-valve",
-      "name": "bob-overflow-valve",
+      "name": "Overflow valve",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-overflow-valve.png",
       "hidden": true,
@@ -18386,7 +18386,7 @@
     },
     "bob-topup-valve": {
       "id": "bob-topup-valve",
-      "name": "bob-topup-valve",
+      "name": "Top-up valve",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-topup-valve.png",
       "hidden": true,
@@ -20836,7 +20836,7 @@
     },
     "bob-night-vision-equipment-2": {
       "id": "bob-night-vision-equipment-2",
-      "name": "Nightvision MK2",
+      "name": "Night vision MK2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-night-vision-equipment-2.png",
       "hidden": false,
@@ -20846,7 +20846,7 @@
     },
     "bob-night-vision-equipment-3": {
       "id": "bob-night-vision-equipment-3",
-      "name": "Nightvision MK3",
+      "name": "Night vision MK3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-night-vision-equipment-3.png",
       "hidden": false,
@@ -20956,7 +20956,7 @@
     },
     "bob-personal-roboport-antenna-equipment": {
       "id": "bob-personal-roboport-antenna-equipment",
-      "name": "bob-personal-roboport-antenna-equipment",
+      "name": "Personal roboport area expander",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-antenna-equipment.png",
       "hidden": false,
@@ -20966,7 +20966,7 @@
     },
     "bob-personal-roboport-antenna-equipment-2": {
       "id": "bob-personal-roboport-antenna-equipment-2",
-      "name": "bob-personal-roboport-antenna-equipment-2",
+      "name": "Personal roboport area expander 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-antenna-equipment-2.png",
       "hidden": false,
@@ -20976,7 +20976,7 @@
     },
     "bob-personal-roboport-antenna-equipment-3": {
       "id": "bob-personal-roboport-antenna-equipment-3",
-      "name": "bob-personal-roboport-antenna-equipment-3",
+      "name": "Personal roboport area expander 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-antenna-equipment-3.png",
       "hidden": false,
@@ -20986,7 +20986,7 @@
     },
     "bob-personal-roboport-antenna-equipment-4": {
       "id": "bob-personal-roboport-antenna-equipment-4",
-      "name": "bob-personal-roboport-antenna-equipment-4",
+      "name": "Personal roboport area expander 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-antenna-equipment-4.png",
       "hidden": false,
@@ -20996,7 +20996,7 @@
     },
     "bob-personal-roboport-chargepad-equipment": {
       "id": "bob-personal-roboport-chargepad-equipment",
-      "name": "bob-personal-roboport-chargepad-equipment",
+      "name": "Personal roboport chargepad",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-chargepad-equipment.png",
       "hidden": false,
@@ -21006,7 +21006,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-2": {
       "id": "bob-personal-roboport-chargepad-equipment-2",
-      "name": "bob-personal-roboport-chargepad-equipment-2",
+      "name": "Personal roboport chargepad 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-chargepad-equipment-2.png",
       "hidden": false,
@@ -21016,7 +21016,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-3": {
       "id": "bob-personal-roboport-chargepad-equipment-3",
-      "name": "bob-personal-roboport-chargepad-equipment-3",
+      "name": "Personal roboport chargepad 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-chargepad-equipment-3.png",
       "hidden": false,
@@ -21026,7 +21026,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-4": {
       "id": "bob-personal-roboport-chargepad-equipment-4",
-      "name": "bob-personal-roboport-chargepad-equipment-4",
+      "name": "Personal roboport chargepad 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-chargepad-equipment-4.png",
       "hidden": false,
@@ -21036,7 +21036,7 @@
     },
     "bob-personal-roboport-robot-equipment": {
       "id": "bob-personal-roboport-robot-equipment",
-      "name": "bob-personal-roboport-robot-equipment",
+      "name": "Personal roboport robot control",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-robot-equipment.png",
       "hidden": false,
@@ -21046,7 +21046,7 @@
     },
     "bob-personal-roboport-robot-equipment-2": {
       "id": "bob-personal-roboport-robot-equipment-2",
-      "name": "bob-personal-roboport-robot-equipment-2",
+      "name": "Personal roboport robot control 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-robot-equipment-2.png",
       "hidden": false,
@@ -21056,7 +21056,7 @@
     },
     "bob-personal-roboport-robot-equipment-3": {
       "id": "bob-personal-roboport-robot-equipment-3",
-      "name": "bob-personal-roboport-robot-equipment-3",
+      "name": "Personal roboport robot control 3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-robot-equipment-3.png",
       "hidden": false,
@@ -21066,7 +21066,7 @@
     },
     "bob-personal-roboport-robot-equipment-4": {
       "id": "bob-personal-roboport-robot-equipment-4",
-      "name": "bob-personal-roboport-robot-equipment-4",
+      "name": "Personal roboport robot control 4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-robot-equipment-4.png",
       "hidden": false,
@@ -21076,7 +21076,7 @@
     },
     "bob-personal-roboport-mk3-equipment": {
       "id": "bob-personal-roboport-mk3-equipment",
-      "name": "bob-personal-roboport-mk3-equipment",
+      "name": "Personal roboport MK3",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-mk3-equipment.png",
       "hidden": false,
@@ -21086,7 +21086,7 @@
     },
     "bob-personal-roboport-mk4-equipment": {
       "id": "bob-personal-roboport-mk4-equipment",
-      "name": "bob-personal-roboport-mk4-equipment",
+      "name": "Personal roboport MK4",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-personal-roboport-mk4-equipment.png",
       "hidden": false,
@@ -24140,7 +24140,7 @@
     },
     "angels-sintering-oven-4": {
       "id": "angels-sintering-oven-4",
-      "name": "Sintering oven 4",
+      "name": "Sintering oven 1",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-sintering-oven-4.png",
       "hidden": false,
@@ -24151,7 +24151,7 @@
     },
     "angels-sintering-oven-5": {
       "id": "angels-sintering-oven-5",
-      "name": "Sintering oven 5",
+      "name": "Sintering oven 2",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/angels-sintering-oven-5.png",
       "hidden": false,
@@ -30099,7 +30099,7 @@
     },
     "bob-advanced-logistic-science-pack": {
       "id": "bob-advanced-logistic-science-pack",
-      "name": "Transport science pack",
+      "name": "Science pack: Commercial AI implementation",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-advanced-logistic-science-pack.png",
       "hidden": false,
@@ -30109,7 +30109,7 @@
     },
     "bob-science-pack-gold": {
       "id": "bob-science-pack-gold",
-      "name": "Gold science pack",
+      "name": "Science pack: Complex Science Expertise",
       "type": "item",
       "iconPath": "//Users/francoismonniot/Projects/github.com/fmonniot/factorio-planner/public/data/kompetenz-seablock/icons/bob-science-pack-gold.png",
       "hidden": true,
@@ -34357,7 +34357,7 @@
     },
     "bulk-inserter": {
       "id": "bulk-inserter",
-      "name": "Bulk inserter",
+      "name": "Express bulk inserter",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -34879,7 +34879,7 @@
     },
     "night-vision-equipment": {
       "id": "night-vision-equipment",
-      "name": "night-vision-equipment",
+      "name": "Nightvision",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -34955,7 +34955,7 @@
     },
     "energy-shield-equipment": {
       "id": "energy-shield-equipment",
-      "name": "energy-shield-equipment",
+      "name": "Energy shield",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -34993,7 +34993,7 @@
     },
     "energy-shield-mk2-equipment": {
       "id": "energy-shield-mk2-equipment",
-      "name": "energy-shield-mk2-equipment",
+      "name": "Energy shield MK2",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35036,7 +35036,7 @@
     },
     "battery-equipment": {
       "id": "battery-equipment",
-      "name": "battery-equipment",
+      "name": "Personal battery",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35074,7 +35074,7 @@
     },
     "battery-mk2-equipment": {
       "id": "battery-mk2-equipment",
-      "name": "battery-mk2-equipment",
+      "name": "Personal battery MK2",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35112,7 +35112,7 @@
     },
     "solar-panel-equipment": {
       "id": "solar-panel-equipment",
-      "name": "solar-panel-equipment",
+      "name": "Portable solar panel",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -35170,7 +35170,7 @@
     },
     "fission-reactor-equipment": {
       "id": "fission-reactor-equipment",
-      "name": "fission-reactor-equipment",
+      "name": "Portable fission reactor",
       "category": "crafting-with-fluid",
       "craftingTime": 10,
       "ingredients": [
@@ -35223,7 +35223,7 @@
     },
     "personal-laser-defense-equipment": {
       "id": "personal-laser-defense-equipment",
-      "name": "personal-laser-defense-equipment",
+      "name": "Personal laser defense",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35266,7 +35266,7 @@
     },
     "discharge-defense-equipment": {
       "id": "discharge-defense-equipment",
-      "name": "discharge-defense-equipment",
+      "name": "Discharge defense",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35309,7 +35309,7 @@
     },
     "exoskeleton-equipment": {
       "id": "exoskeleton-equipment",
-      "name": "exoskeleton-equipment",
+      "name": "Exoskeleton",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35352,7 +35352,7 @@
     },
     "personal-roboport-equipment": {
       "id": "personal-roboport-equipment",
-      "name": "personal-roboport-equipment",
+      "name": "Personal roboport",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -35400,7 +35400,7 @@
     },
     "personal-roboport-mk2-equipment": {
       "id": "personal-roboport-mk2-equipment",
-      "name": "personal-roboport-mk2-equipment",
+      "name": "Personal roboport MK2",
       "category": "crafting",
       "craftingTime": 20,
       "ingredients": [
@@ -36096,7 +36096,7 @@
     },
     "fast-inserter": {
       "id": "fast-inserter",
-      "name": "Fast inserter",
+      "name": "Express inserter",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -36149,7 +36149,7 @@
     },
     "long-handed-inserter": {
       "id": "long-handed-inserter",
-      "name": "Long-handed inserter",
+      "name": "Fast inserter",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -40926,7 +40926,7 @@
     },
     "accumulator": {
       "id": "accumulator",
-      "name": "Accumulator",
+      "name": "High capacity accumulator",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -41647,7 +41647,7 @@
     },
     "nuclear-reactor": {
       "id": "nuclear-reactor",
-      "name": "Nuclear reactor",
+      "name": "Uranium reactor",
       "category": "crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -41897,7 +41897,7 @@
     },
     "uranium-fuel-cell": {
       "id": "uranium-fuel-cell",
-      "name": "Uranium fuel cell",
+      "name": "Uranium-235 fuel cell",
       "category": "centrifuging",
       "craftingTime": 10,
       "ingredients": [
@@ -45451,7 +45451,7 @@
     },
     "bob-silicon-powder": {
       "id": "bob-silicon-powder",
-      "name": "Powdered silicon",
+      "name": "Silicon powder",
       "category": "angels-powderizing-1",
       "craftingTime": 0.5,
       "ingredients": [
@@ -45584,7 +45584,7 @@
     },
     "bob-gas-canister": {
       "id": "bob-gas-canister",
-      "name": "Gas bottle",
+      "name": "Empty bottle",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -47060,7 +47060,7 @@
     },
     "bob-battery-2": {
       "id": "bob-battery-2",
-      "name": "bob-battery-2",
+      "name": "Lithium-ion battery",
       "category": "chemistry",
       "craftingTime": 5,
       "ingredients": [
@@ -47106,7 +47106,7 @@
     },
     "bob-battery-3": {
       "id": "bob-battery-3",
-      "name": "bob-battery-3",
+      "name": "Silver zinc battery",
       "category": "chemistry",
       "craftingTime": 5,
       "ingredients": [
@@ -47328,7 +47328,7 @@
     },
     "bob-stone-mixing-furnace": {
       "id": "bob-stone-mixing-furnace",
-      "name": "Stone metal mixing furnace",
+      "name": "Stone filtering furnace",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -47399,7 +47399,7 @@
     },
     "bob-steel-mixing-furnace": {
       "id": "bob-steel-mixing-furnace",
-      "name": "Steel metal mixing furnace",
+      "name": "Steel filtering furnace",
       "category": "crafting",
       "craftingTime": 3,
       "ingredients": [
@@ -47480,7 +47480,7 @@
     },
     "bob-electric-mixing-furnace": {
       "id": "bob-electric-mixing-furnace",
-      "name": "Electric metal mixing furnace",
+      "name": "Electric filtering furnace 1",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -49124,7 +49124,7 @@
     },
     "ee-infinity-fission-reactor-equipment": {
       "id": "ee-infinity-fission-reactor-equipment",
-      "name": "ee-infinity-fission-reactor-equipment",
+      "name": "Infinity fission reactor",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -49244,7 +49244,7 @@
     },
     "ee-super-battery-equipment": {
       "id": "ee-super-battery-equipment",
-      "name": "ee-super-battery-equipment",
+      "name": "Super personal battery",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -49324,7 +49324,7 @@
     },
     "ee-super-energy-shield-equipment": {
       "id": "ee-super-energy-shield-equipment",
-      "name": "ee-super-energy-shield-equipment",
+      "name": "Super energy shield",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -49344,7 +49344,7 @@
     },
     "ee-super-exoskeleton-equipment": {
       "id": "ee-super-exoskeleton-equipment",
-      "name": "ee-super-exoskeleton-equipment",
+      "name": "Super exoskeleton",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -49464,7 +49464,7 @@
     },
     "ee-super-night-vision-equipment": {
       "id": "ee-super-night-vision-equipment",
-      "name": "ee-super-night-vision-equipment",
+      "name": "Super night vision",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -49484,7 +49484,7 @@
     },
     "ee-super-personal-roboport-equipment": {
       "id": "ee-super-personal-roboport-equipment",
-      "name": "ee-super-personal-roboport-equipment",
+      "name": "Super personal roboport",
       "category": "ee-testing-tool",
       "craftingTime": 0.5,
       "ingredients": [],
@@ -50288,7 +50288,7 @@
     },
     "bob-electric-chemical-mixing-furnace": {
       "id": "bob-electric-chemical-mixing-furnace",
-      "name": "Electric multi-purpose furnace",
+      "name": "Electric filtering furnace 2",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50341,7 +50341,7 @@
     },
     "bob-electric-chemical-mixing-furnace-2": {
       "id": "bob-electric-chemical-mixing-furnace-2",
-      "name": "Electric multi-purpose furnace 2",
+      "name": "Electric filtering furnace 3",
       "category": "crafting",
       "craftingTime": 5,
       "ingredients": [
@@ -50432,7 +50432,7 @@
     },
     "bob-fluid-mixing-furnace": {
       "id": "bob-fluid-mixing-furnace",
-      "name": "Fluid burning metal mixing furnace",
+      "name": "Fluid burning filtering furnace",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -51139,7 +51139,7 @@
     },
     "bob-basic-circuit-board": {
       "id": "bob-basic-circuit-board",
-      "name": "Basic circuit board",
+      "name": "Basic circuit",
       "category": "crafting",
       "craftingTime": 1,
       "ingredients": [
@@ -51177,7 +51177,7 @@
     },
     "bob-circuit-board": {
       "id": "bob-circuit-board",
-      "name": "Circuit board",
+      "name": "Advanced circuit substrate",
       "category": "crafting-with-fluid",
       "craftingTime": 5,
       "ingredients": [
@@ -51224,7 +51224,7 @@
     },
     "bob-superior-circuit-board": {
       "id": "bob-superior-circuit-board",
-      "name": "Superior circuit board",
+      "name": "Processing substrate",
       "category": "crafting-with-fluid",
       "craftingTime": 5,
       "ingredients": [
@@ -51271,7 +51271,7 @@
     },
     "bob-multi-layer-circuit-board": {
       "id": "bob-multi-layer-circuit-board",
-      "name": "Multi-layer circuit board",
+      "name": "Advanced processing substrate",
       "category": "crafting-with-fluid",
       "craftingTime": 5,
       "ingredients": [
@@ -54993,7 +54993,7 @@
     },
     "bob-express-inserter": {
       "id": "bob-express-inserter",
-      "name": "Express inserter",
+      "name": "Ultimate inserter",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -55046,7 +55046,7 @@
     },
     "bob-express-bulk-inserter": {
       "id": "bob-express-bulk-inserter",
-      "name": "Express bulk inserter",
+      "name": "Ultimate bulk inserter",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -59380,7 +59380,7 @@
     },
     "bob-nuclear-reactor-2": {
       "id": "bob-nuclear-reactor-2",
-      "name": "Nuclear reactor 2",
+      "name": "Thorium reactor",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -59428,7 +59428,7 @@
     },
     "bob-nuclear-reactor-3": {
       "id": "bob-nuclear-reactor-3",
-      "name": "Nuclear reactor 3",
+      "name": "Deuterium reactor",
       "category": "crafting",
       "craftingTime": 16,
       "ingredients": [
@@ -60386,7 +60386,7 @@
     },
     "bob-advanced-logistic-science-pack": {
       "id": "bob-advanced-logistic-science-pack",
-      "name": "Transport science pack",
+      "name": "Science pack: Commercial AI implementation",
       "category": "crafting",
       "craftingTime": 14,
       "ingredients": [
@@ -60424,7 +60424,7 @@
     },
     "bob-lab-2": {
       "id": "bob-lab-2",
-      "name": "Lab 2",
+      "name": "Exoplanetary Studies Lab",
       "category": "crafting",
       "craftingTime": 15,
       "ingredients": [
@@ -60477,7 +60477,7 @@
     },
     "bob-science-pack-gold": {
       "id": "bob-science-pack-gold",
-      "name": "Gold science pack",
+      "name": "Science pack: Complex Science Expertise",
       "category": "crafting",
       "craftingTime": 30,
       "ingredients": [
@@ -67306,7 +67306,7 @@
     },
     "bob-night-vision-equipment-2": {
       "id": "bob-night-vision-equipment-2",
-      "name": "Nightvision MK2",
+      "name": "Night vision MK2",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -67349,7 +67349,7 @@
     },
     "bob-night-vision-equipment-3": {
       "id": "bob-night-vision-equipment-3",
-      "name": "Nightvision MK3",
+      "name": "Night vision MK3",
       "category": "crafting",
       "craftingTime": 10,
       "ingredients": [
@@ -67955,7 +67955,7 @@
     },
     "bob-personal-roboport-antenna-equipment": {
       "id": "bob-personal-roboport-antenna-equipment",
-      "name": "bob-personal-roboport-antenna-equipment",
+      "name": "Personal roboport area expander",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -67998,7 +67998,7 @@
     },
     "bob-personal-roboport-antenna-equipment-2": {
       "id": "bob-personal-roboport-antenna-equipment-2",
-      "name": "bob-personal-roboport-antenna-equipment-2",
+      "name": "Personal roboport area expander 2",
       "category": "crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -68046,7 +68046,7 @@
     },
     "bob-personal-roboport-antenna-equipment-3": {
       "id": "bob-personal-roboport-antenna-equipment-3",
-      "name": "bob-personal-roboport-antenna-equipment-3",
+      "name": "Personal roboport area expander 3",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -68094,7 +68094,7 @@
     },
     "bob-personal-roboport-antenna-equipment-4": {
       "id": "bob-personal-roboport-antenna-equipment-4",
-      "name": "bob-personal-roboport-antenna-equipment-4",
+      "name": "Personal roboport area expander 4",
       "category": "crafting",
       "craftingTime": 16,
       "ingredients": [
@@ -68142,7 +68142,7 @@
     },
     "bob-personal-roboport-chargepad-equipment": {
       "id": "bob-personal-roboport-chargepad-equipment",
-      "name": "bob-personal-roboport-chargepad-equipment",
+      "name": "Personal roboport chargepad",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -68180,7 +68180,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-2": {
       "id": "bob-personal-roboport-chargepad-equipment-2",
-      "name": "bob-personal-roboport-chargepad-equipment-2",
+      "name": "Personal roboport chargepad 2",
       "category": "crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -68223,7 +68223,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-3": {
       "id": "bob-personal-roboport-chargepad-equipment-3",
-      "name": "bob-personal-roboport-chargepad-equipment-3",
+      "name": "Personal roboport chargepad 3",
       "category": "crafting",
       "craftingTime": 12,
       "ingredients": [
@@ -68266,7 +68266,7 @@
     },
     "bob-personal-roboport-chargepad-equipment-4": {
       "id": "bob-personal-roboport-chargepad-equipment-4",
-      "name": "bob-personal-roboport-chargepad-equipment-4",
+      "name": "Personal roboport chargepad 4",
       "category": "crafting",
       "craftingTime": 16,
       "ingredients": [
@@ -68309,7 +68309,7 @@
     },
     "bob-personal-roboport-robot-equipment": {
       "id": "bob-personal-roboport-robot-equipment",
-      "name": "bob-personal-roboport-robot-equipment",
+      "name": "Personal roboport robot control",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -68352,7 +68352,7 @@
     },
     "bob-personal-roboport-robot-equipment-2": {
       "id": "bob-personal-roboport-robot-equipment-2",
-      "name": "bob-personal-roboport-robot-equipment-2",
+      "name": "Personal roboport robot control 2",
       "category": "crafting",
       "craftingTime": 4,
       "ingredients": [
@@ -68400,7 +68400,7 @@
     },
     "bob-personal-roboport-robot-equipment-3": {
       "id": "bob-personal-roboport-robot-equipment-3",
-      "name": "bob-personal-roboport-robot-equipment-3",
+      "name": "Personal roboport robot control 3",
       "category": "crafting",
       "craftingTime": 6,
       "ingredients": [
@@ -68448,7 +68448,7 @@
     },
     "bob-personal-roboport-robot-equipment-4": {
       "id": "bob-personal-roboport-robot-equipment-4",
-      "name": "bob-personal-roboport-robot-equipment-4",
+      "name": "Personal roboport robot control 4",
       "category": "crafting",
       "craftingTime": 8,
       "ingredients": [
@@ -68496,7 +68496,7 @@
     },
     "bob-personal-roboport-mk3-equipment": {
       "id": "bob-personal-roboport-mk3-equipment",
-      "name": "bob-personal-roboport-mk3-equipment",
+      "name": "Personal roboport MK3",
       "category": "crafting",
       "craftingTime": 30,
       "ingredients": [
@@ -68549,7 +68549,7 @@
     },
     "bob-personal-roboport-mk4-equipment": {
       "id": "bob-personal-roboport-mk4-equipment",
-      "name": "bob-personal-roboport-mk4-equipment",
+      "name": "Personal roboport MK4",
       "category": "crafting",
       "craftingTime": 40,
       "ingredients": [
@@ -68738,7 +68738,7 @@
     },
     "bob-speed-module-4": {
       "id": "bob-speed-module-4",
-      "name": "bob-speed-module-4",
+      "name": "Speed module 4",
       "category": "crafting",
       "craftingTime": 60,
       "ingredients": [
@@ -68786,7 +68786,7 @@
     },
     "bob-speed-module-5": {
       "id": "bob-speed-module-5",
-      "name": "bob-speed-module-5",
+      "name": "Speed module 5",
       "category": "crafting",
       "craftingTime": 120,
       "ingredients": [
@@ -68854,7 +68854,7 @@
     },
     "bob-efficiency-module-4": {
       "id": "bob-efficiency-module-4",
-      "name": "bob-efficiency-module-4",
+      "name": "Efficiency module 4",
       "category": "crafting",
       "craftingTime": 60,
       "ingredients": [
@@ -68902,7 +68902,7 @@
     },
     "bob-efficiency-module-5": {
       "id": "bob-efficiency-module-5",
-      "name": "bob-efficiency-module-5",
+      "name": "Efficiency module 5",
       "category": "crafting",
       "craftingTime": 120,
       "ingredients": [
@@ -68970,7 +68970,7 @@
     },
     "bob-productivity-module-4": {
       "id": "bob-productivity-module-4",
-      "name": "bob-productivity-module-4",
+      "name": "Productivity module 4",
       "category": "crafting",
       "craftingTime": 60,
       "ingredients": [
@@ -69018,7 +69018,7 @@
     },
     "bob-productivity-module-5": {
       "id": "bob-productivity-module-5",
-      "name": "bob-productivity-module-5",
+      "name": "Productivity module 5",
       "category": "crafting",
       "craftingTime": 120,
       "ingredients": [
@@ -70735,7 +70735,7 @@
     },
     "angels-ore1-crushed": {
       "id": "angels-ore1-crushed",
-      "name": "Saphirite ore crushing",
+      "name": "Crushed saphirite",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -70802,7 +70802,7 @@
     },
     "angels-ore2-crushed": {
       "id": "angels-ore2-crushed",
-      "name": "Jivolite ore crushing",
+      "name": "Crushed jivolite",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -70838,7 +70838,7 @@
     },
     "angels-ore3-crushed": {
       "id": "angels-ore3-crushed",
-      "name": "Stiratite ore crushing",
+      "name": "Crushed stiratite",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -70905,7 +70905,7 @@
     },
     "angels-ore4-crushed": {
       "id": "angels-ore4-crushed",
-      "name": "Crotinnium ore crushing",
+      "name": "Crushed crotinnium",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -70941,7 +70941,7 @@
     },
     "angels-ore5-crushed": {
       "id": "angels-ore5-crushed",
-      "name": "Rubyte ore crushing",
+      "name": "Crushed rubyte",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -70977,7 +70977,7 @@
     },
     "angels-ore6-crushed": {
       "id": "angels-ore6-crushed",
-      "name": "Bobmonium ore crushing",
+      "name": "Crushed bobmonium",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -71054,7 +71054,7 @@
     },
     "angels-ore8-powder": {
       "id": "angels-ore8-powder",
-      "name": "Crushed ferrous mixture milling",
+      "name": "Ferrous powder",
       "category": "angels-powderizing-1",
       "craftingTime": 2,
       "ingredients": [
@@ -71136,7 +71136,7 @@
     },
     "angels-ore9-powder": {
       "id": "angels-ore9-powder",
-      "name": "Crushed cupric mixture milling",
+      "name": "Cupric powder",
       "category": "angels-powderizing-1",
       "craftingTime": 2,
       "ingredients": [
@@ -71177,7 +71177,7 @@
     },
     "angels-ore1-chunk": {
       "id": "angels-ore1-chunk",
-      "name": "Saphirite hydro-refining",
+      "name": "Saphirite chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71223,7 +71223,7 @@
     },
     "angels-ore2-chunk": {
       "id": "angels-ore2-chunk",
-      "name": "Jivolite hydro-refining",
+      "name": "Jivolite chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71269,7 +71269,7 @@
     },
     "angels-ore3-chunk": {
       "id": "angels-ore3-chunk",
-      "name": "Stiratite hydro-refining",
+      "name": "Stiratite chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71315,7 +71315,7 @@
     },
     "angels-ore4-chunk": {
       "id": "angels-ore4-chunk",
-      "name": "Crotinnium hydro-refining",
+      "name": "Crotinnium chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71361,7 +71361,7 @@
     },
     "angels-ore5-chunk": {
       "id": "angels-ore5-chunk",
-      "name": "Rubyte hydro-refining",
+      "name": "Rubyte chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71407,7 +71407,7 @@
     },
     "angels-ore6-chunk": {
       "id": "angels-ore6-chunk",
-      "name": "Bobmonium hydro-refining",
+      "name": "Bobmonium chunks",
       "category": "angels-ore-refining-t2",
       "craftingTime": 2,
       "ingredients": [
@@ -71509,7 +71509,7 @@
     },
     "angels-ore8-dust": {
       "id": "angels-ore8-dust",
-      "name": "Ferrous sludge hydro-refining",
+      "name": "Ferrous dust",
       "category": "angels-ore-refining-t2",
       "craftingTime": 4,
       "ingredients": [
@@ -71605,7 +71605,7 @@
     },
     "angels-ore9-dust": {
       "id": "angels-ore9-dust",
-      "name": "Cupric sludge hydro-refining",
+      "name": "Cupric dust",
       "category": "angels-ore-refining-t2",
       "craftingTime": 4,
       "ingredients": [
@@ -71645,7 +71645,7 @@
     },
     "angels-ore1-crystal": {
       "id": "angels-ore1-crystal",
-      "name": "Saphirite leaching",
+      "name": "Saphirite crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71680,7 +71680,7 @@
     },
     "angels-ore2-crystal": {
       "id": "angels-ore2-crystal",
-      "name": "Jivolite leaching",
+      "name": "Jivolite crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71715,7 +71715,7 @@
     },
     "angels-ore3-crystal": {
       "id": "angels-ore3-crystal",
-      "name": "Stiratite leaching",
+      "name": "Stiratite crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71750,7 +71750,7 @@
     },
     "angels-ore4-crystal": {
       "id": "angels-ore4-crystal",
-      "name": "Crotinnium leaching",
+      "name": "Crotinnium crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71785,7 +71785,7 @@
     },
     "angels-ore5-crystal": {
       "id": "angels-ore5-crystal",
-      "name": "Rubyte leaching",
+      "name": "Rubyte crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71820,7 +71820,7 @@
     },
     "angels-ore6-crystal": {
       "id": "angels-ore6-crystal",
-      "name": "Bobmonium leaching",
+      "name": "Bobmonium crystals",
       "category": "angels-ore-refining-t3",
       "craftingTime": 2,
       "ingredients": [
@@ -71904,7 +71904,7 @@
     },
     "angels-ore8-slime": {
       "id": "angels-ore8-slime",
-      "name": "Ferrous slurry filtering",
+      "name": "Ferrous concentrate",
       "category": "angels-filtering-3",
       "craftingTime": 2,
       "ingredients": [
@@ -71952,7 +71952,7 @@
     },
     "angels-ore8-anode-sludge": {
       "id": "angels-ore8-anode-sludge",
-      "name": "Ferrous concentrate anodizing",
+      "name": "Anodized ferrous concentrate",
       "category": "sb-petrochem-electrolyser-4",
       "craftingTime": 2,
       "ingredients": [
@@ -72072,7 +72072,7 @@
     },
     "angels-ore9-slime": {
       "id": "angels-ore9-slime",
-      "name": "Cupric slurry filtering",
+      "name": "Cupric concentrate",
       "category": "angels-filtering-3",
       "craftingTime": 2,
       "ingredients": [
@@ -72120,7 +72120,7 @@
     },
     "angels-ore9-anode-sludge": {
       "id": "angels-ore9-anode-sludge",
-      "name": "Cupric concentrate anodizing",
+      "name": "Anodized cupric concentrate",
       "category": "sb-petrochem-electrolyser-4",
       "craftingTime": 2,
       "ingredients": [
@@ -72191,7 +72191,7 @@
     },
     "angels-ore1-pure": {
       "id": "angels-ore1-pure",
-      "name": "Saphirite thermal refining",
+      "name": "Purified saphirite",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72220,7 +72220,7 @@
     },
     "angels-ore2-pure": {
       "id": "angels-ore2-pure",
-      "name": "Jivolite thermal refining",
+      "name": "Purified jivolite",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72249,7 +72249,7 @@
     },
     "angels-ore3-pure": {
       "id": "angels-ore3-pure",
-      "name": "Stiratite thermal refining",
+      "name": "Purified stiratite",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72278,7 +72278,7 @@
     },
     "angels-ore4-pure": {
       "id": "angels-ore4-pure",
-      "name": "Crotinnium thermal refining",
+      "name": "Purified crotinnium",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72307,7 +72307,7 @@
     },
     "angels-ore5-pure": {
       "id": "angels-ore5-pure",
-      "name": "Rubyte thermal refining",
+      "name": "Purified rubyte",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72336,7 +72336,7 @@
     },
     "angels-ore6-pure": {
       "id": "angels-ore6-pure",
-      "name": "Bobmonium thermal refining",
+      "name": "Purified bobmonium",
       "category": "angels-ore-refining-t4",
       "craftingTime": 2,
       "ingredients": [
@@ -72622,7 +72622,7 @@
     },
     "angels-stone-crushed-dissolution": {
       "id": "angels-stone-crushed-dissolution",
-      "name": "Liquefy crushed stone to slurry",
+      "name": "Liquefy stone to slurry",
       "category": "angels-liquifying",
       "craftingTime": 3,
       "ingredients": [
@@ -72658,7 +72658,7 @@
     },
     "angels-slag-processing-filtering-1": {
       "id": "angels-slag-processing-filtering-1",
-      "name": "Slurry coal filtering",
+      "name": "Slurry charcoal filtering",
       "category": "angels-filtering",
       "craftingTime": 4,
       "ingredients": [
@@ -73084,7 +73084,7 @@
     },
     "angels-crystal-slurry-filtering-1": {
       "id": "angels-crystal-slurry-filtering-1",
-      "name": "Crystal slurry coal filtering",
+      "name": "Crystal slurry charcoal filtering",
       "category": "angels-filtering",
       "craftingTime": 3,
       "ingredients": [
@@ -73181,7 +73181,7 @@
     },
     "angels-crystal-slurry-filtering-conversion-1": {
       "id": "angels-crystal-slurry-filtering-conversion-1",
-      "name": "Crystal slurry to mineral sludge coal filtering",
+      "name": "Crystal slurry to mineral sludge charcoal filtering",
       "category": "angels-filtering",
       "craftingTime": 3,
       "ingredients": [
@@ -73846,7 +73846,7 @@
     },
     "angels-stone-crushed": {
       "id": "angels-stone-crushed",
-      "name": "Slag processing to crushed stone",
+      "name": "Slag processing to stone",
       "category": "angels-ore-refining-t1",
       "craftingTime": 1,
       "ingredients": [
@@ -74238,7 +74238,7 @@
     },
     "angels-ore-crushed-mix3-processing": {
       "id": "angels-ore-crushed-mix3-processing",
-      "name": "Galena (Lead ore)",
+      "name": "Lead ore",
       "category": "angels-ore-sorting-2",
       "craftingTime": 1,
       "ingredients": [
@@ -74772,7 +74772,7 @@
     },
     "angels-ore-chunk-mix1-processing": {
       "id": "angels-ore-chunk-mix1-processing",
-      "name": "Quartz (Silicon ore)",
+      "name": "Silicon ore",
       "category": "angels-ore-sorting-3",
       "craftingTime": 1,
       "ingredients": [
@@ -74852,7 +74852,7 @@
     },
     "angels-ore-chunk-mix3-processing": {
       "id": "angels-ore-chunk-mix3-processing",
-      "name": "Bauxite (Aluminium ore)",
+      "name": "Aluminium ore",
       "category": "angels-ore-sorting-3",
       "craftingTime": 1,
       "ingredients": [
@@ -75464,7 +75464,7 @@
     },
     "angels-ore-crystal-mix1-processing": {
       "id": "angels-ore-crystal-mix1-processing",
-      "name": "Rutile (Titanium ore)",
+      "name": "Titanium ore",
       "category": "angels-ore-sorting-4",
       "craftingTime": 1.5,
       "ingredients": [
@@ -78990,7 +78990,7 @@
     },
     "angels-water-purified": {
       "id": "angels-water-purified",
-      "name": "Water purification",
+      "name": "Purified water",
       "category": "angels-water-treatment",
       "craftingTime": 1,
       "ingredients": [
@@ -81501,7 +81501,7 @@
     },
     "angels-liquid-water-heavy": {
       "id": "angels-liquid-water-heavy",
-      "name": "Heavy water separation",
+      "name": "Heavy water",
       "category": "angels-petrochem-boiler",
       "craftingTime": 2,
       "ingredients": [
@@ -83644,7 +83644,7 @@
     },
     "angels-gas-nitrogen-monoxide": {
       "id": "angels-gas-nitrogen-monoxide",
-      "name": "Nitrogen monoxide synthesis",
+      "name": "Nitrogen monoxide gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83691,7 +83691,7 @@
     },
     "angels-gas-nitrogen-dioxide": {
       "id": "angels-gas-nitrogen-dioxide",
-      "name": "Nitrogen dioxide synthesis",
+      "name": "Nitrogen dioxide gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83727,7 +83727,7 @@
     },
     "angels-gas-ammonia": {
       "id": "angels-gas-ammonia",
-      "name": "Ammonia synthesis",
+      "name": "Ammonia gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83774,7 +83774,7 @@
     },
     "angels-gas-ammonium-chloride": {
       "id": "angels-gas-ammonium-chloride",
-      "name": "Ammonium chloride synthesis",
+      "name": "Ammonium chloride gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83810,7 +83810,7 @@
     },
     "angels-gas-urea": {
       "id": "angels-gas-urea",
-      "name": "Urea synthesis",
+      "name": "Urea gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83851,7 +83851,7 @@
     },
     "angels-liquid-nitric-acid": {
       "id": "angels-liquid-nitric-acid",
-      "name": "Nitric acid synthesis",
+      "name": "Nitric acid",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -83923,7 +83923,7 @@
     },
     "angels-gas-melamine": {
       "id": "angels-gas-melamine",
-      "name": "Melamine synthesis",
+      "name": "Melamine gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -85631,7 +85631,7 @@
     },
     "angels-solid-sodium-sulfate": {
       "id": "angels-solid-sodium-sulfate",
-      "name": "Synthesis of sodium sulfate",
+      "name": "Sodium sulfate",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -86153,7 +86153,7 @@
     },
     "angels-gas-hydrogen-fluoride": {
       "id": "angels-gas-hydrogen-fluoride",
-      "name": "Hydrogen fluoride gas separation",
+      "name": "Hydrogen fluoride gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -86642,7 +86642,7 @@
     },
     "angels-gas-allylchlorid": {
       "id": "angels-gas-allylchlorid",
-      "name": "Synthesis of allyl chloride",
+      "name": "Allyl chloride gas",
       "category": "chemistry",
       "craftingTime": 2,
       "ingredients": [
@@ -89099,7 +89099,7 @@
     },
     "angels-uranium-fuel-cell": {
       "id": "angels-uranium-fuel-cell",
-      "name": "Advanced uranium fuel cell",
+      "name": "Uranium-234 fuel cell",
       "category": "centrifuging",
       "craftingTime": 700,
       "ingredients": [
@@ -99212,7 +99212,7 @@
     },
     "angels-coolant-used-filtration-1": {
       "id": "angels-coolant-used-filtration-1",
-      "name": "Used coolant coal filtering",
+      "name": "Used coolant charcoal filtering",
       "category": "angels-filtering-2",
       "craftingTime": 5,
       "ingredients": [
@@ -103658,7 +103658,7 @@
     },
     "angels-algae-green": {
       "id": "angels-algae-green",
-      "name": "Green algae farming",
+      "name": "Green algae",
       "category": "angels-bio-processing",
       "craftingTime": 15,
       "ingredients": [
@@ -106875,7 +106875,7 @@
     },
     "angels-crystal-splinter-harmonic": {
       "id": "angels-crystal-splinter-harmonic",
-      "name": "Crystal splinter tuning",
+      "name": "Harmonic crystal splinter",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -107232,7 +107232,7 @@
     },
     "angels-crystal-shard-harmonic": {
       "id": "angels-crystal-shard-harmonic",
-      "name": "Crystal shard tuning",
+      "name": "Harmonic crystal shard",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -107586,7 +107586,7 @@
     },
     "angels-crystal-full-harmonic": {
       "id": "angels-crystal-full-harmonic",
-      "name": "Crystal tuning",
+      "name": "Harmonic crystal",
       "category": "crafting",
       "craftingTime": 2,
       "ingredients": [
@@ -112722,7 +112722,7 @@
     },
     "angels-liquid-raw-vegetable-oil-filtering-1": {
       "id": "angels-liquid-raw-vegetable-oil-filtering-1",
-      "name": "Vegetable oil filtration 1",
+      "name": "Raw vegetable oil charcoal filtering",
       "category": "angels-filtering",
       "craftingTime": 4,
       "ingredients": [
@@ -112772,7 +112772,7 @@
     },
     "angels-liquid-raw-vegetable-oil-filtering-2": {
       "id": "angels-liquid-raw-vegetable-oil-filtering-2",
-      "name": "Vegetable oil filtration 2",
+      "name": "Raw vegetable oil ceramic filtering",
       "category": "angels-filtering-2",
       "craftingTime": 4,
       "ingredients": [
@@ -114081,7 +114081,7 @@
     },
     "angels-liquid-raw-fish-oil-filtering-1": {
       "id": "angels-liquid-raw-fish-oil-filtering-1",
-      "name": "Fish oil filtration 1",
+      "name": "Raw fish oil charcoal filtering",
       "category": "angels-filtering",
       "craftingTime": 8,
       "ingredients": [
@@ -114131,7 +114131,7 @@
     },
     "angels-liquid-raw-fish-oil-filtering-2": {
       "id": "angels-liquid-raw-fish-oil-filtering-2",
-      "name": "Fish oil filtration 2",
+      "name": "Raw fish oil ceramic filtering",
       "category": "angels-filtering-2",
       "craftingTime": 8,
       "ingredients": [
@@ -131331,7 +131331,7 @@
     },
     "textplate-small-stone": {
       "id": "textplate-small-stone",
-      "name": "textplate-small-stone",
+      "name": "Small stone text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131364,7 +131364,7 @@
     },
     "textplate-large-stone": {
       "id": "textplate-large-stone",
-      "name": "textplate-large-stone",
+      "name": "Large stone text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131397,7 +131397,7 @@
     },
     "textplate-small-iron": {
       "id": "textplate-small-iron",
-      "name": "textplate-small-iron",
+      "name": "Small iron text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131430,7 +131430,7 @@
     },
     "textplate-large-iron": {
       "id": "textplate-large-iron",
-      "name": "textplate-large-iron",
+      "name": "Large iron text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131463,7 +131463,7 @@
     },
     "textplate-small-copper": {
       "id": "textplate-small-copper",
-      "name": "textplate-small-copper",
+      "name": "Small copper text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131496,7 +131496,7 @@
     },
     "textplate-large-copper": {
       "id": "textplate-large-copper",
-      "name": "textplate-large-copper",
+      "name": "Large copper text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131529,7 +131529,7 @@
     },
     "textplate-small-steel": {
       "id": "textplate-small-steel",
-      "name": "textplate-small-steel",
+      "name": "Small steel text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131562,7 +131562,7 @@
     },
     "textplate-large-steel": {
       "id": "textplate-large-steel",
-      "name": "textplate-large-steel",
+      "name": "Large steel text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131595,7 +131595,7 @@
     },
     "textplate-small-concrete": {
       "id": "textplate-small-concrete",
-      "name": "textplate-small-concrete",
+      "name": "Small concrete text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131628,7 +131628,7 @@
     },
     "textplate-large-concrete": {
       "id": "textplate-large-concrete",
-      "name": "textplate-large-concrete",
+      "name": "Large concrete text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131661,7 +131661,7 @@
     },
     "textplate-small-glass": {
       "id": "textplate-small-glass",
-      "name": "textplate-small-glass",
+      "name": "Small glass text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131694,7 +131694,7 @@
     },
     "textplate-large-glass": {
       "id": "textplate-large-glass",
-      "name": "textplate-large-glass",
+      "name": "Large glass text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131727,7 +131727,7 @@
     },
     "textplate-small-gold": {
       "id": "textplate-small-gold",
-      "name": "textplate-small-gold",
+      "name": "Small gold text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131760,7 +131760,7 @@
     },
     "textplate-large-gold": {
       "id": "textplate-large-gold",
-      "name": "textplate-large-gold",
+      "name": "Large gold text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131793,7 +131793,7 @@
     },
     "textplate-small-plastic": {
       "id": "textplate-small-plastic",
-      "name": "textplate-small-plastic",
+      "name": "Small plastic text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131826,7 +131826,7 @@
     },
     "textplate-large-plastic": {
       "id": "textplate-large-plastic",
-      "name": "textplate-large-plastic",
+      "name": "Large plastic text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -131859,7 +131859,7 @@
     },
     "textplate-small-uranium": {
       "id": "textplate-small-uranium",
-      "name": "textplate-small-uranium",
+      "name": "Small uranium text plate",
       "category": "crafting",
       "craftingTime": 0.25,
       "ingredients": [
@@ -131892,7 +131892,7 @@
     },
     "textplate-large-uranium": {
       "id": "textplate-large-uranium",
-      "name": "textplate-large-uranium",
+      "name": "Large uranium text plate",
       "category": "crafting",
       "craftingTime": 0.5,
       "ingredients": [
@@ -146411,7 +146411,7 @@
     },
     "bob-alloy-processing": {
       "id": "bob-alloy-processing",
-      "name": "Alloy processing",
+      "name": "Bronze processing",
       "prerequisites": [
         "automation-science-pack",
         "angels-ore-crushing",
@@ -146426,7 +146426,7 @@
     },
     "bob-steel-mixing-furnace": {
       "id": "bob-steel-mixing-furnace",
-      "name": "Steel metal mixing furnace",
+      "name": "Steel filtering furnace",
       "prerequisites": [
         "advanced-material-processing"
       ],
@@ -146451,7 +146451,7 @@
     },
     "bob-electric-mixing-furnace": {
       "id": "bob-electric-mixing-furnace",
-      "name": "Electric metal mixing furnace",
+      "name": "Electric filtering furnace 1",
       "prerequisites": [
         "advanced-material-processing-2",
         "bob-steel-mixing-furnace"
@@ -147633,7 +147633,7 @@
     },
     "bob-fluid-mixing-furnace": {
       "id": "bob-fluid-mixing-furnace",
-      "name": "Fluid burning metal mixing furnace",
+      "name": "Fluid burning filtering furnace",
       "prerequisites": [
         "bob-steel-mixing-furnace"
       ],
@@ -150318,7 +150318,7 @@
     },
     "bob-advanced-logistic-science-pack": {
       "id": "bob-advanced-logistic-science-pack",
-      "name": "Transport science pack",
+      "name": "Science pack: Commercial AI implementation",
       "prerequisites": [
         "processing-unit",
         "bob-brass-processing",
@@ -154276,7 +154276,7 @@
     },
     "ftl-theory-D2": {
       "id": "ftl-theory-D2",
-      "name": "Faster than light theory D2",
+      "name": "Faster than light theory E",
       "prerequisites": [
         "ftl-theory-D1",
         "ftl-theory-D"
@@ -154533,7 +154533,7 @@
     },
     "angels-coal-processing": {
       "id": "angels-coal-processing",
-      "name": "Coal processing",
+      "name": "Charcoal processing",
       "prerequisites": [
         "angels-basic-chemistry",
         "steam-power"
@@ -154555,7 +154555,7 @@
     },
     "angels-coal-processing-2": {
       "id": "angels-coal-processing-2",
-      "name": "Coal processing 2",
+      "name": "Charcoal processing 2",
       "prerequisites": [
         "angels-coal-processing",
         "angels-basic-chemistry-2"
@@ -162517,7 +162517,7 @@
     },
     "sct-lab-lab2": {
       "id": "sct-lab-lab2",
-      "name": "Lab 2",
+      "name": "Exoplanetary Studies Lab",
       "prerequisites": [
         "utility-science-pack",
         "production-science-pack",
@@ -162778,7 +162778,7 @@
     },
     "ftl-theory-D": {
       "id": "ftl-theory-D",
-      "name": "Faster than light theory D",
+      "name": "Faster than light theory D2",
       "prerequisites": [
         "ftl-theory-C"
       ],
