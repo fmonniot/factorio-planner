@@ -90,6 +90,32 @@ describe('addNode', () => {
   })
 })
 
+describe('renameSubPlan', () => {
+  function setupNested() {
+    const inner = makeEmptySubPlan('Inner')
+    const outer = { ...makeEmptySubPlan('Outer'), subPlans: [inner] }
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlan = { ...block.rootPlan, subPlans: [outer] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+    return { inner, outer }
+  }
+
+  it('renames a nested subplan in the active block', () => {
+    const { inner } = setupNested()
+    useBlockStore.getState().renameSubPlan(inner.id, 'Renamed')
+    const outer = useBlockStore.getState().blocks[0].rootPlan.subPlans[0]
+    expect(outer.name).toBe('Outer')
+    expect(outer.subPlans[0].name).toBe('Renamed')
+  })
+
+  it('is a no-op for an unknown id', () => {
+    setupNested()
+    const before = structuredClone(useBlockStore.getState().blocks[0].rootPlan)
+    useBlockStore.getState().renameSubPlan('missing', 'X')
+    expect(useBlockStore.getState().blocks[0].rootPlan).toEqual(before)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // moveNodeUp / moveNodeDown
 // ---------------------------------------------------------------------------

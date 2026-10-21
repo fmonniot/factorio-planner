@@ -67,6 +67,7 @@ export function RecipeRow({
   const wrapNodeInSubPlan = useBlockStore(s => s.wrapNodeInSubPlan)
   const removeNode = useBlockStore(s => s.removeNode)
   const removeSubPlan = useBlockStore(s => s.removeSubPlan)
+  const renameSubPlan = useBlockStore(s => s.renameSubPlan)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
 
@@ -159,6 +160,11 @@ export function RecipeRow({
     const subPlanId = planNode.subPlanId
     const label = childPlan?.name ?? subPlanId
 
+    function handleRenameSubPlan() {
+      const name = window.prompt('Subfactory name:', label)
+      if (name?.trim()) renameSubPlan(subPlanId, name.trim())
+    }
+
     function handleRemoveSubPlan() {
       const isEmpty = !childPlan || (childPlan.nodes.length === 0 && childPlan.subPlans.length === 0)
       if (!isEmpty) {
@@ -221,7 +227,10 @@ export function RecipeRow({
             <RowActionsMenu
               x={menuPos.x}
               y={menuPos.y}
-              actions={[{ label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan }]}
+              actions={[
+                { label: 'Rename subfactory…', onSelect: handleRenameSubPlan },
+                { label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan },
+              ]}
               onClose={() => setMenuPos(null)}
             />
           )}

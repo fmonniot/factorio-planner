@@ -794,7 +794,7 @@ describe('RecipeRow byproduct context menu', () => {
   })
 })
 
-describe('RecipeRow sub-factory removal', () => {
+describe('RecipeRow sub-factory actions', () => {
   afterEach(() => {
     vi.unstubAllGlobals()
   })
@@ -830,10 +830,44 @@ describe('RecipeRow sub-factory removal', () => {
     expect(confirm).not.toHaveBeenCalled()
   })
 
-  it('the menu offers only "Remove subfactory"', () => {
+  it('the menu offers "Rename subfactory…" and "Remove subfactory"', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     openMenu()
-    expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Remove subfactory'])
+    expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Rename subfactory…', 'Remove subfactory'])
+  })
+
+  it('"Rename subfactory…" prompts with the current name and applies the trimmed answer', () => {
+    const prompt = vi.fn(() => '  Copper line  ')
+    vi.stubGlobal('prompt', prompt)
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    expect(prompt).toHaveBeenCalledWith('Subfactory name:', 'My Subfactory')
+    expect(rootPlan().subPlans[0].name).toBe('Copper line')
+  })
+
+  it.each([[null], ['   ']])('renaming with prompt answer %j keeps the name', answer => {
+    vi.stubGlobal('prompt', vi.fn(() => answer))
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    expect(rootPlan().subPlans[0].name).toBe('My Subfactory')
+  })
+
+  it('renames a nested sub-factory without touching its parent', () => {
+    vi.stubGlobal('prompt', vi.fn(() => 'Renamed'))
+    const inner = makeSubPlan('inner', 'Inner')
+    const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'inner' }
+    const outer = makeSubPlan('outer', 'My Subfactory', [innerNode], [inner])
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'outer' }
+    const block = makeEmptyBlock('Test')
+    const root = { ...block.rootPlan, nodes: [spNode], subPlans: [outer] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    renderRow({ planNode: innerNode, solvedNode: undefined })
+    fireEvent.contextMenu(screen.getByText('Inner').closest('td')!)
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    expect(rootPlan().subPlans[0].name).toBe('My Subfactory')
+    expect(rootPlan().subPlans[0].subPlans[0].name).toBe('Renamed')
   })
 
   it('asks for confirmation when the sub-factory has contents, and respects the answer', () => {
