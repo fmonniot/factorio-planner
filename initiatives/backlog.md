@@ -55,6 +55,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Byproduct menu and summary strip: hide "Add consumer recipe…" / "Find recipe" when nothing matches the item.** The byproduct menu is always offered; when no recipe takes the byproduct as an ingredient (or every consumer is outside the research horizon) the picker opens empty. The summary strip's **Find recipe** action (Products and Ingredients) has the same flaw: for raw items, or when every producer is outside the research horizon, it opens an empty "Add recipe" picker. Disable or hide the action in those cases.
 - [ ] **Fluid temperature indicator.** Fluids show their temperature nowhere in the UI (tiles, goals, pickers, production table). The schema carries `minimumTemperature` / `maximumTemperature` on fluids, but no component reads them and the solver ignores them.
 - [ ] **Item hover panel.** The production table have no hover panel for items; one could list the item's producing recipes and their unlocking technologies (reuse `recipeUnlock` in `src/data/horizon.ts` and `TechCost`).
+- [ ] **Tech tree hover popup.** Hovering a technology in the tech tree view should show what it unlocks (recipes, machines, and other effects), so the tree explains itself without opening each technology.
 - [ ] **Make sub-factory removal undoable.** `removeSubPlan` in `src/store/blockStore.ts` uses `set` directly instead of a `Command`, so removing a sub-factory (and its contents) cannot be undone.
 
 ## Data sets
