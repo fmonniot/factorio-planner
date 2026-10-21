@@ -7,7 +7,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
-import { isModuleAllowedInMachine, isModuleAllowedForRecipe } from './ModulePopover'
+import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './ModulePopover'
 
 // ---------------------------------------------------------------------------
 // Effect computation helpers
@@ -166,6 +166,7 @@ export function EditMachineModal({
       machine &&
       isModuleAllowedInMachine(m, machine) &&
       isModuleAllowedForRecipe(m, recipeId) &&
+      isModuleAllowedByProductivity(m, recipe?.allowProductivity ?? false) &&
       withinHorizon(horizon.moduleIds, m.id),
   )
   const existingIds = new Set(modules.map(m => m.moduleId))

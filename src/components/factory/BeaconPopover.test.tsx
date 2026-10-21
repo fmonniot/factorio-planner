@@ -127,6 +127,44 @@ describe('BeaconModal', () => {
       expect(updatedNode.beaconConfig?.beaconCount).toBe(8)
     }
   })
+
+  describe('module picker and productivity', () => {
+    const prodModule = {
+      ...speedModule,
+      id: 'prod-3',
+      name: 'Prod 3',
+      effects: { productivity: 0.1, speed: -0.15 },
+    }
+
+    function openPicker(allowProductivity: boolean) {
+      const gameData: GameData = {
+        ...mockGameData,
+        recipes: { 'iron-plate': { ...mockGameData.recipes['iron-plate'], allowProductivity } },
+        modules: { 'speed-3': speedModule, 'prod-3': prodModule },
+      }
+      render(
+        <BeaconModal
+          nodeId="n1"
+          beacon={beacon}
+          recipeId="iron-plate"
+          machineId={undefined}
+          recipeCategory="crafting"
+          gameData={gameData}
+          onClose={() => {}}
+        />
+      )
+      fireEvent.click(screen.getByTitle('Speed 3'))
+      return screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))
+    }
+
+    it('hides productivity modules when the recipe disallows productivity', () => {
+      expect(openPicker(false)).toEqual(['speed-3'])
+    })
+
+    it('offers productivity modules when the recipe allows productivity', () => {
+      expect(openPicker(true)).toEqual(['prod-3', 'speed-3'])
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------
