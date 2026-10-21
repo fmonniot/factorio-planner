@@ -123,14 +123,15 @@ function planNode(recipeId: string, modules: GameRecipeNode['modules'] = []): Ga
   return { kind: 'game-recipe', id: recipeId, recipeId, modules, byproductPolicy: {} }
 }
 
+// `modules` maps a recipe id to the modules slotted in its machines; recipes not listed get none.
 function run(
   goals: Array<[string, number]>,
   recipeIds: string[],
-  modules: GameRecipeNode['modules'] = [],
+  modules: Record<string, GameRecipeNode['modules']> = {},
 ): SolverResult {
   const plan: { goals: ProductionGoal[]; nodes: RecipeNode[] } = {
     goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
-    nodes: recipeIds.map(id => planNode(id, modules)),
+    nodes: recipeIds.map(id => planNode(id, modules[id])),
   }
   return solve(plan, makeGameData())
 }
@@ -225,12 +226,13 @@ describe('solver corpus', () => {
     const r = run(
       [['uranium-235', 5]],
       ['kovarex-enrichment-process'],
-      [{ moduleId: 'productivity-module-3', count: 4 }],
+      { 'kovarex-enrichment-process': [{ moduleId: 'productivity-module-3', count: 4 }] },
     )
     const n = nodeOf(r, 'kovarex-enrichment-process')
     expect(n.throughput).toBeCloseTo(3.571, 3)
-    // The corpus count (3.571) ignores the modules' speed penalty; four prod-3 modules
-    // slow the machine by 60%, so the real count is throughput / 0.4.
+    // The vanilla productivity-module-3 (present in the Nullius export) has speed -0.15, so four
+    // of them slow the machine by 60%: the machine count is throughput / 0.4, not the throughput.
+    // Nullius's own nullius-productivity-module-3 has no speed penalty.
     expect(n.machineCountExact).toBeCloseTo(5 / 1.4 / 0.4, 3)
     expect(unsatisfiedRate(r, 'uranium-238')).toBeCloseTo(10.714, 3)
     expect(n.throughput / nodeOf(base, 'kovarex-enrichment-process').throughput).toBeCloseTo(1 / 1.4, 3)
