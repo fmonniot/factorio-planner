@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { TechTreeButton } from './TechTree'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
@@ -18,9 +18,19 @@ function makeGameData(withTechnologies = true): GameData {
   return {
     factorioVersion: '2.0.0',
     modSet: {},
-    items: {},
-    recipes: { start: recipe('start'), circuit: recipe('circuit'), rocket: recipe('rocket') },
-    machines: {},
+    items: {
+      asm: { id: 'asm', name: 'asm', type: 'item', iconPath: '', hidden: false, subgroup: '', order: '', placeResult: 'asm' },
+    },
+    recipes: {
+      start: recipe('start'), circuit: recipe('circuit'), rocket: recipe('rocket'), asm: recipe('asm'),
+      ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [`extra-${i}`, recipe(`extra-${i}`)])),
+    },
+    machines: {
+      asm: {
+        id: 'asm', name: 'asm', type: 'assembling-machine', craftingSpeed: 1, energyUsageKw: 1, energyType: 'electric',
+        drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['crafting'], iconPath: '', hidden: false,
+      },
+    },
     modules: {},
     beacons: {},
     defaultMachines: {},
@@ -29,10 +39,10 @@ function makeGameData(withTechnologies = true): GameData {
     technologies: withTechnologies
       ? {
           electronics: {
-            id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: ['circuit'], iconPath: '',
+            id: 'electronics', name: 'Electronics', prerequisites: [], unlockedRecipes: ['circuit', ...Array.from({ length: 9 }, (_, i) => `extra-${i}`)], iconPath: '',
             cost: { ingredients: [{ itemId: 'start', amount: 1 }], count: 10, time: 5 },
           },
-          'rocket-silo': { id: 'rocket-silo', name: 'Rocket silo', prerequisites: ['electronics'], unlockedRecipes: ['rocket'], iconPath: '' },
+          'rocket-silo': { id: 'rocket-silo', name: 'Rocket silo', prerequisites: ['electronics'], unlockedRecipes: ['rocket', 'asm'], iconPath: '' },
         }
       : {},
     startingRecipes: ['start'],
@@ -106,11 +116,11 @@ describe('TechTreeButton', () => {
   it('updates the recipe count as the horizon changes', () => {
     open()
     const count = screen.getByTestId('tech-tree-recipe-count')
-    expect(count).toHaveTextContent('3 of 3 recipes available')
+    expect(count).toHaveTextContent('13 of 13 recipes available')
     fireEvent.click(card('electronics'))
-    expect(count).toHaveTextContent('2 of 3 recipes available')
+    expect(count).toHaveTextContent('11 of 13 recipes available')
     fireEvent.click(card('rocket-silo'))
-    expect(count).toHaveTextContent('3 of 3 recipes available')
+    expect(count).toHaveTextContent('13 of 13 recipes available')
   })
 
   it('Clear horizon removes stale target ids that match no technology', () => {
@@ -126,5 +136,98 @@ describe('TechTreeButton', () => {
     expect(screen.getByRole('heading', { name: 'Technology tree' })).toBeInTheDocument()
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByRole('heading', { name: 'Technology tree' })).not.toBeInTheDocument()
+  })
+})
+
+describe('unlocks popup', () => {
+  const popup = () => screen.queryByTestId('tech-unlocks-popup')
+
+  afterEach(() => { vi.useRealTimers() })
+
+  it('shows after the hover delay with the recipes and machines', () => {
+    vi.useFakeTimers()
+    open()
+    fireEvent.mouseEnter(card('rocket-silo'))
+    expect(popup()).not.toBeInTheDocument()
+    act(() => { vi.advanceTimersByTime(300) })
+    const p = screen.getByTestId('tech-unlocks-popup')
+    expect(p.dataset.techId).toBe('rocket-silo')
+    expect(within(p).getByText('Rocket silo')).toBeInTheDocument()
+    expect(p.querySelector('[data-testid="tech-unlocks-recipe"][data-recipe-id="rocket"]')).toBeInTheDocument()
+    expect(p.querySelector('[data-testid="tech-unlocks-machine"][data-machine-id="asm"]')).toBeInTheDocument()
+  })
+
+  it('shows at most 8 recipes and counts the rest', () => {
+    vi.useFakeTimers()
+    open()
+    fireEvent.mouseEnter(card('electronics'))
+    act(() => { vi.advanceTimersByTime(300) })
+    expect(screen.getAllByTestId('tech-unlocks-recipe')).toHaveLength(8)
+    expect(screen.getByTestId('tech-unlocks-more')).toHaveTextContent('+2 more')
+  })
+
+  it('shows at once on focus and hides on blur', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    expect(popup()).toBeInTheDocument()
+    fireEvent.blur(card('rocket-silo'))
+    expect(popup()).not.toBeInTheDocument()
+  })
+
+  it('never appears when the pointer leaves before the delay', () => {
+    vi.useFakeTimers()
+    open()
+    fireEvent.mouseEnter(card('rocket-silo'))
+    fireEvent.mouseLeave(card('rocket-silo'))
+    act(() => { vi.advanceTimersByTime(500) })
+    expect(popup()).not.toBeInTheDocument()
+  })
+
+  it('hides on click, which still toggles the target', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    fireEvent.click(card('rocket-silo'))
+    expect(popup()).not.toBeInTheDocument()
+    expect(card('rocket-silo').dataset.target).toBe('true')
+  })
+
+  it('hides on a pointer down in the viewport', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    fireEvent.pointerDown(screen.getByTestId('tech-tree-viewport'), { button: 0 })
+    expect(popup()).not.toBeInTheDocument()
+  })
+
+  it('Escape dismisses the popup first, then closes the tree', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(popup()).not.toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: 'Technology tree' })).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByRole('heading', { name: 'Technology tree' })).not.toBeInTheDocument()
+  })
+
+  it('renders outside the canvas and ignores the pointer', () => {
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    const p = screen.getByTestId('tech-unlocks-popup')
+    expect(screen.getByTestId('tech-tree-canvas').contains(p)).toBe(false)
+    expect(p.className).toContain('pointer-events-none')
+  })
+
+  it('leaves no native title on the cards', () => {
+    open()
+    expect(card('electronics')).not.toHaveAttribute('title')
+  })
+
+  it('says so when a technology unlocks no recipes', () => {
+    const data = makeGameData()
+    data.technologies['rocket-silo'].unlockedRecipes = []
+    load(data)
+    open()
+    fireEvent.focus(card('rocket-silo'))
+    expect(screen.getByTestId('tech-unlocks-popup')).toHaveTextContent('Unlocks no recipes')
+    expect(screen.queryByTestId('tech-unlocks-machines')).not.toBeInTheDocument()
   })
 })

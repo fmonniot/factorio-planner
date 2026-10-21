@@ -130,3 +130,90 @@ test.describe('Technology tree', () => {
     await expect(heading(page)).toHaveCount(0)
   })
 })
+
+test.describe('Technology tree hover popup', () => {
+  const popup = (page: Page) => page.getByTestId('tech-unlocks-popup')
+
+  // The shared fixture has no item placing a machine, so add one and a recipe for it to `electronics`.
+  function withMachine(): Buffer {
+    const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
+    data.items['assembling-machine'] = {
+      id: 'assembling-machine', name: 'Assembling machine', type: 'item', iconPath: '', hidden: false,
+      subgroup: 'intermediate', order: 'g', placeResult: 'assembling-machine',
+    }
+    data.recipes['assembling-machine'] = {
+      ...data.recipes['iron-gear-wheel'],
+      id: 'assembling-machine', name: 'Assembling machine',
+      products: [{ itemId: 'assembling-machine', type: 'item', amount: 1 }],
+    }
+    data.technologies.electronics.unlockedRecipes.push('assembling-machine')
+    return Buffer.from(JSON.stringify(data))
+  }
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await upload(page, withMachine())
+    await treeButton(page).click()
+    await expect(heading(page)).toBeVisible()
+  })
+
+  test('hovering a card lists its recipes and machines inside the viewport', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toBeVisible()
+    await expect(popup(page).getByTestId('tech-unlocks-recipe').filter({ hasText: 'Electronic circuit' })).toHaveCount(1)
+    await expect(popup(page).getByTestId('tech-unlocks-recipe').filter({ hasText: 'Assembling machine' })).toHaveCount(1)
+    await expect(popup(page).locator('[data-machine-id="assembling-machine"]')).toHaveCount(1)
+    const box = (await popup(page).boundingBox())!
+    const vp = page.viewportSize()!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(vp.width)
+    expect(box.y + box.height).toBeLessThanOrEqual(vp.height)
+  })
+
+  test('moving off the card hides it', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toBeVisible()
+    await page.mouse.move(2, 2)
+    await expect(popup(page)).toHaveCount(0)
+  })
+
+  test('dragging the background hides it', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toBeVisible()
+    const before = await transform(page)
+    const box = (await viewport(page).boundingBox())!
+    const x = box.x + box.width - 20
+    const y = box.y + box.height - 20
+    await page.mouse.move(x, y)
+    await page.mouse.down()
+    await page.mouse.move(x - 100, y, { steps: 4 })
+    await page.mouse.up()
+    await expect(popup(page)).toHaveCount(0)
+    expect(await transform(page)).not.toBe(before)
+  })
+
+  test('Escape hides the popup first, then closes the tree', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(popup(page)).toHaveCount(0)
+    await expect(heading(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(heading(page)).toHaveCount(0)
+  })
+
+  test('clicking the card toggles it and shows no popup', async ({ page }) => {
+    await card(page, 'electronics').hover()
+    await expect(popup(page)).toBeVisible()
+    await card(page, 'electronics').click()
+    await expect(card(page, 'electronics')).toHaveAttribute('data-target', 'true')
+    await expect(popup(page)).toHaveCount(0)
+  })
+
+  test('focusing a card shows it without hovering', async ({ page }) => {
+    await card(page, 'electronics').focus()
+    await expect(popup(page)).toBeVisible()
+    await expect(popup(page)).toHaveAttribute('data-tech-id', 'electronics')
+  })
+})

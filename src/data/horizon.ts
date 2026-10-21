@@ -1,4 +1,4 @@
-import type { GameData, Machine, Technology } from './types'
+import type { BeaconEntity, GameData, Machine, Recipe, Technology } from './types'
 
 export function hasTechnologies(gameData: GameData): boolean {
   return Object.keys(gameData.technologies).length > 0
@@ -62,6 +62,49 @@ export function recipeUnlock(gameData: GameData, recipeId: string): RecipeUnlock
       return a.name.localeCompare(b.name) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
     })
   return technologies.length === 0 ? { kind: 'none' } : { kind: 'technologies', technologies }
+}
+
+export interface TechnologyUnlocks {
+  /** Non-hidden recipes in `unlockedRecipes` order; ids missing from the bundle are skipped. */
+  recipes: Recipe[]
+  /** Non-hidden machines and beacons placed by a product of those recipes; deduplicated, first-seen order. */
+  machines: (Machine | BeaconEntity)[]
+}
+
+/**
+ * What a technology unlocks: its non-hidden recipes and the machines and beacons
+ * those recipes produce an item for. Hidden recipes are left out entirely, also for
+ * the machine lookup. `placers` lets a caller that already built `placingItemIds` reuse it.
+ */
+export function technologyUnlocks(
+  gameData: GameData,
+  techId: string,
+  placers: ReadonlyMap<string, string[]> = placingItemIds(gameData),
+): TechnologyUnlocks {
+  const tech = gameData.technologies[techId]
+  if (!tech) return { recipes: [], machines: [] }
+  const entitiesByItem = new Map<string, string[]>()
+  for (const [entityId, itemIds] of placers) {
+    for (const itemId of itemIds) {
+      const list = entitiesByItem.get(itemId)
+      if (list) list.push(entityId)
+      else entitiesByItem.set(itemId, [entityId])
+    }
+  }
+  const recipes: Recipe[] = []
+  const machines = new Map<string, Machine | BeaconEntity>()
+  for (const recipeId of tech.unlockedRecipes) {
+    const recipe = gameData.recipes[recipeId]
+    if (!recipe || recipe.hidden) continue
+    recipes.push(recipe)
+    for (const product of recipe.products) {
+      for (const entityId of entitiesByItem.get(product.itemId) ?? []) {
+        const entity = gameData.machines[entityId] ?? gameData.beacons[entityId]
+        if (entity && !entity.hidden && !machines.has(entity.id)) machines.set(entity.id, entity)
+      }
+    }
+  }
+  return { recipes, machines: [...machines.values()] }
 }
 
 /**
