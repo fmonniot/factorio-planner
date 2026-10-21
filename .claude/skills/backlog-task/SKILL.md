@@ -1,14 +1,18 @@
 ---
 name: backlog-task
 description: Take one item from initiatives/backlog.md through analysis, plan, approval, implementation, review, fixes and a pull request. Use when the user names a backlog item to work on (e.g. "/backlog-task game data").
-argument-hint: <words identifying the backlog item> [opus|light]
+argument-hint: <words identifying the backlog item> [opus|light] [noplan]
 ---
 
 # Backlog task → pull request
 
 Runs one backlog item end to end: analyse, plan, get approval, implement, review, fix, open a PR. The user stays in the loop at **one** point, the plan approval. Everything after it runs without stopping, and that approval covers pushing the branch and opening the PR.
 
+With the `noplan` argument the approval gate is skipped: the plan is still written, but the run goes straight from planning to implementation without stopping, and the user's invocation with `noplan` is the approval for the whole run, including pushing the branch and opening the PR.
+
 `$ARGUMENTS` identifies the item. Follow the repo's [CLAUDE.md](../../../CLAUDE.md) throughout (spec maintenance, backlog edits, test conventions); this skill only describes the workflow.
+
+Control words in `$ARGUMENTS` (`opus`, `light`, `noplan`) are not part of the item description: ignore them when matching the item in step 0.
 
 ## Models and cost
 
@@ -37,16 +41,18 @@ Subagent reports land in the main context, so every prompt below asks for a boun
 
 ## 1. Analyse and plan (plan mode)
 
-1. Enter plan mode (`EnterPlanMode`).
+With `noplan`, plan mode is not used: skip `EnterPlanMode` and `ExitPlanMode`, write the plan to `plan.md` in the scratchpad directory instead of the plan file (that path is what the implementer reads in step 2), and do not wait for approval. Everything else in this step still applies, so the plan stays implementation-grade. For decisions that are really the user's, pick the recommended option and record it in the plan so it appears in the PR; ask with `AskUserQuestion` only when there is no sensible default.
+
+1. Enter plan mode (`EnterPlanMode`), unless `noplan`.
 2. Launch one `Explore` agent (`model: "haiku"`; up to three only if the scope is truly uncertain) with the item text and a precise list of what to report: the code paths involved with `file:line`, existing helpers to reuse, tests (unit and `e2e/`) touching the area, and every doc in `spec/` and `README.md` that describes the behaviour. Do not duplicate its searching yourself.
-3. **Classify the task** from the item text and the Explore findings, and say the tier and the one-line reason to the user. The user can override it by putting `opus` or `light` in `$ARGUMENTS` (ignore those words when matching the item in step 0).
+3. **Classify the task** from the item text and the Explore findings, and say the tier and the one-line reason to the user. The user can override it by putting `opus` or `light` in `$ARGUMENTS`.
    - **Constrained**: all of the following hold. The fix is stated or evident from the backlog text and the code; it touches about three source files or fewer; no product or UX decision is needed; it does not change the LP formulation in `src/solver/`, `src/data/schema.ts` or the persisted `AppState` shape; there is one sensible approach. Typical: a bug with a known cause, dead-code removal, wiring an existing store function to the UI, a small tooling or CI change, porting known test cases.
    - **Open**: anything else, in particular new features, anything that changes the solver model or the persisted state, several viable approaches, product choices, or Explore findings showing a wide or unclear blast radius. **When unsure, pick open**: a weak plan costs more downstream than the design call does.
 4. **Design**, per tier. Either way, the plan must be **implementation-grade** so a Sonnet implementer needs no design decisions: Context; the recommended approach only; files to change, naming the functions, types and signatures to add or modify; tests to add, with the concrete cases and assertions (prefer Playwright e2e for end-to-end validation, per CLAUDE.md); docs to update (use the CLAUDE.md spec-maintenance table; remove the item from `initiatives/backlog.md` once done); out-of-scope items; a **Verification** section; and the riskiest parts of the change, for the review step.
    - **Constrained**: design it yourself in the main session. Use `AskUserQuestion` only for decisions that are really the user's, not for things the code or conventions settle. If you hit real ambiguity or the scope turns out wider than the Explore report suggested, reclassify as open and continue below.
    - **Open**: launch a `Plan` agent with `model: "opus"`. Its prompt is self-contained and includes the backlog item text, the initiative doc if any, the full Explore findings, the repo path, the relevant CLAUDE.md rules (spec-maintenance table, test conventions, type system) and the plan requirements above. It is read-only, so it returns the plan as text, plus a list of **open decisions**: only those that are really the user's (product behaviour, naming, scope), each with its options and a recommendation. Anything the code or conventions settle must be decided in the plan, not listed. Put those decisions to the user with `AskUserQuestion`, then send the answers back to the **same** `Plan` agent with `SendMessage` (load it via `ToolSearch` if needed) and ask for the revised plan. Do not start a new agent: it would re-derive everything. Do not redesign its plan yourself; if you disagree, send the objection back.
 5. Write the plan to the plan file. For an open task, write the `Plan` agent's output verbatim, fixing formatting or trimming only.
-6. Call `ExitPlanMode`. This is the approval gate. If the user rejects or amends the plan, revise it (through the `Plan` agent for an open task, for anything beyond a wording change); do not start implementing without approval.
+6. Call `ExitPlanMode`. This is the approval gate. If the user rejects or amends the plan, revise it (through the `Plan` agent for an open task, for anything beyond a wording change); do not start implementing without approval. With `noplan`, skip this call and continue to step 2; mention the plan's file path and the tier in one line so the user can follow along.
 
 ## 2. Implement (subagent)
 
