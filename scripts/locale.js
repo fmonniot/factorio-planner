@@ -56,6 +56,33 @@ export function buildLocaleMap(resolvers) {
   return locale
 }
 
+/**
+ * Parse a `<type>-locale.json` file written by `factorio --dump-prototype-locale`
+ * into its `names` map (prototype id → resolved English name).
+ * @returns {Record<string, string>}
+ */
+export function parsePrototypeLocale(text) {
+  const names = JSON.parse(text)?.names
+  return names && typeof names === 'object' ? names : {}
+}
+
+/** Prototype-locale files (`<type>-locale.json`) the build script loads. */
+export const GAME_NAME_FILES = ['item', 'fluid', 'entity', 'recipe', 'technology', 'item-group']
+
+/**
+ * The game's own resolved name for `id`, looked up in each of `types` in order.
+ * Names that still contain a placeholder residue are ignored.
+ * @param {Record<string, Record<string, string>>} game type → (id → name)
+ * @returns {string | undefined}
+ */
+export function gameName(game, types, id) {
+  for (const type of types) {
+    const val = game[type]?.[id]
+    if (typeof val === 'string' && val !== '' && !RESIDUE_RE.test(val)) return val
+  }
+  return undefined
+}
+
 /** Locale sections searched for each placeholder token, in order. */
 export const PLACEHOLDER_SCOPES = {
   ITEM:   ['item-name', 'entity-name', 'equipment-name'],
@@ -163,9 +190,11 @@ export function resolveLocale(localised, fallback, localeMap, ...scopes) {
 /**
  * Display name of a technology. Leveled technologies ("mining-productivity-2")
  * usually share one localised name keyed by the base id, so fall back to
- * "<base name> <level>".
+ * "<base name> <level>". The game's resolved name wins when available.
  */
-export function resolveTechnologyName(proto, localeMap) {
+export function resolveTechnologyName(proto, localeMap, game = {}) {
+  const resolved = gameName(game, ['technology'], proto.name)
+  if (resolved !== undefined) return resolved
   const name = resolveLocale(proto.localised_name, proto.name, localeMap, 'technology-name')
   if (name !== proto.name) return name
   const m = proto.name.match(/^(.*)-(\d+)$/)
@@ -178,9 +207,12 @@ export function resolveTechnologyName(proto, localeMap) {
 
 /**
  * Replicate Factorio's recipe name resolution:
+ * 0. the game's resolved name when available, then
  * 1. explicit localised_name, 2. recipe-name locale key, 3. main product name.
  */
-export function resolveRecipeName(proto, mainProductId, localeMap) {
+export function resolveRecipeName(proto, mainProductId, localeMap, game = {}) {
+  const resolved = gameName(game, ['recipe'], proto.name)
+  if (resolved !== undefined) return resolved
   let name = resolveLocale(proto.localised_name, proto.name, localeMap, 'recipe-name')
   if (name === proto.name && typeof mainProductId === 'string' && mainProductId !== '') {
     name = resolveLocale(null, mainProductId, localeMap, 'item-name', 'entity-name', 'fluid-name')

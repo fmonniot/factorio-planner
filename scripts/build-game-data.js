@@ -20,6 +20,10 @@
  *   --icons-out   public/data/nullius/icons
  *   --output      public/data/nullius/game-data.json
  *
+ * --locale-dir (default: the dump's directory) holds the <type>-locale.json files
+ * written by `factorio --dump-prototype-locale`; their names are preferred over the
+ * merged mod locale map.
+ *
  * Patch mode: add only the technology data (including research cost) to an
  * existing bundle, leaving everything else untouched. Technology icons are
  * written to icons/technology/ next to the bundle (or under --icons-out when
@@ -62,7 +66,7 @@ import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
-import { buildLocaleMap, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
+import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -90,6 +94,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--factorio-dir') args.factorioDir = argv[++i]
     else if (argv[i] === '--mods-dir')    args.modsDir     = argv[++i]
     else if (argv[i] === '--icons-out')   { args.iconsOut = argv[++i]; args.iconsOutGiven = true }
+    else if (argv[i] === '--locale-dir')  args.localeDir   = argv[++i]
     else if (argv[i] === '--output')      args.output      = argv[++i]
     else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
     else if (argv[i] === '--patch-names') args.patchNames = true
@@ -376,13 +381,13 @@ const ITEM_SUBTYPES = [
   'spidertron-remote',
 ]
 
-const itemName    = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name', 'entity-name')
-const fluidName   = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'fluid-name')
-const entityName  = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'entity-name')
-const moduleName  = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-name')
-const groupName   = (proto, localeMap) => resolveLocale(proto.localised_name, proto.name, localeMap, 'item-group-name')
+const itemName    = (proto, locale) => gameName(locale.game, ['item'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-name', 'entity-name')
+const fluidName   = (proto, locale) => gameName(locale.game, ['fluid'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'fluid-name')
+const entityName  = (proto, locale) => gameName(locale.game, ['entity'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'entity-name')
+const moduleName  = (proto, locale) => gameName(locale.game, ['item'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-name')
+const groupName   = (proto, locale) => gameName(locale.game, ['item-group'], proto.name) ?? resolveLocale(proto.localised_name, proto.name, locale.map, 'item-group-name')
 
-async function exportItems(raw, localeMap, resolveIcon) {
+async function exportItems(raw, locale, resolveIcon) {
   const items = {}
 
   for (const subtype of ITEM_SUBTYPES) {
@@ -391,7 +396,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
     for (const proto of Object.values(table)) {
       items[proto.name] = {
         id:        proto.name,
-        name:      itemName(proto, localeMap),
+        name:      itemName(proto, locale),
         type:      'item',
         iconPath:  await resolveIcon(proto, proto.name),
         hidden:    proto.hidden ?? false,
@@ -405,7 +410,7 @@ async function exportItems(raw, localeMap, resolveIcon) {
   for (const proto of Object.values(raw.fluid ?? {})) {
     items[proto.name] = {
       id:       proto.name,
-      name:     fluidName(proto, localeMap),
+      name:     fluidName(proto, locale),
       type:     'fluid',
       iconPath: await resolveIcon(proto, proto.name),
       hidden:   proto.hidden ?? false,
@@ -421,12 +426,12 @@ async function exportItems(raw, localeMap, resolveIcon) {
 // Item groups & subgroups
 // ---------------------------------------------------------------------------
 
-async function exportItemGroups(raw, localeMap, resolveIcon) {
+async function exportItemGroups(raw, locale, resolveIcon) {
   const groups = {}
   for (const proto of Object.values(raw['item-group'] ?? {})) {
     groups[proto.name] = {
       id:       proto.name,
-      name:     groupName(proto, localeMap),
+      name:     groupName(proto, locale),
       order:    proto.order ?? '',
       iconPath: await resolveIcon(proto, `group-${proto.name}`),
     }
@@ -452,7 +457,7 @@ function exportItemSubgroups(raw) {
 
 const MACHINE_TYPES = ['assembling-machine', 'furnace', 'rocket-silo']
 
-async function exportMachines(raw, localeMap, resolveIcon) {
+async function exportMachines(raw, locale, resolveIcon) {
   const machines = {}
 
   for (const machineType of MACHINE_TYPES) {
@@ -467,7 +472,7 @@ async function exportMachines(raw, localeMap, resolveIcon) {
 
       machines[proto.name] = {
         id:                proto.name,
-        name:              entityName(proto, localeMap),
+        name:              entityName(proto, locale),
         type:              machineType,
         craftingSpeed:     proto.crafting_speed ?? 1,
         energyUsageKw:     parseEnergyKw(proto.energy_usage),
@@ -504,7 +509,7 @@ function buildCategoryMap(machines) {
 // Recipes
 // ---------------------------------------------------------------------------
 
-function exportRecipes(raw, localeMap, categoryMap) {
+function exportRecipes(raw, locale, categoryMap) {
   const recipes = {}
 
   // Helper: resolve a recipe's subgroup, falling back to the main product's
@@ -542,7 +547,7 @@ function exportRecipes(raw, localeMap, categoryMap) {
 
     const entry = {
       id:               proto.name,
-      name:             resolveRecipeName(proto, mainProduct, localeMap),
+      name:             resolveRecipeName(proto, mainProduct, locale.map, locale.game),
       category,
       craftingTime:     proto.energy_required ?? 0.5,
       ingredients,
@@ -565,7 +570,7 @@ function exportRecipes(raw, localeMap, categoryMap) {
 // Modules
 // ---------------------------------------------------------------------------
 
-async function exportModules(raw, localeMap, resolveIcon) {
+async function exportModules(raw, locale, resolveIcon) {
   const modules = {}
 
   for (const proto of Object.values(raw.module ?? {})) {
@@ -577,7 +582,7 @@ async function exportModules(raw, localeMap, resolveIcon) {
 
     modules[proto.name] = {
       id:                  proto.name,
-      name:                moduleName(proto, localeMap),
+      name:                moduleName(proto, locale),
       category:            proto.category ?? 'unknown',
       tier:                proto.tier ?? 0,
       effects,
@@ -594,7 +599,7 @@ async function exportModules(raw, localeMap, resolveIcon) {
 // Beacons
 // ---------------------------------------------------------------------------
 
-async function exportBeacons(raw, localeMap, resolveIcon) {
+async function exportBeacons(raw, locale, resolveIcon) {
   const beacons = {}
 
   for (const proto of Object.values(raw.beacon ?? {})) {
@@ -605,7 +610,7 @@ async function exportBeacons(raw, localeMap, resolveIcon) {
 
     beacons[proto.name] = {
       id:                     proto.name,
-      name:                   entityName(proto, localeMap),
+      name:                   entityName(proto, locale),
       iconPath:               await resolveIcon(proto, proto.name),
       hidden:                 proto.hidden ?? false,
       moduleSlots:            proto.module_slots ?? 0,
@@ -677,6 +682,7 @@ function computeModSet() {
 // ---------------------------------------------------------------------------
 
 const dumpPath    = resolve(args.dump.replace(/^~/, HOME))
+const localeDir  = resolve((args.localeDir ?? dirname(dumpPath)).replace(/^~/, HOME))
 const factorioDir = resolve(args.factorioDir.replace(/^~/, HOME))
 const modsDir     = resolve(args.modsDir.replace(/^~/, HOME))
 const iconsOut    = resolve(args.iconsOut)
@@ -691,8 +697,20 @@ const resolvers = buildResolverMap(factorioDir, modsDir)
 process.stderr.write(`[build-game-data] Loaded ${Object.keys(resolvers).length} mod resolvers\n`)
 
 process.stderr.write(`[build-game-data] Parsing locale files...\n`)
-const localeMap = buildLocaleMap(resolvers)
-process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap).length}\n`)
+const localeMapEntries = buildLocaleMap(resolvers)
+process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMapEntries).length}\n`)
+
+// The game's own resolved names (`factorio --dump-prototype-locale`).
+const game = {}
+for (const type of GAME_NAME_FILES) {
+  const file = join(localeDir, `${type}-locale.json`)
+  if (existsSync(file)) game[type] = parsePrototypeLocale(readFileSync(file, 'utf8'))
+}
+process.stderr.write(`[build-game-data] Game locale files: ${Object.keys(game).length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
+if (Object.keys(game).length === 0) {
+  process.stderr.write(`[warn] No game locale files found: names come from the merged locale map only (ignores mod load order). Run factorio --dump-prototype-locale.\n`)
+}
+const locale = { map: localeMapEntries, game }
 
 const { modSet, factorioVersion } = computeModSet()
 
@@ -724,7 +742,7 @@ function assertSameModSet(existing, modSet) {
  * Entries missing from the dump keep their name.
  * @returns {{ bundle: object, changes: string[], changedWithoutPlaceholder: number, missing: number }}
  */
-function patchNames(existing, raw, localeMap) {
+function patchNames(existing, raw, locale) {
   const changes = []
   let changedWithoutPlaceholder = 0
   let missing = 0
@@ -758,48 +776,48 @@ function patchNames(existing, raw, localeMap) {
   bundle.items = patchSection('items', (id, entry) => {
     if (entry.type === 'fluid') {
       const proto = raw.fluid?.[id]
-      return proto && fluidName(proto, localeMap)
+      return proto && fluidName(proto, locale)
     }
     const proto = findItemProto(id)
-    return proto && itemName(proto, localeMap)
+    return proto && itemName(proto, locale)
   })
   bundle.machines = patchSection('machines', (id, entry) => {
     const proto = raw[entry.type]?.[id]
-    return proto && entityName(proto, localeMap)
+    return proto && entityName(proto, locale)
   })
   bundle.recipes = patchSection('recipes', (id, entry) => {
     if (entry.extraction) {
       // Generated names: "<resource> (mining)" and "<fluid> (offshore pump)".
       if (id.startsWith('mining:')) {
         const resource = raw.resource?.[id.slice('mining:'.length)]
-        return resource && `${entityName(resource, localeMap)} (mining)`
+        return resource && `${entityName(resource, locale)} (mining)`
       }
       if (id.startsWith('offshore:')) {
         const fluid = raw.fluid?.[id.slice('offshore:'.length)]
-        return fluid && `${fluidName(fluid, localeMap)} (offshore pump)`
+        return fluid && `${fluidName(fluid, locale)} (offshore pump)`
       }
       return undefined
     }
     const proto = raw.recipe?.[id]
     if (!proto) return undefined
     const mainProduct = resolveMainProduct(proto, extractProducts(proto))
-    return resolveRecipeName(proto, mainProduct, localeMap)
+    return resolveRecipeName(proto, mainProduct, locale.map, locale.game)
   })
   bundle.modules = patchSection('modules', (id) => {
     const proto = raw.module?.[id]
-    return proto && moduleName(proto, localeMap)
+    return proto && moduleName(proto, locale)
   })
   bundle.beacons = patchSection('beacons', (id) => {
     const proto = raw.beacon?.[id]
-    return proto && entityName(proto, localeMap)
+    return proto && entityName(proto, locale)
   })
   bundle.itemGroups = patchSection('itemGroups', (id) => {
     const proto = raw['item-group']?.[id]
-    return proto && groupName(proto, localeMap)
+    return proto && groupName(proto, locale)
   })
   bundle.technologies = patchSection('technologies', (id) => {
     const proto = raw.technology?.[id]
-    return proto && resolveTechnologyName(proto, localeMap)
+    return proto && resolveTechnologyName(proto, locale.map, locale.game)
   })
 
   return { bundle, changes, changedWithoutPlaceholder, missing }
@@ -817,7 +835,7 @@ if (args.patchNames) {
     )
     process.exit(1)
   }
-  const { bundle, changes, changedWithoutPlaceholder, missing } = patchNames(existing, raw, localeMap)
+  const { bundle, changes, changedWithoutPlaceholder, missing } = patchNames(existing, raw, locale)
   for (const line of changes) process.stderr.write(`${line}\n`)
   writeFileSync(outputPath, JSON.stringify(bundle, null, 2))
   process.stderr.write(
@@ -831,8 +849,8 @@ if (args.patchExtraction) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
   const extraction = await exportExtraction(raw, {
-    entityName: p => entityName(p, localeMap),
-    fluidName: p => fluidName(p, localeMap),
+    entityName: p => entityName(p, locale),
+    fluidName: p => fluidName(p, locale),
     resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons'), Infinity, { keepExisting: true }),
     itemSubtypes: ITEM_SUBTYPES,
   })
@@ -868,7 +886,7 @@ if (args.patchTechnologies) {
   const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
   if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)
   const exported = exportTechnologies(
-    raw, recipeIds, p => resolveTechnologyName(p, localeMap),
+    raw, recipeIds, p => resolveTechnologyName(p, locale.map, locale.game),
   )
   const { startingRecipes } = exported
   const techIconsOut = args.iconsOutGiven
@@ -893,12 +911,12 @@ if (args.patchTechnologies) {
 const resolveIcon = makeIconResolver(resolvers, iconsOut)
 
 process.stderr.write(`[build-game-data] Exporting machines...\n`)
-const machines = await exportMachines(raw, localeMap, resolveIcon)
+const machines = await exportMachines(raw, locale, resolveIcon)
 
 process.stderr.write(`[build-game-data] Exporting extraction recipes and machines...\n`)
 const extraction = await exportExtraction(raw, {
-  entityName: p => entityName(p, localeMap),
-  fluidName: p => fluidName(p, localeMap),
+  entityName: p => entityName(p, locale),
+  fluidName: p => fluidName(p, locale),
   resolveIcon,
   itemSubtypes: ITEM_SUBTYPES,
 })
@@ -908,30 +926,30 @@ Object.assign(machines, extraction.machines)
 const categoryMap = buildCategoryMap(machines)
 
 process.stderr.write(`[build-game-data] Exporting items...\n`)
-const items = await exportItems(raw, localeMap, resolveIcon)
+const items = await exportItems(raw, locale, resolveIcon)
 
 process.stderr.write(`[build-game-data] Exporting recipes...\n`)
-const recipes = exportRecipes(raw, localeMap, categoryMap)
+const recipes = exportRecipes(raw, locale, categoryMap)
 warnCollisions(recipes, extraction.recipes)
 Object.assign(recipes, extraction.recipes)
 
 process.stderr.write(`[build-game-data] Exporting modules...\n`)
-const modules = await exportModules(raw, localeMap, resolveIcon)
+const modules = await exportModules(raw, locale, resolveIcon)
 
 process.stderr.write(`[build-game-data] Exporting beacons...\n`)
-const beacons = await exportBeacons(raw, localeMap, resolveIcon)
+const beacons = await exportBeacons(raw, locale, resolveIcon)
 
 const placeable = new Set([...Object.keys(machines), ...Object.keys(beacons)])
 const { items: placedItems, count: placeResultCount } = attachPlaceResults(items, raw, ITEM_SUBTYPES, placeable)
 
 process.stderr.write(`[build-game-data] Exporting item groups...\n`)
-const itemGroups    = await exportItemGroups(raw, localeMap, resolveIcon)
+const itemGroups    = await exportItemGroups(raw, locale, resolveIcon)
 const itemSubgroups = exportItemSubgroups(raw)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
 const exportedTechnologies = exportTechnologies(
-  raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, localeMap),
+  raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, locale.map, locale.game),
 )
 const { startingRecipes } = exportedTechnologies
 // Own folder: a technology can share its id with an item (automation-science-pack).

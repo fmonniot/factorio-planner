@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   parseCfg, buildLocaleMap, expandPlaceholders, resolveLocale,
-  resolveTechnologyName, resolveRecipeName,
+  resolveTechnologyName, resolveRecipeName, parsePrototypeLocale, gameName,
 } from '../locale.js'
 
 // Each call returns a fresh map.
@@ -192,5 +192,74 @@ describe('resolveRecipeName', () => {
   it('returns the id without a main product', () => {
     expect(resolveRecipeName({ name: 'r' }, undefined, makeLocale())).toBe('r')
     expect(resolveRecipeName({ name: 'r' }, '', makeLocale())).toBe('r')
+  })
+})
+
+describe('parsePrototypeLocale', () => {
+  it('reads the names map', () => {
+    expect(parsePrototypeLocale('{"names":{"a":"A"},"descriptions":{"a":"d"}}')).toEqual({ a: 'A' })
+  })
+
+  it('returns {} for a file without names', () => {
+    expect(parsePrototypeLocale('{"descriptions":{}}')).toEqual({})
+  })
+})
+
+describe('gameName', () => {
+  const makeGame = () => ({
+    item: { a: 'Item A', bad: 'See __ITEM__x__' },
+    entity: { a: 'Entity A', b: 'Entity B' },
+  })
+
+  it('returns the name', () => {
+    expect(gameName(makeGame(), ['item'], 'a')).toBe('Item A')
+  })
+
+  it('skips a value with a placeholder residue', () => {
+    expect(gameName(makeGame(), ['item'], 'bad')).toBeUndefined()
+  })
+
+  it('returns undefined for a missing type or id', () => {
+    expect(gameName(makeGame(), ['fluid'], 'a')).toBeUndefined()
+    expect(gameName(makeGame(), ['item'], 'zzz')).toBeUndefined()
+  })
+
+  it('tries the types in order', () => {
+    expect(gameName(makeGame(), ['item', 'entity'], 'a')).toBe('Item A')
+    expect(gameName(makeGame(), ['item', 'entity'], 'b')).toBe('Entity B')
+  })
+})
+
+describe('game-resolved names', () => {
+  const makeGame = () => ({
+    technology: { x: 'Science pack: Commercial AI implementation' },
+    recipe: { r: 'Game recipe' },
+  })
+
+  it('technology: the game name wins over a colliding flat map', () => {
+    const l = makeLocale()
+    l['technology-name.x'] = 'Transport science pack'
+    expect(resolveTechnologyName({ name: 'x' }, l, makeGame())).toBe('Science pack: Commercial AI implementation')
+  })
+
+  it('technology: no game, or an id missing from it, gives the old result', () => {
+    const l = makeLocale()
+    l['technology-name.x'] = 'Transport science pack'
+    expect(resolveTechnologyName({ name: 'x' }, l)).toBe('Transport science pack')
+    expect(resolveTechnologyName({ name: 'mining-productivity-2' }, l, makeGame())).toBe('Mining productivity 2')
+  })
+
+  it('recipe: the game name wins', () => {
+    const l = makeLocale()
+    l['recipe-name.r'] = 'Flat recipe'
+    expect(resolveRecipeName({ name: 'r' }, 'iron-plate', l, makeGame())).toBe('Game recipe')
+  })
+
+  it('recipe: a missing id falls back to localised_name, recipe-name, then main product', () => {
+    const l = makeLocale()
+    l['recipe-name.s'] = 'Flat recipe'
+    expect(resolveRecipeName({ name: 's' }, 'iron-plate', l, makeGame())).toBe('Flat recipe')
+    expect(resolveRecipeName({ name: 't', localised_name: ['entity-name.boiler'] }, undefined, l, makeGame())).toBe('Boiler')
+    expect(resolveRecipeName({ name: 'u' }, 'iron-plate', l, makeGame())).toBe('Iron plate')
   })
 })

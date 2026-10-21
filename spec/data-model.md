@@ -52,7 +52,7 @@ Items and fluids share one record, distinguished by `type`.
 ```ts
 interface Item {
   id: string            // prototype name, e.g. "iron-plate"
-  name: string          // English display name (locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
+  name: string          // English display name (the game's resolved name from `<type>-locale.json` when the dump has it, otherwise locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
   type: 'item' | 'fluid'
   iconPath: string      // see "Icon paths" below
   hidden: boolean       // default false
@@ -112,7 +112,7 @@ interface Product {
 `limitationBlacklist`) accept an empty object `{}` as an empty array. This is a
 compatibility shim for bundles that serialised empty tables as objects.
 
-**Recipe name.** The build script uses, in order: the recipe's `localised_name`,
+**Recipe name.** The build script uses, in order: the game's resolved name (`recipe-locale.json`, when present), the recipe's `localised_name`,
 its `recipe-name` locale key, then the display name of its main product. A name whose placeholders cannot be resolved (in a locale value, a plain `localised_name` string, a format argument, or any part of a `["", ...]` concatenation) counts as missing as a whole, so the build script moves on to the next source and finally to the id. Only `__ITEM__`, `__ENTITY__`, `__FLUID__` and `__TILE__` are expanded or treated as unresolved; other Factorio tokens such as `__CONTROL__x__` are left untouched.
 
 **Recipe subgroup.** When the recipe has no `subgroup`, the build script uses the
