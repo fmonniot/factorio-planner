@@ -27,5 +27,5 @@ test('icon <source> takes no layout space, so no phantom gap precedes the image'
       expected: paddingLeft + borderLeft,
     }
   })
-  expect(offsets.offset).toBeLessThanOrEqual(offsets.expected + 0.5)
+  expect(offsets.offset, 'icon starts exactly at the left padding').toBeCloseTo(offsets.expected, 0)
 })
