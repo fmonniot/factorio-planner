@@ -1,6 +1,6 @@
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
-import { loadPlanFixture } from './support/loadPlan'
+import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { clickRowAction } from './support/rowMenu'
 import { openAppMenu } from './support/appMenu'
 
@@ -22,12 +22,31 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
   await pinnedInput.fill('120')
   await pinnedInput.press('Tab')
 
-  // 120 executions/min: the first ingredient is 110/min (it would be ~1.8/min at 2 executions/min).
-  await expect(row).toContainText('110/m')
+  // The stored value is per minute: 120, not 2. Independent of the (debounced) solve and of data-set numbers.
+  // (The fixture has other pinned recipes, so check membership, not the whole list.)
+  await expect.poll(() => storedPinnedRates(page)).toContain(120)
+  expect(await storedPinnedRates(page)).not.toContain(2)
+  const stored = await storedPinnedRates(page)
 
-  // Switch to /sec: the same pin reads 2.00.
+  // Switch to /sec: the same pin reads 2.00 and the stored value is untouched.
   const menu = await openAppMenu(page)
   await menu.getByRole('menuitemradio', { name: '/sec' }).click()
   await expect(row.getByLabel('Pinned rate')).toHaveValue('2.00')
-  await expect(row).toContainText('1.83/s')
+  expect(await storedPinnedRates(page)).toEqual(stored)
 })
+
+/** Every `pinnedRate` found anywhere in the saved active plan. */
+async function storedPinnedRates(page: Page): Promise<number[]> {
+  const found: number[] = []
+  const walk = (v: unknown) => {
+    if (Array.isArray(v)) v.forEach(walk)
+    else if (v && typeof v === 'object') {
+      for (const [k, x] of Object.entries(v)) {
+        if (k === 'pinnedRate' && typeof x === 'number') found.push(x)
+        else walk(x)
+      }
+    }
+  }
+  walk(await readActivePlan(page, 'nullius'))
+  return found
+}
