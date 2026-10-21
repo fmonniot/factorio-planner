@@ -46,6 +46,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [~] **Block colour in block graph.** Block tabs show the colour as a stripe across the top; block graph nodes and edges do not show it yet, so they do not match the summary bars.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph).
 - [ ] **Rename sub-blocks (subfactories).** `renameSubPlan` exists in the store; no component calls it.
+- [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [~] **Solver warnings on rows.** Warnings show in the top-bar popover (`WarningsPopover`); they are not yet marked on the affected recipe rows.
 - [ ] **Localised crafting-category names.** The default-machines flyout and the edit-machine modal label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
@@ -69,7 +70,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 - [ ] **Encode the 6 corpus cases as solver unit tests.** [spec/test-corpus.md](../spec/test-corpus.md) is the solver's ground truth, but its cases were deleted with the v1 solver (`f55c2db`) and never ported. Multi-output (case 3), the Kovarex cycle (case 4), probability (case 5) and `ignoredByProductivity` (case 6) have no solver test at all. Expected values still match today's `solve()` output.
 - [ ] **Solver integration test on real data.** A `src/solver/index.integration.test.ts` that runs the solver against `public/data/nullius/game-data.json` with corpus-like goals, to catch what synthetic tests cannot (missing machine for a category, unexpected classifications, real crafting speeds). An earlier version existed and was deleted in `f55c2db`. The data file is committed, so no skip gate is needed.
-- [ ] **Dead code: `MachinePopover` / `ModulePopover`.** Neither component is rendered anywhere (their files' `MachineCell`, `ModuleCell` and `isModuleAllowed*` exports are used). Delete the components (and the `ModulePopover` cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
+- [ ] **Dead code: `ModulePopover`.** The component is not rendered anywhere; only its file's `ModuleCell` and `isModuleAllowed*` exports are used. Delete the component (and its cases in `ModulePopover.test.tsx`), or move the live exports to better-named files.
 
 ## Ideas (not planned)
 

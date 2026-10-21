@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { RateUnitButton } from './RateUnitButton'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useUiStore } from '../store/uiStore'
-import { makeMenuGameData } from './menuGameData'
+import { makeMenuGameData } from '../test/menuGameData'
 
 beforeEach(() => {
   useUiStore.setState({ rateUnit: 'min' })

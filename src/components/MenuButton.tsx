@@ -231,6 +231,9 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen
   const wrapperRef = useRef<HTMLDivElement>(null)
   const flyoutRef = useRef<HTMLDivElement>(null)
   const timerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  const ownerRef = useRef<HTMLButtonElement>(null)
+  // Set while focus in the flyout comes from a pointer interaction rather than the keyboard.
+  const pointerFocusRef = useRef(false)
   // Set when the next open should move focus into the flyout.
   const focusOnOpenRef = useRef(defaultOpen)
 
@@ -269,10 +272,17 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen
       onMouseLeave={() => {
         clearTimeout(timerRef.current)
         timerRef.current = setTimeout(() => {
-          if (flyoutRef.current?.contains(document.activeElement)) return
+          const active = document.activeElement
+          if (flyoutRef.current?.contains(active)) {
+            // Keyboard focus keeps the flyout open; focus left by a click does not.
+            if (!pointerFocusRef.current) return
+            ownerRef.current?.focus() // keeps the top-level menu's keyboard model consistent
+          }
           setOpen(false)
         }, FLYOUT_CLOSE_DELAY_MS)
       }}
+      onPointerDown={e => { pointerFocusRef.current = !!flyoutRef.current?.contains(e.target as Node) }}
+      onKeyDown={() => { pointerFocusRef.current = false }}
       onBlur={e => {
         const next = e.relatedTarget
         if (next instanceof Node && wrapperRef.current?.contains(next)) return
@@ -280,6 +290,7 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen
       }}
     >
       <button
+        ref={ownerRef}
         type="button"
         role="menuitem"
         aria-haspopup="menu"

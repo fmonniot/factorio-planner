@@ -1,3 +1,4 @@
+import { GameDataSchema } from '../data/schema'
 import type { GameData } from '../data/types'
 
 /**
@@ -14,9 +15,9 @@ export function makeMenuGameData(): GameData {
   const recipe = (id: string, hidden: boolean) => ({
     id, name: id, category: 'crafting', craftingTime: 1, ingredients: [],
     products: [{ itemId: 'plate', type: 'item', amount: 1 }], madeIn: ['asm1'],
-    allowProductivity: false, hidden, mainProduct: undefined, subgroup: '', order: '',
+    allowProductivity: false, hidden, subgroup: '', order: '',
   })
-  return {
+  return GameDataSchema.parse({
     factorioVersion: '2.0.0',
     modSet: { base: '2.0.0', 'elevated-rails': '2.0.0', modA: '1.0.0' },
     items: {},
@@ -33,5 +34,5 @@ export function makeMenuGameData(): GameData {
     itemSubgroups: {},
     technologies: {},
     startingRecipes: [],
-  } as unknown as GameData
+  })
 }

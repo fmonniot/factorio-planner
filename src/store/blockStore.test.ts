@@ -589,6 +589,14 @@ describe('setHorizonTechnologyIds', () => {
 // ---------------------------------------------------------------------------
 
 describe('default machine overrides', () => {
+  it('setDefaultMachine keeps the same state when the category already maps to that machine', () => {
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    const before = useBlockStore.getState()
+    useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')
+    expect(useBlockStore.getState()).toBe(before)
+    expect(useBlockStore.getState().defaultMachineOverrides).toBe(before.defaultMachineOverrides)
+  })
+
   it('setDefaultMachine stores a new object and leaves blocks and history alone', () => {
     const { blocks, history, defaultMachineOverrides: before } = useBlockStore.getState()
     useBlockStore.getState().setDefaultMachine('crafting', 'asm-1')

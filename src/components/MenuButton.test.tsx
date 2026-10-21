@@ -156,5 +156,19 @@ describe('MenuButton with a submenu', () => {
       act(() => { vi.advanceTimersByTime(200) })
       expect(screen.getByRole('menu', { name: 'More options' })).toBeInTheDocument()
     })
+
+    it('closes after a click inside the flyout once the pointer leaves, refocusing its item', async () => {
+      render(<Harness />)
+      await userEvent.click(trigger())
+      const wrapper = more().parentElement!
+      fireEvent.mouseEnter(wrapper)
+      await userEvent.click(radio('X'))
+      expect(radio('X')).toHaveFocus()
+      fireEvent.mouseLeave(wrapper)
+      act(() => { vi.advanceTimersByTime(200) })
+      expect(screen.queryByRole('menu', { name: 'More options' })).not.toBeInTheDocument()
+      expect(more()).toHaveFocus()
+      expect(screen.getByRole('menu', { name: 'Main' })).toBeInTheDocument()
+    })
   })
 })

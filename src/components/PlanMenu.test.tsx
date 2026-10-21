@@ -6,7 +6,7 @@ import { useGameDataStore } from '../store/gameDataStore'
 import { usePlansStore } from '../store/plansStore'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { activateDataSet } from '../store/persistence'
-import { makeMenuGameData } from './menuGameData'
+import { makeMenuGameData } from '../test/menuGameData'
 
 const loaded = () => useGameDataStore.setState({
   status: { type: 'loaded', gameData: makeMenuGameData(), sourceId: 'nullius' },

@@ -8,7 +8,7 @@ import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useUiStore } from '../store/uiStore'
 import { activateDataSet } from '../store/persistence'
 import type { GameData } from '../data/types'
-import { makeMenuGameData } from './menuGameData'
+import { makeMenuGameData } from '../test/menuGameData'
 
 const KEY = 'factorio-planner:game-data-source'
 

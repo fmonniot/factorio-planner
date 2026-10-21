@@ -955,7 +955,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   // ── Default machines ──────────────────────────────────────────────────────
 
   setDefaultMachine: (category, machineId) =>
-    set(state => ({ defaultMachineOverrides: { ...state.defaultMachineOverrides, [category]: machineId } })),
+    set(state =>
+      state.defaultMachineOverrides[category] === machineId
+        ? state
+        : { defaultMachineOverrides: { ...state.defaultMachineOverrides, [category]: machineId } },
+    ),
 
   resetDefaultMachines: () =>
     set(state => (Object.keys(state.defaultMachineOverrides).length === 0 ? state : { defaultMachineOverrides: {} })),

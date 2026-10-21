@@ -309,7 +309,10 @@ its first item, or the `initialFocus` target). Escape or ArrowLeft inside a flyo
 flyout and focuses its item; Escape at the top level closes the menu and ArrowLeft there does
 nothing. Tab closes everything. With the mouse, hovering the item opens the flyout without moving
 focus and leaving it closes it after 200 ms, unless focus is inside the flyout. Moving focus out of
-the item and flyout (to a point the mouse is not over) also closes it.
+the item and flyout (to a point the mouse is not over) also closes it. When focus is in the flyout
+because of a click, leaving with the mouse closes it after the same delay and moves focus back to its
+item; a flyout focused with the keyboard stays open. ArrowRight opens and ArrowLeft closes the flyout
+although it opens to the item's left (the usual menu convention).
 
 Opening with the keyboard (Enter, Space or ArrowDown) focuses the first checked item (the active plan, else the checked data set; failing that the first
 enabled item). The rate unit radio is never focused first, since a checked plan or data set radio
@@ -683,7 +686,7 @@ The same component in recipes mode (`source="recipes"`).
   plan's current default for the category carries a "default" badge; every other machine has a
   **Make default** button (accessible name "Make <machine> the <category> default", shown on hover
   and focus) that sets the plan's default for the category, resets this row to "Default" and closes
-  the list. The list's footer reads "<Category> default is used by N rows" (rows of the category
+  the list; the row reset is undoable with the block, the default change is not (defaults are not part of block history). The list's footer reads "<Category> default is used by N rows" (rows of the category
   left on "Default", across all blocks) with an **All defaults…** link that closes the modal and
   opens the workspace menu's [Default machines](#workspace-menu) flyout on that category. When none is, the list shows "No
   machine for this recipe within the research horizon. Widen the horizon to choose

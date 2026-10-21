@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -148,7 +148,8 @@ export function EditMachineModal({
 
   const defaultMachineId = horizon.defaultMachines[recipeCategory]
   const defaultMachineName = defaultMachineId ? gameData.machines[defaultMachineId]?.name : undefined
-  const defaultRowCount = defaultMachineRowCounts(blocks, gameData).get(recipeCategory) ?? 0
+  const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
+  const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
