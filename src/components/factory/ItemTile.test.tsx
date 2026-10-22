@@ -62,6 +62,16 @@ beforeEach(() => {
 })
 
 describe('ItemTile', () => {
+  it('renders the temperature badge when given', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" temperature="≥95°C" />)
+    expect(screen.getByTestId('item-tile-temperature')).toHaveTextContent('≥95°C')
+  })
+
+  it('renders no temperature badge by default', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
+    expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
+  })
+
   it('renders rate in /min by default', () => {
     render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
     expect(screen.getByText(/60\.0/)).toBeInTheDocument()

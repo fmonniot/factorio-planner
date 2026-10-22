@@ -93,7 +93,7 @@ interface Ingredient {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // > 0
-  minimumTemperature?: number   // informational; not used by the solver
+  minimumTemperature?: number   // shown on the recipe row's ingredient tile; not used by the solver
   maximumTemperature?: number
 }
 
@@ -107,6 +107,9 @@ interface Product {
   ignoredByProductivity?: number
 }
 ```
+
+Only recipe ingredients carry temperature bounds: fluid prototypes' default and maximum
+temperatures and recipe products' temperatures are not exported.
 
 `ingredients`, `products` and `madeIn` (and `Module.limitation` /
 `limitationBlacklist`) accept an empty object `{}` as an empty array. This is a

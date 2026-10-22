@@ -37,6 +37,8 @@ interface ItemTileProps {
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   title?: string
+  /** Pre-formatted temperature requirement (e.g. "≥95°C"); rendered as a small badge after the rate. */
+  temperature?: string
 }
 
 const variantClasses: Record<ItemTileVariant, string> = {
@@ -46,7 +48,7 @@ const variantClasses: Record<ItemTileVariant, string> = {
   electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
-export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title }: ItemTileProps) {
+export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
   const cls = variantClasses[variant]
 
@@ -74,6 +76,14 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         {label}
         <span className="opacity-60">{unitLabel}</span>
       </span>
+      {temperature && (
+        <span
+          data-testid="item-tile-temperature"
+          className="text-[9px] font-mono tabular-nums leading-none text-orange-300"
+        >
+          {temperature}
+        </span>
+      )}
     </>
   )
 

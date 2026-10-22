@@ -14,6 +14,7 @@ import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { countSubPlanContents } from './subPlanContents'
+import { ingredientTemperatureLabels } from './temperature'
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -243,6 +244,8 @@ export function RecipeRow({
 
   const recipe = gameData.recipes[planNode.recipeId]
   if (!recipe) return null
+
+  const temperatureLabels = ingredientTemperatureLabels(recipe)
 
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
@@ -506,6 +509,8 @@ export function RecipeRow({
           <div className="flex flex-wrap gap-0.5 flex-1">
             {inputEntries.map(([itemId, ratePerMin]) => {
               const itemName = gameData.items[itemId]?.name ?? itemId
+              const temp = temperatureLabels[itemId]
+              const label = temp ? `${itemName} (${temp})` : itemName
               return (
                 <ItemTile
                   key={itemId}
@@ -513,7 +518,8 @@ export function RecipeRow({
                   ratePerSec={ratePerMin / 60}
                   variant="ingredient"
                   onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                  title={onIngredientClick ? `${itemName} — Find producer recipe` : undefined}
+                  temperature={temp}
+                  title={onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
                 />
               )
             })}
