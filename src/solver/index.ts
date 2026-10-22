@@ -106,15 +106,25 @@ export function solveBlock(
     }
   }
 
-  const recipeIds = [...new Set(gameRecipeNodes.map(n => n.recipeId))]
+  // One LP variable per recipe: the first node in plan order is authoritative
+  // (effects, pin, byproduct settings); later duplicates solve to zero.
+  const seenRecipes = new Set<string>()
+  const representatives = gameRecipeNodes.filter(n => {
+    if (seenRecipes.has(n.recipeId)) return false
+    seenRecipes.add(n.recipeId)
+    return true
+  })
+  const representativeIds = new Set(representatives.map(n => n.id))
+
+  const recipeIds = representatives.map(n => n.recipeId)
 
   const goalsMap = new Map(plan.goals.map(g => [g.itemId, g.rate]))
 
   const nodeEffectsMap = new Map(
-    gameRecipeNodes.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
+    representatives.map(n => [n.recipeId, computeNodeEffects(n, gameData)]),
   )
   const productivityMap = new Map<string, number>()
-  for (const n of gameRecipeNodes) {
+  for (const n of representatives) {
     const effects = nodeEffectsMap.get(n.recipeId)!
     if (effects.productivityBonus > 0) {
       productivityMap.set(n.recipeId, effects.productivityBonus)
@@ -122,7 +132,7 @@ export function solveBlock(
   }
 
   const bcRecipeIds = new Set(
-    gameRecipeNodes.filter(n => n.byproductConsumer).map(n => n.recipeId),
+    representatives.filter(n => n.byproductConsumer).map(n => n.recipeId),
   )
 
   const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap)
@@ -137,7 +147,7 @@ export function solveBlock(
     }
   }
 
-  for (const n of gameRecipeNodes) {
+  for (const n of representatives) {
     for (const [itemId, policy] of Object.entries(n.byproductPolicy)) {
       if (policy === 'discard') {
         const row = system.S.get(itemId)
@@ -150,7 +160,7 @@ export function solveBlock(
   }
 
   const pinnedRates = new Map<string, number>()
-  for (const n of gameRecipeNodes) {
+  for (const n of representatives) {
     if (n.pinnedRate !== undefined) {
       pinnedRates.set(n.recipeId, n.pinnedRate)
     }
@@ -162,7 +172,7 @@ export function solveBlock(
   // a bc ingredient, the LP can't import it just to fire the bc bonus —
   // it must come from an in-plan producer (or raw if no producer exists).
   const noImportItems = new Set(plan.noImportItems ?? [])
-  for (const n of gameRecipeNodes) {
+  for (const n of representatives) {
     if (!n.byproductConsumer) continue
     const recipe = gameData.recipes[n.recipeId]
     if (!recipe) continue
@@ -228,6 +238,19 @@ export function solveBlock(
   const nodes: SolvedNode[] = []
 
   for (const planNode of gameRecipeNodes) {
+    if (!representativeIds.has(planNode.id)) {
+      nodes.push({
+        recipeNodeId: planNode.id,
+        inputRates: {},
+        outputRates: {},
+        throughput: 0,
+        machineCountExact: 0,
+        machineCountCeil: 0,
+        powerKw: 0,
+      })
+      continue
+    }
+
     const recipe = gameData.recipes[planNode.recipeId]
     if (!recipe) continue
 
