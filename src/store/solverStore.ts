@@ -1,6 +1,7 @@
 import { create } from 'zustand'
-import type { ConnectionFlow, MultiBlockSolve, SolverResult } from '../data/types'
+import type { ConnectionFlow, GameData, MultiBlockSolve, SolverResult } from '../data/types'
 import { solveAll } from '../solver/index'
+import { createSolveCache } from '../solver/solveCache'
 import { useBlockStore } from './blockStore'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import { horizonFor } from './horizon'
@@ -70,15 +71,37 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 // Subscription wiring
 //
 // Called once at app startup (e.g. from main.tsx).
-// Subscribes to the block + gameData changes, debounces, then re-solves every
-// block in dependency order (one LP per block, see solveAll).
+// Subscribes to the block + gameData changes, debounces, then
+// re-solves in dependency order, reusing the previous result of every block
+// whose inputs are unchanged (see solveAll and solveCache.ts).
 // Returns an unsubscribe function for cleanup.
 // ---------------------------------------------------------------------------
 
 const DEBOUNCE_MS = 150
 
+function sameMachines(a: GameData['defaultMachines'], b: GameData['defaultMachines']): boolean {
+  const keys = Object.keys(a)
+  return keys.length === Object.keys(b).length && keys.every(k => Object.hasOwn(b, k) && a[k] === b[k])
+}
+
 export function wireSolver(): () => void {
   let timer: ReturnType<typeof setTimeout> | undefined
+  const cache = createSolveCache()
+  // Keeps the effective game data object stable across solves so cache hits survive.
+  let solverDataMemo:
+    | { gameData: GameData; defaultMachines: GameData['defaultMachines']; data: GameData }
+    | undefined
+
+  function solverDataFor(gameData: GameData, defaultMachines: GameData['defaultMachines']): GameData {
+    if (defaultMachines === gameData.defaultMachines) {
+      solverDataMemo = undefined
+      return gameData
+    }
+    if (solverDataMemo?.gameData !== gameData || !sameMachines(solverDataMemo.defaultMachines, defaultMachines)) {
+      solverDataMemo = { gameData, defaultMachines, data: { ...gameData, defaultMachines } }
+    }
+    return solverDataMemo.data
+  }
 
   function schedule() {
     useSolverStore.getState()._setStatus({ type: 'pending' })
@@ -90,6 +113,8 @@ export function wireSolver(): () => void {
       const gameData = selectGameData(useGameDataStore.getState())
 
       if (!gameData) {
+        cache.clear()
+        solverDataMemo = undefined
         useSolverStore.getState()._setStatus({ type: 'idle' })
         return
       }
@@ -97,9 +122,8 @@ export function wireSolver(): () => void {
       try {
         // Rows without an explicit machine solve with the horizon's default machine.
         const { defaultMachines } = horizonFor(gameData, horizonTechnologyIds, defaultMachineOverrides)
-        const solverData =
-          defaultMachines === gameData.defaultMachines ? gameData : { ...gameData, defaultMachines }
-        useSolverStore.getState()._setSolved(solveAll(blocks, solverData), activeBlockId)
+        const solverData = solverDataFor(gameData, defaultMachines)
+        useSolverStore.getState()._setSolved(solveAll(blocks, solverData, cache), activeBlockId)
       } catch (err) {
         useSolverStore.getState()._setStatus({
           type: 'error',

@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solve, solveBlock, solveAll, flattenBlock, netBalance } from './index'
+import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, ProductionGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
 function makeGameData(overrides: Partial<GameData> = {}): GameData {
@@ -538,6 +539,182 @@ describe('solveAll', () => {
     expect(all.results.B).toEqual({ nodes: [], unsatisfied: [], warnings: [] })
     expect(all.results.A.nodes).toHaveLength(1)
     expect(flowOf(all, 'c1').rate).toBe(0)
+  })
+
+  describe('with a solve cache', () => {
+    const A = () => block('A', plateGoal(60), [planNode('p', 'plate')])
+    const B = () => block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')])
+    const broken = () => ({ ...planNode('g', 'gear'), modules: undefined } as unknown as RecipeNode)
+
+    const scenarios: Record<string, () => Block[]> = {
+      'feed ok': () => [A(), B()],
+      'limited source': () => [
+        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+      ],
+      'maxRate below need': () => [
+        A(),
+        block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 20 }]),
+      ],
+      'two consumers of one source': () => [
+        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('B', gearGoal(15), [planNode('g', 'gear')], [link('cb', 'A')]),
+        block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
+      ],
+      'two sources of one item': () => [
+        block('A1', plateGoal(20), [planNode('p', 'plate')]),
+        block('A2', plateGoal(50), [planNode('p', 'plate')]),
+        block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A1'), link('c2', 'A2')]),
+      ],
+      'missing source': () => [block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'ghost')])],
+      cycle: () => [
+        block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'B', 'gear')]),
+        block('B', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
+      ],
+      'failing block': () => [A(), block('B', gearGoal(30), [broken()], [link('c1', 'A')])],
+    }
+
+    for (const [name, make] of Object.entries(scenarios)) {
+      it(`gives the same results as no cache: ${name}`, () => {
+        const gd = connectionGameData()
+        const cache = createSolveCache()
+        const expected = solveAll(make(), gd)
+        const first = solveAll(make(), gd, cache)
+        expect(first).toEqual(expected)
+        const second = solveAll(make(), gd, cache)
+        expect(second).toEqual(expected)
+        for (const id of Object.keys(first.results)) {
+          if (!cache.has(id)) continue // failed solves are deliberately not cached
+          expect(second.results[id], 'second run reuses every block').toBe(first.results[id])
+        }
+      })
+    }
+
+    it('reuses an untouched block when another block is edited', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const C = block('C', gearGoal(30), [planNode('g', 'gear')])
+      const first = solveAll([A(), C], gd, cache)
+      const second = solveAll([A(), { ...C, goals: gearGoal(20) }], gd, cache)
+      expect(second.results.A, 'untouched block reused').toBe(first.results.A)
+      expect(second.results.C).not.toBe(first.results.C)
+    })
+
+    it('ignores renames, recolours and updatedAt stamps', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], gd, cache)
+      const b = B()
+      const renamed = {
+        ...b,
+        name: 'x',
+        color: '#000000',
+        rootPlan: { ...b.rootPlan, updatedAt: '2000-01-01T00:00:00.000Z' },
+      }
+      const second = solveAll([A(), renamed], gd, cache)
+      expect(second.results.A).toBe(first.results.A)
+      expect(second.results.B).toBe(first.results.B)
+    })
+
+    it('re-solves both blocks when an upstream edit changes the offers', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], gd, cache)
+      const second = solveAll([{ ...A(), goals: plateGoal(40) }, B()], gd, cache)
+      expect(second.results.A).not.toBe(first.results.A)
+      expect(second.results.B).not.toBe(first.results.B)
+      expect(flowOf(second, 'c1').rate).toBeCloseTo(40, 4)
+    })
+
+    it('keeps the consumer when an upstream edit leaves the offers unchanged', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], gd, cache)
+      const edited = block('A', plateGoal(60), [{ ...planNode('p', 'plate'), machineId: 'ghost' }])
+      const second = solveAll([edited, B()], gd, cache)
+      expect(second.results.A).not.toBe(first.results.A)
+      expect(second.results.B).toBe(first.results.B)
+      expect(second.flows).toEqual(first.flows)
+    })
+
+    it('keeps the source when only the consumer changes', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], gd, cache)
+      const second = solveAll([A(), { ...B(), goals: gearGoal(20) }], gd, cache)
+      expect(second.results.A).toBe(first.results.A)
+      expect(second.results.B).not.toBe(first.results.B)
+    })
+
+    it('re-solves a sibling whose supply changed', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const blocks = (bRate: number) => [
+        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('B', gearGoal(bRate), [planNode('g', 'gear')], [link('cb', 'A')]),
+        block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
+      ]
+      const first = solveAll(blocks(15), gd, cache)
+      const second = solveAll(blocks(10), gd, cache)
+      expect(second.results.A).toBe(first.results.A)
+      expect(second.results.B).not.toBe(first.results.B)
+      expect(second.results.C).not.toBe(first.results.C)
+      expect(flowOf(second, 'cc').available).toBeCloseTo(20, 4)
+    })
+
+    it('recomputes flows after a connection-only edit', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], gd, cache)
+      const limited = block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 20 }])
+      const second = solveAll([A(), limited], gd, cache)
+      expect(second.results.A).toBe(first.results.A)
+      expect(second.results.B).not.toBe(first.results.B)
+      expect(flowOf(second, 'c1')).toMatchObject({ available: 20, capped: true })
+    })
+
+    it('re-solves everything when the game data object changes', () => {
+      const cache = createSolveCache()
+      const first = solveAll([A(), B()], connectionGameData(), cache)
+      const second = solveAll([A(), B()], connectionGameData(), cache)
+      expect(second.results.A).not.toBe(first.results.A)
+      expect(second.results.B).not.toBe(first.results.B)
+    })
+
+    it('never caches an error', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      const bad = () => [A(), block('B', gearGoal(30), [broken()], [link('c1', 'A')])]
+      solveAll(bad(), gd, cache)
+      expect(cache.has('B')).toBe(false)
+      expect(solveAll(bad(), gd, cache).errors.B).toBeTruthy()
+      expect(cache.has('B')).toBe(false)
+
+      const cache2 = createSolveCache()
+      const good = solveAll([A(), B()], gd, cache2)
+      solveAll(bad(), gd, cache2)
+      expect(cache2.has('B')).toBe(false)
+      const restored = solveAll([A(), B()], gd, cache2)
+      expect(restored.results.B).not.toBe(good.results.B)
+    })
+
+    it('drops entries of removed blocks', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      solveAll([A(), B()], gd, cache)
+      solveAll([A()], gd, cache)
+      expect(cache.has('B')).toBe(false)
+      expect(cache.size).toBe(1)
+    })
+
+    it('leaves no entry for a block with goals but no nodes', () => {
+      const gd = connectionGameData()
+      const cache = createSolveCache()
+      solveAll([block('E', plateGoal(10), [planNode('p', 'plate')])], gd, cache)
+      expect(cache.has('E')).toBe(true)
+      solveAll([block('E', plateGoal(10), [])], gd, cache)
+      expect(cache.has('E')).toBe(false)
+    })
   })
 })
 

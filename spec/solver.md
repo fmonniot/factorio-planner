@@ -17,7 +17,7 @@ A linear program handles both naturally: cycles are just additional constraints,
 
 ## Pipeline
 
-Entry point: `solveAll(blocks, gameData)` in [src/solver/index.ts](../src/solver/index.ts). It orders the blocks with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) so every source is solved before its consumers, then calls `solveBlock(plan, gameData, supplyCaps)` for each one, where `plan = flattenBlock(block)` and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`.
+Entry point: `solveAll(blocks, gameData, cache?)` in [src/solver/index.ts](../src/solver/index.ts). It orders the blocks with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) so every source is solved before its consumers, then calls `solveBlock(plan, gameData, supplyCaps)` for each one, where `plan = flattenBlock(block)` and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`. With a `SolveCache` ([src/solver/solveCache.ts](../src/solver/solveCache.ts)), a block whose flattened plan, game data object and supply caps (exact values, in order) are all unchanged reuses its previous `solveBlock` output instead of solving again. Offers and flows are still recomputed for every block. A failed solve is never cached.
 
 Per block, `solveBlock` runs:
 
@@ -200,8 +200,8 @@ Drain is not affected by consumption modules. Beacon power is not counted. For a
 
 ## Statelessness and store integration
 
-The solver is fully stateless: every call recomputes from scratch. There is no incremental update logic.
+`solveBlock` is stateless and deterministic. The only state is the optional per-block `SolveCache`, which holds one entry per block id (the last successful solve), replaced when its inputs change and dropped when the block is removed, fails or has nothing to solve.
 
-`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll` over every block (up to two LPs per block). It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
+`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll`. Only blocks whose inputs changed are solved (up to two LPs each). Renaming or recolouring a block, or an edit elsewhere that leaves a block's supply unchanged, solves nothing in that block. `wireSolver` owns the cache and reuses one effective game data object while the data and the effective default machines are unchanged. It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
 
 The store keeps `lastResults` (every block's result by id) and `flows`. `status` and `lastResult` follow the active block, so `selectSolverResult` is unchanged. A solver exception in the active block sets status `error`; in any other block it only leaves that block's result empty. `lastResult` keeps the most recent successful result while a re-solve is pending, so views don't flash.
