@@ -89,6 +89,46 @@ describe('BlockGraph', () => {
     expect(label.getAttribute('data-status')).toBe('ok')
   })
 
+  describe('block colours', () => {
+    const colour = (id: string) => useBlockStore.getState().blocks.find(b => b.id === id)!.color
+
+    it('stripes each node in its block colour', () => {
+      setup()
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => ({ ...b, color: b.id === 'miner' ? '#60a5fa' : '#a3e635' })),
+      }))
+      render(<BlockGraphButton />)
+      open()
+      for (const id of ['miner', 'consumer']) {
+        const stripe = within(node(id)).getByTestId('graph-node-stripe')
+        expect(stripe.getAttribute('data-color')).toBe(colour(id))
+        expect((stripe as HTMLElement).style.background).not.toBe('')
+        expect(stripe.className).toContain('z-10')
+      }
+      expect(colour('miner')).not.toBe(colour('consumer'))
+    })
+
+    it('strokes an ok edge and borders its chip in the source block colour', () => {
+      setup({ connected: true })
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, color: '#60a5fa' } : b)) }))
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-edge').getAttribute('stroke')).toBe('#60a5fa')
+      expect((screen.getByTestId('graph-edge-label') as HTMLElement).style.borderColor).toBe('#60a5fa')
+    })
+
+    it('keeps the status colour for a limited edge and chip', () => {
+      setup({ connected: true, maxRate: 20, flow: { status: 'limited', capped: true, available: 20, rate: 20 } })
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, color: '#60a5fa' } : b)) }))
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-edge').getAttribute('stroke')).toBe('#f59e0b')
+      const chip = screen.getByTestId('graph-edge-label') as HTMLElement
+      expect(chip.style.borderColor).toBe('')
+      expect(chip.className).toContain('border-amber-500')
+    })
+  })
+
   it('opens the block and closes the graph when a node is clicked', () => {
     setup()
     render(<BlockGraphButton />)

@@ -93,6 +93,22 @@ test.describe('block graph', () => {
     await expect(page.getByTestId('graph-connect-hint')).toHaveCount(0)
   })
 
+  test('draws the source block colour on its node and ok edge', async ({ page }) => {
+    await setup(page)
+    await openGraph(page)
+    await connectPlatesToGears(page)
+
+    // Palette colours are deterministic for this fixture (see block-color.spec.ts).
+    await expect(node(page, 'Plates').getByTestId('graph-node-stripe')).toHaveAttribute('data-color', '#60a5fa')
+    await expect(page.getByTestId('graph-edge')).toHaveAttribute('stroke', '#60a5fa')
+
+    // A limit that holds plates back turns the edge amber.
+    await page.getByTestId('graph-edge-limit').click()
+    await page.getByRole('spinbutton', { name: 'Connection limit' }).fill('10')
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('graph-edge')).toHaveAttribute('stroke', '#f59e0b')
+  })
+
   test('removes a connection from its edge', async ({ page }) => {
     await setup(page)
     await openGraph(page)
