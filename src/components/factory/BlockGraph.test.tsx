@@ -103,6 +103,7 @@ describe('BlockGraph', () => {
         const stripe = within(node(id)).getByTestId('graph-node-stripe')
         expect(stripe.getAttribute('data-color')).toBe(colour(id))
         expect((stripe as HTMLElement).style.background).not.toBe('')
+        expect(stripe.className).toContain('z-10')
       }
       expect(colour('miner')).not.toBe(colour('consumer'))
     })

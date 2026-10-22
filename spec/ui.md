@@ -160,8 +160,8 @@ near-full-screen modal showing every block and the connections between them, lik
   then ok, then not used, then cycle, which is dashed). An ok edge is stroked, and its chips
   bordered, in the *source* block's colour, matching the source segment on the consumer's bar;
   the other statuses keep their status colours (limited stays amber). The legend's OK swatch is
-  a multi-colour gradient with the title "In the source block's colour". Each connection is a chip: item icon,
-  delivered rate (`—` before the first solve), the limit control and `×`, which removes the
+  a multi-colour gradient with the title "In the source block's colour". Each connection is a chip:
+  item icon, delivered rate (`—` before the first solve), the limit control and `×`, which removes the
   connection at once. The limit control reads `≤` (no limit) or `≤ N` and opens an inline number
   input (display unit); Enter or blur commits, an empty field clears the limit, Escape cancels
   without closing the graph. A chip held back by its limit has the title "Limited by this

@@ -101,7 +101,7 @@ function BlockNode({
         data-testid="graph-node-stripe"
         data-color={block.color}
         style={{ background: block.color }}
-        className="pointer-events-none absolute -left-px -right-px -top-px h-[3px] rounded-t"
+        className="pointer-events-none absolute z-10 -left-px -right-px -top-px h-[3px] rounded-t"
       />
       <button
         type="button"
