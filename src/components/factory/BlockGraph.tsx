@@ -6,6 +6,7 @@ import { useSolverStore, selectBlockResults, selectFlows } from '../../store/sol
 import { useUiStore } from '../../store/uiStore'
 import { wouldCreateCycle } from '../../solver/blockGraph'
 import { connectableItems } from '../../store/connections'
+import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
@@ -33,7 +34,7 @@ const EDGE_COLOR: Record<EdgeStatus, string> = {
 }
 
 const CHIP_TONE: Record<EdgeStatus, string> = {
-  ok: 'bg-green-950 text-green-300 border-green-600',
+  ok: 'bg-green-950 text-green-300', // border set inline, in the source block's colour
   limited: 'bg-green-950 text-green-300 border-amber-500',
   unused: 'bg-green-950/40 text-green-300/50 border-green-900',
   cycle: 'bg-gray-800 text-gray-500 border-gray-700',
@@ -95,6 +96,13 @@ function BlockNode({
       style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
       className={`absolute rounded border border-gray-600 bg-gray-800 ${ring} ${role === 'blocked' ? 'opacity-40' : ''}`}
     >
+      <span
+        aria-hidden
+        data-testid="graph-node-stripe"
+        data-color={block.color}
+        style={{ background: block.color }}
+        className="pointer-events-none absolute -left-px -right-px -top-px h-[3px] rounded-t"
+      />
       <button
         type="button"
         aria-label={block.name}
@@ -228,6 +236,7 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
             data-connection-id={id}
             data-status={status}
             title={title}
+            style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
           >
             {item?.iconPath ? (
@@ -359,7 +368,13 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
       <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-lg font-semibold text-amber-200">Block graph</h2>
         <div className="flex items-center gap-3 text-xs text-gray-400">
-          <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.ok }} />OK</span>
+          <span className="flex items-center gap-1" title="In the source block's colour">
+            <span
+              className="w-3 h-0.5"
+              style={{ background: `linear-gradient(90deg, ${BLOCK_PALETTE[0]}, ${BLOCK_PALETTE[5]}, ${BLOCK_PALETTE[10]})` }}
+            />
+            OK
+          </span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
           <span className="flex items-center gap-1"><span className="w-3 border-t border-dashed" style={{ borderColor: EDGE_COLOR.cycle }} />Cycle</span>
@@ -394,6 +409,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 const status = e.cyclic
                   ? 'cycle'
                   : pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))
+                const source = blocks.find(b => b.id === e.from)
+                const stroke = status === 'ok' ? (source?.color ?? MISSING_BLOCK_COLOR) : EDGE_COLOR[status]
                 return (
                   <path
                     key={`${e.from}>${e.to}`}
@@ -403,7 +420,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                     data-status={status}
                     d={`M ${e.x1} ${e.y1} C ${e.x1 + CURVE} ${e.y1}, ${e.x2 - CURVE} ${e.y2}, ${e.x2} ${e.y2}`}
                     fill="none"
-                    stroke={EDGE_COLOR[status]}
+                    stroke={stroke}
                     strokeWidth={1.5}
                     strokeDasharray={status === 'cycle' ? '4 4' : undefined}
                     className="pointer-events-none"

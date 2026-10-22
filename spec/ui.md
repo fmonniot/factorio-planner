@@ -154,9 +154,13 @@ near-full-screen modal showing every block and the connections between them, lik
   sources feeding it (sources on the left); rows follow one barycenter pass (the mean row of a
   block's sources, ties by plan order). Positions are recomputed on every change and never saved.
 - **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
-  block has a teal ring. Clicking a node makes that block active and closes the graph.
+  block has a teal ring. A 3px stripe across the top of the node shows the block's colour
+  (`Block.color`) at full strength. Clicking a node makes that block active and closes the graph.
 - **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
-  then ok, then not used, then cycle, which is dashed). Each connection is a chip: item icon,
+  then ok, then not used, then cycle, which is dashed). An ok edge is stroked, and its chips
+  bordered, in the *source* block's colour, matching the source segment on the consumer's bar;
+  the other statuses keep their status colours (limited stays amber). The legend's OK swatch is
+  a multi-colour gradient with the title "In the source block's colour". Each connection is a chip: item icon,
   delivered rate (`—` before the first solve), the limit control and `×`, which removes the
   connection at once. The limit control reads `≤` (no limit) or `≤ N` and opens an inline number
   input (display unit); Enter or blur commits, an empty field clears the limit, Escape cancels
