@@ -25,7 +25,7 @@ function warningBody(w: SolverWarning, gameData: GameData): string {
     }
     case 'duplicate-recipe': {
       const name = gameData.recipes[w.recipeId]?.name ?? w.recipeId
-      return `"${name}" appears on ${w.count} nodes. The solver merges them into one column.`
+      return `"${name}" appears on ${w.count} nodes. The solver uses the first one; the others show zero and their pin and modules are ignored.`
     }
     case 'infeasible-pins': {
       const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
@@ -41,7 +41,7 @@ function warningBody(w: SolverWarning, gameData: GameData): string {
 function warningHint(w: SolverWarning): string {
   switch (w.type) {
     case 'no-recipe': return 'Add a recipe node that outputs this item.'
-    case 'duplicate-recipe': return 'Remove one of the duplicate nodes in the production table.'
+    case 'duplicate-recipe': return 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
   }

@@ -547,7 +547,7 @@ explanation naming the items or recipes involved, and a hint:
 | Warning | Title |
 |---|---|
 | `no-recipe` | No recipe in plan |
-| `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe and removes the others; until then a duplicate row shows zero |
+| `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe (a plan's own nodes before its sub-plans, as the solver does) and removes the others; until then a duplicate row shows zero |
 | `infeasible-pins` | Pinned rate is impossible |
 | `overconstrained` | Recipe network can't fully balance |
 
