@@ -122,4 +122,11 @@ describe('ItemTile', () => {
     render(<ItemTile item={mockItem} ratePerSec={1} variant="product" />)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
   })
+
+  it('lets the tile title show on hover of the name when there is no icon', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" title="Iron Plate (≥95°C)" />)
+    const name = screen.getByText('Iron Plate')
+    expect(name.getAttribute('title'), 'name span must not override the tile title').toBeNull()
+    expect(name.closest('[title]')?.getAttribute('title')).toBe('Iron Plate (≥95°C)')
+  })
 })

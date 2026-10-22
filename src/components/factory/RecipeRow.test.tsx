@@ -52,6 +52,24 @@ const electrolysisSolved: SolvedNode = {
   powerKw: 50,
 }
 
+const steamCrackingPlanNode: RecipeNode = {
+  kind: 'game-recipe',
+  id: 'node-steam',
+  recipeId: 'steam-cracking',
+  modules: [],
+  byproductPolicy: {},
+}
+
+const steamCrackingSolved: SolvedNode = {
+  recipeNodeId: 'node-steam',
+  inputRates: { water: 60, steam: 60 },
+  outputRates: { hydrogen: 12 },
+  throughput: 1,
+  machineCountExact: 1,
+  machineCountCeil: 1,
+  powerKw: 0,
+}
+
 // ---------------------------------------------------------------------------
 // Shared game data (covers both single and multi-output recipes)
 // ---------------------------------------------------------------------------
@@ -65,6 +83,7 @@ const mockGameData: GameData = {
     'hydrogen': { id: 'hydrogen', name: 'Hydrogen', type: 'fluid', iconPath: '', hidden: false },
     'oxygen': { id: 'oxygen', name: 'Oxygen', type: 'fluid', iconPath: '', hidden: false },
     'water': { id: 'water', name: 'Water', type: 'fluid', iconPath: '', hidden: false },
+    'steam': { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', hidden: false },
   },
   recipes: {
     'iron-plate': {
@@ -89,6 +108,21 @@ const mockGameData: GameData = {
         { itemId: 'hydrogen', type: 'fluid', amount: 6 },
         { itemId: 'oxygen', type: 'fluid', amount: 3 },
       ],
+      madeIn: ['chemical-plant'],
+      allowProductivity: false,
+      hidden: false,
+      mainProduct: 'hydrogen',
+    },
+    'steam-cracking': {
+      id: 'steam-cracking',
+      name: 'Steam Cracking',
+      category: 'chemistry',
+      craftingTime: 2,
+      ingredients: [
+        { itemId: 'water', type: 'fluid', amount: 50 },
+        { itemId: 'steam', type: 'fluid', amount: 50, minimumTemperature: 125, maximumTemperature: 165 },
+      ],
+      products: [{ itemId: 'hydrogen', type: 'fluid', amount: 10 }],
       madeIn: ['chemical-plant'],
       allowProductivity: false,
       hidden: false,
@@ -908,5 +942,33 @@ describe('RecipeRow sub-factory actions', () => {
     const top = makeSubPlan('a', 'A', [recipeNode('r1'), { kind: 'subplan', id: 'n-b', subPlanId: 'b' }], [mid])
     expect(countSubPlanContents(top)).toEqual({ recipes: 4, subfactories: 2 })
     expect(countSubPlanContents(makeSubPlan('e', 'E'))).toEqual({ recipes: 0, subfactories: 0 })
+  })
+
+  describe('ingredient temperature', () => {
+    const steamProps = { solvedNode: steamCrackingSolved, planNode: steamCrackingPlanNode }
+    const tileByTitle = (prefix: string) =>
+      screen.getByTitle((t) => t.startsWith(prefix))
+
+    it('shows the temperature range on the steam tile only', () => {
+      renderRow(steamProps)
+      expect(within(tileByTitle('Steam (')).getByTestId('item-tile-temperature')).toHaveTextContent('125–165°C')
+      expect(within(tileByTitle('Water')).queryByTestId('item-tile-temperature'), 'water has no bounds').toBeNull()
+    })
+
+    it('puts the temperature in the tile title when ingredients are clickable', () => {
+      renderRow({ ...steamProps, onIngredientClick: vi.fn() })
+      expect(screen.getByTitle('Steam (125–165°C) — Find producer recipe')).toBeInTheDocument()
+      expect(screen.getByTitle('Water — Find producer recipe')).toBeInTheDocument()
+    })
+
+    it('puts the temperature in the tile title without onIngredientClick', () => {
+      renderRow(steamProps)
+      expect(screen.getByTitle('Steam (125–165°C)')).toBeInTheDocument()
+    })
+
+    it('renders no temperature badge for recipes without bounds', () => {
+      renderRow()
+      expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
+    })
   })
 })

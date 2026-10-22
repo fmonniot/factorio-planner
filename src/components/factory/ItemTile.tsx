@@ -57,6 +57,8 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   const label = isPower ? power!.value : fmtRate(ratePerSec, unit)
   const unitLabel = isPower ? power!.unit : unit === 'min' ? '/m' : '/s'
 
+  const tileTitle = title ?? item?.name
+
   const inner = (
     <>
       {isPower ? (
@@ -68,7 +70,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
           className="w-7 h-7 object-contain shrink-0"
         />
       ) : (
-        <span className="text-xs truncate max-w-[4rem]" title={item?.name ?? '?'}>
+        <span className="text-xs truncate max-w-[4rem]" title={tileTitle ? undefined : '?'}>
           {item?.name ?? '?'}
         </span>
       )}
@@ -95,7 +97,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         type="button"
         onClick={onClick}
         onContextMenu={onContextMenu}
-        title={title ?? item?.name}
+        title={tileTitle}
         className={`${baseClass} hover:brightness-125 cursor-pointer`}
       >
         {inner}
@@ -104,7 +106,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   }
 
   return (
-    <span title={title ?? item?.name} onContextMenu={onContextMenu} className={baseClass}>
+    <span title={tileTitle} onContextMenu={onContextMenu} className={baseClass}>
       {inner}
     </span>
   )
