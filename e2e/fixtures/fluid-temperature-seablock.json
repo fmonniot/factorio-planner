@@ -1,0 +1,41 @@
+{
+  "blocks": [
+    {
+      "id": "eeee0001-0000-0000-0000-000000000001",
+      "name": "Semiheavy water",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "eeee0001-0000-0000-0000-0000000000g1",
+          "itemId": "angels-liquid-water-semiheavy-2",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "eeee0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "eeee0001-0000-0000-0000-0000000000n1",
+            "recipeId": "angels-liquid-water-semiheavy-2",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "eeee0001-0000-0000-0000-0000000000n2",
+            "recipeId": "angels-gas-enriched-hydrogen-sulfide",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-21T00:00:00.000Z",
+        "updatedAt": "2026-10-21T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "eeee0001-0000-0000-0000-000000000001"
+}

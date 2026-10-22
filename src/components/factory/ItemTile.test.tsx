@@ -62,6 +62,16 @@ beforeEach(() => {
 })
 
 describe('ItemTile', () => {
+  it('renders the temperature badge when given', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" temperature="≥95°C" />)
+    expect(screen.getByTestId('item-tile-temperature')).toHaveTextContent('≥95°C')
+  })
+
+  it('renders no temperature badge by default', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
+    expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
+  })
+
   it('renders rate in /min by default', () => {
     render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
     expect(screen.getByText(/60\.0/)).toBeInTheDocument()
@@ -111,5 +121,12 @@ describe('ItemTile', () => {
   it('renders as a span when no onClick', () => {
     render(<ItemTile item={mockItem} ratePerSec={1} variant="product" />)
     expect(screen.queryByRole('button')).not.toBeInTheDocument()
+  })
+
+  it('lets the tile title show on hover of the name when there is no icon', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" title="Iron Plate (≥95°C)" />)
+    const name = screen.getByText('Iron Plate')
+    expect(name.getAttribute('title'), 'name span must not override the tile title').toBeNull()
+    expect(name.closest('[title]')?.getAttribute('title')).toBe('Iron Plate (≥95°C)')
   })
 })

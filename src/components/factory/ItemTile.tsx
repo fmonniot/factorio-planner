@@ -37,6 +37,8 @@ interface ItemTileProps {
   onClick?: () => void
   onContextMenu?: (e: React.MouseEvent) => void
   title?: string
+  /** Pre-formatted temperature requirement (e.g. "≥95°C"); rendered as a small badge after the rate. */
+  temperature?: string
 }
 
 const variantClasses: Record<ItemTileVariant, string> = {
@@ -46,7 +48,7 @@ const variantClasses: Record<ItemTileVariant, string> = {
   electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
-export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title }: ItemTileProps) {
+export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
   const cls = variantClasses[variant]
 
@@ -54,6 +56,8 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   const power = isPower ? fmtPower(ratePerSec) : null
   const label = isPower ? power!.value : fmtRate(ratePerSec, unit)
   const unitLabel = isPower ? power!.unit : unit === 'min' ? '/m' : '/s'
+
+  const tileTitle = title ?? item?.name
 
   const inner = (
     <>
@@ -66,7 +70,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
           className="w-7 h-7 object-contain shrink-0"
         />
       ) : (
-        <span className="text-xs truncate max-w-[4rem]" title={item?.name ?? '?'}>
+        <span className="text-xs truncate max-w-[4rem]" title={tileTitle ? undefined : '?'}>
           {item?.name ?? '?'}
         </span>
       )}
@@ -74,6 +78,14 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         {label}
         <span className="opacity-60">{unitLabel}</span>
       </span>
+      {temperature && (
+        <span
+          data-testid="item-tile-temperature"
+          className="text-[9px] font-mono tabular-nums leading-none text-orange-300"
+        >
+          {temperature}
+        </span>
+      )}
     </>
   )
 
@@ -85,7 +97,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         type="button"
         onClick={onClick}
         onContextMenu={onContextMenu}
-        title={title ?? item?.name}
+        title={tileTitle}
         className={`${baseClass} hover:brightness-125 cursor-pointer`}
       >
         {inner}
@@ -94,7 +106,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   }
 
   return (
-    <span title={title ?? item?.name} onContextMenu={onContextMenu} className={baseClass}>
+    <span title={tileTitle} onContextMenu={onContextMenu} className={baseClass}>
       {inner}
     </span>
   )

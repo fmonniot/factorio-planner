@@ -24,6 +24,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
 - **Click an ingredient** on a row, or select it in the summary's **Ingredients** pane and use **Find recipe**, to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
+- **Read fluid temperatures.** Ingredient tiles show the fluid temperature a recipe requires (e.g. ≥95°C), when it has one.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts.
 - **Right-click a byproduct** (in a row or in the summary's Byproducts pane) to add a recipe that consumes it.
 - **Absorb byproducts.** A recipe can be marked as "only run to absorb byproduct from other recipes", so it soaks up surplus from other recipes without ever importing its own inputs; such rows are marked with a small badge on the recipe icon.
