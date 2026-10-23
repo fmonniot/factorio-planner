@@ -39,11 +39,16 @@ export function transformCss(t: ViewTransform): string {
   return `translate(${t.x}px, ${t.y}px) scale(${t.scale})`
 }
 
+/** Wheel delta in pixels: `deltaMode` 0 is pixels, 1 lines (16 px each), 2 pages (400 px each). */
+export function wheelDeltaPx(delta: number, deltaMode = 0): number {
+  return delta * (deltaMode === 1 ? 16 : deltaMode === 2 ? 400 : 1)
+}
+
 /**
  * Zoom factor for a wheel event. `deltaY` is normalised to pixels by `deltaMode`
- * (0 pixel, 1 line = 16 px, 2 page = 400 px) and clamped to ±200 px per event.
+ * and clamped to ±200 px per event.
  */
 export function wheelZoomFactor(deltaY: number, deltaMode = 0): number {
-  const px = deltaY * (deltaMode === 1 ? 16 : deltaMode === 2 ? 400 : 1)
+  const px = wheelDeltaPx(deltaY, deltaMode)
   return Math.exp(-Math.max(-200, Math.min(200, px)) * 0.0015)
 }

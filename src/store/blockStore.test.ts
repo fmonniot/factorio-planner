@@ -782,6 +782,65 @@ describe('clonePlan', () => {
   })
 })
 
+describe('moveBlock', () => {
+  function seed() {
+    const [a, b, c, d] = ['A', 'B', 'C', 'D'].map(n => makeEmptyBlock(n))
+    const history = { [b.id]: { undoStack: [], redoStack: [] } }
+    useBlockStore.setState({ blocks: [a, b, c, d], activeBlockId: b.id, history })
+    return { a, b, c, d, history }
+  }
+  const names = () => useBlockStore.getState().blocks.map(b => b.name)
+
+  it('moves a block forward, counting the index before removal', () => {
+    const { a } = seed()
+    useBlockStore.getState().moveBlock(a.id, 3)
+    expect(names(), 'insert before D').toEqual(['B', 'C', 'A', 'D'])
+  })
+
+  it('moves a block to the end with index = length', () => {
+    const { a } = seed()
+    useBlockStore.getState().moveBlock(a.id, 4)
+    expect(names()).toEqual(['B', 'C', 'D', 'A'])
+  })
+
+  it('moves a block backward', () => {
+    const { d } = seed()
+    useBlockStore.getState().moveBlock(d.id, 0)
+    expect(names()).toEqual(['D', 'A', 'B', 'C'])
+  })
+
+  it('leaves the blocks array untouched for no-op moves and unknown ids', () => {
+    const { b } = seed()
+    const before = useBlockStore.getState().blocks
+    useBlockStore.getState().moveBlock(b.id, 1)
+    expect(useBlockStore.getState().blocks, 'own index').toBe(before)
+    useBlockStore.getState().moveBlock(b.id, 2)
+    expect(useBlockStore.getState().blocks, 'just after itself').toBe(before)
+    useBlockStore.getState().moveBlock('missing', 0)
+    expect(useBlockStore.getState().blocks, 'unknown id').toBe(before)
+  })
+
+  it('clamps out-of-range indices', () => {
+    const { a, d } = seed()
+    useBlockStore.getState().moveBlock(a.id, 99)
+    expect(names(), 'high').toEqual(['B', 'C', 'D', 'A'])
+    useBlockStore.getState().moveBlock(d.id, -5)
+    expect(names(), 'low').toEqual(['D', 'B', 'C', 'A'])
+  })
+
+  it('keeps the active block, the history and the block objects', () => {
+    const { a, b, c, d, history } = seed()
+    useBlockStore.getState().moveBlock(a.id, 3)
+    const state = useBlockStore.getState()
+    expect(state.activeBlockId).toBe(b.id)
+    expect(state.history, 'history reference').toBe(history)
+    expect(state.blocks[2], 'moved block').toBe(a)
+    expect(state.blocks[0]).toBe(b)
+    expect(state.blocks[1]).toBe(c)
+    expect(state.blocks[3]).toBe(d)
+  })
+})
+
 describe('duplicateBlock', () => {
   function makeRichBlock(): Block {
     const block = makeEmptyBlock('Source')

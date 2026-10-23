@@ -35,7 +35,7 @@ If the plan can't be solved cleanly (a goal with no recipe, the same recipe adde
 
 ### 4. Work with several blocks
 
-A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Right-click a tab for **Rename**, **Duplicate** and **Delete**, plus colour swatches to change the block's colour. Use blocks for independent production lines, for example one per science pack.
+A plan is a set of **blocks**, shown as tabs. Use the **+** tab to add one and click a tab to switch to it. Drag a tab to reorder the blocks, or right-click it for **Rename**, **Duplicate**, **Move left** / **Move right** and **Delete**, plus colour swatches to change the block's colour. With many blocks the tab strip scrolls, and an **All blocks** menu next to **+** jumps to any of them. Use blocks for independent production lines, for example one per science pack.
 
 Blocks can also feed one another. Right-click an item in a block's **Ingredients** pane (or select it and choose **Receive from…**) and pick the block that should supply it: the block that was importing the item now receives it from there, shown as a segment in the source block's colour on the item's bar. The supplying block shows where its output goes on the product's bar. A block always uses its own recipes first, so a connection only covers what the block would otherwise import; if the source offers less than needed, the slot is marked limited and the rest stays an import. Right-click the source's segment to remove the connection. Every block has its own colour, picked automatically; change it from the tab's right-click menu.
 

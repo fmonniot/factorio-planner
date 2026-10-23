@@ -468,7 +468,7 @@ saved with the plan and copied by duplicate and import.
 
 ### Block
 
-A block is one factory (one tab in the UI). The solver solves each block as a
+A block is one factory (one tab in the UI). The order of `AppState.blocks` is the tab order; the user can change it (drag a tab, or Move left / Move right). The solver solves each block as a
 single LP; blocks can receive items from one another through `inputConnections`.
 Plans are stored per data set (keyed by source id), so a block carries no game-data version.
 
