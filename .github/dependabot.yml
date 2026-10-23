@@ -10,6 +10,7 @@ updates:
     open-pull-requests-limit: 10
     schedule:
       interval: "weekly"
+      day: friday
     ignore:
       # TypeScript 7.0.x conflicts with ESLint; revisit once 7.1.x is out
       - dependency-name: "typescript"
@@ -25,3 +26,8 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+  - package-ecosystem: "github-actions"
+    directory: "/" # Workflows live in .github/workflows
+    schedule:
+      interval: "weekly"
+      day: friday
