@@ -16,6 +16,28 @@ import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { countSubPlanContents } from './subPlanContents'
 import { ingredientTemperatureLabels } from './temperature'
 
+/**
+ * Items of `primaryItemId` produced per recipe execution, productivity included.
+ * Derived from the solved node when available (so it follows modules and
+ * productivity); otherwise from the recipe's declared product amounts.
+ * Converts the stored pin (executions/min) to the primary product's rate.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function primaryItemPerRun(
+  recipe: GameData['recipes'][string],
+  primaryItemId: string | undefined,
+  solvedNode: SolvedNode | undefined,
+): number {
+  if (primaryItemId && solvedNode && solvedNode.throughput > 0) {
+    const out = solvedNode.outputRates[primaryItemId]
+    if (out !== undefined) return out / solvedNode.throughput
+  }
+  const declared = recipe.products
+    .filter(p => p.itemId === primaryItemId)
+    .reduce((sum, p) => sum + (p.amount ?? 0) * (p.probability ?? 1), 0)
+  return declared > 0 ? declared : 1
+}
+
 // ---------------------------------------------------------------------------
 // RecipeRow
 // ---------------------------------------------------------------------------
@@ -250,6 +272,7 @@ export function RecipeRow({
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
+  const primaryPerRun = primaryItemPerRun(recipe, primaryItemId, solvedNode)
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
@@ -290,12 +313,13 @@ export function RecipeRow({
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
-  // `pinnedRate` is stored per minute; the input shows it in the current unit.
-  // This conversion and the `/ 60` in the input's defaultValue are inverses: keep them in sync.
+  // `pinnedRate` is stored as executions per minute; the input shows the primary
+  // product's rate in the current unit. This conversion and the `* primaryPerRun / 60`
+  // in the input's defaultValue are inverses: keep them in sync.
   function handlePinnedRateChange(raw: string) {
     const v = parseFloat(raw)
     if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, rateUnit === 'min' ? v : v * 60)
+      updateNodePinnedRate(planNode.id, (rateUnit === 'min' ? v : v * 60) / primaryPerRun)
     }
   }
 
@@ -421,9 +445,9 @@ export function RecipeRow({
                     min="0.001"
                     step="any"
                     aria-label="Pinned rate"
-                    // per-minute -> display unit (inverse of handlePinnedRateChange)
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) / 60, rateUnit)}
-                    key={`${planNode.id}-pin-${rateUnit}`}
+                    // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
+                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, rateUnit)}
+                    key={`${planNode.id}-pin-${rateUnit}-${primaryPerRun.toFixed(6)}`}
                     onChange={e => handlePinnedRateChange(e.target.value)}
                     className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
                   />
