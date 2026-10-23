@@ -35,7 +35,7 @@ npm run test:e2e   # Playwright; starts the dev server itself
 
 On a fresh checkout, run `npx playwright install chromium` before the e2e tests.
 
-CI (`.github/workflows/test.yml`) runs lint, doc-link check, unit, e2e and build on every pull request and on `v*` tags.
+CI (`.github/workflows/test.yml`) runs lint, doc-link check, unit, e2e and build on every pull request.
 
 To regenerate game data, follow [README.md — Exporting game data](README.md#exporting-game-data).
 
