@@ -226,6 +226,8 @@ export interface BlockStoreState {
   addBlock: () => void
   removeBlock: (blockId: string) => void
   duplicateBlock: (blockId: string) => void
+  /** Move a block to an insertion index (0..length, counted before removal, as `moveNode`). Not undoable. */
+  moveBlock: (blockId: string, toIndex: number) => void
   renameBlock: (blockId: string, name: string) => void
   setBlockColor: (blockId: string, color: string) => void
   setActiveBlock: (blockId: string) => void
@@ -399,6 +401,19 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const blocks = [...state.blocks]
       blocks.splice(index + 1, 0, copy)
       return { blocks, activeBlockId: copy.id }
+    }),
+
+  moveBlock: (blockId, toIndex) =>
+    set(state => {
+      const from = state.blocks.findIndex(b => b.id === blockId)
+      if (from < 0) return state
+      const clamped = Math.max(0, Math.min(toIndex, state.blocks.length))
+      const to = from < clamped ? clamped - 1 : clamped
+      if (to === from) return state
+      const blocks = [...state.blocks]
+      const [moved] = blocks.splice(from, 1)
+      blocks.splice(to, 0, moved)
+      return { blocks }
     }),
 
   renameBlock: (blockId, name) =>

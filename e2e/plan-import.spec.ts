@@ -7,7 +7,7 @@ import { planTrigger, planNames, switchToPlan } from './support/planMenu'
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 
 const tab = (page: Page, name: string) => page.locator(`button[title="${name}"]`)
-const tabCount = (page: Page) => page.locator('button[title="Add block"]').locator('xpath=preceding-sibling::*')
+const tabCount = (page: Page) => page.getByTestId('block-tab')
 const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHaveAccessibleName(`Plan: ${name}`)
 
 /** Add a goal of `amount` for the first item in the picker. */

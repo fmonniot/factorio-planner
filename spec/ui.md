@@ -62,7 +62,7 @@ The layout is designed for desktop widths; there is no mobile layout.
 
 ## TopBar
 
-`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs. On the right
+`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
 are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
 warnings), the rate unit toggle, three icon-only tool buttons (the [horizon](#research-horizon)
 flag, the [block graph](#block-graph) and the [tech tree](#technology-tree)), a divider (shown only
@@ -125,13 +125,28 @@ tab: full strength and 3px on the active tab, muted and 2px on the others. The c
 icon so item icons keep their own colours. The active tab also has a raised background and border
 and carries `aria-current`.
 
+The tabs sit in a horizontally scrolling strip (`block-tab-strip`): each tab keeps a minimum width
+of about 6rem (name truncated), and past that the strip scrolls with the mouse wheel; its scrollbar
+is hidden. The active tab is scrolled into view when it changes or a block is added. The `+` button
+stays outside the strip, always visible. While the strip overflows, an **All blocks** `▾` dropdown
+appears between the strip and `+`: one radio item per block (colour dot, icon, name; the active one
+checked), and choosing one activates that block and scrolls its tab into view. It is a navigation
+aid only, not a reorder surface.
+
 - Click a tab to make that block active. Only the active block is shown, but
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
 - `+` adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses.
-- Right-click a tab for a small menu: **Rename** (browser prompt; the only way to rename a block), **Duplicate** and **Delete**,
+- Drag a tab onto another to reorder the blocks: a blue line shows the insertion point on the half of
+  the tab under the pointer (no line where a drop would not move anything), and the dragged tab is
+  dimmed. The strip scrolls when the pointer nears its left or right edge. The active block stays
+  active, whichever tab moves. The order is the order of `blocks` in the plan and is saved with it;
+  like the other block actions it is not undoable.
+- Right-click a tab for a small menu, rendered in a portal at fixed position so the strip does not
+  clip it (it closes on Escape, outside click, scroll and window blur): **Rename** (browser prompt; the only way to rename a block), **Duplicate**,
+  **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
   plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
   share a colour, and like the other block actions it is not undoable.
@@ -141,7 +156,7 @@ and carries `aria-current`.
   are not. Like add, rename and delete, it is not undoable.
   Delete is disabled when only one block remains; deleting the active block
   activates the first remaining one.
-- All of the above are disabled unless game data is loaded (not while it is empty,
+- All of the above, including dragging and the **All blocks** dropdown, are disabled unless game data is loaded (not while it is empty,
   loading or failed to load).
 
 ### Block graph
