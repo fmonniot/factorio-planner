@@ -16,6 +16,39 @@ import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { countSubPlanContents } from './subPlanContents'
 import { ingredientTemperatureLabels } from './temperature'
 
+/** Solved items-per-run of the primary product; undefined unless strictly positive. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function solvedPrimaryPerRun(
+  primaryItemId: string | undefined,
+  solvedNode: SolvedNode | undefined,
+): number | undefined {
+  if (!primaryItemId || !solvedNode || !(solvedNode.throughput > 0)) return undefined
+  const out = solvedNode.outputRates[primaryItemId]
+  if (out === undefined || !(out > 0)) return undefined
+  const v = out / solvedNode.throughput
+  return Number.isFinite(v) ? v : undefined
+}
+
+/**
+ * Items of `primaryItemId` produced per recipe execution, productivity included.
+ * Derived from the solved node when available (so it follows modules and
+ * productivity); otherwise from the recipe's declared product amounts.
+ * Converts the stored pin (executions/min) to the primary product's rate.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function primaryItemPerRun(
+  recipe: GameData['recipes'][string],
+  primaryItemId: string | undefined,
+  solvedNode: SolvedNode | undefined,
+): number {
+  const solved = solvedPrimaryPerRun(primaryItemId, solvedNode)
+  if (solved !== undefined) return solved
+  const declared = recipe.products
+    .filter(p => p.itemId === primaryItemId)
+    .reduce((sum, p) => sum + (p.amount ?? 0) * (p.probability ?? 1), 0)
+  return declared > 0 ? declared : 1
+}
+
 // ---------------------------------------------------------------------------
 // RecipeRow
 // ---------------------------------------------------------------------------
@@ -76,6 +109,9 @@ export function RecipeRow({
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
+  // Last positive solved items-per-run, so the pin factor (and the pin input's
+  // key) stays stable when a later solve zeroes this node.
+  const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
   const indentPx = depth * 16
   const [editMachineOpen, setEditMachineOpen] = useState(false)
@@ -250,6 +286,9 @@ export function RecipeRow({
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
+  const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
+  if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
+  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined)
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
@@ -290,12 +329,13 @@ export function RecipeRow({
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
-  // `pinnedRate` is stored per minute; the input shows it in the current unit.
-  // This conversion and the `/ 60` in the input's defaultValue are inverses: keep them in sync.
+  // `pinnedRate` is stored as executions per minute; the input shows the primary
+  // product's rate in the current unit. This conversion and the `* primaryPerRun / 60`
+  // in the input's defaultValue are inverses: keep them in sync.
   function handlePinnedRateChange(raw: string) {
     const v = parseFloat(raw)
     if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, rateUnit === 'min' ? v : v * 60)
+      updateNodePinnedRate(planNode.id, (rateUnit === 'min' ? v : v * 60) / primaryPerRun)
     }
   }
 
@@ -421,9 +461,9 @@ export function RecipeRow({
                     min="0.001"
                     step="any"
                     aria-label="Pinned rate"
-                    // per-minute -> display unit (inverse of handlePinnedRateChange)
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) / 60, rateUnit)}
-                    key={`${planNode.id}-pin-${rateUnit}`}
+                    // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
+                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, rateUnit)}
+                    key={`${planNode.id}-pin-${rateUnit}-${primaryPerRun.toFixed(6)}`}
                     onChange={e => handlePinnedRateChange(e.target.value)}
                     className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
                   />

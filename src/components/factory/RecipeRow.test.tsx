@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { RecipeRow } from './RecipeRow'
+import { RecipeRow, primaryItemPerRun } from './RecipeRow'
 import { countSubPlanContents } from './subPlanContents'
 import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -414,9 +414,11 @@ describe('T12 — Pin rate UI', () => {
     }
   })
 
-  it('shows the per-minute pinned rate in the current unit', () => {
+  // Electrolysis makes 6 hydrogen per run (60 / 10 in electrolysisSolved), so the
+  // pin is displayed and typed as the hydrogen rate and stored as runs per minute.
+  it('shows the pinned runs as the primary product rate in the current unit', () => {
     useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(120)
+    const pinned = setupElectrolysis(20) // 20 runs/min * 6 hydrogen = 120/min
     const { unmount } = renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
     expect(screen.getByLabelText('Pinned rate')).toHaveValue(120)
     unmount()
@@ -425,7 +427,7 @@ describe('T12 — Pin rate UI', () => {
     expect(screen.getByLabelText('Pinned rate')).toHaveValue(2)
   })
 
-  it('changing pinned input in /min mode stores the typed value as is', () => {
+  it('typing a product rate in /min mode stores runs = rate / items per run', () => {
     useUiStore.setState({ rateUnit: 'min' })
     const pinned = setupElectrolysis(1)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
@@ -433,11 +435,11 @@ describe('T12 — Pin rate UI', () => {
     fireEvent.change(input, { target: { value: '120' } })
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(120)
+      expect(updated.pinnedRate).toBeCloseTo(20) // 120 / 6
     }
   })
 
-  it('changing pinned input in /sec mode stores value * 60', () => {
+  it('typing a product rate in /sec mode stores value * 60 / items per run', () => {
     useUiStore.setState({ rateUnit: 'sec' })
     const pinned = setupElectrolysis(1)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
@@ -445,8 +447,54 @@ describe('T12 — Pin rate UI', () => {
     fireEvent.change(input, { target: { value: '5' } })
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(300) // 5 * 60
+      expect(updated.pinnedRate).toBeCloseTo(50) // 5 * 60 / 6
     }
+  })
+
+  it('a single-product amount-1 recipe shows the pin unchanged', () => {
+    useUiStore.setState({ rateUnit: 'min' })
+    const node: GameRecipeNode = { ...(ironPlateRecipeNode as GameRecipeNode), pinnedRate: 30 }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }], activeBlockId: block.id, history: {} })
+    renderRow({ planNode: node, solvedNode: { ...solvedNode, outputRates: { 'iron-plate': 30 } } })
+    expect(screen.getByLabelText('Pinned rate')).toHaveValue(30)
+  })
+
+  it('keeps the pin input mounted and its factor when the solve later zeroes the node', () => {
+    useUiStore.setState({ rateUnit: 'min' })
+    const pinned = setupElectrolysis(10)
+    const prod = { ...electrolysisSolved, outputRates: { hydrogen: 66 } } // productivity: 6.6 per run
+    const { rerender } = renderRow({ planNode: pinned, solvedNode: prod })
+    const input = screen.getByLabelText('Pinned rate')
+    fireEvent.change(input, { target: { value: '66' } })
+    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
+    rerender(
+      <RecipeDndProvider><table><tbody>
+        <RecipeRow
+          solvedNode={{ ...prod, throughput: 0 }} planNode={pinned} isFirst={false} isLast={false} depth={0}
+          gameData={mockGameData} rootPlan={rootPlan} parentSubPlanId={rootPlan.id} nodeIndex={0}
+        />
+      </tbody></table></RecipeDndProvider>,
+    )
+    expect(screen.getByLabelText('Pinned rate')).toBe(input)
+    expect(input).toHaveValue(66)
+  })
+
+  describe('primaryItemPerRun', () => {
+    const elec = mockGameData.recipes['electrolysis']
+    it('uses the solved output rate over throughput (productivity included)', () => {
+      expect(primaryItemPerRun(elec, 'hydrogen', { ...electrolysisSolved, outputRates: { hydrogen: 66 } })).toBeCloseTo(6.6)
+    })
+    it('falls back to declared amounts when throughput is 0 or unsolved', () => {
+      expect(primaryItemPerRun(elec, 'hydrogen', { ...electrolysisSolved, throughput: 0 })).toBe(6)
+      expect(primaryItemPerRun(elec, 'hydrogen', undefined)).toBe(6)
+    })
+    it('ignores a zero solved output rate and uses declared amounts', () => {
+      expect(primaryItemPerRun(elec, 'hydrogen', { ...electrolysisSolved, outputRates: { hydrogen: 0 } })).toBe(6)
+    })
+    it('falls back to 1 when the item is not a declared product', () => {
+      expect(primaryItemPerRun(elec, undefined, undefined)).toBe(1)
+    })
   })
 })
 

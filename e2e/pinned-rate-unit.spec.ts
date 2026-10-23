@@ -5,9 +5,11 @@ import { clickRowAction } from './support/rowMenu'
 import { openAppMenu } from './support/appMenu'
 
 /**
- * `pinnedRate` is stored in executions per minute. Typing 120 in /min mode
- * must pin the recipe at 120 executions/min (not 2), and switching to /sec
- * must show the same pin as 2.00.
+ * `pinnedRate` is stored in executions per minute and shown as the primary
+ * product's rate. The fixture's primary product (sodium hydroxide) is made 1 per
+ * run, so typing 120 in /min mode pins the recipe at 120 executions/min (not 2),
+ * and switching to /sec must show the same pin as 2.00. The per-run conversion
+ * for amounts != 1 is covered in `RecipeRow.test.tsx`.
  */
 test('pinned rate is stored per minute and shown in the current unit', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/pin-recipe-not-working.json'))

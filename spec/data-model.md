@@ -580,7 +580,9 @@ interface SubPlanNode {
   node that has no `kind`, so plans saved before sub-plans existed still load.
 - **`pinnedRate`.** The solver uses it as an equality constraint on the recipe's
   throughput (executions per minute). The preprocess coerces `0` to `undefined`
-  so a plan saved with a zero pin still loads.
+  so a plan saved with a zero pin still loads. The unit is runs, not items: the UI
+  shows and edits the primary product's rate and converts with that product's
+  items per run.
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Display-only override of the recipe's main product: it
