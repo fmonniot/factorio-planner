@@ -125,9 +125,10 @@ tab: full strength and 3px on the active tab, muted and 2px on the others. The c
 icon so item icons keep their own colours. The active tab also has a raised background and border
 and carries `aria-current`.
 
-The tabs sit in a horizontally scrolling strip (`block-tab-strip`): each tab keeps a minimum width
-of about 6rem (name truncated), and past that the strip scrolls with the mouse wheel; its scrollbar
-is hidden. The active tab is scrolled into view when it changes or a block is added. The `+` button
+The tabs sit in a horizontally scrolling strip (`block-tab-strip`): each tab is at least about 6rem
+wide and at most `max-w-44`, where a longer name truncates (tabs never shrink); the strip scrolls with
+the mouse wheel (line and page wheel modes are converted to pixels) when the tabs do not fit; its
+scrollbar is hidden. The active tab is scrolled into view when it changes, is added or moved. The `+` button
 stays outside the strip, always visible. While the strip overflows, an **All blocks** `▾` dropdown
 appears between the strip and `+`: one radio item per block (colour dot, icon, name; the active one
 checked), and choosing one activates that block and scrolls its tab into view. It is a navigation
@@ -143,7 +144,10 @@ aid only, not a reorder surface.
   the tab under the pointer (no line where a drop would not move anything), and the dragged tab is
   dimmed. The strip scrolls when the pointer nears its left or right edge. The active block stays
   active, whichever tab moves. The order is the order of `blocks` in the plan and is saved with it;
-  like the other block actions it is not undoable.
+  like the other block actions it is not undoable. Known limitations: some Firefox versions may not
+  start a drag from a button inside a draggable ancestor (Mozilla bug 568313), so use **Move left** /
+  **Move right** in the context menu there; Safari reports no `relatedTarget` on `dragleave`, so the
+  drop line may flicker when crossing between a tab's children.
 - Right-click a tab for a small menu, rendered in a portal at fixed position so the strip does not
   clip it (it closes on Escape, outside click, scroll and window blur): **Rename** (browser prompt; the only way to rename a block), **Duplicate**,
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,

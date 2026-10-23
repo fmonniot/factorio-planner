@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { zoomAt, panBy, fitTransform, transformCss, MAX_SCALE, MIN_SCALE, FIT_MIN_SCALE, wheelZoomFactor } from './viewTransform'
+import { zoomAt, panBy, fitTransform, transformCss, MAX_SCALE, MIN_SCALE, FIT_MIN_SCALE, wheelZoomFactor, wheelDeltaPx } from './viewTransform'
 
 describe('zoomAt', () => {
   it('keeps the content point under the cursor fixed', () => {
@@ -64,5 +64,14 @@ describe('wheelZoomFactor', () => {
   it('clamps huge deltas per event', () => {
     expect(wheelZoomFactor(100000, 0)).toBe(wheelZoomFactor(200, 0))
     expect(wheelZoomFactor(-5, 2)).toBe(wheelZoomFactor(-200, 0))
+  })
+})
+
+describe('wheelDeltaPx', () => {
+  it('converts lines and pages to pixels and leaves pixels alone', () => {
+    expect(wheelDeltaPx(3, 0)).toBe(3)
+    expect(wheelDeltaPx(3)).toBe(3)
+    expect(wheelDeltaPx(3, 1)).toBe(48)
+    expect(wheelDeltaPx(-1, 2)).toBe(-400)
   })
 })

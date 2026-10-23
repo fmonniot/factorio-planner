@@ -8,6 +8,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 // ---------------------------------------------------------------------------
 
 import { Icon } from './Icon'
+import { wheelDeltaPx } from '../utils/viewTransform'
 import { withAlpha, BLOCK_PALETTE } from '../data/blockColors'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 
@@ -279,7 +280,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
         onContextMenu={handleContextMenu}
         disabled={disabled}
         className={`
-          relative flex items-center gap-1.5 min-w-0 max-w-44 h-8 pl-2 pr-3 rounded-t text-xs border border-b-0
+          relative flex items-center gap-1.5 min-w-0 max-w-44 flex-1 h-8 pl-2 pr-3 rounded-t text-xs border border-b-0
           transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed
           ${isActive
             ? 'bg-gray-800 border-gray-700 text-gray-100'
@@ -319,7 +320,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
 // ---------------------------------------------------------------------------
 
 /** Whether a horizontally scrolling box holds more than it shows. Attach `ref` to the box. */
-function useHorizontalOverflow<T extends HTMLElement>() {
+function useHorizontalOverflow<T extends HTMLElement>(contentKey: string) {
   const ref = useRef<T>(null)
   const [overflowing, setOverflowing] = useState(false)
 
@@ -330,8 +331,9 @@ function useHorizontalOverflow<T extends HTMLElement>() {
     setOverflowing(prev => (prev === over ? prev : over))
   }
 
-  // Tab names and counts change the content without resizing the box, so re-measure after every render.
-  useLayoutEffect(measure)
+  // Tab names and counts change the content without resizing the box, so re-measure when `contentKey` (names and count) changes.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useLayoutEffect(measure, [contentKey])
 
   useEffect(() => {
     const el = ref.current
@@ -404,17 +406,18 @@ export function BlockTabs() {
   // loaded; until then the tabs are read-only so no edit lands in the wrong plan.
   const editable = useGameDataStore(s => s.status.type === 'loaded')
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const { ref: scrollerRef, overflowing } = useHorizontalOverflow<HTMLDivElement>()
+  const { ref: scrollerRef, overflowing } = useHorizontalOverflow<HTMLDivElement>(JSON.stringify(blocks.map(b => b.name)))
 
-  // Keep the active tab visible when it changes or tabs are added.
+  // Keep the active tab visible when it changes, tabs are added, or tabs are reordered.
+  const order = blocks.map(b => b.id).join(',')
   useEffect(() => {
     const tab = Array.from(scrollerRef.current?.querySelectorAll<HTMLElement>('[data-block-id]') ?? [])
       .find(el => el.dataset.blockId === activeBlockId)
     tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-  }, [activeBlockId, blocks.length, scrollerRef])
+  }, [activeBlockId, order, scrollerRef])
 
   function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
-    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += e.deltaY
+    if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += wheelDeltaPx(e.deltaY, e.deltaMode)
   }
 
   // Scroll while a tab is dragged near either edge of the strip.

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, createEvent } from '@testing-library/react'
+import { render, screen, fireEvent, createEvent, act } from '@testing-library/react'
 import { BlockTabs } from './BlockTabs'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useGameDataStore } from '../store/gameDataStore'
@@ -173,5 +173,30 @@ describe('BlockTabs reorder and overflow', () => {
     seed()
     render(<BlockTabs />)
     expect(screen.queryByTitle('All blocks')).toBeNull()
+  })
+
+  it('scrolls the strip by line-mode wheel deltas converted to pixels', () => {
+    seed()
+    render(<BlockTabs />)
+    const strip = screen.getByTestId('block-tab-strip')
+    strip.scrollLeft = 0
+    fireEvent.wheel(strip, { deltaY: 3, deltaMode: 1 })
+    expect(strip.scrollLeft).toBe(48)
+  })
+
+  it('makes the tab button fill its wrapper', () => {
+    seed()
+    render(<BlockTabs />)
+    expect(screen.getByTitle('A')).toHaveClass('flex-1')
+  })
+
+  it('re-reveals the active tab after a reorder', () => {
+    const { a } = seed()
+    const spy = vi.fn()
+    Element.prototype.scrollIntoView = spy
+    render(<BlockTabs />)
+    spy.mockClear()
+    act(() => { useBlockStore.getState().moveBlock(a.id, 2) })
+    expect(spy).toHaveBeenCalled()
   })
 })
