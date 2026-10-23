@@ -16,6 +16,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Prevent adding a recipe already present in the block.** `blockStore.addNode` accepts a second node for the same recipe; the solver zeroes the later duplicate and warns.
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
+- [ ] **A pinned rate counts recipe runs, not items.** `pinnedRate` is solved as the recipe's iteration count (`pin_*` equality in `src/solver/solve.ts`), so a recipe with two outputs makes twice the pinned rate of its product. To get the wanted item rate the user must halve the pin by hand. The pin should be expressed in the product's rate, or converted by the product count.
 
 ## Sharing
 
