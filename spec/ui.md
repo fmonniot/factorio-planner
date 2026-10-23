@@ -595,7 +595,10 @@ clamped to the viewport) with:
   least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
   becomes a number input for the pinned rate: the primary product's rate in the
   current rate unit. It is stored as executions per minute (typed rate divided by
-  the primary product's items per run, productivity included).
+  the primary product's items per run, productivity included). When the node is
+  unsolved or solved at zero throughput, the last positive solved factor is
+  reused (declared product amounts only if there never was one), so the input
+  does not remount or change value.
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
 - **Remove recipe** (red).

@@ -16,6 +16,19 @@ import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { countSubPlanContents } from './subPlanContents'
 import { ingredientTemperatureLabels } from './temperature'
 
+/** Solved items-per-run of the primary product; undefined unless strictly positive. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function solvedPrimaryPerRun(
+  primaryItemId: string | undefined,
+  solvedNode: SolvedNode | undefined,
+): number | undefined {
+  if (!primaryItemId || !solvedNode || !(solvedNode.throughput > 0)) return undefined
+  const out = solvedNode.outputRates[primaryItemId]
+  if (out === undefined || !(out > 0)) return undefined
+  const v = out / solvedNode.throughput
+  return Number.isFinite(v) ? v : undefined
+}
+
 /**
  * Items of `primaryItemId` produced per recipe execution, productivity included.
  * Derived from the solved node when available (so it follows modules and
@@ -28,10 +41,8 @@ export function primaryItemPerRun(
   primaryItemId: string | undefined,
   solvedNode: SolvedNode | undefined,
 ): number {
-  if (primaryItemId && solvedNode && solvedNode.throughput > 0) {
-    const out = solvedNode.outputRates[primaryItemId]
-    if (out !== undefined) return out / solvedNode.throughput
-  }
+  const solved = solvedPrimaryPerRun(primaryItemId, solvedNode)
+  if (solved !== undefined) return solved
   const declared = recipe.products
     .filter(p => p.itemId === primaryItemId)
     .reduce((sum, p) => sum + (p.amount ?? 0) * (p.probability ?? 1), 0)
@@ -98,6 +109,9 @@ export function RecipeRow({
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
+  // Last positive solved items-per-run, so the pin factor (and the pin input's
+  // key) stays stable when a later solve zeroes this node.
+  const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
   const indentPx = depth * 16
   const [editMachineOpen, setEditMachineOpen] = useState(false)
@@ -272,7 +286,9 @@ export function RecipeRow({
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
-  const primaryPerRun = primaryItemPerRun(recipe, primaryItemId, solvedNode)
+  const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
+  if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
+  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined)
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
