@@ -24,6 +24,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Planning features
 
 - [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
+- [ ] **Limit a connection from the ingredient pane.** When an item is focused, right-click its connection bar graph and choose **Limit rate** (next to **Delete**) to cap that connection's rate without going to the block graph.
 - [ ] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md).
 - [ ] **Isolate a subfactory from the rest of the plan.** Sharing inputs and outputs between subfactories is the default and usually the right choice, but sometimes a subfactory should stand alone. Add an option that keeps a subfactory's imports and exports to itself: its goals and surplus do not feed other blocks, and other blocks' connections do not supply it, so it solves as a self-contained factory.
 - [ ] **Machine picker: beyond the research horizon.** Add a collapsed "Beyond research horizon" section so a row with no machine in the horizon can pick one explicitly (the row is then flagged).
