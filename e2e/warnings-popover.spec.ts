@@ -40,7 +40,7 @@ test.describe('Warnings popover', () => {
     await expect(page.getByText(/Fill Ammonia barrel.*appears on 2 nodes/)).toBeVisible()
 
     // Hint line
-    await expect(page.getByText(/Remove one of the duplicate nodes/)).toBeVisible()
+    await expect(page.getByText(/Remove the duplicate nodes/)).toBeVisible()
   })
 
   test('popover closes when clicking outside', async ({ page }) => {

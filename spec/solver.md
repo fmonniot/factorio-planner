@@ -21,7 +21,7 @@ Entry point: `solveAll(blocks, gameData, cache?)` in [src/solver/index.ts](../sr
 
 Per block, `solveBlock` runs:
 
-1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted).
+1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted). The first node in flatten order (a plan's own nodes before its sub-plans, depth-first) is authoritative for effects, pin and byproduct settings; later duplicates solve to zero throughput, machines and power, with empty rates.
 2. `computeNodeEffects` — module + beacon bonuses per node ([src/solver/effects.ts](../src/solver/effects.ts)).
 3. `buildClassifiedSystem` — net stoichiometry `S[item][recipe]` with productivity applied, and item classification ([src/solver/build.ts](../src/solver/build.ts)).
 4. `no-recipe` check on goals.
@@ -99,7 +99,7 @@ A goal with no producer in the plan has no row in `S` and therefore no LP constr
 
 Warnings (`SolverWarning` in [src/data/types.ts](../src/data/types.ts)):
 
-- **`duplicate-recipe`** — the same `recipeId` is used by more than one node; emitted before the LP, with the count.
+- **`duplicate-recipe`** — the same `recipeId` is used by more than one node; emitted before the LP, with the count. The first node in flatten order is authoritative; later duplicates solve to zero.
 - **`no-recipe`** — a goal item has no positive coefficient in `S` (no producer in the plan); emitted before the LP. Checked before `discard` policies are applied.
 - **`infeasible-pins`** — the LP is infeasible and pins are present.
 - **`overconstrained`** — one or more intermediates end with positive net flow at the LP optimum; lists each surplus item and rate.

@@ -864,3 +864,35 @@ describe('solve — extraction recipes', () => {
     expect(rate(result.unsatisfied, 'iron-ore')).toBe(0)
   })
 })
+
+describe('solve — duplicate recipe nodes', () => {
+  const machine = () => ({
+    id: 'asm', name: 'asm', type: 'assembling-machine' as const, craftingSpeed: 2, energyUsageKw: 100,
+    energyType: 'electric' as const, drainKw: 0, moduleSlots: 2, allowedEffects: ['speed' as const],
+    craftingCategories: ['crafting'], iconPath: '', hidden: false,
+  })
+  const data = () => makeGameData({
+    recipes: { 'iron-plate': structuredClone(ironRecipe) },
+    machines: { asm: machine() },
+    defaultMachines: { crafting: 'asm' },
+  })
+  const goalOf = (rate: number): ProductionGoal[] => [{ id: 'g1', itemId: 'iron-plate', rate }]
+
+  it('uses the first node and zeroes the later duplicate', () => {
+    const single = solve({ goals: goalOf(60), nodes: [pinned('a', 'iron-plate', 30)] }, data())
+    const result = solve(
+      { goals: goalOf(60), nodes: [pinned('a', 'iron-plate', 30), pinned('b', 'iron-plate', 90)] },
+      data(),
+    )
+    const [first, second] = result.nodes
+    expect(first.throughput).toBeCloseTo(single.nodes[0].throughput, 6)
+    expect(second.recipeNodeId).toBe('b')
+    expect(second.throughput).toBe(0)
+    expect(second.machineCountCeil).toBe(0)
+    expect(second.powerKw).toBe(0)
+    expect(second.inputRates).toEqual({})
+    expect(second.outputRates).toEqual({})
+    expect(result.nodes.reduce((sum, n) => sum + n.powerKw, 0)).toBeCloseTo(single.nodes[0].powerKw, 6)
+    expect(result.warnings).toContainEqual({ type: 'duplicate-recipe', recipeId: 'iron-plate', count: 2 })
+  })
+})
