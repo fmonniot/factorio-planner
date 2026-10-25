@@ -15,6 +15,7 @@ import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
+import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { SummaryPane } from './SummaryPane'
 import type { StripAction } from './SummaryDetailStrip'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
@@ -123,6 +124,7 @@ export function FactorySummary() {
   const blocks = useBlockStore(s => s.blocks)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
   const addBlockForItem = useBlockStore(s => s.addBlockForItem)
@@ -136,6 +138,8 @@ export function FactorySummary() {
     | null
   >(null)
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
+  // The limit editor outlives the menu, which closes itself after a selection.
+  const [limitEditor, setLimitEditor] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
   const products: Product[] = activeBlock?.products ?? []
@@ -338,7 +342,7 @@ export function FactorySummary() {
         />
 
         {/* Ingredients: select a slot for Find recipe / Receive from… / Forbid imports; right-click
-            it for the connection menu. Remove a connection by right-clicking its segment. */}
+            it for the connection menu. Limit or remove a connection by right-clicking its segment. */}
         <SummaryPane
           key={`ingredients-${activeBlock?.id}`}
           pane="ingredients"
@@ -415,7 +419,12 @@ export function FactorySummary() {
       })()}
 
       {connectionChipMenu && (() => {
+        const hasLimit = connections.find(c => c.id === connectionChipMenu.connectionId)?.maxRate !== undefined
         const actions: RowAction[] = []
+        actions.push({
+          label: hasLimit ? 'Change limit…' : 'Limit rate…',
+          onSelect: () => setLimitEditor(connectionChipMenu),
+        })
         actions.push({
           label: 'Remove connection',
           danger: true,
@@ -427,6 +436,21 @@ export function FactorySummary() {
             y={connectionChipMenu.y}
             actions={actions}
             onClose={() => setConnectionChipMenu(null)}
+          />
+        )
+      })()}
+
+      {limitEditor && (() => {
+        const maxRate = connections.find(c => c.id === limitEditor.connectionId)?.maxRate
+        return (
+          <ConnectionLimitEditor
+            key={`${limitEditor.connectionId}-${rateUnit}`}
+            x={limitEditor.x}
+            y={limitEditor.y}
+            initial={maxRate !== undefined ? fmt(maxRate) : ''}
+            rateUnit={rateUnit}
+            onCommit={perMin => setConnectionMaxRate(limitEditor.connectionId, perMin)}
+            onClose={() => setLimitEditor(null)}
           />
         )
       })()}

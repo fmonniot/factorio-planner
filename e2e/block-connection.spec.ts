@@ -85,4 +85,34 @@ test.describe('block connections', () => {
     await expect(detail(page, 'Ingredients').getByTestId('summary-key-entry').filter({ hasText: 'unused' })).toHaveAttribute('title', /Not used/)
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toBeVisible()
   })
+
+  test('a connection can be limited from the ingredient pane', async ({ page }) => {
+    await setup(page)
+    await connectPlatesFromPlatesBlock(page)
+    const limit = page.getByRole('spinbutton', { name: 'Connection limit' })
+
+    await sourceSegment(page).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Limit rate…' }).click()
+    await limit.fill('10')
+    await page.keyboard.press('Enter')
+    await expect(limit).toHaveCount(0)
+    await expect(sourceEntry(page)).toContainText('10.0')
+    await expect(importEntry(page)).toContainText('20.0')
+
+    // Escape leaves the limit as it was.
+    await sourceSegment(page).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Change limit…' }).click()
+    await limit.fill('5')
+    await page.keyboard.press('Escape')
+    await expect(limit).toHaveCount(0)
+    await expect(sourceEntry(page)).toContainText('10.0')
+
+    // Emptying the field gives the plates back.
+    await sourceSegment(page).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Change limit…' }).click()
+    await limit.fill('')
+    await page.keyboard.press('Enter')
+    await expect(sourceEntry(page)).toContainText('30.0')
+    await expect(importEntry(page)).toHaveCount(0)
+  })
 })
