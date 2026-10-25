@@ -1,8 +1,25 @@
 # Initiative: Requests between blocks — PR 1b plan
 
-Status: Future
+Status: Shipped
 
 Design saved from the first planning pass; re-check it against the code as shipped by PR 1a before implementing. Decisions taken: two PRs (1a the rename, then 1b the requests); keep today's shortfall behaviour (`pending` unchanged; the requester served first absorbs the shortfall, settled in phase 2); keep the goal labels ("Add goal", "Goal target rate", "Target: …", "Remove goal") until phase 2; a product change that closes a request cycle is allowed after confirmation and the solver treats every request in the cycle as take existing (`request-loop`).
+
+## As shipped
+
+The implementation followed a revised plan written after PR 1a landed, which superseded this draft. Corrections to the draft:
+
+- `closesRequestLoop` changed meaning: its edges follow the source's products, not `pull`.
+- `StepContext.goals` and `solveStep`'s use of it already existed; only `pull` became `requests`.
+- `findUnknownPlanIds` and the unknown-item e2e check needed no change.
+- `GoalInfo.target` became `ProductInfo.extra` (not an existing field).
+- Loader `rejects` cases flipped: product `extraRate: 0`, legacy `rate: 0` and a missing `extraRate` now load.
+- In the e2e removal test the consumer's plate slot is not `limited` afterwards (a zero-rate flow draws no segment).
+- `solverStore.test.ts` "re-solves only the block whose goal changed" was rewritten: a consumer's request drives its source.
+- `summary-many-items.json` is unchanged; its connections became requests.
+- The item picker's amount became optional in 1b.
+- `ProductChangeEffect` carries `blocker?`; removal skips already-ignored connections.
+- `removeProduct` undo restores the old index; undo of a removed request is cycle-guarded.
+
 
 ## Hand-off from PR 1a
 - **Migration ordering.** The connection rules belong in `AppStateSchema`'s preprocess after mapping every raw block through `migrateBlock`, so products hoisted from sub-plans are visible.

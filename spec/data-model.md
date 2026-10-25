@@ -477,7 +477,7 @@ interface Block {
   id: string
   name: string
   color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
-  products: Product[]        // default []; what the block makes for outside the plan
+  products: Product[]        // default []; what the block makes; other blocks may request them
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
   inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
@@ -488,17 +488,16 @@ interface BlockConnection {
   itemId: string
   fromBlockId: string  // block whose net output of itemId supplies this block
   maxRate?: number     // items/min, > 0: the most the consumer takes; absent = no limit
-  pull?: boolean       // true (the only stored value): the consumer's demand drives the source's goal for itemId; absent = push
 }
 
 interface Product {
   id: string          // uuid
   itemId: string
-  extraRate: number   // > 0, items per minute
+  extraRate?: number  // > 0, items per minute: extra output beyond what other blocks request; absent = only what is requested
 }
 ```
 
-The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate: extraRate }`, built when the block is flattened (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
+A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate }` with `rate = extraRate ?? 0` plus what other blocks request, built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
 
 **Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
 Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
@@ -507,6 +506,8 @@ the block (goals become products, deduplicated by `itemId` with rates summed; no
 rates dropped; no-import items deduplicated), and strips them from the sub-plans. A
 non-empty `products` on the input wins over legacy `goals`, which win over goals hoisted from
 sub-plans. Saved plans are written back in the new shape on the next save.
+
+**Legacy pulls.** Earlier plans stored `pull: true` on a connection whose consumer's demand drove the source. `AppStateSchema` preprocesses the whole state with `migrateLegacyPulls` (after `assignMissingBlockColors`): it first runs `migrateBlock` on a shallow copy of every raw block, so hoisted goals already exist as products, then, for every `pull: true` connection that the solver would have applied, adds a product for the item (no `extraRate`) to its source, whether or not the source has a recipe for it (a former pull from a block that could not make the item now shows as short in that block). A pull is left alone (the key is simply dropped on load) when it repeats an earlier `(source, item)` pair of the consumer, points at the consumer itself or a missing block, or when its source already has a product for the item or receives the item itself (one of its connections for the item comes from another existing block). The raw input is never mutated and the migration is idempotent. `BlockConnectionSchema` has no `pull` field; Zod strips it.
 
 **Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
 
@@ -530,13 +531,7 @@ connections and reports them as `missing-source` / `self`. Plans saved before
 connections existed have no `inputConnections` field and load with `[]`. A connection may carry
 an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
 no limit (`0` loads as an absent key; unlike `pinnedRate`, whose `0` loads as a present `undefined`); clearing a limit deletes the key; a duplicated
-block or plan copies it. `pull` works the same way (`false` or absent loads as an absent key;
-turning it off deletes the key): a pull connection makes the source produce what the consumer needs
-(see [solver.md](solver.md#pull-connections)). The store refuses to create a pull that would close a cycle of
-pulls (a source that already pulls, directly or through other blocks, from the consumer), when adding
-a connection, on redo of an add and on undo of a switch to push; it does not restrict pushes. The check counts every pull connection, including ones the solver would
-ignore (the store has no game data, and whether a pull is ignored changes as recipes are edited), so a
-legal pull can be refused when the existing back pull is itself ignored. How the
+block or plan copies it. A connection stores no kind: it is a *request* when its item is one of the source's products and *take existing* otherwise (see [solver.md](solver.md#requests)). The store refuses to create a request that would close a cycle of requests (a source that already requests, directly or through other blocks, from the consumer), when adding a connection, on redo of an add and on undo of a removal; it does not restrict takes. The check counts every connection to a product of its source, including ones the solver would ignore (the store does not run the solver, and whether a request is ignored changes as recipes are edited), so a legal request can be refused when the existing back request is itself ignored. Product commands carry no such guard: making an item a product can turn takes into requests that close a cycle, which the UI confirms first; undo and redo of product commands only change the active block and apply without asking. `removeProduct` undo restores the product at its old index, because the first product of an item receives the requested amount. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan
@@ -690,15 +685,17 @@ interface ConnectionFlow {
   toBlockId: string
   itemId: string
   available: number   // items/min this consumer could take: the source's unclaimed offer, limited by maxRate
-  capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`; for an applied pull, true only when the limit cut the demand and the source offered at least the limit)
+  capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`; for a request, true only when the limit cut the request and the source offered at least the limit)
   rate: number        // items/min actually delivered
   status: ConnectionFlowStatus
   loop?: true         // both ends are members of one loop
-  demand?: number     // pull applied: items/min the consumer asked the source to make (may be 0)
-  pullIgnored?: PullIgnoredReason  // connection is marked pull but behaves as a push
+  kind: ConnectionKind             // 'request' (the item is a product of the source and the request applies) | 'take'
+  requested?: number               // present iff kind is 'request': items/min the consumer asked the source to make (may be 0)
+  requestIgnored?: RequestIgnoredReason  // the item is a product of the source but the request is not applied; the connection takes existing output
 }
 
-type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives' | 'duplicate'
+type ConnectionKind = 'request' | 'take'
+type RequestIgnoredReason = 'request-loop' | 'source-receives' | 'duplicate'
 
 type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 ```
@@ -707,9 +704,9 @@ type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'se
 supply of the item; `limited` means the consumer takes everything the connection
 allows (the source's offer or its `maxRate`; `capped` tells which) and still imports
 the item. `missing-source` and `self` flows have `rate` and
-`available` 0. `demand` is present iff the pull is applied; `pullIgnored` iff `pull` is set but not
-applied, for connections with an existing source other than the block itself (`duplicate`: the
-connection repeats an earlier (source, item) pair of the same block, which only imported JSON can produce).
+`available` 0. `kind` is `'request'` iff `requested` is present; `requestIgnored` is present iff the item is a product of the
+source but the request is not applied (and then `kind` is `'take'`), for connections with an existing source other than
+the block itself (`duplicate`: the connection repeats an earlier (source, item) pair of the same block, which only imported JSON can produce).
 
 What triggers each warning is described in [solver.md](solver.md); how the UI
 presents them is in [ui.md](ui.md).
