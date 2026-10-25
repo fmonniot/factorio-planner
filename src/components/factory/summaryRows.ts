@@ -1,5 +1,5 @@
 import type { BlockConnection } from '../../data/types'
-import { surplusTolerance } from '../../solver'
+import { surplusTolerance } from '../../solver/index'
 import { fmtRate } from './ItemTile'
 
 // Pure grouping for the summary panes: one row per item, so an item's tile and

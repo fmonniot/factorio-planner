@@ -86,4 +86,8 @@ describe('isLeftover', () => {
   it('scales the tolerance with the gross flow', () => {
     expect(isLeftover(1e-3, 1e9)).toBe(false)
   })
+  it('gates on the relative tolerance even when the rate would display', () => {
+    expect(isLeftover(5, 1e9)).toBe(false)
+    expect(isLeftover(5, 1e6)).toBe(true)
+  })
 })

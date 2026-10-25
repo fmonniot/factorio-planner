@@ -414,6 +414,37 @@ describe('FactorySummary — byproduct noise', () => {
   })
 })
 
+describe('FactorySummary — byproduct relative tolerance', () => {
+  const slagResult = (made: number, used: number): SolverResult => ({
+    nodes: [
+      {
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 65, slag: made },
+        throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      },
+      {
+        recipeNodeId: 'n2', inputRates: { slag: used }, outputRates: {},
+        throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      },
+    ],
+    unsatisfied: [],
+    warnings: [],
+  })
+  const renderWith = (result: SolverResult) => {
+    setupStore([ironGoal])
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: result, _setStatus: () => {} })
+    render(<FactorySummary />)
+  }
+
+  it('hides a displayable 5/min leftover on a huge gross flow', () => {
+    renderWith(slagResult(1e9, 1e9 - 5))
+    expect(within(pane('Byproducts')).queryByRole('button', { name: /^Slag, / })).not.toBeInTheDocument()
+  })
+  it('shows the same 5/min leftover on a small gross flow', () => {
+    renderWith(slagResult(100, 95))
+    expect(within(pane('Byproducts')).getByRole('button', { name: /^Slag, / })).toBeInTheDocument()
+  })
+})
+
 describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
