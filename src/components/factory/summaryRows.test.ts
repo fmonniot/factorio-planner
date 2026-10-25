@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import type { BlockConnection } from '../../data/types'
-import { ingredientRows, byproductRows } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 
 function conn(overrides: Partial<BlockConnection> = {}): BlockConnection {
   return { id: 'c1', itemId: 'iron-ore', fromBlockId: 'b1', ...overrides } as BlockConnection
@@ -68,5 +68,22 @@ describe('byproductRows', () => {
   it('lists leftovers first', () => {
     const rows = byproductRows([{ itemId: 'b', ratePerMin: 1 }], ['a'])
     expect(rows.map(r => r.itemId)).toEqual(['b', 'a'])
+  })
+})
+
+describe('isLeftover', () => {
+  it('rejects LP noise relative to a large gross flow', () => {
+    expect(isLeftover(1.2e-6, 2000)).toBe(false)
+    expect(isLeftover(1.6e-6, 2000)).toBe(false)
+  })
+  it('rejects a rate that displays as 0.00/min and keeps one that does not', () => {
+    expect(isLeftover(0.004, 0)).toBe(false)
+    expect(isLeftover(0.006, 0)).toBe(true)
+  })
+  it('keeps a real byproduct', () => {
+    expect(isLeftover(210.7, 5000)).toBe(true)
+  })
+  it('scales the tolerance with the gross flow', () => {
+    expect(isLeftover(1e-3, 1e9)).toBe(false)
   })
 })

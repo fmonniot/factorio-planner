@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer, surplusTolerance } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -539,6 +539,19 @@ describe('netBalance', () => {
     ])
     expect(net.get('a')).toBe(-1)
     expect(net.get('b')).toBe(4)
+  })
+})
+
+describe('grossFlow', () => {
+  it('is the larger of produced and consumed per item', () => {
+    const gross = grossFlow([
+      { inputRates: { a: 2, c: 3 }, outputRates: { b: 5 } },
+      { inputRates: { b: 1 }, outputRates: { a: 1, d: 4 } },
+    ])
+    expect(gross.get('b'), 'produced 5, consumed 1').toBe(5)
+    expect(gross.get('a'), 'consumed 2, produced 1').toBe(2)
+    expect(gross.get('c'), 'only consumed').toBe(3)
+    expect(gross.get('d'), 'only produced').toBe(4)
   })
 })
 

@@ -1,7 +1,18 @@
 import type { BlockConnection } from '../../data/types'
+import { surplusTolerance } from '../../solver'
+import { fmtRate } from './ItemTile'
 
 // Pure grouping for the summary panes: one row per item, so an item's tile and
 // its connection chips sit together.
+
+/**
+ * A leftover counts as a byproduct only above the solver's surplus tolerance for the item's flow and
+ * when it does not display as 0.00/min. The rounding check is fixed to `min` (the finest unit) so the
+ * set of tiles does not change with the rate-unit toggle.
+ */
+export function isLeftover(ratePerMin: number, grossPerMin: number): boolean {
+  return ratePerMin > surplusTolerance(grossPerMin) && parseFloat(fmtRate(ratePerMin / 60, 'min')) > 0
+}
 
 export interface IngredientRow {
   itemId: string

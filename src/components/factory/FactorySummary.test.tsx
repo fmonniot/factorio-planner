@@ -388,6 +388,32 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
   })
 })
 
+describe('FactorySummary — byproduct noise', () => {
+  it('hides a leftover that is only LP rounding noise at a large flow', () => {
+    const noisyResult: SolverResult = {
+      nodes: [
+        {
+          recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 65, steam: 20, slag: 2000 },
+          throughput: 65, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        },
+        {
+          recipeNodeId: 'n2', inputRates: { steam: 5, slag: 1999.9999988 }, outputRates: {},
+          throughput: 5, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+        },
+      ],
+      unsatisfied: [],
+      warnings: [],
+    }
+    setupStore([ironGoal])
+    const gd = { ...mockGameData, items: { ...mockGameData.items, steam: { id: 'steam', name: 'Steam', type: 'fluid' as const, iconPath: '', hidden: false } } }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: gd as unknown as GameData, sourceId: 'test' } })
+    useSolverStore.setState({ status: { type: 'idle' }, lastResult: noisyResult, _setStatus: () => {} })
+    render(<FactorySummary />)
+    expect(within(pane('Byproducts')).getByRole('button', { name: 'Steam, 15.0 per minute' })).toBeInTheDocument()
+    expect(within(pane('Byproducts')).queryByRole('button', { name: /^Slag, / })).not.toBeInTheDocument()
+  })
+})
+
 describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)

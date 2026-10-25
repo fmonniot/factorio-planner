@@ -18,7 +18,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **A block can be given a product it already receives.** `addProduct` (`src/store/blockStore.ts`) accepts a product for an item the block takes from another block, and `productChangeEffects` only looks at other blocks' connections, so there is no warning. Later requests for that item to the block are silently ignored as `source-receives`. Warn when adding the product, or ask whether to drop the incoming connection.
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
-- [ ] **Other absolute tolerances can report noise at large flows.** The absolute `FLOW_TOLERANCE` comparisons (`src/solver/index.ts` offers and the pass-2 residual, `src/store/connections.ts`, `summarySegments.ts`) can also report LP noise at large flows. Make them relative to the flow like `sameRate`.
+- [ ] **Other absolute tolerances can report noise at large flows.** The absolute `FLOW_TOLERANCE` comparisons (`src/solver/index.ts` offers and the pass-2 residual, `src/store/connections.ts`) can also report LP noise at large flows. Make them relative to the flow like `sameRate`.
 
 ## Sharing
 
