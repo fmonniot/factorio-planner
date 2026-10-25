@@ -498,21 +498,36 @@ describe('surplusTolerance', () => {
   })
 })
 
-describe('solveBlock — large flows', () => {
-  // Guards against future tolerance regressions at scale: ratios that are not powers of two at
-  // 1e6/min must not raise `overconstrained` from LP rounding noise alone.
-  it('does not warn overconstrained on a balanced chain at 1e6/min', () => {
-    const data = makeGameData({
-      recipes: {
-        ab: recipe('ab', 1, [{ itemId: 'a', type: 'item', amount: 1 }], [product('b', 3)]),
-        bc: recipe('bc', 1, [{ itemId: 'b', type: 'item', amount: 7 }], [product('c', 1)]),
-      },
-    })
-    const { result } = solveBlock(
-      { goals: [{ id: 'g1', itemId: 'c', rate: 1e6 }], nodes: [planNode('n1', 'ab'), planNode('n2', 'bc')] },
-      data, new Map(),
-    )
-    expect(result.warnings.find(w => w.type === 'overconstrained')).toBeUndefined()
+describe('solveBlock — surplus tolerance at large flows', () => {
+  // LP rounding noise cannot be reproduced deterministically, so the pure `surplusTolerance` tests
+  // above carry the noise regression. These cases pin the wiring: `solveBlock` must pass the item's
+  // gross flow, and a genuine surplus must still warn. The surplus is made deterministic by pinning
+  // both the producer and the consumer of `b`.
+  const data = () => makeGameData({
+    recipes: {
+      mk: recipe('mk', 1, [], [product('b', 1)]),
+      use: recipe('use', 1, [{ itemId: 'b', type: 'item', amount: 1 }], [product('c', 1)]),
+    },
+  })
+  const surplusPlan = (made: number, used: number) => ({
+    goals: [{ id: 'g1', itemId: 'c', rate: 1 }],
+    nodes: [pinned('n1', 'mk', made), pinned('n2', 'use', used)],
+  })
+  const overconstrained = (made: number, used: number) =>
+    solveBlock(surplusPlan(made, used), data(), new Map()).result.warnings.find(w => w.type === 'overconstrained')
+
+  it('ignores a surplus below the relative tolerance of a huge flow', () => {
+    // surplus 1/min on ~1e9/min gross: above the 1e-6 floor, below 1e-8 x gross (about 10)
+    expect(overconstrained(1e9, 1e9 - 1)).toBeUndefined()
+  })
+
+  it('warns on the same surplus at a small flow', () => {
+    expect(overconstrained(100, 99)).toBeDefined()
+  })
+
+  it('still warns on a pure surplus at a large flow', () => {
+    // 1e6/min of `b` is made and never consumed (the pinned consumer runs at a trickle)
+    expect(overconstrained(1e6, 1)).toBeDefined()
   })
 })
 
