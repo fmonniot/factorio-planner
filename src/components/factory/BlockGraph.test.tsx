@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -562,6 +562,58 @@ describe('BlockGraph', () => {
       fireEvent.click(within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-remove')[0])
       expect(consumerIn().inputConnections).toHaveLength(11)
       expect(rows()).toHaveLength(11)
+    })
+
+    it('stays closed when the edge is summarised again after dropping below the threshold', () => {
+      setup({ connected: true, extra: 3 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.click(within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-remove')[0])
+      expect(screen.queryByTestId('graph-edge-summary')).toBeNull()
+      act(() => {
+        useBlockStore.setState(st => ({
+          blocks: st.blocks.map(b => b.id === 'consumer'
+            ? { ...b, inputConnections: [...b.inputConnections, { id: 'y', itemId: 'item-9', fromBlockId: 'miner' }] }
+            : b),
+        }))
+      })
+      expect(summary().getAttribute('data-count')).toBe('4')
+      expect(summary().getAttribute('aria-expanded')).toBe('false')
+      expect(list()).toBeNull()
+    })
+
+    it('saves a limit being typed when the list is closed by a click outside', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.click(within(rows()[0]).getByTestId('graph-edge-limit'))
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      input.focus()
+      fireEvent.change(input, { target: { value: '5' } })
+      fireEvent.pointerDown(document.body)
+      expect(list()).toBeNull()
+      expect(consumerIn().inputConnections[0].maxRate).toBe(5)
+      fireEvent.click(summary())
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
+    })
+
+    it('does not count ignored pulls on the summary chip', () => {
+      setup({ connected: true, extra: 11, pull: true, flow: { pullIgnored: 'pull-loop' } })
+      render(<BlockGraphButton />)
+      open()
+      expect(summary().getAttribute('data-pull')).toBeNull()
+      expect(summary().getAttribute('title')).not.toContain('pulled')
+      expect(summary().textContent).not.toContain('⇠')
+    })
+
+    it('counts applied pulls on the summary chip', () => {
+      setup({ connected: true, extra: 11, pull: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(summary().getAttribute('data-pull')).toBe('true')
+      expect(summary().getAttribute('title')).toContain('1 pulled')
     })
 
     it('sets a limit from the list and keeps it open', () => {

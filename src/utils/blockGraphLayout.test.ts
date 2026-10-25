@@ -151,10 +151,13 @@ describe('layoutBlockGraph', () => {
     })
 
     it('keeps a tall label stack on the top row inside the layout', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e']
-      const layout = layoutBlockGraph([block('A'), block('B', ids.slice(0, MAX_EDGE_CHIPS).map(id => ['A', id]))])
+      const layout = layoutBlockGraph([block('A'), block('B', many('A', MAX_EDGE_CHIPS))])
       const [edge] = layout.edges
-      expect(edge.collapsed, 'three chips stay stacked').toBe(false)
+      expect(edge.collapsed, 'a full stack stays stacked').toBe(false)
+      // The stack is centred on the node row, so it reaches above it by half the difference in height.
+      const reach = (MAX_EDGE_CHIPS * LABEL_CHIP_H - NODE_H) / 2
+      expect(reach, 'the stack is taller than the node').toBeGreaterThan(0)
+      expect(layout.nodes.A.y, 'everything moved down by that reach').toBe(reach)
       expect(rect(edge).t).toBeGreaterThanOrEqual(0)
       expect(rect(edge).b).toBeLessThanOrEqual(layout.height)
       for (const n of Object.values(layout.nodes)) expect(n.y + NODE_H).toBeLessThanOrEqual(layout.height)

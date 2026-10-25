@@ -203,6 +203,8 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
 
 interface EdgeLabelsProps {
   edge: BlockEdgeLayout
+  /** Combined status of the edge, as drawn on its path. */
+  status: EdgeStatus
   blocks: Block[]
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
@@ -274,7 +276,6 @@ function ConnectionChip({
 
   return (
     <span
-      key={id}
       data-testid="graph-edge-label"
       data-connection-id={id}
       data-status={status}
@@ -288,7 +289,7 @@ function ConnectionChip({
       {item?.iconPath ? (
         <Icon iconPath={item.iconPath} alt={showName ? '' : itemName} className="w-5 h-5 object-contain shrink-0" />
       ) : (
-        <span className="text-[10px] truncate max-w-[4rem]">{itemName}</span>
+        <span className={`truncate ${showName ? 'text-[11px] max-w-[10rem]' : 'text-[10px] max-w-[4rem]'}`}>{itemName}</span>
       )}
       {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
       <span className="text-[10px] font-mono tabular-nums leading-none">
@@ -363,7 +364,7 @@ function edgeSummaryTitle(
   return `${title} — click to list them`
 }
 
-function EdgeLabels({ edge, blocks, flowsById, items, gameData, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
+function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -373,6 +374,16 @@ function EdgeLabels({ edge, blocks, flowsById, items, gameData, onRemove, onSetL
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   const listOpen = edge.collapsed && open
+
+  // The edge stopped being summarised: forget the list, so it does not pop open when it is summarised again.
+  const [wasCollapsed, setWasCollapsed] = useState(edge.collapsed)
+  if (wasCollapsed !== edge.collapsed) {
+    setWasCollapsed(edge.collapsed)
+    if (!edge.collapsed) {
+      setOpen(false)
+      setEditingId(null)
+    }
+  }
 
   // Modal closes on any Escape that reaches the window and Popover does not stop it: swallow the
   // Escape that closes the list, but not the one that cancels a limit edit (RateInput handles it).
@@ -420,8 +431,8 @@ function EdgeLabels({ edge, blocks, flowsById, items, gameData, onRemove, onSetL
     .map(id => target?.inputConnections.find(c => c.id === id))
     .filter(c => c !== undefined)
   const statuses = edge.connectionIds.map(id => connectionStatus(flowsById.get(id)))
-  const status = pairStatus(statuses)
-  const pulled = connections.filter(c => c.pull).length
+  // A pull the solver ignored behaves as a push: it is not counted.
+  const pulled = connections.filter(c => c.pull && !flowsById.get(c.id)?.pullIgnored).length
   const shown = connections.slice(0, MAX_SUMMARY_ICONS)
 
   return (
@@ -469,6 +480,9 @@ function EdgeLabels({ edge, blocks, flowsById, items, gameData, onRemove, onSetL
             className="left-1/2 -translate-x-1/2 top-full w-max max-h-80 overflow-y-auto p-1"
             onClose={reason => {
               if (reason === 'escape' && editingId !== null) return
+              // Unmounting the input would skip its blur commit: blur it first so the typed limit is saved.
+              if (editingId !== null && document.activeElement instanceof HTMLElement) document.activeElement.blur()
+              setEditingId(null)
               // Popover hears Escape before the guard above; closing now would re-render and drop the
               // guard before it runs, letting this same Escape reach the Modal. Close once it has passed.
               if (reason === 'escape') setTimeout(() => setOpen(false))
@@ -521,6 +535,10 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
 
   const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
   const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
+  const edgeStatuses = useMemo(
+    () => new Map(layout.edges.map(e => [e, pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))])),
+    [layout, flowsById],
+  )
 
   const [connectFrom, setConnectFrom] = useState<string | undefined>()
   const [menuTarget, setMenuTarget] = useState<string | undefined>()
@@ -626,7 +644,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           >
             <svg width={layout.width} height={layout.height} className="absolute left-0 top-0 pointer-events-none" style={{ overflow: 'visible' }}>
               {layout.edges.map(e => {
-                const status = pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))
+                const status = edgeStatuses.get(e)!
                 const source = blocks.find(b => b.id === e.from)
                 const stroke = status === 'ok' ? (source?.color ?? MISSING_BLOCK_COLOR) : EDGE_COLOR[status]
                 return (
@@ -651,6 +669,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
               <EdgeLabels
                 key={`${e.from}>${e.to}`}
                 edge={e}
+                status={edgeStatuses.get(e)!}
                 blocks={blocks}
                 flowsById={flowsById}
                 items={gameData.items}

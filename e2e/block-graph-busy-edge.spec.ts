@@ -73,6 +73,7 @@ test.describe('block graph, busy edge', () => {
 
     // The Ingredients pane of Sciences no longer takes that item from Metals.
     await page.keyboard.press('Escape')
+    await expect(list(page)).toBeHidden()
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(heading(page)).toHaveCount(0)
     await page.locator('button[title="Sciences"]').click()
