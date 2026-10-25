@@ -1,13 +1,15 @@
 import { describe, it, expect } from 'vitest'
-import { canConnect, pullBlocker, pullBlockerTitle, offeredRate, pullCandidates, sourceCandidates, connectableItems, isGoalItem } from './connections'
+import {
+  canConnect, offeredRate, takeCandidates, requestCandidates, requestBlockerTitle, connectableItems, productChangeEffects,
+} from './connections'
 import { makeEmptyBlock } from './blockStore'
-import type { Block, ConnectionFlow, GameData, SolverResult } from '../data/types'
+import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
-function block(id: string, opts: { goals?: string[]; from?: [string, string][] } = {}): Block {
+function block(id: string, opts: { products?: string[]; from?: [string, string][] } = {}): Block {
   return {
     ...makeEmptyBlock(id),
     id,
-    products: (opts.goals ?? []).map(itemId => ({ id: `g-${id}-${itemId}`, itemId, extraRate: 60 })),
+    products: (opts.products ?? []).map(itemId => ({ id: `g-${id}-${itemId}`, itemId, extraRate: 60 })),
     inputConnections: (opts.from ?? []).map(([itemId, source]) => ({ id: `${id}<${source}:${itemId}`, itemId, fromBlockId: source })),
   }
 }
@@ -25,19 +27,11 @@ function result(produces: Record<string, number> = {}, needs: Record<string, num
 }
 
 const flow = (over: Partial<ConnectionFlow>): ConnectionFlow => ({
-  connectionId: 'c', fromBlockId: 'S', toBlockId: 'T', itemId: 'plate', available: 0, capped: false, rate: 0, status: 'ok', ...over,
-})
-
-describe('isGoalItem', () => {
-  it('is true only for the block\'s own goals', () => {
-    const b = block('T', { goals: ['gear'] })
-    expect(isGoalItem(b, 'gear')).toBe(true)
-    expect(isGoalItem(b, 'plate')).toBe(false)
-  })
+  connectionId: 'c', fromBlockId: 'S', toBlockId: 'T', itemId: 'plate', available: 0, capped: false, rate: 0, status: 'ok', kind: 'take', ...over,
 })
 
 describe('canConnect', () => {
-  const target = block('T', { goals: ['gear'] })
+  const target = block('T', { products: ['gear'] })
   const blocks = [target, block('S')]
 
   it('accepts a valid connection', () => {
@@ -61,7 +55,7 @@ describe('canConnect', () => {
     expect(canConnect([t, s], t, 'plate', 'S')).toBe(true)
   })
 
-  it('rejects a goal item of the target', () => {
+  it('rejects a product of the target', () => {
     expect(canConnect(blocks, target, 'gear', 'S')).toBe(false)
   })
 })
@@ -87,11 +81,11 @@ describe('offeredRate', () => {
   })
 })
 
-describe('sourceCandidates', () => {
+describe('takeCandidates', () => {
   it('lists the blocks that can supply the item, in plan order, with their offer', () => {
     const blocks = [block('S1'), block('T'), block('S2')]
     const results = { S1: result({ plate: 10 }), S2: result({ plate: 20 }), T: result() }
-    expect(sourceCandidates(blocks, 'T', 'plate', results, []).map(c => [c.block.id, c.offered]))
+    expect(takeCandidates(blocks, 'T', 'plate', results, []).map(c => [c.block.id, c.offered]))
       .toEqual([['S1', 10], ['S2', 20]])
   })
 
@@ -103,13 +97,66 @@ describe('sourceCandidates', () => {
       block('Empty'),
     ]
     const results = { Done: result({ plate: 10 }), Down: result({ plate: 10 }), Empty: result({ plate: 1e-9 }) }
-    expect(sourceCandidates(blocks, 'T', 'plate', results, []).map(c => [c.block.id, c.offered, c.closesLoop]))
+    expect(takeCandidates(blocks, 'T', 'plate', results, []).map(c => [c.block.id, c.offered, c.closesLoop]))
       .toEqual([['Down', 10, true]])
   })
 
-  it('offers nothing for a goal item of the target', () => {
-    const blocks = [block('T', { goals: ['plate'] }), block('S')]
-    expect(sourceCandidates(blocks, 'T', 'plate', { S: result({ plate: 10 }) }, [])).toEqual([])
+  it('offers nothing for a product of the target', () => {
+    const blocks = [block('T', { products: ['plate'] }), block('S')]
+    expect(takeCandidates(blocks, 'T', 'plate', { S: result({ plate: 10 }) }, [])).toEqual([])
+  })
+})
+
+describe('takeCandidates — products', () => {
+  it('excludes a block that has the item as a product even when it has some left over', () => {
+    const blocks = [block('S', { products: ['plate'] }), block('T'), block('Plain')]
+    const results = { S: result({ plate: 10 }), Plain: result({ plate: 10 }), T: result() }
+    expect(takeCandidates(blocks, 'T', 'plate', results, []).map(c => c.block.id)).toEqual(['Plain'])
+  })
+})
+
+describe('requestCandidates', () => {
+  it('lists the blocks that have the item as a product, whatever they offer', () => {
+    const blocks = [block('S1', { products: ['plate'] }), block('T'), block('Plain'), block('S2', { products: ['plate', 'gear'] })]
+    expect(requestCandidates(blocks, 'T', 'plate').map(c => [c.block.id, c.closesLoop, c.blocker]))
+      .toEqual([['S1', false, undefined], ['S2', false, undefined]])
+  })
+
+  it('excludes connected blocks and the target itself', () => {
+    const blocks = [
+      block('T', { products: ['gear'], from: [['plate', 'Done']] }),
+      block('Done', { products: ['plate'] }),
+      block('Free', { products: ['plate'] }),
+    ]
+    expect(requestCandidates(blocks, 'T', 'plate').map(c => c.block.id)).toEqual(['Free'])
+    expect(requestCandidates([block('T', { products: ['plate'] })], 'T', 'plate')).toEqual([])
+  })
+
+  it('blocks a source that receives the item itself', () => {
+    const blocks = [block('T'), block('S', { products: ['plate'], from: [['plate', 'Z']] }), block('Z')]
+    const [candidate] = requestCandidates(blocks, 'T', 'plate')
+    expect(candidate.blocker).toBe('source-receives')
+  })
+
+  it('blocks a request that would close a cycle of requests', () => {
+    const blocks = [
+      block('T', { products: ['gear'] }),
+      block('S', { products: ['plate'], from: [['gear', 'T']] }),
+    ]
+    const [candidate] = requestCandidates(blocks, 'T', 'plate')
+    expect(candidate).toMatchObject({ closesLoop: true, blocker: 'request-loop' })
+  })
+
+  it('omits the blocker key when nothing blocks the request', () => {
+    const [candidate] = requestCandidates([block('T'), block('S', { products: ['plate'] })], 'T', 'plate')
+    expect('blocker' in candidate).toBe(false)
+  })
+})
+
+describe('requestBlockerTitle', () => {
+  it('words each reason with the block and item names', () => {
+    expect(requestBlockerTitle('request-loop', 'S', 'T', 'Plate')).toBe('S already requests from T, directly or through other blocks')
+    expect(requestBlockerTitle('source-receives', 'S', 'T', 'Plate')).toBe('S receives Plate itself')
   })
 })
 
@@ -123,13 +170,13 @@ describe('connectableItems', () => {
     const blocks = [block('S'), block('T')]
     expect(connectableItems(blocks, 'S', 'T', results({ gear: 2, rod: 3, plate: 40 }), []))
       .toEqual([
-        { itemId: 'gear', offered: 5, needed: 2 },
-        { itemId: 'plate', offered: 100, needed: 40 },
+        { itemId: 'gear', offered: 5, needed: 2, request: false },
+        { itemId: 'plate', offered: 100, needed: 40, request: false },
       ])
   })
 
   it('skips goals, existing connections and negligible imports', () => {
-    const blocks = [block('S'), block('T', { goals: ['gear'], from: [['plate', 'S']] })]
+    const blocks = [block('S'), block('T', { products: ['gear'], from: [['plate', 'S']] })]
     expect(connectableItems(blocks, 'S', 'T', results({ gear: 2, plate: 40 }), [])).toEqual([])
     const plain = [block('S'), block('T')]
     expect(connectableItems(plain, 'S', 'T', results({ plate: 1e-9 }), [])).toEqual([])
@@ -138,7 +185,17 @@ describe('connectableItems', () => {
   it('lists items across a loop', () => {
     const loop = [block('S', { from: [['plate', 'T']] }), block('T')]
     expect(connectableItems(loop, 'S', 'T', results({ plate: 40 }), []))
-      .toEqual([{ itemId: 'plate', offered: 100, needed: 40 }])
+      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: false }])
+  })
+
+  it('marks items the source has as a product as requests, with a blocker when one applies', () => {
+    const plain = [block('S', { products: ['plate'] }), block('T')]
+    expect(connectableItems(plain, 'S', 'T', results({ plate: 40 }), []))
+      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: true }])
+    // S already requests gear from T, so T requesting plate from S would close a cycle.
+    const cycle = [block('S', { products: ['plate'], from: [['gear', 'T']] }), block('T', { products: ['gear'] })]
+    expect(connectableItems(cycle, 'S', 'T', results({ plate: 40 }), []))
+      .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: true, blocker: 'request-loop' }])
   })
 
   it('is empty when the target has no result', () => {
@@ -146,95 +203,68 @@ describe('connectableItems', () => {
   })
 })
 
-describe('pullCandidates', () => {
-  const recipe = (id: string, itemId: string) => ({ id, products: [{ itemId, type: 'item', amount: 1 }], ingredients: [] })
-  const gameData = { recipes: { makePlate: recipe('makePlate', 'plate'), makeGear: recipe('makeGear', 'gear') } } as unknown as GameData
-  const maker = (id: string, recipeId: string, opts: Parameters<typeof block>[1] = {}, policy: 'discard' | undefined = undefined): Block => {
-    const b = block(id, opts)
-    return {
-      ...b,
-      rootPlan: {
-        ...b.rootPlan,
-        nodes: [{ kind: 'game-recipe', id: `n-${id}`, recipeId, modules: [], byproductPolicy: policy ? { plate: policy } : {} }],
-      },
-    }
-  }
-  const ids = (blocks: Block[], targetId = 'T') => pullCandidates(blocks, targetId, 'plate', gameData).map(b => b.id)
+describe('productChangeEffects', () => {
+  const effects = (blocks: Block[], change: 'add' | 'remove', flows: ConnectionFlow[] = [], itemId = 'plate') =>
+    productChangeEffects(blocks, 'S', itemId, change, flows)
+  const takeFlow = (consumer: string, rate: number, over: Partial<ConnectionFlow> = {}) =>
+    flow({ connectionId: `${consumer}<S:plate`, toBlockId: consumer, rate, ...over })
 
-  it('lists producers of the item even when they offer nothing yet', () => {
-    expect(ids([block('T'), maker('S', 'makePlate')])).toEqual(['S'])
+  it('lists the consumers that take the item, in plan order, with their flow rates', () => {
+    const blocks = [block('T2', { from: [['plate', 'S']] }), block('S'), block('T1', { from: [['plate', 'S']] })]
+    expect(effects(blocks, 'add', [takeFlow('T1', 30), takeFlow('T2', 12)])).toEqual([
+      { connectionId: 'T2<S:plate', consumerId: 'T2', consumerName: blocks[0].name, rate: 12 },
+      { connectionId: 'T1<S:plate', consumerId: 'T1', consumerName: blocks[2].name, rate: 30 },
+    ])
   })
 
-  it('excludes the target, non-producers, receivers of the item and discarders', () => {
+  it('is empty when the block already has the product', () => {
+    const blocks = [block('S', { products: ['plate'] }), block('T', { from: [['plate', 'S']] })]
+    expect(effects(blocks, 'add')).toEqual([])
+  })
+
+  it('ignores the block\'s own connections, other items and other sources', () => {
     const blocks = [
-      maker('T', 'makePlate'),
-      maker('G', 'makeGear'),
-      maker('R', 'makePlate', { from: [['plate', 'Z']] }),
-      maker('Z', 'makePlate'),
-      maker('D', 'makePlate', {}, 'discard'),
+      block('S', { from: [['plate', 'X']] }),
+      block('X'),
+      block('T', { from: [['gear', 'S'], ['plate', 'X'], ['plate', 'S']] }),
     ]
-    expect(ids(blocks)).toEqual(['Z'])
+    expect(effects(blocks, 'add').map(e => e.connectionId)).toEqual(['T<S:plate'])
   })
 
-  it('excludes a block that would close a cycle of pulls and a goal item of the target', () => {
-    const t = { ...maker('T', 'makeGear'), inputConnections: [] }
-    const s = { ...maker('S', 'makePlate'), inputConnections: [{ id: 'c', itemId: 'gear', fromBlockId: 'T', pull: true as const }] }
-    expect(ids([t, s])).toEqual([])
-    expect(ids([block('T', { goals: ['plate'] }), maker('S', 'makePlate')])).toEqual([])
+  it('flags a consumer whose request would close a cycle of requests', () => {
+    const blocks = [
+      block('S', { from: [['gear', 'T']] }),
+      block('T', { products: ['gear'], from: [['plate', 'S']] }),
+    ]
+    expect(effects(blocks, 'add')).toMatchObject([{ consumerId: 'T', blocker: 'request-loop' }])
   })
 
-  it('keeps plan order and ignores an unknown target', () => {
-    expect(ids([maker('B', 'makePlate'), block('T'), maker('A', 'makePlate')])).toEqual(['B', 'A'])
-    expect(ids([maker('A', 'makePlate')], 'ghost')).toEqual([])
-  })
-})
-
-describe('pullBlocker', () => {
-  const recipe = (id: string, itemId: string) => ({ id, products: [{ itemId, type: 'item', amount: 1 }], ingredients: [] })
-  const gameData = { recipes: { makePlate: recipe('makePlate', 'plate'), makeGear: recipe('makeGear', 'gear') } } as unknown as GameData
-  const maker = (id: string, recipeId: string, opts: Parameters<typeof block>[1] = {}): Block => {
-    const b = block(id, opts)
-    return {
-      ...b,
-      rootPlan: {
-        ...b.rootPlan,
-        nodes: [{ kind: 'game-recipe', id: `n-${id}`, recipeId, modules: [], byproductPolicy: {} }],
-      },
-    }
-  }
-  const blocker = (blocks: Block[], from = 'S') =>
-    pullBlocker(blocks, blocks.find(b => b.id === 'T')!, 'plate', from, gameData)
-
-  it('is undefined for a producer that receives nothing and closes no cycle', () => {
-    expect(blocker([block('T'), maker('S', 'makePlate')])).toBeUndefined()
+  it('flags a consumer whose request would be ignored because the block receives the item', () => {
+    const blocks = [block('S', { from: [['plate', 'Z']] }), block('Z'), block('T', { from: [['plate', 'S']] })]
+    expect(effects(blocks, 'add')).toMatchObject([{ consumerId: 'T', blocker: 'source-receives' }])
   })
 
-  it('reports the source has no recipe for the item, or is missing', () => {
-    expect(blocker([block('T'), maker('S', 'makeGear')])).toBe('no-producer')
-    expect(blocker([block('T')])).toBe('no-producer')
+  it('lists the requests a removal turns into takes', () => {
+    const blocks = [block('S', { products: ['plate'] }), block('T', { from: [['plate', 'S']] })]
+    const list = effects(blocks, 'remove', [takeFlow('T', 30, { kind: 'request', requested: 30 })])
+    expect(list).toEqual([{ connectionId: 'T<S:plate', consumerId: 'T', consumerName: blocks[1].name, rate: 30 }])
+    expect('blocker' in list[0]).toBe(false)
   })
 
-  it('reports a source that receives the item itself', () => {
-    expect(blocker([block('T'), maker('S', 'makePlate', { from: [['plate', 'Z']] }), maker('Z', 'makePlate')])).toBe('source-receives')
+  it('skips connections whose request was already ignored', () => {
+    const blocks = [block('S', { products: ['plate'] }), block('T', { from: [['plate', 'S']] })]
+    expect(effects(blocks, 'remove', [takeFlow('T', 0, { requestIgnored: 'request-loop' })])).toEqual([])
   })
 
-  it('reports a cycle when the source already pulls from the target', () => {
-    const t = block('T', { from: [['plate', 'S']] })
-    const s = maker('S', 'makePlate', { from: [['gear', 'T']] })
-    s.inputConnections = s.inputConnections.map(c => ({ ...c, pull: true as const }))
-    expect(blocker([t, s])).toBe('pull-loop')
+  it('is empty on removal while another product of the item remains', () => {
+    const s = block('S', { products: ['plate'] })
+    s.products.push({ id: 'second', itemId: 'plate' })
+    expect(effects([s, block('T', { from: [['plate', 'S']] })], 'remove')).toEqual([])
   })
 
-  it('counts a back pull the solver would ignore as a cycle (known limitation: the store has no game data)', () => {
-    const s = maker('S', 'makePlate', { from: [['gear', 'T']] })
-    s.inputConnections = s.inputConnections.map(c => ({ ...c, pull: true as const }))
-    // T makes no gear, so S's pull would be ignored as no-producer, yet pulling plate from S is still refused.
-    expect(blocker([maker('T', 'makePlate'), s])).toBe('pull-loop')
-  })
-
-  it('words each reason with the block and item names', () => {
-    expect(pullBlockerTitle('pull-loop', 'S', 'T', 'Plate')).toBe('S already pulls from T, directly or through other blocks')
-    expect(pullBlockerTitle('no-producer', 'S', 'T', 'Plate')).toBe('S has no recipe that makes Plate')
-    expect(pullBlockerTitle('source-receives', 'S', 'T', 'Plate')).toBe('S receives Plate itself')
+  it('leaves the rate undefined without a flow, and is empty for an unknown block', () => {
+    const blocks = [block('S'), block('T', { from: [['plate', 'S']] })]
+    expect(effects(blocks, 'add')[0].rate).toBeUndefined()
+    expect(productChangeEffects(blocks, 'ghost', 'plate', 'add', [])).toEqual([])
   })
 })
