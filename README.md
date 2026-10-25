@@ -41,7 +41,7 @@ Blocks can also feed one another. Right-click an item in a block's **Ingredients
 
 Blocks may also feed each other in a loop, for example Metals → Sciences → Ores → Metals. Connections that belong to a loop are marked **↻**, and the block graph draws the connection that closes the loop in its own lane under the blocks. A loop is solved in rounds until its flows stop changing; if it does not settle, a warning says so and the rates shown are from the last round.
 
-The **Block graph** icon button in the top bar shows all blocks and their connections. Click a block to open it. To connect from the supplying side, click the **→** on the source block, then the block that should receive the item, then the item; the **×** on an edge label removes that connection. The **≤** on an edge label caps how much the receiving block takes over that connection (leave it empty for no limit), which keeps the rest of the source's output for other consumers.
+The **Block graph** icon button in the top bar shows all blocks and their connections. Click a block to open it. To connect from the supplying side, click the **→** on the source block, then the block that should receive the item, then the item; the **×** on an edge label removes that connection. The **≤** on an edge label caps how much the receiving block takes over that connection (leave it empty for no limit), which keeps the rest of the source's output for other consumers. An edge that carries more than three items shows one summary chip; click it to list every connection with its limit, pull and remove controls.
 
 ### 5. Plan horizon
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, waitFor } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -53,12 +53,17 @@ function setup(opts: {
   flow?: Partial<ConnectionFlow>
   /** Miner also receives iron plate from Consumer, so the two supply each other. */
   loop?: { converged: boolean; rounds?: number }
+  /** Connections from Miner after c1, each of its own item (`item-${i}`, "Item ${i}"), without a flow. */
+  extra?: number
 } = {}) {
   const consumer: Block = {
     ...makeEmptyBlock('Consumer'), id: 'consumer',
     goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
     inputConnections: opts.connected
-      ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }), ...(opts.pull ? { pull: true as const } : {}) }]
+      ? [
+          { id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }), ...(opts.pull ? { pull: true as const } : {}) },
+          ...Array.from({ length: opts.extra ?? 0 }, (_, i) => ({ id: `x${i}`, itemId: `item-${i}`, fromBlockId: 'miner' })),
+        ]
       : [],
   }
   const miner: Block = {
@@ -82,7 +87,16 @@ function setup(opts: {
   useGameDataStore.setState({
     status: {
       type: 'loaded',
-      gameData: { ...mockGameData, recipes: { ...mockGameData.recipes, mine } } as unknown as GameData,
+      gameData: {
+        ...mockGameData,
+        items: {
+          ...mockGameData.items,
+          ...Object.fromEntries(Array.from({ length: opts.extra ?? 0 }, (_, i) => [
+            `item-${i}`, { id: `item-${i}`, name: `Item ${i}`, type: 'item', iconPath: '', hidden: false },
+          ])),
+        },
+        recipes: { ...mockGameData.recipes, mine },
+      } as unknown as GameData,
       sourceId: 'test',
     },
   })
@@ -491,5 +505,119 @@ describe('BlockGraph', () => {
     render(<BlockGraphButton />)
     open()
     expect(screen.queryByTestId('graph-edge')).toBeNull()
+  })
+
+  describe('busy edge', () => {
+    const summary = () => screen.getByTestId('graph-edge-summary')
+    const list = () => screen.queryByTestId('graph-edge-list')
+    const rows = () => within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-label')
+    const escape = () => fireEvent.keyDown(document.body, { key: 'Escape' })
+
+    it('keeps up to three connections as separate chips', () => {
+      setup({ connected: true, extra: 2 })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getAllByTestId('graph-edge-label')).toHaveLength(3)
+      expect(screen.queryByTestId('graph-edge-summary')).toBeNull()
+    })
+
+    it('folds more connections into one summary chip', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getAllByTestId('graph-edge-summary')).toHaveLength(1)
+      expect(summary().getAttribute('data-count')).toBe('12')
+      expect(summary().getAttribute('aria-expanded')).toBe('false')
+      expect(summary().getAttribute('aria-label')).toBe('12 items from Miner to Consumer')
+      expect(summary().textContent).toContain('+9')
+      expect(screen.queryByTestId('graph-edge-label')).toBeNull()
+      expect(summary().getAttribute('data-status')).toBe('ok')
+    })
+
+    it('shows the edge status and what is limited on the summary chip', () => {
+      setup({ connected: true, extra: 11, flow: { status: 'limited' } })
+      render(<BlockGraphButton />)
+      open()
+      expect(summary().getAttribute('data-status')).toBe('limited')
+      expect(summary().getAttribute('title')).toContain('1 limited')
+    })
+
+    it('lists every connection when the summary chip is clicked, and hides them on a second click', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      expect(summary().getAttribute('aria-expanded')).toBe('true')
+      expect(rows()).toHaveLength(12)
+      expect(screen.getByTestId('graph-edge-list').textContent).toContain('Item 3')
+      fireEvent.click(summary())
+      expect(list()).toBeNull()
+    })
+
+    it('removes a connection from the list and keeps it open', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.click(within(screen.getByTestId('graph-edge-list')).getAllByTestId('graph-edge-remove')[0])
+      expect(consumerIn().inputConnections).toHaveLength(11)
+      expect(rows()).toHaveLength(11)
+    })
+
+    it('sets a limit from the list and keeps it open', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      const row = rows().find(r => r.dataset.connectionId === 'x3')!
+      fireEvent.click(within(row).getByTestId('graph-edge-limit'))
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      fireEvent.change(input, { target: { value: '10' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(consumerIn().inputConnections.find(c => c.id === 'x3')!.maxRate).toBe(10)
+      expect(list()).not.toBeNull()
+    })
+
+    it('cancels a limit edit with Escape without closing the list or the graph', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.click(within(rows()[0]).getByTestId('graph-edge-limit'))
+      fireEvent.keyDown(screen.getByRole('spinbutton', { name: 'Connection limit' }), { key: 'Escape' })
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
+      expect(list()).not.toBeNull()
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    })
+
+    it('closes the list with the first Escape and the graph with the second', async () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      escape()
+      await waitFor(() => expect(list()).toBeNull())
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+      escape()
+      expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+    })
+
+    it('closes the list on a click outside', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(summary())
+      fireEvent.pointerDown(document.body)
+      expect(list()).toBeNull()
+    })
+
+    it('keeps connect mode when the summary chip is clicked', () => {
+      setup({ connected: true, extra: 11 })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+      fireEvent.click(summary())
+      expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
+    })
   })
 })
