@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { closesLoop, orderBlocks } from './blockGraph'
+import { closesLoop, closesPullLoop, orderBlocks } from './blockGraph'
 import type { Block } from '../data/types'
 import { makeEmptyBlock } from '../store/blockStore'
 
@@ -30,6 +30,36 @@ describe('closesLoop', () => {
   it('is false for a second source feeding the same consumer', () => {
     const blocks = [block('A'), block('B', ['A']), block('C')]
     expect(closesLoop(blocks, 'C', 'B')).toBe(false)
+  })
+})
+
+describe('closesPullLoop', () => {
+  /** Like `block`, but every connection pulls. */
+  const puller = (id: string, from: string[] = []): Block => {
+    const b = block(id, from)
+    return { ...b, inputConnections: b.inputConnections.map(c => ({ ...c, pull: true as const })) }
+  }
+
+  it('is true for the reverse of a direct pull', () => {
+    // B pulls from A; A pulling from B would make a cycle.
+    expect(closesPullLoop([puller('A'), puller('B', ['A'])], 'B', 'A')).toBe(true)
+  })
+
+  it('is true through a chain of pulls', () => {
+    const blocks = [puller('A'), puller('B', ['A']), puller('C', ['B'])]
+    expect(closesPullLoop(blocks, 'C', 'A')).toBe(true)
+  })
+
+  it('is false when the reverse connection only pushes', () => {
+    expect(closesPullLoop([puller('A'), block('B', ['A'])], 'B', 'A')).toBe(false)
+  })
+
+  it('is false for a second source, a self-connection and a missing source', () => {
+    const blocks = [puller('A'), puller('B', ['A']), puller('C')]
+    expect(closesPullLoop(blocks, 'C', 'B')).toBe(false)
+    expect(closesPullLoop(blocks, 'A', 'A')).toBe(false)
+    expect(closesPullLoop([puller('A', ['ghost']), puller('B', ['A'])], 'B', 'A')).toBe(true)
+    expect(closesPullLoop([puller('A', ['ghost']), puller('B')], 'ghost', 'A')).toBe(false)
   })
 })
 

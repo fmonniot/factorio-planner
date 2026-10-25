@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { closesPullLoop } from '../solver/blockGraph'
 import { canConnect } from './connections'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
@@ -209,6 +210,20 @@ function withMaxRate(block: Block, connectionId: string, maxRate: number | undef
   }
 }
 
+/** Turn pulling on or off for a connection; off deletes the key so undo restores equality. */
+function withPull(block: Block, connectionId: string, pull: boolean): Block {
+  return {
+    ...block,
+    inputConnections: block.inputConnections.map(c => {
+      if (c.id !== connectionId) return c
+      if (pull) return { ...c, pull: true }
+      const rest = { ...c }
+      delete rest.pull
+      return rest
+    }),
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Store state and actions
 // ---------------------------------------------------------------------------
@@ -245,10 +260,13 @@ export interface BlockStoreState {
   toggleNoImportItem: (itemId: string) => void
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
-  addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string) => void
+  /** With `pull`, the connection pulls: the target's demand drives the source (rejected when it would close a cycle of pulls). */
+  addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string, pull?: boolean) => void
   removeInputConnection: (connectionId: string, toBlockId?: string) => void
   /** Cap what the consumer takes over a connection (items/min); undefined removes the cap. */
   setConnectionMaxRate: (connectionId: string, maxRate: number | undefined, toBlockId?: string) => void
+  /** Switch a connection between pull and push (rejected when pulling would close a cycle of pulls). */
+  setConnectionPull: (connectionId: string, pull: boolean, toBlockId?: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -548,19 +566,21 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       return applyCommand(state, cmd)
     }),
 
-  addInputConnection: (itemId, fromBlockId, toBlockId) =>
+  addInputConnection: (itemId, fromBlockId, toBlockId, pull) =>
     set(state => {
       const targetId = toBlockId ?? state.activeBlockId
       const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
+      if (pull && closesPullLoop(state.blocks, fromBlockId, targetId)) return state
       // The id is fixed here so redo restores the same connection.
-      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
+      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId, ...(pull ? { pull: true as const } : {}) }
       const cmd: Command = {
         apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
         undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
         // Redo after other blocks changed may no longer be legal.
-        canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
+        canApply: (blocks, b) =>
+          canConnect(blocks, b, itemId, fromBlockId) && !(pull && closesPullLoop(blocks, fromBlockId, b.id)),
       }
       return applyCommand(state, cmd, targetId)
     }),
@@ -597,6 +617,25 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const cmd: Command = {
         apply: b => withMaxRate(b, connectionId, maxRate),
         undo: b => withMaxRate(b, connectionId, oldMax),
+      }
+      return applyCommand(state, cmd, targetId)
+    }),
+
+  setConnectionPull: (connectionId, pull, toBlockId) =>
+    set(state => {
+      const targetId = toBlockId ?? state.activeBlockId
+      const block = state.blocks.find(b => b.id === targetId)
+      const connection = block?.inputConnections.find(c => c.id === connectionId)
+      if (!block || !connection) return state
+      if (!!connection.pull === pull) return state
+      if (pull && closesPullLoop(state.blocks, connection.fromBlockId, targetId)) return state
+      const closes = (blocks: Block[]) => closesPullLoop(blocks, connection.fromBlockId, targetId)
+      const cmd: Command = {
+        apply: b => withPull(b, connectionId, pull),
+        undo: b => withPull(b, connectionId, !pull),
+        // Whichever direction turns pulling on may no longer be legal after other blocks changed.
+        canApply: pull ? blocks => !closes(blocks) : undefined,
+        canUndo: pull ? undefined : blocks => !closes(blocks),
       }
       return applyCommand(state, cmd, targetId)
     }),

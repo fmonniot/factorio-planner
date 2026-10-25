@@ -25,13 +25,13 @@ test.describe('block loops', () => {
 
     // Gears receives its plates from Plates.
     await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: /Plates/ }).click()
+    await page.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Plates' }).click()
 
     // Plates receives the ingots Gears makes: that closes the loop.
     await page.locator('button[title="Plates"]').click()
     await expect(ingotSlot(page)).toBeVisible()
     await ingotSlot(page).click({ button: 'right' })
-    const closing = page.getByRole('menuitem', { name: /Gears/ })
+    const closing = page.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Gears' })
     await expect(closing).toHaveAttribute('data-closes-loop', 'true')
     await closing.click()
 

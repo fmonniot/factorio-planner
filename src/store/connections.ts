@@ -1,6 +1,6 @@
-import { closesLoop } from '../solver/blockGraph'
-import { netBalance, FLOW_TOLERANCE } from '../solver/index'
-import type { Block, ConnectionFlow, SolverResult } from '../data/types'
+import { closesLoop, closesPullLoop } from '../solver/blockGraph'
+import { netBalance, pullIgnoredReason, FLOW_TOLERANCE } from '../solver/index'
+import type { Block, BlockConnection, ConnectionFlow, GameData, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Connection rules shared by the store, the Ingredients menu and the block graph
@@ -61,6 +61,63 @@ export function sourceCandidates(
     .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
     .filter(({ offered }) => offered > FLOW_TOLERANCE)
     .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
+}
+
+/** Why pulling `itemId` from `fromBlockId` into `target` would do nothing or is refused. */
+export type PullBlocker = 'pull-loop' | 'no-producer' | 'source-receives'
+
+/**
+ * The one rule for "can `target` pull `itemId` from `fromBlockId`", shared by the
+ * Pull menu section, the chip menu and the graph toggle: the solver must be able
+ * to apply the pull (the source makes the item and does not receive it itself)
+ * and it must close no cycle of pulls. Returns the first reason it cannot, or
+ * undefined. The cycle check counts every pull connection, applicable or not
+ * (see `closesPullLoop`).
+ */
+export function pullBlocker(
+  blocks: Block[],
+  target: Block,
+  itemId: string,
+  fromBlockId: string,
+  gameData: GameData,
+): PullBlocker | undefined {
+  const source = blocks.find(b => b.id === fromBlockId)
+  if (!source) return 'no-producer'
+  const reason = pullIgnoredReason(source, itemId, new Set(blocks.map(b => b.id)), gameData)
+  if (reason) return reason
+  return closesPullLoop(blocks, fromBlockId, target.id) ? 'pull-loop' : undefined
+}
+
+/** Tooltip explaining a `PullBlocker`. */
+export function pullBlockerTitle(reason: PullBlocker, sourceName: string, targetName: string, itemName: string): string {
+  switch (reason) {
+    case 'pull-loop': return `${sourceName} already pulls from ${targetName}, directly or through other blocks`
+    case 'no-producer': return `${sourceName} has no recipe that makes ${itemName}`
+    case 'source-receives': return `${sourceName} receives ${itemName} itself`
+  }
+}
+
+/**
+ * Blocks `targetId` can pull `itemId` from, in plan order: connectable and free
+ * of any `pullBlocker`. What the block offers right now does not matter; the
+ * pull is what makes it produce.
+ */
+export function pullCandidates(blocks: Block[], targetId: string, itemId: string, gameData: GameData): Block[] {
+  const target = blocks.find(b => b.id === targetId)
+  if (!target) return []
+  return blocks.filter(
+    b => canConnect(blocks, target, itemId, b.id) && pullBlocker(blocks, target, itemId, b.id, gameData) === undefined,
+  )
+}
+
+/** Why `connection` of `target` cannot be switched to pull, or undefined when it can. */
+export function connectionPullBlocker(
+  blocks: Block[],
+  target: Block,
+  connection: BlockConnection,
+  gameData: GameData,
+): PullBlocker | undefined {
+  return pullBlocker(blocks, target, connection.itemId, connection.fromBlockId, gameData)
 }
 
 export interface ItemCandidate {

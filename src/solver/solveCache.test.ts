@@ -111,16 +111,19 @@ describe('createSolveCache', () => {
     expect(cache.size).toBe(0)
   })
 
-  it('keeps two entries per block and counts the block once', () => {
+  it('keeps three entries per block and counts the block once', () => {
     const cache = createSolveCache()
     const gd = gameData()
     const first = solved()
     const second = solved()
+    const third = solved()
     cache.set('b', gd, 'k1', caps([]), first)
     cache.set('b', gd, 'k2', caps([]), second)
+    cache.set('b', gd, 'k3', caps([]), third)
     expect(cache.size).toBe(1)
     expect(cache.get('b', gd, 'k1', caps([]))).toBe(first)
     expect(cache.get('b', gd, 'k2', caps([]))).toBe(second)
+    expect(cache.get('b', gd, 'k3', caps([]))).toBe(third)
   })
 
   it('evicts the least recently used entry', () => {
@@ -128,11 +131,13 @@ describe('createSolveCache', () => {
     const gd = gameData()
     cache.set('b', gd, 'A', caps([]), solved())
     cache.set('b', gd, 'B', caps([]), solved())
-    expect(cache.get('b', gd, 'A', caps([]))).toBeDefined()
     cache.set('b', gd, 'C', caps([]), solved())
+    expect(cache.get('b', gd, 'A', caps([]))).toBeDefined()
+    cache.set('b', gd, 'D', caps([]), solved())
     expect(cache.get('b', gd, 'B', caps([]))).toBeUndefined()
     expect(cache.get('b', gd, 'A', caps([]))).toBeDefined()
     expect(cache.get('b', gd, 'C', caps([]))).toBeDefined()
+    expect(cache.get('b', gd, 'D', caps([]))).toBeDefined()
   })
 
   it('replaces an entry with equal inputs instead of adding one', () => {

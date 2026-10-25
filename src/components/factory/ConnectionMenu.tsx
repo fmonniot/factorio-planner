@@ -4,12 +4,13 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { sourceCandidates, isGoalItem } from '../../store/connections'
+import { sourceCandidates, pullCandidates, isGoalItem } from '../../store/connections'
 import { fmtRate } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
-// (non-goal items only), and forbid or allow imports of the item.
+// (non-goal items only) or that makes it on demand (pull), and forbid or allow
+// imports of the item.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -70,6 +71,7 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
   const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
 
   const candidates = sourceCandidates(blocks, activeBlockId, itemId, results, flows)
+  const pullable = connectable && gameData ? pullCandidates(blocks, activeBlockId, itemId, gameData) : []
 
   return createPortal(
     <div
@@ -113,6 +115,30 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
           </button>
         ))
       ))}
+      {pullable.length > 0 && (
+        <>
+          <div className="border-t border-gray-700 my-1" />
+          <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+            Pull {itemName} from
+          </div>
+          {pullable.map(block => (
+            <button
+              key={block.id}
+              type="button"
+              role="menuitem"
+              data-pull="true"
+              title={`${block.name} makes what this block needs`}
+              className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+              onClick={() => {
+                addInputConnection(itemId, block.id, undefined, true)
+                onClose()
+              }}
+            >
+              {block.name}
+            </button>
+          ))}
+        </>
+      )}
       {connectable && <div className="border-t border-gray-700 my-1" />}
       <button
         type="button"

@@ -71,6 +71,9 @@ export interface SolverResult {
 
 export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 
+/** Why a connection marked `pull` behaves like a push connection. */
+export type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives' | 'duplicate'
+
 export interface ConnectionFlow {
   connectionId: string
   fromBlockId: string
@@ -90,6 +93,10 @@ export interface ConnectionFlow {
   status: ConnectionFlowStatus
   /** true when both ends are members of one loop of blocks */
   loop?: true
+  /** Present iff the connection pulls and the pull is applied: items/min the consumer asked the source to make (may be 0). */
+  demand?: number
+  /** Present iff the connection is marked `pull` but behaves like a push connection. */
+  pullIgnored?: PullIgnoredReason
 }
 
 /** A group of blocks that supply each other, directly or through other blocks. */

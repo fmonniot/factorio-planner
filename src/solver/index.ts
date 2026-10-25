@@ -7,6 +7,7 @@ import type {
   GameData,
   MultiBlockSolve,
   ProductionGoal,
+  PullIgnoredReason,
   RecipeNode,
   SolvedNode,
   SolverResult,
@@ -43,6 +44,52 @@ export function flattenBlock(block: Block): SolverPlan {
     nodes,
     noImportItems: block.noImportItems,
   }
+}
+
+/**
+ * Can `block` make `itemId`? True when a game-recipe node of the block has a
+ * product of that item with a positive effective amount and does not discard it.
+ * The one definition of "has a producer" for pull connections, shared by the
+ * solver and the connection menus.
+ */
+export function producesItem(block: Block, itemId: string, gameData: GameData): boolean {
+  for (const n of flattenBlock(block).nodes) {
+    if (n.kind !== 'game-recipe' || n.byproductPolicy[itemId] === 'discard') continue
+    const recipe = gameData.recipes[n.recipeId]
+    if (!recipe) continue
+    const makes = recipe.products.some(
+      p =>
+        p.itemId === itemId &&
+        effectiveProductAmount(p.amount ?? 0, p.probability ?? 1, p.ignoredByProductivity ?? 0, 0) > 0,
+    )
+    if (makes) return true
+  }
+  return false
+}
+
+/**
+ * Does `block` take `itemId` from a connection of its own, from an existing
+ * block other than itself? Then it is not a pure producer of the item: a
+ * pull on it would cancel its own supply. The one definition of "source
+ * receives the item", shared by the solver and the connection menus.
+ */
+export function receivesItem(block: Block, itemId: string, blockIds: ReadonlySet<string>): boolean {
+  return block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId !== block.id && blockIds.has(c.fromBlockId))
+}
+
+/**
+ * Why a pull of `itemId` from `source` could not apply, apart from cycles of
+ * pulls, or undefined when it can. Shared by the solver and the connection menus.
+ */
+export function pullIgnoredReason(
+  source: Block,
+  itemId: string,
+  blockIds: ReadonlySet<string>,
+  gameData: GameData,
+): 'no-producer' | 'source-receives' | undefined {
+  if (!producesItem(source, itemId, gameData)) return 'no-producer'
+  if (receivesItem(source, itemId, blockIds)) return 'source-receives'
+  return undefined
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
@@ -392,6 +439,8 @@ interface StepContext {
   loopConnectionIds: Set<string>
   gameData: GameData
   cache?: SolveCache
+  /** connection id → what the pull pass decided for a connection marked `pull`. */
+  pull: Map<string, PullInfo>
 }
 
 interface BlockStep {
@@ -417,9 +466,16 @@ function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowSta
 
 /**
  * Solve one block against what its sources have left in `remaining`, and take
- * the delivered amounts out of `remaining`.
+ * the delivered amounts out of `remaining`. `pending` is the demand of applied
+ * pulls not yet served (source → item → items/min): other consumers see the
+ * offer without it, and an applied pull gives its own share back when served.
  */
-function solveStep(block: Block, ctx: StepContext, remaining: Map<string, Offers>): BlockStep {
+function solveStep(
+  block: Block,
+  ctx: StepContext,
+  remaining: Map<string, Offers>,
+  pending: Map<string, Offers>,
+): BlockStep {
   const { gameData, cache } = ctx
   const flows: ConnectionFlow[] = []
   const active: BlockConnection[] = []
@@ -438,9 +494,19 @@ function solveStep(block: Block, ctx: StepContext, remaining: Map<string, Offers
       const key = `${c.fromBlockId}\0${c.itemId}`
       const duplicate = seen.has(key)
       if (duplicate) duplicates.add(c.id)
-      const sourceOffer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      const info = ctx.pull.get(c.id)
+      const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      const held = info && 'demand' in info ? reserved - info.demand : reserved
+      const sourceOffer = duplicate ? 0 : Math.max(0, (remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0) - held)
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
-      if (c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE) capped.add(c.id)
+      const limitBinds =
+        info && 'demand' in info
+          ? // The limit bounded the flow only if it cut the demand and the source could have met it.
+            c.maxRate !== undefined &&
+            info.demand >= c.maxRate - FLOW_TOLERANCE &&
+            sourceOffer >= c.maxRate - FLOW_TOLERANCE
+          : c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE
+      if (limitBinds) capped.add(c.id)
       seen.add(key)
       active.push(c)
       available.set(c.id, offer)
@@ -487,6 +553,12 @@ function solveStep(block: Block, ctx: StepContext, remaining: Map<string, Offers
     if (sourceLeft && rate > 0) {
       sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
     }
+    // Served: whatever this consumer left unused goes back to the ones solved later.
+    const info = ctx.pull.get(c.id)
+    const sourcePending = pending.get(c.fromBlockId)
+    if (info && 'demand' in info && sourcePending) {
+      sourcePending.set(c.itemId, Math.max(0, (sourcePending.get(c.itemId) ?? 0) - info.demand))
+    }
 
     const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
     const status: ConnectionFlowStatus =
@@ -504,6 +576,8 @@ function solveStep(block: Block, ctx: StepContext, remaining: Map<string, Offers
       rate,
       status,
       ...(ctx.loopConnectionIds.has(c.id) ? { loop: true as const } : {}),
+      ...(info && 'demand' in info ? { demand: info.demand } : {}),
+      ...(info && 'ignored' in info ? { pullIgnored: info.ignored } : {}),
     })
   }
 
@@ -561,6 +635,143 @@ function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
   return new Map([...remaining].map(([id, offers]) => [id, new Map(offers)]))
 }
 
+// ---------------------------------------------------------------------------
+// Pull connections: demand pass
+// ---------------------------------------------------------------------------
+
+/** What the demand pass decided for one connection marked `pull`. */
+type PullInfo = { demand: number } | { ignored: PullIgnoredReason }
+
+interface PullPlan {
+  /** blockId → the block's goals plus what its pull consumers ask of it; only for blocks that gained some. */
+  goals: Map<string, ProductionGoal[]>
+  /** connection id → decision; absent for push connections and for ones that never count (missing source, self, duplicate). */
+  info: Map<string, PullInfo>
+}
+
+/** `goals` plus `pulled` (itemId → items/min): added to the own goal of that item, or as a new goal `pull:<item>`. */
+function mergePulledGoals(goals: ProductionGoal[], pulled: Map<string, number> | undefined): ProductionGoal[] {
+  let merged = goals
+  for (const [itemId, rate] of pulled ?? []) {
+    if (rate <= FLOW_TOLERANCE) continue
+    const i = merged.findIndex(g => g.itemId === itemId)
+    if (i >= 0) merged = merged.map((g, j) => (j === i ? { ...g, rate: g.rate + rate } : g))
+    else merged = [...merged, { id: `pull:${itemId}`, itemId, rate }]
+  }
+  return merged
+}
+
+/**
+ * How much each source must make for its pull consumers. A consumer's demand
+ * for an item does not depend on what it receives (solving it with unlimited
+ * supply on every connection, a "probe", gives exactly what it would import),
+ * and a source's goals only depend on its own goals plus what its consumers
+ * ask of it. So demand is computed in one pass, consumers first, before any
+ * supply is handed out. Pulls forming a cycle are ignored.
+ */
+function computePullDemands(
+  blocks: Block[],
+  gameData: GameData,
+  selfConnectionIds: Set<string>,
+  cache?: SolveCache,
+): PullPlan {
+  const byId = new Map(blocks.map(b => [b.id, b]))
+  const blockIds = new Set(byId.keys())
+  const info = new Map<string, PullInfo>()
+  const goals = new Map<string, ProductionGoal[]>()
+
+  // Candidates: pulls that count, in plan order. Applicable ones go on to the cycle check.
+  const applicable: { consumer: Block; connection: BlockConnection }[] = []
+  for (const consumer of blocks) {
+    const seen = new Set<string>()
+    for (const c of consumer.inputConnections) {
+      const source = byId.get(c.fromBlockId)
+      if (!source || selfConnectionIds.has(c.id)) continue
+      const key = `${c.fromBlockId}\0${c.itemId}`
+      const duplicate = seen.has(key)
+      seen.add(key)
+      if (!c.pull) continue
+      if (duplicate) {
+        info.set(c.id, { ignored: 'duplicate' })
+        continue
+      }
+      const reason = pullIgnoredReason(source, c.itemId, blockIds, gameData)
+      if (reason) info.set(c.id, { ignored: reason })
+      else applicable.push({ consumer, connection: c })
+    }
+  }
+  if (applicable.length === 0) return { goals, info }
+
+  // Order consumers before sources: orderBlocks puts sources first, so feed it the reversed pulls.
+  const reversed = new Map<string, BlockConnection[]>()
+  for (const { consumer, connection } of applicable) {
+    const list = reversed.get(connection.fromBlockId) ?? []
+    list.push({ id: connection.id, itemId: connection.itemId, fromBlockId: consumer.id })
+    reversed.set(connection.fromBlockId, list)
+  }
+  const { components } = orderBlocks(blocks.map(b => ({ ...b, inputConnections: reversed.get(b.id) ?? [] })))
+  const looped = new Set<string>()
+  for (const component of components) {
+    for (const id of component.loop?.connectionIds ?? []) {
+      looped.add(id)
+      info.set(id, { ignored: 'pull-loop' })
+    }
+  }
+  const pullsOf = new Map<string, BlockConnection[]>() // consumer id → applied pulls, in connection order
+  for (const { consumer, connection } of applicable) {
+    if (looped.has(connection.id)) continue
+    const list = pullsOf.get(consumer.id) ?? []
+    list.push(connection)
+    pullsOf.set(consumer.id, list)
+  }
+
+  const pulled = new Map<string, Map<string, number>>() // source id → item id → items/min
+  for (const component of components) {
+    for (const member of component.blocks) {
+      const block = byId.get(member.id)!
+      const effectiveGoals = mergePulledGoals(block.goals, pulled.get(block.id))
+      if (effectiveGoals !== block.goals) goals.set(block.id, effectiveGoals)
+
+      const pulls = pullsOf.get(block.id)
+      if (!pulls) continue
+      const demand = new Map<string, number>() // item id → what the block would import
+      const plan = { ...flattenBlock(block), goals: effectiveGoals }
+      if (plan.goals.length > 0 && plan.nodes.length > 0) {
+        const caps = new Map<string, number>()
+        for (const c of block.inputConnections) {
+          if (byId.has(c.fromBlockId) && !selfConnectionIds.has(c.id)) caps.set(c.itemId, Infinity)
+        }
+        const key = cache ? planKey(plan) : ''
+        let received = cache?.get(block.id, gameData, key, caps)?.received
+        if (!received) {
+          try {
+            const solved = solveBlock(plan, gameData, caps)
+            cache?.set(block.id, gameData, key, caps, solved)
+            received = solved.received
+          } catch {
+            // The supply solve reports the error; a failing block asks for nothing.
+            cache?.delete(block.id)
+          }
+        }
+        for (const [itemId, rate] of received ?? []) demand.set(itemId, rate)
+      }
+
+      for (const c of pulls) {
+        const left = demand.get(c.itemId) ?? 0
+        const share = c.maxRate === undefined ? left : Math.min(left, c.maxRate)
+        demand.set(c.itemId, left - share)
+        info.set(c.id, { demand: share })
+        if (share > 0) {
+          const items = pulled.get(c.fromBlockId) ?? new Map<string, number>()
+          items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
+          pulled.set(c.fromBlockId, items)
+        }
+      }
+    }
+  }
+  return { goals, info }
+}
+
 /**
  * Solve every block, feeding each the net output its sources still have on
  * offer. Blocks are grouped into components of mutually supplying blocks and
@@ -569,9 +780,11 @@ function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
  * source's offer from the previous round, zero in round 1) until the offers
  * carried by back connections stop changing. Several consumers of one source
  * are served in solve order; several sources of one item are drained in
- * connection order. With a `cache`, a block whose flattened plan, game data and
- * caps are unchanged reuses its previous result (same object) instead of
- * solving again.
+ * connection order. A connection marked `pull` first adds the consumer's demand
+ * to the source's goals (see `computePullDemands`); that demand is reserved for
+ * the pulling consumer while others are served. With a `cache`, a block whose
+ * flattened plan, game data and caps are unchanged reuses its previous result
+ * (same object) instead of solving again.
  */
 export function solveAll(
   blocks: Block[],
@@ -580,6 +793,22 @@ export function solveAll(
   options: SolveAllOptions = {},
 ): MultiBlockSolve {
   const { components, selfConnectionIds } = orderBlocks(blocks)
+  const pullPlan = computePullDemands(blocks, gameData, selfConnectionIds, cache)
+  const effective = (b: Block): Block => {
+    const goals = pullPlan.goals.get(b.id)
+    return goals ? { ...b, goals } : b
+  }
+  // blockId → itemId → items/min asked by applied pulls and not yet served
+  let pending = new Map<string, Offers>()
+  for (const b of blocks) {
+    for (const c of b.inputConnections) {
+      const info = pullPlan.info.get(c.id)
+      if (!info || !('demand' in info) || info.demand <= 0) continue
+      const items = pending.get(c.fromBlockId) ?? new Map<string, number>()
+      items.set(c.itemId, (items.get(c.itemId) ?? 0) + info.demand)
+      pending.set(c.fromBlockId, items)
+    }
+  }
   const roundLimit = Math.max(1, options.loopRoundLimit ?? LOOP_ROUND_LIMIT)
   const blockIds = new Set(blocks.map(b => b.id))
   const results: Record<string, SolverResult> = {}
@@ -599,8 +828,15 @@ export function solveAll(
     const loop = component.loop
     if (!loop) {
       const block = component.blocks[0]
-      const ctx: StepContext = { blockIds, selfConnectionIds, loopConnectionIds: new Set(), gameData, cache }
-      const step = solveStep(block, ctx, remaining)
+      const ctx: StepContext = {
+        blockIds,
+        selfConnectionIds,
+        loopConnectionIds: new Set(),
+        gameData,
+        cache,
+        pull: pullPlan.info,
+      }
+      const step = solveStep(effective(block), ctx, remaining, pending)
       commit(block, step)
       remaining.set(block.id, step.offers)
       continue
@@ -612,18 +848,20 @@ export function solveAll(
       loopConnectionIds: new Set(loop.connectionIds),
       gameData,
       cache,
+      pull: pullPlan.info,
     }
     // One round: members in loop order against the snapshot plus last round's offers of the members.
     const runRound = (prev: Map<string, Offers>) => {
       // Upstream offers are re-read from the snapshot every round, never drawn twice.
       const rem = cloneRemaining(remaining)
+      const pend = cloneRemaining(pending)
       for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
       const steps = new Map<string, BlockStep>()
       const next = new Map<string, Offers>()
       for (const m of component.blocks) {
         const before = rem.get(m.id)!
         const prevOffers = prev.get(m.id)
-        const step = solveStep(m, ctx, rem)
+        const step = solveStep(effective(m), ctx, rem, pend)
         // Earlier members already drew from last round's offers of this block. If they drew more than
         // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
         // this only happens in a round that has not settled).
@@ -637,7 +875,7 @@ export function solveAll(
         steps.set(m.id, step)
         next.set(m.id, step.offers)
       }
-      return { rem, steps, next }
+      return { rem, pend, steps, next }
     }
 
     let rounds = 1
@@ -649,7 +887,7 @@ export function solveAll(
       round = runRound(before)
       converged = backOffersSettled(loop, component.blocks, before, round.next)
     }
-    const { rem, steps } = round
+    const { rem, pend, steps } = round
 
     for (const m of component.blocks) {
       const step = steps.get(m.id)!
@@ -659,6 +897,7 @@ export function solveAll(
       }
     }
     for (const [id, offers] of rem) remaining.set(id, offers)
+    pending = pend
     loops.push({ ...loop, rounds, converged })
   }
 

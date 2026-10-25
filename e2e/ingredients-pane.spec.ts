@@ -76,7 +76,7 @@ test.describe('Ingredients pane', () => {
   test('right click on a slot lists the source blocks and Forbid imports', async ({ page }) => {
     await plateSlot(page).click({ button: 'right' })
     const menu = page.getByRole('menu')
-    await expect(menu.getByRole('menuitem', { name: /Plates/ })).toBeVisible()
+    await expect(menu.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Plates' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Forbid imports' })).toBeVisible()
   })
 
@@ -84,7 +84,7 @@ test.describe('Ingredients pane', () => {
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await stripAction(page, 'Receive from…').click()
     const menu = page.getByRole('menu')
-    await expect(menu.getByRole('menuitem', { name: /Plates/ })).toBeVisible()
+    await expect(menu.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Plates' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Forbid imports' })).toBeVisible()
   })
 })
