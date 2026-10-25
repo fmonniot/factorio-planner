@@ -72,6 +72,7 @@ function makeBlock(rootPlan: SubPlan, products: Product[]): Block {
     color: '#60a5fa',
     products,
     noImportItems: [],
+    connectionsFirstItems: [],
     inputConnections: [],
     rootPlan,
   }
@@ -352,6 +353,132 @@ describe('solveBlock — own production first', () => {
     const { result, received } = solveBlock(plan, gd)
     expect(result).toEqual(solve(plan, gd))
     expect(received.size).toBe(0)
+  })
+})
+
+describe('solveBlock — connections first', () => {
+  const gearGoal: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
+  const cf = { connectionsFirstItems: ['plate'] }
+  const own = (result: ReturnType<typeof solveBlock>['result'], id: string) =>
+    result.nodes.find(n => n.recipeNodeId === id)!.throughput
+  const plan = (...nodes: RecipeNode[]) => ({ goals: gearGoal, nodes: [planNode('g', 'gear'), ...nodes] })
+
+  it('takes the whole need from the supply and leaves the own recipe idle', () => {
+    const p = plan(planNode('p', 'plateFromIngot'))
+    const { result, received } = solveBlock({ ...p, ...cf }, connectionGameData(), new Map([['plate', 100]]))
+    expect(received.get('plate')).toBeCloseTo(50, 4)
+    expect(own(result, 'p')).toBeCloseTo(0, 4)
+    expect(rate(result.unsatisfied, 'ingot')).toBe(0)
+    // Without the flag the own recipe comes first.
+    const plain = solveBlock(p, connectionGameData(), new Map([['plate', 100]]))
+    expect(own(plain.result, 'p')).toBeCloseTo(50, 4)
+    expect(plain.received.get('plate') ?? 0).toBe(0)
+  })
+
+  it('makes the rest with the own recipe when the offer is short', () => {
+    const { result, received } = solveBlock(
+      { ...plan(planNode('p', 'plateFromIngot')), ...cf }, connectionGameData(), new Map([['plate', 30]]),
+    )
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+    expect(own(result, 'p')).toBeCloseTo(20, 4)
+    expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(20, 4)
+    expect(rate(result.unsatisfied, 'plate')).toBe(0)
+  })
+
+  it('handles an unlimited offer', () => {
+    const { result, received } = solveBlock(
+      { ...plan(planNode('p', 'plateFromIngot')), ...cf }, connectionGameData(), new Map([['plate', Infinity]]),
+    )
+    expect(received.get('plate')).toBeCloseTo(50, 4)
+    expect(result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    expect(own(result, 'p')).toBeCloseTo(0, 4)
+  })
+
+  it('keeps a pinned own recipe and takes only the rest', () => {
+    const { result, received } = solveBlock(
+      { ...plan(pinned('p', 'plateFromIngot', 20)), ...cf }, connectionGameData(), new Map([['plate', 100]]),
+    )
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+    expect(own(result, 'p')).toBeCloseTo(20, 4)
+  })
+
+  it('never feeds a byproduct-consumer recipe from the supply', () => {
+    const data = connectionGameData()
+    data.recipes.burn = recipe('burn', 1, [{ itemId: 'plate', type: 'item', amount: 1 }], [product('ash', 1)])
+    const burn: RecipeNode = { ...planNode('b', 'burn'), byproductConsumer: true }
+    for (const cap of [100, Infinity]) {
+      const { result, received } = solveBlock(
+        { ...plan(planNode('p', 'plateFromIngot'), burn), ...cf }, data, new Map([['plate', cap]]),
+      )
+      expect(received.get('plate'), `cap ${cap}`).toBeCloseTo(50, 4)
+      expect(own(result, 'b'), `cap ${cap}`).toBeCloseTo(0, 4)
+    }
+  })
+
+  describe('with a locked item', () => {
+    it('keeps the lock honoured when the offer covers the need', () => {
+      const { result, received } = solveBlock(
+        { ...plan(planNode('p', 'plateFromIngot')), ...cf, noImportItems: ['plate'] },
+        connectionGameData(), new Map([['plate', 30]]),
+      )
+      expect(received.get('plate')).toBeCloseTo(30, 4)
+      expect(rate(result.unsatisfied, 'plate')).toBe(0)
+      expect(result.warnings).toEqual([])
+    })
+
+    it('shows the part the offer and the pin cannot cover as an import', () => {
+      const { result } = solveBlock(
+        { ...plan(pinned('p', 'plateFromIngot', 10)), ...cf, noImportItems: ['plate'] },
+        connectionGameData(), new Map([['plate', 30]]),
+      )
+      expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(10, 4)
+      expect(result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    })
+  })
+
+  it('mixes a connections-first item with an item that keeps the default order', () => {
+    // 1 ingot -> 2 plates, so a plate shortfall is cheaper to cover with ingots (see "own production
+    // that needs an upstream import"): plate takes 30 first, the own recipe makes 20 from 10 ingots,
+    // the pinned recipe makes 5 and the 5 missing come from the (default-order) ingot supply.
+    const data = connectionGameData()
+    data.recipes.plateFromIngot = recipe(
+      'plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 2)],
+    )
+    const { result, received } = solveBlock(
+      { ...plan(planNode('p', 'plateFromIngot'), pinned('i', 'ingotFromOre', 5)), ...cf },
+      data,
+      new Map([['plate', 30], ['ingot', 100]]),
+    )
+    expect(received.get('plate')).toBeCloseTo(30, 4)
+    expect(received.get('ingot')).toBeCloseTo(5, 4)
+    expect(result.unsatisfied.map(u => u.itemId)).toEqual(['ore'])
+    expect(rate(result.unsatisfied, 'ore')).toBeCloseTo(5, 4)
+  })
+
+  it('replaces an upstream import and reports the pinned leftover', () => {
+    const data = connectionGameData()
+    data.recipes.plateFromIngot = recipe(
+      'plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 2)],
+    )
+    const { result, received } = solveBlock(
+      { ...plan(planNode('p', 'plateFromIngot'), pinned('i', 'ingotFromOre', 10)), ...cf },
+      data, new Map([['plate', 100]]),
+    )
+    expect(received.get('plate')).toBeCloseTo(50, 4)
+    expect(rate(result.unsatisfied, 'ingot')).toBe(0)
+    const warning = result.warnings.find(w => w.type === 'overconstrained')
+    expect(warning, 'the pinned ingot is left over').toBeDefined()
+    expect(JSON.stringify(warning)).toContain('ingot')
+  })
+
+  it('changes nothing for an empty list, or for an item the block cannot make', () => {
+    const p = plan(planNode('p', 'plateFromIngot'))
+    const caps = () => new Map([['plate', 30]])
+    expect(solveBlock({ ...p, connectionsFirstItems: [] }, connectionGameData(), caps()))
+      .toEqual(solveBlock(p, connectionGameData(), caps()))
+    const raw = { goals: gearGoal, nodes: [planNode('g', 'gear')] }
+    expect(solveBlock({ ...raw, ...cf }, connectionGameData(), caps()))
+      .toEqual(solveBlock(raw, connectionGameData(), caps()))
   })
 })
 
@@ -1329,6 +1456,114 @@ describe('solveAll — requests', () => {
     const third = solveAll(blocks(10), gd, cache)
     expect(third.results.A).not.toBe(first.results.A)
     expect(throughput(third, 'A')).toBeCloseTo(20, 4)
+  })
+
+  describe('connections first', () => {
+    // B makes 25 gears (50 plate) with its own plateFromIngot recipe, ingot being raw.
+    const cf = { connectionsFirstItems: ['plate'] }
+    const consumerB = (connections: Block['inputConnections'], extra: Partial<Block> = {}) =>
+      block('B', [prod('gear', 25)], [planNode('g', 'gear'), planNode('p', 'plateFromIngot')], connections, extra)
+    const nodeRate = (all: ReturnType<typeof solveAll>, blockId: string, nodeId: string) =>
+      all.results[blockId].nodes.find(n => n.recipeNodeId === nodeId)?.throughput ?? 0
+
+    it('makes the source produce the whole need instead of the block importing its ingot', () => {
+      const without = solveAll([smelter(), consumerB([link('c1', 'A')])], requestGameData())
+      expect(flowOf(without, 'c1')).toMatchObject({ kind: 'request', requested: 0, status: 'unused' })
+      expect(without.results.A.nodes).toEqual([])
+      expect(rate(without.results.B.unsatisfied, 'ingot')).toBeCloseTo(50, 4)
+
+      const all = solveAll([smelter(), consumerB([link('c1', 'A')], cf)], requestGameData())
+      const f = flowOf(all, 'c1')
+      expect(f.kind).toBe('request')
+      expect(f.requested).toBeCloseTo(50, 4)
+      expect(f.rate).toBeCloseTo(50, 4)
+      expect(f.status).toBe('ok')
+      expect(throughput(all, 'A')).toBeCloseTo(50, 4)
+      expect(nodeRate(all, 'B', 'p')).toBeCloseTo(0, 4)
+      expect(rate(all.results.B.unsatisfied, 'ingot')).toBe(0)
+    })
+
+    it('uses a take first too, and keeps the own recipe for the rest', () => {
+      const source = block('A', [prod('slag', 40)], [planNode('t', 'twin')])
+      const all = solveAll([source, consumerB([link('c1', 'A')], cf)], requestGameData())
+      const f = flowOf(all, 'c1')
+      expect(f.kind).toBe('take')
+      expect(f.rate).toBeCloseTo(40, 4)
+      expect(nodeRate(all, 'B', 'p')).toBeCloseTo(10, 4)
+      expect(rate(all.results.B.unsatisfied, 'ingot')).toBeCloseTo(10, 4)
+      expect(throughput(all, 'A')).toBeCloseTo(40, 4)
+    })
+
+    it('limits the request to the connection limit and makes the rest itself', () => {
+      const all = solveAll([smelter(), consumerB([link('c1', 'A', 'plate', { maxRate: 30 })], cf)], requestGameData())
+      const f = flowOf(all, 'c1')
+      expect(f.requested).toBeCloseTo(30, 4)
+      expect(f.rate).toBeCloseTo(30, 4)
+      expect(f.capped).toBe(true)
+      expect(f.status).toBe('ok')
+      expect(nodeRate(all, 'B', 'p')).toBeCloseTo(20, 4)
+    })
+
+    it('credits takes before requests', () => {
+      const t = block('T', [prod('slag', 20)], [planNode('t', 'twin')])
+      const b = consumerB([link('ct', 'T'), link('cr', 'A')], cf)
+      const all = solveAll([t, smelter(), b], requestGameData())
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cr').requested).toBeCloseTo(30, 4)
+      expect(nodeRate(all, 'B', 'p')).toBeCloseTo(0, 4)
+    })
+
+    it('gives the same results with a cache warmed without the flag as without a cache', () => {
+      const gd = requestGameData()
+      const cache = createSolveCache()
+      solveAll([smelter(), consumerB([link('c1', 'A')])], gd, cache)
+      const blocks = [smelter(), consumerB([link('c1', 'A')], cf)]
+      const warm = solveAll(blocks, gd, cache)
+      const cold = solveAll(blocks, gd)
+      expect(warm.flows).toEqual(cold.flows)
+      expect(warm.results).toEqual(cold.results)
+      expect(flowOf(warm, 'c1').requested).toBeCloseTo(50, 4)
+    })
+
+    it('does not reuse a memoised cycle across a change of the flag', () => {
+      const data = requestGameData()
+      const need = (itemId: string, amount: number) => [{ itemId, type: 'item' as const, amount }]
+      data.recipes.fx = recipe('fx', 1, need('y', 0.5), [product('x', 1)])
+      data.recipes.fy = recipe('fy', 1, need('x', 0.5), [product('y', 1)])
+      data.recipes.ymake = recipe('ymake', 1, [], [product('y', 1)])
+      const blocks = (extra: Partial<Block>) => [
+        block('A', [prod('x', 60)], [planNode('fx', 'fx'), planNode('ym', 'ymake')], [link('ca', 'B', 'y')], extra),
+        block('B', [prod('y')], [planNode('n', 'fy')], [link('cb', 'A', 'x')]),
+      ]
+      const cache = createSolveCache()
+      const plain = solveAll(blocks({}), data, cache)
+      expect(flowOf(plain, 'ca').requested).toBeCloseTo(0, 4)
+
+      const warm = solveAll(blocks({ connectionsFirstItems: ['y'] }), data, cache)
+      const cold = solveAll(blocks({ connectionsFirstItems: ['y'] }), data)
+      expect(flowOf(warm, 'ca').requested).toBeCloseTo(40, 4)
+      expect(flowOf(warm, 'cb').requested).toBeCloseTo(20, 4)
+      expect(nodeRate(warm, 'A', 'ym')).toBeCloseTo(0, 4)
+      expect(warm.flows).toEqual(cold.flows)
+      expect(warm.results).toEqual(cold.results)
+    })
+
+    it('settles a supply loop in two rounds', () => {
+      const a = block(
+        'A', [prod('gear')], [planNode('g', 'gear'), planNode('p', 'plateFromIngot')],
+        [link('cp', 'B', 'plate')], cf,
+      )
+      const b = block(
+        'B', [prod('machine', 10), prod('slag', 40)], [planNode('m', 'machine'), planNode('t', 'twin')],
+        [link('cg', 'A', 'gear')],
+      )
+      const all = solveAll([a, b], requestGameData())
+      expect(all.loops).toHaveLength(1)
+      expect(all.loops[0]).toMatchObject({ rounds: 2, converged: true })
+      expect(flowOf(all, 'cp').rate).toBeCloseTo(20, 4)
+      expect(nodeRate(all, 'A', 'p')).toBeCloseTo(0, 4)
+      expect(rate(all.results.A.unsatisfied, 'ingot')).toBe(0)
+    })
   })
 })
 

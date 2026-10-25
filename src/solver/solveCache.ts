@@ -66,8 +66,13 @@ export function exactKey(value: unknown): string {
 }
 
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
-export function planKey(plan: { goals: SolverGoal[]; nodes: RecipeNode[]; noImportItems?: string[] }): string {
-  return exactKey([plan.goals, plan.nodes, plan.noImportItems ?? []])
+export function planKey(plan: {
+  goals: SolverGoal[]
+  nodes: RecipeNode[]
+  noImportItems?: string[]
+  connectionsFirstItems?: string[]
+}): string {
+  return exactKey([plan.goals, plan.nodes, plan.noImportItems ?? [], plan.connectionsFirstItems ?? []])
 }
 
 function sameCaps(stored: [string, number][], caps: Map<string, number>): boolean {

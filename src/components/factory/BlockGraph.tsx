@@ -198,7 +198,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
             {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
             <span>{item?.name ?? itemId}</span>
             <span className="ml-auto font-mono tabular-nums text-[10px] text-gray-500">
-              offers {fmt(offered)} · needs {fmt(needed)}
+              {request ? `needs ${fmt(needed)}` : `offers ${fmt(offered)} · needs ${fmt(needed)}`}
             </span>
           </button>
         )
@@ -287,6 +287,11 @@ function ConnectionChip({
         <span className={`truncate ${showName ? 'text-[11px] max-w-[10rem]' : 'text-[10px] max-w-[4rem]'}`}>{itemName}</span>
       )}
       {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
+      {flow?.kind === 'take' && (
+        <span data-testid="graph-edge-existing" className="text-[9px] uppercase tracking-wide leading-none opacity-70">
+          existing
+        </span>
+      )}
       <span className="text-[10px] font-mono tabular-nums leading-none">
         {flow ? fmt(flow.rate) : '—'}
         {flow && <span className="opacity-60">{unit}</span>}
@@ -538,7 +543,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
       } else {
         let reason: string
         if (!results[b.id]) reason = `${b.name} has not been solved yet`
-        else reason = `Nothing to send: ${b.name} imports nothing ${source?.name ?? ''} has left to offer`
+        else reason = `Nothing to send: ${b.name} imports nothing ${source?.name ?? ''} makes or has left over`
         roles.set(b.id, { role: 'blocked', reason })
       }
     }

@@ -479,6 +479,7 @@ interface Block {
   color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
   products: Product[]        // default []; what the block makes; other blocks may request them
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
+  connectionsFirstItems: string[]  // default []; items whose connected supply is used before the block's own recipes
   inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
 }
@@ -498,6 +499,8 @@ interface Product {
 ```
 
 A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate }` with `rate = extraRate ?? 0` plus what other blocks request, built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
+
+`connectionsFirstItems` is toggled per item on the consumer (an undoable command in its history) and applies to every connection the block has for the item. It is kept when the item's last connection is removed (it has no effect without a connection, or for an item the block cannot make, and is active again on reconnect), and copied when a block or plan is duplicated. See [solver.md](solver.md#connections-first).
 
 **Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
 Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
@@ -531,7 +534,7 @@ connections and reports them as `missing-source` / `self`. Plans saved before
 connections existed have no `inputConnections` field and load with `[]`. A connection may carry
 an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
 no limit (`0` loads as an absent key; unlike `pinnedRate`, whose `0` loads as a present `undefined`); clearing a limit deletes the key; a duplicated
-block or plan copies it. A connection stores no kind: it is a *request* when its item is one of the source's products and *take existing* otherwise (see [solver.md](solver.md#requests)). The store does not refuse a request that closes a cycle of requests (the solver solves the cycle in rounds), nor one whose source receives the item (the menus disable it; the solver ignores it). Making an item a product can turn takes into requests, which the UI confirms first; undo and redo of product commands only change the active block and apply without asking. `removeProduct` undo restores the product at its old index, because the first product of an item receives the requested amount. How the
+block or plan copies it. A connection stores no kind: it is a *request* when its item is one of the source's products and *take existing* otherwise (see [solver.md](solver.md#requests)). The store does not refuse a request that closes a cycle of requests (the solver solves the cycle in rounds), nor one whose source receives the item (the menus disable it; the solver ignores it). Making an item a product can turn takes into requests, which the UI confirms first; undo and redo of product commands only change the active block and apply without asking. `removeProduct` undo restores the product at its old index, because the first product of an item receives the requested amount. **Make in a new block.** `addBlockForItem` appends a block with the item as a product (no `extraRate`), makes it active, and adds the request to the *consumer's* history. Block creation itself is not undoable (like `addBlock`), so undoing from the consumer removes the connection and leaves the block, and redo is dropped if the block was deleted meanwhile. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan

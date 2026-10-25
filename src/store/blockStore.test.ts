@@ -387,6 +387,34 @@ describe('toggleNoImportItem', () => {
   })
 })
 
+describe('toggleConnectionsFirstItem', () => {
+  const store = () => useBlockStore.getState()
+  const first = (i = 0) => store().blocks[i].connectionsFirstItems
+
+  it('adds, then removes, an item', () => {
+    store().toggleConnectionsFirstItem('plate')
+    expect(first()).toEqual(['plate'])
+    store().toggleConnectionsFirstItem('plate')
+    expect(first()).toEqual([])
+  })
+
+  it('undoes and redoes', () => {
+    store().toggleConnectionsFirstItem('plate')
+    store().undo()
+    expect(first()).toEqual([])
+    store().redo()
+    expect(first()).toEqual(['plate'])
+  })
+
+  it('changes only the active block', () => {
+    const other = makeEmptyBlock('Other')
+    useBlockStore.setState({ blocks: [...store().blocks, other] })
+    store().toggleConnectionsFirstItem('plate')
+    expect(first(0)).toEqual(['plate'])
+    expect(first(1)).toEqual([])
+  })
+})
+
 describe('products', () => {
   const store = () => useBlockStore.getState()
   const products = () => store().blocks[0].products
@@ -697,6 +725,55 @@ describe('input connections', () => {
       store().removeInputConnection(active().inputConnections[0].id)
       store().undo()
       expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId }])
+    })
+  })
+
+  describe('addBlockForItem', () => {
+    const store = () => useBlockStore.getState()
+
+    it('appends a block named after the item, makes it active and requests the item from it', () => {
+      const newId = store().addBlockForItem('plate', 'Iron plate')!
+      const created = store().blocks[store().blocks.length - 1]
+      expect(created.id).toBe(newId)
+      expect(created.name).toBe('Iron plate')
+      expect(created.products).toEqual([{ id: expect.any(String), itemId: 'plate' }])
+      expect('extraRate' in created.products[0]).toBe(false)
+      expect(created.color).toMatch(/^#[0-9a-f]{6}$/i)
+      expect(store().activeBlockId).toBe(newId)
+      expect(store().blocks.find(b => b.id === activeId)!.inputConnections).toEqual([
+        { id: expect.any(String), itemId: 'plate', fromBlockId: newId },
+      ])
+    })
+
+    it('does nothing when the consumer has the item as a product, or does not exist', () => {
+      store().addProduct({ id: 'g1', itemId: 'plate', extraRate: 60 })
+      const before = store().blocks
+      expect(store().addBlockForItem('plate', 'Iron plate')).toBeUndefined()
+      expect(store().blocks).toBe(before)
+      expect(store().addBlockForItem('gear', 'Gear', 'ghost')).toBeUndefined()
+      expect(store().blocks).toBe(before)
+    })
+
+    it('records the request in the consumer\'s history, not the new block\'s', () => {
+      const newId = store().addBlockForItem('plate', 'Iron plate')!
+      store().undo() // the new block is active and has nothing to undo
+      expect(store().blocks.find(b => b.id === activeId)!.inputConnections).toHaveLength(1)
+      store().setActiveBlock(activeId)
+      const connectionId = active().inputConnections[0].id
+      store().undo()
+      expect(active().inputConnections).toEqual([])
+      expect(store().blocks.some(b => b.id === newId)).toBe(true)
+      store().redo()
+      expect(active().inputConnections).toEqual([{ id: connectionId, itemId: 'plate', fromBlockId: newId }])
+    })
+
+    it('drops the redo once the new block is gone', () => {
+      const newId = store().addBlockForItem('plate', 'Iron plate')!
+      store().setActiveBlock(activeId)
+      store().undo()
+      store().removeBlock(newId)
+      store().redo()
+      expect(active().inputConnections).toEqual([])
     })
   })
 
@@ -1022,6 +1099,14 @@ describe('duplicateBlock', () => {
     expect(blocks().map(b => b.name)).toEqual(['Source', 'Source (copy)', 'Other', 'Trailing'])
     expect(activeBlockId).toBe(blocks()[1].id)
     expect(blocks()[0]).toEqual(snapshot)
+  })
+
+  it('copies connectionsFirstItems', () => {
+    useBlockStore.setState({
+      blocks: blocks().map(b => (b.id === original.id ? { ...b, connectionsFirstItems: ['plate'] } : b)),
+    })
+    useBlockStore.getState().duplicateBlock(original.id)
+    expect(blocks()[1].connectionsFirstItems).toEqual(['plate'])
   })
 
   it('keeps the structure but gives every entity a fresh id', () => {

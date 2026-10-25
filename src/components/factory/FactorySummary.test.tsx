@@ -630,6 +630,59 @@ describe('FactorySummary — connections', () => {
     })
   })
 
+  describe('connection menu — make in a new block and connections first', () => {
+    const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
+
+    it('offers Make in a new block before Forbid imports, and no connections-first entry without a connection', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const items = screen.getAllByRole('menuitem').map(el => el.textContent)
+      expect(items.slice(-2)).toEqual(['Make in a new block…', 'Forbid imports'])
+      expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+    })
+
+    it('Make in a new block creates the block, requests the item and opens the recipe picker', async () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Make in a new block…' }))
+
+      const { blocks, activeBlockId } = useBlockStore.getState()
+      expect(blocks).toHaveLength(3)
+      const created = blocks[2]
+      expect(created.name).toBe('Iron Ore')
+      expect(created.products).toEqual([{ id: expect.any(String), itemId: 'iron-ore' }])
+      expect(activeBlockId).toBe(created.id)
+      expect(consumer().inputConnections).toEqual([
+        { id: expect.any(String), itemId: 'iron-ore', fromBlockId: created.id },
+      ])
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+      expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
+    })
+
+    it('toggles Use connections first for a connected item, before Forbid imports', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const entry = screen.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+      expect(entry).toHaveAttribute('aria-checked', 'false')
+      const forbid = screen.getByRole('menuitem', { name: 'Forbid imports' })
+      expect(entry.compareDocumentPosition(forbid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+      fireEvent.click(entry)
+      expect(consumer().connectionsFirstItems).toEqual(['iron-ore'])
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const checked = screen.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+      expect(checked).toHaveAttribute('aria-checked', 'true')
+      fireEvent.click(checked)
+      expect(consumer().connectionsFirstItems).toEqual([])
+    })
+  })
+
   describe('exports', () => {
     const makerResult = (): SolverResult => ({
       nodes: [{
