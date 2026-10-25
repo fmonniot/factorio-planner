@@ -498,6 +498,8 @@ interface Product {
 }
 ```
 
+The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate: extraRate }`, built when the block is flattened (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
+
 **Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
 Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
 `goals` and `noImportItems` on each sub-plan: the migration walks the tree, hoists them to

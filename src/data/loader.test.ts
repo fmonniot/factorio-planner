@@ -580,6 +580,17 @@ describe('parseAppState — products migration', () => {
     expect(block.products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
   })
 
+  it('falls through an empty legacy goals list to the hoisted sub-plan goals', () => {
+    const rootPlan = plan({
+      goals: [{ id: 'g', itemId: 'iron-plate', rate: 20 }],
+      subPlans: [plan({ id: 'child', goals: [{ id: 'g2', itemId: 'iron-plate', rate: 40 }] })],
+    })
+    const block = load(blockJson({ rootPlan, goals: [] })).blocks[0]
+    expect(block.products, 'one summed product from the sub-plan goals').toHaveLength(1)
+    expect(block.products[0]).toMatchObject({ itemId: 'iron-plate', extraRate: 60 })
+    expect('goals' in block, 'legacy goals key is dropped').toBe(false)
+  })
+
   it('prefers non-empty products over legacy goals', () => {
     const block = load(blockJson({
       products: [{ id: 'p', itemId: 'gear', extraRate: 7 }],
