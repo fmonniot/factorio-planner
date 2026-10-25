@@ -2,6 +2,7 @@ import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE } from '../../solver/index'
 import { fmtRate } from './ItemTile'
+import { possessive } from './productChangeText'
 import type { ByproductRow, IngredientRow } from './summaryRows'
 
 /**
@@ -50,6 +51,8 @@ export interface Segment {
   maxRate?: number
   /** source only: the connection is a request, so the consumer's need drives the source */
   requested?: true
+  /** export only: items/min the consumer requested, when the connection is a request */
+  requestedRate?: number
 }
 
 /** Marks drawn across the whole bar instead of taking a share of it. */
@@ -72,6 +75,10 @@ export interface ProductInfo {
   /** undefined before the first solve */
   actual: number | undefined
   short: boolean
+  /** What other blocks request of the item (the sum over the request flows). */
+  requested: number
+  /** Set only when short: how much of the shortfall falls on the extra and on the requests, and which requesters got less than they asked. */
+  shortFrom?: { extra: number; requests: number; blockIds: string[] }
   /** Position of the requirement on the bar (0..1); null when actual matches it. */
   tickAt: number | null
 }
@@ -125,6 +132,7 @@ function exportSegments(exports: ConnectionFlow[]): Segment[] {
     blockId: f.toBlockId,
     connectionId: f.connectionId,
     ...(f.loop ? { loop: true as const } : {}),
+    ...(f.kind === 'request' && f.requested !== undefined ? { requestedRate: f.requested } : {}),
   }))
 }
 
@@ -132,27 +140,35 @@ const sum = (segments: Segment[]) => segments.reduce((total, s) => total + s.amo
 
 /**
  * `exports` are this block's deliveries of the product's item, each above
- * FLOW_TOLERANCE. `requestedPerMin` is what other blocks request of the same item
- * on top of the extra (the solver adds it to the product's rate): the slot is short
- * when the output misses the extra plus that amount. A product with no extra, no
- * request, no export and no output is empty.
+ * FLOW_TOLERANCE. `requests` are the request flows leaving the block for the same item,
+ * including those delivering 0, in solve order. What they request is added to the extra
+ * (the solver adds it to the product's rate): the slot is short when the output misses the
+ * extra plus that amount. A product with no extra, no request, no export and no output is empty.
  */
 export function productSlot(
   product: Product,
   actualPerMin: number | undefined,
   exports: ConnectionFlow[],
   unit: RateUnit,
-  requestedPerMin = 0,
+  requests: ConnectionFlow[] = [],
 ): SlotModel {
   const extra = product.extraRate
+  const requestedPerMin = requests.reduce((total, f) => total + (f.requested ?? 0), 0)
   const required = (extra ?? 0) + requestedPerMin
   const asked = required > FLOW_TOLERANCE
-  const info = (actual: number | undefined, short: boolean, tickAt: number | null): ProductInfo => ({
+  const info = (
+    actual: number | undefined,
+    short: boolean,
+    tickAt: number | null,
+    shortFrom?: ProductInfo['shortFrom'],
+  ): ProductInfo => ({
     id: product.id,
     extra,
     required,
     actual,
     short,
+    requested: requestedPerMin,
+    ...(shortFrom ? { shortFrom } : {}),
     tickAt,
   })
   if (!asked && exports.length === 0 && !((actualPerMin ?? 0) > FLOW_TOLERANCE)) {
@@ -164,7 +180,7 @@ export function productSlot(
       segments: [],
       overlays: [],
       status: null,
-      dimmed: false,
+      dimmed: true,
       empty: true,
       product: info(actualPerMin, false, null),
     }
@@ -189,6 +205,17 @@ export function productSlot(
   const short = asked && isShortfall(required, actualPerMin, unit)
   if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
   const scale = Math.max(required, sum(segments))
+  // The extra gives way first; the rest falls on the requests served last.
+  let shortFrom: ProductInfo['shortFrom']
+  if (short) {
+    const missing = required - actualPerMin
+    const extraPart = Math.min(extra ?? 0, missing)
+    const requestPart = missing - extraPart
+    const blockIds = requestPart > FLOW_TOLERANCE
+      ? requests.filter(f => f.rate < (f.requested ?? 0) - FLOW_TOLERANCE).map(f => f.toBlockId)
+      : []
+    shortFrom = { extra: extraPart, requests: requestPart, blockIds }
+  }
   return {
     id: product.id,
     itemId: product.itemId,
@@ -202,6 +229,7 @@ export function productSlot(
       actualPerMin,
       short,
       asked && differsFromTarget(required, actualPerMin, unit) ? required / scale : null,
+      shortFrom,
     ),
   }
 }
@@ -333,7 +361,7 @@ export function segmentLabel(
   switch (e.kind) {
     case 'export': return `→ ${blockName ?? GONE}${mark}`
     case 'source': return `← ${blockName ?? GONE}${mark}`
-    case 'kept': return 'Kept'
+    case 'kept': return 'Extra'
     case 'left': return 'Left'
     case 'import': return 'Imported'
     case 'short': return 'Short'
@@ -379,5 +407,54 @@ export function segmentTitle(
       return `${itemName} — ignored because a block cannot supply itself — right-click to remove`
     default:
       return segmentLabel(e, blockName)
+  }
+}
+
+const joinNames = (names: string[]) =>
+  names.length <= 1 ? names.join('') : `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`
+
+/**
+ * The text of one colour-key entry. Products say who asked for what and where a shortfall
+ * comes from; every other entry reads as its label and amount.
+ */
+export function keyEntryText(
+  entry: Segment | Overlay,
+  ctx: {
+    blockName: string | undefined
+    product: ProductInfo | undefined
+    fmt: (perMin: number) => string
+    nameOf: (blockId: string) => string | undefined
+  },
+): { label: string; amount?: string; note?: string } {
+  const { blockName, product, fmt, nameOf } = ctx
+  const amount = 'amount' in entry ? entry.amount : undefined
+  const plain = { label: segmentLabel(entry, blockName), ...(amount !== undefined ? { amount: fmt(amount) } : {}) }
+  if (!product || amount === undefined) return plain
+  switch (entry.kind) {
+    case 'export': {
+      const requestedRate = (entry as Segment).requestedRate
+      if (requestedRate === undefined) return plain
+      const name = `${blockName ?? GONE}${entry.loop ? ' ↻' : ''}`
+      return amount >= requestedRate - FLOW_TOLERANCE
+        ? { label: `${name} requests`, amount: fmt(amount) }
+        : { label: `${name}:`, amount: fmt(amount), note: `of ${fmt(requestedRate)} requested` }
+    }
+    case 'kept':
+      return product.extra !== undefined
+        ? { label: 'Extra:', amount: fmt(amount), note: `of ${fmt(product.extra)}` }
+        : plain
+    case 'short': {
+      const from = product.shortFrom
+      if (!from) return plain
+      const names = from.blockIds.map(id => possessive(nameOf(id) ?? GONE))
+      const list = `${joinNames(names)} ${names.length === 1 ? 'request' : 'requests'}`
+      const fromExtra = from.extra > FLOW_TOLERANCE
+      const note = names.length === 0
+        ? fromExtra ? '— comes out of the extra' : undefined
+        : fromExtra ? `— comes out of the extra and ${list}` : `— comes out of ${list}`
+      return { label: 'Short', amount: fmt(amount), ...(note ? { note } : {}) }
+    }
+    default:
+      return plain
   }
 }

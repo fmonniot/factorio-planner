@@ -13,7 +13,7 @@ const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHav
 /** Add a goal of `amount` for the first item in the picker. */
 async function addGoal(page: Page, amount: string) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add goal').click()
+  await page.getByTitle('Add product').click()
   await overlay.getByLabel('Amount').fill(amount)
   await overlay.locator('[data-testid="item-slot"]').first().click()
   await expect(overlay).not.toBeVisible()

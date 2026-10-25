@@ -31,59 +31,75 @@ interface ProductRatesProps {
   info: ProductInfo
   rateUnit: RateUnit
   editing: boolean
+  empty: boolean
   onStart: () => void
   onStop: () => void
-  onUpdateExtra: (extraRate: number) => void
+  onUpdateExtra: (extraRate: number | undefined) => void
 }
 
-function ProductRates({ product, info, rateUnit, editing, onStart, onStop, onUpdateExtra }: ProductRatesProps) {
+function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop, onUpdateExtra }: ProductRatesProps) {
   // product.extraRate is stored in items/min internally
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const hasExtra = product.extraRate !== undefined
-  const targetDisplay = hasExtra ? fmtRate(product.extraRate! / 60, rateUnit) : '—'
+  const extraDisplay = hasExtra ? fmtRate(product.extraRate! / 60, rateUnit) : ''
   const actualDisplay = info.actual !== undefined ? fmtRate(info.actual / 60, rateUnit) : null
   const shortfallDisplay = info.actual !== undefined ? fmtRate((info.required - info.actual) / 60, rateUnit) : null
   const { short } = info
+  const showExtra = editing || hasExtra
+  const showRequested = info.requested > FLOW_TOLERANCE
 
   return (
-    <span className="flex items-center gap-1 text-xs">
-      {/* Extra output — editable */}
+    <span className="flex items-center gap-1 text-xs whitespace-nowrap">
+      {/* Extra output — editable; clearing the field removes it */}
       {editing ? (
         <RateInput
-          initial={hasExtra ? targetDisplay : ''}
+          initial={extraDisplay}
           rateUnit={rateUnit}
-          ariaLabel="Goal target rate"
-          onCommit={perMin => perMin !== undefined && onUpdateExtra(perMin)}
+          ariaLabel="Extra output rate"
+          allowClear
+          onCommit={onUpdateExtra}
           onStop={onStop}
         />
-      ) : (
+      ) : hasExtra && (
         <button
           type="button"
           onClick={onStart}
-          title={hasExtra ? `Target: ${targetDisplay}${unitLabel} — click to edit` : 'Target: none — click to edit'}
+          title={`Extra output: ${extraDisplay}${unitLabel} — click to edit`}
           className="text-gray-300 hover:text-yellow-300 tabular-nums font-mono text-[11px] leading-none"
         >
-          {targetDisplay}
+          extra {extraDisplay}
         </button>
       )}
 
-      {/* Separator + actual (only when solver has run) */}
-      {actualDisplay !== null && (
-        <>
-          <span className="text-gray-600 text-[10px]">→</span>
-          <span
-            title={short
-              ? `Actual: ${actualDisplay}${unitLabel} — short by ${shortfallDisplay}${unitLabel}`
-              : `Actual: ${actualDisplay}${unitLabel} — solver output`}
-            className={`${short ? 'text-amber-400' : 'text-teal-400'} tabular-nums font-mono text-[11px] leading-none`}
-          >
-            {short && '▼ '}
-            {actualDisplay}
-          </span>
-        </>
+      {showRequested && (
+        <span className="text-gray-300 tabular-nums font-mono text-[11px] leading-none">
+          {showExtra ? '+ ' : ''}requested {fmtRate(info.requested / 60, rateUnit)}
+        </span>
       )}
 
-      <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+      {!showExtra && !showRequested && empty ? (
+        <span className="text-gray-500">nothing requested yet</span>
+      ) : (
+        <>
+          {/* Separator + actual (only when solver has run) */}
+          {actualDisplay !== null && (
+            <>
+              {(showExtra || showRequested) && <span className="text-gray-600 text-[10px]">→</span>}
+              <span
+                title={short
+                  ? `Actual: ${actualDisplay}${unitLabel} — short by ${shortfallDisplay}${unitLabel}`
+                  : `Actual: ${actualDisplay}${unitLabel} — solver output`}
+                className={`${short ? 'text-amber-400' : 'text-teal-400'} tabular-nums font-mono text-[11px] leading-none`}
+              >
+                {short && '▼ '}
+                {actualDisplay}
+              </span>
+            </>
+          )}
+
+          <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+        </>
+      )}
     </span>
   )
 }
@@ -100,7 +116,7 @@ export function FactorySummary() {
   const addProduct = useBlockStore(s => s.addProduct)
   const removeProduct = useBlockStore(s => s.removeProduct)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
-  const [showGoalPicker, setShowGoalPicker] = useState(false)
+  const [showProductPicker, setShowProductPicker] = useState(false)
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
@@ -139,12 +155,9 @@ export function FactorySummary() {
   const exportedPerMin = new Map<string, number>()
   for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
 
-  // What other blocks request from this one, by item. Uses every flow (a request for 0 draws nothing).
-  const requestedPerMin = new Map<string, number>()
-  for (const f of allFlows) {
-    if (f.fromBlockId !== activeBlockId || f.requested === undefined) continue
-    requestedPerMin.set(f.itemId, (requestedPerMin.get(f.itemId) ?? 0) + f.requested)
-  }
+  // What other blocks request from this one, by item, in solve order. Uses every flow (a request for 0 draws nothing).
+  const requestsOf = (itemId: string) =>
+    allFlows.filter(f => f.fromBlockId === activeBlockId && f.kind === 'request' && f.itemId === itemId)
 
   // Byproducts: net positive balance of items that are not products, minus what other blocks take.
   const byproductItems = [...netBalance]
@@ -164,14 +177,14 @@ export function FactorySummary() {
   // The solver adds a requested amount to the first product of the item.
   const requestedItemIds = new Set(productItemIds)
   const productSlots = products.map(p => {
-    const requested = requestedItemIds.delete(p.itemId) ? (requestedPerMin.get(p.itemId) ?? 0) : 0
+    const requests = requestedItemIds.delete(p.itemId) ? requestsOf(p.itemId) : []
     return productSlot(
       p,
       // No node makes the item: the product is fully short, not unknown.
       solverResult ? (netBalance.get(p.itemId) ?? 0) : undefined,
       exportsOf(p.itemId),
       rateUnit,
-      requested,
+      requests,
     )
   })
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
@@ -199,7 +212,7 @@ export function FactorySummary() {
     else setPendingChange({ change: 'remove', productId, itemId: product.itemId, effects })
   }
 
-  function handleAddGoal(itemId: string, rate: number | undefined) {
+  function handleAddProduct(itemId: string, rate: number | undefined) {
     requestAddProduct(itemId, rate)
   }
 
@@ -225,10 +238,10 @@ export function FactorySummary() {
           action={
             <button
               type="button"
-              onClick={() => setShowGoalPicker(true)}
+              onClick={() => setShowProductPicker(true)}
               className="w-[22px] h-5 inline-flex items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
-              title="Add goal"
-              aria-label="Add goal"
+              title="Add product"
+              aria-label="Add product"
             >
               {/* An SVG rather than a "+" glyph, whose font metrics sit it off-centre. */}
               <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
@@ -253,16 +266,33 @@ export function FactorySummary() {
                 info={slot.product!}
                 rateUnit={rateUnit}
                 editing={edit.editing}
+                empty={slot.empty === true}
                 onStart={edit.start}
                 onStop={edit.stop}
                 onUpdateExtra={rate => updateProductExtra(product.id, rate)}
               />
             )
           }}
-          actionsFor={slot => [
-            { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
-            { label: 'Remove goal', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) },
-          ]}
+          renderKeyExtra={(slot, edit) => slot.product!.extra === undefined && !edit.editing && (
+            <button
+              type="button"
+              onClick={edit.start}
+              title="Add extra output on top of what is requested"
+              className="border border-dashed border-gray-600 rounded px-1.5 text-gray-400 hover:text-gray-200"
+            >
+              + Extra output
+            </button>
+          )}
+          actionsFor={slot => {
+            const actions: StripAction[] = [
+              { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
+            ]
+            if (slot.product!.extra !== undefined) {
+              actions.push({ label: 'Remove extra', onSelect: () => updateProductExtra(slot.product!.id, undefined) })
+            }
+            actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) })
+            return actions
+          }}
           onOpenBlock={setActiveBlock}
         />
 
@@ -287,6 +317,7 @@ export function FactorySummary() {
           )}
           actionsFor={slot => [
             { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(slot.itemId) },
+            { label: 'Make it a product', onSelect: () => requestAddProduct(slot.itemId) },
           ]}
           onOpenBlock={setActiveBlock}
         />
@@ -351,14 +382,21 @@ export function FactorySummary() {
         />
       )}
 
-      {productMenu && (
-        <RowActionsMenu
-          x={productMenu.x}
-          y={productMenu.y}
-          actions={[{ label: 'Remove goal', danger: true, onSelect: () => requestRemoveProduct(productMenu.productId) }]}
-          onClose={() => setProductMenu(null)}
-        />
-      )}
+      {productMenu && (() => {
+        const actions: RowAction[] = []
+        if (products.find(p => p.id === productMenu.productId)?.extraRate !== undefined) {
+          actions.push({ label: 'Remove extra', onSelect: () => updateProductExtra(productMenu.productId, undefined) })
+        }
+        actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(productMenu.productId) })
+        return (
+          <RowActionsMenu
+            x={productMenu.x}
+            y={productMenu.y}
+            actions={actions}
+            onClose={() => setProductMenu(null)}
+          />
+        )
+      })()}
 
       {connectionChipMenu && (() => {
         const actions: RowAction[] = []
@@ -381,7 +419,10 @@ export function FactorySummary() {
         <RowActionsMenu
           x={byproductMenu.x}
           y={byproductMenu.y}
-          actions={[{ label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(byproductMenu.itemId) }]}
+          actions={[
+            { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(byproductMenu.itemId) },
+            { label: 'Make it a product', onSelect: () => requestAddProduct(byproductMenu.itemId) },
+          ]}
           onClose={() => setByproductMenu(null)}
         />
       )}
@@ -417,11 +458,11 @@ export function FactorySummary() {
         />
       )}
 
-      {showGoalPicker && (
+      {showProductPicker && (
         <ItemPicker
           source="items"
-          onSelect={handleAddGoal}
-          onClose={() => setShowGoalPicker(false)}
+          onSelect={handleAddProduct}
+          onClose={() => setShowProductPicker(false)}
         />
       )}
     </div>

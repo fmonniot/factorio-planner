@@ -19,7 +19,7 @@ test.describe('Plan export', () => {
     const overlay = page.locator('.fixed.inset-0')
 
     // Add a goal via FactorySummary [+]
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     await overlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await overlay.locator('[data-testid="item-slot"]').first().click()
 

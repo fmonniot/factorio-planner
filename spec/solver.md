@@ -184,16 +184,18 @@ An ignored request takes existing output, exactly like a take: its flow has `kin
 
 **Supply phase.** `solveAll` solves each block with its effective goals, in the usual order (sources first), and the take semantics above apply unchanged. To stop a take consumer solved earlier from taking what A made for a requester, and to stop a requester from drawing on a later source beyond its own share, `solveAll` keeps `pending: sourceId → itemId → requested amount not yet served`:
 
-- A take connection sees `available = max(0, remaining − pending(A, X))`; so does an ignored request.
-- An applied request sees `available = max(0, remaining − (pending(A, X) − requested(c)))`.
-- Both are then capped by `maxRate` as usual.
+- A connection's offer from `(A, X)` is `connectionOffer(left, pending, share) = max(0, min(share, left), left − (pending − share))`, with `left = remaining(A, X)`, `pending = pending(A, X)` and `share = requested(c)` for an applied request, 0 for a take or an ignored request.
+- So a take (or an ignored request) sees `max(0, left − pending)`: only the extra or surplus. A request sees its own share first and, beyond it, what no unserved request holds.
+- The offer is then capped by `maxRate` as usual.
 - After an applied request is served, `pending(A, X) -= requested(c)`: whatever B left unused goes back to the consumers solved later.
+
+**Shortfall.** When a source makes less than the extra plus all requests, requests are served in solve order and the source's output is a shortage for the last ones. The extra gives way first (it is never reserved), then the requests served last: a request is served its own share before later requests. With an extra of 10, requests of 30 (served first) and 20, and 45 made, the extra loses 10 and the second request 5: the first gets 30, the second 15. The LP meets or misses a product wholesale, so a partial shortfall is rare in practice (it needs a source whose pins cap the output); the rule is unit-tested through `connectionOffer`.
 
 Two cases `pending` protects: a take consumer of the same `(A, X)` solved before the requester (it must not take what A made for the request), and a requester with several sources of one item (B requests X from A1 and A2: the whole request goes to A1 and none to A2, and B must not draw on A2's output, which another consumer's request may need).
 
 **Flow fields.** Every flow has `kind`. A request has `requested` (items/min asked, possibly 0); a take that is an ignored request has `requestIgnored`; a plain take has neither key. `capped` for a request is true only when the limit is what bounded the flow: `maxRate !== undefined`, `requested ≥ maxRate − 1e-6` (the limit cut the ask) and the source's offer to this connection is at least `maxRate − 1e-6` (it could have met the limit). A source that offers less than the limit leaves `capped` false, so the UI says the source "only offers N". There is no extra status: if A meets the request the flow is `ok`; if A falls short (pins, locks, no capacity, no recipe for the item) the flow is `limited` and A's result reports a shortfall for X, because the requested amount is part of its goal.
 
-**Loops.** Requests are decided once, before the supply phase, so the effective goals do not change between loop rounds. In a loop of blocks, `pending` is cloned per round from the snapshot taken before the component (like `remaining`) and the last round's copy is kept. A loop may close through a take; cycles of requests are not solved (ignored as `request-loop`).
+**Loops.** The shortfall rule is unchanged in loops. Requests are decided once, before the supply phase, so the effective goals do not change between loop rounds. In a loop of blocks, `pending` is cloned per round from the snapshot taken before the component (like `remaining`) and the last round's copy is kept. A loop may close through a take; cycles of requests are not solved (ignored as `request-loop`).
 
 ### Loops
 

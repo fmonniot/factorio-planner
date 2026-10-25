@@ -42,8 +42,8 @@ test.describe('Goal slot: add producer recipe', () => {
 
   test('clicking the target rate does not open the picker', async ({ page }) => {
     await selectSlot(page, 'Products', 'Hydrogen')
-    await page.getByTitle(/^Target:/).click()
-    await expect(page.getByLabel('Goal target rate')).toBeVisible()
+    await page.getByTitle(/^Extra output:/).click()
+    await expect(page.getByLabel('Extra output rate')).toBeVisible()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
   })
 })

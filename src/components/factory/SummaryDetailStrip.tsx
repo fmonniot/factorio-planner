@@ -4,7 +4,7 @@ import { Icon } from '../Icon'
 import { SegmentBar } from './SummarySlot'
 import { lookStyle, segmentLook } from './segmentLooks'
 import { fmtRate } from './ItemTile'
-import { segmentLabel, segmentTitle } from './summarySegments'
+import { keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
 
@@ -31,6 +31,8 @@ interface SummaryDetailStripProps {
   /** The slot's header rates (the pane decides what they say and whether they are editable). */
   rates: React.ReactNode
   actions: StripAction[]
+  /** Editable states only: one more entry at the end of the colour key. */
+  keyExtra?: React.ReactNode
   onBack: () => void
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
@@ -48,6 +50,7 @@ export function SummaryDetailStrip({
   onToggleTrace,
   rates,
   actions,
+  keyExtra,
   onBack,
   onOpenBlock,
   onConnectionContextMenu,
@@ -170,19 +173,26 @@ export function SummaryDetailStrip({
       <ul className="flex flex-wrap content-start gap-x-3 gap-y-1 flex-1 min-h-0 overflow-y-auto leading-tight">
         {entries.map((entry, i) => {
           const blockName = entry.blockId !== undefined ? blockNameOf(entry.blockId) : undefined
-          const amount = 'amount' in entry ? entry.amount : undefined
           const limited = 'limited' in entry && entry.limited
           const available = 'available' in entry ? entry.available : undefined
           const title = segmentTitle(entry, { itemName, blockName, fmt, unit, available })
           const look = lookOf(entry.kind, entry.blockId, limited)
+          const text = keyEntryText(entry, { blockName, product: slot.product, fmt, nameOf: blockNameOf })
           const body = (
             <>
               <span aria-hidden="true" className="shrink-0 w-2 h-2 rounded-[2px]" style={lookStyle(look)} />
-              <span style={{ color: look.legend }}>
-                {segmentLabel(entry, blockName)}
-              </span>
-              {amount !== undefined && (
-                <span className="font-mono tabular-nums text-gray-200">{fmt(amount)}</span>
+              <span style={{ color: look.legend }}>{text.label}</span>
+              {text.amount !== undefined && (
+                <>
+                  {' '}
+                  <span className="font-mono tabular-nums text-gray-200">{text.amount}</span>
+                </>
+              )}
+              {text.note !== undefined && (
+                <>
+                  {' '}
+                  <span style={{ color: look.legend }}>{text.note}</span>
+                </>
               )}
             </>
           )
@@ -217,6 +227,7 @@ export function SummaryDetailStrip({
             </li>
           )
         })}
+        {editable && keyExtra && <li data-testid="summary-key-extra">{keyExtra}</li>}
       </ul>
       {editable && actions.length > 0 && (
         <div className="flex flex-wrap gap-1.5 shrink-0">

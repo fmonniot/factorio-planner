@@ -110,7 +110,7 @@ describe('FactorySummary — without loaded game data', () => {
     useGameDataStore.setState({ status })
     render(<FactorySummary />)
     expect(screen.queryByText('Products'), 'summary must be hidden').not.toBeInTheDocument()
-    expect(screen.queryByTitle('Add goal')).not.toBeInTheDocument()
+    expect(screen.queryByTitle('Add product')).not.toBeInTheDocument()
   })
 })
 
@@ -172,7 +172,7 @@ describe('FactorySummary — detail strip states', () => {
     expect(slot('Products', 'Iron Plate')).toHaveAttribute('aria-pressed', 'true')
     expect(strip('Products')).toHaveAttribute('data-state', 'selected')
     expect(within(strip('Products')).getByRole('button', { name: 'Find recipe' })).toBeInTheDocument()
-    expect(within(strip('Products')).getByRole('button', { name: 'Remove goal' })).toBeInTheDocument()
+    expect(within(strip('Products')).getByRole('button', { name: 'Remove product' })).toBeInTheDocument()
   })
 
   it('clears the selection on a second click, on × and on Escape', () => {
@@ -225,13 +225,13 @@ describe('FactorySummary — detail strip states', () => {
   })
 })
 
-describe('FactorySummary — goal target and actual', () => {
-  it('shows target rate with title containing "Target" once the slot is selected', () => {
+describe('FactorySummary — extra output and actual', () => {
+  it('shows the extra output with title "Extra output" once the slot is selected', () => {
     render(<FactorySummary />)
-    expect(screen.queryByTitle(/Target:/)).not.toBeInTheDocument()
+    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
     select('Products', 'Iron Plate')
-    const targetBtn = screen.getByTitle(/Target:/)
-    expect(targetBtn.textContent).toMatch(/60/)
+    const extraBtn = screen.getByTitle(/^Extra output:/)
+    expect(extraBtn.textContent).toMatch(/60/)
   })
 
   it('shows actual rate with title containing "Actual" when solver has run', () => {
@@ -245,7 +245,7 @@ describe('FactorySummary — goal target and actual', () => {
     setupStore([ironGoal], false)
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(screen.getByTitle(/Target:/)).toBeInTheDocument()
+    expect(screen.getByTitle(/^Extra output:/)).toBeInTheDocument()
     expect(screen.queryByTitle(/Actual:/)).not.toBeInTheDocument()
     expect(screen.queryByText('→')).not.toBeInTheDocument()
   })
@@ -266,17 +266,17 @@ describe('FactorySummary — goal target and actual', () => {
   })
 })
 
-describe('FactorySummary — goal target editing', () => {
+describe('FactorySummary — extra output editing', () => {
   const goalRate = () => useBlockStore.getState().blocks[0].products[0].extraRate
 
   function startEdit() {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    fireEvent.click(screen.getByTitle(/Target:/))
-    return screen.getByLabelText('Goal target rate')
+    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    return screen.getByLabelText('Extra output rate')
   }
 
-  it('clicking the target in the strip shows an editable input', () => {
+  it('clicking the extra output in the strip shows an editable input', () => {
     startEdit()
     expect(strip('Products')).toHaveAttribute('data-state', 'editing')
   })
@@ -313,11 +313,11 @@ describe('FactorySummary — goal target editing', () => {
     expect(goalRate()).toBeCloseTo(120)
   })
 
-  it('double-clicking a slot selects it and edits its target with the input focused', () => {
+  it('double-clicking a slot selects it and edits its extra output with the input focused', () => {
     render(<FactorySummary />)
     fireEvent.doubleClick(slot('Products', 'Iron Plate'))
     expect(strip('Products')).toHaveAttribute('data-state', 'editing')
-    expect(screen.getByLabelText('Goal target rate')).toHaveFocus()
+    expect(screen.getByLabelText('Extra output rate')).toHaveFocus()
   })
 
   it('hovering another slot does not change the strip while editing', () => {
@@ -328,7 +328,7 @@ describe('FactorySummary — goal target editing', () => {
     expect(strip('Products')).toHaveAttribute('data-state', 'editing')
   })
 
-  it('right-clicking the rate input keeps the native menu (no Remove goal menu)', () => {
+  it('right-clicking the rate input keeps the native menu (no Remove product menu)', () => {
     const input = startEdit()
     const notPrevented = fireEvent.contextMenu(input)
     expect(notPrevented).toBe(true)
@@ -336,23 +336,23 @@ describe('FactorySummary — goal target editing', () => {
   })
 })
 
-describe('FactorySummary — remove goal', () => {
-  it('right-click then "Remove goal" removes the goal', () => {
+describe('FactorySummary — remove product', () => {
+  it('right-click then "Remove product" removes the product', () => {
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Products', 'Iron Plate'))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove goal' }))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove product' }))
     expect(useBlockStore.getState().blocks[0].products).toHaveLength(0)
   })
 
-  it('the strip action removes the goal too', () => {
+  it('the strip action removes the product too', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove product' }))
     expect(useBlockStore.getState().blocks[0].products).toHaveLength(0)
     expect(strip('Products')).toHaveAttribute('data-state', 'overview')
   })
 
-  it('Escape closes the goal menu and keeps the goal', () => {
+  it('Escape closes the product menu and keeps the product', () => {
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Products', 'Iron Plate'))
     expect(screen.getByRole('menu')).toBeInTheDocument()
@@ -388,17 +388,17 @@ describe('FactorySummary — v2 surplus renders as byproduct', () => {
   })
 })
 
-describe('FactorySummary — add goal', () => {
+describe('FactorySummary — add product', () => {
   it('clicking + opens item picker', async () => {
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add goal'))
+    fireEvent.click(screen.getByTitle('Add product'))
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument())
   })
 
-  it('adding a goal via picker adds a product', async () => {
+  it('adding a product via the picker adds a product', async () => {
     setupStore([])
     render(<FactorySummary />)
-    fireEvent.click(screen.getByTitle('Add goal'))
+    fireEvent.click(screen.getByTitle('Add product'))
     await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     const slots = screen.getAllByTestId('item-slot')
     const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
@@ -770,13 +770,14 @@ describe('FactorySummary — requests', () => {
     expect(segments('Products', 'export')).toHaveLength(1)
   })
 
-  it('shows a product without extra as nothing requested yet, with a dash and no target', () => {
+  it('shows a product without extra as nothing requested yet, with a dash and no extra output', () => {
     setupRequest({ activeId: 'miner', itemId: 'iron-ore', minerProducts: [ironOreProduct], result: empty(), flows: [] })
     render(<FactorySummary />)
     const ore = within(pane('Products')).getByRole('button', { name: 'Iron Ore, nothing requested yet' })
     expect(ore.textContent).toContain('—')
     fireEvent.click(ore)
-    expect(within(strip('Products')).getByTitle('Target: none — click to edit')).toBeInTheDocument()
+    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
+    expect(within(strip('Products')).getByRole('button', { name: '+ Extra output' })).toBeInTheDocument()
   })
 
   it('is short when less is made than requested of a product without extra', () => {
@@ -873,14 +874,14 @@ describe('FactorySummary — requests', () => {
       setupRequest({ activeId: 'miner' })
       render(<FactorySummary />)
       select('Products', 'Iron Plate')
-      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
+      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove product' }))
       expect(screen.getByRole('heading', { name: "Remove Iron Plate from Miner's products?" })).toBeInTheDocument()
       expect(screen.getByTestId('product-change-effect').textContent).toBe(confirmText)
       fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
       expect(dialog()).not.toBeInTheDocument()
       expect(miner().products).toHaveLength(1)
-      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
-      fireEvent.click(screen.getByRole('button', { name: 'Remove product' }))
+      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove product' }))
+      fireEvent.click(within(dialog()!).getByRole('button', { name: 'Remove product' }))
       expect(miner().products).toEqual([])
     })
 
@@ -888,7 +889,7 @@ describe('FactorySummary — requests', () => {
       setupRequest({ activeId: 'miner' })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Products', 'Iron Plate'))
-      fireEvent.click(screen.getByRole('menuitem', { name: 'Remove goal' }))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Remove product' }))
       expect(screen.getByRole('heading', { name: "Remove Iron Plate from Miner's products?" })).toBeInTheDocument()
       expect(miner().products).toHaveLength(1)
     })
@@ -898,7 +899,7 @@ describe('FactorySummary — requests', () => {
       useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'consumer' ? { ...b, inputConnections: [] } : b)) }))
       render(<FactorySummary />)
       select('Products', 'Iron Plate')
-      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
+      fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove product' }))
       expect(dialog()).not.toBeInTheDocument()
       expect(miner().products).toEqual([])
     })
@@ -906,7 +907,7 @@ describe('FactorySummary — requests', () => {
 
   describe('adding a product', () => {
     const openPicker = async () => {
-      fireEvent.click(screen.getByTitle('Add goal'))
+      fireEvent.click(screen.getByTitle('Add product'))
       await waitFor(() => screen.getByRole('heading', { name: 'Add product' }))
     }
     const pickOre = () =>
@@ -919,7 +920,7 @@ describe('FactorySummary — requests', () => {
       pickOre()
       expect(screen.getByRole('heading', { name: 'Make Iron Ore a product of Miner?' })).toBeInTheDocument()
       expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate'])
-      fireEvent.click(screen.getByRole('button', { name: 'Make it a product' }))
+      fireEvent.click(within(dialog()!).getByRole('button', { name: 'Make it a product' }))
       expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate', 'iron-ore'])
     })
 
@@ -936,8 +937,176 @@ describe('FactorySummary — requests', () => {
   })
 })
 
-describe('FactorySummary — short goal', () => {
-  it('marks a short goal with an amber ▼ and the shortfall in the title', () => {
+describe('FactorySummary — products pane', () => {
+  const makerResult = (plate: number): SolverResult => ({
+    nodes: [{
+      recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 30, 'iron-plate': plate },
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    }],
+    unsatisfied: [],
+    warnings: [],
+  })
+  const empty = (): SolverResult => ({ nodes: [], unsatisfied: [], warnings: [] })
+  const requestFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
+    connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-plate',
+    available: 30, capped: false, rate: 30, status: 'ok', kind: 'request', requested: 30, ...over,
+  })
+
+  function setupRequest(opts: {
+    itemId?: string
+    minerProducts?: Product[]
+    flows?: ConnectionFlow[]
+    result?: SolverResult
+  }) {
+    const consumer: Block = {
+      ...makeEmptyBlock('Consumer'), id: 'consumer', products: [],
+      inputConnections: [{ id: 'c1', itemId: opts.itemId ?? 'iron-plate', fromBlockId: 'miner' }],
+    }
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: opts.minerProducts ?? [ironGoal] }
+    useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: 'miner', history: {} })
+    const result = opts.result ?? makerResult(90)
+    useSolverStore.setState({
+      lastResult: result,
+      lastResults: { consumer: empty(), miner: result },
+      flows: opts.flows ?? [requestFlow()],
+      _setStatus: () => {},
+    })
+  }
+  const miner = () => useBlockStore.getState().blocks.find(b => b.id === 'miner')!
+  const keyTexts = (kind?: string) => keyEntries('Products', kind).map(e => e.textContent)
+  const stripText = () => strip('Products').textContent!
+
+  it('shows the extra and the request in the header, and says who asked for what', () => {
+    setupRequest({})
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    const extra = within(strip('Products')).getByRole('button', { name: /^extra 60\.0$/ })
+    expect(extra).toHaveAttribute('title', 'Extra output: 60.0/m — click to edit')
+    expect(stripText()).toContain('+ requested 30.0')
+    expect(stripText()).not.toContain('makes')
+    expect(keyTexts()).toEqual(['Consumer requests 30.0', 'Extra: 60.0 of 60.0'])
+  })
+
+  it('shows the request alone when there is no extra, and adds an extra from the key', () => {
+    setupRequest({ minerProducts: [{ id: 'pp', itemId: 'iron-plate' }], result: makerResult(30) })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    expect(screen.queryByTitle(/^Extra output:/)).not.toBeInTheDocument()
+    expect(stripText()).toContain('requested 30.0')
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: '+ Extra output' }))
+    const input = screen.getByLabelText('Extra output rate')
+    expect(input).toHaveFocus()
+    fireEvent.change(input, { target: { value: '15' } })
+    fireEvent.keyDown(input, { key: 'Enter' })
+    expect(miner().products[0].extraRate).toBe(15)
+  })
+
+  it('removes the extra from the strip and from the context menu', () => {
+    setupRequest({})
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove extra' }))
+    expect(miner().products[0].extraRate).toBeUndefined()
+
+    act(() => useBlockStore.setState(st => ({
+      blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, products: [ironGoal] } : b)),
+    })))
+    fireEvent.contextMenu(slot('Products', 'Iron Plate'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Remove extra' }))
+    expect(miner().products[0].extraRate).toBeUndefined()
+  })
+
+  it('removes the extra when the input is cleared', () => {
+    setupRequest({})
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    const input = screen.getByLabelText('Extra output rate')
+    fireEvent.change(input, { target: { value: '' } })
+    fireEvent.blur(input)
+    expect(miner().products[0].extraRate).toBeUndefined()
+  })
+
+  it('takes a shortfall out of the extra', () => {
+    setupRequest({ result: makerResult(75) })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    expect(keyEntries('Products', 'export')[0].textContent).toBe('Consumer requests 30.0')
+    expect(keyEntries('Products', 'short')[0].textContent).toBe('Short 15.0 — comes out of the extra')
+    expect(keyEntries('Products', 'kept')[0].textContent).toBe('Extra: 45.0 of 60.0')
+  })
+
+  it('takes a shortfall out of the extra and the request', () => {
+    setupRequest({
+      minerProducts: [{ id: 'g1', itemId: 'iron-plate', extraRate: 10 }],
+      result: makerResult(20),
+      flows: [requestFlow({ rate: 20, requested: 30 })],
+    })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    expect(keyEntries('Products', 'short')[0].textContent).toBe("Short 20.0 — comes out of the extra and Consumer's request")
+    expect(keyEntries('Products', 'export')[0].textContent).toBe('Consumer: 20.0 of 30.0 requested')
+  })
+
+  it('draws an empty slot dimmed with a dashed border and says nothing is requested', () => {
+    setupRequest({ itemId: 'iron-ore', minerProducts: [{ id: 'pore', itemId: 'iron-ore' }], result: empty(), flows: [] })
+    render(<FactorySummary />)
+    const ore = within(pane('Products')).getByRole('button', { name: 'Iron Ore, nothing requested yet' })
+    expect(ore).toHaveAttribute('data-dimmed', 'true')
+    expect(ore.className).toContain('border-dashed')
+    expect(ore).toHaveAttribute('title', 'Iron Ore — nothing requested yet')
+    fireEvent.click(ore)
+    expect(stripText()).toContain('nothing requested yet')
+  })
+
+  describe('byproducts', () => {
+    const slagResult: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 60, 'slag': 10 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [], warnings: [],
+    }
+
+    it('turns a byproduct into a product without extra, from the strip and from the menu', () => {
+      setupRequest({ result: slagResult, flows: [] })
+      render(<FactorySummary />)
+      select('Byproducts', 'Slag')
+      expect(within(strip('Byproducts')).getAllByRole('button').map(b => b.textContent))
+        .toEqual(expect.arrayContaining(['Add consumer recipe…', 'Make it a product']))
+      fireEvent.click(within(strip('Byproducts')).getByRole('button', { name: 'Make it a product' }))
+      expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate', 'slag'])
+      expect('extraRate' in miner().products[1]).toBe(false)
+      expect(dialog()).not.toBeInTheDocument()
+
+      act(() => useBlockStore.setState(st => ({
+        blocks: st.blocks.map(b => (b.id === 'miner' ? { ...b, products: [ironGoal] } : b)),
+      })))
+      fireEvent.contextMenu(slot('Byproducts', 'Slag'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Make it a product' }))
+      expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate', 'slag'])
+    })
+
+    it('asks first when another block takes the byproduct', () => {
+      setupRequest({
+        itemId: 'iron-ore',
+        flows: [requestFlow({ itemId: 'iron-ore', kind: 'take', requested: undefined })],
+      })
+      render(<FactorySummary />)
+      select('Byproducts', 'Iron Ore')
+      fireEvent.click(within(strip('Byproducts')).getByRole('button', { name: 'Make it a product' }))
+      expect(screen.getByRole('heading', { name: 'Make Iron Ore a product of Miner?' })).toBeInTheDocument()
+      fireEvent.click(within(dialog()!).getByRole('button', { name: 'Make it a product' }))
+      expect(miner().products.map(p => p.itemId)).toEqual(['iron-plate', 'iron-ore'])
+      expect('extraRate' in miner().products[1]).toBe(false)
+    })
+  })
+
+  const dialog = () => screen.queryByTestId('product-change-confirm')
+})
+
+describe('FactorySummary — short product', () => {
+  it('marks a short product with an amber ▼ and the shortfall in the title', () => {
     render(<FactorySummary />)
     expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-status', 'short')
     select('Products', 'Iron Plate')
@@ -1006,11 +1175,11 @@ describe('FactorySummary — short goal', () => {
 })
 
 describe('FactorySummary — pane layout', () => {
-  it('keeps Add goal outside the scrolling grid', () => {
+  it('keeps Add product outside the scrolling grid', () => {
     setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     expect(pane('Products').textContent).toContain('· 2')
-    expect(screen.getByTitle('Add goal').closest('.overflow-y-auto')).toBeNull()
+    expect(screen.getByTitle('Add product').closest('.overflow-y-auto')).toBeNull()
   })
 
   it('caps the slot grid height and gives the strip a fixed height', () => {
@@ -1237,18 +1406,18 @@ describe('FactorySummary — two goals for the same item', () => {
     expect(slots()[1]).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('removes the second goal, not the first', () => {
+  it('removes the second product, not the first', () => {
     render(<FactorySummary />)
     fireEvent.click(slots()[1])
-    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove product' }))
     expect(useBlockStore.getState().blocks[0].products.map(p => p.id)).toEqual(['g1'])
   })
 
-  it('edits the target of the second goal', () => {
+  it('edits the extra output of the second product', () => {
     render(<FactorySummary />)
     fireEvent.click(slots()[1])
-    fireEvent.click(screen.getByTitle(/Target:/))
-    const input = screen.getByLabelText('Goal target rate')
+    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    const input = screen.getByLabelText('Extra output rate')
     fireEvent.change(input, { target: { value: '45' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(useBlockStore.getState().blocks[0].products.map(p => p.extraRate)).toEqual([60, 45])

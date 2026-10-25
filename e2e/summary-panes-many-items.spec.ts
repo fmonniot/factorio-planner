@@ -29,11 +29,11 @@ test.describe('summary panes with many items', () => {
   // A small viewport wraps 16 slots onto more than the grid's two visible rows.
   test.use({ viewport: { width: 1000, height: 560 } })
 
-  test('counts the goals and keeps Add goal in view while the grid scrolls', async ({ page }) => {
+  test('counts the goals and keeps Add product in view while the grid scrolls', async ({ page }) => {
     await setup(page)
     await expect(pane(page, 'Products')).toContainText('· 16')
 
-    const add = page.getByTitle('Add goal')
+    const add = page.getByTitle('Add product')
     await expect(add).toBeInViewport()
     await grid(page, 'Products').evaluate(el => { el.scrollTop = el.scrollHeight })
     await expect(add).toBeInViewport()
@@ -102,7 +102,7 @@ test.describe('summary panes with many items', () => {
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'preview')
     await expect(detail(page, 'Products')).toContainText(name)
 
-    await page.getByTitle('Add goal').hover()
+    await page.getByTitle('Add product').hover()
     await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'overview')
   })
 
@@ -123,25 +123,25 @@ test.describe('summary panes with many items', () => {
     await first.click()
     await page.keyboard.press('Escape')
     // The pointer still rests on the slot, which would preview it.
-    await page.getByTitle('Add goal').hover()
+    await page.getByTitle('Add product').hover()
     await expect(strip).toHaveAttribute('data-state', 'overview')
   })
 
-  test('double-clicking a product slot edits its target; Escape cancels', async ({ page }) => {
+  test('double-clicking a product slot edits its extra output; Escape cancels', async ({ page }) => {
     await setup(page)
     const first = slots(page, 'Products').first()
-    const input = page.getByLabel('Goal target rate')
+    const input = page.getByLabel('Extra output rate')
 
     await first.dblclick()
     await expect(input).toBeFocused()
     await input.fill('5')
     await input.press('Enter')
-    await expect(page.getByTitle(/^Target:/)).toHaveAttribute('title', /5\.00/)
+    await expect(page.getByTitle(/^Extra output:/)).toHaveAttribute('title', /5\.00/)
 
     await first.dblclick()
     await input.fill('7')
     await input.press('Escape')
-    await expect(page.getByTitle(/^Target:/)).toHaveAttribute('title', /5\.00/)
+    await expect(page.getByTitle(/^Extra output:/)).toHaveAttribute('title', /5\.00/)
   })
 
   test('an export segment opens the consumer, whose ingredient slots hold their own connections', async ({ page }) => {
