@@ -1,6 +1,7 @@
 import type {
   Block,
   BlockConnection,
+  BlockLoop,
   ConnectionFlow,
   ConnectionFlowStatus,
   GameData,
@@ -9,13 +10,14 @@ import type {
   RecipeNode,
   SolvedNode,
   SolverResult,
+  SolverWarning,
   SubPlan,
   UnsatisfiedItem,
 } from '../data/types'
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
-import { orderBlocks } from './blockGraph'
+import { orderBlocks, type LoopShape } from './blockGraph'
 import { planKey, type SolveCache } from './solveCache'
 
 interface SolverPlan {
@@ -372,127 +374,294 @@ function emptyResult(): SolverResult {
   return { nodes: [], unsatisfied: [], warnings: [] }
 }
 
-/**
- * Solve every block in dependency order, feeding each block the net output its
- * sources still have on offer. Several consumers of one source are served in
- * solve order; several sources of one item are drained in connection order.
- * With a `cache`, a block whose flattened plan, game data and caps are unchanged
- * reuses its previous result (same object) instead of solving again.
- */
-export function solveAll(blocks: Block[], gameData: GameData, cache?: SolveCache): MultiBlockSolve {
-  const { order, cyclicConnectionIds } = orderBlocks(blocks)
-  const blockIds = new Set(blocks.map(b => b.id))
-  const results: Record<string, SolverResult> = {}
-  const errors: Record<string, string> = {}
-  const flows: ConnectionFlow[] = []
-  // blockId → itemId → items/min still on offer
-  const remaining = new Map<string, Map<string, number>>()
+/** Most rounds a loop of blocks is solved before its last round is kept as is. */
+export const LOOP_ROUND_LIMIT = 8
 
-  function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowStatus): ConnectionFlow {
-    return {
+export interface SolveAllOptions {
+  /** Overrides `LOOP_ROUND_LIMIT` (at least 1). */
+  loopRoundLimit?: number
+}
+
+/** itemId → items/min; one block's offer, or what is still unclaimed of it. */
+type Offers = Map<string, number>
+
+interface StepContext {
+  blockIds: Set<string>
+  selfConnectionIds: Set<string>
+  /** Connections between two members of one loop. */
+  loopConnectionIds: Set<string>
+  gameData: GameData
+  cache?: SolveCache
+}
+
+interface BlockStep {
+  result: SolverResult
+  error?: string
+  flows: ConnectionFlow[]
+  /** The block's net output, before any consumer took from it. */
+  offers: Offers
+}
+
+function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowStatus): ConnectionFlow {
+  return {
+    connectionId: c.id,
+    fromBlockId: c.fromBlockId,
+    toBlockId: block.id,
+    itemId: c.itemId,
+    available: 0,
+    capped: false,
+    rate: 0,
+    status,
+  }
+}
+
+/**
+ * Solve one block against what its sources have left in `remaining`, and take
+ * the delivered amounts out of `remaining`.
+ */
+function solveStep(block: Block, ctx: StepContext, remaining: Map<string, Offers>): BlockStep {
+  const { gameData, cache } = ctx
+  const flows: ConnectionFlow[] = []
+  const active: BlockConnection[] = []
+  const available = new Map<string, number>() // connection id → items/min on offer
+  const caps = new Map<string, number>()      // item id → total on offer
+  const seen = new Set<string>()
+  const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
+  const capped = new Set<string>() // connection ids whose maxRate is below the source's offer
+  for (const c of block.inputConnections) {
+    if (!ctx.blockIds.has(c.fromBlockId)) {
+      flows.push(ignoredFlow(block, c, 'missing-source'))
+    } else if (ctx.selfConnectionIds.has(c.id)) {
+      flows.push(ignoredFlow(block, c, 'self'))
+    } else {
+      // A repeated (source, item) pair in hand-edited JSON must not double the offer.
+      const key = `${c.fromBlockId}\0${c.itemId}`
+      const duplicate = seen.has(key)
+      if (duplicate) duplicates.add(c.id)
+      const sourceOffer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
+      if (c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE) capped.add(c.id)
+      seen.add(key)
+      active.push(c)
+      available.set(c.id, offer)
+      caps.set(c.itemId, (caps.get(c.itemId) ?? 0) + offer)
+    }
+  }
+
+  let error: string | undefined
+  let result = emptyResult()
+  let received = new Map<string, number>()
+  const plan = flattenBlock(block)
+  if (plan.goals.length > 0 && plan.nodes.length > 0) {
+    const key = cache ? planKey(plan) : ''
+    const hit = cache?.get(block.id, gameData, key, caps)
+    if (hit) {
+      ;({ result, received } = hit)
+    } else {
+      try {
+        const solved = solveBlock(plan, gameData, caps)
+        ;({ result, received } = solved)
+        cache?.set(block.id, gameData, key, caps, solved)
+      } catch (err) {
+        cache?.delete(block.id)
+        error = err instanceof Error ? err.message : String(err)
+        result = emptyResult()
+        received = new Map()
+      }
+    }
+  } else {
+    cache?.delete(block.id)
+  }
+
+  const stillImported = new Map<string, number>()
+  for (const u of result.unsatisfied) {
+    stillImported.set(u.itemId, (stillImported.get(u.itemId) ?? 0) + u.rate)
+  }
+
+  const undelivered = new Map(received)
+  for (const c of active) {
+    const offer = available.get(c.id) ?? 0
+    const rate = Math.min(undelivered.get(c.itemId) ?? 0, offer)
+    undelivered.set(c.itemId, (undelivered.get(c.itemId) ?? 0) - rate)
+    const sourceLeft = remaining.get(c.fromBlockId)
+    if (sourceLeft && rate > 0) {
+      sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
+    }
+
+    const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
+    const status: ConnectionFlowStatus =
+      duplicates.has(c.id) ? 'unused'
+      : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
+      : rate <= FLOW_TOLERANCE ? 'unused'
+      : 'ok'
+    flows.push({
       connectionId: c.id,
       fromBlockId: c.fromBlockId,
       toBlockId: block.id,
       itemId: c.itemId,
-      available: 0,
-      capped: false,
-      rate: 0,
+      available: offer,
+      capped: capped.has(c.id),
+      rate,
       status,
-    }
+      ...(ctx.loopConnectionIds.has(c.id) ? { loop: true as const } : {}),
+    })
   }
 
-  for (const block of order) {
-    const active: BlockConnection[] = []
-    const available = new Map<string, number>() // connection id → items/min on offer
-    const caps = new Map<string, number>()      // item id → total on offer
-    const seen = new Set<string>()
-    const duplicates = new Set<string>() // connection ids repeating an earlier (source, item) pair
-    const capped = new Set<string>() // connection ids whose maxRate is below the source's offer
-    for (const c of block.inputConnections) {
-      if (!blockIds.has(c.fromBlockId)) {
-        flows.push(ignoredFlow(block, c, 'missing-source'))
-      } else if (cyclicConnectionIds.has(c.id)) {
-        flows.push(ignoredFlow(block, c, 'cycle'))
-      } else {
-        // A repeated (source, item) pair in hand-edited JSON must not double the offer.
-        const key = `${c.fromBlockId}\0${c.itemId}`
-        const duplicate = seen.has(key)
-        if (duplicate) duplicates.add(c.id)
-        const sourceOffer = duplicate ? 0 : remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
-        const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
-        if (c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE) capped.add(c.id)
-        seen.add(key)
-        active.push(c)
-        available.set(c.id, offer)
-        caps.set(c.itemId, (caps.get(c.itemId) ?? 0) + offer)
-      }
+  const offers: Offers = new Map()
+  for (const [itemId, net] of netBalance(result.nodes)) {
+    if (net > FLOW_TOLERANCE) offers.set(itemId, net)
+  }
+  return { result, error, flows, offers }
+}
+
+/** Equal within a relative `FLOW_TOLERANCE`. */
+function sameRate(a: number, b: number): boolean {
+  return Math.abs(a - b) <= FLOW_TOLERANCE * Math.max(1, Math.abs(a), Math.abs(b))
+}
+
+/** Did every (source, item) pair carried by a back connection keep its offer between two rounds? */
+function backOffersSettled(
+  loop: LoopShape,
+  members: Block[],
+  prev: Map<string, Offers>,
+  next: Map<string, Offers>,
+): boolean {
+  const back = new Set(loop.backConnectionIds)
+  for (const b of members) {
+    for (const c of b.inputConnections) {
+      if (!back.has(c.id)) continue
+      const before = prev.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      const after = next.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      if (!sameRate(before, after)) return false
+    }
+  }
+  return true
+}
+
+const loopWarningCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
+
+/**
+ * `result` plus a warning, on a copy (cached results are never mutated). The copy is
+ * memoised per result object, so a loop that stays unsettled keeps result identity
+ * between solves as long as its cached results do.
+ */
+function withLoopWarning(
+  result: SolverResult,
+  warning: Extract<SolverWarning, { type: 'loop-not-converged' }>,
+): SolverResult {
+  const key = `${warning.rounds}\0${warning.blockIds.join('\0')}`
+  const hit = loopWarningCopies.get(result)
+  if (hit?.key === key) return hit.result
+  const copy = { ...result, warnings: [...result.warnings, warning] }
+  loopWarningCopies.set(result, { key, result: copy })
+  return copy
+}
+
+function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
+  return new Map([...remaining].map(([id, offers]) => [id, new Map(offers)]))
+}
+
+/**
+ * Solve every block, feeding each the net output its sources still have on
+ * offer. Blocks are grouped into components of mutually supplying blocks and
+ * solved in dependency order; a block outside any loop is solved once. A loop
+ * is solved in rounds (members in loop order, a back connection reading its
+ * source's offer from the previous round, zero in round 1) until the offers
+ * carried by back connections stop changing. Several consumers of one source
+ * are served in solve order; several sources of one item are drained in
+ * connection order. With a `cache`, a block whose flattened plan, game data and
+ * caps are unchanged reuses its previous result (same object) instead of
+ * solving again.
+ */
+export function solveAll(
+  blocks: Block[],
+  gameData: GameData,
+  cache?: SolveCache,
+  options: SolveAllOptions = {},
+): MultiBlockSolve {
+  const { components, selfConnectionIds } = orderBlocks(blocks)
+  const roundLimit = Math.max(1, options.loopRoundLimit ?? LOOP_ROUND_LIMIT)
+  const blockIds = new Set(blocks.map(b => b.id))
+  const results: Record<string, SolverResult> = {}
+  const errors: Record<string, string> = {}
+  const flows: ConnectionFlow[] = []
+  const loops: BlockLoop[] = []
+  // blockId → itemId → items/min still on offer
+  const remaining = new Map<string, Offers>()
+
+  function commit(block: Block, step: BlockStep): void {
+    results[block.id] = step.result
+    if (step.error !== undefined) errors[block.id] = step.error
+    flows.push(...step.flows)
+  }
+
+  for (const component of components) {
+    const loop = component.loop
+    if (!loop) {
+      const block = component.blocks[0]
+      const ctx: StepContext = { blockIds, selfConnectionIds, loopConnectionIds: new Set(), gameData, cache }
+      const step = solveStep(block, ctx, remaining)
+      commit(block, step)
+      remaining.set(block.id, step.offers)
+      continue
     }
 
-    let result = emptyResult()
-    let received = new Map<string, number>()
-    const plan = flattenBlock(block)
-    if (plan.goals.length > 0 && plan.nodes.length > 0) {
-      const key = cache ? planKey(plan) : ''
-      const hit = cache?.get(block.id, gameData, key, caps)
-      if (hit) {
-        ;({ result, received } = hit)
-      } else {
-        try {
-          const solved = solveBlock(plan, gameData, caps)
-          ;({ result, received } = solved)
-          cache?.set(block.id, gameData, key, caps, solved)
-        } catch (err) {
-          cache?.delete(block.id)
-          errors[block.id] = err instanceof Error ? err.message : String(err)
-          result = emptyResult()
-          received = new Map()
+    const ctx: StepContext = {
+      blockIds,
+      selfConnectionIds,
+      loopConnectionIds: new Set(loop.connectionIds),
+      gameData,
+      cache,
+    }
+    // One round: members in loop order against the snapshot plus last round's offers of the members.
+    const runRound = (prev: Map<string, Offers>) => {
+      // Upstream offers are re-read from the snapshot every round, never drawn twice.
+      const rem = cloneRemaining(remaining)
+      for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
+      const steps = new Map<string, BlockStep>()
+      const next = new Map<string, Offers>()
+      for (const m of component.blocks) {
+        const before = rem.get(m.id)!
+        const prevOffers = prev.get(m.id)
+        const step = solveStep(m, ctx, rem)
+        // Earlier members already drew from last round's offers of this block. If they drew more than
+        // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
+        // this only happens in a round that has not settled).
+        const left: Offers = new Map()
+        for (const [itemId, offer] of step.offers) {
+          const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
+          const rest = offer - drawn
+          if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
         }
+        rem.set(m.id, left)
+        steps.set(m.id, step)
+        next.set(m.id, step.offers)
       }
-    } else {
-      cache?.delete(block.id)
-    }
-    results[block.id] = result
-
-    const stillImported = new Map<string, number>()
-    for (const u of result.unsatisfied) {
-      stillImported.set(u.itemId, (stillImported.get(u.itemId) ?? 0) + u.rate)
+      return { rem, steps, next }
     }
 
-    const undelivered = new Map(received)
-    for (const c of active) {
-      const offer = available.get(c.id) ?? 0
-      const rate = Math.min(undelivered.get(c.itemId) ?? 0, offer)
-      undelivered.set(c.itemId, (undelivered.get(c.itemId) ?? 0) - rate)
-      const sourceLeft = remaining.get(c.fromBlockId)
-      if (sourceLeft && rate > 0) {
-        sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
+    let rounds = 1
+    let round = runRound(new Map())
+    let converged = backOffersSettled(loop, component.blocks, new Map(), round.next)
+    while (!converged && rounds < roundLimit) {
+      rounds++
+      const before = round.next
+      round = runRound(before)
+      converged = backOffersSettled(loop, component.blocks, before, round.next)
+    }
+    const { rem, steps } = round
+
+    for (const m of component.blocks) {
+      const step = steps.get(m.id)!
+      commit(m, step)
+      if (!converged) {
+        results[m.id] = withLoopWarning(step.result, { type: 'loop-not-converged', blockIds: loop.blockIds, rounds })
       }
-
-      const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
-      const status: ConnectionFlowStatus =
-        duplicates.has(c.id) ? 'unused'
-        : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
-        : rate <= FLOW_TOLERANCE ? 'unused'
-        : 'ok'
-      flows.push({
-        connectionId: c.id,
-        fromBlockId: c.fromBlockId,
-        toBlockId: block.id,
-        itemId: c.itemId,
-        available: offer,
-        capped: capped.has(c.id),
-        rate,
-        status,
-      })
     }
-
-    const offers = new Map<string, number>()
-    for (const [itemId, net] of netBalance(result.nodes)) {
-      if (net > FLOW_TOLERANCE) offers.set(itemId, net)
-    }
-    remaining.set(block.id, offers)
+    for (const [id, offers] of rem) remaining.set(id, offers)
+    loops.push({ ...loop, rounds, converged })
   }
 
   cache?.retain(blockIds)
-  return { results, flows, errors }
+  return { results, flows, errors, loops }
 }

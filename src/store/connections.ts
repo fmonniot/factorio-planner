@@ -1,4 +1,4 @@
-import { wouldCreateCycle } from '../solver/blockGraph'
+import { closesLoop } from '../solver/blockGraph'
 import { netBalance, FLOW_TOLERANCE } from '../solver/index'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
@@ -13,14 +13,15 @@ export function isGoalItem(block: Block, itemId: string): boolean {
 
 /**
  * Can `target` receive `itemId` from `fromBlockId`: source exists, not a goal
- * of target, no duplicate (itemId, fromBlockId), no cycle (which also rejects
- * a self-connection).
+ * of target, no duplicate (itemId, fromBlockId), not the target itself. Loops
+ * through other blocks are allowed.
  */
 export function canConnect(blocks: Block[], target: Block, itemId: string, fromBlockId: string): boolean {
   if (!blocks.some(b => b.id === fromBlockId)) return false
+  if (fromBlockId === target.id) return false
   if (isGoalItem(target, itemId)) return false
   if (target.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === fromBlockId)) return false
-  return !wouldCreateCycle(blocks, fromBlockId, target.id)
+  return true
 }
 
 /** items/min of `itemId` the source still offers: its net balance minus what flows already deliver. */
@@ -34,12 +35,15 @@ export function offeredRate(
   const taken = flows
     .filter(f => f.fromBlockId === sourceId && f.itemId === itemId)
     .reduce((sum, f) => sum + f.rate, 0)
-  return (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken
+  // Never negative: in a loop that did not settle, flows can add up to more than the source's last offer.
+  return Math.max(0, (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken)
 }
 
 export interface SourceCandidate {
   block: Block
   offered: number
+  /** Connecting would make the source and the target supply each other (directly or through other blocks). */
+  closesLoop: boolean
 }
 
 /** Blocks that can supply `itemId` to `targetId`, in plan order. */
@@ -56,6 +60,7 @@ export function sourceCandidates(
     .filter(b => canConnect(blocks, target, itemId, b.id))
     .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
     .filter(({ offered }) => offered > FLOW_TOLERANCE)
+    .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
 }
 
 export interface ItemCandidate {

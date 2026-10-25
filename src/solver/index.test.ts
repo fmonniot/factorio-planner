@@ -374,6 +374,7 @@ describe('solveAll', () => {
     expect(f.available).toBeCloseTo(60, 4)
     expect(f.status).toBe('ok')
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+    expect(all.loops).toEqual([])
   })
 
   it('marks the flow limited when the source offers less than needed', () => {
@@ -517,15 +518,13 @@ describe('solveAll', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(60, 4)
   })
 
-  it('ignores connections inside a cycle but still solves both blocks', () => {
+  it('ignores a block connected to itself but still solves it', () => {
     const all = solveAll([
-      block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'B', 'gear')]),
-      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
+      block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'A')]),
     ], connectionGameData())
-    expect(flowOf(all, 'c1')).toMatchObject({ status: 'cycle', rate: 0 })
-    expect(flowOf(all, 'c2')).toMatchObject({ status: 'cycle', rate: 0 })
+    expect(flowOf(all, 'c1')).toMatchObject({ status: 'self', rate: 0, available: 0 })
     expect(all.results.A.nodes).toHaveLength(1)
-    expect(all.results.B.nodes).toHaveLength(1)
+    expect(all.loops).toEqual([])
   })
 
   it('records a failing block in errors and still solves the others', () => {
@@ -567,7 +566,7 @@ describe('solveAll', () => {
         block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A1'), link('c2', 'A2')]),
       ],
       'missing source': () => [block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'ghost')])],
-      cycle: () => [
+      loop: () => [
         block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'B', 'gear')]),
         block('B', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
       ],
@@ -716,6 +715,162 @@ describe('solveAll', () => {
       expect(cache.has('E')).toBe(false)
     })
   })
+
+  describe('loops', () => {
+    // Metals -> Sciences -> Ores -> Metals: smelting metal, researching with it, sorting the waste back into ore.
+    const loopGameData = () => makeGameData({
+      recipes: {
+        smelt: recipe('smelt', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('metal', 1)]),
+        research: recipe('research', 1, [{ itemId: 'metal', type: 'item', amount: 2 }], [product('science', 1), product('waste', 1)]),
+        sort: recipe('sort', 1, [{ itemId: 'waste', type: 'item', amount: 1 }], [product('ore', 1)]),
+        mine: recipe('mine', 1, [], [product('ore', 1)]),
+      },
+    })
+    const goal = (itemId: string, rate: number): ProductionGoal[] => [{ id: `g-${itemId}`, itemId, rate }]
+    const metals = (connections: Block['inputConnections'] = [{ id: 'c_om', itemId: 'ore', fromBlockId: 'Ores' }], rate = 60) =>
+      block('Metals', goal('metal', rate), [planNode('n', 'smelt')], connections)
+    const sciences = (rate = 30) =>
+      block('Sciences', goal('science', rate), [planNode('n', 'research')], [{ id: 'c_ms', itemId: 'metal', fromBlockId: 'Metals' }])
+    const ores = (rate = 30) =>
+      block('Ores', goal('ore', rate), [planNode('n', 'sort')], [{ id: 'c_so', itemId: 'waste', fromBlockId: 'Sciences' }])
+    const flow = (all: ReturnType<typeof solveAll>, id: string) => {
+      const f = flowOf(all, id)
+      return { rate: f.rate, available: f.available, status: f.status, loop: f.loop }
+    }
+    const near = (actual: { rate: number; available: number; status: string; loop?: true }, expected: { rate: number; available: number; status: string; loop?: true }) => {
+      expect(actual.rate).toBeCloseTo(expected.rate, 4)
+      expect(actual.available).toBeCloseTo(expected.available, 4)
+      expect(actual.status).toBe(expected.status)
+      expect(actual.loop).toBe(expected.loop)
+    }
+
+    it('settles a three-block loop in two rounds', () => {
+      const all = solveAll([metals(), sciences(), ores()], loopGameData())
+      near(flow(all, 'c_ms'), { rate: 60, available: 60, status: 'ok', loop: true })
+      near(flow(all, 'c_so'), { rate: 30, available: 30, status: 'ok', loop: true })
+      near(flow(all, 'c_om'), { rate: 30, available: 30, status: 'limited', loop: true })
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(30, 4)
+      expect(all.results.Sciences.unsatisfied).toEqual([])
+      expect(all.results.Ores.unsatisfied).toEqual([])
+      expect(all.loops).toEqual([{
+        blockIds: ['Metals', 'Sciences', 'Ores'],
+        connectionIds: ['c_om', 'c_ms', 'c_so'],
+        backConnectionIds: ['c_om'],
+        rounds: 2,
+        converged: true,
+      }])
+      for (const r of Object.values(all.results)) {
+        expect(r.warnings.some(w => w.type === 'loop-not-converged')).toBe(false)
+      }
+    })
+
+    it('gives the same flows whichever block is listed first', () => {
+      const all = solveAll([ores(), sciences(), metals()], loopGameData())
+      near(flow(all, 'c_ms'), { rate: 60, available: 60, status: 'ok', loop: true })
+      near(flow(all, 'c_so'), { rate: 30, available: 30, status: 'ok', loop: true })
+      near(flow(all, 'c_om'), { rate: 30, available: 30, status: 'limited', loop: true })
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(30, 4)
+      expect(all.loops).toEqual([{
+        blockIds: ['Ores', 'Metals', 'Sciences'],
+        connectionIds: ['c_so', 'c_om', 'c_ms'],
+        backConnectionIds: ['c_so'],
+        rounds: 2,
+        converged: true,
+      }])
+    })
+
+    it('lets a loop member export more than the loop takes', () => {
+      const all = solveAll([metals(), sciences(), ores(90)], loopGameData())
+      near(flow(all, 'c_so'), { rate: 30, available: 30, status: 'limited', loop: true })
+      expect(rate(all.results.Ores.unsatisfied, 'waste')).toBeCloseTo(60, 4)
+      near(flow(all, 'c_om'), { rate: 60, available: 90, status: 'ok', loop: true })
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBe(0)
+    })
+
+    it('honours a limit on the back connection', () => {
+      const limited = metals([{ id: 'c_om', itemId: 'ore', fromBlockId: 'Ores', maxRate: 40 }])
+      const all = solveAll([limited, sciences(), ores(90)], loopGameData())
+      expect(flowOf(all, 'c_om')).toMatchObject({ available: 40, capped: true, status: 'limited' })
+      expect(flowOf(all, 'c_om').rate).toBeCloseTo(40, 4)
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(20, 4)
+    })
+
+    it('serves a block outside the loop from what the loop leaves over', () => {
+      const extra = block('Extra', goal('metal', 50), [planNode('n', 'smelt')], [{ id: 'c_oe', itemId: 'ore', fromBlockId: 'Ores' }])
+      const all = solveAll([metals(), sciences(), ores(90), extra], loopGameData())
+      near(flow(all, 'c_om'), { rate: 60, available: 90, status: 'ok', loop: true })
+      near(flow(all, 'c_oe'), { rate: 30, available: 30, status: 'limited', loop: undefined })
+      expect(rate(all.results.Extra.unsatisfied, 'ore')).toBeCloseTo(20, 4)
+    })
+
+    it('reads upstream supply afresh every round and enters the loop where the supply arrives', () => {
+      const mine = block('Mine', goal('ore', 20), [planNode('n', 'mine')])
+      const entered = metals([
+        { id: 'c_um', itemId: 'ore', fromBlockId: 'Mine' },
+        { id: 'c_om', itemId: 'ore', fromBlockId: 'Ores' },
+      ])
+      const all = solveAll([mine, sciences(), ores(), entered], loopGameData())
+      near(flow(all, 'c_um'), { rate: 20, available: 20, status: 'limited', loop: undefined })
+      near(flow(all, 'c_om'), { rate: 30, available: 30, status: 'limited', loop: true })
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(10, 4)
+      expect(all.loops[0].blockIds[0]).toBe('Metals')
+    })
+
+    it('keeps the last round and warns when the loop does not settle', () => {
+      const all = solveAll([metals(), sciences(), ores()], loopGameData(), undefined, { loopRoundLimit: 1 })
+      expect(all.loops[0]).toMatchObject({ rounds: 1, converged: false })
+      for (const id of ['Metals', 'Sciences', 'Ores']) {
+        expect(all.results[id].warnings).toContainEqual({
+          type: 'loop-not-converged',
+          blockIds: ['Metals', 'Sciences', 'Ores'],
+          rounds: 1,
+        })
+      }
+      near(flow(all, 'c_om'), { rate: 0, available: 0, status: 'limited', loop: true })
+      expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(60, 4)
+    })
+
+    it('keeps result identity between solves of an unsettled loop', () => {
+      const cache = createSolveCache()
+      const gd = loopGameData()
+      const first = solveAll([metals(), sciences(), ores()], gd, cache, { loopRoundLimit: 1 })
+      const second = solveAll([metals(), sciences(), ores()], gd, cache, { loopRoundLimit: 1 })
+      for (const id of ['Metals', 'Sciences', 'Ores']) {
+        expect(second.results[id], id).toBe(first.results[id])
+      }
+    })
+
+    it('does not mutate cached results when it adds the warning', () => {
+      const cache = createSolveCache()
+      const gd = loopGameData()
+      solveAll([metals(), sciences(), ores()], gd, cache, { loopRoundLimit: 1 })
+      const settled = solveAll([metals(), sciences(), ores()], gd, cache)
+      for (const r of Object.values(settled.results)) {
+        expect(r.warnings.some(w => w.type === 'loop-not-converged')).toBe(false)
+      }
+    })
+
+    it('settles in one round when the back connection carries nothing', () => {
+      const first = block('Metals', goal('metal', 60), [planNode('n', 'smelt')], [{ id: 'c_back', itemId: 'ore', fromBlockId: 'Sciences' }])
+      const second = block('Sciences', goal('science', 30), [planNode('n', 'research')], [{ id: 'c_fwd', itemId: 'metal', fromBlockId: 'Metals' }])
+      const all = solveAll([first, second], loopGameData())
+      expect(all.loops).toMatchObject([{ rounds: 1, converged: true }])
+      expect(flowOf(all, 'c_back')).toMatchObject({ rate: 0, available: 0, loop: true })
+    })
+
+    it('reuses a settled loop from the cache and re-solves only what an edit reaches', () => {
+      const cache = createSolveCache()
+      const gd = loopGameData()
+      const first = solveAll([metals(), sciences(), ores()], gd, cache)
+      const second = solveAll([metals(), sciences(20), ores()], gd, cache)
+      expect(second.results.Metals, 'unchanged supply').toBe(first.results.Metals)
+      expect(second.results.Sciences).not.toBe(first.results.Sciences)
+      expect(second.results.Ores).not.toBe(first.results.Ores)
+      expect(flowOf(second, 'c_so').rate).toBeCloseTo(20, 4)
+      expect(flowOf(second, 'c_om').rate).toBeCloseTo(30, 4)
+    })
+  })
+
 })
 
 describe('solve — a node with no resolvable machine', () => {

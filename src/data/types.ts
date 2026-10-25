@@ -57,6 +57,7 @@ export type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number }
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
 
 export interface SolverResult {
   nodes: SolvedNode[]
@@ -68,7 +69,7 @@ export interface SolverResult {
 // Multi-block solve — transient, produced by solveAll().
 // ---------------------------------------------------------------------------
 
-export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'cycle'
+export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 
 export interface ConnectionFlow {
   connectionId: string
@@ -87,11 +88,28 @@ export interface ConnectionFlow {
    * (the source or the connection's limit is the bound; `capped` tells which).
    */
   status: ConnectionFlowStatus
+  /** true when both ends are members of one loop of blocks */
+  loop?: true
+}
+
+/** A group of blocks that supply each other, directly or through other blocks. */
+export interface BlockLoop {
+  /** Member order: the entry block first, then breadth-first along in-loop connections. */
+  blockIds: string[]
+  /** In-loop connections: members in order, each in `inputConnections` order. */
+  connectionIds: string[]
+  /** Connections whose source comes later in `blockIds` than its consumer. */
+  backConnectionIds: string[]
+  /** Rounds solved before the back connections stopped changing (or the limit). */
+  rounds: number
+  converged: boolean
 }
 
 export interface MultiBlockSolve {
   results: Record<string, SolverResult>
   flows: ConnectionFlow[]
+  /** One entry per loop of blocks; empty when the connections form no loop. */
+  loops: BlockLoop[]
   /** Per-block solver failures; the failing block also gets an empty result. */
   errors: Record<string, string>
 }

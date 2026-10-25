@@ -1,5 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { layoutBlockGraph, NODE_W, NODE_H, COL_GAP, ROW_GAP, LABEL_W, LABEL_CHIP_H } from './blockGraphLayout'
+import {
+  layoutBlockGraph, edgePath, NODE_W, NODE_H, COL_GAP, ROW_GAP, LABEL_W, LABEL_CHIP_H, BACK_CURVE, BACK_LANE_GAP,
+} from './blockGraphLayout'
 import type { BlockEdgeLayout, BlockGraphLayout } from './blockGraphLayout'
 import { makeEmptyBlock } from '../store/blockStore'
 import type { Block } from '../data/types'
@@ -50,11 +52,34 @@ describe('layoutBlockGraph', () => {
     expect(Object.keys(layout.nodes)).toEqual(['A', 'B'])
   })
 
-  it('lays out a cycle and flags its edges', () => {
+  it('lays out a two-block loop with the back edge in a lane under the blocks', () => {
     const layout = layoutBlockGraph([block('A', ['B']), block('B', ['A'])])
-    expect(Object.keys(layout.nodes)).toHaveLength(2)
-    expect(layout.edges).toHaveLength(2)
-    expect(layout.edges.every(e => e.cyclic)).toBe(true)
+    expect([layout.nodes.A.column, layout.nodes.B.column]).toEqual([0, 1])
+    const back = layout.edges.find(e => e.from === 'B')!
+    const forward = layout.edges.find(e => e.from === 'A')!
+    expect(forward).toMatchObject({ back: false, loop: true })
+    expect(back).toMatchObject({ back: true, loop: true })
+    const laneY = NODE_H + BACK_LANE_GAP + LABEL_CHIP_H / 2
+    expect(back).toMatchObject({
+      x1: 2 * NODE_W + COL_GAP, x2: 0, laneY, labelY: laneY, labelX: NODE_W + COL_GAP / 2,
+    })
+    expect(layout.height).toBe(NODE_H + BACK_LANE_GAP + LABEL_CHIP_H)
+    expect(layout.width).toBe(2 * NODE_W + COL_GAP + BACK_CURVE)
+  })
+
+  it('keeps every back edge running right to left in a loop with a fan-in', () => {
+    const layout = layoutBlockGraph([block('E', ['T']), block('A', ['E']), block('T', ['E', 'A', 'F']), block('F', ['E'])])
+    const back = layout.edges.filter(e => e.back)
+    expect(back.map(e => e.connectionIds)).toEqual([['E<T:plate']])
+    for (const e of back) expect(e.x2, `${e.from} -> ${e.to}`).toBeLessThanOrEqual(e.x1)
+    expect(layout.nodes.F.column).toBeLessThan(layout.nodes.T.column)
+  })
+
+  it('draws a forward edge and a back edge as paths', () => {
+    const forward = layoutBlockGraph([block('A'), block('B', ['A'])]).edges[0]
+    expect(edgePath(forward)).toBe('M 200 32 C 248 32, 312 32, 360 32')
+    const back = layoutBlockGraph([block('A', ['B']), block('B', ['A'])]).edges.find(e => e.back)!
+    expect(edgePath(back)).toBe('M 560 32 C 592 32, 592 90, 560 90 L 0 90 C -32 90, -32 32, 0 32')
   })
 
   it('orders a column by the rows of its sources', () => {
@@ -130,6 +155,25 @@ describe('layoutBlockGraph', () => {
       for (const n of Object.values(layout.nodes)) expect(n.y + NODE_H).toBeLessThanOrEqual(layout.height)
       expect(edge.y1).toBe(layout.nodes.A.y + NODE_H / 2)
       expect(edge.y2).toBe(layout.nodes.B.y + NODE_H / 2)
+    })
+
+    it('keeps the back label of a three-block loop out of the nodes', () => {
+      const layout = layoutBlockGraph([block('M', ['O']), block('S', ['M']), block('O', ['S'])])
+      expect(['M', 'S', 'O'].map(id => layout.nodes[id].column)).toEqual([0, 1, 2])
+      const back = layout.edges.filter(e => e.back)
+      expect(back.map(e => e.from)).toEqual(['O'])
+      expect(inNode(layout, back[0])).toBe(false)
+      expect(rect(back[0]).b).toBeLessThanOrEqual(layout.height)
+    })
+
+    it('stacks two back edges of one loop in separate lanes', () => {
+      // A<B, A<C, B<A, C<B: A receives from B and C, both of which come later in the loop's order.
+      const layout = layoutBlockGraph([block('A', ['B', 'C']), block('B', ['A']), block('C', ['B'])])
+      const backs = layout.edges.filter(e => e.back)
+      expect(backs).toHaveLength(2)
+      const [r1, r2] = backs.map(rect)
+      expect(overlap(r1, r2)).toBe(false)
+      for (const e of backs) expect(inNode(layout, e)).toBe(false)
     })
 
     it('accounts for stacked chips of a multi-connection edge', () => {

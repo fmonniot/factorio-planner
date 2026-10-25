@@ -2,12 +2,12 @@ import { useMemo, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults, selectFlows, selectLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { wouldCreateCycle } from '../../solver/blockGraph'
+import { closesLoop } from '../../solver/blockGraph'
 import { connectableItems } from '../../store/connections'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
-import { layoutBlockGraph, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
+import { layoutBlockGraph, edgePath, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
@@ -16,20 +16,19 @@ import { GraphIcon } from '../icons'
 import { fmtRate } from './ItemTile'
 import { RateInput } from './RateInput'
 import { cappedTitle, cappingLimit } from './summarySegments'
-import type { Block, ConnectionFlow, GameData, Item } from '../../data/types'
+import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Block graph — every block and the connections between them. Connections are
 // made from the source side: the → handle of a block, then a target, then an item.
 // ---------------------------------------------------------------------------
 
-type EdgeStatus = 'limited' | 'ok' | 'unused' | 'cycle' | 'pending'
+type EdgeStatus = 'limited' | 'ok' | 'unused' | 'pending'
 
 const EDGE_COLOR: Record<EdgeStatus, string> = {
   ok: '#16a34a',
   limited: '#f59e0b',
   unused: '#4b5563',
-  cycle: '#6b7280',
   pending: '#4b5563',
 }
 
@@ -37,23 +36,21 @@ const CHIP_TONE: Record<EdgeStatus, string> = {
   ok: 'bg-green-950 text-green-300', // border set inline, in the source block's colour
   limited: 'bg-green-950 text-green-300 border-amber-500',
   unused: 'bg-green-950/40 text-green-300/50 border-green-900',
-  cycle: 'bg-gray-800 text-gray-500 border-gray-700',
   pending: 'bg-gray-800 text-gray-400 border-gray-700',
 }
 
-const CURVE = 48
 const PAD = 24
 const MAX_GOAL_ICONS = 4
 
-/** Status of one connection; `missing-source` never reaches the graph (no edge is drawn). */
+/** Status of one connection; `missing-source` and `self` never reach the graph (no edge is drawn). */
 function connectionStatus(flow: ConnectionFlow | undefined): EdgeStatus {
   if (!flow) return 'pending'
-  return flow.status === 'missing-source' ? 'pending' : flow.status
+  return flow.status === 'missing-source' || flow.status === 'self' ? 'pending' : flow.status
 }
 
 /** Precedence for the single colour of an edge that carries several connections. */
 function pairStatus(statuses: EdgeStatus[]): EdgeStatus {
-  for (const s of ['limited', 'ok', 'unused', 'cycle'] as const) {
+  for (const s of ['limited', 'ok', 'unused'] as const) {
     if (statuses.includes(s)) return s
   }
   return 'pending'
@@ -68,14 +65,16 @@ interface BlockNodeProps {
   isActive: boolean
   role: ConnectRole | undefined
   blockedReason: string | undefined
+  closesLoop: boolean
   items: GameData['items']
   canConnect: boolean
+  sourceName: string
   onSelect: () => void
   onStartConnect: () => void
 }
 
 function BlockNode({
-  block, x, y, isActive, role, blockedReason, items, canConnect, onSelect, onStartConnect,
+  block, x, y, isActive, role, blockedReason, closesLoop, sourceName, items, canConnect, onSelect, onStartConnect,
 }: BlockNodeProps) {
   const firstItem = block.goals[0] ? items[block.goals[0].itemId] : undefined
   const shown = block.goals.slice(0, MAX_GOAL_ICONS)
@@ -92,7 +91,10 @@ function BlockNode({
       data-block-id={block.id}
       data-active={isActive ? 'true' : 'false'}
       data-connect={role}
-      title={blockedReason}
+      data-closes-loop={closesLoop ? 'true' : undefined}
+      title={closesLoop
+        ? `Closes a loop: ${sourceName} already receives from ${block.name}, directly or through other blocks`
+        : blockedReason}
       style={{ left: x, top: y, width: NODE_W, height: NODE_H }}
       className={`absolute rounded border border-gray-600 bg-gray-800 ${ring} ${role === 'blocked' ? 'opacity-40' : ''}`}
     >
@@ -146,6 +148,8 @@ function BlockNode({
 
 interface ConnectItemMenuProps {
   targetName: string
+  sourceName: string
+  closesLoop: boolean
   x: number
   y: number
   candidates: { itemId: string; offered: number; needed: number }[]
@@ -153,7 +157,7 @@ interface ConnectItemMenuProps {
   onPick: (itemId: string) => void
 }
 
-function ConnectItemMenu({ targetName, x, y, candidates, items, onPick }: ConnectItemMenuProps) {
+function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates, items, onPick }: ConnectItemMenuProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => `${fmtRate(perMin / 60, rateUnit)}${unit}`
@@ -167,6 +171,11 @@ function ConnectItemMenu({ targetName, x, y, candidates, items, onPick }: Connec
       <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
         Send to {targetName}
       </div>
+      {closesLoop && (
+        <div data-testid="graph-closes-loop" className="px-3 py-1 text-[10px] text-amber-300">
+          ↻ Closes a loop with {sourceName}
+        </div>
+      )}
       {candidates.map(({ itemId, offered, needed }) => {
         const item = items[itemId]
         return (
@@ -227,7 +236,7 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
           title = cappedTitle(`${fmt(cap)}${unit}`)
         } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
         else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
-        else if (status === 'cycle') title = 'Ignored: this connection forms a cycle'
+        if (flow?.loop) title += ' — part of a loop'
 
         return (
           <span
@@ -235,10 +244,12 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
             data-testid="graph-edge-label"
             data-connection-id={id}
             data-status={status}
+            data-loop={flow?.loop ? 'true' : undefined}
             title={title}
             style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
           >
+            {flow?.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
             {item?.iconPath ? (
               <Icon iconPath={item.iconPath} alt={itemName} className="w-5 h-5 object-contain shrink-0" />
             ) : (
@@ -289,6 +300,27 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
   )
 }
 
+/** Header summary of the loops: a count, or in red the loops that did not settle. */
+function LoopStatus({ loops, blocks }: { loops: BlockLoop[]; blocks: Block[] }) {
+  const name = (id: string) => blocks.find(b => b.id === id)?.name ?? id
+  const unsettled = loops.filter(l => !l.converged)
+  if (unsettled.length > 0) {
+    return (
+      <span data-testid="graph-loop-status" data-converged="false" className="text-xs text-red-400">
+        {unsettled
+          .map(l => `Loop through ${l.blockIds.map(name).join(', ')} did not settle after ${l.rounds} rounds; rates are from the last round`)
+          .join('. ')}
+      </span>
+    )
+  }
+  const title = loops.map(l => [...l.blockIds, l.blockIds[0]].map(name).join(' → ')).join('; ')
+  return (
+    <span data-testid="graph-loop-status" data-converged="true" title={title} className="text-xs text-gray-400">
+      ↻ {loops.length} {loops.length === 1 ? 'loop' : 'loops'}
+    </span>
+  )
+}
+
 function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
@@ -298,6 +330,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
+  const loops = useSolverStore(selectLoops)
 
   const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
   const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
@@ -310,7 +343,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   // Connect mode: which blocks can receive something from the source right now.
   const connect = useMemo(() => {
     if (!connectFrom) return undefined
-    const roles = new Map<string, { role: ConnectRole; reason?: string }>()
+    const roles = new Map<string, { role: ConnectRole; reason?: string; closesLoop?: boolean }>()
     const itemsByTarget = new Map<string, ReturnType<typeof connectableItems>>()
     for (const b of blocks) {
       if (b.id === connectFrom) {
@@ -320,11 +353,10 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
       const items = connectableItems(blocks, connectFrom, b.id, results, flows)
       itemsByTarget.set(b.id, items)
       if (items.length > 0) {
-        roles.set(b.id, { role: 'target' })
+        roles.set(b.id, { role: 'target', closesLoop: closesLoop(blocks, connectFrom, b.id) })
       } else {
         let reason: string
-        if (wouldCreateCycle(blocks, connectFrom, b.id)) reason = 'Would create a cycle'
-        else if (!results[b.id]) reason = `${b.name} has not been solved yet`
+        if (!results[b.id]) reason = `${b.name} has not been solved yet`
         else reason = `Nothing to send: ${b.name} imports nothing ${source?.name ?? ''} has left to offer`
         roles.set(b.id, { role: 'blocked', reason })
       }
@@ -377,8 +409,9 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           </span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.limited }} />Limited</span>
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
-          <span className="flex items-center gap-1"><span className="w-3 border-t border-dashed" style={{ borderColor: EDGE_COLOR.cycle }} />Cycle</span>
+          <span data-testid="graph-legend-loop" className="flex items-center gap-1" title="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
         </div>
+        {loops.length > 0 && <LoopStatus loops={loops} blocks={blocks} />}
         {blocks.length < 2 && (
           <span className="text-xs text-gray-400">Add another block to connect blocks.</span>
         )}
@@ -406,9 +439,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           >
             <svg width={layout.width} height={layout.height} className="absolute left-0 top-0 pointer-events-none" style={{ overflow: 'visible' }}>
               {layout.edges.map(e => {
-                const status = e.cyclic
-                  ? 'cycle'
-                  : pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))
+                const status = pairStatus(e.connectionIds.map(id => connectionStatus(flowsById.get(id))))
                 const source = blocks.find(b => b.id === e.from)
                 const stroke = status === 'ok' ? (source?.color ?? MISSING_BLOCK_COLOR) : EDGE_COLOR[status]
                 return (
@@ -418,11 +449,12 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                     data-from={e.from}
                     data-to={e.to}
                     data-status={status}
-                    d={`M ${e.x1} ${e.y1} C ${e.x1 + CURVE} ${e.y1}, ${e.x2 - CURVE} ${e.y2}, ${e.x2} ${e.y2}`}
+                    data-loop={e.loop ? 'true' : undefined}
+                    data-back={e.back ? 'true' : undefined}
+                    d={edgePath(e)}
                     fill="none"
                     stroke={stroke}
                     strokeWidth={1.5}
-                    strokeDasharray={status === 'cycle' ? '4 4' : undefined}
                     className="pointer-events-none"
                   />
                 )
@@ -451,6 +483,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                   isActive={b.id === activeBlockId}
                   role={entry?.role}
                   blockedReason={entry?.reason}
+                  closesLoop={entry?.closesLoop ?? false}
+                  sourceName={source?.name ?? ''}
                   items={gameData.items}
                   canConnect={blocks.length >= 2}
                   onSelect={() => selectNode(b.id)}
@@ -464,6 +498,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
             {menuNode && menuTarget && (
               <ConnectItemMenu
                 targetName={blocks.find(b => b.id === menuTarget)?.name ?? ''}
+                sourceName={source?.name ?? ''}
+                closesLoop={connect?.roles.get(menuTarget)?.closesLoop ?? false}
                 x={menuNode.x}
                 y={menuNode.y + NODE_H + 4}
                 candidates={menuCandidates}

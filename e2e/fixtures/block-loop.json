@@ -1,0 +1,73 @@
+{
+  "blocks": [
+    {
+      "id": "bbbb0001-0000-0000-0000-000000000001",
+      "name": "Plates",
+      "goals": [
+        {
+          "id": "bbbb0001-0000-0000-0000-0000000000g1",
+          "itemId": "nullius-iron-plate",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "bbbb0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "bbbb0001-0000-0000-0000-0000000000n1",
+            "recipeId": "nullius-iron-plate",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-26T00:00:00.000Z",
+        "updatedAt": "2026-04-26T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "bbbb0002-0000-0000-0000-000000000001",
+      "name": "Gears",
+      "goals": [
+        {
+          "id": "bbbb0002-0000-0000-0000-0000000000g1",
+          "itemId": "nullius-iron-gear",
+          "rate": 30
+        },
+        {
+          "id": "bbbb0002-0000-0000-0000-0000000000g2",
+          "itemId": "nullius-iron-ingot",
+          "rate": 80
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "bbbb0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "bbbb0002-0000-0000-0000-0000000000n1",
+            "recipeId": "nullius-iron-gear",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "bbbb0002-0000-0000-0000-0000000000n2",
+            "recipeId": "nullius-iron-ingot",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-26T00:00:00.000Z",
+        "updatedAt": "2026-04-26T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "bbbb0002-0000-0000-0000-000000000001"
+}

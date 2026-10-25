@@ -3,8 +3,10 @@ import type { Block } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Block graph layout — layered, deterministic, recomputed on every change.
-// A column is the longest chain of sources feeding a block; one barycenter
-// pass orders the rows. Positions are never saved.
+// A column is the longest chain of sources feeding a block, not counting the
+// back connections of loops; one barycenter pass orders the rows. A back
+// connection is drawn in its own lane under the blocks it spans. Positions
+// are never saved.
 // ---------------------------------------------------------------------------
 
 export const NODE_W = 200
@@ -15,6 +17,11 @@ export const ROW_GAP = 40
 export const LABEL_W = 120
 export const LABEL_CHIP_H = 28
 export const LABEL_GAP = 4
+/** Horizontal reach of a forward edge's control points. */
+export const EDGE_CURVE = 48
+/** Horizontal reach of a back edge's corners, and the space kept between a back lane and what it passes under. */
+export const BACK_CURVE = 32
+export const BACK_LANE_GAP = 12
 
 export interface BlockNodeLayout {
   id: string
@@ -29,16 +36,23 @@ export interface BlockEdgeLayout {
   to: string
   /** Connections of this (source, consumer) pair, in the consumer's order. */
   connectionIds: string[]
-  /** Every connection of the pair lies on a cycle (only possible in hand-edited plans). */
-  cyclic: boolean
+  /** Some connection of the pair joins two members of one loop. */
+  loop: boolean
+  /** The pair is a loop's back connection: the source comes later in the loop's order than the consumer. */
+  back: boolean
   /** From the source's right-middle to the consumer's left-middle. */
   x1: number
   y1: number
   x2: number
   y2: number
-  /** Centre of the label stack (one chip per connection): in the gutter just before the consumer's column. */
+  /**
+   * Centre of the label stack (one chip per connection): in the gutter just before the
+   * consumer's column, or, for a back edge, on its lane.
+   */
   labelX: number
   labelY: number
+  /** Back edges only: the y of the lane the edge runs along under the blocks. */
+  laneY?: number
 }
 
 export interface BlockGraphLayout {
@@ -52,14 +66,17 @@ interface Pair {
   from: string
   to: string
   connectionIds: string[]
-  cyclic: boolean
+  loop: boolean
+  back: boolean
 }
 
 export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
   if (blocks.length === 0) return { nodes: {}, edges: [], width: 0, height: 0 }
 
   const index = new Map(blocks.map((b, i) => [b.id, i]))
-  const { order, cyclicConnectionIds } = orderBlocks(blocks)
+  const { order, components } = orderBlocks(blocks)
+  const loopConnectionIds = new Set(components.flatMap(c => c.loop?.connectionIds ?? []))
+  const backConnectionIds = new Set(components.flatMap(c => c.loop?.backConnectionIds ?? []))
 
   // Group connections by (source, consumer); unknown sources and self-connections get no edge.
   const pairs: Pair[] = []
@@ -70,20 +87,21 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
       const key = `${c.fromBlockId}>${b.id}`
       let pair = pairByKey.get(key)
       if (!pair) {
-        pair = { from: c.fromBlockId, to: b.id, connectionIds: [], cyclic: true }
+        pair = { from: c.fromBlockId, to: b.id, connectionIds: [], loop: false, back: false }
         pairByKey.set(key, pair)
         pairs.push(pair)
       }
       pair.connectionIds.push(c.id)
-      if (!cyclicConnectionIds.has(c.id)) pair.cyclic = false
+      if (loopConnectionIds.has(c.id)) pair.loop = true
+      if (backConnectionIds.has(c.id)) pair.back = true
     }
   }
 
-  // Longest path over the acyclic pairs, walking sources before consumers.
+  // Longest path over the forward pairs, walking sources before consumers.
   const column = new Map(blocks.map(b => [b.id, 0]))
   const incoming = new Map<string, string[]>()
   for (const p of pairs) {
-    if (p.cyclic) continue
+    if (p.back) continue
     const list = incoming.get(p.to)
     if (list) list.push(p.from)
     else incoming.set(p.to, [p.from])
@@ -123,7 +141,8 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     from: p.from,
     to: p.to,
     connectionIds: p.connectionIds,
-    cyclic: p.cyclic,
+    loop: p.loop,
+    back: p.back,
     x1: nodes[p.from].x + NODE_W,
     y1: nodes[p.from].y + NODE_H / 2,
     x2: nodes[p.to].x,
@@ -137,6 +156,7 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
   const stackH = (e: BlockEdgeLayout) => e.connectionIds.length * LABEL_CHIP_H
   const byGutter = new Map<number, BlockEdgeLayout[]>()
   for (const e of edges) {
+    if (e.back) continue
     e.labelX = e.x2 - COL_GAP / 2
     const t = e.x2 === e.x1 ? 1 : (e.labelX - e.x1) / (e.x2 - e.x1)
     e.labelY = e.y1 + (e.y2 - e.y1) * t
@@ -158,6 +178,35 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     }
   }
 
+  // Back edges run along a lane under every block and forward label in the columns they
+  // span, one lane below another when their spans overlap.
+  const colStep = NODE_W + COL_GAP
+  const placed: { left: number; right: number; bottom: number }[] = []
+  for (const e of edges) {
+    if (!e.back) continue
+    const lo = Math.min(nodes[e.from].column, nodes[e.to].column)
+    const hi = Math.max(nodes[e.from].column, nodes[e.to].column)
+    const left = lo * colStep - COL_GAP
+    const right = hi * colStep + NODE_W
+    let spanBottom = 0
+    for (const n of Object.values(nodes)) {
+      if (n.column >= lo && n.column <= hi) spanBottom = Math.max(spanBottom, n.y + NODE_H)
+    }
+    for (const f of edges) {
+      if (f.back || f.labelX < left || f.labelX > right) continue
+      spanBottom = Math.max(spanBottom, f.labelY + stackH(f) / 2)
+    }
+    let top = spanBottom + BACK_LANE_GAP
+    for (const p of placed) {
+      if (p.left <= right && p.right >= left) top = Math.max(top, p.bottom + BACK_LANE_GAP)
+    }
+    placed.push({ left, right, bottom: top + stackH(e) })
+    e.labelX = (e.x1 + e.x2) / 2
+    e.labelY = top + stackH(e) / 2
+    e.laneY = e.labelY
+    labelsBottom = Math.max(labelsBottom, top + stackH(e))
+  }
+
   // A tall stack on a top-row edge reaches above the first row: move everything down so
   // it stays inside the layout (the viewport cannot scroll to negative coordinates).
   const shift = -labelsTop
@@ -167,6 +216,7 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
       e.y1 += shift
       e.y2 += shift
       e.labelY += shift
+      if (e.laneY !== undefined) e.laneY += shift
     }
     labelsBottom += shift
   }
@@ -175,7 +225,23 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
   return {
     nodes,
     edges,
-    width: (maxCol + 1) * (NODE_W + COL_GAP) - COL_GAP,
+    width: (maxCol + 1) * (NODE_W + COL_GAP) - COL_GAP + (edges.some(e => e.back) ? BACK_CURVE : 0),
     height: Math.max(maxRows * (NODE_H + ROW_GAP) - ROW_GAP + shift, labelsBottom),
   }
+}
+
+/**
+ * SVG path of an edge. A forward edge is one cubic curve. A back edge leaves the
+ * source's right side, drops to its lane, runs left under the blocks and rises into
+ * the consumer's left side; its corners reach BACK_CURVE past both ends, so it
+ * overhangs the layout by BACK_CURVE (the graph's padding leaves room for that).
+ */
+export function edgePath(e: BlockEdgeLayout): string {
+  const { x1, y1, x2, y2 } = e
+  if (e.back && e.laneY !== undefined) {
+    const lane = e.laneY
+    return `M ${x1} ${y1} C ${x1 + BACK_CURVE} ${y1}, ${x1 + BACK_CURVE} ${lane}, ${x1} ${lane} ` +
+      `L ${x2} ${lane} C ${x2 - BACK_CURVE} ${lane}, ${x2 - BACK_CURVE} ${y2}, ${x2} ${y2}`
+  }
+  return `M ${x1} ${y1} C ${x1 + EDGE_CURVE} ${y1}, ${x2 - EDGE_CURVE} ${y2}, ${x2} ${y2}`
 }

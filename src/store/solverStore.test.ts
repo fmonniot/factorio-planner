@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useSolverStore, wireSolver, selectSolverResult, selectBlockResult } from './solverStore'
+import { useSolverStore, wireSolver, selectSolverResult, selectBlockResult, selectLoops } from './solverStore'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
-import type { GameData } from '../data/types'
+import type { BlockLoop, GameData } from '../data/types'
 
 // Use fake timers to control debounce without real waiting.
 vi.useFakeTimers()
@@ -48,7 +48,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [] })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [], loops: [] })
   unwire = wireSolver()
 })
 
@@ -289,6 +289,22 @@ describe('wireSolver — several blocks', () => {
     const after = useSolverStore.getState().lastResults
     expect(after[plates.id], 'remaining block keeps its result').toBe(before)
     expect(after[gears.id]).toBeUndefined()
+  })
+})
+
+describe('loops', () => {
+  it('starts without loops', () => {
+    expect(selectLoops(useSolverStore.getState())).toEqual([])
+  })
+
+  it('_setSolved stores the loops of a solve', () => {
+    const loop: BlockLoop = {
+      blockIds: ['a', 'b'], connectionIds: ['x', 'y'], backConnectionIds: ['x'], rounds: 2, converged: true,
+    }
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [loop] }, 'a')
+    expect(selectLoops(useSolverStore.getState())).toEqual([loop])
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [] }, 'a')
+    expect(selectLoops(useSolverStore.getState())).toEqual([])
   })
 })
 

@@ -431,12 +431,12 @@ describe('input connections', () => {
     expect(useBlockStore.getState().blocks).toBe(before)
   })
 
-  it('ignores a connection that would close a cycle', () => {
+  it('accepts a connection that closes a loop', () => {
     useBlockStore.getState().addInputConnection('plate', sourceId)
     useBlockStore.getState().setActiveBlock(sourceId)
-    const before = useBlockStore.getState().blocks
     useBlockStore.getState().addInputConnection('gear', activeId)
-    expect(useBlockStore.getState().blocks).toBe(before)
+    const source = useBlockStore.getState().blocks.find(b => b.id === sourceId)!
+    expect(source.inputConnections).toEqual([{ id: expect.any(String), itemId: 'gear', fromBlockId: activeId }])
   })
 
   it('undo removes the connection and redo re-adds it with the same id', () => {
@@ -463,7 +463,7 @@ describe('input connections', () => {
     expect(active().inputConnections.map(c => c.id)).toEqual([first.id, second.id, last.id])
   })
 
-  it('undo of a removal is dropped when it would now close a cycle', () => {
+  it('undo of a removal still applies when the source now receives from the block', () => {
     const store = () => useBlockStore.getState()
     store().addInputConnection('plate', sourceId)
     store().removeInputConnection(active().inputConnections[0].id)
@@ -472,13 +472,12 @@ describe('input connections', () => {
     store().setActiveBlock(activeId)
 
     store().undo()
-    expect(active().inputConnections).toEqual([])
-    // The invalid command was dropped, so the earlier add can still be undone.
+    expect(active().inputConnections.map(c => c.fromBlockId)).toEqual([sourceId])
     expect(store().history[activeId].undoStack).toHaveLength(1)
-    expect(store().history[activeId].redoStack).toHaveLength(0)
+    expect(store().history[activeId].redoStack).toHaveLength(1)
   })
 
-  it('redo of an add is dropped when it would now close a cycle', () => {
+  it('redo of an add still applies when the source now receives from the block', () => {
     const store = () => useBlockStore.getState()
     store().addInputConnection('plate', sourceId)
     store().undo()
@@ -487,7 +486,7 @@ describe('input connections', () => {
     store().setActiveBlock(activeId)
 
     store().redo()
-    expect(active().inputConnections).toEqual([])
+    expect(active().inputConnections.map(c => c.fromBlockId)).toEqual([sourceId])
     expect(store().history[activeId].redoStack).toHaveLength(0)
   })
 

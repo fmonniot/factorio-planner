@@ -55,10 +55,10 @@ describe('canConnect', () => {
     expect(canConnect([t, block('S')], t, 'gear', 'S')).toBe(true)
   })
 
-  it('rejects a cycle', () => {
+  it('accepts a connection that closes a loop', () => {
     const t = block('T')
     const s = block('S', { from: [['plate', 'T']] })
-    expect(canConnect([t, s], t, 'plate', 'S')).toBe(false)
+    expect(canConnect([t, s], t, 'plate', 'S')).toBe(true)
   })
 
   it('rejects a goal item of the target', () => {
@@ -78,6 +78,10 @@ describe('offeredRate', () => {
     expect(offeredRate('S', 'plate', results, flows)).toBe(50)
   })
 
+  it('never goes negative when flows add up to more than the source offers', () => {
+    expect(offeredRate('S', 'plate', { S: result({ plate: 10 }) }, [flow({ rate: 30 })])).toBe(0)
+  })
+
   it('is 0 without a result', () => {
     expect(offeredRate('S', 'plate', {}, [])).toBe(0)
   })
@@ -91,7 +95,7 @@ describe('sourceCandidates', () => {
       .toEqual([['S1', 10], ['S2', 20]])
   })
 
-  it('excludes connected, cycle-forming and empty-handed sources', () => {
+  it('excludes connected and empty-handed sources, and flags the ones that close a loop', () => {
     const blocks = [
       block('T', { from: [['plate', 'Done']] }),
       block('Done'),
@@ -99,7 +103,8 @@ describe('sourceCandidates', () => {
       block('Empty'),
     ]
     const results = { Done: result({ plate: 10 }), Down: result({ plate: 10 }), Empty: result({ plate: 1e-9 }) }
-    expect(sourceCandidates(blocks, 'T', 'plate', results, [])).toEqual([])
+    expect(sourceCandidates(blocks, 'T', 'plate', results, []).map(c => [c.block.id, c.offered, c.closesLoop]))
+      .toEqual([['Down', 10, true]])
   })
 
   it('offers nothing for a goal item of the target', () => {
@@ -130,9 +135,13 @@ describe('connectableItems', () => {
     expect(connectableItems(plain, 'S', 'T', results({ plate: 1e-9 }), [])).toEqual([])
   })
 
-  it('is empty on a cycle or when the target has no result', () => {
-    const cyc = [block('S', { from: [['plate', 'T']] }), block('T')]
-    expect(connectableItems(cyc, 'S', 'T', results({ plate: 40 }), [])).toEqual([])
+  it('lists items across a loop', () => {
+    const loop = [block('S', { from: [['plate', 'T']] }), block('T')]
+    expect(connectableItems(loop, 'S', 'T', results({ plate: 40 }), []))
+      .toEqual([{ itemId: 'plate', offered: 100, needed: 40 }])
+  })
+
+  it('is empty when the target has no result', () => {
     expect(connectableItems([block('S'), block('T')], 'S', 'T', { S: result({ plate: 1 }) }, [])).toEqual([])
   })
 })

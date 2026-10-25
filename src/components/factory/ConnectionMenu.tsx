@@ -85,21 +85,28 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
       )}
       {connectable && (candidates.length === 0 ? (
         <div className="px-3 py-1 text-xs text-gray-500 cursor-default">
-          No other block produces this item
+          No other block has this item to spare
         </div>
       ) : (
-        candidates.map(({ block, offered }) => (
+        candidates.map(({ block, offered, closesLoop }) => (
           <button
             key={block.id}
             type="button"
             role="menuitem"
+            data-closes-loop={closesLoop ? 'true' : undefined}
+            title={closesLoop
+              ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+              : undefined}
             className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
             onClick={() => {
               addInputConnection(itemId, block.id)
               onClose()
             }}
           >
-            <span>{block.name}</span>
+            <span>
+              {block.name}
+              {closesLoop && <span aria-hidden> ↻</span>}
+            </span>
             <span className="font-mono tabular-nums text-gray-500">
               {fmtRate(offered / 60, rateUnit)}{unit}
             </span>

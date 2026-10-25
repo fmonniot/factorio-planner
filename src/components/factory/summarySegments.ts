@@ -38,6 +38,8 @@ export interface Segment {
   blockId?: string
   /** export and source */
   connectionId?: string
+  /** export and source: both ends are members of one loop of blocks */
+  loop?: true
   /** source only */
   limited?: boolean
   /** items/min the source offered; source only, for the limited-source title */
@@ -49,7 +51,7 @@ export interface Segment {
 }
 
 /** Marks drawn across the whole bar instead of taking a share of it. */
-export type OverlayKind = 'unused' | 'missing-source' | 'cycle' | 'locked'
+export type OverlayKind = 'unused' | 'missing-source' | 'self' | 'locked'
 export interface Overlay {
   key: string
   kind: OverlayKind
@@ -92,6 +94,8 @@ export interface OverviewRow {
   kind: SegmentKind | OverlayKind
   blockId?: string
   total: number
+  /** A segment under this key belongs to a loop of blocks. */
+  loop?: true
   /** Number of slots carrying this key. */
   count: number
   limited: boolean
@@ -113,6 +117,7 @@ function exportSegments(exports: ConnectionFlow[]): Segment[] {
     amount: f.rate,
     blockId: f.toBlockId,
     connectionId: f.connectionId,
+    ...(f.loop ? { loop: true as const } : {}),
   }))
 }
 
@@ -201,6 +206,7 @@ export function ingredientSlot(
           amount: flow!.rate,
           blockId: c.fromBlockId,
           connectionId: c.id,
+          ...(flow!.loop ? { loop: true as const } : {}),
           available: flow!.available,
           ...(status === 'limited' ? { limited: true } : {}),
           ...(cappingLimit(status === 'limited', flow!.capped, c.maxRate) !== undefined
@@ -262,6 +268,7 @@ export function overviewRows(slots: SlotModel[]): OverviewRow[] {
         row.blockId = s.blockId
       }
       row.total += s.amount
+      if (s.loop) row.loop = true
       if (s.limited) row.limited = true
     }
     for (const o of slot.overlays) {
@@ -281,16 +288,20 @@ export function slotHasKey(slot: SlotModel, key: string): boolean {
 
 const GONE = '(deleted block)'
 
-export function segmentLabel(e: { kind: SegmentKind | OverlayKind }, blockName: string | undefined): string {
+export function segmentLabel(
+  e: { kind: SegmentKind | OverlayKind; loop?: true },
+  blockName: string | undefined,
+): string {
+  const mark = e.loop ? ' ↻' : ''
   switch (e.kind) {
-    case 'export': return `→ ${blockName ?? GONE}`
-    case 'source': return `← ${blockName ?? GONE}`
+    case 'export': return `→ ${blockName ?? GONE}${mark}`
+    case 'source': return `← ${blockName ?? GONE}${mark}`
     case 'kept': return 'Kept'
     case 'left': return 'Left'
     case 'import': return 'Imported'
     case 'short': return 'Short'
     case 'unused': return `← ${blockName ?? GONE} · unused`
-    case 'cycle': return `← ${blockName ?? GONE} · cycle, ignored`
+    case 'self': return `← ${blockName ?? GONE} · self, ignored`
     case 'missing-source': return GONE
     case 'locked': return 'Imports forbidden'
   }
@@ -308,25 +319,26 @@ export function segmentTitle(
   },
 ): string {
   const { itemName, blockName, fmt, unit, available } = ctx
+  const note = 'loop' in e && e.loop ? ' — part of a loop' : ''
   switch (e.kind) {
     case 'export':
-      return `Sends ${itemName} to ${blockName ?? GONE} — click to open`
+      return `Sends ${itemName} to ${blockName ?? GONE}${note} — click to open`
     case 'source': {
       const seg = e as Segment
       const cap = cappingLimit(seg.limited, seg.capped, seg.maxRate)
       if (cap !== undefined) {
-        return `${cappedTitle(`${fmt(cap)}${unit}`)} — click to open, right-click to remove`
+        return `${cappedTitle(`${fmt(cap)}${unit}`)}${note} — click to open, right-click to remove`
       }
       return seg.limited
-        ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit} — click to open, right-click to remove`
-        : `${itemName} from ${blockName ?? GONE} — click to open, right-click to remove`
+        ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit}${note} — click to open, right-click to remove`
+        : `${itemName} from ${blockName ?? GONE}${note} — click to open, right-click to remove`
     }
     case 'unused':
       return 'Not used: this block makes or needs none from outside — right-click to remove'
     case 'missing-source':
       return `${itemName} — the source block was deleted; right-click to remove this connection`
-    case 'cycle':
-      return `${itemName} — ignored because the connection forms a cycle — right-click to remove`
+    case 'self':
+      return `${itemName} — ignored because a block cannot supply itself — right-click to remove`
     default:
       return segmentLabel(e, blockName)
   }

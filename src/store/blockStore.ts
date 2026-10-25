@@ -579,7 +579,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           connections.splice(index, 0, target)
           return { ...b, inputConnections: connections }
         },
-        // Undoing a removal re-adds the edge, which may close a cycle by now.
+        // Undoing a removal re-adds the edge, which may no longer be legal (source deleted, duplicate).
         canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
       }
       return applyCommand(state, cmd, targetId)

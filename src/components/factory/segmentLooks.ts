@@ -53,7 +53,7 @@ export function segmentLook(
         mini: '#374151',
       }
     case 'unused':
-    case 'cycle':
+    case 'self':
     case 'missing-source':
       return { bg: 'transparent', border: '#4b5563', borderStyle: 'dashed', text: '#9ca3af', legend: '#9ca3af', mini: '#374151' }
   }

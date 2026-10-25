@@ -507,8 +507,8 @@ them from the sub-plans. Block-level values already present on the input win.
 **Connections.** A connection is stored on the *consumer* block and points at its
 source by id, so renaming a block changes nothing and a source is never modified
 by its consumers. A block must not connect to itself or twice to the same
-`(fromBlockId, itemId)`, connections must not form a cycle, and a connection must not
-supply one of the consumer's own goal items. The store enforces all four (rules in
+`(fromBlockId, itemId)`, and a connection must not supply one of the consumer's own goal
+items. The store enforces all three (rules in
 `src/store/connections.ts`) when a connection is added, on redo of an add and on undo of a
 removal (a command that is no longer legal is dropped from the history instead of applied).
 Adding a goal does not remove an existing connection for the same item: such a connection stays
@@ -516,10 +516,12 @@ in the plan and the solver reads it as `unused` (a goal is never fed). The conne
 take an optional target block (default: the active one), and the undo entry goes to *that*
 block's history; `undo` / `redo` only read the active block's history, so an edit made on another
 block (e.g. from the block graph) is not reverted by undoing while a different block is active.
+Blocks may supply each other, directly or through other blocks (a loop of
+two or more blocks, see [solver.md](solver.md#loops)); the store does not restrict that.
 Deleting a block removes the connections
 that read from it (`removeBlock`), but imported or hand-edited JSON can still
-contain a source that does not exist or a cycle: the solver ignores those
-connections and reports them as `missing-source` / `cycle`. Plans saved before
+contain a source that does not exist or a block connected to itself: the solver ignores those
+connections and reports them as `missing-source` / `self`. Plans saved before
 connections existed have no `inputConnections` field and load with `[]`. A connection may carry
 an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
 no limit (`0` loads as an absent key; unlike `pinnedRate`, whose `0` loads as a present `undefined`); clearing a limit deletes the key; a duplicated
@@ -648,6 +650,7 @@ type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number }
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
 ```
 
 `unsatisfied` lists, in this order: goal shortfalls, intermediate slack (items the
@@ -659,6 +662,15 @@ interface MultiBlockSolve {
   results: Record<string, SolverResult>  // blockId -> result, every block present
   flows: ConnectionFlow[]                // one per BlockConnection
   errors: Record<string, string>         // blockId -> message for a block whose solve threw
+  loops: BlockLoop[]                     // one per loop of blocks that supply each other; [] when there is none
+}
+
+interface BlockLoop {
+  blockIds: string[]            // member order: the entry block first, then topologically (only cycle-closing connections run backwards)
+  connectionIds: string[]       // in-loop connections: members in order, each in inputConnections order
+  backConnectionIds: string[]   // connections whose source comes later in blockIds than its consumer
+  rounds: number                // rounds solved
+  converged: boolean
 }
 
 interface ConnectionFlow {
@@ -670,15 +682,16 @@ interface ConnectionFlow {
   capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`)
   rate: number        // items/min actually delivered
   status: ConnectionFlowStatus
+  loop?: true         // both ends are members of one loop
 }
 
-type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'cycle'
+type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 ```
 
 `unused` means nothing is delivered and the consumer does not need an outside
 supply of the item; `limited` means the consumer takes everything the connection
 allows (the source's offer or its `maxRate`; `capped` tells which) and still imports
-the item. `missing-source` and `cycle` flows have `rate` and
+the item. `missing-source` and `self` flows have `rate` and
 `available` 0.
 
 What triggers each warning is described in [solver.md](solver.md); how the UI
