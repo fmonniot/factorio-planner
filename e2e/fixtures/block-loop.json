@@ -36,11 +36,6 @@
           "id": "bbbb0002-0000-0000-0000-0000000000g1",
           "itemId": "nullius-iron-gear",
           "rate": 30
-        },
-        {
-          "id": "bbbb0002-0000-0000-0000-0000000000g2",
-          "itemId": "nullius-iron-ingot",
-          "rate": 80
         }
       ],
       "noImportItems": [],
@@ -60,7 +55,8 @@
             "id": "bbbb0002-0000-0000-0000-0000000000n2",
             "recipeId": "nullius-iron-ingot",
             "modules": [],
-            "byproductPolicy": {}
+            "byproductPolicy": {},
+            "pinnedRate": 60
           }
         ],
         "subPlans": [],

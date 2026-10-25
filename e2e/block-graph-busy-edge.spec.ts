@@ -4,8 +4,8 @@ import { loadPlanFixture } from './support/loadPlan'
 import { detail, slotById } from './support/summary'
 
 /**
- * Fixture shared with summary-panes-many-items.spec.ts: "Sciences" receives 12 items
- * from "Metals" and "Circuits" receives 3, so the first edge is summarised and the second is not.
+ * Fixture shared with summary-panes-many-items.spec.ts: "Sciences" requests 12 items
+ * from "Metals" and "Circuits" requests 3, so the first edge is summarised and the second is not.
  */
 const FIXTURE = path.resolve('e2e/fixtures/summary-many-items.json')
 const METALS_ID = 'cccc0001-0000-0000-0000-000000000001'

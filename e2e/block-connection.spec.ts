@@ -29,8 +29,8 @@ async function setup(page: Page) {
 async function connectPlatesFromPlatesBlock(page: Page) {
   // The menu lists Plates only once its own solve has landed.
   await plateSlot(page).click({ button: 'right' })
-  // The menu also offers to pull from Plates (data-pull); this spec connects by push.
-  await page.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Plates' }).click()
+  // Plates has iron plate as a product, so this connection is a request.
+  await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' }).click()
   // The slot may still be selected from before; a second click would clear it.
   if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
   await expect(sourceSegment(page)).toBeVisible()
@@ -54,15 +54,9 @@ test.describe('block connections', () => {
     await expect(exportSegment).toHaveAttribute('title', /^Sends Iron plate to Gears/)
     await expect(detail(page, 'Products').locator('[data-testid="summary-key-entry"][data-kind="export"]')).toContainText('30.0')
 
-    // Lower the Plates goal to 20: Gears is limited and imports the other 10.
-    await page.getByTitle(/Target:/).click()
-    await page.getByLabel('Goal target rate').fill('20')
-    await page.getByLabel('Goal target rate').press('Enter')
+    // Back on Gears, the request is served in full.
     await page.locator('button[title="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
-    await expect(plateSlot(page)).toHaveAttribute('data-status', 'limited')
-    await expect(sourceSegment(page)).toHaveAttribute('title', /Limited/)
-    await expect(importEntry(page)).toContainText('10.0')
 
     // Removing the connection brings the whole import back.
     await sourceSegment(page).click({ button: 'right' })
