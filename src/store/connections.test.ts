@@ -78,6 +78,10 @@ describe('offeredRate', () => {
     expect(offeredRate('S', 'plate', results, flows)).toBe(50)
   })
 
+  it('never goes negative when flows add up to more than the source offers', () => {
+    expect(offeredRate('S', 'plate', { S: result({ plate: 10 }) }, [flow({ rate: 30 })])).toBe(0)
+  })
+
   it('is 0 without a result', () => {
     expect(offeredRate('S', 'plate', {}, [])).toBe(0)
   })

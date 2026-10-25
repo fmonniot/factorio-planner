@@ -830,6 +830,16 @@ describe('solveAll', () => {
       expect(rate(all.results.Metals.unsatisfied, 'ore')).toBeCloseTo(60, 4)
     })
 
+    it('keeps result identity between solves of an unsettled loop', () => {
+      const cache = createSolveCache()
+      const gd = loopGameData()
+      const first = solveAll([metals(), sciences(), ores()], gd, cache, { loopRoundLimit: 1 })
+      const second = solveAll([metals(), sciences(), ores()], gd, cache, { loopRoundLimit: 1 })
+      for (const id of ['Metals', 'Sciences', 'Ores']) {
+        expect(second.results[id], id).toBe(first.results[id])
+      }
+    })
+
     it('does not mutate cached results when it adds the warning', () => {
       const cache = createSolveCache()
       const gd = loopGameData()

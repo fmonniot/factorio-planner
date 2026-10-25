@@ -48,7 +48,7 @@ export function closesLoop(blocks: Block[], fromBlockId: string, toBlockId: stri
 }
 
 export interface LoopShape {
-  /** Member order: the entry block first, then breadth-first along in-loop connections. */
+  /** Member order: the entry block first, then topologically along in-loop connections. */
   blockIds: string[]
   /** In-loop, non-self connections: members in order, each in `inputConnections` order. */
   connectionIds: string[]
@@ -142,8 +142,9 @@ export function orderBlocks(blocks: Block[]): {
 /**
  * Order a loop's members and list its connections. The entry is the first
  * member (in `blocks` order) receiving from a block outside the loop, else the
- * first member; the rest follow breadth-first along in-loop connections, each
- * member's consumers in `blocks` order.
+ * first member; the rest follow in a topological order of the in-loop connections
+ * (reverse depth-first postorder from the entry), so only the connections that
+ * close a cycle run backwards.
  */
 function loopComponent(members: Block[], allIds: Set<string>): BlockComponent {
   const memberIds = new Set(members.map(b => b.id))
@@ -151,17 +152,24 @@ function loopComponent(members: Block[], allIds: Set<string>): BlockComponent {
     members.find(b => b.inputConnections.some(c => allIds.has(c.fromBlockId) && !memberIds.has(c.fromBlockId))) ??
     members[0]
 
-  const ordered: Block[] = [entry]
-  const queued = new Set([entry.id])
-  for (let i = 0; i < ordered.length; i++) {
-    for (const b of members) {
-      if (queued.has(b.id)) continue
-      if (b.inputConnections.some(c => c.fromBlockId === ordered[i].id)) {
-        queued.add(b.id)
-        ordered.push(b)
-      }
+  // Reverse DFS postorder from the entry is a topological order of the loop's
+  // connections once the DFS back edges are removed, so only those run backwards.
+  // Consumers are visited in reverse `blocks` order so that, among blocks the
+  // connections leave unordered, the earlier one in `blocks` comes first.
+  const consumersInLoop = (id: string) =>
+    members.filter(b => b.inputConnections.some(c => c.fromBlockId === id))
+  const visited = new Set([entry.id])
+  const post: Block[] = []
+  const visit = (b: Block): void => {
+    for (const next of consumersInLoop(b.id).reverse()) {
+      if (visited.has(next.id)) continue
+      visited.add(next.id)
+      visit(next)
     }
+    post.push(b)
   }
+  visit(entry)
+  const ordered = post.reverse()
 
   const position = new Map(ordered.map((b, i) => [b.id, i]))
   const connectionIds: string[] = []

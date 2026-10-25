@@ -67,6 +67,14 @@ describe('layoutBlockGraph', () => {
     expect(layout.width).toBe(2 * NODE_W + COL_GAP + BACK_CURVE)
   })
 
+  it('keeps every back edge running right to left in a loop with a fan-in', () => {
+    const layout = layoutBlockGraph([block('E', ['T']), block('A', ['E']), block('T', ['E', 'A', 'F']), block('F', ['E'])])
+    const back = layout.edges.filter(e => e.back)
+    expect(back.map(e => e.connectionIds)).toEqual([['E<T:plate']])
+    for (const e of back) expect(e.x2, `${e.from} -> ${e.to}`).toBeLessThanOrEqual(e.x1)
+    expect(layout.nodes.F.column).toBeLessThan(layout.nodes.T.column)
+  })
+
   it('draws a forward edge and a back edge as paths', () => {
     const forward = layoutBlockGraph([block('A'), block('B', ['A'])]).edges[0]
     expect(edgePath(forward)).toBe('M 200 32 C 248 32, 312 32, 360 32')

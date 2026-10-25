@@ -82,6 +82,13 @@ describe('orderBlocks', () => {
     })
   })
 
+  it('orders loop members topologically so only the cycle-closing connection runs back', () => {
+    // E→A, E→T, A→T, E→F, F→T, T→E: breadth-first would put T before F and make F→T a back connection.
+    const { components } = orderBlocks([block('E', ['T']), block('A', ['E']), block('T', ['E', 'A', 'F']), block('F', ['E'])])
+    expect(components[0].loop?.blockIds).toEqual(['E', 'A', 'F', 'T'])
+    expect(components[0].loop?.backConnectionIds).toEqual(['E<T'])
+  })
+
   it('keeps a block that only hangs off a loop out of it', () => {
     const { order, components } = orderBlocks([block('A', ['B']), block('B', ['A']), block('C', ['B'])])
     expect(order.map(b => b.id)).toEqual(['A', 'B', 'C'])

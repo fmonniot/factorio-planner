@@ -171,7 +171,7 @@ near-full-screen modal showing every block and the connections between them, lik
 
 - **Layout** (`src/utils/blockGraphLayout.ts`). A block's column is the longest chain of
   sources feeding it (sources on the left), not counting the *back connections* of loops (see
-  [solver.md](solver.md#loops)), so every other edge runs left to right; rows follow one barycenter pass (the mean row of a
+  [solver.md](solver.md#loops)), so every other edge runs left to right and every back edge right to left; rows follow one barycenter pass (the mean row of a
   block's sources, ties by plan order). Positions are recomputed on every change and never saved.
 - **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
   block has a teal ring. A 3px stripe across the top of the node shows the block's colour

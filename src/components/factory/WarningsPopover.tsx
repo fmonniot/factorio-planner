@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
@@ -66,7 +67,12 @@ export function WarningsPopover() {
   const block = useBlockStore(selectActiveBlock)
   const result = useSolverStore(selectBlockResult(block?.id))
   const removeNode = useBlockStore(s => s.removeNode)
-  const blocks = useBlockStore(s => s.blocks)
+  // Only ids and names are read; a flat array keeps the popover from re-rendering on every plan edit.
+  const idNames = useBlockStore(useShallow(s => s.blocks.flatMap(b => [b.id, b.name])))
+  const blockName = (id: string) => {
+    const i = idNames.indexOf(id)
+    return i >= 0 && i % 2 === 0 ? idNames[i + 1] : id
+  }
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -137,7 +143,7 @@ export function WarningsPopover() {
                   ⚠ {warningTitle(w)}
                 </div>
                 <div className="text-gray-300 leading-snug mb-1">
-                  {warningBody(w, gameData, id => blocks.find(b => b.id === id)?.name ?? id)}
+                  {warningBody(w, gameData, blockName)}
                 </div>
                 <div className="text-gray-500 leading-snug">
                   → {warningHint(w)}

@@ -10,6 +10,7 @@ import type {
   RecipeNode,
   SolvedNode,
   SolverResult,
+  SolverWarning,
   SubPlan,
   UnsatisfiedItem,
 } from '../data/types'
@@ -537,6 +538,25 @@ function backOffersSettled(
   return true
 }
 
+const loopWarningCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
+
+/**
+ * `result` plus a warning, on a copy (cached results are never mutated). The copy is
+ * memoised per result object, so a loop that stays unsettled keeps result identity
+ * between solves as long as its cached results do.
+ */
+function withLoopWarning(
+  result: SolverResult,
+  warning: Extract<SolverWarning, { type: 'loop-not-converged' }>,
+): SolverResult {
+  const key = `${warning.rounds}\0${warning.blockIds.join('\0')}`
+  const hit = loopWarningCopies.get(result)
+  if (hit?.key === key) return hit.result
+  const copy = { ...result, warnings: [...result.warnings, warning] }
+  loopWarningCopies.set(result, { key, result: copy })
+  return copy
+}
+
 function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
   return new Map([...remaining].map(([id, offers]) => [id, new Map(offers)]))
 }
@@ -593,23 +613,20 @@ export function solveAll(
       gameData,
       cache,
     }
-    let prev = new Map<string, Offers>() // member → offers of the previous round
-    let rem = remaining
-    let steps = new Map<string, BlockStep>()
-    let rounds = 0
-    let converged = false
-    while (!converged && rounds < roundLimit) {
-      rounds++
+    // One round: members in loop order against the snapshot plus last round's offers of the members.
+    const runRound = (prev: Map<string, Offers>) => {
       // Upstream offers are re-read from the snapshot every round, never drawn twice.
-      rem = cloneRemaining(remaining)
+      const rem = cloneRemaining(remaining)
       for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
-      steps = new Map()
+      const steps = new Map<string, BlockStep>()
       const next = new Map<string, Offers>()
       for (const m of component.blocks) {
         const before = rem.get(m.id)!
         const prevOffers = prev.get(m.id)
         const step = solveStep(m, ctx, rem)
-        // Earlier members already drew from last round's offers of this block.
+        // Earlier members already drew from last round's offers of this block. If they drew more than
+        // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
+        // this only happens in a round that has not settled).
         const left: Offers = new Map()
         for (const [itemId, offer] of step.offers) {
           const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
@@ -620,16 +637,25 @@ export function solveAll(
         steps.set(m.id, step)
         next.set(m.id, step.offers)
       }
-      converged = backOffersSettled(loop, component.blocks, prev, next)
-      prev = next
+      return { rem, steps, next }
     }
+
+    let rounds = 1
+    let round = runRound(new Map())
+    let converged = backOffersSettled(loop, component.blocks, new Map(), round.next)
+    while (!converged && rounds < roundLimit) {
+      rounds++
+      const before = round.next
+      round = runRound(before)
+      converged = backOffersSettled(loop, component.blocks, before, round.next)
+    }
+    const { rem, steps } = round
 
     for (const m of component.blocks) {
       const step = steps.get(m.id)!
       commit(m, step)
       if (!converged) {
-        const warning = { type: 'loop-not-converged' as const, blockIds: loop.blockIds, rounds }
-        results[m.id] = { ...step.result, warnings: [...step.result.warnings, warning] }
+        results[m.id] = withLoopWarning(step.result, { type: 'loop-not-converged', blockIds: loop.blockIds, rounds })
       }
     }
     for (const [id, offers] of rem) remaining.set(id, offers)

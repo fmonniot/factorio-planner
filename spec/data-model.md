@@ -666,7 +666,7 @@ interface MultiBlockSolve {
 }
 
 interface BlockLoop {
-  blockIds: string[]            // member order: the entry block first, then breadth-first
+  blockIds: string[]            // member order: the entry block first, then topologically (only cycle-closing connections run backwards)
   connectionIds: string[]       // in-loop connections: members in order, each in inputConnections order
   backConnectionIds: string[]   // connections whose source comes later in blockIds than its consumer
   rounds: number                // rounds solved

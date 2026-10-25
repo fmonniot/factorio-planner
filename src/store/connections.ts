@@ -35,7 +35,8 @@ export function offeredRate(
   const taken = flows
     .filter(f => f.fromBlockId === sourceId && f.itemId === itemId)
     .reduce((sum, f) => sum + f.rate, 0)
-  return (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken
+  // Never negative: in a loop that did not settle, flows can add up to more than the source's last offer.
+  return Math.max(0, (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken)
 }
 
 export interface SourceCandidate {
@@ -57,12 +58,9 @@ export function sourceCandidates(
   if (!target) return []
   return blocks
     .filter(b => canConnect(blocks, target, itemId, b.id))
-    .map(block => ({
-      block,
-      offered: offeredRate(block.id, itemId, results, flows),
-      closesLoop: closesLoop(blocks, block.id, targetId),
-    }))
+    .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
     .filter(({ offered }) => offered > FLOW_TOLERANCE)
+    .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
 }
 
 export interface ItemCandidate {
