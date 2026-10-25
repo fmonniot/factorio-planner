@@ -333,13 +333,41 @@ describe('pulled flows', () => {
 
 describe('pulledSlot', () => {
   it('is a read-only slot of what is pulled, split into exports and what is not yet delivered', () => {
-    const slot = pulledSlot('iron-plate', 50, [flow({ rate: 30, toBlockId: 'B' })])
+    const slot = pulledSlot('iron-plate', 50, 50, [flow({ rate: 30, toBlockId: 'B' })], 'min')
     expect(slot).toMatchObject({ id: 'pull:iron-plate', itemId: 'iron-plate', rate: 50, scale: 50, pulledOnly: true, status: null })
     expect(shape(slot.segments)).toEqual([['to:B', 30], ['kept', 20]])
     expect(slot.goal).toBeUndefined()
   })
 
   it('has no kept segment when every unit is delivered', () => {
-    expect(shape(pulledSlot('iron-plate', 30, [flow({ rate: 30 })]).segments)).toEqual([['to:B', 30]])
+    expect(shape(pulledSlot('iron-plate', 30, 30, [flow({ rate: 30 })], 'min').segments)).toEqual([['to:B', 30]])
+  })
+
+  it('shows a shortfall when less is made than pulled, instead of calling it kept', () => {
+    const slot = pulledSlot('iron-plate', 5, 3, [flow({ rate: 3 })], 'min')
+    expect(shape(slot.segments)).toEqual([['to:B', 3], ['short', 2]])
+    expect(slot).toMatchObject({ status: 'short', rate: 5, scale: 5, pulledShort: 2 })
+  })
+
+  it('counts only the pulled part of the output; the surplus is left to Byproducts', () => {
+    const slot = pulledSlot('iron-plate', 3, 10, [flow({ rate: 3 })], 'min')
+    expect(shape(slot.segments)).toEqual([['to:B', 3]])
+    expect(slot.status).toBeNull()
+  })
+})
+
+describe('productSlot with a pulled amount', () => {
+  it('is short against the goal plus what is pulled', () => {
+    // goal 10, 5 pulled, 12 made: the solver reports a 3/min shortfall.
+    const slot = productSlot(goal(10), 12, [flow({ rate: 5 })], 'min', 5)
+    expect(slot.status).toBe('short')
+    expect(slot.goal).toMatchObject({ target: 10, required: 15, short: true })
+    expect(shape(slot.segments)).toEqual([['to:B', 5], ['kept', 7], ['short', 3]])
+  })
+
+  it('is not short when the output covers goal plus pulled', () => {
+    const slot = productSlot(goal(10), 15, [flow({ rate: 5 })], 'min', 5)
+    expect(slot.status).toBeNull()
+    expect(slot.goal).toMatchObject({ required: 15, short: false, tickAt: null })
   })
 })

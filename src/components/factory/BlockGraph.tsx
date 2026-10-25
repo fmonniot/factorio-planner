@@ -4,8 +4,8 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows, selectLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { closesLoop, closesPullLoop } from '../../solver/blockGraph'
-import { connectableItems } from '../../store/connections'
+import { closesLoop } from '../../solver/blockGraph'
+import { connectableItems, pullBlocker, pullBlockerTitle } from '../../store/connections'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
@@ -203,6 +203,7 @@ interface EdgeLabelsProps {
   blocks: Block[]
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
+  gameData: GameData
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
   onTogglePull: (connectionId: string, toBlockId: string, pull: boolean) => void
@@ -212,9 +213,10 @@ const PULL_IGNORED_TITLE = {
   'pull-loop': 'pulls form a cycle, so this behaves as a push',
   'no-producer': 'the source has no recipe that makes this item, so this behaves as a push',
   'source-receives': 'the source receives this item itself, so this behaves as a push',
+  duplicate: 'an earlier connection already takes this item from the same source, so this behaves as a push',
 } as const
 
-function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
+function EdgeLabels({ edge, blocks, flowsById, items, gameData, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
@@ -250,8 +252,11 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit, onTo
           title += ` — pull ignored: ${PULL_IGNORED_TITLE[flow.pullIgnored]}`
         }
         const pullState = !connection.pull ? undefined : flow?.pullIgnored ? 'ignored' : 'applied'
-        // Pulling is refused when the source already pulls from the target, directly or through other blocks.
-        const pullBlocked = !connection.pull && closesPullLoop(blocks, edge.from, edge.to)
+        // Same rule as the Pull menu: the solver must be able to apply the pull and it must close no cycle.
+        const blocker = !connection.pull && source && target
+          ? pullBlocker(blocks, target, connection.itemId, edge.from, gameData)
+          : undefined
+        const pullBlocked = blocker !== undefined
 
         return (
           <span
@@ -305,8 +310,8 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit, onTo
               data-testid="graph-edge-pull"
               aria-label={`${connection.pull ? 'Stop pulling' : 'Pull'} ${itemName} from ${sourceName} to ${targetName}`}
               aria-pressed={!!connection.pull}
-              title={pullBlocked
-                ? `${sourceName} already pulls from ${targetName}, directly or through other blocks`
+              title={blocker
+                ? pullBlockerTitle(blocker, sourceName, targetName, itemName)
                 : connection.pull
                   ? `Stop pulling: ${targetName} takes what ${sourceName} has left over`
                   : `Pull: what ${targetName} needs makes ${sourceName} produce`}
@@ -500,6 +505,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 blocks={blocks}
                 flowsById={flowsById}
                 items={gameData.items}
+                gameData={gameData}
                 onRemove={(id, to) => removeInputConnection(id, to)}
                 onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
                 onTogglePull={(id, to, pull) => setConnectionPull(id, pull, to)}

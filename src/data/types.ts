@@ -72,7 +72,7 @@ export interface SolverResult {
 export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 
 /** Why a connection marked `pull` behaves like a push connection. */
-export type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives'
+export type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives' | 'duplicate'
 
 export interface ConnectionFlow {
   connectionId: string

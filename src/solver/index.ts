@@ -67,6 +67,31 @@ export function producesItem(block: Block, itemId: string, gameData: GameData): 
   return false
 }
 
+/**
+ * Does `block` take `itemId` from a connection of its own, from an existing
+ * block other than itself? Then it is not a pure producer of the item: a
+ * pull on it would cancel its own supply. The one definition of "source
+ * receives the item", shared by the solver and the connection menus.
+ */
+export function receivesItem(block: Block, itemId: string, blockIds: ReadonlySet<string>): boolean {
+  return block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId !== block.id && blockIds.has(c.fromBlockId))
+}
+
+/**
+ * Why a pull of `itemId` from `source` could not apply, apart from cycles of
+ * pulls, or undefined when it can. Shared by the solver and the connection menus.
+ */
+export function pullIgnoredReason(
+  source: Block,
+  itemId: string,
+  blockIds: ReadonlySet<string>,
+  gameData: GameData,
+): 'no-producer' | 'source-receives' | undefined {
+  if (!producesItem(source, itemId, gameData)) return 'no-producer'
+  if (receivesItem(source, itemId, blockIds)) return 'source-receives'
+  return undefined
+}
+
 /** Rates at or below this are treated as zero when comparing supply and demand. */
 export const FLOW_TOLERANCE = 1e-6
 
@@ -476,7 +501,10 @@ function solveStep(
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
       const limitBinds =
         info && 'demand' in info
-          ? c.maxRate !== undefined && info.demand >= c.maxRate - FLOW_TOLERANCE
+          ? // The limit bounded the flow only if it cut the demand and the source could have met it.
+            c.maxRate !== undefined &&
+            info.demand >= c.maxRate - FLOW_TOLERANCE &&
+            sourceOffer >= c.maxRate - FLOW_TOLERANCE
           : c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE
       if (limitBinds) capped.add(c.id)
       seen.add(key)
@@ -648,6 +676,7 @@ function computePullDemands(
   cache?: SolveCache,
 ): PullPlan {
   const byId = new Map(blocks.map(b => [b.id, b]))
+  const blockIds = new Set(byId.keys())
   const info = new Map<string, PullInfo>()
   const goals = new Map<string, ProductionGoal[]>()
 
@@ -661,18 +690,14 @@ function computePullDemands(
       const key = `${c.fromBlockId}\0${c.itemId}`
       const duplicate = seen.has(key)
       seen.add(key)
-      if (!c.pull || duplicate) continue
-      if (!producesItem(source, c.itemId, gameData)) {
-        info.set(c.id, { ignored: 'no-producer' })
-      } else if (
-        source.inputConnections.some(
-          o => o.itemId === c.itemId && byId.has(o.fromBlockId) && !selfConnectionIds.has(o.id),
-        )
-      ) {
-        info.set(c.id, { ignored: 'source-receives' })
-      } else {
-        applicable.push({ consumer, connection: c })
+      if (!c.pull) continue
+      if (duplicate) {
+        info.set(c.id, { ignored: 'duplicate' })
+        continue
       }
+      const reason = pullIgnoredReason(source, c.itemId, blockIds, gameData)
+      if (reason) info.set(c.id, { ignored: reason })
+      else applicable.push({ consumer, connection: c })
     }
   }
   if (applicable.length === 0) return { goals, info }

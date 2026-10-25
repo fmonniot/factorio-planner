@@ -921,6 +921,15 @@ describe('solveAll — pull connections', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
   })
 
+  it('does not call a limit the bound when it is above the demand', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A', 'plate', { maxRate: 100 })])], pullGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.demand).toBeCloseTo(50, 4)
+    expect(f.rate).toBeCloseTo(50, 4)
+    expect(f.capped).toBe(false)
+    expect(f.status).toBe('ok')
+  })
+
   it('keeps what a source makes for a pull away from a push consumer solved earlier', () => {
     const blocks = (aGoals: ProductionGoal[]) => [
       smelter('A', aGoals),
@@ -1002,6 +1011,14 @@ describe('solveAll — pull connections', () => {
     expect(flowOf(all, 'c1').pullIgnored).toBe('source-receives')
     expect(flowOf(all, 'c1').demand).toBeUndefined()
     expect(all.results.A.nodes).toEqual([])
+  })
+
+  it('ignores a pull repeating an earlier (source, item) pair', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A'), pull('c2', 'A')])], pullGameData())
+    expect(flowOf(all, 'c1').demand).toBeCloseTo(50, 4)
+    expect(flowOf(all, 'c2').pullIgnored).toBe('duplicate')
+    expect(flowOf(all, 'c2').demand).toBeUndefined()
+    expect(flowOf(all, 'c2').status).toBe('unused')
   })
 
   it('ignores pulls that form a cycle', () => {

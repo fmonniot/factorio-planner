@@ -531,7 +531,9 @@ block or plan copies it. `pull` works the same way (`false` or absent loads as a
 turning it off deletes the key): a pull connection makes the source produce what the consumer needs
 (see [solver.md](solver.md#pull-connections)). The store refuses to create a pull that would close a cycle of
 pulls (a source that already pulls, directly or through other blocks, from the consumer), when adding
-a connection, on redo of an add and on undo of a switch to push; it does not restrict pushes. How the
+a connection, on redo of an add and on undo of a switch to push; it does not restrict pushes. The check counts every pull connection, including ones the solver would
+ignore (the store has no game data, and whether a pull is ignored changes as recipes are edited), so a
+legal pull can be refused when the existing back pull is itself ignored. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan
@@ -685,7 +687,7 @@ interface ConnectionFlow {
   toBlockId: string
   itemId: string
   available: number   // items/min this consumer could take: the source's unclaimed offer, limited by maxRate
-  capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`)
+  capped: boolean     // true when maxRate is below the source's unclaimed offer (the limit bounds `available`; for an applied pull, true only when the limit cut the demand and the source offered at least the limit)
   rate: number        // items/min actually delivered
   status: ConnectionFlowStatus
   loop?: true         // both ends are members of one loop
@@ -693,7 +695,7 @@ interface ConnectionFlow {
   pullIgnored?: PullIgnoredReason  // connection is marked pull but behaves as a push
 }
 
-type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives'
+type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives' | 'duplicate'
 
 type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 ```
@@ -703,7 +705,8 @@ supply of the item; `limited` means the consumer takes everything the connection
 allows (the source's offer or its `maxRate`; `capped` tells which) and still imports
 the item. `missing-source` and `self` flows have `rate` and
 `available` 0. `demand` is present iff the pull is applied; `pullIgnored` iff `pull` is set but not
-applied, for connections with a source other than the block itself that are not a repeated pair.
+applied, for connections with an existing source other than the block itself (`duplicate`: the
+connection repeats an earlier (source, item) pair of the same block, which only imported JSON can produce).
 
 What triggers each warning is described in [solver.md](solver.md); how the UI
 presents them is in [ui.md](ui.md).

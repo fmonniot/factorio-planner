@@ -175,8 +175,9 @@ A connection with `pull: true` (opt-in per connection; absent means push) makes 
 **When a pull is applicable.** The source exists, it is not a self-connection, the connection is the first for its `(fromBlockId, itemId)` pair, and:
 
 - *A has a producer of X* (`producesItem`): a game-recipe node of A whose recipe has a product X with a positive effective amount and whose `byproductPolicy[X]` is not `'discard'`. Otherwise `pullIgnored: 'no-producer'`.
-- *A receives no X itself*: none of A's connections takes X from an existing source. Otherwise `pullIgnored: 'source-receives'` (a goal item takes nothing from connections, so the supply would cancel A's own).
-- *The pull is not part of a cycle of pulls.* Otherwise `pullIgnored: 'pull-loop'`. The store refuses to create such a cycle (`closesPullLoop`), so they only come from imported JSON.
+- *A receives no X itself*: none of A's connections takes X from an existing source. Otherwise `pullIgnored: 'source-receives'` (a goal item takes nothing from connections, so the supply would cancel A's own). `producesItem` and `receivesItem` (the one definition of this rule) are combined in `pullIgnoredReason`, which the connection menus reuse.
+- *The pull is not part of a cycle of pulls.* Otherwise `pullIgnored: 'pull-loop'`. The store refuses to create such a cycle (`closesPullLoop`), so they only come from imported JSON. `closesPullLoop` counts every pull connection, including ones this section ignores as `no-producer` or `source-receives`, because it needs no game data: a legal pull can therefore be refused when the existing back pull is itself ignored.
+- A connection repeating an earlier `(fromBlockId, itemId)` pair of the same block is ignored as `pullIgnored: 'duplicate'` (only imported JSON has one) and delivers nothing.
 
 An ignored pull behaves exactly like a push connection.
 
@@ -189,7 +190,7 @@ An ignored pull behaves exactly like a push connection.
 - Both are then capped by `maxRate` as usual.
 - After an applied pull is served, `pending(A, X) -= demand(c)`: whatever B left unused goes back to the consumers solved later.
 
-**Flow fields.** An applied pull has `ConnectionFlow.demand` (items/min asked, possibly 0); an ignored one has `pullIgnored`. `capped` for an applied pull is `maxRate !== undefined && demand ≥ maxRate − 1e-6` (the limit is what bounded the demand). There is no extra status: if A meets the demand the flow is `ok`; if A falls short (pins, locks, no capacity) the flow is `limited` and A's result reports a goal shortfall for X, because the pulled demand is part of its goal.
+**Flow fields.** An applied pull has `ConnectionFlow.demand` (items/min asked, possibly 0); an ignored one has `pullIgnored`. `capped` for an applied pull is true only when the limit is what bounded the flow: `maxRate !== undefined`, `demand ≥ maxRate − 1e-6` (the limit cut the ask) and the source's offer to this connection is at least `maxRate − 1e-6` (it could have met the limit). A source that offers less than the limit leaves `capped` false, so the UI says the source "only offers N". There is no extra status: if A meets the demand the flow is `ok`; if A falls short (pins, locks, no capacity) the flow is `limited` and A's result reports a goal shortfall for X, because the pulled demand is part of its goal.
 
 **Loops.** Pulls are decided once, before the supply phase, so the effective goals do not change between loop rounds. In a loop of blocks, `pending` is cloned per round from the snapshot taken before the component (like `remaining`) and the last round's copy is kept. Pull cycles are not supported (ignored as `pull-loop`).
 

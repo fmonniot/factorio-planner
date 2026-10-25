@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { canConnect, canPull, offeredRate, pullCandidates, sourceCandidates, connectableItems, isGoalItem } from './connections'
+import { canConnect, pullBlocker, pullBlockerTitle, offeredRate, pullCandidates, sourceCandidates, connectableItems, isGoalItem } from './connections'
 import { makeEmptyBlock } from './blockStore'
 import type { Block, ConnectionFlow, GameData, SolverResult } from '../data/types'
 
@@ -189,12 +189,52 @@ describe('pullCandidates', () => {
   })
 })
 
-describe('canPull', () => {
-  it('is false when the source already pulls from the target', () => {
+describe('pullBlocker', () => {
+  const recipe = (id: string, itemId: string) => ({ id, products: [{ itemId, type: 'item', amount: 1 }], ingredients: [] })
+  const gameData = { recipes: { makePlate: recipe('makePlate', 'plate'), makeGear: recipe('makeGear', 'gear') } } as unknown as GameData
+  const maker = (id: string, recipeId: string, opts: Parameters<typeof block>[1] = {}): Block => {
+    const b = block(id, opts)
+    return {
+      ...b,
+      rootPlan: {
+        ...b.rootPlan,
+        nodes: [{ kind: 'game-recipe', id: `n-${id}`, recipeId, modules: [], byproductPolicy: {} }],
+      },
+    }
+  }
+  const blocker = (blocks: Block[], from = 'S') =>
+    pullBlocker(blocks, blocks.find(b => b.id === 'T')!, 'plate', from, gameData)
+
+  it('is undefined for a producer that receives nothing and closes no cycle', () => {
+    expect(blocker([block('T'), maker('S', 'makePlate')])).toBeUndefined()
+  })
+
+  it('reports the source has no recipe for the item, or is missing', () => {
+    expect(blocker([block('T'), maker('S', 'makeGear')])).toBe('no-producer')
+    expect(blocker([block('T')])).toBe('no-producer')
+  })
+
+  it('reports a source that receives the item itself', () => {
+    expect(blocker([block('T'), maker('S', 'makePlate', { from: [['plate', 'Z']] }), maker('Z', 'makePlate')])).toBe('source-receives')
+  })
+
+  it('reports a cycle when the source already pulls from the target', () => {
     const t = block('T', { from: [['plate', 'S']] })
-    const s = { ...block('S', { from: [['gear', 'T']] }) }
+    const s = maker('S', 'makePlate', { from: [['gear', 'T']] })
     s.inputConnections = s.inputConnections.map(c => ({ ...c, pull: true as const }))
-    expect(canPull([t, s], t, t.inputConnections[0])).toBe(false)
-    expect(canPull([t, block('S')], t, t.inputConnections[0])).toBe(true)
+    expect(blocker([t, s])).toBe('pull-loop')
+  })
+
+  it('counts a back pull the solver would ignore as a cycle (known limitation: the store has no game data)', () => {
+    const s = maker('S', 'makePlate', { from: [['gear', 'T']] })
+    s.inputConnections = s.inputConnections.map(c => ({ ...c, pull: true as const }))
+    // T makes no gear, so S's pull would be ignored as no-producer, yet pulling plate from S is still refused.
+    expect(blocker([maker('T', 'makePlate'), s])).toBe('pull-loop')
+  })
+
+  it('words each reason with the block and item names', () => {
+    expect(pullBlockerTitle('pull-loop', 'S', 'T', 'Plate')).toBe('S already pulls from T, directly or through other blocks')
+    expect(pullBlockerTitle('no-producer', 'S', 'T', 'Plate')).toBe('S has no recipe that makes Plate')
+    expect(pullBlockerTitle('source-receives', 'S', 'T', 'Plate')).toBe('S receives Plate itself')
   })
 })

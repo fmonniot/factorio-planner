@@ -8,7 +8,7 @@ import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { canPull, isGoalItem } from '../../store/connections'
+import { connectionPullBlocker, pullBlockerTitle, isGoalItem } from '../../store/connections'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
@@ -38,7 +38,7 @@ function GoalRates({ goal, info, rateUnit, editing, onStart, onStop, onUpdateRat
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const targetDisplay = fmtRate(goal.rate / 60, rateUnit)
   const actualDisplay = info.actual !== undefined ? fmtRate(info.actual / 60, rateUnit) : null
-  const shortfallDisplay = info.actual !== undefined ? fmtRate((goal.rate - info.actual) / 60, rateUnit) : null
+  const shortfallDisplay = info.actual !== undefined ? fmtRate((info.required - info.actual) / 60, rateUnit) : null
   const { short } = info
 
   return (
@@ -142,12 +142,25 @@ export function FactorySummary() {
     .map(([id]) => id)
   const isPulledOnly = (id: string) => pulledOnlyIds.includes(id)
 
-  // Byproducts: net positive balance not in goals, minus what other blocks take
+  // Deliveries of an item that are not for a pull: a pulled-only item's byproduct surplus is
+  // what is made beyond the pulled amount, minus what push connections take of it.
+  const pushExportedPerMin = new Map<string, number>()
+  for (const f of outputFlows) {
+    if (f.demand === undefined) pushExportedPerMin.set(f.itemId, (pushExportedPerMin.get(f.itemId) ?? 0) + f.rate)
+  }
+
+  // Byproducts: net positive balance not in goals, minus what is pulled and what other blocks take.
   const byproductItems = [...netBalance]
-    .filter(([id]) => !goalIds.has(id) && !isPulledOnly(id))
-    .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
+    .filter(([id]) => !goalIds.has(id))
+    .map(([id, net]) =>
+      isPulledOnly(id)
+        ? { itemId: id, ratePerMin: Math.max(0, net - pulledPerMin.get(id)!) - (pushExportedPerMin.get(id) ?? 0) }
+        : { itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) },
+    )
     .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
-  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !goalIds.has(id) && !isPulledOnly(id))
+  const exportedByproducts = [...exportedPerMin.keys()].filter(
+    id => !goalIds.has(id) && (!isPulledOnly(id) || (pushExportedPerMin.get(id) ?? 0) > FLOW_TOLERANCE),
+  )
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
@@ -156,19 +169,35 @@ export function FactorySummary() {
   const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
+  // A pulled-only item's pulled part sits in its product slot, the rest in Byproducts.
+  const byproductExportsOf = (itemId: string) =>
+    exportsOf(itemId).filter(f => !isPulledOnly(itemId) || f.demand === undefined)
   const blockIds = new Set(blocks.map(b => b.id))
-  const goalSlots = goals.map(g => productSlot(
-    g,
-    // No node makes the item: the goal is fully short, not unknown.
-    solverResult ? (netBalance.get(g.itemId) ?? 0) : undefined,
-    exportsOf(g.itemId),
-    rateUnit,
-  ))
+  // The solver adds a pulled amount to the first goal of the item.
+  const pulledGoalIds = new Set(goalIds)
+  const goalSlots = goals.map(g => {
+    const pulled = pulledGoalIds.delete(g.itemId) ? (pulledPerMin.get(g.itemId) ?? 0) : 0
+    return productSlot(
+      g,
+      // No node makes the item: the goal is fully short, not unknown.
+      solverResult ? (netBalance.get(g.itemId) ?? 0) : undefined,
+      exportsOf(g.itemId),
+      rateUnit,
+      pulled,
+    )
+  })
   const productSlots = [
     ...goalSlots,
-    ...pulledOnlyIds.map(id => pulledSlot(id, pulledPerMin.get(id)!, exportsOf(id))),
+    ...pulledOnlyIds.map(id =>
+      pulledSlot(
+        id,
+        pulledPerMin.get(id)!,
+        netBalance.get(id) ?? 0,
+        exportsOf(id).filter(f => f.demand !== undefined),
+        rateUnit,
+      )),
   ]
-  const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
+  const byproductSlots = byproductRowList.map(r => byproductSlot(r, byproductExportsOf(r.itemId)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
   // A goal shortfall can neither receive supply nor be forbidden imports (goals have no slack).
   const connectable = (itemId: string) => (activeBlock ? !isGoalItem(activeBlock, itemId) : false)
@@ -220,7 +249,11 @@ export function FactorySummary() {
             if (slot.pulledOnly) {
               return (
                 <span className="text-xs text-gray-300">
-                  pulled <span className="font-mono tabular-nums">{fmt(slot.rate)}</span>
+                  pulled{' '}
+                  {slot.pulledShort !== undefined && (
+                    <span className="text-amber-400 font-mono tabular-nums">{fmt(slot.rate - slot.pulledShort)} of </span>
+                  )}
+                  <span className="font-mono tabular-nums">{fmt(slot.rate)}</span>
                   <span className="text-gray-600 text-[10px]">{unitLabel}</span>
                 </span>
               )
@@ -347,11 +380,20 @@ export function FactorySummary() {
         if (activeBlock && connection) {
           actions.push(connection.pull
             ? { label: 'Stop pulling', onSelect: () => setConnectionPull(connection.id, false) }
-            : {
-              label: 'Pull from source',
-              disabled: !canPull(blocks, activeBlock, connection),
-              onSelect: () => setConnectionPull(connection.id, true),
-            })
+            : (() => {
+              const blocker = gameData ? connectionPullBlocker(blocks, activeBlock, connection, gameData) : 'no-producer'
+              return {
+                label: 'Pull from source',
+                disabled: blocker !== undefined,
+                title: blocker && pullBlockerTitle(
+                  blocker,
+                  blocks.find(b => b.id === connection.fromBlockId)?.name ?? connection.fromBlockId,
+                  activeBlock.name,
+                  gameData?.items[connection.itemId]?.name ?? connection.itemId,
+                ),
+                onSelect: () => setConnectionPull(connection.id, true),
+              }
+            })())
         }
         actions.push({
           label: 'Remove connection',

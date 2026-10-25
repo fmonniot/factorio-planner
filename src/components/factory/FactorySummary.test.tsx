@@ -734,16 +734,39 @@ describe('FactorySummary — pull', () => {
     available: 30, capped: false, rate: 30, status: 'ok', demand: 30, ...over,
   })
 
-  function setupPull(opts: { activeId: 'consumer' | 'miner'; pull?: boolean; flows?: ConnectionFlow[] }) {
+  const mineRecipe = {
+    id: 'mine', name: 'mine', category: 'crafting', craftingTime: 1, ingredients: [],
+    products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }], madeIn: [],
+  }
+
+  function setupPull(opts: {
+    activeId: 'consumer' | 'miner'
+    pull?: boolean
+    flows?: ConnectionFlow[]
+    result?: SolverResult
+    /** Miner has a recipe that makes iron ore, so pulling from it can apply. */
+    minerMakes?: boolean
+    minerGoals?: Block['goals']
+  }) {
+    if (opts.minerMakes) {
+      useGameDataStore.setState({
+        status: { type: 'loaded', gameData: { ...mockGameData, recipes: { mine: mineRecipe } } as unknown as GameData, sourceId: 'test' },
+      })
+    }
     const consumer: Block = {
       ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal],
       inputConnections: [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.pull ? { pull: true as const } : {}) }],
     }
-    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', goals: [ironGoal] }
+    const miner: Block = {
+      ...makeEmptyBlock('Miner'), id: 'miner', goals: opts.minerGoals ?? [ironGoal],
+      ...(opts.minerMakes
+        ? { rootPlan: { ...makeEmptyBlock('Miner').rootPlan, nodes: [{ kind: 'game-recipe' as const, id: 'n', recipeId: 'mine', modules: [], byproductPolicy: {} }] } }
+        : {}),
+    }
     useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: opts.activeId, history: {} })
     useSolverStore.setState({
-      lastResult: makerResult(),
-      lastResults: { consumer: { nodes: [], unsatisfied: [], warnings: [] }, miner: makerResult() },
+      lastResult: opts.result ?? makerResult(),
+      lastResults: { consumer: { nodes: [], unsatisfied: [], warnings: [] }, miner: opts.result ?? makerResult() },
       flows: opts.flows ?? [pulledFlow()],
       _setStatus: () => {},
     })
@@ -773,7 +796,7 @@ describe('FactorySummary — pull', () => {
   })
 
   it('switches a connection between pull and push from its chip menu', () => {
-    setupPull({ activeId: 'consumer', flows: [{ ...pulledFlow(), demand: undefined }] })
+    setupPull({ activeId: 'consumer', flows: [{ ...pulledFlow(), demand: undefined }], minerMakes: true })
     useSolverStore.setState({ lastResult: { nodes: [], unsatisfied: [], warnings: [] } })
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
@@ -783,6 +806,69 @@ describe('FactorySummary — pull', () => {
     fireEvent.contextMenu(segments('Ingredients', 'source')[0])
     fireEvent.click(screen.getByRole('menuitem', { name: 'Stop pulling' }))
     expect('pull' in useBlockStore.getState().blocks[0].inputConnections[0]).toBe(false)
+  })
+
+  it('disables Pull from source, with the reason, when the source cannot make the item', () => {
+    setupPull({ activeId: 'consumer', flows: [{ ...pulledFlow(), demand: undefined }], minerMakes: false })
+    useSolverStore.setState({ lastResult: { nodes: [], unsatisfied: [], warnings: [] } })
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    fireEvent.contextMenu(segments('Ingredients', 'source')[0])
+    const item = screen.getByRole('menuitem', { name: 'Pull from source' })
+    expect(item).toBeDisabled()
+    expect(item.getAttribute('title')).toBe('Miner has no recipe that makes Iron Ore')
+  })
+
+  it('still shows the surplus above the pulled amount as a byproduct', () => {
+    // Miner makes 100 ore; the consumer pulls 30 and the 30 are delivered.
+    const result: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 100, 'iron-plate': 60 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [], warnings: [],
+    }
+    setupPull({ activeId: 'miner', pull: true, result })
+    render(<FactorySummary />)
+    expect(pane('Byproducts').textContent).toContain('· 1')
+    select('Byproducts', 'Iron Ore')
+    expect(strip('Byproducts').textContent).toContain('made')
+    expect(slot('Products', 'Iron Ore')).toBeInTheDocument()
+  })
+
+  it('draws a pulled item the block fails to make as short, not kept', () => {
+    // 30 pulled, only 10 made and delivered.
+    const result: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 10, 'iron-plate': 60 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [], warnings: [],
+    }
+    setupPull({ activeId: 'miner', pull: true, result, flows: [pulledFlow({ rate: 10 })] })
+    render(<FactorySummary />)
+    expect(slot('Products', 'Iron Ore')).toHaveAttribute('data-status', 'short')
+    select('Products', 'Iron Ore')
+    expect(strip('Products').textContent).toContain('pulled')
+    expect(segments('Products', 'short')).toHaveLength(1)
+    expect(segments('Products', 'kept')).toHaveLength(0)
+  })
+
+  it('is short on a goal item that is also pulled when the output misses goal plus pulled', () => {
+    // Goal iron-plate 60 (ironGoal), 30 plate pulled, 70 made: short by 20 although above the goal.
+    const result: SolverResult = {
+      nodes: [{
+        recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 70 },
+        throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+      }],
+      unsatisfied: [], warnings: [],
+    }
+    setupPull({
+      activeId: 'miner', pull: true, result,
+      flows: [pulledFlow({ itemId: 'iron-plate', rate: 30, demand: 30 })],
+    })
+    render(<FactorySummary />)
+    expect(slot('Products', 'Iron Plate')).toHaveAttribute('data-status', 'short')
   })
 
   it('offers a pull menu section for a block that can make the item', () => {

@@ -66,6 +66,8 @@ export type SlotStatus = 'short' | 'limited' | 'locked' | null
 export interface GoalInfo {
   id: string
   target: number
+  /** The goal plus what other blocks pull of the same item; equals `target` when nothing is pulled. */
+  required: number
   /** undefined before the first solve */
   actual: number | undefined
   short: boolean
@@ -91,6 +93,8 @@ export interface SlotModel {
   locked?: boolean
   /** products only: an item no goal names, made because other blocks pull it; read-only. `rate` is what they pull. */
   pulledOnly?: true
+  /** pulledOnly only: items/min of the pulled amount the block does not make; > 0 iff `status` is 'short' */
+  pulledShort?: number
 }
 
 export interface OverviewRow {
@@ -127,14 +131,21 @@ function exportSegments(exports: ConnectionFlow[]): Segment[] {
 
 const sum = (segments: Segment[]) => segments.reduce((total, s) => total + s.amount, 0)
 
-/** `exports` are this block's deliveries of the goal's item, each above FLOW_TOLERANCE. */
+/**
+ * `exports` are this block's deliveries of the goal's item, each above
+ * FLOW_TOLERANCE. `pulledPerMin` is what other blocks pull of the same item on
+ * top of the goal (the solver adds it to the goal): the slot is short when the
+ * output misses the goal plus that amount.
+ */
 export function productSlot(
   goal: ProductionGoal,
   actualPerMin: number | undefined,
   exports: ConnectionFlow[],
   unit: RateUnit,
+  pulledPerMin = 0,
 ): SlotModel {
   const target = goal.rate
+  const required = target + pulledPerMin
   if (actualPerMin === undefined) {
     return {
       id: goal.id,
@@ -145,16 +156,16 @@ export function productSlot(
       overlays: [],
       status: null,
       dimmed: false,
-      goal: { id: goal.id, target, actual: undefined, short: false, tickAt: null },
+      goal: { id: goal.id, target, required, actual: undefined, short: false, tickAt: null },
     }
   }
 
   const segments = exportSegments(exports)
   const kept = Math.max(0, actualPerMin - sum(segments))
   if (kept > FLOW_TOLERANCE) segments.push({ key: 'kept', kind: 'kept', amount: kept })
-  const short = isShortfall(target, actualPerMin, unit)
-  if (short) segments.push({ key: 'short', kind: 'short', amount: target - actualPerMin })
-  const scale = Math.max(target, sum(segments))
+  const short = isShortfall(required, actualPerMin, unit)
+  if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
+  const scale = Math.max(required, sum(segments))
   return {
     id: goal.id,
     itemId: goal.itemId,
@@ -167,22 +178,34 @@ export function productSlot(
     goal: {
       id: goal.id,
       target,
+      required,
       actual: actualPerMin,
       short,
-      tickAt: differsFromTarget(target, actualPerMin, unit) ? target / scale : null,
+      tickAt: differsFromTarget(required, actualPerMin, unit) ? required / scale : null,
     },
   }
 }
 
 /**
  * An item this block makes only because other blocks pull it. `pulledPerMin` is
- * what they ask for; `exports` are this block's deliveries of the item, each
- * above FLOW_TOLERANCE.
+ * what they ask for; `actualPerMin` is what the block really makes of it, and
+ * only up to the pulled amount counts here (the surplus is a byproduct).
+ * `exports` are this block's deliveries to the pulling consumers, each above
+ * FLOW_TOLERANCE. What is made but not delivered is `kept`; what is not made is `short`.
  */
-export function pulledSlot(itemId: string, pulledPerMin: number, exports: ConnectionFlow[]): SlotModel {
+export function pulledSlot(
+  itemId: string,
+  pulledPerMin: number,
+  actualPerMin: number,
+  exports: ConnectionFlow[],
+  unit: RateUnit,
+): SlotModel {
+  const made = Math.min(actualPerMin, pulledPerMin)
   const segments = exportSegments(exports)
-  const kept = pulledPerMin - sum(segments)
+  const kept = made - sum(segments)
   if (kept > FLOW_TOLERANCE) segments.push({ key: 'kept', kind: 'kept', amount: kept })
+  const short = isShortfall(pulledPerMin, made, unit)
+  if (short) segments.push({ key: 'short', kind: 'short', amount: pulledPerMin - made })
   return {
     id: `pull:${itemId}`,
     itemId,
@@ -190,9 +213,10 @@ export function pulledSlot(itemId: string, pulledPerMin: number, exports: Connec
     scale: sum(segments),
     segments,
     overlays: [],
-    status: null,
+    status: short ? 'short' : null,
     dimmed: false,
     pulledOnly: true,
+    ...(short ? { pulledShort: pulledPerMin - made } : {}),
   }
 }
 

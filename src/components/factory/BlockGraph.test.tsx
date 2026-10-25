@@ -48,6 +48,8 @@ function setup(opts: {
   pull?: boolean
   /** With `loop`: Miner pulls iron plate from Consumer (instead of a push). */
   minerPulls?: boolean
+  /** Miner has a recipe that makes iron ore, so a pull from it can apply. */
+  minerMakes?: boolean
   flow?: Partial<ConnectionFlow>
   /** Miner also receives iron plate from Consumer, so the two supply each other. */
   loop?: { converged: boolean; rounds?: number }
@@ -62,10 +64,28 @@ function setup(opts: {
   const miner: Block = {
     ...makeEmptyBlock('Miner'), id: 'miner',
     inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer', ...(opts.minerPulls ? { pull: true as const } : {}) }] : [],
+    ...(opts.minerMakes
+      ? {
+        rootPlan: {
+          ...makeEmptyBlock('Miner').rootPlan,
+          nodes: [{ kind: 'game-recipe' as const, id: 'n', recipeId: 'mine', modules: [], byproductPolicy: {} }],
+        },
+      }
+      : {}),
   }
   useBlockStore.setState({ blocks: [miner, consumer], activeBlockId: 'consumer', history: {} })
   useUiStore.setState({ rateUnit: 'min' })
-  useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
+  const mine = {
+    id: 'mine', name: 'mine', category: 'crafting', craftingTime: 1, ingredients: [],
+    products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }], madeIn: [],
+  }
+  useGameDataStore.setState({
+    status: {
+      type: 'loaded',
+      gameData: { ...mockGameData, recipes: { ...mockGameData.recipes, mine } } as unknown as GameData,
+      sourceId: 'test',
+    },
+  })
   useSolverStore.setState({
     lastResults: { miner: minerResult(), consumer: consumerResult() },
     flows: opts.loop
@@ -398,7 +418,7 @@ describe('BlockGraph', () => {
     const toggle = () => screen.getByTestId('graph-edge-pull')
 
     it('marks no pull on a push chip and toggles it on and off through the store', () => {
-      setup({ connected: true })
+      setup({ connected: true, minerMakes: true })
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('data-pull')).toBeNull()
@@ -427,8 +447,26 @@ describe('BlockGraph', () => {
       expect(chip().getAttribute('title')).toMatch(/pull ignored: the source has no recipe/)
     })
 
+    it('marks a repeated pull as ignored and says why', () => {
+      setup({ connected: true, pull: true, flow: { status: 'unused', pullIgnored: 'duplicate' } })
+      render(<BlockGraphButton />)
+      open()
+      expect(chip().getAttribute('data-pull')).toBe('ignored')
+      expect(chip().getAttribute('title')).toMatch(/pull ignored: an earlier connection/)
+    })
+
+    it('disables the toggle, with the reason, when the source cannot make the item', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(toggle()).toBeDisabled()
+      expect(toggle().getAttribute('title')).toBe('Miner has no recipe that makes Iron Ore')
+      fireEvent.click(toggle())
+      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
+    })
+
     it('disables the toggle when pulling would close a cycle of pulls', () => {
-      setup({ connected: true, loop: { converged: true }, minerPulls: true })
+      setup({ connected: true, loop: { converged: true }, minerPulls: true, minerMakes: true })
       render(<BlockGraphButton />)
       open()
       const c1 = within(screen.getAllByTestId('graph-edge-label').find(l => l.dataset.connectionId === 'c1')!).getByTestId('graph-edge-pull')
