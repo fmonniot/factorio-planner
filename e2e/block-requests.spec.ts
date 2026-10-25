@@ -159,7 +159,7 @@ test.describe('requests between blocks', () => {
     await expect(slot(page, 'Products', 'Iron rod')).toHaveAttribute('data-status', 'short')
   })
 
-  test('adding a product that closes a cycle of requests explains it', async ({ page }) => {
+  test('adding a product that closes a cycle of requests turns it into a solved request cycle', async ({ page }) => {
     await setup(page, LOOP_FIXTURE)
     await requestPlates(page)
 
@@ -173,12 +173,15 @@ test.describe('requests between blocks', () => {
     // On Gears, making iron ingot a product would turn that take into a request that closes a cycle.
     await page.locator('button[title="Gears"]').click()
     await addProduct(page, 'Iron ingot', 'nullius-iron-ingot')
-    await expect(page.getByTestId('product-change-effect')).toContainText('closes a cycle of requests')
+    await expect(page.getByTestId('product-change-effect')).toContainText('It will request it instead')
     await confirm(page, 'Make it a product').click()
 
-    // Every connection of the cycle now takes existing output.
+    // Both connections now request and the cycle is solved, not ignored.
     await page.getByRole('button', { name: 'Block graph' }).click()
-    await expect(page.locator('[data-testid="graph-edge-label"][data-request-ignored="request-loop"]')).toHaveCount(2)
+    await expect(page.locator('[data-request-ignored]')).toHaveCount(0)
+    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="request"]')).toHaveCount(2)
+    await expect(page.getByTestId('graph-loop-status')).toHaveText('↻ 1 loop')
+    await expect(page.getByTestId('graph-loop-status')).toHaveAttribute('data-converged', 'true')
   })
 
   test('+ Extra output and Remove extra change what a product makes', async ({ page }) => {
@@ -238,7 +241,7 @@ test.describe('requests between blocks', () => {
     await expect(ingot).not.toHaveAttribute('data-dimmed', 'true')
     await expect(ingot).not.toHaveAccessibleName(/nothing requested yet/)
 
-    // Another block takes the ingots: making them a product would close a cycle of requests.
+    // Another block takes the ingots: making them a product would close a cycle of requests, which is solved.
     await setup(page, LOOP_FIXTURE)
     await requestPlates(page)
     await page.locator('button[title="Plates"]').click()
@@ -247,7 +250,8 @@ test.describe('requests between blocks', () => {
     await page.locator('button[title="Gears"]').click()
     await slot(page, 'Byproducts', 'Iron ingot').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Make it a product' }).click()
-    await expect(page.getByTestId('product-change-effect')).toContainText('closes a cycle of requests')
+    await expect(page.getByTestId('product-change-effect')).toContainText('It will request it instead')
+    await expect(page.getByTestId('product-change-effect')).not.toContainText('cycle')
     await confirm(page, 'Cancel').click()
     await expect(slotById(page, 'Byproducts', 'nullius-iron-ingot')).toHaveCount(1)
   })

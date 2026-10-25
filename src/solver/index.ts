@@ -19,8 +19,8 @@ import type {
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
-import { hasProduct, orderBlocks, receivesItem, type LoopShape } from './blockGraph'
-import { planKey, type SolveCache } from './solveCache'
+import { closesLoop, hasProduct, orderBlocks, receivesItem, type LoopShape } from './blockGraph'
+import { exactKey, planKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 interface SolverPlan {
   goals: SolverGoal[]
@@ -410,9 +410,14 @@ function emptyResult(): SolverResult {
 /** Most rounds a loop of blocks is solved before its last round is kept as is. */
 export const LOOP_ROUND_LIMIT = 8
 
+/** Most demand rounds a cycle of requests is solved before its first round is kept. */
+export const REQUEST_ROUND_LIMIT = 30
+
 export interface SolveAllOptions {
   /** Overrides `LOOP_ROUND_LIMIT` (at least 1). */
   loopRoundLimit?: number
+  /** Overrides `REQUEST_ROUND_LIMIT` (at least 1). */
+  requestRoundLimit?: number
 }
 
 /** itemId → items/min; one block's offer, or what is still unclaimed of it. */
@@ -537,11 +542,20 @@ function solveStep(
     stillImported.set(u.itemId, (stillImported.get(u.itemId) ?? 0) + u.rate)
   }
 
+  // A consumer's takes of an item are served before its requests of it (a stable sort), so a take
+  // credited in the request pass is delivered in full; flows are still pushed in connection order.
+  const isRequest = (c: BlockConnection) => {
+    const info = ctx.requests.get(c.id)
+    return !!info && 'requested' in info
+  }
+  const delivery = [...active].sort((a, b) => Number(isRequest(a)) - Number(isRequest(b)))
   const undelivered = new Map(received)
-  for (const c of active) {
+  const delivered = new Map<string, number>() // connection id → items/min
+  for (const c of delivery) {
     const offer = available.get(c.id) ?? 0
     const rate = Math.min(undelivered.get(c.itemId) ?? 0, offer)
     undelivered.set(c.itemId, (undelivered.get(c.itemId) ?? 0) - rate)
+    delivered.set(c.id, rate)
     const sourceLeft = remaining.get(c.fromBlockId)
     if (sourceLeft && rate > 0) {
       sourceLeft.set(c.itemId, (sourceLeft.get(c.itemId) ?? 0) - rate)
@@ -552,7 +566,12 @@ function solveStep(
     if (info && 'requested' in info && sourcePending) {
       sourcePending.set(c.itemId, Math.max(0, (sourcePending.get(c.itemId) ?? 0) - info.requested))
     }
+  }
 
+  for (const c of active) {
+    const offer = available.get(c.id) ?? 0
+    const rate = delivered.get(c.id) ?? 0
+    const info = ctx.requests.get(c.id)
     const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
     const status: ConnectionFlowStatus =
       duplicates.has(c.id) ? 'unused'
@@ -615,9 +634,9 @@ const loopWarningCopies = new WeakMap<SolverResult, { key: string; result: Solve
  */
 function withLoopWarning(
   result: SolverResult,
-  warning: Extract<SolverWarning, { type: 'loop-not-converged' }>,
+  warning: Extract<SolverWarning, { type: 'loop-not-converged' | 'request-loop-not-converged' }>,
 ): SolverResult {
-  const key = `${warning.rounds}\0${warning.blockIds.join('\0')}`
+  const key = `${warning.type}\0${warning.rounds}\0${warning.blockIds.join('\0')}`
   const hit = loopWarningCopies.get(result)
   if (hit?.key === key) return hit.result
   const copy = { ...result, warnings: [...result.warnings, warning] }
@@ -641,6 +660,78 @@ interface RequestPlan {
   goals: Map<string, SolverGoal[]>
   /** connection id → decision; absent for connections that take existing output and for ones that never count (missing source, self). */
   info: Map<string, RequestInfo>
+  /** One entry per cycle of requests: `rounds` are demand rounds, `converged` whether the demand settled. */
+  loops: BlockLoop[]
+}
+
+/** Items the block connects to existing, non-self sources, each with unlimited supply (a request probe). */
+function connectedCaps(block: Block, byId: Map<string, Block>, selfConnectionIds: Set<string>): Map<string, number> {
+  const caps = new Map<string, number>()
+  for (const c of block.inputConnections) {
+    if (byId.has(c.fromBlockId) && !selfConnectionIds.has(c.id)) caps.set(c.itemId, Infinity)
+  }
+  return caps
+}
+
+/**
+ * Solve a block with the given goals and `caps`: what it would import (`received`) and its solved
+ * nodes. Empty when there is nothing to solve; `failed` when the solver throws (the supply solve
+ * reports the error, so a failing block asks for nothing).
+ */
+function probeBlock(
+  block: Block,
+  goals: SolverGoal[],
+  gameData: GameData,
+  caps: Map<string, number>,
+  cache?: SolveCache,
+): { received: Map<string, number>; nodes: SolvedNode[]; failed: boolean } {
+  const plan = { ...flattenBlock(block), goals }
+  if (plan.goals.length === 0 || plan.nodes.length === 0) return { received: new Map(), nodes: [], failed: false }
+  const key = cache ? planKey(plan) : ''
+  const hit = cache?.get(block.id, gameData, key, caps)
+  if (hit) return { received: hit.received, nodes: hit.result.nodes, failed: false }
+  try {
+    const solved = solveBlock(plan, gameData, caps)
+    cache?.set(block.id, gameData, key, caps, solved)
+    return { received: solved.received, nodes: solved.result.nodes, failed: false }
+  } catch {
+    cache?.delete(block.id)
+    return { received: new Map(), nodes: [], failed: true }
+  }
+}
+
+/**
+ * Let a consumer's takes cover part of what it needs (`needed`, reduced in place). Each take in
+ * connection order covers min(what its source has left, its limit, the need left) and reduces
+ * the source's estimate (`estimates`, in place).
+ */
+function applyTakeCredits(
+  takes: Map<string, BlockConnection[]> | undefined,
+  needed: Map<string, number>,
+  estimates: Map<string, Offers>,
+): void {
+  for (const [itemId, list] of takes ?? []) {
+    let need = needed.get(itemId) ?? 0
+    for (const t of list) {
+      if (need <= 0) break
+      const left = estimates.get(t.fromBlockId)?.get(itemId) ?? 0
+      const cover = Math.min(left, t.maxRate ?? Infinity, need)
+      if (cover <= 0) continue
+      estimates.get(t.fromBlockId)!.set(itemId, left - cover)
+      need -= cover
+    }
+    needed.set(itemId, need)
+  }
+}
+
+/** What a source with solved `nodes` has left per item after the amounts requested of it. */
+function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined): Offers {
+  const left: Offers = new Map()
+  for (const [itemId, net] of netBalance(nodes)) {
+    const rest = net - (requestedOfSource?.get(itemId) ?? 0)
+    if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
+  }
+  return left
 }
 
 /**
@@ -648,21 +739,34 @@ interface RequestPlan {
  * for an item does not depend on what it receives (solving it with unlimited
  * supply on every connection, a "request probe", gives exactly what it would import),
  * and a source's goals only depend on its own products plus what its consumers
- * request of it. So requests are computed in one pass, consumers first, before any
- * supply is handed out. Requests forming a cycle are ignored: they take existing output.
+ * request of it. So requests are computed before any supply is handed out, consumers first.
+ *
+ * Takes before requests: a consumer that takes an item it also requests asks only for what its
+ * takes will not cover. The estimate of a take source is what it has left after the amounts
+ * requested of it; sources are processed before their take consumers where the request order
+ * allows it, and a take whose source is not processed yet gets no credit.
+ *
+ * Cycles of requests are solved in demand rounds: members in order (consumers first), each probed
+ * with its products plus what the other members requested of it, a request that closes the cycle
+ * reading the previous round's amount (0 in round 1). A geometric extrapolation step on those
+ * amounts speeds up a settling cycle and the demand is cut after `roundLimit` rounds or when it
+ * keeps growing. A cycle that does not settle keeps round 1's amounts, and the requests that
+ * close it take existing output (`request-loop`).
  */
 function computeRequests(
   blocks: Block[],
   gameData: GameData,
   selfConnectionIds: Set<string>,
-  cache?: SolveCache,
+  cache: SolveCache | undefined,
+  roundLimit: number,
 ): RequestPlan {
   const byId = new Map(blocks.map(b => [b.id, b]))
   const blockIds = new Set(byId.keys())
   const info = new Map<string, RequestInfo>()
   const goals = new Map<string, SolverGoal[]>()
+  const loops: BlockLoop[] = []
 
-  // Candidates: requests that count, in plan order. Applicable ones go on to the cycle check.
+  // Candidates: requests that count, in plan order.
   const applicable: { consumer: Block; connection: BlockConnection }[] = []
   for (const consumer of blocks) {
     const seen = new Set<string>()
@@ -681,76 +785,260 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0) return { goals, info }
+  if (applicable.length === 0) return { goals, info, loops }
+
+  const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
+  for (const { consumer, connection } of applicable) {
+    const list = requestsOf.get(consumer.id) ?? []
+    list.push(connection)
+    requestsOf.set(consumer.id, list)
+  }
+
+  // Takes that can cover a request: an existing source's first connection for its (source, item)
+  // pair that is not a request, for an item the consumer also requests.
+  const applicableIds = new Set(applicable.map(a => a.connection.id))
+  const takeOf = new Map<string, Map<string, BlockConnection[]>>() // consumer id → item id → takes, in connection order
+  for (const consumer of blocks) {
+    const requestedItems = new Set((requestsOf.get(consumer.id) ?? []).map(c => c.itemId))
+    if (requestedItems.size === 0) continue
+    const seen = new Set<string>()
+    for (const c of consumer.inputConnections) {
+      if (!byId.has(c.fromBlockId) || selfConnectionIds.has(c.id)) continue
+      const key = `${c.fromBlockId}\0${c.itemId}`
+      const duplicate = seen.has(key)
+      seen.add(key)
+      if (duplicate || applicableIds.has(c.id) || !requestedItems.has(c.itemId)) continue
+      const items = takeOf.get(consumer.id) ?? new Map<string, BlockConnection[]>()
+      items.set(c.itemId, [...(items.get(c.itemId) ?? []), c])
+      takeOf.set(consumer.id, items)
+    }
+  }
 
   // Order consumers before sources: orderBlocks puts sources first, so feed it the reversed requests.
+  // A take source goes before its take consumer unless the consumer already reaches it.
   const reversed = new Map<string, BlockConnection[]>()
   for (const { consumer, connection } of applicable) {
     const list = reversed.get(connection.fromBlockId) ?? []
     list.push({ id: connection.id, itemId: connection.itemId, fromBlockId: consumer.id })
     reversed.set(connection.fromBlockId, list)
   }
-  const { components } = orderBlocks(blocks.map(b => ({ ...b, inputConnections: reversed.get(b.id) ?? [] })))
-  const looped = new Set<string>()
-  for (const component of components) {
-    for (const id of component.loop?.connectionIds ?? []) {
-      looped.add(id)
-      info.set(id, { ignored: 'request-loop' })
+  const depBlocks = blocks.map(b => ({ ...b, inputConnections: [...(reversed.get(b.id) ?? [])] }))
+  const takeSources = new Set<string>()
+  for (const dep of depBlocks) {
+    for (const [itemId, takes] of takeOf.get(dep.id) ?? []) {
+      for (const t of takes) {
+        if (closesLoop(depBlocks, t.fromBlockId, dep.id)) continue
+        dep.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
+        takeSources.add(t.fromBlockId)
+      }
     }
   }
-  const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
-  for (const { consumer, connection } of applicable) {
-    if (looped.has(connection.id)) continue
-    const list = requestsOf.get(consumer.id) ?? []
-    list.push(connection)
-    requestsOf.set(consumer.id, list)
-  }
+  const { components } = orderBlocks(depBlocks)
 
   const requested = new Map<string, Map<string, number>>() // source id → item id → items/min
+  const estimates = new Map<string, Offers>() // processed take source id → item id → leftover items/min
+  const addRequest = (c: BlockConnection, share: number): void => {
+    if (share <= 0) return
+    const items = requested.get(c.fromBlockId) ?? new Map<string, number>()
+    items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
+    requested.set(c.fromBlockId, items)
+  }
+  // Hand out `needed` over a block's requests in connection order; `share(c, amount)` receives each.
+  const shareOut = (requests: BlockConnection[], needed: Map<string, number>, share: (c: BlockConnection, amount: number) => void): void => {
+    for (const c of requests) {
+      const left = needed.get(c.itemId) ?? 0
+      const amount = c.maxRate === undefined ? left : Math.min(left, c.maxRate)
+      needed.set(c.itemId, left - amount)
+      share(c, amount)
+    }
+  }
+  const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[] }): void => {
+    if (!takeSources.has(block.id)) return
+    const nodes = probe?.nodes ?? probeBlock(
+      block, productGoals(block.products, requested.get(block.id)), gameData,
+      connectedCaps(block, byId, selfConnectionIds), cache,
+    ).nodes
+    estimates.set(block.id, leftoverEstimate(nodes, requested.get(block.id)))
+  }
+
   for (const component of components) {
-    for (const member of component.blocks) {
-      const block = byId.get(member.id)!
+    const loop = component.loop
+    if (!loop) {
+      const block = byId.get(component.blocks[0].id)!
       const effectiveGoals = productGoals(block.products, requested.get(block.id))
       if (requested.has(block.id)) goals.set(block.id, effectiveGoals)
 
       const requests = requestsOf.get(block.id)
-      if (!requests) continue
-      const needed = new Map<string, number>() // item id → what the block would import
-      const plan = { ...flattenBlock(block), goals: effectiveGoals }
-      if (plan.goals.length > 0 && plan.nodes.length > 0) {
-        const caps = new Map<string, number>()
-        for (const c of block.inputConnections) {
-          if (byId.has(c.fromBlockId) && !selfConnectionIds.has(c.id)) caps.set(c.itemId, Infinity)
+      if (!requests && !takeSources.has(block.id)) continue
+      const probe = probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
+      if (requests) {
+        const needed = new Map(probe.received) // item id → what the block would import
+        applyTakeCredits(takeOf.get(block.id), needed, estimates)
+        shareOut(requests, needed, (c, amount) => {
+          info.set(c.id, { requested: amount })
+          addRequest(c, amount)
+        })
+      }
+      estimateTakeSource(block, probe)
+      continue
+    }
+
+    const members = loop.blockIds.map(id => byId.get(id)!)
+    const back = new Set(loop.backConnectionIds)
+    const requestById = new Map<string, BlockConnection>()
+    for (const m of members) for (const c of requestsOf.get(m.id) ?? []) requestById.set(c.id, c)
+    const memberSet = new Set(loop.blockIds)
+
+    // Everything the rounds read, as an exact string.
+    const key = cache
+      ? exactKey([
+          roundLimit,
+          loop.blockIds,
+          loop.backConnectionIds,
+          members.map(m => {
+            const flat = flattenBlock(m)
+            return [
+              m.products,
+              flat.nodes,
+              flat.noImportItems ?? [],
+              [...connectedCaps(m, byId, selfConnectionIds).keys()],
+              (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
+              [...(takeOf.get(m.id) ?? [])].map(([itemId, takes]) => [
+                itemId,
+                takes.map(t => [t.id, t.fromBlockId, t.maxRate ?? null]),
+              ]),
+              [...(requested.get(m.id) ?? [])],
+            ]
+          }),
+          members.flatMap(m =>
+            [...(takeOf.get(m.id) ?? [])].flatMap(([itemId, takes]) =>
+              takes.map(t => [t.fromBlockId, itemId, estimates.get(t.fromBlockId)?.get(itemId) ?? null]),
+            ),
+          ),
+        ])
+      : ''
+    let solved: RequestLoopSolve | undefined = cache?.getRequestLoop(loop.blockIds, gameData, key)
+
+    if (!solved) {
+      let failed = false
+      // One round: members in order, a back connection reading `input`; returns every request's share.
+      const runRound = (input: Map<string, number>) => {
+        const shares = new Map<string, number>()
+        const forward = new Map<string, Map<string, number>>() // member id → item id → shares from earlier members
+        const est = cloneRemaining(estimates)
+        for (const block of members) {
+          const asked = new Map(requested.get(block.id))
+          const add = (itemId: string, amount: number): void => {
+            if (amount > 0) asked.set(itemId, (asked.get(itemId) ?? 0) + amount)
+          }
+          for (const [itemId, amount] of forward.get(block.id) ?? []) add(itemId, amount)
+          for (const [id, amount] of input) {
+            const c = requestById.get(id)!
+            if (c.fromBlockId === block.id) add(c.itemId, amount)
+          }
+          const probe = probeBlock(block, productGoals(block.products, asked), gameData, connectedCaps(block, byId, selfConnectionIds))
+          failed ||= probe.failed
+          const needed = new Map(probe.received)
+          applyTakeCredits(takeOf.get(block.id), needed, est)
+          shareOut(requestsOf.get(block.id) ?? [], needed, (c, amount) => {
+            shares.set(c.id, amount)
+            if (memberSet.has(c.fromBlockId) && !back.has(c.id) && amount > 0) {
+              const items = forward.get(c.fromBlockId) ?? new Map<string, number>()
+              items.set(c.itemId, (items.get(c.itemId) ?? 0) + amount)
+              forward.set(c.fromBlockId, items)
+            }
+          })
         }
-        const key = cache ? planKey(plan) : ''
-        let received = cache?.get(block.id, gameData, key, caps)?.received
-        if (!received) {
-          try {
-            const solved = solveBlock(plan, gameData, caps)
-            cache?.set(block.id, gameData, key, caps, solved)
-            received = solved.received
-          } catch {
-            // The supply solve reports the error; a failing block asks for nothing.
-            cache?.delete(block.id)
+        const credited: [string, string, number][] = []
+        const seen = new Set<string>()
+        for (const m of members) {
+          for (const [itemId, takes] of takeOf.get(m.id) ?? []) {
+            for (const t of takes) {
+              const left = est.get(t.fromBlockId)?.get(itemId)
+              const k = `${t.fromBlockId}\0${itemId}`
+              if (left === undefined || seen.has(k)) continue
+              seen.add(k)
+              credited.push([t.fromBlockId, itemId, left])
+            }
           }
         }
-        for (const [itemId, rate] of received ?? []) needed.set(itemId, rate)
+        return { shares, credited }
       }
 
-      for (const c of requests) {
-        const left = needed.get(c.itemId) ?? 0
-        const share = c.maxRate === undefined ? left : Math.min(left, c.maxRate)
-        needed.set(c.itemId, left - share)
-        info.set(c.id, { requested: share })
-        if (share > 0) {
-          const items = requested.get(c.fromBlockId) ?? new Map<string, number>()
-          items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
-          requested.set(c.fromBlockId, items)
+      const maxAbs = (values: Iterable<number>): number => {
+        let m = 0
+        for (const v of values) m = Math.max(m, Math.abs(v))
+        return m
+      }
+      let input = new Map(loop.backConnectionIds.map(id => [id, 0]))
+      let first: ReturnType<typeof runRound> | undefined
+      let last: ReturnType<typeof runRound>
+      let rounds = 0
+      let converged = false
+      let plainInput = false // is `input` the previous round's output as it came?
+      let prevDelta: number | undefined
+      let growing = 0
+      for (;;) {
+        rounds++
+        last = runRound(input)
+        first ??= last
+        const out = new Map(loop.backConnectionIds.map(id => [id, last.shares.get(id) ?? 0]))
+        const delta = new Map(loop.backConnectionIds.map(id => [id, out.get(id)! - input.get(id)!]))
+        if (loop.backConnectionIds.every(id => sameRate(out.get(id)!, input.get(id)!))) {
+          converged = true
+          break
         }
+        if (rounds >= roundLimit) break
+        const change = maxAbs(delta.values())
+        let factor: number | undefined
+        if (plainInput && prevDelta !== undefined && prevDelta > FLOW_TOLERANCE) {
+          const q = change / prevDelta
+          if (q >= 1) {
+            growing++
+            if (growing >= 2) break
+          } else {
+            growing = 0
+            factor = q / (1 - q)
+          }
+        }
+        prevDelta = change
+        plainInput = factor === undefined
+        input = new Map(
+          loop.backConnectionIds.map(id => {
+            const next = out.get(id)! + (factor === undefined ? 0 : delta.get(id)! * factor)
+            return [id, Math.min(Math.max(0, next), requestById.get(id)?.maxRate ?? Infinity)]
+          }),
+        )
+      }
+      const kept = converged ? last : first!
+      solved = { shares: kept.shares, credited: kept.credited, rounds, converged }
+      if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
+    }
+
+    // Commit: a request that closes an unsettled cycle takes existing output.
+    for (const m of members) {
+      for (const c of requestsOf.get(m.id) ?? []) {
+        if (!solved.converged && back.has(c.id)) {
+          info.set(c.id, { ignored: 'request-loop' })
+          continue
+        }
+        const share = solved.shares.get(c.id) ?? 0
+        info.set(c.id, { requested: share })
+        addRequest(c, share)
       }
     }
+    for (const m of members) {
+      if (requested.has(m.id)) goals.set(m.id, productGoals(m.products, requested.get(m.id)))
+    }
+    for (const [sourceId, itemId, left] of solved.credited) {
+      const items: Offers = estimates.get(sourceId) ?? new Map()
+      items.set(itemId, left)
+      estimates.set(sourceId, items)
+    }
+    for (const m of members) estimateTakeSource(m)
+    loops.push({ ...loop, rounds: solved.rounds, converged: solved.converged })
   }
-  return { goals, info }
+  return { goals, info, loops }
 }
 
 /**
@@ -761,8 +1049,10 @@ function computeRequests(
  * source's offer from the previous round, zero in round 1) until the offers
  * carried by back connections stop changing. Several consumers of one source
  * are served in solve order; several sources of one item are drained in
- * connection order. A connection to a product of its source is a request: it first
- * adds the consumer's need to the source's goals (see `computeRequests`); that amount
+ * connection order, a consumer's takes of an item before its requests of it. A connection
+ * to a product of its source is a request: it first adds the consumer's need (less what its takes
+ * will cover) to the source's goals, cycles of requests being solved in demand rounds of
+ * their own (see `computeRequests`); that amount
  * is reserved for the requesting consumer while others are served; when the source is short, the
  * extra gives way first, then the requests served last. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
@@ -775,7 +1065,8 @@ export function solveAll(
   options: SolveAllOptions = {},
 ): MultiBlockSolve {
   const { components, selfConnectionIds } = orderBlocks(blocks)
-  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache)
+  const requestRoundLimit = Math.max(1, options.requestRoundLimit ?? REQUEST_ROUND_LIMIT)
+  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit)
   // blockId → itemId → items/min requested and not yet served
   let pending = new Map<string, Offers>()
   for (const b of blocks) {
@@ -881,6 +1172,13 @@ export function solveAll(
     loops.push({ ...loop, rounds, converged })
   }
 
+  for (const loop of requestPlan.loops) {
+    if (loop.converged) continue
+    for (const id of loop.blockIds) {
+      results[id] = withLoopWarning(results[id], { type: 'request-loop-not-converged', blockIds: loop.blockIds, rounds: loop.rounds })
+    }
+  }
+
   cache?.retain(blockIds)
-  return { results, flows, errors, loops }
+  return { results, flows, errors, loops, requestLoops: requestPlan.loops }
 }

@@ -106,6 +106,7 @@ function setup(opts: {
           converged: opts.loop.converged,
         }]
       : [],
+    requestLoops: [],
     _setStatus: () => {},
   })
 }
@@ -281,6 +282,46 @@ describe('BlockGraph', () => {
       expect(status.textContent).toMatch(/did not settle after 8 rounds/)
     })
 
+    it('says in red when the requests around a loop did not settle', () => {
+      setup({ connected: true, loop: { converged: true } })
+      useSolverStore.setState({
+        requestLoops: [{
+          blockIds: ['miner', 'consumer'], connectionIds: ['c1', 'c2'], backConnectionIds: ['c2'], rounds: 3, converged: false,
+        }],
+      })
+      render(<BlockGraphButton />)
+      open()
+      const status = screen.getByTestId('graph-loop-status')
+      expect(status.getAttribute('data-converged')).toBe('false')
+      expect(status.textContent).toBe(
+        'Requests around Miner, Consumer do not settle after 3 rounds; the requests that close the loop take what is left over',
+      )
+    })
+
+    it('joins an unsettled supply loop and an unsettled request loop', () => {
+      setup({ connected: true, loop: { converged: false, rounds: 8 } })
+      useSolverStore.setState({
+        requestLoops: [{
+          blockIds: ['miner', 'consumer'], connectionIds: ['c1', 'c2'], backConnectionIds: ['c2'], rounds: 3, converged: false,
+        }],
+      })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-loop-status').textContent).toMatch(/last round\. Requests around/)
+    })
+
+    it('counts a settled cycle of requests as one loop', () => {
+      setup({ connected: true, loop: { converged: true } })
+      useSolverStore.setState({
+        requestLoops: [{
+          blockIds: ['miner', 'consumer'], connectionIds: ['c1', 'c2'], backConnectionIds: ['c2'], rounds: 3, converged: true,
+        }],
+      })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.getByTestId('graph-loop-status').textContent).toBe('↻ 1 loop')
+    })
+
     it('shows no loop status without a loop', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
@@ -442,7 +483,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(chip().getAttribute('data-request-ignored')).toBe('request-loop')
-      expect(chip().getAttribute('title')).toContain('taken as existing: requests form a cycle')
+      expect(chip().getAttribute('title')).toContain('taken as existing: the requests around this loop do not settle')
     })
 
     it('has no pull toggle', () => {
@@ -452,7 +493,7 @@ describe('BlockGraph', () => {
       expect(screen.queryByTestId('graph-edge-pull')).toBeNull()
     })
 
-    it('blocks a connect-mode item whose request would close a cycle of requests', () => {
+    it('offers a connect-mode item whose request would close a cycle of requests', () => {
       setup({ connected: true, minerProducts: [ironOre] })
       useSolverStore.setState({
         lastResults: {
@@ -471,11 +512,11 @@ describe('BlockGraph', () => {
       fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
       fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
       const item = screen.getByRole('menuitem', { name: /Iron Plate/ })
-      expect(item).toBeDisabled()
+      expect(item).toBeEnabled()
       expect(item.getAttribute('data-kind')).toBe('request')
-      expect(item.getAttribute('title')).toBe('Consumer already requests from Miner, directly or through other blocks')
+      expect(item.getAttribute('title')).toBeNull()
       fireEvent.click(item)
-      expect(useBlockStore.getState().blocks.find(b => b.id === 'miner')!.inputConnections).toEqual([])
+      expect(useBlockStore.getState().blocks.find(b => b.id === 'miner')!.inputConnections).toHaveLength(1)
     })
   })
 

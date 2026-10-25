@@ -1,5 +1,4 @@
 import { create } from 'zustand'
-import { closesRequestLoop, hasProduct } from '../solver/blockGraph'
 import { canConnect } from './connections'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
@@ -224,12 +223,6 @@ function withExtra(block: Block, productId: string, extraRate: number | undefine
   }
 }
 
-/** Would a connection of `itemId` from `fromBlockId` into `toBlockId` be a request that closes a cycle of requests? */
-function closesRequestCycle(blocks: Block[], itemId: string, fromBlockId: string, toBlockId: string): boolean {
-  const source = blocks.find(b => b.id === fromBlockId)
-  return !!source && hasProduct(source, itemId) && closesRequestLoop(blocks, fromBlockId, toBlockId)
-}
-
 // ---------------------------------------------------------------------------
 // Store state and actions
 // ---------------------------------------------------------------------------
@@ -266,7 +259,7 @@ export interface BlockStoreState {
   toggleNoImportItem: (itemId: string) => void
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
-  /** Connect; a request when `itemId` is a product of the source (refused when it would close a cycle of requests), otherwise it takes existing output. */
+  /** Connect; a request when `itemId` is a product of the source (a cycle of requests is allowed and solved in rounds), otherwise it takes existing output. */
   addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string) => void
   removeInputConnection: (connectionId: string, toBlockId?: string) => void
   /** Cap what the consumer takes over a connection (items/min); undefined removes the cap. */
@@ -585,15 +578,13 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
-      if (closesRequestCycle(state.blocks, itemId, fromBlockId, targetId)) return state
       // The id is fixed here so redo restores the same connection.
       const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
       const cmd: Command = {
         apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
         undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
         // Redo after other blocks changed may no longer be legal.
-        canApply: (blocks, b) =>
-          canConnect(blocks, b, itemId, fromBlockId) && !closesRequestCycle(blocks, itemId, fromBlockId, b.id),
+        canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
       }
       return applyCommand(state, cmd, targetId)
     }),
@@ -613,9 +604,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           return { ...b, inputConnections: connections }
         },
         // Undoing a removal re-adds the edge, which may no longer be legal (source deleted, duplicate).
-        canUndo: (blocks, b) =>
-          canConnect(blocks, b, target.itemId, target.fromBlockId) &&
-          !closesRequestCycle(blocks, target.itemId, target.fromBlockId, b.id),
+        canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
       }
       return applyCommand(state, cmd, targetId)
     }),

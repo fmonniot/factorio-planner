@@ -1,15 +1,16 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { solve, netBalance } from './index'
+import { solve, solveAll, netBalance } from './index'
 import { loadGameDataFromJson } from '../data/loader'
-import type { GameRecipeNode, SolverGoal, RecipeNode, SolverResult } from '../data/types'
+import type { Block, BlockConnection, GameRecipeNode, Product, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
 // Real-data counterpart to synthetic.test.ts: runs the solver on the committed
 // Nullius export (public/data/nullius/game-data.json) and asserts invariants (finite,
 // non-negative flows, positive machine counts, mass balance, a machine for every category).
 // synthetic.test.ts stays on synthetic fixtures so a re-export cannot break it; this file reads the
 // real export, so a re-export that renames or re-balances recipes may break it. That is intended.
+// A second describe runs multi-block plans (loops of requests) on the bundled Seablock export.
 
 const GAME_DATA_PATH = resolve(import.meta.dirname, '../../public/data/nullius/game-data.json')
 const gameData = loadGameDataFromJson(readFileSync(GAME_DATA_PATH, 'utf-8'))
@@ -205,5 +206,142 @@ describe('solver on the real Nullius data', () => {
       const plan = makePlan([[recipe.products[0].itemId, 60]], [recipe.id])
       expectSane(solve(plan, gameData), plan, recipe.id)
     }
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Seablock: a loop of blocks with requests
+// ---------------------------------------------------------------------------
+
+describe('multi-block loops on the real Seablock data', () => {
+  const seablock = loadGameDataFromJson(
+    readFileSync(resolve(import.meta.dirname, '../../public/data/kompetenz-seablock/game-data.json'), 'utf-8'),
+  )
+  const WASTE = 'sct-waste-ironcopper'
+
+  const prod = (itemId: string, extraRate?: number): Product => ({
+    id: `p-${itemId}`,
+    itemId,
+    ...(extraRate !== undefined ? { extraRate } : {}),
+  })
+  const link = (id: string, itemId: string, fromBlockId: string, maxRate?: number): BlockConnection => ({
+    id,
+    itemId,
+    fromBlockId,
+    ...(maxRate !== undefined ? { maxRate } : {}),
+  })
+  function block(id: string, products: Product[], recipeIds: string[], inputConnections: BlockConnection[]): Block {
+    const now = '2020-01-01T00:00:00.000Z'
+    return {
+      id,
+      name: id,
+      color: '#60a5fa',
+      products,
+      noImportItems: [],
+      inputConnections,
+      rootPlan: { id: `root-${id}`, name: id, nodes: recipeIds.map(planNode), subPlans: [], createdAt: now, updatedAt: now },
+    }
+  }
+
+  /** Metals make invar and brass, Sciences use them for sub-plating (and leave waste), Ores recycle the waste. */
+  function plan(opts: { wasteIsProduct: boolean; wasteLimit?: number }): Block[] {
+    const metals = block(
+      'Metals',
+      [prod('bob-invar-alloy'), prod('bob-brass-alloy')],
+      [
+        'angels-plate-invar', 'angels-liquid-molten-invar', 'angels-ingot-steel', 'angels-ingot-iron',
+        'angels-plate-brass', 'angels-liquid-molten-brass', 'angels-ingot-copper',
+      ],
+      [link('c_om_fe', 'iron-ore', 'Ores'), link('c_om_cu', 'copper-ore', 'Ores')],
+    )
+    const sciences = block(
+      'Sciences',
+      [prod('sct-mil-subplating', 10), ...(opts.wasteIsProduct ? [prod(WASTE)] : [])],
+      ['sct-mil-subplating'],
+      [link('c_ms_inv', 'bob-invar-alloy', 'Metals'), link('c_ms_br', 'bob-brass-alloy', 'Metals')],
+    )
+    const ores = block(
+      'Ores',
+      [prod('iron-ore'), prod('copper-ore')],
+      ['sct-waste-processing-mixed'],
+      [link('c_so', WASTE, 'Sciences', opts.wasteLimit)],
+    )
+    return [metals, sciences, ores]
+  }
+
+  const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
+
+  function expectSaneAll(all: ReturnType<typeof solveAll>) {
+    for (const [id, result] of Object.entries(all.results)) {
+      for (const n of result.nodes) expectNonNegativeFinite(n.throughput, `${id} ${n.recipeNodeId} throughput`)
+    }
+    for (const f of all.flows) expectNonNegativeFinite(f.rate, `flow ${f.connectionId}`)
+  }
+
+  it('drives the loop when the waste is a take', () => {
+    const all = solveAll(plan({ wasteIsProduct: false }), seablock)
+    expect(all.loops).toEqual([
+      {
+        blockIds: ['Metals', 'Sciences', 'Ores'],
+        connectionIds: expect.any(Array),
+        backConnectionIds: ['c_om_fe', 'c_om_cu'],
+        rounds: 2,
+        converged: true,
+      },
+    ])
+    expect(all.requestLoops).toEqual([])
+    expect(flowOf(all, 'c_ms_inv').requested).toBeCloseTo(30, 4)
+    expect(flowOf(all, 'c_ms_br').requested).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'c_om_fe').requested).toBeCloseTo(80, 4)
+    expect(flowOf(all, 'c_om_cu').requested).toBeCloseTo(7.5, 4)
+    expect(flowOf(all, 'c_so')).toMatchObject({ kind: 'take', status: 'limited', loop: true })
+    expect(flowOf(all, 'c_so').rate).toBeCloseTo(10, 4)
+    expect(all.results.Ores.unsatisfied.find(u => u.itemId === WASTE)?.rate).toBeCloseTo(150, 4)
+    expectSaneAll(all)
+
+    // Per (source, item), the consumers together never take more than the source leaves over.
+    const taken = new Map<string, number>()
+    for (const f of all.flows) taken.set(`${f.fromBlockId}\0${f.itemId}`, (taken.get(`${f.fromBlockId}\0${f.itemId}`) ?? 0) + f.rate)
+    for (const [key, total] of taken) {
+      const [source, itemId] = key.split('\0')
+      const net = netBalance(all.results[source].nodes).get(itemId) ?? 0
+      expect(total, `${source} ${itemId} taken`).toBeLessThanOrEqual(net + FLOW_EPS)
+    }
+  })
+
+  it('keeps the first round and warns when the waste is a product that feeds itself', () => {
+    const all = solveAll(plan({ wasteIsProduct: true }), seablock)
+    expect(all.requestLoops).toEqual([
+      expect.objectContaining({
+        blockIds: ['Metals', 'Ores', 'Sciences'],
+        backConnectionIds: ['c_ms_inv', 'c_ms_br'],
+        rounds: 3,
+        converged: false,
+      }),
+    ])
+    for (const id of ['c_ms_inv', 'c_ms_br']) {
+      expect(flowOf(all, id)).toMatchObject({ kind: 'take', requestIgnored: 'request-loop' })
+    }
+    for (const id of ['c_om_fe', 'c_om_cu', 'c_so']) expect(flowOf(all, id).requested).toBeCloseTo(0, 6)
+    expect(all.results.Metals.nodes).toEqual([])
+    expect(all.results.Sciences.unsatisfied.find(u => u.itemId === 'bob-invar-alloy')?.rate).toBeCloseTo(30, 4)
+    expect(all.results.Sciences.unsatisfied.find(u => u.itemId === 'bob-brass-alloy')?.rate).toBeCloseTo(10, 4)
+    for (const id of ['Metals', 'Ores', 'Sciences']) {
+      expect(all.results[id].warnings).toContainEqual({
+        type: 'request-loop-not-converged', blockIds: ['Metals', 'Ores', 'Sciences'], rounds: 3,
+      })
+    }
+    expectSaneAll(all)
+  })
+
+  it('settles the same loop once the waste request has a limit', () => {
+    const all = solveAll(plan({ wasteIsProduct: true, wasteLimit: 10 }), seablock)
+    expect(all.requestLoops[0]).toMatchObject({ rounds: 2, converged: true })
+    expect(flowOf(all, 'c_so')).toMatchObject({ kind: 'request', capped: true, status: 'limited' })
+    expect(flowOf(all, 'c_so').requested).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'c_ms_inv').requested).toBeCloseTo(30, 4)
+    expect(flowOf(all, 'c_ms_br').requested).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'c_om_fe').requested).toBeCloseTo(80, 4)
+    expectSaneAll(all)
   })
 })

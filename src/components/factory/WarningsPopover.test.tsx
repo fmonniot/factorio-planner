@@ -120,6 +120,39 @@ describe('WarningsPopover — loop-not-converged', () => {
 })
 
 // ---------------------------------------------------------------------------
+// request-loop-not-converged
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — request-loop-not-converged', () => {
+  beforeEach(() => {
+    useBlockStore.setState({
+      blocks: [{ ...makeEmptyBlock('Metals'), id: 'm' }, { ...makeEmptyBlock('Ores'), id: 'o' }],
+      activeBlockId: 'm',
+    })
+    setupWithWarnings({ warnings: [{ type: 'request-loop-not-converged', blockIds: ['m', 'o'], rounds: 3 }] })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title', () => {
+    expect(screen.getByText(/Requests around a loop do not settle/)).toBeInTheDocument()
+  })
+
+  it('names the blocks around the loop and the rounds', () => {
+    expect(screen.getByText(/requests around the loop Metals → Ores → Metals did not settle after 3 rounds/)).toBeInTheDocument()
+    expect(screen.getByText(/only take what is left over/)).toBeInTheDocument()
+  })
+
+  it('hint suggests limiting or removing a request', () => {
+    expect(screen.getByText(/Set a limit on one of the loop's requests, or remove one/)).toBeInTheDocument()
+  })
+
+  it('is not critical', () => {
+    expect(screen.getByText(/Requests around a loop do not settle/).className).toContain('text-yellow-400')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // infeasible-pins
 // ---------------------------------------------------------------------------
 

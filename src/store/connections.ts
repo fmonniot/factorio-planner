@@ -1,4 +1,4 @@
-import { closesLoop, closesRequestLoop, hasProduct } from '../solver/blockGraph'
+import { closesLoop, hasProduct } from '../solver/blockGraph'
 import { netBalance, receivesItem, FLOW_TOLERANCE } from '../solver/index'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
@@ -58,34 +58,30 @@ export function takeCandidates(
     .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
 }
 
-/** Why a request for `itemId` from `fromBlockId` is refused (cycle) or would not be applied (source receives the item). */
-export type RequestBlocker = 'request-loop' | 'source-receives'
+/** Why a request for `itemId` from `fromBlockId` would not be applied (the source receives the item). */
+export type RequestBlocker = 'source-receives'
 
 /**
  * The one rule for "can `target` request `itemId` from `fromBlockId`", used by the
  * Request menu section, the connect-mode menu and the product-change effects. The store
- * only refuses the cycle (`closesRequestLoop`), so it still accepts a request whose
- * source receives the item (the solver ignores it as `source-receives`). Undefined when the
- * connection is not a request (the source has no product for the item) or when the
- * request can be applied. The cycle check follows the connections the solver would
- * apply (see `closesRequestLoop`).
+ * accepts a request whose source receives the item (the solver ignores it as
+ * `source-receives`). Undefined when the connection is not a request (the source has no
+ * product for the item) or when the request can be applied. A request that closes a cycle
+ * of requests can be applied: the solver solves the cycle in rounds.
  */
 export function requestBlocker(
   blocks: Block[],
-  target: Block,
   itemId: string,
   fromBlockId: string,
 ): RequestBlocker | undefined {
   const source = blocks.find(b => b.id === fromBlockId)
   if (!source || !hasProduct(source, itemId)) return undefined
-  if (receivesItem(source, itemId, new Set(blocks.map(b => b.id)))) return 'source-receives'
-  return closesRequestLoop(blocks, fromBlockId, target.id) ? 'request-loop' : undefined
+  return receivesItem(source, itemId, new Set(blocks.map(b => b.id))) ? 'source-receives' : undefined
 }
 
 /** Tooltip explaining a `RequestBlocker`. */
-export function requestBlockerTitle(reason: RequestBlocker, sourceName: string, targetName: string, itemName: string): string {
+export function requestBlockerTitle(reason: RequestBlocker, sourceName: string, itemName: string): string {
   switch (reason) {
-    case 'request-loop': return `${sourceName} already requests from ${targetName}, directly or through other blocks`
     case 'source-receives': return `${sourceName} receives ${itemName} itself`
   }
 }
@@ -108,7 +104,7 @@ export function requestCandidates(blocks: Block[], targetId: string, itemId: str
   return blocks
     .filter(b => canConnect(blocks, target, itemId, b.id) && hasProduct(b, itemId))
     .map(block => {
-      const blocker = requestBlocker(blocks, target, itemId, block.id)
+      const blocker = requestBlocker(blocks, itemId, block.id)
       return {
         block,
         closesLoop: closesLoop(blocks, block.id, targetId),
@@ -123,7 +119,7 @@ export interface ItemCandidate {
   needed: number
   /** The source has the item as a product, so connecting is a request. */
   request: boolean
-  /** Why that request is refused or not applied; only for requests. */
+  /** Why that request is not applied; only for requests. */
   blocker?: RequestBlocker
 }
 
@@ -149,7 +145,7 @@ export function connectableItems(
     if (offered <= FLOW_TOLERANCE) continue
     const source = blocks.find(b => b.id === sourceId)
     const request = !!source && hasProduct(source, u.itemId)
-    const blocker = request ? requestBlocker(blocks, target, u.itemId, sourceId) : undefined
+    const blocker = request ? requestBlocker(blocks, u.itemId, sourceId) : undefined
     items.push({ itemId: u.itemId, offered, needed: u.rate, request, ...(blocker ? { blocker } : {}) })
   }
   return items
@@ -184,10 +180,6 @@ export function productChangeEffects(
   if (change === 'remove' && block.products.filter(p => p.itemId === itemId).length !== 1) return []
 
   const ids = new Set(blocks.map(b => b.id))
-  const withProduct: Block[] | undefined =
-    change === 'add'
-      ? blocks.map(b => (b.id === blockId ? { ...b, products: [...b.products, { id: '', itemId }] } : b))
-      : undefined
   const effects: ProductChangeEffect[] = []
   for (const consumer of blocks) {
     if (consumer.id === blockId) continue
@@ -205,12 +197,7 @@ export function productChangeEffects(
         consumerName: consumer.name,
         rate: flow?.rate,
       }
-      if (withProduct) {
-        const blocker: RequestBlocker | undefined = receivesItem(block, itemId, ids)
-          ? 'source-receives'
-          : closesRequestLoop(withProduct, blockId, consumer.id) ? 'request-loop' : undefined
-        if (blocker) effect.blocker = blocker
-      }
+      if (change === 'add' && receivesItem(block, itemId, ids)) effect.blocker = 'source-receives'
       effects.push(effect)
     }
   }

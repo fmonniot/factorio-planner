@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { createSolveCache, planKey, type BlockSolve } from './solveCache'
+import { createSolveCache, exactKey, planKey, type BlockSolve, type RequestLoopSolve } from './solveCache'
 import { flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SubPlan } from '../data/types'
 
@@ -159,5 +159,54 @@ describe('createSolveCache', () => {
     cache.delete('b')
     expect(cache.has('b')).toBe(false)
     expect(cache.get('b', gd, 'A', caps([]))).toBeUndefined()
+  })
+})
+
+describe('exactKey', () => {
+  it('keeps NaN, Infinity and -0 apart', () => {
+    const keys = [NaN, Infinity, -Infinity, -0, 0, null].map(v => exactKey([v]))
+    expect(new Set(keys).size).toBe(keys.length)
+  })
+})
+
+describe('request loop entries', () => {
+  const loopSolve = (): RequestLoopSolve => ({
+    shares: new Map([['c', 20]]), credited: [['t', 'plate', 5]], rounds: 3, converged: true,
+  })
+
+  it('round-trips an entry for the same members, key and game data', () => {
+    const cache = createSolveCache()
+    const gd = gameData()
+    const entry = loopSolve()
+    cache.setRequestLoop(['a', 'b'], gd, 'k', entry)
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBe(entry)
+  })
+
+  it('misses on another key, game data object or member list', () => {
+    const cache = createSolveCache()
+    const gd = gameData()
+    cache.setRequestLoop(['a', 'b'], gd, 'k', loopSolve())
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'other')).toBeUndefined()
+    expect(cache.getRequestLoop(['a', 'b'], gameData(), 'k')).toBeUndefined()
+    expect(cache.getRequestLoop(['b', 'a'], gd, 'k')).toBeUndefined()
+  })
+
+  it('retain drops entries with a missing member and clear drops all', () => {
+    const cache = createSolveCache()
+    const gd = gameData()
+    cache.setRequestLoop(['a', 'b'], gd, 'k', loopSolve())
+    cache.setRequestLoop(['c', 'd'], gd, 'k', loopSolve())
+    cache.retain(new Set(['a', 'b', 'c']))
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBeDefined()
+    expect(cache.getRequestLoop(['c', 'd'], gd, 'k')).toBeUndefined()
+    cache.clear()
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBeUndefined()
+  })
+
+  it('does not count towards size or has', () => {
+    const cache = createSolveCache()
+    cache.setRequestLoop(['a', 'b'], gameData(), 'k', loopSolve())
+    expect(cache.size).toBe(0)
+    expect(cache.has('a')).toBe(false)
   })
 })

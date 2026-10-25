@@ -36,12 +36,6 @@ describe('productChangeLine', () => {
     )
   })
 
-  it('explains a request that would close a cycle', () => {
-    expect(productChangeLine('add', effect({ blocker: 'request-loop' }), 'Iron plate', '30.0/m')).toBe(
-      'Gears takes existing Iron plate from this block (30.0/m). It would request it instead, but that closes a cycle of requests: every request in the cycle will only take what is left over.',
-    )
-  })
-
   it('explains a request ignored because the block receives the item', () => {
     expect(productChangeLine('add', effect({ blocker: 'source-receives' }), 'Iron plate', '30.0/m')).toBe(
       'Gears takes existing Iron plate from this block (30.0/m). It would request it instead, but this block receives Iron plate itself, so it will still only take what is left over.',

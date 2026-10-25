@@ -28,6 +28,8 @@ export interface SolverStoreState {
   flows: ConnectionFlow[]
   /** Latest loops of blocks that supply each other. */
   loops: BlockLoop[]
+  /** Latest cycles of requests (blocks that request from each other). */
+  requestLoops: BlockLoop[]
   /** Internal — set by the subscription wiring; not for direct use. */
   _setStatus: (status: SolverStatus) => void
   /** Internal — point status/lastResult at another block using the stored results (no solve). */
@@ -43,6 +45,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
   lastErrors: {},
   flows: [],
   loops: [],
+  requestLoops: [],
   _setStatus: (status) => {
     if (status.type === 'solved') {
       set({ status, lastResult: status.result })
@@ -58,7 +61,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
       return result ? { status: { type: 'solved', result }, lastResult: result } : {}
     }),
   _setSolved: (all, activeBlockId) => {
-    const shared = { lastResults: all.results, lastErrors: all.errors, flows: all.flows, loops: all.loops }
+    const shared = { lastResults: all.results, lastErrors: all.errors, flows: all.flows, loops: all.loops, requestLoops: all.requestLoops }
     const error = all.errors[activeBlockId]
     // A failure in one block is that block's status only; other blocks stay solved.
     if (error !== undefined) {
@@ -194,4 +197,9 @@ export function selectFlows(state: SolverStoreState): ConnectionFlow[] {
 /** Latest loops of blocks that supply each other. */
 export function selectLoops(state: SolverStoreState): BlockLoop[] {
   return state.loops
+}
+
+/** Latest cycles of requests (blocks that request from each other). */
+export function selectRequestLoops(state: SolverStoreState): BlockLoop[] {
+  return state.requestLoops
 }

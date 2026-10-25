@@ -675,31 +675,28 @@ describe('input connections', () => {
       giveProduct(sourceId, 'plate')
     })
 
-    it('refuses a request that would close a cycle of requests', () => {
-      // Source requests gear from the consumer; the consumer requesting plate from the source would close the cycle.
+    it('accepts a request that closes a cycle of requests', () => {
+      // Source requests gear from the consumer; the consumer then requests plate from the source.
       store().addInputConnection('gear', activeId, sourceId)
-      const before = store().blocks
       store().addInputConnection('plate', sourceId)
-      expect(store().blocks).toBe(before)
-      // The same pair is fine when the item is not a product of the source: it only takes existing output.
-      store().addInputConnection('rod', sourceId)
-      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'rod', fromBlockId: sourceId }])
+      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId }])
     })
 
-    it('drops a redo of an add that has since become a cycle', () => {
+    it('redo re-applies a request that closes a cycle', () => {
+      store().addInputConnection('gear', activeId, sourceId)
       store().addInputConnection('plate', sourceId)
       store().undo()
-      store().addInputConnection('gear', activeId, sourceId)
-      store().redo()
       expect(active().inputConnections).toEqual([])
+      store().redo()
+      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId }])
     })
 
-    it('drops an undo of a removal that would now close a cycle', () => {
+    it('undo of a removal re-adds a request that closes a cycle', () => {
+      store().addInputConnection('gear', activeId, sourceId)
       store().addInputConnection('plate', sourceId)
       store().removeInputConnection(active().inputConnections[0].id)
-      store().addInputConnection('gear', activeId, sourceId)
       store().undo()
-      expect(active().inputConnections).toEqual([])
+      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId }])
     })
   })
 
