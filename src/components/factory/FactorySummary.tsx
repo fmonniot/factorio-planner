@@ -6,7 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
 import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
-import type { ProductionGoal } from '../../data/types'
+import type { Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { connectionPullBlocker, pullBlockerTitle, isGoalItem } from '../../store/connections'
 import { RowActionsMenu } from './RowActionsMenu'
@@ -24,7 +24,7 @@ import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/in
 // ---------------------------------------------------------------------------
 
 interface GoalRatesProps {
-  goal: ProductionGoal
+  goal: Product
   info: GoalInfo
   rateUnit: RateUnit
   editing: boolean
@@ -34,9 +34,9 @@ interface GoalRatesProps {
 }
 
 function GoalRates({ goal, info, rateUnit, editing, onStart, onStop, onUpdateRate }: GoalRatesProps) {
-  // goal.rate is stored in items/min internally
+  // goal.extraRate is stored in items/min internally
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
-  const targetDisplay = fmtRate(goal.rate / 60, rateUnit)
+  const targetDisplay = fmtRate(goal.extraRate / 60, rateUnit)
   const actualDisplay = info.actual !== undefined ? fmtRate(info.actual / 60, rateUnit) : null
   const shortfallDisplay = info.actual !== undefined ? fmtRate((info.required - info.actual) / 60, rateUnit) : null
   const { short } = info
@@ -93,9 +93,9 @@ export function FactorySummary() {
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
-  const addGoal = useBlockStore(s => s.addGoal)
-  const removeGoal = useBlockStore(s => s.removeGoal)
-  const updateGoalRate = useBlockStore(s => s.updateGoalRate)
+  const addProduct = useBlockStore(s => s.addProduct)
+  const removeProduct = useBlockStore(s => s.removeProduct)
+  const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showGoalPicker, setShowGoalPicker] = useState(false)
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
@@ -113,7 +113,7 @@ export function FactorySummary() {
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
-  const goals: ProductionGoal[] = activeBlock?.goals ?? []
+  const goals: Product[] = activeBlock?.products ?? []
   const goalIds = new Set(goals.map(g => g.itemId))
 
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
@@ -205,7 +205,7 @@ export function FactorySummary() {
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
 
   function handleAddGoal(itemId: string, rate: number) {
-    addGoal({ id: crypto.randomUUID(), itemId, rate })
+    addProduct({ id: crypto.randomUUID(), itemId, extraRate: rate })
   }
 
   // The plan may not belong to the selected data set until its data has loaded,
@@ -267,7 +267,7 @@ export function FactorySummary() {
                 editing={edit.editing}
                 onStart={edit.start}
                 onStop={edit.stop}
-                onUpdateRate={rate => updateGoalRate(goal.id, rate)}
+                onUpdateRate={rate => updateProductExtra(goal.id, rate)}
               />
             )
           }}
@@ -275,7 +275,7 @@ export function FactorySummary() {
             ? [{ label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) }]
             : [
               { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
-              { label: 'Remove goal', danger: true, onSelect: () => removeGoal(slot.goal!.id) },
+              { label: 'Remove goal', danger: true, onSelect: () => removeProduct(slot.goal!.id) },
             ]}
           onOpenBlock={setActiveBlock}
         />
@@ -369,7 +369,7 @@ export function FactorySummary() {
         <RowActionsMenu
           x={goalMenu.x}
           y={goalMenu.y}
-          actions={[{ label: 'Remove goal', danger: true, onSelect: () => removeGoal(goalMenu.goalId) }]}
+          actions={[{ label: 'Remove goal', danger: true, onSelect: () => removeProduct(goalMenu.goalId) }]}
           onClose={() => setGoalMenu(null)}
         />
       )}

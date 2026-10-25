@@ -79,9 +79,9 @@ interface BlockNodeProps {
 function BlockNode({
   block, x, y, isActive, role, blockedReason, closesLoop, sourceName, items, canConnect, onSelect, onStartConnect,
 }: BlockNodeProps) {
-  const firstItem = block.goals[0] ? items[block.goals[0].itemId] : undefined
-  const shown = block.goals.slice(0, MAX_GOAL_ICONS)
-  const more = block.goals.length - shown.length
+  const firstItem = block.products[0] ? items[block.products[0].itemId] : undefined
+  const shown = block.products.slice(0, MAX_GOAL_ICONS)
+  const more = block.products.length - shown.length
   const ring = role === 'source'
     ? 'ring-2 ring-blue-400'
     : role === 'target'

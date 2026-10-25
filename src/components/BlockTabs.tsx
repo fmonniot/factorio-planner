@@ -200,7 +200,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
 
   if (!block) return null
 
-  const firstGoal = block.goals[0]
+  const firstGoal = block.products[0]
   const firstItem = firstGoal ? gameData?.items[firstGoal.itemId] : undefined
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -368,7 +368,7 @@ function BlockOverflowMenu({ editable }: { editable: boolean }) {
       panelClassName="max-h-[calc(100vh-4rem)] overflow-y-auto"
     >
       {close => blocks.map(b => {
-        const goal = b.goals[0]
+        const goal = b.products[0]
         const firstItem = goal ? gameData?.items[goal.itemId] : undefined
         return (
           <button

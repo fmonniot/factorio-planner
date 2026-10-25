@@ -49,7 +49,7 @@ export const IngredientSchema = z.object({
   maximumTemperature: z.number().optional(),
 })
 
-export const ProductSchema = z.object({
+export const RecipeProductSchema = z.object({
   itemId: z.string(),
   type: z.enum(['item', 'fluid']),
   amount: z.number().nonnegative(),
@@ -65,7 +65,7 @@ export const RecipeSchema = z.object({
   category: z.string(),
   craftingTime: z.number().positive(),
   ingredients: luaArray(IngredientSchema),
-  products: luaArray(ProductSchema),
+  products: luaArray(RecipeProductSchema),
   madeIn: luaArray(z.string()),
   allowProductivity: z.boolean(),
   hidden: z.boolean().default(false),
@@ -183,10 +183,11 @@ export const GameDataSchema = z.object({
 // Plan schemas
 // ---------------------------------------------------------------------------
 
-export const ProductionGoalSchema = z.object({
+export const ProductSchema = z.object({
   id: z.string(),
   itemId: z.string(),
-  rate: z.number().positive(),
+  /** Items/min the block makes for outside the plan. */
+  extraRate: z.number().positive(),
 })
 
 export const ModuleConfigSchema = z.object({
@@ -262,15 +263,16 @@ export const SubPlanSchema: z.ZodType<SubPlanType, unknown> = z.lazy(() =>
 
 // ---------------------------------------------------------------------------
 // Block migration — hoist legacy per-subplan goals and noImportItems to block
-// level. Preserves backwards-compat for plans saved before subplans were
-// flattened into one global LP.
+// level, and rename block-level `goals`/`rate` to `products`/`extraRate`.
+// Preserves backwards-compat for plans saved before subplans were flattened
+// into one global LP, and before goals became products.
 //
 // Walks the raw rootPlan tree, collects goals (deduping by itemId, summing
-// rates) and noImportItems (deduping via Set), surfaces them at block level,
-// and strips them from each subplan in the returned shape.
+// rates) and noImportItems (deduping via Set), surfaces them at block level
+// as products, and strips them from each subplan in the returned shape.
 // ---------------------------------------------------------------------------
 
-interface RawGoal { id?: unknown; itemId?: unknown; rate?: unknown }
+interface RawLegacyGoal { id?: unknown; itemId?: unknown; rate?: unknown }
 interface RawSubPlan {
   goals?: unknown
   noImportItems?: unknown
@@ -278,27 +280,34 @@ interface RawSubPlan {
   [key: string]: unknown
 }
 
+/** Legacy block-level goal `{ id, itemId, rate }` → product `{ id, itemId, extraRate }`. */
+function legacyGoalToProduct(g: unknown): unknown {
+  if (typeof g !== 'object' || g === null) return g
+  const { rate, ...rest } = g as Record<string, unknown>
+  return rate === undefined ? rest : { ...rest, extraRate: rate }
+}
+
 function migrateBlock(input: unknown): unknown {
   if (typeof input !== 'object' || input === null) return input
   const data = input as Record<string, unknown>
   if (typeof data.rootPlan !== 'object' || data.rootPlan === null) return input
 
-  const collectedGoals = new Map<string, { id: string; itemId: string; rate: number }>()
+  const collectedGoals = new Map<string, { id: string; itemId: string; extraRate: number }>()
   const collectedNoImports = new Set<string>()
 
   function visit(plan: RawSubPlan): RawSubPlan {
     if (Array.isArray(plan.goals)) {
-      for (const g of plan.goals as RawGoal[]) {
+      for (const g of plan.goals as RawLegacyGoal[]) {
         if (typeof g?.itemId !== 'string') continue
         if (typeof g?.rate !== 'number' || !(g.rate > 0)) continue
         const existing = collectedGoals.get(g.itemId)
         if (existing) {
-          existing.rate += g.rate
+          existing.extraRate += g.rate
         } else {
           collectedGoals.set(g.itemId, {
             id: typeof g.id === 'string' ? g.id : crypto.randomUUID(),
             itemId: g.itemId,
-            rate: g.rate,
+            extraRate: g.rate,
           })
         }
       }
@@ -320,18 +329,24 @@ function migrateBlock(input: unknown): unknown {
 
   const migratedRoot = visit(data.rootPlan as RawSubPlan)
 
-  // Block-level goals/noImportItems on the input take precedence over hoisted
-  // ones (re-saved migrated plans pass through unchanged).
-  const blockGoals = Array.isArray(data.goals) && data.goals.length > 0
-    ? data.goals
-    : [...collectedGoals.values()]
+  // Block-level products/noImportItems on the input take precedence over
+  // hoisted ones (re-saved migrated plans pass through unchanged). Legacy
+  // block-level goals come next, then goals hoisted from sub-plans.
+  const products = Array.isArray(data.products) && data.products.length > 0
+    ? data.products
+    : Array.isArray(data.goals) && data.goals.length > 0
+      ? data.goals.map(legacyGoalToProduct)
+      : [...collectedGoals.values()]
   const blockNoImports = Array.isArray(data.noImportItems) && data.noImportItems.length > 0
     ? data.noImportItems
     : [...collectedNoImports]
 
+  const { goals: _legacy, ...restWithoutGoals } = data
+  void _legacy
+
   return {
-    ...data,
-    goals: blockGoals,
+    ...restWithoutGoals,
+    products,
     noImportItems: blockNoImports,
     rootPlan: migratedRoot,
   }
@@ -365,7 +380,7 @@ export const BlockSchema = z.preprocess(
     name: z.string(),
     /** Display colour, `#rrggbb`; filled in by `AppStateSchema` when missing. */
     color: z.string().regex(HEX_COLOR_RE),
-    goals: z.array(ProductionGoalSchema).default([]),
+    products: z.array(ProductSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
     /** Inbound connections: items this block receives from other blocks' output. */
@@ -416,7 +431,7 @@ export const PlanIndexSchema = z.object({ activePlanId: z.string(), plans: z.arr
 
 export type Item = z.output<typeof ItemSchema>
 export type Ingredient = z.output<typeof IngredientSchema>
-export type Product = z.output<typeof ProductSchema>
+export type RecipeProduct = z.output<typeof RecipeProductSchema>
 export type Recipe = z.output<typeof RecipeSchema>
 export type EffectName = z.output<typeof EffectNameSchema>
 export type Machine = z.output<typeof MachineSchema>
@@ -428,7 +443,7 @@ export type Technology = z.output<typeof TechnologySchema>
 export type TechnologyCost = z.output<typeof TechnologyCostSchema>
 export type GameData = z.output<typeof GameDataSchema>
 
-export type ProductionGoal = z.output<typeof ProductionGoalSchema>
+export type Product = z.output<typeof ProductSchema>
 export type ModuleConfig = z.output<typeof ModuleConfigSchema>
 export type BeaconConfig = z.output<typeof BeaconConfigSchema>
 export type RecipeNode = z.output<typeof RecipeNodeSchema>

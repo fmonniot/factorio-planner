@@ -63,7 +63,7 @@ afterEach(() => {
 
 describe('wireSolver', () => {
   it('stays idle when no game data is loaded', () => {
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     vi.runAllTimers()
     expect(useSolverStore.getState().status.type).toBe('idle')
   })
@@ -80,7 +80,7 @@ describe('wireSolver', () => {
 
   it('transitions to pending while debounce is active', () => {
     loadGameData()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     // debounce has not fired yet
     expect(useSolverStore.getState().status.type).toBe('pending')
   })
@@ -91,7 +91,7 @@ describe('wireSolver', () => {
     expect(useSolverStore.getState().status.type).toBe('solved')
 
     // Mutate plan
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     expect(useSolverStore.getState().status.type).toBe('pending')
     vi.runAllTimers()
     expect(useSolverStore.getState().status.type).toBe('solved')
@@ -111,9 +111,9 @@ describe('wireSolver', () => {
     vi.runAllTimers()
 
     // Make three rapid changes without advancing timers.
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 10 })
-    useBlockStore.getState().updateGoalRate('g1', 20)
-    useBlockStore.getState().updateGoalRate('g1', 30)
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 10 })
+    useBlockStore.getState().updateProductExtra('g1', 20)
+    useBlockStore.getState().updateProductExtra('g1', 30)
 
     // Only pending before timer fires — not yet solved multiple times.
     expect(useSolverStore.getState().status.type).toBe('pending')
@@ -130,7 +130,7 @@ describe('wireSolver', () => {
     unwire = undefined
 
     useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     vi.runAllTimers()
     // Store should remain idle after unwire
     expect(useSolverStore.getState().status.type).toBe('idle')
@@ -138,7 +138,7 @@ describe('wireSolver', () => {
 
   it('returns empty result (not error) for plan with goals but no nodes', () => {
     loadGameData()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     vi.runAllTimers()
     const { status } = useSolverStore.getState()
     expect(status.type).toBe('solved')
@@ -180,10 +180,10 @@ describe('wireSolver — several blocks', () => {
     const gears = makeEmptyBlock('Gears')
     useBlockStore.setState({
       blocks: [
-        { ...plates, goals: [{ id: 'gp', itemId: 'plate', rate: 60 }], rootPlan: { ...plates.rootPlan, nodes: [node('p', 'plate')] } },
+        { ...plates, products: [{ id: 'gp', itemId: 'plate', extraRate: 60 }], rootPlan: { ...plates.rootPlan, nodes: [node('p', 'plate')] } },
         {
           ...gears,
-          goals: [{ id: 'gg', itemId: 'gear', rate: 30 }],
+          products: [{ id: 'gg', itemId: 'gear', extraRate: 30 }],
           inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: plates.id }],
           rootPlan: { ...gears.rootPlan, nodes: [node('g', 'gear')] },
         },
@@ -270,7 +270,7 @@ describe('wireSolver — several blocks', () => {
   it('re-solves only the block whose goal changed', () => {
     const [plates, gears] = setupTwoBlocks(1)
     const before = useSolverStore.getState().lastResults
-    useBlockStore.getState().updateGoalRate('gg', 20)
+    useBlockStore.getState().updateProductExtra('gg', 20)
     vi.runAllTimers()
     const state = useSolverStore.getState()
     expect(state.lastResults[plates.id]).toBe(before[plates.id])
@@ -341,7 +341,7 @@ describe('wireSolver — research horizon machines', () => {
     useBlockStore.setState({
       blocks: [{
         ...block,
-        goals: [{ id: 'g', itemId: 'plate', rate: 60 }],
+        products: [{ id: 'g', itemId: 'plate', extraRate: 60 }],
         rootPlan: { ...block.rootPlan, nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'plate', modules: [], byproductPolicy: {} }] },
       }],
     })

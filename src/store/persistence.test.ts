@@ -132,7 +132,7 @@ describe('initAppStatePersistence', () => {
   it('auto-saves when the blocks change', () => {
     const unsub = initAppStatePersistence()
     activateDataSet('nullius')
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     unsub()
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       KEY(),
@@ -155,13 +155,13 @@ describe('initAppStatePersistence', () => {
     activateDataSet('nullius')
     unsub()
     vi.clearAllMocks()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 
   it('does not save while no data set has loaded', () => {
     const unsub = initAppStatePersistence()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     unsub()
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
@@ -187,45 +187,56 @@ describe('switching data sets', () => {
 
   it('starts a data set without a stored plan empty', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useGameDataStore.setState({ status: loadedStatus('seablock') })
     const { blocks } = useBlockStore.getState()
     expect(blocks).toHaveLength(1)
-    expect(blocks[0].goals, 'goals of the old data set must not leak').toEqual([])
+    expect(blocks[0].products, 'products of the old data set must not leak').toEqual([])
   })
 
   it('does not overwrite the old plan when switching', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useGameDataStore.setState({ status: loadedStatus('seablock') })
     expect(store[activePlanKey('nullius')]).toContain('iron-plate')
     expect(store[activePlanKey('seablock')]).not.toContain('iron-plate')
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    expect(useBlockStore.getState().blocks[0].goals[0]?.itemId).toBe('iron-plate')
+    expect(useBlockStore.getState().blocks[0].products[0]?.itemId).toBe('iron-plate')
   })
 
   it('does not reset the plan when the same data set loads again', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(1)
+  })
+
+  it('loads a stored plan with block-level goals as products and saves it in the new shape', () => {
+    const block = { ...makeEmptyBlock('Legacy'), products: undefined, goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }] }
+    localStorageMock.setItem(legacyPlanStorageKey('nullius'), JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    expect(useBlockStore.getState().blocks[0].products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
+    useBlockStore.getState().toggleNoImportItem('benzene') // any change triggers a save
+    const saved = JSON.parse(store[KEY()])
+    expect(saved.blocks[0].products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
+    expect(saved.blocks[0], 'saved block has no legacy goals').not.toHaveProperty('goals')
   })
 
   it('leaves the plan alone when loading fails', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useGameDataStore.setState({ status: { type: 'error', message: 'boom' } })
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
-    useBlockStore.getState().addGoal({ id: 'g2', itemId: 'copper-plate', rate: 60 })
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(1)
+    useBlockStore.getState().addProduct({ id: 'g2', itemId: 'copper-plate', extraRate: 60 })
     expect(store[KEY()]).toContain('copper-plate')
   })
 
   it('starts empty when the stored plan is unreadable', () => {
     localStorageMock.setItem(legacyPlanStorageKey('seablock'), 'not json')
     useGameDataStore.setState({ status: loadedStatus('nullius') })
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useGameDataStore.setState({ status: loadedStatus('seablock') })
-    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
+    expect(useBlockStore.getState().blocks[0].products).toEqual([])
   })
 
   it('keeps an unreadable stored plan under :corrupt instead of overwriting it', () => {
@@ -238,7 +249,7 @@ describe('switching data sets', () => {
     useGameDataStore.setState({ status: loadedStatus('seablock') })
     expect(store[key + ':corrupt'], 'raw value is recoverable').toBe('not json')
     expect(readIndex('seablock').plans, 'the plan stays in the list').toHaveLength(1)
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     expect(store[key + ':corrupt']).toBe('not json')
     expect(store[key]).toContain('iron-plate')
   })
@@ -250,7 +261,7 @@ describe('autosave while game data loads', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     useGameDataStore.setState({ status: { type: 'loading' } })
     const before = { ...store }
-    useBlockStore.getState().addGoal({ id: 'g9', itemId: 'iron-plate', rate: 1 })
+    useBlockStore.getState().addProduct({ id: 'g9', itemId: 'iron-plate', extraRate: 1 })
     expect(store).toEqual(before)
     unsub()
   })
@@ -484,13 +495,13 @@ describe('plan index', () => {
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     createPlan()
     renamePlan(readIndex('nullius').activePlanId, 'Second')
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     unsub()
     usePlansStore.setState({ sourceId: null, index: null })
     unsub = initAppStatePersistence()
     const entry = usePlansStore.getState().index!
     expect(entry.plans.find(p => p.id === entry.activePlanId)?.name).toBe('Second')
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(1)
   })
 })
 
@@ -508,14 +519,14 @@ describe('plan actions', () => {
 
   it('createPlan saves the current plan, then starts an empty "Plan 2"', () => {
     const firstKey = KEY()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useBlockStore.setState({ history: { x: { undoStack: [], redoStack: [] } } })
     expect(createPlan()).toEqual({ type: 'ok' })
     expect(names()).toEqual(['Plan 1', 'Plan 2'])
     expect(activeName()).toBe('Plan 2')
     expect(store[firstKey]).toContain('iron-plate')
     expect(useBlockStore.getState().blocks).toHaveLength(1)
-    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
+    expect(useBlockStore.getState().blocks[0].products).toEqual([])
     expect(useBlockStore.getState().history).toEqual({})
     expect(store[KEY()], 'autosave writes the new key').toBeDefined()
     expect(KEY()).not.toBe(firstKey)
@@ -537,13 +548,13 @@ describe('plan actions', () => {
 
   it('switchPlan restores the other plan and leaves the old key unchanged', () => {
     const firstId = index().activePlanId
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     useBlockStore.getState().setHorizonTechnologyIds(['x'])
     createPlan()
     const secondKey = KEY()
     const firstContent = store[planKey('nullius', firstId)]
     expect(switchPlan(firstId)).toEqual({ type: 'ok' })
-    expect(useBlockStore.getState().blocks[0].goals[0]?.itemId).toBe('iron-plate')
+    expect(useBlockStore.getState().blocks[0].products[0]?.itemId).toBe('iron-plate')
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual(['x'])
     expect(store[planKey('nullius', firstId)]).toBe(firstContent)
     expect(store[secondKey]).not.toContain('iron-plate')
@@ -598,7 +609,7 @@ describe('plan actions', () => {
   it('deletePlan of a non-active plan removes its key and keeps the store', () => {
     const firstId = index().activePlanId
     createPlan()
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     const before = useBlockStore.getState().blocks
     expect(deletePlan(firstId)).toEqual({ type: 'ok' })
     expect(store[planKey('nullius', firstId)]).toBeUndefined()
@@ -620,13 +631,13 @@ describe('plan actions', () => {
 
   it('deletePlan of the only plan leaves a fresh empty "Plan 1" and never re-saves the old key', () => {
     const oldId = index().activePlanId
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
     expect(deletePlan(oldId)).toEqual({ type: 'ok' })
     expect(names()).toEqual(['Plan 1'])
     expect(index().activePlanId).not.toBe(oldId)
     expect(store[planKey('nullius', oldId)]).toBeUndefined()
-    expect(useBlockStore.getState().blocks[0].goals).toEqual([])
-    useBlockStore.getState().addGoal({ id: 'g2', itemId: 'copper-plate', rate: 60 })
+    expect(useBlockStore.getState().blocks[0].products).toEqual([])
+    useBlockStore.getState().addProduct({ id: 'g2', itemId: 'copper-plate', extraRate: 60 })
     expect(store[planKey('nullius', oldId)]).toBeUndefined()
   })
 
@@ -714,7 +725,7 @@ describe('plan import', () => {
   function makeBlock(id: string, opts: { goal?: string; recipes?: string[]; nested?: string[] } = {}): Block {
     const block = makeEmptyBlock(id)
     block.id = id
-    if (opts.goal) block.goals = [{ id: `${id}-g`, itemId: opts.goal, rate: 60 }]
+    if (opts.goal) block.products = [{ id: `${id}-g`, itemId: opts.goal, extraRate: 60 }]
     block.rootPlan.nodes = (opts.recipes ?? []).map((r, i) => recipeNode(`${id}-n${i}`, r))
     if (opts.nested) {
       block.rootPlan.subPlans = [{
@@ -852,6 +863,7 @@ describe('plan import', () => {
       const result = checkPlanImport(JSON.stringify({ blocks: [legacy], activeBlockId: 'b1' }), knownData(), 'nullius')
       expect(result.type).toBe('ok')
       expect(result.type === 'ok' && result.appState.blocks[0].color).toMatch(HEX_COLOR_RE)
+      expect(result.type === 'ok' && result.appState.blocks[0].products).toEqual([{ id: 'g', itemId: 'iron-plate', extraRate: 60 }])
     })
   })
 
@@ -898,7 +910,7 @@ describe('plan import', () => {
 
     it('adds a plan named after the file, makes it active and leaves the previous plan alone', () => {
       useGameDataStore.setState({ status: loadedStatus('nullius') })
-      useBlockStore.getState().addGoal({ id: 'g1', itemId: 'iron-plate', rate: 60 })
+      useBlockStore.getState().addProduct({ id: 'g1', itemId: 'iron-plate', extraRate: 60 })
       const previousId = usePlansStore.getState().index!.activePlanId
       const previous = JSON.stringify(selectAppState(useBlockStore.getState()))
       const imported = makeState('b2')

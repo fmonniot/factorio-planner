@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { closesPullLoop } from '../solver/blockGraph'
 import { canConnect } from './connections'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, ProductionGoal, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -130,7 +130,7 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]))
     id: crypto.randomUUID(),
     name,
     color,
-    goals: [],
+    products: [],
     noImportItems: [],
     inputConnections: [],
     rootPlan: makeEmptySubPlan('Main'),
@@ -138,7 +138,7 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]))
 }
 
 /**
- * Deep copy of a block with a fresh id on the block, its goals, input
+ * Deep copy of a block with a fresh id on the block, its products, input
  * connections, sub-plans and nodes. `subplan` nodes are remapped to the cloned
  * child sub-plans. Connections from other blocks reading this one are not part
  * of the block, so they are not copied.
@@ -170,7 +170,7 @@ export function cloneBlock(block: Block, color: string): Block {
     id: crypto.randomUUID(),
     name: `${block.name} (copy)`,
     color,
-    goals: block.goals.map(g => ({ ...structuredClone(g), id: crypto.randomUUID() })),
+    products: block.products.map(p => ({ ...structuredClone(p), id: crypto.randomUUID() })),
     inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
     rootPlan,
   }
@@ -251,10 +251,10 @@ export interface BlockStoreState {
   removeSubPlan: (subPlanId: string) => void
   renameSubPlan: (subPlanId: string, name: string) => void
 
-  // Goal actions (block-level)
-  addGoal: (goal: ProductionGoal) => void
-  removeGoal: (goalId: string) => void
-  updateGoalRate: (goalId: string, rate: number) => void
+  // Products (block-level)
+  addProduct: (product: Product) => void
+  removeProduct: (productId: string) => void
+  updateProductExtra: (productId: string, extraRate: number) => void
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
@@ -506,37 +506,37 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       }
     }),
 
-  // ── Goals (block-level) ───────────────────────────────────────────────────
+  // ── Products (block-level) ────────────────────────────────────────────────
 
-  addGoal: (goal) =>
+  addProduct: (product) =>
     set(state => {
       const cmd: Command = {
-        apply: b => ({ ...b, goals: [...b.goals, goal] }),
-        undo: b => ({ ...b, goals: b.goals.filter(g => g.id !== goal.id) }),
+        apply: b => ({ ...b, products: [...b.products, product] }),
+        undo: b => ({ ...b, products: b.products.filter(p => p.id !== product.id) }),
       }
       return applyCommand(state, cmd)
     }),
 
-  removeGoal: (goalId) =>
+  removeProduct: (productId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const target = block?.goals.find(g => g.id === goalId)
+      const target = block?.products.find(p => p.id === productId)
       if (!target) return state
       const cmd: Command = {
-        apply: b => ({ ...b, goals: b.goals.filter(g => g.id !== goalId) }),
-        undo: b => ({ ...b, goals: [...b.goals, target] }),
+        apply: b => ({ ...b, products: b.products.filter(p => p.id !== productId) }),
+        undo: b => ({ ...b, products: [...b.products, target] }),
       }
       return applyCommand(state, cmd)
     }),
 
-  updateGoalRate: (goalId, rate) =>
+  updateProductExtra: (productId, extraRate) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const oldGoal = block?.goals.find(g => g.id === goalId)
-      if (!oldGoal) return state
+      const oldProduct = block?.products.find(p => p.id === productId)
+      if (!oldProduct) return state
       const cmd: Command = {
-        apply: b => ({ ...b, goals: b.goals.map(g => g.id === goalId ? { ...g, rate } : g) }),
-        undo: b => ({ ...b, goals: b.goals.map(g => g.id === goalId ? { ...g, rate: oldGoal.rate } : g) }),
+        apply: b => ({ ...b, products: b.products.map(p => p.id === productId ? { ...p, extraRate } : p) }),
+        undo: b => ({ ...b, products: b.products.map(p => p.id === productId ? { ...p, extraRate: oldProduct.extraRate } : p) }),
       }
       return applyCommand(state, cmd)
     }),

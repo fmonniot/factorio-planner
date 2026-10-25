@@ -11,10 +11,10 @@ import {
   pulledSlot,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
-import type { BlockConnection, ConnectionFlow, ProductionGoal } from '../../data/types'
+import type { BlockConnection, ConnectionFlow, Product } from '../../data/types'
 import type { IngredientRow } from './summaryRows'
 
-const goal = (rate = 60): ProductionGoal => ({ id: 'g1', itemId: 'iron-plate', rate })
+const goal = (rate = 60): Product => ({ id: 'g1', itemId: 'iron-plate', extraRate: rate })
 
 const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   connectionId: 'c1',

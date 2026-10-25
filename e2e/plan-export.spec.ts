@@ -55,8 +55,10 @@ test.describe('Plan export', () => {
 
     const block = parsed.blocks[0]
     expect(block, 'exported block has no gameDataVersion').not.toHaveProperty('gameDataVersion')
-    expect(block.goals.length).toBeGreaterThan(0)
-    expect(block.goals[0].itemId).toBe('nullius-chemical-pack')
+    expect(block, 'exported block has no legacy goals').not.toHaveProperty('goals')
+    expect(block.products.length).toBeGreaterThan(0)
+    expect(block.products[0]).toMatchObject({ itemId: 'nullius-chemical-pack' })
+    expect(block.products[0].extraRate).toBeGreaterThan(0)
     expect(block.rootPlan.nodes.length).toBeGreaterThan(0)
     expect(block.rootPlan.nodes[0].recipeId).toBe('nullius-chemical-pack')
   })

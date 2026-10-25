@@ -1,4 +1,4 @@
-import type { ConnectionFlow, ProductionGoal } from '../../data/types'
+import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE } from '../../solver/index'
 import { fmtRate } from './ItemTile'
@@ -138,13 +138,13 @@ const sum = (segments: Segment[]) => segments.reduce((total, s) => total + s.amo
  * output misses the goal plus that amount.
  */
 export function productSlot(
-  goal: ProductionGoal,
+  goal: Product,
   actualPerMin: number | undefined,
   exports: ConnectionFlow[],
   unit: RateUnit,
   pulledPerMin = 0,
 ): SlotModel {
-  const target = goal.rate
+  const target = goal.extraRate
   const required = target + pulledPerMin
   if (actualPerMin === undefined) {
     return {

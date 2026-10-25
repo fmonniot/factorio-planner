@@ -3,7 +3,7 @@ import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { solve, netBalance } from './index'
 import { loadGameDataFromJson } from '../data/loader'
-import type { GameRecipeNode, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
+import type { GameRecipeNode, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
 // Real-data counterpart to synthetic.test.ts: runs the solver on the committed
 // Nullius export (public/data/nullius/game-data.json) and asserts invariants (finite,
@@ -24,7 +24,7 @@ function planNode(recipeId: string): GameRecipeNode {
 }
 
 function makePlan(goals: Array<[string, number]>, recipeIds: string[]) {
-  const plan: { goals: ProductionGoal[]; nodes: RecipeNode[] } = {
+  const plan: { goals: SolverGoal[]; nodes: RecipeNode[] } = {
     goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
     nodes: recipeIds.map(planNode),
   }

@@ -1,6 +1,6 @@
 # Initiative: Requests between blocks
 
-Status: Future
+Status: Active
 
 Rework how blocks supply each other. Today each connection is a *push* (the consumer takes what the source's goals leave over) or a *pull* (the consumer's demand is added to the source's goals), chosen per connection on the consumer's side. This initiative replaces that choice with two plain actions: a block **requests** one of another block's **products**, which makes the source produce it, or **takes existing** output the source has left over, which never changes the source. A product's rate becomes optional **extra output**, added to what is requested.
 
@@ -140,7 +140,7 @@ Many real loops close through a byproduct (the Seablock Metals → Sciences → 
 
 ## Phases
 
-1. **Model and migration.** Renames, optional `extraRate`, `pull` removed, migration, solver request rule (DAG only, cycles refused / ignored as today), flow field renames. The UI changes needed to stay consistent ship in the same phase: the pull toggle, the Pull menu entries and the pulled-only slots go away; products without extra render (rate `—`); the Ingredients menu gets its **Request X from** / **Take existing X from** sections; the confirmation for product changes. Spec: [data-model.md](../../spec/data-model.md), [solver.md](../../spec/solver.md), [ui.md](../../spec/ui.md).
+1. **Model and migration.** Renames, optional `extraRate`, `pull` removed, migration, solver request rule (DAG only, cycles refused / ignored as today), flow field renames. The UI changes needed to stay consistent ship in the same phase: the pull toggle, the Pull menu entries and the pulled-only slots go away; products without extra render (rate `—`); the Ingredients menu gets its **Request X from** / **Take existing X from** sections; the confirmation for product changes. Spec: [data-model.md](../../spec/data-model.md), [solver.md](../../spec/solver.md), [ui.md](../../spec/ui.md). Split in two: 1a, the rename with no behaviour change (shipped); 1b, the request semantics and the UI that keeps it consistent (see [phase-1b-plan.md](phase-1b-plan.md)).
 2. **Products pane.** The dimmed empty state, the strip header and segments, shortfall split, **+ Extra output** / **Remove extra**, **Make it a product** in Byproducts, item picker with an optional amount. Spec: ui.md.
 3. **Connecting.** **Make in a new block…**, the graph's `existing` tag, connect mode for zero-offer sources. Spec: ui.md, README "Using the planner".
 4. **Use connections first.** `connectionsFirstItems`, the single-LP path, the menu entry. Spec: data-model.md, solver.md, ui.md; a synthetic case in [spec/test-synthetic.md](../../spec/test-synthetic.md) if one fits.

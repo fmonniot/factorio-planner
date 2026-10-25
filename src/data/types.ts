@@ -7,6 +7,7 @@ export type {
   Item,
   Ingredient,
   Product,
+  RecipeProduct,
   Recipe,
   EffectName,
   Machine,
@@ -17,7 +18,6 @@ export type {
   Technology,
   TechnologyCost,
   GameData,
-  ProductionGoal,
   ModuleConfig,
   BeaconConfig,
   RecipeNode,
@@ -36,6 +36,9 @@ export type {
 // Solver State — transient, not persisted, not parsed by Zod.
 // Produced by the solver and consumed by the UI.
 // ---------------------------------------------------------------------------
+
+/** A rate the LP must reach for an item (items/min). Built by the solver from a block's products; never stored. */
+export interface SolverGoal { id: string; itemId: string; rate: number }
 
 export interface SolvedNode {
   recipeNodeId: string

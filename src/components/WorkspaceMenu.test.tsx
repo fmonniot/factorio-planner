@@ -422,7 +422,7 @@ describe('WorkspaceMenu plan import', () => {
   const planCount = () => usePlansStore.getState().index?.plans.length
   const planFile = (name: string, goalItem?: string, dataSet?: unknown) => {
     const block = makeEmptyBlock('Imported')
-    if (goalItem) block.goals = [{ id: 'g', itemId: goalItem, rate: 60 }]
+    if (goalItem) block.products = [{ id: 'g', itemId: goalItem, extraRate: 60 }]
     const state = { blocks: [block], activeBlockId: block.id, ...(dataSet === undefined ? {} : { dataSet }) }
     return new File([JSON.stringify(state)], name, { type: 'application/json' })
   }

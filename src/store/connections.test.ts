@@ -7,7 +7,7 @@ function block(id: string, opts: { goals?: string[]; from?: [string, string][] }
   return {
     ...makeEmptyBlock(id),
     id,
-    goals: (opts.goals ?? []).map(itemId => ({ id: `g-${id}-${itemId}`, itemId, rate: 60 })),
+    products: (opts.goals ?? []).map(itemId => ({ id: `g-${id}-${itemId}`, itemId, extraRate: 60 })),
     inputConnections: (opts.from ?? []).map(([itemId, source]) => ({ id: `${id}<${source}:${itemId}`, itemId, fromBlockId: source })),
   }
 }

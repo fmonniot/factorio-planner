@@ -461,7 +461,7 @@ describe('parseAppState — inputConnections', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const rootPlan = () => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now })
   const blockJson = (extra: Record<string, unknown> = {}) => ({
-    id: 'b1', name: 'Block', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+    id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
   })
 
   it('defaults a block saved without inputConnections to an empty list', () => {
@@ -469,10 +469,10 @@ describe('parseAppState — inputConnections', () => {
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
-  it('defaults a legacy block with per-subplan goals to an empty list', () => {
-    const legacy = blockJson({ goals: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
+  it('hoists legacy per-subplan goals into products', () => {
+    const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
     const state = parseAppState({ blocks: [legacy], activeBlockId: 'b1' })
-    expect(state.blocks[0].goals).toHaveLength(1)
+    expect(state.blocks[0].products).toEqual([{ id: 'g', itemId: 'iron-plate', extraRate: 60 }])
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
@@ -540,7 +540,87 @@ describe('parseAppState — inputConnections', () => {
       const state = parseAppState(raw.appState ?? raw)
       const connections = state.blocks.flatMap(b => b.inputConnections)
       expect(connections.some(c => 'pull' in c)).toBe(false)
+      expect(state.blocks.every(b => b.products.length > 0)).toBe(true)
+      expect(state.blocks.every(b => !('goals' in b))).toBe(true)
     })
+  })
+})
+
+describe('parseAppState — products migration', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const plan = (extra: Record<string, unknown> = {}) => ({
+    id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now, ...extra,
+  })
+  const blockJson = (extra: Record<string, unknown> = {}) => ({
+    id: 'b1', name: 'Block', noImportItems: [], rootPlan: plan(), ...extra,
+  })
+  const load = (block: Record<string, unknown>) => parseAppState({ blocks: [block], activeBlockId: 'b1' })
+
+  it('loads block-level legacy goals as products', () => {
+    const block = load(blockJson({ goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] })).blocks[0]
+    expect(block.products).toEqual([{ id: 'g', itemId: 'iron-plate', extraRate: 60 }])
+    expect('goals' in block).toBe(false)
+  })
+
+  it('hoists sub-plan goals into one summed product and drops non-positive rates', () => {
+    const rootPlan = plan({
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 20 }],
+      subPlans: [plan({ id: 'child', goals: [{ id: 'g2', itemId: 'iron-plate', rate: 40 }, { id: 'g3', itemId: 'gear', rate: 0 }] })],
+    })
+    const block = load(blockJson({ rootPlan })).blocks[0]
+    expect(block.products).toHaveLength(1)
+    expect(block.products[0]).toMatchObject({ itemId: 'iron-plate', extraRate: 60 })
+    expect('goals' in block.rootPlan).toBe(false)
+    expect(block.rootPlan.subPlans.some(sp => 'goals' in sp)).toBe(false)
+  })
+
+  it('prefers block-level goals over sub-plan goals', () => {
+    const rootPlan = plan({ goals: [{ id: 'g2', itemId: 'gear', rate: 5 }] })
+    const block = load(blockJson({ rootPlan, goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }] })).blocks[0]
+    expect(block.products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
+  })
+
+  it('falls through an empty legacy goals list to the hoisted sub-plan goals', () => {
+    const rootPlan = plan({
+      goals: [{ id: 'g', itemId: 'iron-plate', rate: 20 }],
+      subPlans: [plan({ id: 'child', goals: [{ id: 'g2', itemId: 'iron-plate', rate: 40 }] })],
+    })
+    const block = load(blockJson({ rootPlan, goals: [] })).blocks[0]
+    expect(block.products, 'one summed product from the sub-plan goals').toHaveLength(1)
+    expect(block.products[0]).toMatchObject({ itemId: 'iron-plate', extraRate: 60 })
+    expect('goals' in block, 'legacy goals key is dropped').toBe(false)
+  })
+
+  it('prefers non-empty products over legacy goals', () => {
+    const block = load(blockJson({
+      products: [{ id: 'p', itemId: 'gear', extraRate: 7 }],
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+    })).blocks[0]
+    expect(block.products).toEqual([{ id: 'p', itemId: 'gear', extraRate: 7 }])
+    expect('goals' in block).toBe(false)
+  })
+
+  it('passes already-migrated products through unchanged', () => {
+    const products = [{ id: 'p', itemId: 'iron-plate', extraRate: 30 }]
+    expect(load(blockJson({ products })).blocks[0].products).toEqual(products)
+  })
+
+  it('is idempotent', () => {
+    const legacy = blockJson({
+      goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+      rootPlan: plan({ goals: [{ id: 'g2', itemId: 'gear', rate: 5 }] }),
+    })
+    const once = load(legacy)
+    expect(parseAppState(JSON.parse(JSON.stringify(once)))).toEqual(once)
+  })
+
+  it.each([
+    ['a legacy goal with rate 0', { goals: [{ id: 'g', itemId: 'iron-plate', rate: 0 }] }],
+    ['a legacy goal with a negative rate', { goals: [{ id: 'g', itemId: 'iron-plate', rate: -5 }] }],
+    ['a product with extraRate 0', { products: [{ id: 'p', itemId: 'iron-plate', extraRate: 0 }] }],
+    ['a product with no extraRate', { products: [{ id: 'p', itemId: 'iron-plate' }] }],
+  ])('rejects %s', (_name, extra) => {
+    expect(() => load(blockJson(extra))).toThrow(AppStateLoadError)
   })
 })
 
@@ -568,7 +648,7 @@ describe('parsePlanDataSetStamp', () => {
   it('is stripped by parseAppState', () => {
     const now = '2026-01-01T00:00:00.000Z'
     const block = {
-      id: 'b1', name: 'Block', goals: [], noImportItems: [],
+      id: 'b1', name: 'Block', products: [], noImportItems: [],
       rootPlan: { id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
     }
     const state = parseAppState({ blocks: [block], activeBlockId: 'b1', dataSet: { id: 'nullius' } })
@@ -579,7 +659,7 @@ describe('parsePlanDataSetStamp', () => {
 describe('parseAppState — block colours', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const blockJson = (id: string, extra: Record<string, unknown> = {}) => ({
-    id, name: id, goals: [], noImportItems: [],
+    id, name: id, products: [], noImportItems: [],
     rootPlan: { id: `${id}-root`, name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
     ...extra,
   })
@@ -607,7 +687,7 @@ describe('parseAppState — legacy gameDataVersion', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const rootPlan = () => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now })
   const blockJson = (extra: Record<string, unknown> = {}) => ({
-    id: 'b1', name: 'Block', goals: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+    id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
   })
 
   it('accepts a block with an empty legacy gameDataVersion and strips it', () => {
@@ -634,7 +714,7 @@ describe('parseAppState — legacy gameDataVersion', () => {
 describe('parseAppState — horizonTechnologyIds', () => {
   const now = '2026-01-01T00:00:00.000Z'
   const block = {
-    id: 'b1', name: 'Block', goals: [], noImportItems: [],
+    id: 'b1', name: 'Block', products: [], noImportItems: [],
     rootPlan: { id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now },
   }
 
