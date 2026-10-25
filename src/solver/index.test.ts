@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer, surplusTolerance } from './index'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -479,6 +479,40 @@ describe('solveBlock — connections first', () => {
     const raw = { goals: gearGoal, nodes: [planNode('g', 'gear')] }
     expect(solveBlock({ ...raw, ...cf }, connectionGameData(), caps()))
       .toEqual(solveBlock(raw, connectionGameData(), caps()))
+  })
+})
+
+describe('surplusTolerance', () => {
+  it('is the absolute floor at small flows', () => {
+    expect(surplusTolerance(0)).toBe(1e-6)
+    expect(surplusTolerance(100)).toBe(1e-6)
+  })
+
+  it('scales with the gross flow', () => {
+    expect(surplusTolerance(2000)).toBeCloseTo(2e-5, 12)
+    expect(surplusTolerance(1e6)).toBeCloseTo(1e-2, 9)
+  })
+
+  it('accepts the noise seen at about 2000/min (1.6e-6)', () => {
+    expect(1.6e-6 > surplusTolerance(2000)).toBe(false)
+  })
+})
+
+describe('solveBlock — large flows', () => {
+  // Guards against future tolerance regressions at scale: ratios that are not powers of two at
+  // 1e6/min must not raise `overconstrained` from LP rounding noise alone.
+  it('does not warn overconstrained on a balanced chain at 1e6/min', () => {
+    const data = makeGameData({
+      recipes: {
+        ab: recipe('ab', 1, [{ itemId: 'a', type: 'item', amount: 1 }], [product('b', 3)]),
+        bc: recipe('bc', 1, [{ itemId: 'b', type: 'item', amount: 7 }], [product('c', 1)]),
+      },
+    })
+    const { result } = solveBlock(
+      { goals: [{ id: 'g1', itemId: 'c', rate: 1e6 }], nodes: [planNode('n1', 'ab'), planNode('n2', 'bc')] },
+      data, new Map(),
+    )
+    expect(result.warnings.find(w => w.type === 'overconstrained')).toBeUndefined()
   })
 })
 

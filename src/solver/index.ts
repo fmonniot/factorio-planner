@@ -73,6 +73,16 @@ export { receivesItem }
 /** Rates at or below this are treated as zero when comparing supply and demand. */
 export const FLOW_TOLERANCE = 1e-6
 
+/** Absolute floor of the net surplus an intermediate may keep before `overconstrained` is raised. */
+const SURPLUS_TOLERANCE = 1e-6
+/** Fraction of an item's gross flow added to the surplus tolerance, so LP rounding noise at large flows is not reported. */
+const SURPLUS_REL_TOLERANCE = 1e-8
+
+/** Smallest net surplus of an item reported as `overconstrained`, given its gross flow (the larger of produced and consumed). */
+export function surplusTolerance(grossFlow: number): number {
+  return Math.max(SURPLUS_TOLERANCE, SURPLUS_REL_TOLERANCE * grossFlow)
+}
+
 /**
  * What a source's remaining output `left` of an item offers one connection. `pending` is what
  * unserved requests still hold (including this connection's own `share`; 0 for a take).
@@ -269,20 +279,27 @@ export function solveBlock(
 
   // Per-item net surplus from the LP solve.
   const itemSurplus = new Map<string, number>()
+  // Gross flow per item (larger of produced and consumed), to scale the overconstrained tolerance.
+  const itemGross = new Map<string, number>()
   for (const [itemId, rowS] of system.S) {
     let net = 0
+    let produced = 0
+    let consumed = 0
     for (const [recipeId, coeff] of rowS) {
-      net += coeff * (throughputMap.get(recipeId) ?? 0)
+      const flow = coeff * (throughputMap.get(recipeId) ?? 0)
+      net += flow
+      if (flow > 0) produced += flow
+      else consumed -= flow
     }
     itemSurplus.set(itemId, net)
+    itemGross.set(itemId, Math.max(produced, consumed))
   }
 
   // Detect overconstrained intermediates: positive net flow at LP optimum.
-  const SURPLUS_TOLERANCE = 1e-6
   const overconstrainedItems: { itemId: string; rate: number }[] = []
   for (const itemId of system.classification.intermediates) {
     const surplus = itemSurplus.get(itemId) ?? 0
-    if (surplus > SURPLUS_TOLERANCE) {
+    if (surplus > surplusTolerance(itemGross.get(itemId) ?? 0)) {
       overconstrainedItems.push({ itemId, rate: surplus })
     }
   }
