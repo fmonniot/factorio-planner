@@ -33,8 +33,6 @@ export function productChangeLine(
   }
   const head = `${consumer} takes existing ${itemName} from this block (${rateText}).`
   switch (effect.blocker) {
-    case 'request-loop':
-      return `${head} It would request it instead, but that closes a cycle of requests: every request in the cycle will only take what is left over.`
     case 'source-receives':
       return `${head} It would request it instead, but this block receives ${itemName} itself, so it will still only take what is left over.`
     default:

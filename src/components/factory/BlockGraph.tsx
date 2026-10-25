@@ -2,7 +2,7 @@ import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import type { MouseEvent } from 'react'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { useSolverStore, selectBlockResults, selectFlows, selectLoops } from '../../store/solverStore'
+import { useSolverStore, selectBlockResults, selectFlows, selectLoops, selectRequestLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { closesLoop } from '../../solver/blockGraph'
 import { connectableItems, requestBlockerTitle } from '../../store/connections'
@@ -189,7 +189,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
             role="menuitem"
             data-kind={request ? 'request' : 'take'}
             disabled={!!blocker}
-            title={blocker ? requestBlockerTitle(blocker, sourceName, targetName, item?.name ?? itemId) : undefined}
+            title={blocker ? requestBlockerTitle(blocker, sourceName, item?.name ?? itemId) : undefined}
             className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
             onClick={() => {
               if (!blocker) onPick(itemId)
@@ -219,7 +219,7 @@ interface EdgeLabelsProps {
 }
 
 const REQUEST_IGNORED_TITLE = {
-  'request-loop': 'requests form a cycle, so this takes what is left over',
+  'request-loop': 'the requests around this loop do not settle, so this takes what is left over',
   'source-receives': 'the source receives this item itself, so this takes what is left over',
   duplicate: 'an earlier connection already takes this item from the same source',
 } as const
@@ -471,16 +471,21 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
   )
 }
 
-/** Header summary of the loops: a count, or in red the loops that did not settle. */
-function LoopStatus({ loops, blocks }: { loops: BlockLoop[]; blocks: Block[] }) {
+/** Header summary of the loops: a count, or in red the loops and cycles of requests that did not settle. */
+function LoopStatus({ loops, requestLoops, blocks }: { loops: BlockLoop[]; requestLoops: BlockLoop[]; blocks: Block[] }) {
   const name = (id: string) => blocks.find(b => b.id === id)?.name ?? id
-  const unsettled = loops.filter(l => !l.converged)
+  const unsettled = [
+    ...loops
+      .filter(l => !l.converged)
+      .map(l => `Loop through ${l.blockIds.map(name).join(', ')} did not settle after ${l.rounds} rounds; rates are from the last round`),
+    ...requestLoops
+      .filter(l => !l.converged)
+      .map(l => `Requests around ${l.blockIds.map(name).join(', ')} do not settle after ${l.rounds} rounds; the requests that close the loop take what is left over`),
+  ]
   if (unsettled.length > 0) {
     return (
       <span data-testid="graph-loop-status" data-converged="false" className="text-xs text-red-400">
-        {unsettled
-          .map(l => `Loop through ${l.blockIds.map(name).join(', ')} did not settle after ${l.rounds} rounds; rates are from the last round`)
-          .join('. ')}
+        {unsettled.join('. ')}
       </span>
     )
   }
@@ -502,6 +507,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
+  const requestLoops = useSolverStore(selectRequestLoops)
 
   const layout = useMemo(() => layoutBlockGraph(blocks), [blocks])
   const flowsById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
@@ -586,7 +592,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
           <span className="flex items-center gap-1"><span className="w-3 h-0.5" style={{ background: EDGE_COLOR.unused }} />Not used</span>
           <span data-testid="graph-legend-loop" className="flex items-center gap-1" title="A connection between blocks that supply each other, directly or through other blocks"><span aria-hidden>↻</span>Loop</span>
         </div>
-        {loops.length > 0 && <LoopStatus loops={loops} blocks={blocks} />}
+        {(loops.length > 0 || requestLoops.length > 0) && <LoopStatus loops={loops} requestLoops={requestLoops} blocks={blocks} />}
         {blocks.length < 2 && (
           <span className="text-xs text-gray-400">Add another block to connect blocks.</span>
         )}

@@ -61,6 +61,7 @@ export type SolverWarning =
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
+  | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
 
 export interface SolverResult {
   nodes: SolvedNode[]
@@ -77,7 +78,10 @@ export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source
 /** A connection is a request when its item is a product of the source, otherwise it takes existing output. */
 export type ConnectionKind = 'request' | 'take'
 
-/** Why a connection to a product of its source takes existing output instead of requesting. */
+/**
+ * Why a connection to a product of its source takes existing output instead of requesting.
+ * `request-loop`: the request closes a cycle of requests whose demand did not settle.
+ */
 export type RequestIgnoredReason = 'request-loop' | 'source-receives' | 'duplicate'
 
 export interface ConnectionFlow {
@@ -125,6 +129,12 @@ export interface MultiBlockSolve {
   flows: ConnectionFlow[]
   /** One entry per loop of blocks; empty when the connections form no loop. */
   loops: BlockLoop[]
+  /**
+   * One entry per cycle of requests (blocks that request from each other); empty when there is none.
+   * `blockIds` are in request-pass order (consumers first), `backConnectionIds` the requests whose
+   * demand is read from the previous round, `rounds` the demand rounds solved.
+   */
+  requestLoops: BlockLoop[]
   /** Per-block solver failures; the failing block also gets an empty result. */
   errors: Record<string, string>
 }

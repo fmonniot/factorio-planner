@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { useSolverStore, wireSolver, selectSolverResult, selectBlockResult, selectLoops } from './solverStore'
+import { useSolverStore, wireSolver, selectSolverResult, selectBlockResult, selectLoops, selectRequestLoops } from './solverStore'
 import { useBlockStore, makeEmptyBlock } from './blockStore'
 import { useGameDataStore } from './gameDataStore'
 import type { BlockLoop, GameData } from '../data/types'
@@ -48,7 +48,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [], loops: [] })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [], loops: [], requestLoops: [] })
   unwire = wireSolver()
 })
 
@@ -303,10 +303,19 @@ describe('loops', () => {
     const loop: BlockLoop = {
       blockIds: ['a', 'b'], connectionIds: ['x', 'y'], backConnectionIds: ['x'], rounds: 2, converged: true,
     }
-    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [loop] }, 'a')
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [loop], requestLoops: [] }, 'a')
     expect(selectLoops(useSolverStore.getState())).toEqual([loop])
-    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [] }, 'a')
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [] }, 'a')
     expect(selectLoops(useSolverStore.getState())).toEqual([])
+  })
+
+  it('_setSolved stores the cycles of requests of a solve', () => {
+    expect(selectRequestLoops(useSolverStore.getState())).toEqual([])
+    const loop: BlockLoop = {
+      blockIds: ['a', 'b'], connectionIds: ['x', 'y'], backConnectionIds: ['x'], rounds: 3, converged: false,
+    }
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [loop] }, 'a')
+    expect(selectRequestLoops(useSolverStore.getState())).toEqual([loop])
   })
 })
 

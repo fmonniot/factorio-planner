@@ -74,7 +74,6 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
 
   const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
   const takes = connectable ? takeCandidates(blocks, activeBlockId, itemId, results, flows) : []
-  const nameOf = (id: string) => blocks.find(b => b.id === id)?.name ?? id
 
   return createPortal(
     <div
@@ -97,7 +96,7 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
           data-closes-loop={closesLoop ? 'true' : undefined}
           disabled={!!blocker}
           title={blocker
-            ? requestBlockerTitle(blocker, block.name, nameOf(activeBlockId), itemName)
+            ? requestBlockerTitle(blocker, block.name, itemName)
             : closesLoop
               ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
               : `${block.name} makes what this block needs`}

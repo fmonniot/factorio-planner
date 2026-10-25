@@ -839,7 +839,7 @@ describe('FactorySummary — requests', () => {
       })
     }
 
-    it('lists requests first and takes second, blocking a request that would close a cycle', () => {
+    it('lists requests first and takes second, marking a request that would close a loop', () => {
       setupMenu()
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
@@ -848,8 +848,8 @@ describe('FactorySummary — requests', () => {
       const requests = screen.getAllByRole('menuitem').filter(i => i.dataset.kind === 'request')
       expect(requests.map(i => i.textContent)).toEqual(['Miner', 'Loop ↻'])
       expect(requests[0]).toBeEnabled()
-      expect(requests[1]).toBeDisabled()
-      expect(requests[1].getAttribute('title')).toBe('Loop already requests from Consumer, directly or through other blocks')
+      expect(requests[1]).toBeEnabled()
+      expect(requests[1].getAttribute('title')).toBe('Closes a loop: Loop already receives from this block, directly or through other blocks')
       const takes = screen.getAllByRole('menuitem').filter(i => i.dataset.kind === 'take')
       expect(takes).toHaveLength(1)
       expect(takes[0].textContent).toContain('Smelter')

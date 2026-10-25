@@ -1,0 +1,175 @@
+{
+  "blocks": [
+    {
+      "id": "cccc0001-0000-0000-0000-000000000001",
+      "name": "Metals",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "cccc0001-0000-0000-0000-0000000000p1",
+          "itemId": "bob-invar-alloy"
+        },
+        {
+          "id": "cccc0001-0000-0000-0000-0000000000p2",
+          "itemId": "bob-brass-alloy"
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "cccc0001-c000-0000-0000-000000000001",
+          "itemId": "iron-ore",
+          "fromBlockId": "cccc0003-0000-0000-0000-000000000001"
+        },
+        {
+          "id": "cccc0001-c000-0000-0000-000000000002",
+          "itemId": "copper-ore",
+          "fromBlockId": "cccc0003-0000-0000-0000-000000000001"
+        }
+      ],
+      "rootPlan": {
+        "id": "cccc0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n1",
+            "recipeId": "angels-plate-invar",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n2",
+            "recipeId": "angels-liquid-molten-invar",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n3",
+            "recipeId": "angels-ingot-steel",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n4",
+            "recipeId": "angels-ingot-iron",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n5",
+            "recipeId": "angels-plate-brass",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n6",
+            "recipeId": "angels-liquid-molten-brass",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "cccc0001-0000-0000-0000-0000000000n7",
+            "recipeId": "angels-ingot-copper",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-25T00:00:00.000Z",
+        "updatedAt": "2026-10-25T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "cccc0002-0000-0000-0000-000000000001",
+      "name": "Sciences",
+      "color": "#f472b6",
+      "products": [
+        {
+          "id": "cccc0002-0000-0000-0000-0000000000p1",
+          "itemId": "sct-mil-subplating",
+          "extraRate": 10
+        },
+        {
+          "id": "cccc0002-0000-0000-0000-0000000000p2",
+          "itemId": "sct-waste-ironcopper"
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "cccc0002-c000-0000-0000-000000000001",
+          "itemId": "bob-invar-alloy",
+          "fromBlockId": "cccc0001-0000-0000-0000-000000000001"
+        },
+        {
+          "id": "cccc0002-c000-0000-0000-000000000002",
+          "itemId": "bob-brass-alloy",
+          "fromBlockId": "cccc0001-0000-0000-0000-000000000001"
+        }
+      ],
+      "rootPlan": {
+        "id": "cccc0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "cccc0002-0000-0000-0000-0000000000n1",
+            "recipeId": "sct-mil-subplating",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-25T00:00:00.000Z",
+        "updatedAt": "2026-10-25T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "cccc0003-0000-0000-0000-000000000001",
+      "name": "Ores",
+      "color": "#a3e635",
+      "products": [
+        {
+          "id": "cccc0003-0000-0000-0000-0000000000p1",
+          "itemId": "iron-ore"
+        },
+        {
+          "id": "cccc0003-0000-0000-0000-0000000000p2",
+          "itemId": "copper-ore"
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [
+        {
+          "id": "cccc0003-c000-0000-0000-000000000001",
+          "itemId": "sct-waste-ironcopper",
+          "fromBlockId": "cccc0002-0000-0000-0000-000000000001"
+        }
+      ],
+      "rootPlan": {
+        "id": "cccc0003-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "cccc0003-0000-0000-0000-0000000000n1",
+            "recipeId": "sct-waste-processing-mixed",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-25T00:00:00.000Z",
+        "updatedAt": "2026-10-25T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "cccc0002-0000-0000-0000-000000000001"
+}

@@ -4,6 +4,10 @@
  * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
  * recently used first), so the request probe, the first-round solve and the
  * settled solve of a block in a loop all survive.
+ *
+ * It also memoises the outcome of a whole cycle of requests (one entry per member list), so a
+ * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
+ * and `retain` drops the ones the solve since the last `retain` did not use.
  */
 import type { GameData, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -15,11 +19,26 @@ export interface BlockSolve {
 /** Entries kept per block. */
 export const SLOTS_PER_BLOCK = 3
 
+/** What the demand rounds of one cycle of requests decided. */
+export interface RequestLoopSolve {
+  /** request connection id → items/min requested, for every request of a member (round 1's when not converged). */
+  shares: Map<string, number>
+  /** take connection id → items/min credited, for the members' takes credited more than 0. */
+  credits: Map<string, number>
+  /** [take source, item, leftover estimate after the members' takes]. */
+  credited: [string, string, number][]
+  rounds: number
+  converged: boolean
+}
+
 export interface SolveCache {
   get(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>): BlockSolve | undefined
   set(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>, solved: BlockSolve): void
+  /** The memoised outcome of the cycle with these members, if `key` and `gameData` match. */
+  getRequestLoop(blockIds: string[], gameData: GameData, key: string): RequestLoopSolve | undefined
+  setRequestLoop(blockIds: string[], gameData: GameData, key: string, solved: RequestLoopSolve): void
   delete(blockId: string): void
-  /** Drop entries of blocks not in `blockIds`. */
+  /** Drop entries of blocks not in `blockIds`, and cycle entries not read or written since the last call. */
   retain(blockIds: ReadonlySet<string>): void
   clear(): void
   has(blockId: string): boolean
@@ -41,9 +60,14 @@ function exactNumberReplacer(_key: string, v: unknown): unknown {
   return v
 }
 
+/** `value` as an exact string: numbers keep NaN, Infinity and the sign of zero. */
+export function exactKey(value: unknown): string {
+  return JSON.stringify(value, exactNumberReplacer)
+}
+
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
 export function planKey(plan: { goals: SolverGoal[]; nodes: RecipeNode[]; noImportItems?: string[] }): string {
-  return JSON.stringify([plan.goals, plan.nodes, plan.noImportItems ?? []], exactNumberReplacer)
+  return exactKey([plan.goals, plan.nodes, plan.noImportItems ?? []])
 }
 
 function sameCaps(stored: [string, number][], caps: Map<string, number>): boolean {
@@ -62,7 +86,20 @@ function sameInputs(e: Entry, gameData: GameData, key: string, caps: Map<string,
 
 export function createSolveCache(): SolveCache {
   const entries = new Map<string, Entry[]>() // most recently used first
+  const loops = new Map<string, { blockIds: string[]; gameData: GameData; key: string; solved: RequestLoopSolve }>()
+  const usedLoops = new Set<string>() // member lists read or written since the last retain
   return {
+    getRequestLoop(blockIds, gameData, key) {
+      const k = blockIds.join('\0')
+      usedLoops.add(k)
+      const hit = loops.get(k)
+      return hit && hit.gameData === gameData && hit.key === key ? hit.solved : undefined
+    },
+    setRequestLoop(blockIds, gameData, key, solved) {
+      const k = blockIds.join('\0')
+      usedLoops.add(k)
+      loops.set(k, { blockIds, gameData, key, solved })
+    },
     get(blockId, gameData, key, caps) {
       const list = entries.get(blockId)
       if (!list) return undefined
@@ -91,9 +128,13 @@ export function createSolveCache(): SolveCache {
     },
     retain(blockIds) {
       for (const id of [...entries.keys()]) if (!blockIds.has(id)) entries.delete(id)
+      for (const [k, e] of [...loops]) if (!usedLoops.has(k) || e.blockIds.some(id => !blockIds.has(id))) loops.delete(k)
+      usedLoops.clear()
     },
     clear() {
       entries.clear()
+      loops.clear()
+      usedLoops.clear()
     },
     has: blockId => entries.has(blockId),
     get size() {

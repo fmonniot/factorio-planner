@@ -10,7 +10,7 @@ import type { Block } from '../data/types'
 // ---------------------------------------------------------------------------
 
 /** blockId → ids of the blocks that receive something from it. */
-function consumersOf(blocks: Block[]): Map<string, string[]> {
+export function consumersOf(blocks: Block[]): Map<string, string[]> {
   const ids = new Set(blocks.map(b => b.id))
   const map = new Map<string, string[]>()
   for (const b of blocks) {
@@ -25,7 +25,7 @@ function consumersOf(blocks: Block[]): Map<string, string[]> {
 }
 
 /** True when `target` can be reached from `start` along source → consumer edges. */
-function reaches(consumers: Map<string, string[]>, start: string, target: string): boolean {
+export function reaches(consumers: Map<string, string[]>, start: string, target: string): boolean {
   const seen = new Set<string>()
   const stack = [start]
   while (stack.length > 0) {
@@ -41,7 +41,7 @@ function reaches(consumers: Map<string, string[]>, start: string, target: string
 /**
  * Would adding the edge fromBlockId → toBlockId close a loop? True when `from`
  * is already downstream of `to`. A self-connection is not a loop (it is
- * rejected outright). Used for hints only; loops are allowed.
+ * rejected outright). Used for hints; loops are allowed.
  */
 export function closesLoop(blocks: Block[], fromBlockId: string, toBlockId: string): boolean {
   return fromBlockId !== toBlockId && reaches(consumersOf(blocks), toBlockId, fromBlockId)
@@ -56,37 +56,10 @@ export function hasProduct(block: Block, itemId: string): boolean {
  * Does `block` take `itemId` from a connection of its own, from an existing
  * block other than itself? Then it is not a pure producer of the item: a
  * request to it would cancel its own supply. The one definition of "source
- * receives the item", shared by the solver, the connection menus and `closesRequestLoop`.
+ * receives the item", shared by the solver and the connection menus.
  */
 export function receivesItem(block: Block, itemId: string, blockIds: ReadonlySet<string>): boolean {
   return block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId !== block.id && blockIds.has(c.fromBlockId))
-}
-
-/**
- * Would a request fromBlockId → toBlockId (`to` requests from `from`)
- * close a cycle of requests? Edges are the requests the solver would apply
- * before its cycle check: connections whose source exists, is not the block
- * itself, has the connection's item as a product and does not receive that
- * item itself (`receivesItem`; the solver ignores those as `source-receives`).
- * True when `from` is already a consumer of `to`, directly or through other
- * blocks, along those edges. Connections that take existing output do not
- * count. Request cycles are not solved: every connection in one takes existing
- * output instead.
- */
-export function closesRequestLoop(blocks: Block[], fromBlockId: string, toBlockId: string): boolean {
-  const byId = new Map(blocks.map(b => [b.id, b]))
-  const ids = new Set(byId.keys())
-  const consumers = new Map<string, string[]>()
-  for (const b of blocks) {
-    for (const c of b.inputConnections) {
-      const source = byId.get(c.fromBlockId)
-      if (!source || source.id === b.id || !hasProduct(source, c.itemId) || receivesItem(source, c.itemId, ids)) continue
-      const list = consumers.get(c.fromBlockId)
-      if (list) list.push(b.id)
-      else consumers.set(c.fromBlockId, [b.id])
-    }
-  }
-  return fromBlockId !== toBlockId && reaches(consumers, toBlockId, fromBlockId)
 }
 
 export interface LoopShape {
