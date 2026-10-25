@@ -1040,12 +1040,23 @@ describe('FactorySummary — products pane', () => {
     setupRequest({
       minerProducts: [{ id: 'g1', itemId: 'iron-plate', extraRate: 10 }],
       result: makerResult(20),
-      flows: [requestFlow({ rate: 20, requested: 30 })],
+      flows: [requestFlow({ rate: 20, requested: 30, status: 'limited' })],
     })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     expect(keyEntries('Products', 'short')[0].textContent).toBe("Short 20.0 — comes out of the extra and Consumer's request")
     expect(keyEntries('Products', 'export')[0].textContent).toBe('Consumer: 20.0 of 30.0 requested')
+  })
+
+  it('does not blame a request that drew less because it took the item elsewhere first', () => {
+    setupRequest({
+      minerProducts: [{ id: 'g1', itemId: 'iron-plate', extraRate: 10 }],
+      result: makerResult(20),
+      flows: [requestFlow({ rate: 20, requested: 30, status: 'ok' })],
+    })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    expect(keyEntries('Products', 'short')[0].textContent).toBe('Short 20.0 — comes out of the extra')
   })
 
   it('draws an empty slot dimmed with a dashed border and says nothing is requested', () => {

@@ -6,7 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { fmtRate } from './ItemTile'
 import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
-import type { Product } from '../../data/types'
+import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
@@ -156,8 +156,16 @@ export function FactorySummary() {
   for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
 
   // What other blocks request from this one, by item, in solve order. Uses every flow (a request for 0 draws nothing).
-  const requestsOf = (itemId: string) =>
-    allFlows.filter(f => f.fromBlockId === activeBlockId && f.kind === 'request' && f.itemId === itemId)
+  const requestsByItem = useMemo(() => {
+    const byItem = new Map<string, ConnectionFlow[]>()
+    for (const f of allFlows) {
+      if (f.fromBlockId !== activeBlockId || f.kind !== 'request') continue
+      const list = byItem.get(f.itemId)
+      if (list) list.push(f)
+      else byItem.set(f.itemId, [f])
+    }
+    return byItem
+  }, [allFlows, activeBlockId])
 
   // Byproducts: net positive balance of items that are not products, minus what other blocks take.
   const byproductItems = [...netBalance]
@@ -177,7 +185,7 @@ export function FactorySummary() {
   // The solver adds a requested amount to the first product of the item.
   const requestedItemIds = new Set(productItemIds)
   const productSlots = products.map(p => {
-    const requests = requestedItemIds.delete(p.itemId) ? requestsOf(p.itemId) : []
+    const requests = requestedItemIds.delete(p.itemId) ? (requestsByItem.get(p.itemId) ?? []) : []
     return productSlot(
       p,
       // No node makes the item: the product is fully short, not unknown.

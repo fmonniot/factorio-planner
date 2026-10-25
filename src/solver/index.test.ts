@@ -1019,7 +1019,7 @@ describe('solveAll — requests', () => {
     expect(rate(all.results.A.unsatisfied, 'plate')).toBeCloseTo(50, 4)
   })
 
-  it('gives way with the extra, then the requests, when the source makes nothing', () => {
+  it('leaves every request unserved, and the extra with it, when the source makes nothing (full shortfall)', () => {
     const all = solveAll([
       block('A', [prod('plate', 10)], [planNode('i', 'ingot')]),
       gearmaker('B', 25, [link('cb', 'A')]),

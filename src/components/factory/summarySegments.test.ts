@@ -283,7 +283,7 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentLabel(seg('export'), 'Miner')).toBe('→ Miner')
     expect(segmentLabel(seg('source'), 'Miner')).toBe('← Miner')
     expect(segmentLabel(seg('source'), undefined)).toBe('← (deleted block)')
-    expect(segmentLabel(seg('kept'), undefined)).toBe('Extra')
+    expect(segmentLabel(seg('kept'), undefined)).toBe('Left')
     expect(segmentLabel(seg('left'), undefined)).toBe('Left')
     expect(segmentLabel(seg('import'), undefined)).toBe('Imported')
     expect(segmentLabel(seg('short'), undefined)).toBe('Short')
@@ -315,7 +315,7 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentTitle(ov('unused'), ctx)).toMatch(/^Not used: /)
     expect(segmentTitle(ov('missing-source'), ctx)).toMatch(/source block was deleted/)
     expect(segmentTitle(ov('self'), ctx)).toMatch(/cannot supply itself/)
-    expect(segmentTitle(seg('kept'), ctx)).toBe('Extra')
+    expect(segmentTitle(seg('kept'), ctx)).toBe('Left')
     expect(segmentTitle(ov('locked'), ctx)).toBe('Imports forbidden')
   })
 })
@@ -383,7 +383,7 @@ describe('productSlot without extra', () => {
 
 describe('productSlot shortfall attribution', () => {
   const request = (to: string, rate: number, requested: number) =>
-    flow({ connectionId: `c-${to}`, toBlockId: to, rate, kind: 'request', requested })
+    flow({ connectionId: `c-${to}`, toBlockId: to, rate, kind: 'request', requested, status: rate < requested ? 'limited' : 'ok' })
 
   it('reports a shortfall past the extra and the request as exports', () => {
     const r = request('R', 15, 15)
@@ -399,6 +399,15 @@ describe('productSlot shortfall attribution', () => {
     const slot = productSlot(goal(10), 35, [b, c], 'min', [b, c])
     expect(shape(slot.segments)).toEqual([['to:B', 30], ['to:C', 5], ['short', 25]])
     expect(slot.product!.shortFrom).toEqual({ extra: 10, requests: 15, blockIds: ['C'] })
+  })
+
+  it('does not blame a requester that drew less for another reason', () => {
+    // R took the item from another block first, so it drew 20 of the 30 it asked and is not
+    // limited. S is the one the short source left wanting.
+    const r = flow({ connectionId: 'c-R', toBlockId: 'R', rate: 20, kind: 'request', requested: 30, status: 'ok' })
+    const sRequest = request('S', 5, 20)
+    const slot = productSlot(goal(10), 25, [r, sRequest], 'min', [r, sRequest])
+    expect(slot.product!.shortFrom).toEqual({ extra: 10, requests: 25, blockIds: ['S'] })
   })
 
   it('names a requester that got nothing', () => {
@@ -423,11 +432,17 @@ describe('keyEntryText', () => {
     return { slot, product: slot.product!, seg: (key: string) => slot.segments.find(s => s.key === key)! }
   }
   const request = (to: string, rate: number, requested: number) =>
-    flow({ connectionId: `c-${to}`, toBlockId: to, rate, kind: 'request', requested })
+    flow({ connectionId: `c-${to}`, toBlockId: to, rate, kind: 'request', requested, status: rate < requested ? 'limited' : 'ok' })
 
   it('reads a request served in full', () => {
     const r = request('R', 15, 15)
     const p = productOf(goal(60), 75, [r])
+    expect(join(p.seg('to:R'), 'R', p.product)).toBe('R requests 15.0')
+  })
+
+  it('states the ask when a request drew more than it asked', () => {
+    const r = request('R', 18, 15)
+    const p = productOf(noExtra(), 18, [r])
     expect(join(p.seg('to:R'), 'R', p.product)).toBe('R requests 15.0')
   })
 
@@ -447,8 +462,12 @@ describe('keyEntryText', () => {
     const r = request('R', 15, 15)
     const withExtra = productOf(goal(60), 65, [r])
     expect(join(withExtra.seg('kept'), undefined, withExtra.product)).toBe('Extra: 50.0 of 60.0')
+    // A requester drew less than it asked: more is left than the extra, so it is not "Extra: 20 of 10".
+    const light = request('R', 20, 30)
+    const over = productOf(goal(10), 40, [light])
+    expect(join(over.seg('kept'), undefined, over.product)).toBe('Left 20.0')
     const p = productOf(noExtra(), 12, [])
-    expect(join(p.seg('kept'), undefined, p.product)).toBe('Extra 12.0')
+    expect(join(p.seg('kept'), undefined, p.product)).toBe('Left 12.0')
   })
 
   it('says where a shortfall comes from', () => {

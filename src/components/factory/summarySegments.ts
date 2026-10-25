@@ -205,14 +205,19 @@ export function productSlot(
   const short = asked && isShortfall(required, actualPerMin, unit)
   if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
   const scale = Math.max(required, sum(segments))
-  // The extra gives way first; the rest falls on the requests served last.
+  // The extra gives way first; the rest falls on the requests served last (see `connectionOffer`).
   let shortFrom: ProductInfo['shortFrom']
   if (short) {
     const missing = required - actualPerMin
     const extraPart = Math.min(extra ?? 0, missing)
     const requestPart = missing - extraPart
+    // Only requesters the source left wanting: `limited` means the consumer took everything on
+    // offer and still imports the item. One under-served for another reason (it took the item
+    // from another block first, so it drew less than it asked) is `ok` or `unused`, not blamed.
     const blockIds = requestPart > FLOW_TOLERANCE
-      ? requests.filter(f => f.rate < (f.requested ?? 0) - FLOW_TOLERANCE).map(f => f.toBlockId)
+      ? requests
+          .filter(f => f.status === 'limited' && f.rate < (f.requested ?? 0) - FLOW_TOLERANCE)
+          .map(f => f.toBlockId)
       : []
     shortFrom = { extra: extraPart, requests: requestPart, blockIds }
   }
@@ -361,7 +366,7 @@ export function segmentLabel(
   switch (e.kind) {
     case 'export': return `→ ${blockName ?? GONE}${mark}`
     case 'source': return `← ${blockName ?? GONE}${mark}`
-    case 'kept': return 'Extra'
+    case 'kept': return 'Left'
     case 'left': return 'Left'
     case 'import': return 'Imported'
     case 'short': return 'Short'
@@ -435,12 +440,15 @@ export function keyEntryText(
       const requestedRate = (entry as Segment).requestedRate
       if (requestedRate === undefined) return plain
       const name = `${blockName ?? GONE}${entry.loop ? ' ↻' : ''}`
+      // Beyond its ask a request can also draw what nobody holds: the label states the ask.
       return amount >= requestedRate - FLOW_TOLERANCE
-        ? { label: `${name} requests`, amount: fmt(amount) }
+        ? { label: `${name} requests`, amount: fmt(requestedRate) }
         : { label: `${name}:`, amount: fmt(amount), note: `of ${fmt(requestedRate)} requested` }
     }
     case 'kept':
-      return product.extra !== undefined
+      // What is left can exceed the extra (a requester drew less than it asked), and a product
+      // may have no extra: both read as plain "Left" rather than an over-filled extra.
+      return product.extra !== undefined && amount <= product.extra + FLOW_TOLERANCE
         ? { label: 'Extra:', amount: fmt(amount), note: `of ${fmt(product.extra)}` }
         : plain
     case 'short': {
