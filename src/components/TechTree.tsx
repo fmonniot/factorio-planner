@@ -4,7 +4,7 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import { useAvailableRecipeIds } from '../store/horizon'
 import { hasTechnologies, placingItemIds } from '../data/horizon'
-import { layoutTechTree, techStates, CARD_W, CARD_H } from '../data/techTree'
+import { layoutTechTree, techStates, searchTechnologies, CARD_W, CARD_H } from '../data/techTree'
 import type { TechState } from '../data/techTree'
 import {
   zoomAt, panBy, fitTransform, centerOn, transformCss, wheelZoomFactor, ZOOM_STEP,
@@ -42,6 +42,10 @@ const DRAG_THRESHOLD = 4
 const PREVIEW_DELAY_MS = 300
 // Leaving a card keeps a shown popup this long, so entering a neighbour switches without the delay.
 const HIDE_GRACE_MS = 100
+// Choosing a search result centres its card at this scale.
+const JUMP_SCALE = 1
+const HIGHLIGHT_MS = 1500
+const MAX_SEARCH_RESULTS = 50
 
 function rectOf(el: HTMLElement): Box {
   const { left, top, right, bottom } = el.getBoundingClientRect()
@@ -54,6 +58,7 @@ interface TechCardProps {
   y: number
   state: TechState
   isTarget: boolean
+  isHighlight: boolean
   items: GameData['items']
   movedRef: MutableRefObject<boolean>
   onToggle: (id: string) => void
@@ -61,7 +66,7 @@ interface TechCardProps {
   onPreviewEnd: (id: string, immediate?: boolean) => void
 }
 
-const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
+const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlight, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
   return (
     <button
       type="button"
@@ -69,6 +74,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
       data-tech-id={tech.id}
       data-state={state}
       data-target={isTarget ? 'true' : 'false'}
+      data-highlight={isHighlight ? 'true' : 'false'}
       aria-pressed={isTarget}
       onMouseEnter={e => onPreviewStart(tech.id, e.currentTarget, false)}
       onMouseLeave={() => onPreviewEnd(tech.id)}
@@ -85,7 +91,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
         if (!wasDrag) onToggle(tech.id)
       }}
       style={{ left: x, top: y, width: CARD_W, height: CARD_H }}
-      className={`absolute flex items-center gap-2 px-2 rounded border text-left text-gray-100 ${CARD_CLASS[state]} ${isTarget ? 'ring-2 ring-amber-300' : ''}`}
+      className={`absolute flex items-center gap-2 px-2 rounded border text-left text-gray-100 ${CARD_CLASS[state]} ${isHighlight ? 'ring-4 ring-sky-300 animate-pulse' : isTarget ? 'ring-2 ring-amber-300' : ''}`}
     >
       <TechIcon tech={tech} className="w-10 h-10 text-sm" />
       <span className="min-w-0 flex-1">
@@ -95,6 +101,70 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, items, mo
     </button>
   )
 })
+
+interface TechSearchProps {
+  technologies: GameData['technologies']
+  query: string
+  onQueryChange: (query: string) => void
+  onPick: (id: string) => void
+}
+
+function TechSearch({ technologies, query, onQueryChange, onPick }: TechSearchProps) {
+  const results = useMemo(() => searchTechnologies(technologies, query), [technologies, query])
+  const shown = results.slice(0, MAX_SEARCH_RESULTS)
+  const hidden = results.length - shown.length
+  const active = query.trim() !== ''
+
+  return (
+    <div className="relative ml-auto">
+      <input
+        type="text"
+        value={query}
+        placeholder="Search technologies…"
+        aria-label="Search technologies"
+        data-testid="tech-tree-search"
+        onChange={e => onQueryChange(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && shown.length > 0) {
+            e.preventDefault()
+            onPick(shown[0].id)
+          }
+        }}
+        className="w-48 bg-gray-800 text-gray-100 px-3 py-1 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+      />
+      {active && (
+        <div
+          role="listbox"
+          aria-label="Matching technologies"
+          data-testid="tech-tree-search-results"
+          className="absolute left-0 top-full mt-1 z-10 w-72 max-h-64 overflow-y-auto bg-gray-900 border border-gray-600 rounded shadow-lg py-1"
+        >
+          {shown.map(t => (
+            <button
+              key={t.id}
+              type="button"
+              role="option"
+              aria-selected={false}
+              data-testid="tech-tree-search-result"
+              data-tech-id={t.id}
+              // Keep the input focused: a click on a result must not blur it.
+              onMouseDown={e => e.preventDefault()}
+              onClick={() => onPick(t.id)}
+              className="w-full flex items-center gap-2 px-2 py-1 text-left text-sm text-gray-100 hover:bg-gray-800"
+            >
+              <TechIcon tech={t} className="w-6 h-6 text-xs" />
+              <span className="min-w-0 flex-1 truncate">{t.name}</span>
+            </button>
+          ))}
+          {hidden > 0 && <div className="px-2 py-1 text-xs text-gray-400">{hidden} more — refine the search</div>}
+          {results.length === 0 && (
+            <div data-testid="tech-tree-search-empty" className="px-2 py-1 text-sm text-gray-400">No matching technologies</div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
 export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
   const targets = useBlockStore(s => s.horizonTechnologyIds)
@@ -205,6 +275,37 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
     return () => document.removeEventListener('keydown', onKeyDown, true)
   }, [previewOpen, hidePreview])
 
+  // Search: choosing a result centres its card and pulses it briefly; the horizon is untouched.
+  const [query, setQuery] = useState('')
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
+  useEffect(() => () => clearTimeout(highlightTimerRef.current), [])
+
+  // Escape clears the search box before it closes the modal (the popup's own handler, registered earlier, runs first).
+  const searching = query !== ''
+  useEffect(() => {
+    if (!searching || previewOpen) return
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return
+      e.stopPropagation()
+      setQuery('')
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  }, [searching, previewOpen])
+
+  const pickResult = useCallback((id: string) => {
+    const node = layout.nodes[id]
+    if (!node) return
+    hidePreview()
+    const vp = viewportRef.current
+    if (vp) setView(centerOn(node.x + CARD_W / 2, node.y + CARD_H / 2, vp.clientWidth, vp.clientHeight, JUMP_SCALE))
+    setQuery('')
+    setHighlightId(id)
+    clearTimeout(highlightTimerRef.current)
+    highlightTimerRef.current = setTimeout(() => setHighlightId(null), HIGHLIGHT_MS)
+  }, [layout, hidePreview])
+
   // Open centred on the furthest target.
   useLayoutEffect(() => {
     const vp = viewportRef.current
@@ -313,6 +414,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           y={n.y}
           state={states[n.id]}
           isTarget={targets.includes(n.id)}
+          isHighlight={n.id === highlightId}
           items={gameData.items}
           movedRef={movedRef}
           onToggle={onToggle}
@@ -321,7 +423,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
         />
       ))}
     </>
-  ), [layout, states, targets, gameData, onToggle, onPreviewStart, onPreviewEnd])
+  ), [layout, states, targets, highlightId, gameData, onToggle, onPreviewStart, onPreviewEnd])
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
 
@@ -348,7 +450,8 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-amber-500 bg-amber-900/30" />Available</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-gray-700 bg-gray-800" />Locked</span>
         </div>
-        <div className="ml-auto flex items-center gap-1">
+        <TechSearch technologies={gameData.technologies} query={query} onQueryChange={setQuery} onPick={pickResult} />
+        <div className="flex items-center gap-1">
           <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / ZOOM_STEP)} className={btn}>−</button>
           <button type="button" aria-label="Zoom in" onClick={() => zoomBy(ZOOM_STEP)} className={btn}>+</button>
           <button type="button" aria-label="Fit to view" onClick={fit} className={btn}>Fit</button>

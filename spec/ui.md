@@ -312,8 +312,18 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   header and the machines stay. It hides (after the grace period when the pointer leaves, at once
   otherwise) on leaving or blurring the card, a pointer click (Enter or Space on a focused card
   keeps it), a pointer down in the viewport, wheel, zoom buttons, **Fit**, and window blur or resize. Escape dismisses the popup first
-  (captured before the modal's listener); a second Escape closes the tree. Cards carry no native
+  (captured before the modal's listener); then a non-empty search box is cleared; the next Escape closes the tree. Cards carry no native
   `title` tooltip.
+- **Search** (`TechSearch` in `TechTree.tsx`, `searchTechnologies` in `src/data/techTree.ts`): a box in the
+  header (`data-testid="tech-tree-search"`, "Search technologies") lists the technologies whose name contains the
+  trimmed query, case-insensitively; a leveled name such as "Toolbelt 5" matches by its full name. Names starting
+  with the query come first, then the rest, each group sorted by name with numbers compared numerically. A blank
+  box lists nothing; no match shows "No matching technologies"; the dropdown shows at most 50 results, then a
+  "N more — refine the search" row. Choosing a result (click, or Enter for the first) centres its card at scale 1
+  (`centerOn`), hides the unlocks popup, clears the box and highlights the card for 1.5 s (`data-highlight`,
+  a pulsing sky ring that wins over the target ring). It never changes the horizon. Escape clears a non-empty
+  box before it closes the tree (captured ahead of the modal's listener); with the unlocks popup open, that
+  popup's Escape comes first.
 - **Click** a card to toggle it as a horizon target; targets get a ring. Adding a locked technology researches its whole prerequisite
   chain. **Clear horizon** empties the targets.
 - **Pan and zoom** (maths in `src/utils/viewTransform.ts`): drag the background to

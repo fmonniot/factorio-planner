@@ -1,4 +1,4 @@
-import type { GameData } from './types'
+import type { GameData, Technology } from './types'
 import { technologyClosure } from './horizon'
 
 export const CARD_W = 184
@@ -120,4 +120,24 @@ export function techStates(gameData: GameData, targetIds: readonly string[]): Re
     else states[id] = 'locked'
   }
   return states
+}
+
+/**
+ * Technologies whose name contains the query (case-insensitive, trimmed). A leveled
+ * name such as "Toolbelt 5" is matched whole. Names starting with the query come
+ * first; each group is sorted by name, numbers compared numerically. A blank query
+ * matches nothing.
+ */
+export function searchTechnologies(technologies: Techs, query: string): Technology[] {
+  const q = query.trim().toLowerCase()
+  if (q === '') return []
+  const byName = (a: Technology, b: Technology) => a.name.localeCompare(b.name, undefined, { numeric: true })
+  const prefix: Technology[] = []
+  const infix: Technology[] = []
+  for (const t of Object.values(technologies)) {
+    const name = t.name.toLowerCase()
+    if (name.startsWith(q)) prefix.push(t)
+    else if (name.includes(q)) infix.push(t)
+  }
+  return [...prefix.sort(byName), ...infix.sort(byName)]
 }

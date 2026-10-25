@@ -294,3 +294,92 @@ describe('unlocks popup', () => {
     expect(screen.queryByTestId('tech-unlocks-machines')).not.toBeInTheDocument()
   })
 })
+
+describe('search', () => {
+  function withLeveled(): GameData {
+    const data = makeGameData()
+    data.technologies['toolbelt-5'] = { id: 'toolbelt-5', name: 'Toolbelt 5', prerequisites: ['electronics'], unlockedRecipes: [], iconPath: '' }
+    return data
+  }
+
+  const box = () => screen.getByRole('textbox', { name: 'Search technologies' })
+  const results = () => screen.queryAllByTestId('tech-tree-search-result')
+  const treeOpen = () => screen.queryByRole('heading', { name: 'Technology tree' }) !== null
+  const type = (text: string) => fireEvent.change(box(), { target: { value: text } })
+
+  beforeEach(() => { load(withLeveled()) })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('lists matching technologies as you type', () => {
+    open()
+    expect(screen.queryByTestId('tech-tree-search-results')).not.toBeInTheDocument()
+    type('elec')
+    expect(results().map(r => r.dataset.techId)).toEqual(['electronics'])
+  })
+
+  it('matches a leveled name', () => {
+    open()
+    type('toolbelt 5')
+    expect(results().map(r => r.dataset.techId)).toEqual(['toolbelt-5'])
+  })
+
+  it('says so when nothing matches', () => {
+    open()
+    type('zzz')
+    expect(results()).toHaveLength(0)
+    expect(screen.getByTestId('tech-tree-search-empty')).toHaveTextContent('No matching technologies')
+  })
+
+  it('choosing a result highlights its card and clears the box without touching the horizon', () => {
+    open()
+    const horizon = screen.getByTestId('tech-tree-horizon').textContent
+    const targets = Array.from(document.querySelectorAll('[data-testid="tech-card"]')).map(c => (c as HTMLElement).dataset.target)
+    type('toolbelt')
+    fireEvent.click(results()[0])
+    expect(card('toolbelt-5').dataset.highlight).toBe('true')
+    expect(card('electronics').dataset.highlight).toBe('false')
+    expect(box()).toHaveValue('')
+    expect(screen.queryByTestId('tech-tree-search-results')).not.toBeInTheDocument()
+    expect(screen.getByTestId('tech-tree-canvas').dataset.scale).toBe('1')
+    expect(screen.getByTestId('tech-tree-horizon').textContent).toBe(horizon)
+    expect(Array.from(document.querySelectorAll('[data-testid="tech-card"]')).map(c => (c as HTMLElement).dataset.target)).toEqual(targets)
+    expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
+  })
+
+  it('the highlight expires', () => {
+    vi.useFakeTimers()
+    open()
+    type('toolbelt')
+    fireEvent.click(results()[0])
+    expect(card('toolbelt-5').dataset.highlight).toBe('true')
+    act(() => { vi.advanceTimersByTime(1500) })
+    expect(card('toolbelt-5').dataset.highlight).toBe('false')
+  })
+
+  it('Enter picks the first result', () => {
+    open()
+    type('e')
+    const first = results()[0].dataset.techId!
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(card(first).dataset.highlight).toBe('true')
+    expect(box()).toHaveValue('')
+  })
+
+  it('Enter without a result does nothing', () => {
+    open()
+    type('zzz')
+    fireEvent.keyDown(box(), { key: 'Enter' })
+    expect(box()).toHaveValue('zzz')
+    expect(document.querySelector('[data-highlight="true"]')).toBeNull()
+  })
+
+  it('Escape clears the box before closing the tree', () => {
+    open()
+    type('elec')
+    fireEvent.keyDown(box(), { key: 'Escape' })
+    expect(box()).toHaveValue('')
+    expect(treeOpen()).toBe(true)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(treeOpen()).toBe(false)
+  })
+})
