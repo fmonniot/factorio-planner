@@ -16,6 +16,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Prevent adding a recipe already present in the block.** `blockStore.addNode` accepts a second node for the same recipe; the solver zeroes the later duplicate and warns.
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
 - [ ] **`overconstrained` warns on surplus that is exported.** A source block's surplus intermediate that another block consumes still raises the `overconstrained` warning in the source.
+- [ ] **`overconstrained` warns on floating-point noise at large flows.** The surplus check in `solveBlock` (`src/solver/index.ts`, `SURPLUS_TOLERANCE = 1e-6`) is absolute, so a high-throughput intermediate can exceed it through LP rounding error alone. In a Seablock save (Metals block) `angels-liquid-molten-brass` at about 2000/min reports a surplus of 1.6e-6/min and raises the warning although production and consumption match. Make the tolerance relative to the item's flow (e.g. `max(1e-6, 1e-9 × throughput)`), add a regression test with a large-flow case, and update spec/solver.md.
 
 ## Sharing
 
