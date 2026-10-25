@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { closesPullLoop } from '../solver/blockGraph'
+import { closesRequestLoop, hasProduct } from '../solver/blockGraph'
 import { canConnect } from './connections'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
@@ -210,18 +210,24 @@ function withMaxRate(block: Block, connectionId: string, maxRate: number | undef
   }
 }
 
-/** Turn pulling on or off for a connection; off deletes the key so undo restores equality. */
-function withPull(block: Block, connectionId: string, pull: boolean): Block {
+/** Set or clear a product's extra output; clearing deletes the key so undo restores equality. */
+function withExtra(block: Block, productId: string, extraRate: number | undefined): Block {
   return {
     ...block,
-    inputConnections: block.inputConnections.map(c => {
-      if (c.id !== connectionId) return c
-      if (pull) return { ...c, pull: true }
-      const rest = { ...c }
-      delete rest.pull
+    products: block.products.map(p => {
+      if (p.id !== productId) return p
+      if (extraRate !== undefined) return { ...p, extraRate }
+      const rest = { ...p }
+      delete rest.extraRate
       return rest
     }),
   }
+}
+
+/** Would a connection of `itemId` from `fromBlockId` into `toBlockId` be a request that closes a cycle of requests? */
+function closesRequestCycle(blocks: Block[], itemId: string, fromBlockId: string, toBlockId: string): boolean {
+  const source = blocks.find(b => b.id === fromBlockId)
+  return !!source && hasProduct(source, itemId) && closesRequestLoop(blocks, fromBlockId, toBlockId)
 }
 
 // ---------------------------------------------------------------------------
@@ -254,19 +260,17 @@ export interface BlockStoreState {
   // Products (block-level)
   addProduct: (product: Product) => void
   removeProduct: (productId: string) => void
-  updateProductExtra: (productId: string, extraRate: number) => void
+  updateProductExtra: (productId: string, extraRate: number | undefined) => void
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
-  /** With `pull`, the connection pulls: the target's demand drives the source (rejected when it would close a cycle of pulls). */
-  addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string, pull?: boolean) => void
+  /** Connect; a request when `itemId` is a product of the source (refused when it would close a cycle of requests), otherwise it takes existing output. */
+  addInputConnection: (itemId: string, fromBlockId: string, toBlockId?: string) => void
   removeInputConnection: (connectionId: string, toBlockId?: string) => void
   /** Cap what the consumer takes over a connection (items/min); undefined removes the cap. */
   setConnectionMaxRate: (connectionId: string, maxRate: number | undefined, toBlockId?: string) => void
-  /** Switch a connection between pull and push (rejected when pulling would close a cycle of pulls). */
-  setConnectionPull: (connectionId: string, pull: boolean, toBlockId?: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -520,11 +524,17 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   removeProduct: (productId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      const target = block?.products.find(p => p.id === productId)
+      const index = block?.products.findIndex(p => p.id === productId) ?? -1
+      const target = block?.products[index]
       if (!target) return state
       const cmd: Command = {
         apply: b => ({ ...b, products: b.products.filter(p => p.id !== productId) }),
-        undo: b => ({ ...b, products: [...b.products, target] }),
+        // Back at its old index: the first product of an item receives the requested amount.
+        undo: b => {
+          const products = [...b.products]
+          products.splice(index, 0, target)
+          return { ...b, products }
+        },
       }
       return applyCommand(state, cmd)
     }),
@@ -534,9 +544,12 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       const oldProduct = block?.products.find(p => p.id === productId)
       if (!oldProduct) return state
+      if (extraRate !== undefined && !(isFinite(extraRate) && extraRate > 0)) return state
+      if (oldProduct.extraRate === extraRate) return state
+      const oldExtra = oldProduct.extraRate
       const cmd: Command = {
-        apply: b => ({ ...b, products: b.products.map(p => p.id === productId ? { ...p, extraRate } : p) }),
-        undo: b => ({ ...b, products: b.products.map(p => p.id === productId ? { ...p, extraRate: oldProduct.extraRate } : p) }),
+        apply: b => withExtra(b, productId, extraRate),
+        undo: b => withExtra(b, productId, oldExtra),
       }
       return applyCommand(state, cmd)
     }),
@@ -566,21 +579,21 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       return applyCommand(state, cmd)
     }),
 
-  addInputConnection: (itemId, fromBlockId, toBlockId, pull) =>
+  addInputConnection: (itemId, fromBlockId, toBlockId) =>
     set(state => {
       const targetId = toBlockId ?? state.activeBlockId
       const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
-      if (pull && closesPullLoop(state.blocks, fromBlockId, targetId)) return state
+      if (closesRequestCycle(state.blocks, itemId, fromBlockId, targetId)) return state
       // The id is fixed here so redo restores the same connection.
-      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId, ...(pull ? { pull: true as const } : {}) }
+      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
       const cmd: Command = {
         apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
         undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
         // Redo after other blocks changed may no longer be legal.
         canApply: (blocks, b) =>
-          canConnect(blocks, b, itemId, fromBlockId) && !(pull && closesPullLoop(blocks, fromBlockId, b.id)),
+          canConnect(blocks, b, itemId, fromBlockId) && !closesRequestCycle(blocks, itemId, fromBlockId, b.id),
       }
       return applyCommand(state, cmd, targetId)
     }),
@@ -600,7 +613,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           return { ...b, inputConnections: connections }
         },
         // Undoing a removal re-adds the edge, which may no longer be legal (source deleted, duplicate).
-        canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
+        canUndo: (blocks, b) =>
+          canConnect(blocks, b, target.itemId, target.fromBlockId) &&
+          !closesRequestCycle(blocks, target.itemId, target.fromBlockId, b.id),
       }
       return applyCommand(state, cmd, targetId)
     }),
@@ -617,25 +632,6 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const cmd: Command = {
         apply: b => withMaxRate(b, connectionId, maxRate),
         undo: b => withMaxRate(b, connectionId, oldMax),
-      }
-      return applyCommand(state, cmd, targetId)
-    }),
-
-  setConnectionPull: (connectionId, pull, toBlockId) =>
-    set(state => {
-      const targetId = toBlockId ?? state.activeBlockId
-      const block = state.blocks.find(b => b.id === targetId)
-      const connection = block?.inputConnections.find(c => c.id === connectionId)
-      if (!block || !connection) return state
-      if (!!connection.pull === pull) return state
-      if (pull && closesPullLoop(state.blocks, connection.fromBlockId, targetId)) return state
-      const closes = (blocks: Block[]) => closesPullLoop(blocks, connection.fromBlockId, targetId)
-      const cmd: Command = {
-        apply: b => withPull(b, connectionId, pull),
-        undo: b => withPull(b, connectionId, !pull),
-        // Whichever direction turns pulling on may no longer be legal after other blocks changed.
-        canApply: pull ? blocks => !closes(blocks) : undefined,
-        canUndo: pull ? undefined : blocks => !closes(blocks),
       }
       return applyCommand(state, cmd, targetId)
     }),

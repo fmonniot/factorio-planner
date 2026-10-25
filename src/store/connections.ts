@@ -1,25 +1,20 @@
-import { closesLoop, closesPullLoop } from '../solver/blockGraph'
-import { netBalance, pullIgnoredReason, FLOW_TOLERANCE } from '../solver/index'
-import type { Block, BlockConnection, ConnectionFlow, GameData, SolverResult } from '../data/types'
+import { closesLoop, closesRequestLoop, hasProduct } from '../solver/blockGraph'
+import { netBalance, receivesItem, FLOW_TOLERANCE } from '../solver/index'
+import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Connection rules shared by the store, the Ingredients menu and the block graph
 // ---------------------------------------------------------------------------
 
-/** Goals never receive supply from other blocks. */
-export function isGoalItem(block: Block, itemId: string): boolean {
-  return block.products.some(p => p.itemId === itemId)
-}
-
 /**
- * Can `target` receive `itemId` from `fromBlockId`: source exists, not a goal
+ * Can `target` receive `itemId` from `fromBlockId`: source exists, not a product
  * of target, no duplicate (itemId, fromBlockId), not the target itself. Loops
  * through other blocks are allowed.
  */
 export function canConnect(blocks: Block[], target: Block, itemId: string, fromBlockId: string): boolean {
   if (!blocks.some(b => b.id === fromBlockId)) return false
   if (fromBlockId === target.id) return false
-  if (isGoalItem(target, itemId)) return false
+  if (hasProduct(target, itemId)) return false
   if (target.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === fromBlockId)) return false
   return true
 }
@@ -39,91 +34,95 @@ export function offeredRate(
   return Math.max(0, (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken)
 }
 
-export interface SourceCandidate {
+export interface TakeCandidate {
   block: Block
   offered: number
   /** Connecting would make the source and the target supply each other (directly or through other blocks). */
   closesLoop: boolean
 }
 
-/** Blocks that can supply `itemId` to `targetId`, in plan order. */
-export function sourceCandidates(
+/** Blocks that can supply their leftover `itemId` to `targetId`, in plan order; blocks with the item as a product are requested from instead. */
+export function takeCandidates(
   blocks: Block[],
   targetId: string,
   itemId: string,
   results: Record<string, SolverResult>,
   flows: ConnectionFlow[],
-): SourceCandidate[] {
+): TakeCandidate[] {
   const target = blocks.find(b => b.id === targetId)
   if (!target) return []
   return blocks
-    .filter(b => canConnect(blocks, target, itemId, b.id))
+    .filter(b => canConnect(blocks, target, itemId, b.id) && !hasProduct(b, itemId))
     .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
     .filter(({ offered }) => offered > FLOW_TOLERANCE)
     .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
 }
 
-/** Why pulling `itemId` from `fromBlockId` into `target` would do nothing or is refused. */
-export type PullBlocker = 'pull-loop' | 'no-producer' | 'source-receives'
+/** Why a request for `itemId` from `fromBlockId` is refused (cycle) or would not be applied (source receives the item). */
+export type RequestBlocker = 'request-loop' | 'source-receives'
 
 /**
- * The one rule for "can `target` pull `itemId` from `fromBlockId`", shared by the
- * Pull menu section, the chip menu and the graph toggle: the solver must be able
- * to apply the pull (the source makes the item and does not receive it itself)
- * and it must close no cycle of pulls. Returns the first reason it cannot, or
- * undefined. The cycle check counts every pull connection, applicable or not
- * (see `closesPullLoop`).
+ * The one rule for "can `target` request `itemId` from `fromBlockId`", shared by the
+ * Request menu section, the connect-mode menu and the store. Undefined when the
+ * connection is not a request (the source has no product for the item) or when the
+ * request can be applied. The cycle check counts every connection to a product of its
+ * source, applicable or not (see `closesRequestLoop`).
  */
-export function pullBlocker(
+export function requestBlocker(
   blocks: Block[],
   target: Block,
   itemId: string,
   fromBlockId: string,
-  gameData: GameData,
-): PullBlocker | undefined {
+): RequestBlocker | undefined {
   const source = blocks.find(b => b.id === fromBlockId)
-  if (!source) return 'no-producer'
-  const reason = pullIgnoredReason(source, itemId, new Set(blocks.map(b => b.id)), gameData)
-  if (reason) return reason
-  return closesPullLoop(blocks, fromBlockId, target.id) ? 'pull-loop' : undefined
+  if (!source || !hasProduct(source, itemId)) return undefined
+  if (receivesItem(source, itemId, new Set(blocks.map(b => b.id)))) return 'source-receives'
+  return closesRequestLoop(blocks, fromBlockId, target.id) ? 'request-loop' : undefined
 }
 
-/** Tooltip explaining a `PullBlocker`. */
-export function pullBlockerTitle(reason: PullBlocker, sourceName: string, targetName: string, itemName: string): string {
+/** Tooltip explaining a `RequestBlocker`. */
+export function requestBlockerTitle(reason: RequestBlocker, sourceName: string, targetName: string, itemName: string): string {
   switch (reason) {
-    case 'pull-loop': return `${sourceName} already pulls from ${targetName}, directly or through other blocks`
-    case 'no-producer': return `${sourceName} has no recipe that makes ${itemName}`
+    case 'request-loop': return `${sourceName} already requests from ${targetName}, directly or through other blocks`
     case 'source-receives': return `${sourceName} receives ${itemName} itself`
   }
 }
 
-/**
- * Blocks `targetId` can pull `itemId` from, in plan order: connectable and free
- * of any `pullBlocker`. What the block offers right now does not matter; the
- * pull is what makes it produce.
- */
-export function pullCandidates(blocks: Block[], targetId: string, itemId: string, gameData: GameData): Block[] {
-  const target = blocks.find(b => b.id === targetId)
-  if (!target) return []
-  return blocks.filter(
-    b => canConnect(blocks, target, itemId, b.id) && pullBlocker(blocks, target, itemId, b.id, gameData) === undefined,
-  )
+export interface RequestCandidate {
+  block: Block
+  /** Connecting would make the source and the target supply each other (directly or through other blocks). */
+  closesLoop: boolean
+  blocker?: RequestBlocker
 }
 
-/** Why `connection` of `target` cannot be switched to pull, or undefined when it can. */
-export function connectionPullBlocker(
-  blocks: Block[],
-  target: Block,
-  connection: BlockConnection,
-  gameData: GameData,
-): PullBlocker | undefined {
-  return pullBlocker(blocks, target, connection.itemId, connection.fromBlockId, gameData)
+/**
+ * Blocks `targetId` can request `itemId` from, in plan order: connectable blocks
+ * that have the item as a product, whatever they offer right now (the request is
+ * what makes them produce).
+ */
+export function requestCandidates(blocks: Block[], targetId: string, itemId: string): RequestCandidate[] {
+  const target = blocks.find(b => b.id === targetId)
+  if (!target) return []
+  return blocks
+    .filter(b => canConnect(blocks, target, itemId, b.id) && hasProduct(b, itemId))
+    .map(block => {
+      const blocker = requestBlocker(blocks, target, itemId, block.id)
+      return {
+        block,
+        closesLoop: closesLoop(blocks, block.id, targetId),
+        ...(blocker ? { blocker } : {}),
+      }
+    })
 }
 
 export interface ItemCandidate {
   itemId: string
   offered: number
   needed: number
+  /** The source has the item as a product, so connecting is a request. */
+  request: boolean
+  /** Why that request is refused or not applied; only for requests. */
+  blocker?: RequestBlocker
 }
 
 /**
@@ -145,7 +144,73 @@ export function connectableItems(
     if (u.rate <= FLOW_TOLERANCE) continue
     if (!canConnect(blocks, target, u.itemId, sourceId)) continue
     const offered = offeredRate(sourceId, u.itemId, results, flows)
-    if (offered > FLOW_TOLERANCE) items.push({ itemId: u.itemId, offered, needed: u.rate })
+    if (offered <= FLOW_TOLERANCE) continue
+    const source = blocks.find(b => b.id === sourceId)
+    const request = !!source && hasProduct(source, u.itemId)
+    const blocker = request ? requestBlocker(blocks, target, u.itemId, sourceId) : undefined
+    items.push({ itemId: u.itemId, offered, needed: u.rate, request, ...(blocker ? { blocker } : {}) })
   }
   return items
+}
+
+export interface ProductChangeEffect {
+  connectionId: string
+  consumerId: string
+  consumerName: string
+  /** items/min currently delivered over the connection; undefined without a flow. */
+  rate: number | undefined
+  /** On 'add': why the request that would replace this take is not applied. */
+  blocker?: RequestBlocker
+}
+
+/**
+ * Connections of other blocks that change meaning when `blockId` gains (`add`) or
+ * loses (`remove`) a product of `itemId`: takes that become requests, requests that
+ * become takes. Empty when nothing changes (the block already has the product on add,
+ * another product of the item remains on remove). Consumers in plan order.
+ */
+export function productChangeEffects(
+  blocks: Block[],
+  blockId: string,
+  itemId: string,
+  change: 'add' | 'remove',
+  flows: ConnectionFlow[],
+): ProductChangeEffect[] {
+  const block = blocks.find(b => b.id === blockId)
+  if (!block) return []
+  if (change === 'add' && hasProduct(block, itemId)) return []
+  if (change === 'remove' && block.products.filter(p => p.itemId === itemId).length !== 1) return []
+
+  const ids = new Set(blocks.map(b => b.id))
+  const withProduct: Block[] | undefined =
+    change === 'add'
+      ? blocks.map(b => (b.id === blockId ? { ...b, products: [...b.products, { id: '', itemId }] } : b))
+      : undefined
+  const effects: ProductChangeEffect[] = []
+  for (const consumer of blocks) {
+    if (consumer.id === blockId) continue
+    const seen = new Set<string>()
+    for (const c of consumer.inputConnections) {
+      if (c.fromBlockId !== blockId || c.itemId !== itemId) continue
+      const key = `${c.fromBlockId}\0${c.itemId}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const flow = flows.find(f => f.connectionId === c.id)
+      if (change === 'remove' && flow?.requestIgnored) continue
+      const effect: ProductChangeEffect = {
+        connectionId: c.id,
+        consumerId: consumer.id,
+        consumerName: consumer.name,
+        rate: flow?.rate,
+      }
+      if (withProduct) {
+        const blocker: RequestBlocker | undefined = receivesItem(block, itemId, ids)
+          ? 'source-receives'
+          : closesRequestLoop(withProduct, blockId, consumer.id) ? 'request-loop' : undefined
+        if (blocker) effect.blocker = blocker
+      }
+      effects.push(effect)
+    }
+  }
+  return effects
 }
