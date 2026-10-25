@@ -5,7 +5,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { Block, ConnectionFlow, GameData, SolverResult } from '../../data/types'
+import type { Block, ConnectionFlow, GameData, Product, SolverResult } from '../../data/types'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -38,18 +38,14 @@ const consumerResult = (): SolverResult => ({
 })
 const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-ore',
-  available: 30, capped: false, rate: 30, status: 'ok', ...over,
+  available: 30, capped: false, rate: 30, status: 'ok', kind: 'take', ...over,
 })
 
 function setup(opts: {
   connected?: boolean
   maxRate?: number
-  /** The connection pulls. */
-  pull?: boolean
-  /** With `loop`: Miner pulls iron plate from Consumer (instead of a push). */
-  minerPulls?: boolean
-  /** Miner has a recipe that makes iron ore, so a pull from it can apply. */
-  minerMakes?: boolean
+  /** Products of Miner; iron ore among them makes the connection a request. */
+  minerProducts?: Product[]
   flow?: Partial<ConnectionFlow>
   /** Miner also receives iron plate from Consumer, so the two supply each other. */
   loop?: { converged: boolean; rounds?: number }
@@ -61,22 +57,15 @@ function setup(opts: {
     products: [{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }],
     inputConnections: opts.connected
       ? [
-          { id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }), ...(opts.pull ? { pull: true as const } : {}) },
+          { id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }) },
           ...Array.from({ length: opts.extra ?? 0 }, (_, i) => ({ id: `x${i}`, itemId: `item-${i}`, fromBlockId: 'miner' })),
         ]
       : [],
   }
   const miner: Block = {
     ...makeEmptyBlock('Miner'), id: 'miner',
-    inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer', ...(opts.minerPulls ? { pull: true as const } : {}) }] : [],
-    ...(opts.minerMakes
-      ? {
-        rootPlan: {
-          ...makeEmptyBlock('Miner').rootPlan,
-          nodes: [{ kind: 'game-recipe' as const, id: 'n', recipeId: 'mine', modules: [], byproductPolicy: {} }],
-        },
-      }
-      : {}),
+    products: opts.minerProducts ?? [],
+    inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer' }] : [],
   }
   useBlockStore.setState({ blocks: [miner, consumer], activeBlockId: 'consumer', history: {} })
   useUiStore.setState({ rateUnit: 'min' })
@@ -427,67 +416,66 @@ describe('BlockGraph', () => {
     })
   })
 
-  describe('pull', () => {
+  describe('requests', () => {
     const chip = () => screen.getByTestId('graph-edge-label')
-    const toggle = () => screen.getByTestId('graph-edge-pull')
+    const ironOre: Product = { id: 'po', itemId: 'iron-ore' }
 
-    it('marks no pull on a push chip and toggles it on and off through the store', () => {
-      setup({ connected: true, minerMakes: true })
+    it('titles a request with what the source makes for the consumer', () => {
+      setup({ connected: true, minerProducts: [ironOre], flow: { kind: 'request', requested: 30 } })
       render(<BlockGraphButton />)
       open()
-      expect(chip().getAttribute('data-pull')).toBeNull()
-      expect(toggle().getAttribute('aria-label')).toBe('Pull Iron Ore from Miner to Consumer')
-      fireEvent.click(toggle())
-      expect(consumerIn().inputConnections[0].pull).toBe(true)
-      expect(chip().getAttribute('data-pull')).toBe('applied')
-      expect(toggle().getAttribute('aria-label')).toBe('Stop pulling Iron Ore from Miner to Consumer')
-      fireEvent.click(toggle())
-      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
+      expect(chip().getAttribute('data-kind')).toBe('request')
+      expect(chip().getAttribute('title')).toBe('Iron Ore: Miner → Consumer — requested: Miner makes 30.0/m for Consumer')
     })
 
-    it('titles an applied pull with what the source makes', () => {
-      setup({ connected: true, pull: true, flow: { demand: 30 } })
-      render(<BlockGraphButton />)
-      open()
-      expect(chip().getAttribute('data-pull')).toBe('applied')
-      expect(chip().getAttribute('title')).toBe('Iron Ore: Miner → Consumer — pulled: Miner makes 30.0/m for Consumer')
-    })
-
-    it('marks an ignored pull and says why', () => {
-      setup({ connected: true, pull: true, flow: { pullIgnored: 'no-producer' } })
-      render(<BlockGraphButton />)
-      open()
-      expect(chip().getAttribute('data-pull')).toBe('ignored')
-      expect(chip().getAttribute('title')).toMatch(/pull ignored: the source has no recipe/)
-    })
-
-    it('marks a repeated pull as ignored and says why', () => {
-      setup({ connected: true, pull: true, flow: { status: 'unused', pullIgnored: 'duplicate' } })
-      render(<BlockGraphButton />)
-      open()
-      expect(chip().getAttribute('data-pull')).toBe('ignored')
-      expect(chip().getAttribute('title')).toMatch(/pull ignored: an earlier connection/)
-    })
-
-    it('disables the toggle, with the reason, when the source cannot make the item', () => {
+    it('does not call a take requested', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
       open()
-      expect(toggle()).toBeDisabled()
-      expect(toggle().getAttribute('title')).toBe('Miner has no recipe that makes Iron Ore')
-      fireEvent.click(toggle())
-      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
+      expect(chip().getAttribute('data-kind')).toBe('take')
+      expect(chip().getAttribute('title')).not.toContain(' — requested')
+      expect(chip().getAttribute('data-request-ignored')).toBeNull()
     })
 
-    it('disables the toggle when pulling would close a cycle of pulls', () => {
-      setup({ connected: true, loop: { converged: true }, minerPulls: true, minerMakes: true })
+    it('marks an ignored request and says why', () => {
+      setup({ connected: true, minerProducts: [ironOre], flow: { requestIgnored: 'request-loop' } })
       render(<BlockGraphButton />)
       open()
-      const c1 = within(screen.getAllByTestId('graph-edge-label').find(l => l.dataset.connectionId === 'c1')!).getByTestId('graph-edge-pull')
-      expect(c1).toBeDisabled()
-      expect(c1.getAttribute('title')).toMatch(/already pulls from/)
-      fireEvent.click(c1)
-      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
+      expect(chip().getAttribute('data-request-ignored')).toBe('request-loop')
+      expect(chip().getAttribute('title')).toContain('taken as existing: requests form a cycle')
+    })
+
+    it('has no pull toggle', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.queryByTestId('graph-edge-pull')).toBeNull()
+    })
+
+    it('blocks a connect-mode item whose request would close a cycle of requests', () => {
+      setup({ connected: true, minerProducts: [ironOre] })
+      useSolverStore.setState({
+        lastResults: {
+          miner: { ...minerResult(), unsatisfied: [{ itemId: 'iron-plate', rate: 10 }] },
+          consumer: {
+            ...consumerResult(),
+            nodes: [{
+              recipeNodeId: 'c', inputRates: {}, outputRates: { 'iron-plate': 60 },
+              throughput: 60, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+            }],
+          },
+        },
+      })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
+      fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+      const item = screen.getByRole('menuitem', { name: /Iron Plate/ })
+      expect(item).toBeDisabled()
+      expect(item.getAttribute('data-kind')).toBe('request')
+      expect(item.getAttribute('title')).toBe('Consumer already requests from Miner, directly or through other blocks')
+      fireEvent.click(item)
+      expect(useBlockStore.getState().blocks.find(b => b.id === 'miner')!.inputConnections).toEqual([])
     })
   })
 
@@ -599,21 +587,14 @@ describe('BlockGraph', () => {
       expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).toBeNull()
     })
 
-    it('does not count ignored pulls on the summary chip', () => {
-      setup({ connected: true, extra: 11, pull: true, flow: { pullIgnored: 'pull-loop' } })
+    it('shows no pull mark or count on the summary chip', () => {
+      setup({ connected: true, extra: 11, minerProducts: [{ id: 'po', itemId: 'iron-ore' }], flow: { kind: 'request', requested: 30 } })
       render(<BlockGraphButton />)
       open()
       expect(summary().getAttribute('data-pull')).toBeNull()
-      expect(summary().getAttribute('title')).not.toContain('pulled')
       expect(summary().textContent).not.toContain('⇠')
-    })
-
-    it('counts applied pulls on the summary chip', () => {
-      setup({ connected: true, extra: 11, pull: true })
-      render(<BlockGraphButton />)
-      open()
-      expect(summary().getAttribute('data-pull')).toBe('true')
-      expect(summary().getAttribute('title')).toContain('1 pulled')
+      expect(summary().getAttribute('title')).not.toContain('pulled')
+      expect(summary().getAttribute('title')).not.toContain('requested')
     })
 
     it('sets a limit from the list and keeps it open', () => {
