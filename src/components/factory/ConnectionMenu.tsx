@@ -5,6 +5,7 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../store/connections'
+import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
 import { fmtRate } from './ItemTile'
 
@@ -75,7 +76,12 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   const locked = activeBlock?.noImportItems.includes(itemId) ?? false
   // A product shortfall cannot be fed by a connection (products never receive supply).
   const connectable = activeBlock ? !hasProduct(activeBlock, itemId) : false
-  const connected = activeBlock?.inputConnections.some(c => c.itemId === itemId) ?? false
+  // Only connections the solver honours count: a missing or own-block source is ignored.
+  const connected = activeBlock?.inputConnections.some(
+    c => c.itemId === itemId && c.fromBlockId !== activeBlock.id && blocks.some(b => b.id === c.fromBlockId),
+  ) ?? false
+  // Raw resources have no recipe, so a new block could never make them.
+  const makeable = connectable && !!gameData && isMadeByAnyRecipe(gameData, itemId)
   const first = activeBlock?.connectionsFirstItems.includes(itemId) ?? false
 
   const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
@@ -152,7 +158,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           </span>
         </button>
       ))}
-      {connectable && (
+      {makeable && (
         <button
           type="button"
           role="menuitem"

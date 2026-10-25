@@ -203,12 +203,6 @@ export function FactorySummary() {
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
 
-  // A product change asks first when it changes how other blocks' connections behave.
-  /** Add a block that makes the item and request it; the picker then adds its recipe to that block. */
-  function makeInNewBlock(itemId: string) {
-    if (addBlockForItem(itemId, gameData?.items[itemId]?.name ?? itemId)) setProducerPickerItemId(itemId)
-  }
-
   function requestAddProduct(itemId: string, extraRate?: number) {
     if (!activeBlock) return
     const product: Product = { id: crypto.randomUUID(), itemId, ...(extraRate !== undefined ? { extraRate } : {}) }
@@ -224,6 +218,11 @@ export function FactorySummary() {
     const effects = productChangeEffects(blocks, activeBlock.id, product.itemId, 'remove', allFlows)
     if (effects.length === 0) removeProduct(productId)
     else setPendingChange({ change: 'remove', productId, itemId: product.itemId, effects })
+  }
+
+  /** Add a block that makes the item and request it; the picker then adds its recipe to that block. */
+  function makeInNewBlock(itemId: string) {
+    if (addBlockForItem(itemId, gameData?.items[itemId]?.name ?? itemId)) setProducerPickerItemId(itemId)
   }
 
   function handleAddProduct(itemId: string, rate: number | undefined) {

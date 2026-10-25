@@ -633,7 +633,39 @@ describe('FactorySummary — connections', () => {
   describe('connection menu — make in a new block and connections first', () => {
     const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
 
+    /** A recipe that makes Iron Ore, so the item can be made in a new block. */
+    function withOreRecipe() {
+      const data = structuredClone(mockGameData)
+      data.recipes['ore-synth'] = {
+        id: 'ore-synth', name: 'Ore Synth', category: 'crafting', craftingTime: 1,
+        ingredients: [], products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+        madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-ore',
+      } as unknown as GameData['recipes'][string]
+      useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    }
+
+    it('hides Make in a new block for an item no recipe makes', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      expect(screen.queryByRole('menuitem', { name: 'Make in a new block…' })).not.toBeInTheDocument()
+      expect(screen.getByRole('menuitem', { name: 'Forbid imports' })).toBeInTheDocument()
+    })
+
+    it('hides Use connections first when the only connection is ignored', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer'
+          ? { ...b, inputConnections: [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'gone' }] }
+          : b)),
+      }))
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+    })
+
     it('offers Make in a new block before Forbid imports, and no connections-first entry without a connection', () => {
+      withOreRecipe()
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
@@ -643,6 +675,7 @@ describe('FactorySummary — connections', () => {
     })
 
     it('Make in a new block creates the block, requests the item and opens the recipe picker', async () => {
+      withOreRecipe()
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))

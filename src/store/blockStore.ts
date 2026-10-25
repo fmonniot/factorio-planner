@@ -201,6 +201,24 @@ function toggled(list: string[], itemId: string): string[] {
   return list.includes(itemId) ? list.filter(i => i !== itemId) : [...list, itemId]
 }
 
+/** Toggle `itemId` in one of the block's item lists; the toggle is its own inverse. */
+function toggleItemCommand(field: 'noImportItems' | 'connectionsFirstItems', itemId: string): Command {
+  const toggle = (b: Block): Block => ({ ...b, [field]: toggled(b[field], itemId) })
+  return { apply: toggle, undo: toggle }
+}
+
+/** Command adding a connection for `itemId` from `fromBlockId`; undo removes it, redo is checked against the then-current blocks. */
+function addConnectionCommand(itemId: string, fromBlockId: string): Command {
+  // The id is fixed here so redo restores the same connection.
+  const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
+  return {
+    apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
+    undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
+    // Redo after other blocks changed may no longer be legal.
+    canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
+  }
+}
+
 /** Set or clear a connection's limit; clearing deletes the key so undo restores equality. */
 function withMaxRate(block: Block, connectionId: string, maxRate: number | undefined): Block {
   return {
@@ -562,20 +580,12 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   toggleNoImportItem: (itemId) =>
     set(state => {
-      const cmd: Command = {
-        apply: b => ({ ...b, noImportItems: toggled(b.noImportItems, itemId) }),
-        undo: b => ({ ...b, noImportItems: toggled(b.noImportItems, itemId) }),
-      }
-      return applyCommand(state, cmd)
+      return applyCommand(state, toggleItemCommand('noImportItems', itemId))
     }),
 
   toggleConnectionsFirstItem: (itemId) =>
     set(state => {
-      const cmd: Command = {
-        apply: b => ({ ...b, connectionsFirstItems: toggled(b.connectionsFirstItems, itemId) }),
-        undo: b => ({ ...b, connectionsFirstItems: toggled(b.connectionsFirstItems, itemId) }),
-      }
-      return applyCommand(state, cmd)
+      return applyCommand(state, toggleItemCommand('connectionsFirstItems', itemId))
     }),
 
   addBlockForItem: (itemId, name, consumerId) => {
@@ -590,14 +600,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       }
       const blocks = [...state.blocks, block]
       if (!canConnect(blocks, consumer, itemId, block.id)) return state
-      // The id is fixed here so redo restores the same connection.
-      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId: block.id }
-      const cmd: Command = {
-        apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
-        undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
-        // Redo after other blocks changed may no longer be legal.
-        canApply: (all, b) => canConnect(all, b, itemId, block.id),
-      }
+      const cmd = addConnectionCommand(itemId, block.id)
       newId = block.id
       // Block creation is not undoable (like addBlock); only the request is in the consumer's history.
       return { ...applyCommand({ ...state, blocks }, cmd, targetId), activeBlockId: block.id }
@@ -611,14 +614,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
-      // The id is fixed here so redo restores the same connection.
-      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
-      const cmd: Command = {
-        apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
-        undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
-        // Redo after other blocks changed may no longer be legal.
-        canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
-      }
+      const cmd = addConnectionCommand(itemId, fromBlockId)
       return applyCommand(state, cmd, targetId)
     }),
 
