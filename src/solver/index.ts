@@ -110,6 +110,24 @@ export function netBalance(
   return net
 }
 
+/** Gross flow per item: the larger of what the nodes produce and what they consume. */
+export function grossFlow(
+  nodes: { inputRates: Record<string, number>; outputRates: Record<string, number> }[],
+): Map<string, number> {
+  const produced = new Map<string, number>()
+  const consumed = new Map<string, number>()
+  for (const node of nodes) {
+    for (const [id, rate] of Object.entries(node.outputRates))
+      produced.set(id, (produced.get(id) ?? 0) + rate)
+    for (const [id, rate] of Object.entries(node.inputRates))
+      consumed.set(id, (consumed.get(id) ?? 0) + rate)
+  }
+  const gross = new Map<string, number>()
+  for (const id of new Set([...produced.keys(), ...consumed.keys()]))
+    gross.set(id, Math.max(produced.get(id) ?? 0, consumed.get(id) ?? 0))
+  return gross
+}
+
 export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
   return solveBlock(plan, gameData).result
 }

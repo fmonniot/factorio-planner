@@ -17,10 +17,10 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { SummaryPane } from './SummaryPane'
 import type { StripAction } from './SummaryDetailStrip'
-import { ingredientRows, byproductRows } from './summaryRows'
+import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
-import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
+import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
 // ProductRates — a product's extra → actual in the detail strip, with inline edit for the extra
@@ -142,6 +142,7 @@ export function FactorySummary() {
   const productItemIds = new Set(products.map(p => p.itemId))
 
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
+  const gross = solverResult ? grossFlow(solverResult.nodes) : new Map<string, number>()
 
   const activeBlockId = activeBlock?.id
   const inputFlows = useMemo(
@@ -168,11 +169,12 @@ export function FactorySummary() {
     return byItem
   }, [allFlows, activeBlockId])
 
-  // Byproducts: net positive balance of items that are not products, minus what other blocks take.
+  // Byproducts: net positive balance of items that are not products, minus what other blocks take;
+  // a leftover that is only LP rounding noise (see isLeftover) gets no tile.
   const byproductItems = [...netBalance]
     .filter(([id]) => !productItemIds.has(id))
     .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
-    .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
+    .filter(({ itemId, ratePerMin }) => isLeftover(ratePerMin, gross.get(itemId) ?? 0))
   const exportedByproducts = [...exportedPerMin.keys()].filter(id => !productItemIds.has(id))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
