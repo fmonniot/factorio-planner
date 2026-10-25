@@ -345,10 +345,16 @@ export const BlockConnectionSchema = z
     fromBlockId: z.string(),
     /** Most this consumer takes over this connection, items/min; absent = no limit. */
     maxRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
+    /**
+     * The consumer's demand for itemId drives the source's goal for that item.
+     * Absent = push: the consumer takes whatever the source has left over.
+     */
+    pull: z.boolean().optional(),
   })
   // A saved 0 parses to a present-but-undefined key; keep the key truly absent.
   .transform(c => {
     if (c.maxRate === undefined) delete c.maxRate
+    if (!c.pull) delete c.pull
     return c
   })
 

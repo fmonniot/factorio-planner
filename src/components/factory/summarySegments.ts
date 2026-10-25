@@ -48,6 +48,8 @@ export interface Segment {
   capped?: true
   /** items/min limit of the connection; set with `capped` */
   maxRate?: number
+  /** source only: the connection pulls, so the consumer's demand drives the source */
+  pulled?: true
 }
 
 /** Marks drawn across the whole bar instead of taking a share of it. */
@@ -87,6 +89,8 @@ export interface SlotModel {
   goal?: GoalInfo
   /** ingredients only */
   locked?: boolean
+  /** products only: an item no goal names, made because other blocks pull it; read-only. `rate` is what they pull. */
+  pulledOnly?: true
 }
 
 export interface OverviewRow {
@@ -170,6 +174,28 @@ export function productSlot(
   }
 }
 
+/**
+ * An item this block makes only because other blocks pull it. `pulledPerMin` is
+ * what they ask for; `exports` are this block's deliveries of the item, each
+ * above FLOW_TOLERANCE.
+ */
+export function pulledSlot(itemId: string, pulledPerMin: number, exports: ConnectionFlow[]): SlotModel {
+  const segments = exportSegments(exports)
+  const kept = pulledPerMin - sum(segments)
+  if (kept > FLOW_TOLERANCE) segments.push({ key: 'kept', kind: 'kept', amount: kept })
+  return {
+    id: `pull:${itemId}`,
+    itemId,
+    rate: pulledPerMin,
+    scale: sum(segments),
+    segments,
+    overlays: [],
+    status: null,
+    dimmed: false,
+    pulledOnly: true,
+  }
+}
+
 export function byproductSlot(row: ByproductRow, exports: ConnectionFlow[]): SlotModel {
   const segments = exportSegments(exports)
   if (row.leftPerMin !== undefined) segments.push({ key: 'left', kind: 'left', amount: row.leftPerMin })
@@ -207,6 +233,7 @@ export function ingredientSlot(
           blockId: c.fromBlockId,
           connectionId: c.id,
           ...(flow!.loop ? { loop: true as const } : {}),
+          ...(flow!.demand !== undefined ? { pulled: true as const } : {}),
           available: flow!.available,
           ...(status === 'limited' ? { limited: true } : {}),
           ...(cappingLimit(status === 'limited', flow!.capped, c.maxRate) !== undefined
@@ -325,13 +352,14 @@ export function segmentTitle(
       return `Sends ${itemName} to ${blockName ?? GONE}${note} — click to open`
     case 'source': {
       const seg = e as Segment
+      const tail = `${note}${seg.pulled ? ' — pulled' : ''}`
       const cap = cappingLimit(seg.limited, seg.capped, seg.maxRate)
       if (cap !== undefined) {
-        return `${cappedTitle(`${fmt(cap)}${unit}`)}${note} — click to open, right-click to remove`
+        return `${cappedTitle(`${fmt(cap)}${unit}`)}${tail} — click to open, right-click to remove`
       }
       return seg.limited
-        ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit}${note} — click to open, right-click to remove`
-        : `${itemName} from ${blockName ?? GONE}${note} — click to open, right-click to remove`
+        ? `Limited: ${blockName ?? GONE} only offers ${fmt(available ?? 0)}${unit}${tail} — click to open, right-click to remove`
+        : `${itemName} from ${blockName ?? GONE}${tail} — click to open, right-click to remove`
     }
     case 'unused':
       return 'Not used: this block makes or needs none from outside — right-click to remove'

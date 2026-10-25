@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
-import { canConnect, offeredRate, sourceCandidates, connectableItems, isGoalItem } from './connections'
+import { canConnect, canPull, offeredRate, pullCandidates, sourceCandidates, connectableItems, isGoalItem } from './connections'
 import { makeEmptyBlock } from './blockStore'
-import type { Block, ConnectionFlow, SolverResult } from '../data/types'
+import type { Block, ConnectionFlow, GameData, SolverResult } from '../data/types'
 
 function block(id: string, opts: { goals?: string[]; from?: [string, string][] } = {}): Block {
   return {
@@ -143,5 +143,58 @@ describe('connectableItems', () => {
 
   it('is empty when the target has no result', () => {
     expect(connectableItems([block('S'), block('T')], 'S', 'T', { S: result({ plate: 1 }) }, [])).toEqual([])
+  })
+})
+
+describe('pullCandidates', () => {
+  const recipe = (id: string, itemId: string) => ({ id, products: [{ itemId, type: 'item', amount: 1 }], ingredients: [] })
+  const gameData = { recipes: { makePlate: recipe('makePlate', 'plate'), makeGear: recipe('makeGear', 'gear') } } as unknown as GameData
+  const maker = (id: string, recipeId: string, opts: Parameters<typeof block>[1] = {}, policy: 'discard' | undefined = undefined): Block => {
+    const b = block(id, opts)
+    return {
+      ...b,
+      rootPlan: {
+        ...b.rootPlan,
+        nodes: [{ kind: 'game-recipe', id: `n-${id}`, recipeId, modules: [], byproductPolicy: policy ? { plate: policy } : {} }],
+      },
+    }
+  }
+  const ids = (blocks: Block[], targetId = 'T') => pullCandidates(blocks, targetId, 'plate', gameData).map(b => b.id)
+
+  it('lists producers of the item even when they offer nothing yet', () => {
+    expect(ids([block('T'), maker('S', 'makePlate')])).toEqual(['S'])
+  })
+
+  it('excludes the target, non-producers, receivers of the item and discarders', () => {
+    const blocks = [
+      maker('T', 'makePlate'),
+      maker('G', 'makeGear'),
+      maker('R', 'makePlate', { from: [['plate', 'Z']] }),
+      maker('Z', 'makePlate'),
+      maker('D', 'makePlate', {}, 'discard'),
+    ]
+    expect(ids(blocks)).toEqual(['Z'])
+  })
+
+  it('excludes a block that would close a cycle of pulls and a goal item of the target', () => {
+    const t = { ...maker('T', 'makeGear'), inputConnections: [] }
+    const s = { ...maker('S', 'makePlate'), inputConnections: [{ id: 'c', itemId: 'gear', fromBlockId: 'T', pull: true as const }] }
+    expect(ids([t, s])).toEqual([])
+    expect(ids([block('T', { goals: ['plate'] }), maker('S', 'makePlate')])).toEqual([])
+  })
+
+  it('keeps plan order and ignores an unknown target', () => {
+    expect(ids([maker('B', 'makePlate'), block('T'), maker('A', 'makePlate')])).toEqual(['B', 'A'])
+    expect(ids([maker('A', 'makePlate')], 'ghost')).toEqual([])
+  })
+})
+
+describe('canPull', () => {
+  it('is false when the source already pulls from the target', () => {
+    const t = block('T', { from: [['plate', 'S']] })
+    const s = { ...block('S', { from: [['gear', 'T']] }) }
+    s.inputConnections = s.inputConnections.map(c => ({ ...c, pull: true as const }))
+    expect(canPull([t, s], t, t.inputConnections[0])).toBe(false)
+    expect(canPull([t, block('S')], t, t.inputConnections[0])).toBe(true)
   })
 })

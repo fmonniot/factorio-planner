@@ -487,6 +487,8 @@ interface BlockConnection {
   id: string           // uuid
   itemId: string
   fromBlockId: string  // block whose net output of itemId supplies this block
+  maxRate?: number     // items/min, > 0: the most the consumer takes; absent = no limit
+  pull?: boolean       // true (the only stored value): the consumer's demand drives the source's goal for itemId; absent = push
 }
 
 interface ProductionGoal {
@@ -525,7 +527,11 @@ connections and reports them as `missing-source` / `self`. Plans saved before
 connections existed have no `inputConnections` field and load with `[]`. A connection may carry
 an optional `maxRate` (items/min, > 0): the most the consumer takes over it. Absent or `0` means
 no limit (`0` loads as an absent key; unlike `pinnedRate`, whose `0` loads as a present `undefined`); clearing a limit deletes the key; a duplicated
-block or plan copies it. How the
+block or plan copies it. `pull` works the same way (`false` or absent loads as an absent key;
+turning it off deletes the key): a pull connection makes the source produce what the consumer needs
+(see [solver.md](solver.md#pull-connections)). The store refuses to create a pull that would close a cycle of
+pulls (a source that already pulls, directly or through other blocks, from the consumer), when adding
+a connection, on redo of an add and on undo of a switch to push; it does not restrict pushes. How the
 solver uses connections is in [solver.md](solver.md#connections-between-blocks).
 
 ### SubPlan
@@ -683,7 +689,11 @@ interface ConnectionFlow {
   rate: number        // items/min actually delivered
   status: ConnectionFlowStatus
   loop?: true         // both ends are members of one loop
+  demand?: number     // pull applied: items/min the consumer asked the source to make (may be 0)
+  pullIgnored?: PullIgnoredReason  // connection is marked pull but behaves as a push
 }
+
+type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives'
 
 type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 ```
@@ -692,7 +702,8 @@ type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'se
 supply of the item; `limited` means the consumer takes everything the connection
 allows (the source's offer or its `maxRate`; `capped` tells which) and still imports
 the item. `missing-source` and `self` flows have `rate` and
-`available` 0.
+`available` 0. `demand` is present iff the pull is applied; `pullIgnored` iff `pull` is set but not
+applied, for connections with a source other than the block itself that are not a repeated pair.
 
 What triggers each warning is described in [solver.md](solver.md); how the UI
 presents them is in [ui.md](ui.md).

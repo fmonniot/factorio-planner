@@ -24,7 +24,10 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Planning features
 
-- [ ] **Pull connections.** Let a consumer's demand drive the source block's goals (today connections are push only: the source's own goals set what it can offer).
+- [ ] **Pull loops.** Pulls that form a cycle (only possible from imported JSON; the store refuses to create one) are ignored today (`pullIgnored: 'pull-loop'`). Solve them in demand rounds, like loops of blocks, with a convergence check.
+- [ ] **Pull from the block graph's connect mode.** Connect mode only lists targets that import something the source still offers, so a goal-less "smelter" block can only be pulled from through the Ingredients menu or the edge toggle. Offer pulling there too, for sources with zero offer.
+- [ ] **Subtract push supply from pull demand.** A consumer with both a push and a pull connection for one item asks the puller for its whole demand, because the push offer is unknown when demand is computed. Subtract the push supply (a second pass over the demand) so the source does not overproduce.
+- [ ] **Soften a source's shortfall caused only by pulled demand.** When a source cannot meet pulled demand it reports a goal shortfall for the item in its Ingredients pane, as if the user had set the goal. Mark or hide the part that only comes from pulls.
 - [ ] **Seablock loop regression test.** Add a real-data multi-block loop (Metals → Sciences → Ores → Metals, with `sct-waste-ironcopper`) to `src/solver/index.integration.test.ts`, so loop solving is checked against the bundled data sets and not only the synthetic fixtures in `src/solver/index.test.ts`.
 - [ ] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority.
 - [ ] **Limit a connection from the ingredient pane.** When an item is focused, right-click its connection bar graph and choose **Limit rate** (next to **Delete**) to cap that connection's rate without going to the block graph.

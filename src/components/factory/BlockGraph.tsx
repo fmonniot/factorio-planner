@@ -4,7 +4,7 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows, selectLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { closesLoop } from '../../solver/blockGraph'
+import { closesLoop, closesPullLoop } from '../../solver/blockGraph'
 import { connectableItems } from '../../store/connections'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, NODE_W, NODE_H } from '../../utils/blockGraphLayout'
@@ -205,9 +205,16 @@ interface EdgeLabelsProps {
   items: GameData['items']
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
+  onTogglePull: (connectionId: string, toBlockId: string, pull: boolean) => void
 }
 
-function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: EdgeLabelsProps) {
+const PULL_IGNORED_TITLE = {
+  'pull-loop': 'pulls form a cycle, so this behaves as a push',
+  'no-producer': 'the source has no recipe that makes this item, so this behaves as a push',
+  'source-receives': 'the source receives this item itself, so this behaves as a push',
+} as const
+
+function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
@@ -237,6 +244,14 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
         } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
         else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
         if (flow?.loop) title += ' — part of a loop'
+        if (flow?.demand !== undefined) {
+          title += ` — pulled: ${sourceName} makes ${fmt(flow.demand)}${unit} for ${targetName}`
+        } else if (flow?.pullIgnored) {
+          title += ` — pull ignored: ${PULL_IGNORED_TITLE[flow.pullIgnored]}`
+        }
+        const pullState = !connection.pull ? undefined : flow?.pullIgnored ? 'ignored' : 'applied'
+        // Pulling is refused when the source already pulls from the target, directly or through other blocks.
+        const pullBlocked = !connection.pull && closesPullLoop(blocks, edge.from, edge.to)
 
         return (
           <span
@@ -245,6 +260,7 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
             data-connection-id={id}
             data-status={status}
             data-loop={flow?.loop ? 'true' : undefined}
+            data-pull={pullState}
             title={title}
             style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
             className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
@@ -284,6 +300,22 @@ function EdgeLabels({ edge, blocks, flowsById, items, onRemove, onSetLimit }: Ed
                 ≤{connection.maxRate !== undefined && ` ${fmt(connection.maxRate)}`}
               </button>
             )}
+            <button
+              type="button"
+              data-testid="graph-edge-pull"
+              aria-label={`${connection.pull ? 'Stop pulling' : 'Pull'} ${itemName} from ${sourceName} to ${targetName}`}
+              aria-pressed={!!connection.pull}
+              title={pullBlocked
+                ? `${sourceName} already pulls from ${targetName}, directly or through other blocks`
+                : connection.pull
+                  ? `Stop pulling: ${targetName} takes what ${sourceName} has left over`
+                  : `Pull: what ${targetName} needs makes ${sourceName} produce`}
+              disabled={pullBlocked}
+              onClick={() => onTogglePull(id, edge.to, !connection.pull)}
+              className={`text-[10px] leading-none ${connection.pull ? 'text-sky-300' : 'opacity-60 hover:opacity-100'} disabled:opacity-30 disabled:hover:opacity-30`}
+            >
+              ⇠
+            </button>
             <button
               type="button"
               data-testid="graph-edge-remove"
@@ -328,6 +360,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
+  const setConnectionPull = useBlockStore(s => s.setConnectionPull)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
@@ -469,6 +502,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 items={gameData.items}
                 onRemove={(id, to) => removeInputConnection(id, to)}
                 onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
+                onTogglePull={(id, to, pull) => setConnectionPull(id, pull, to)}
               />
             ))}
             {blocks.map(b => {

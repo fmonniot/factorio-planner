@@ -8,13 +8,14 @@ import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ProductionGoal } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { isGoalItem } from '../../store/connections'
+import { canPull, isGoalItem } from '../../store/connections'
 import { RowActionsMenu } from './RowActionsMenu'
+import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { SummaryPane } from './SummaryPane'
 import type { StripAction } from './SummaryDetailStrip'
 import { ingredientRows, byproductRows } from './summaryRows'
-import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
+import { productSlot, pulledSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { GoalInfo } from './summarySegments'
 import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
@@ -102,6 +103,7 @@ export function FactorySummary() {
   const blocks = useBlockStore(s => s.blocks)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
+  const setConnectionPull = useBlockStore(s => s.setConnectionPull)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
@@ -129,12 +131,23 @@ export function FactorySummary() {
   const exportedPerMin = new Map<string, number>()
   for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
 
+  // What other blocks pull from this one, by item: made on demand, so neither a goal nor a byproduct.
+  const pulledPerMin = new Map<string, number>()
+  for (const f of allFlows) {
+    if (f.fromBlockId !== activeBlockId || !f.demand) continue
+    pulledPerMin.set(f.itemId, (pulledPerMin.get(f.itemId) ?? 0) + f.demand)
+  }
+  const pulledOnlyIds = [...pulledPerMin]
+    .filter(([id, rate]) => !goalIds.has(id) && rate > FLOW_TOLERANCE)
+    .map(([id]) => id)
+  const isPulledOnly = (id: string) => pulledOnlyIds.includes(id)
+
   // Byproducts: net positive balance not in goals, minus what other blocks take
   const byproductItems = [...netBalance]
-    .filter(([id]) => !goalIds.has(id))
+    .filter(([id]) => !goalIds.has(id) && !isPulledOnly(id))
     .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
     .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
-  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !goalIds.has(id))
+  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !goalIds.has(id) && !isPulledOnly(id))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
@@ -144,13 +157,17 @@ export function FactorySummary() {
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
   const blockIds = new Set(blocks.map(b => b.id))
-  const productSlots = goals.map(g => productSlot(
+  const goalSlots = goals.map(g => productSlot(
     g,
     // No node makes the item: the goal is fully short, not unknown.
     solverResult ? (netBalance.get(g.itemId) ?? 0) : undefined,
     exportsOf(g.itemId),
     rateUnit,
   ))
+  const productSlots = [
+    ...goalSlots,
+    ...pulledOnlyIds.map(id => pulledSlot(id, pulledPerMin.get(id)!, exportsOf(id))),
+  ]
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
   // A goal shortfall can neither receive supply nor be forbidden imports (goals have no slack).
@@ -194,10 +211,20 @@ export function FactorySummary() {
           rateUnit={rateUnit}
           editable
           onSlotContextMenu={(slot, e) => {
+            // A pulled-only item has no goal to edit or remove.
+            if (slot.pulledOnly) return
             e.preventDefault()
             setGoalMenu({ goalId: slot.goal!.id, x: e.clientX, y: e.clientY })
           }}
           renderRates={(slot, edit) => {
+            if (slot.pulledOnly) {
+              return (
+                <span className="text-xs text-gray-300">
+                  pulled <span className="font-mono tabular-nums">{fmt(slot.rate)}</span>
+                  <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+                </span>
+              )
+            }
             const goal = goals.find(g => g.id === slot.goal!.id)
             return goal && (
               <GoalRates
@@ -211,10 +238,12 @@ export function FactorySummary() {
               />
             )
           }}
-          actionsFor={slot => [
-            { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
-            { label: 'Remove goal', danger: true, onSelect: () => removeGoal(slot.goal!.id) },
-          ]}
+          actionsFor={slot => slot.pulledOnly
+            ? [{ label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) }]
+            : [
+              { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
+              { label: 'Remove goal', danger: true, onSelect: () => removeGoal(slot.goal!.id) },
+            ]}
           onOpenBlock={setActiveBlock}
         />
 
@@ -312,18 +341,32 @@ export function FactorySummary() {
         />
       )}
 
-      {connectionChipMenu && (
-        <RowActionsMenu
-          x={connectionChipMenu.x}
-          y={connectionChipMenu.y}
-          actions={[{
-            label: 'Remove connection',
-            danger: true,
-            onSelect: () => removeInputConnection(connectionChipMenu.connectionId),
-          }]}
-          onClose={() => setConnectionChipMenu(null)}
-        />
-      )}
+      {connectionChipMenu && (() => {
+        const connection = connections.find(c => c.id === connectionChipMenu.connectionId)
+        const actions: RowAction[] = []
+        if (activeBlock && connection) {
+          actions.push(connection.pull
+            ? { label: 'Stop pulling', onSelect: () => setConnectionPull(connection.id, false) }
+            : {
+              label: 'Pull from source',
+              disabled: !canPull(blocks, activeBlock, connection),
+              onSelect: () => setConnectionPull(connection.id, true),
+            })
+        }
+        actions.push({
+          label: 'Remove connection',
+          danger: true,
+          onSelect: () => removeInputConnection(connectionChipMenu.connectionId),
+        })
+        return (
+          <RowActionsMenu
+            x={connectionChipMenu.x}
+            y={connectionChipMenu.y}
+            actions={actions}
+            onClose={() => setConnectionChipMenu(null)}
+          />
+        )
+      })()}
 
       {byproductMenu && (
         <RowActionsMenu

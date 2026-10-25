@@ -1,6 +1,6 @@
-import { closesLoop } from '../solver/blockGraph'
-import { netBalance, FLOW_TOLERANCE } from '../solver/index'
-import type { Block, ConnectionFlow, SolverResult } from '../data/types'
+import { closesLoop, closesPullLoop } from '../solver/blockGraph'
+import { netBalance, producesItem, FLOW_TOLERANCE } from '../solver/index'
+import type { Block, BlockConnection, ConnectionFlow, GameData, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Connection rules shared by the store, the Ingredients menu and the block graph
@@ -61,6 +61,28 @@ export function sourceCandidates(
     .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
     .filter(({ offered }) => offered > FLOW_TOLERANCE)
     .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
+}
+
+/**
+ * Blocks `targetId` can pull `itemId` from, in plan order: connectable, able to
+ * make the item, not receiving it themselves, and not closing a cycle of pulls.
+ * What the block offers right now does not matter; the pull is what makes it produce.
+ */
+export function pullCandidates(blocks: Block[], targetId: string, itemId: string, gameData: GameData): Block[] {
+  const target = blocks.find(b => b.id === targetId)
+  if (!target) return []
+  return blocks.filter(
+    b =>
+      canConnect(blocks, target, itemId, b.id) &&
+      producesItem(b, itemId, gameData) &&
+      !b.inputConnections.some(c => c.itemId === itemId && blocks.some(o => o.id === c.fromBlockId && o.id !== b.id)) &&
+      !closesPullLoop(blocks, b.id, targetId),
+  )
+}
+
+/** Can `connection` of `target` be switched to pull without closing a cycle of pulls? */
+export function canPull(blocks: Block[], target: Block, connection: BlockConnection): boolean {
+  return !closesPullLoop(blocks, connection.fromBlockId, target.id)
 }
 
 export interface ItemCandidate {

@@ -44,6 +44,10 @@ const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
 function setup(opts: {
   connected?: boolean
   maxRate?: number
+  /** The connection pulls. */
+  pull?: boolean
+  /** With `loop`: Miner pulls iron plate from Consumer (instead of a push). */
+  minerPulls?: boolean
   flow?: Partial<ConnectionFlow>
   /** Miner also receives iron plate from Consumer, so the two supply each other. */
   loop?: { converged: boolean; rounds?: number }
@@ -52,12 +56,12 @@ function setup(opts: {
     ...makeEmptyBlock('Consumer'), id: 'consumer',
     goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
     inputConnections: opts.connected
-      ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }) }]
+      ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }), ...(opts.pull ? { pull: true as const } : {}) }]
       : [],
   }
   const miner: Block = {
     ...makeEmptyBlock('Miner'), id: 'miner',
-    inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer' }] : [],
+    inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer', ...(opts.minerPulls ? { pull: true as const } : {}) }] : [],
   }
   useBlockStore.setState({ blocks: [miner, consumer], activeBlockId: 'consumer', history: {} })
   useUiStore.setState({ rateUnit: 'min' })
@@ -386,6 +390,52 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       expect(screen.getByTestId('graph-edge-label').getAttribute('title')).toMatch(/^Limited by this connection's limit/)
+    })
+  })
+
+  describe('pull', () => {
+    const chip = () => screen.getByTestId('graph-edge-label')
+    const toggle = () => screen.getByTestId('graph-edge-pull')
+
+    it('marks no pull on a push chip and toggles it on and off through the store', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(chip().getAttribute('data-pull')).toBeNull()
+      expect(toggle().getAttribute('aria-label')).toBe('Pull Iron Ore from Miner to Consumer')
+      fireEvent.click(toggle())
+      expect(consumerIn().inputConnections[0].pull).toBe(true)
+      expect(chip().getAttribute('data-pull')).toBe('applied')
+      expect(toggle().getAttribute('aria-label')).toBe('Stop pulling Iron Ore from Miner to Consumer')
+      fireEvent.click(toggle())
+      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
+    })
+
+    it('titles an applied pull with what the source makes', () => {
+      setup({ connected: true, pull: true, flow: { demand: 30 } })
+      render(<BlockGraphButton />)
+      open()
+      expect(chip().getAttribute('data-pull')).toBe('applied')
+      expect(chip().getAttribute('title')).toBe('Iron Ore: Miner → Consumer — pulled: Miner makes 30.0/m for Consumer')
+    })
+
+    it('marks an ignored pull and says why', () => {
+      setup({ connected: true, pull: true, flow: { pullIgnored: 'no-producer' } })
+      render(<BlockGraphButton />)
+      open()
+      expect(chip().getAttribute('data-pull')).toBe('ignored')
+      expect(chip().getAttribute('title')).toMatch(/pull ignored: the source has no recipe/)
+    })
+
+    it('disables the toggle when pulling would close a cycle of pulls', () => {
+      setup({ connected: true, loop: { converged: true }, minerPulls: true })
+      render(<BlockGraphButton />)
+      open()
+      const c1 = within(screen.getAllByTestId('graph-edge-label').find(l => l.dataset.connectionId === 'c1')!).getByTestId('graph-edge-pull')
+      expect(c1).toBeDisabled()
+      expect(c1.getAttribute('title')).toMatch(/already pulls from/)
+      fireEvent.click(c1)
+      expect('pull' in consumerIn().inputConnections[0]).toBe(false)
     })
   })
 

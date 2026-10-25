@@ -720,6 +720,102 @@ describe('FactorySummary — connections', () => {
   })
 })
 
+describe('FactorySummary — pull', () => {
+  const makerResult = (): SolverResult => ({
+    nodes: [{
+      recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-ore': 30, 'iron-plate': 60 },
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    }],
+    unsatisfied: [],
+    warnings: [],
+  })
+  const pulledFlow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
+    connectionId: 'c1', fromBlockId: 'miner', toBlockId: 'consumer', itemId: 'iron-ore',
+    available: 30, capped: false, rate: 30, status: 'ok', demand: 30, ...over,
+  })
+
+  function setupPull(opts: { activeId: 'consumer' | 'miner'; pull?: boolean; flows?: ConnectionFlow[] }) {
+    const consumer: Block = {
+      ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal],
+      inputConnections: [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.pull ? { pull: true as const } : {}) }],
+    }
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', goals: [ironGoal] }
+    useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: opts.activeId, history: {} })
+    useSolverStore.setState({
+      lastResult: makerResult(),
+      lastResults: { consumer: { nodes: [], unsatisfied: [], warnings: [] }, miner: makerResult() },
+      flows: opts.flows ?? [pulledFlow()],
+      _setStatus: () => {},
+    })
+  }
+
+  it('shows an item made only on demand as a read-only product, not as a byproduct', () => {
+    setupPull({ activeId: 'miner', pull: true })
+    render(<FactorySummary />)
+    expect(pane('Products').textContent).toContain('· 2')
+    expect(pane('Byproducts').textContent).toContain('· 0')
+    const ore = slot('Products', 'Iron Ore')
+    fireEvent.contextMenu(ore)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    select('Products', 'Iron Ore')
+    expect(strip('Products').textContent).toContain('pulled')
+    expect(within(strip('Products')).getAllByRole('button').map(b => b.textContent)).not.toContain('Remove goal')
+    expect(within(strip('Products')).getByRole('button', { name: 'Find recipe' })).toBeInTheDocument()
+    expect(segments('Products', 'export')).toHaveLength(1)
+  })
+
+  it('marks the source segment of a pulled connection in the consumer', () => {
+    setupPull({ activeId: 'consumer', pull: true })
+    useSolverStore.setState({ lastResult: { nodes: [], unsatisfied: [], warnings: [] } })
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    expect(segments('Ingredients', 'source')[0].getAttribute('title')).toMatch(/— pulled/)
+  })
+
+  it('switches a connection between pull and push from its chip menu', () => {
+    setupPull({ activeId: 'consumer', flows: [{ ...pulledFlow(), demand: undefined }] })
+    useSolverStore.setState({ lastResult: { nodes: [], unsatisfied: [], warnings: [] } })
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    fireEvent.contextMenu(segments('Ingredients', 'source')[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Pull from source' }))
+    expect(useBlockStore.getState().blocks[0].inputConnections[0].pull).toBe(true)
+    fireEvent.contextMenu(segments('Ingredients', 'source')[0])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Stop pulling' }))
+    expect('pull' in useBlockStore.getState().blocks[0].inputConnections[0]).toBe(false)
+  })
+
+  it('offers a pull menu section for a block that can make the item', () => {
+    const mine = {
+      id: 'mine', name: 'mine', category: 'crafting', craftingTime: 1, ingredients: [],
+      products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }], madeIn: [],
+    }
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { ...mockGameData, recipes: { mine } } as unknown as GameData, sourceId: 'test' },
+    })
+    const consumer: Block = { ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal] }
+    const miner: Block = {
+      ...makeEmptyBlock('Miner'), id: 'miner',
+      rootPlan: {
+        ...makeEmptyBlock('Miner').rootPlan,
+        nodes: [{ kind: 'game-recipe', id: 'n', recipeId: 'mine', modules: [], byproductPolicy: {} }],
+      },
+    }
+    useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: 'consumer', history: {} })
+    useSolverStore.setState({
+      lastResult: { nodes: [], unsatisfied: [{ itemId: 'iron-ore', rate: 60 }], warnings: [] },
+      lastResults: {}, flows: [], _setStatus: () => {},
+    })
+    render(<FactorySummary />)
+    fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+    expect(screen.getByText('Pull Iron Ore from')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Miner' }))
+    expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([
+      { id: expect.any(String), itemId: 'iron-ore', fromBlockId: 'miner', pull: true },
+    ])
+  })
+})
+
 describe('FactorySummary — short goal', () => {
   it('marks a short goal with an amber ▼ and the shortfall in the title', () => {
     render(<FactorySummary />)

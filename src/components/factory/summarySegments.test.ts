@@ -8,6 +8,7 @@ import {
   segmentLabel,
   segmentTitle,
   isShortfall,
+  pulledSlot,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
 import type { BlockConnection, ConnectionFlow, ProductionGoal } from '../../data/types'
@@ -314,5 +315,31 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentTitle(ov('self'), ctx)).toMatch(/cannot supply itself/)
     expect(segmentTitle(seg('kept'), ctx)).toBe('Kept')
     expect(segmentTitle(ov('locked'), ctx)).toBe('Imports forbidden')
+  })
+})
+
+describe('pulled flows', () => {
+  it('marks the source segment of a pulled connection and words its title', () => {
+    const row = ingredientRow({ connections: [conn('c1', 'A')] })
+    const pulled = ingredientSlot(row, new Map([['c1', flow({ demand: 30 })]]), new Set(['A']))
+    expect(pulled.segments[0].pulled).toBe(true)
+    const push = ingredientSlot(row, new Map([['c1', flow()]]), new Set(['A']))
+    expect('pulled' in push.segments[0]).toBe(false)
+    const ctx = { itemName: 'Iron Plate', blockName: 'Miner', fmt: (n: number) => String(n), unit: '/m' }
+    expect(segmentTitle(pulled.segments[0], ctx)).toBe('Iron Plate from Miner — pulled — click to open, right-click to remove')
+    expect(segmentTitle(push.segments[0], ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
+  })
+})
+
+describe('pulledSlot', () => {
+  it('is a read-only slot of what is pulled, split into exports and what is not yet delivered', () => {
+    const slot = pulledSlot('iron-plate', 50, [flow({ rate: 30, toBlockId: 'B' })])
+    expect(slot).toMatchObject({ id: 'pull:iron-plate', itemId: 'iron-plate', rate: 50, scale: 50, pulledOnly: true, status: null })
+    expect(shape(slot.segments)).toEqual([['to:B', 30], ['kept', 20]])
+    expect(slot.goal).toBeUndefined()
+  })
+
+  it('has no kept segment when every unit is delivered', () => {
+    expect(shape(pulledSlot('iron-plate', 30, [flow({ rate: 30 })]).segments)).toEqual([['to:B', 30]])
   })
 })

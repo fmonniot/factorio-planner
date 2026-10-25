@@ -9,6 +9,8 @@ export interface RowAction {
   label: string
   onSelect: () => void
   danger?: boolean
+  /** Shown but not selectable. */
+  disabled?: boolean
 }
 
 interface RowActionsMenuProps {
@@ -83,7 +85,8 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
           key={action.label}
           type="button"
           role="menuitem"
-          className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 ${
+          disabled={action.disabled}
+          className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
             action.danger ? 'text-red-400' : 'text-gray-200'
           }`}
           onClick={() => {

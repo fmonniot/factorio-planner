@@ -567,6 +567,76 @@ describe('input connections', () => {
     })
   })
 
+  describe('pull connections', () => {
+    const store = () => useBlockStore.getState()
+    const other = () => store().blocks.find(b => b.id === otherId())!
+
+    it('addInputConnection with pull stores the flag and undo/redo restore it', () => {
+      store().addInputConnection('plate', sourceId, undefined, true)
+      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId, pull: true }])
+      store().undo()
+      expect(active().inputConnections).toEqual([])
+      store().redo()
+      expect(active().inputConnections[0].pull).toBe(true)
+    })
+
+    it('setConnectionPull turns pulling on and off; undo and redo restore the key', () => {
+      store().addInputConnection('plate', sourceId)
+      const id = active().inputConnections[0].id
+      store().setConnectionPull(id, true)
+      expect(active().inputConnections[0].pull).toBe(true)
+      store().undo()
+      expect('pull' in active().inputConnections[0]).toBe(false)
+      store().redo()
+      store().setConnectionPull(id, false)
+      expect('pull' in active().inputConnections[0]).toBe(false)
+      store().undo()
+      expect(active().inputConnections[0].pull).toBe(true)
+    })
+
+    it('setConnectionPull is a no-op when unchanged or for an unknown connection', () => {
+      store().addInputConnection('plate', sourceId)
+      const id = active().inputConnections[0].id
+      const before = store().blocks
+      store().setConnectionPull(id, false)
+      store().setConnectionPull('ghost', true)
+      expect(store().blocks).toBe(before)
+    })
+
+    it('rejects a pull that would close a cycle of pulls', () => {
+      store().addInputConnection('gear', activeId, sourceId, true)
+      const before = store().blocks
+      store().addInputConnection('plate', sourceId, undefined, true)
+      expect(store().blocks).toBe(before)
+      // A push in the other direction is fine, but cannot be switched to pull.
+      store().addInputConnection('plate', sourceId)
+      const id = active().inputConnections[0].id
+      store().setConnectionPull(id, true)
+      expect('pull' in active().inputConnections[0]).toBe(false)
+    })
+
+    it('drops an undo that would turn a pull back on after it became a cycle', () => {
+      store().addInputConnection('plate', sourceId, undefined, true)
+      const id = active().inputConnections[0].id
+      store().setConnectionPull(id, false)
+      // Meanwhile the source starts pulling from the consumer.
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b =>
+          b.id === sourceId ? { ...b, inputConnections: [{ id: 'back', itemId: 'gear', fromBlockId: activeId, pull: true as const }] } : b),
+      }))
+      store().undo()
+      expect('pull' in active().inputConnections[0]).toBe(false)
+      expect(store().history[activeId].redoStack).toHaveLength(0)
+    })
+
+    it('can target a block that is not active', () => {
+      store().addInputConnection('plate', sourceId, otherId())
+      store().setConnectionPull(other().inputConnections[0].id, true, otherId())
+      expect(other().inputConnections[0].pull).toBe(true)
+      expect(store().history[otherId()].undoStack).toHaveLength(2)
+    })
+  })
+
   it('addInputConnection ignores an unknown target block', () => {
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().addInputConnection('plate', sourceId, 'ghost')

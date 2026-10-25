@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs'
 import { describe, it, expect } from 'vitest'
 import {
   parseGameData,
@@ -512,6 +513,33 @@ describe('parseAppState — inputConnections', () => {
 
     it('rejects a negative limit', () => {
       expect(() => parseWith(-1)).toThrow(AppStateLoadError)
+    })
+  })
+
+  describe('pull', () => {
+    const parseWith = (pull?: boolean) => parseAppState({
+      blocks: [
+        blockJson({ id: 'b0' }),
+        blockJson({ inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: 'b0', ...(pull === undefined ? {} : { pull }) }] }),
+      ],
+      activeBlockId: 'b1',
+    })
+
+    it('round-trips pull: true through JSON', () => {
+      const state = parseWith(true)
+      expect(state.blocks[1].inputConnections[0].pull).toBe(true)
+      expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+    })
+
+    it.each([undefined, false])('loads pull %s with no key', pull => {
+      expect('pull' in parseWith(pull).blocks[1].inputConnections[0]).toBe(false)
+    })
+
+    it('parses the connection fixture saved before pull existed', () => {
+      const raw = JSON.parse(readFileSync('e2e/fixtures/block-connection.json', 'utf8'))
+      const state = parseAppState(raw.appState ?? raw)
+      const connections = state.blocks.flatMap(b => b.inputConnections)
+      expect(connections.some(c => 'pull' in c)).toBe(false)
     })
   })
 })

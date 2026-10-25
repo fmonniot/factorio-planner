@@ -2,8 +2,8 @@
  * Memoises `solveBlock` per block. A block is re-solved only when its flattened
  * plan, the game data object or the caps on offer to it changed. Errors are
  * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
- * recently used first), so the first-round and the settled solve of a block in
- * a loop both survive.
+ * recently used first), so the demand probe, the first-round solve and the
+ * settled solve of a block in a loop all survive.
  */
 import type { GameData, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -13,7 +13,7 @@ export interface BlockSolve {
 }
 
 /** Entries kept per block. */
-export const SLOTS_PER_BLOCK = 2
+export const SLOTS_PER_BLOCK = 3
 
 export interface SolveCache {
   get(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>): BlockSolve | undefined

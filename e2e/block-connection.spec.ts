@@ -29,7 +29,8 @@ async function setup(page: Page) {
 async function connectPlatesFromPlatesBlock(page: Page) {
   // The menu lists Plates only once its own solve has landed.
   await plateSlot(page).click({ button: 'right' })
-  await page.getByRole('menuitem', { name: /Plates/ }).click()
+  // The menu also offers to pull from Plates (data-pull); this spec connects by push.
+  await page.locator('[role="menuitem"]:not([data-pull])', { hasText: 'Plates' }).click()
   // The slot may still be selected from before; a second click would clear it.
   if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
   await expect(sourceSegment(page)).toBeVisible()
