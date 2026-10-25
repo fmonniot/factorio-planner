@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, netBalance } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer } from './index'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -886,6 +886,20 @@ describe('solveAll', () => {
 
 })
 
+describe('connectionOffer', () => {
+  it.each([
+    ['take, surplus', 50, 30, 0, 20],
+    ['take, short', 20, 30, 0, 0],
+    ['request, surplus beyond every request', 60, 50, 30, 40],
+    ['first requester, short source', 45, 50, 30, 30],
+    ['last requester', 15, 20, 20, 15],
+    ['left below share', 10, 50, 30, 10],
+    ["test 12's later source", 20, 20, 0, 0],
+  ])('%s', (_name, left, pending, share, offer) => {
+    expect(connectionOffer(left, pending, share)).toBeCloseTo(offer, 9)
+  })
+})
+
 describe('solveAll — requests', () => {
   const machineRecipe = recipe('machine', 1, [{ itemId: 'gear', type: 'item', amount: 1 }], [product('machine', 1)])
   const requestGameData = (): GameData => {
@@ -1003,6 +1017,21 @@ describe('solveAll — requests', () => {
     expect(f.status).toBe('limited')
     expect(all.results.A.warnings).toContainEqual({ type: 'no-recipe', itemId: 'plate' })
     expect(rate(all.results.A.unsatisfied, 'plate')).toBeCloseTo(50, 4)
+  })
+
+  it('leaves every request unserved, and the extra with it, when the source makes nothing (full shortfall)', () => {
+    const all = solveAll([
+      block('A', [prod('plate', 10)], [planNode('i', 'ingot')]),
+      gearmaker('B', 25, [link('cb', 'A')]),
+      gearmaker('C', 10, [link('cc', 'A')]),
+    ], requestGameData())
+    expect(flowOf(all, 'cb').requested).toBeCloseTo(50, 4)
+    expect(flowOf(all, 'cc').requested).toBeCloseTo(20, 4)
+    expect(flowOf(all, 'cb').rate).toBe(0)
+    expect(flowOf(all, 'cc').rate).toBe(0)
+    expect(flowOf(all, 'cb').status).toBe('limited')
+    expect(flowOf(all, 'cc').status).toBe('limited')
+    expect(rate(all.results.A.unsatisfied, 'plate')).toBeCloseTo(80, 4)
   })
 
   it('gives a source with nothing to make the empty result', () => {

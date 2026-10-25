@@ -20,7 +20,7 @@ test.describe('Nodes panel', () => {
     const pickerOverlay = page.locator('.fixed.inset-0')
 
     // 1. Add a goal via the Products [+] button in FactorySummary
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await pickerOverlay.locator('[data-testid="item-slot"]').first().click()
 
@@ -47,7 +47,7 @@ test.describe('Nodes panel', () => {
     const pickerOverlay = page.locator('.fixed.inset-0')
 
     // Set up: goal + recipe node for nullius-chemical-pack.
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     await pickerOverlay.getByPlaceholder('Search…').fill('nullius-chemical-pack')
     await pickerOverlay.locator('[data-testid="item-slot"]').first().click()
 

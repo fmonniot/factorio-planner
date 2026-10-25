@@ -72,6 +72,16 @@ export { receivesItem }
 export const FLOW_TOLERANCE = 1e-6
 
 /**
+ * What a source's remaining output `left` of an item offers one connection. `pending` is what
+ * unserved requests still hold (including this connection's own `share`; 0 for a take).
+ * A request is served its own share first: requests are served in solve order, so later ones
+ * give way. Beyond its share it sees, like a take, only what no unserved request holds.
+ */
+export function connectionOffer(left: number, pending: number, share: number): number {
+  return Math.max(0, Math.min(share, left), left - (pending - share))
+}
+
+/**
  * Net items/min a set of solved nodes leaves over per item (produced minus
  * consumed). Positive entries are what a block can offer to other blocks.
  */
@@ -448,7 +458,8 @@ function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowSta
  * the delivered amounts out of `remaining`. `pending` holds requested amounts not yet
  * served (source → item → items/min): take consumers of the same (source, item) and
  * requesters drawing on a later source beyond their own share see the offer without
- * it, and a request gives its own share back once served.
+ * it. A request is served its own share before later requests: when the source is short,
+ * the extra gives way first, then the requests served last (see `connectionOffer`).
  */
 function solveStep(
   block: Block,
@@ -476,8 +487,9 @@ function solveStep(
       if (duplicate) duplicates.add(c.id)
       const info = ctx.requests.get(c.id)
       const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      const held = info && 'requested' in info ? reserved - info.requested : reserved
-      const sourceOffer = duplicate ? 0 : Math.max(0, (remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0) - held)
+      const left = remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
+      const share = info && 'requested' in info ? info.requested : 0
+      const sourceOffer = duplicate ? 0 : connectionOffer(left, reserved, share)
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
       const limitBinds =
         info && 'requested' in info
@@ -751,7 +763,8 @@ function computeRequests(
  * are served in solve order; several sources of one item are drained in
  * connection order. A connection to a product of its source is a request: it first
  * adds the consumer's need to the source's goals (see `computeRequests`); that amount
- * is reserved for the requesting consumer while others are served. With a `cache`, a block whose
+ * is reserved for the requesting consumer while others are served; when the source is short, the
+ * extra gives way first, then the requests served last. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
  * (same object) instead of solving again.
  */

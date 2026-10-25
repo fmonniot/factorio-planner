@@ -9,6 +9,12 @@ import { overviewRows } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
 
+interface SlotEdit {
+  editing: boolean
+  start: () => void
+  stop: () => void
+}
+
 interface SummaryPaneProps {
   pane: SummaryPaneKind
   label: string
@@ -17,11 +23,13 @@ interface SummaryPaneProps {
   items: GameData['items']
   blocks: Block[]
   rateUnit: RateUnit
-  /** Products: double-clicking a slot edits its target. */
+  /** Products: double-clicking a slot edits its extra output. */
   editable?: boolean
   onSlotContextMenu: (slot: SlotModel, e: React.MouseEvent<HTMLButtonElement>) => void
-  renderRates: (slot: SlotModel, edit: { editing: boolean; start: () => void; stop: () => void }) => React.ReactNode
+  renderRates: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
   actionsFor: (slot: SlotModel) => StripAction[]
+  /** Products: an entry added to the end of the colour key while the slot is selected. */
+  renderKeyExtra?: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
 }
@@ -42,6 +50,7 @@ export function SummaryPane({
   onSlotContextMenu,
   renderRates,
   actionsFor,
+  renderKeyExtra,
   onOpenBlock,
   onConnectionContextMenu,
 }: SummaryPaneProps) {
@@ -64,6 +73,15 @@ export function SummaryPane({
   const selected = slots.find(s => s.id === selectedId)
   // Hovering the selected slot keeps showing it as selected.
   const hovered = hoveredId !== selectedId ? slots.find(s => s.id === hoveredId) : undefined
+
+  const editOf = (slot: SlotModel): SlotEdit => ({
+    editing: state === 'editing',
+    start: () => {
+      setSelectedId(slot.id)
+      setEditing(true)
+    },
+    stop: () => setEditing(false),
+  })
 
   let state: StripState = 'overview'
   let shown: SlotModel | undefined
@@ -164,15 +182,9 @@ export function SummaryPane({
         rows={rows}
         traceKey={activeTrace}
         onToggleTrace={key => setTraceKey(prev => (prev === key ? null : key))}
-        rates={shown && renderRates(shown, {
-          editing: state === 'editing',
-          start: () => {
-            setSelectedId(shown.id)
-            setEditing(true)
-          },
-          stop: () => setEditing(false),
-        })}
+        rates={shown && renderRates(shown, editOf(shown))}
         actions={shown ? actionsFor(shown) : []}
+        keyExtra={shown && renderKeyExtra?.(shown, editOf(shown))}
         onBack={() => {
           setSelectedId(null)
           setEditing(false)

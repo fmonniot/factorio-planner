@@ -17,7 +17,7 @@ test.describe('Item picker (goal)', () => {
 
   test('renders group tabs and a slot grid', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     await expect(page.getByRole('heading', { name: 'Add product' })).toBeVisible()
 
     const tabs = overlay.locator('[data-testid="item-group-tab"]')
@@ -29,7 +29,7 @@ test.describe('Item picker (goal)', () => {
 
   test('switching tabs swaps the visible items', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
 
     const tabs = overlay.locator('[data-testid="item-group-tab"]')
     if (await tabs.count() < 2) test.skip(true, 'Need at least 2 groups to test switching')
@@ -49,7 +49,7 @@ test.describe('Item picker (goal)', () => {
 
   test('clicking a slot adds a goal with the entered amount', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
 
     // Enter a non-default amount.
     const amount = overlay.getByLabel('Amount')
@@ -68,7 +68,7 @@ test.describe('Item picker (goal)', () => {
 
   test('Cancel button closes the picker without adding a goal', async ({ page }) => {
     const overlay = page.locator('.fixed.inset-0')
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     await overlay.getByText('Cancel').click()
     await expect(overlay).not.toBeVisible()
   })

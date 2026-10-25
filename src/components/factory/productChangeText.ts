@@ -4,11 +4,14 @@ import { fmtRate } from './ItemTile'
 
 export type ProductChange = 'add' | 'remove'
 
+export function possessive(name: string): string {
+  return name.endsWith('s') ? `${name}'` : `${name}'s`
+}
+
 /** Heading of the product change confirmation. */
 export function productChangeTitle(change: ProductChange, itemName: string, blockName: string): string {
   if (change === 'add') return `Make ${itemName} a product of ${blockName}?`
-  const possessive = blockName.endsWith('s') ? `${blockName}'` : `${blockName}'s`
-  return `Remove ${itemName} from ${possessive} products?`
+  return `Remove ${itemName} from ${possessive(blockName)} products?`
 }
 
 /** A delivered rate for the dialog, e.g. `30.0/m`; `—` without a flow. */

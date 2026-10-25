@@ -175,13 +175,13 @@ export function SummarySlot({
           ? `${name}, nothing requested yet`
           : `${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}${slot.status ? `, ${slot.status}` : ''}`
       }
-      title={name}
+      title={slot.empty ? `${name} — nothing requested yet` : name}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
       onContextMenu={onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`relative w-[50px] h-[54px] shrink-0 rounded border ${tone}`}
+      className={`relative w-[50px] h-[54px] shrink-0 rounded border ${slot.empty ? 'border-dashed ' : ''}${tone}`}
       style={opacity < 1 ? { opacity } : undefined}
     >
       <span className="absolute inset-x-0 top-1.5 flex justify-center">

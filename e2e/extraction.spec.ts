@@ -49,7 +49,7 @@ async function upload(page: Page, data: unknown) {
 
 async function addGoal(page: Page, itemId: string, amount: string) {
   const overlay = page.locator('.fixed.inset-0')
-  await page.getByTitle('Add goal').click()
+  await page.getByTitle('Add product').click()
   await overlay.getByLabel('Amount').fill(amount)
   await overlay.locator(`[data-testid="item-slot"][data-item-id="${itemId}"]`).click()
   await expect(overlay).not.toBeVisible()
@@ -100,7 +100,7 @@ test.describe('Extraction recipes', () => {
     expect(recipeIds).toContain('mining:iron-ore')
     await page.getByRole('button', { name: 'Close' }).click()
 
-    await page.getByTitle('Add goal').click()
+    await page.getByTitle('Add product').click()
     const itemIds = await page.locator('[data-testid="item-slot"]').evaluateAll(
       els => els.map(e => e.getAttribute('data-item-id') ?? ''),
     )

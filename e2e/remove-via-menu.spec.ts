@@ -17,7 +17,7 @@ test.describe('Removal through right-click menus', () => {
   test('right-click on a goal slot removes the goal', async ({ page }) => {
     const goal = slot(page, 'Products', 'Hydrogen')
     await goal.click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Remove goal' }).click()
+    await page.getByRole('menuitem', { name: 'Remove product' }).click()
     await expect(goal).toHaveCount(0)
   })
 
