@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, netBalance, connectionOffer, surplusTolerance } from './index'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -479,6 +479,55 @@ describe('solveBlock — connections first', () => {
     const raw = { goals: gearGoal, nodes: [planNode('g', 'gear')] }
     expect(solveBlock({ ...raw, ...cf }, connectionGameData(), caps()))
       .toEqual(solveBlock(raw, connectionGameData(), caps()))
+  })
+})
+
+describe('surplusTolerance', () => {
+  it('is the absolute floor at small flows', () => {
+    expect(surplusTolerance(0)).toBe(1e-6)
+    expect(surplusTolerance(100)).toBe(1e-6)
+  })
+
+  it('scales with the gross flow', () => {
+    expect(surplusTolerance(2000)).toBeCloseTo(2e-5, 12)
+    expect(surplusTolerance(1e6)).toBeCloseTo(1e-2, 9)
+  })
+
+  it('accepts the noise seen at about 2000/min (1.6e-6)', () => {
+    expect(1.6e-6 > surplusTolerance(2000)).toBe(false)
+  })
+})
+
+describe('solveBlock — surplus tolerance at large flows', () => {
+  // LP rounding noise cannot be reproduced deterministically, so the pure `surplusTolerance` tests
+  // above carry the noise regression. These cases pin the wiring: `solveBlock` must pass the item's
+  // gross flow, and a genuine surplus must still warn. The surplus is made deterministic by pinning
+  // both the producer and the consumer of `b`.
+  const data = () => makeGameData({
+    recipes: {
+      mk: recipe('mk', 1, [], [product('b', 1)]),
+      use: recipe('use', 1, [{ itemId: 'b', type: 'item', amount: 1 }], [product('c', 1)]),
+    },
+  })
+  const surplusPlan = (made: number, used: number) => ({
+    goals: [{ id: 'g1', itemId: 'c', rate: 1 }],
+    nodes: [pinned('n1', 'mk', made), pinned('n2', 'use', used)],
+  })
+  const overconstrained = (made: number, used: number) =>
+    solveBlock(surplusPlan(made, used), data(), new Map()).result.warnings.find(w => w.type === 'overconstrained')
+
+  it('ignores a surplus below the relative tolerance of a huge flow', () => {
+    // surplus 1/min on ~1e9/min gross: above the 1e-6 floor, below 1e-8 x gross (about 10)
+    expect(overconstrained(1e9, 1e9 - 1)).toBeUndefined()
+  })
+
+  it('warns on the same surplus at a small flow', () => {
+    expect(overconstrained(100, 99)).toBeDefined()
+  })
+
+  it('still warns on a pure surplus at a large flow', () => {
+    // 1e6/min of `b` is made and never consumed (the pinned consumer runs at a trickle)
+    expect(overconstrained(1e6, 1)).toBeDefined()
   })
 })
 

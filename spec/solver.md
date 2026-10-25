@@ -80,7 +80,7 @@ minimize  Σ c_j · x_j  +  BIG_M · Σ s_i      (supply u_i costs 0)
 
 `BIG_M = 1e6` makes slack the last-resort balancer (the LP only imports an item if the network genuinely cannot produce it internally). `BC_BONUS = -0.01` is a tiny negative coefficient that nudges byproduct-consumer recipes to run up to whatever surplus the intermediate constraints permit, without ever overriding goal-meeting decisions.
 
-Tolerances: slack is reported only above `SLACK_TOLERANCE = 1e-6`; intermediate surplus above `SURPLUS_TOLERANCE = 1e-6` triggers `overconstrained`; goal shortfall is reported above `GOAL_SHORTFALL_TOLERANCE = 1e-4`.
+Tolerances: slack is reported only above `SLACK_TOLERANCE = 1e-6`; intermediate surplus above `max(SURPLUS_TOLERANCE, SURPLUS_REL_TOLERANCE × gross flow)` triggers `overconstrained` (`SURPLUS_TOLERANCE = 1e-6`, `SURPLUS_REL_TOLERANCE = 1e-8`, gross flow = the larger of the item's produced and consumed rate in the block; the relative part keeps LP rounding noise at large flows from warning, so a genuine surplus below 1e-8 of the item's gross flow is no longer reported); goal shortfall is reported above `GOAL_SHORTFALL_TOLERANCE = 1e-4`.
 
 ---
 
@@ -103,7 +103,7 @@ Warnings (`SolverWarning` in [src/data/types.ts](../src/data/types.ts)):
 - **`duplicate-recipe`** — the same `recipeId` is used by more than one node; emitted before the LP, with the count. The first node in flatten order is authoritative; later duplicates solve to zero.
 - **`no-recipe`** — a goal item has no positive coefficient in `S` (no producer in the plan); emitted before the LP. Checked before `discard` policies are applied.
 - **`infeasible-pins`** — the LP is infeasible and pins are present.
-- **`overconstrained`** — one or more intermediates end with positive net flow at the LP optimum; lists each surplus item and rate.
+- **`overconstrained`** — one or more intermediates end with positive net flow above the tolerance in Tolerances at the LP optimum; lists each surplus item and rate.
 - **`loop-not-converged`** — added by `solveAll` to every member of a loop of blocks that did not settle within the round limit; lists the loop's `blockIds` and the rounds run (see [Loops](#loops)).
 - **`request-loop-not-converged`** — added by `solveAll` to every member of a cycle of requests whose demand did not settle; lists the cycle's `blockIds` and the demand rounds run (see [Cycles of requests](#cycles-of-requests)).
 
