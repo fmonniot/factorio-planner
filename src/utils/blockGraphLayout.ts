@@ -17,6 +17,8 @@ export const ROW_GAP = 40
 export const LABEL_W = 120
 export const LABEL_CHIP_H = 28
 export const LABEL_GAP = 4
+/** An edge with more connections than this shows one summary chip instead of one chip each. */
+export const MAX_EDGE_CHIPS = 3
 /** Horizontal reach of a forward edge's control points. */
 export const EDGE_CURVE = 48
 /** Horizontal reach of a back edge's corners, and the space kept between a back lane and what it passes under. */
@@ -36,6 +38,8 @@ export interface BlockEdgeLayout {
   to: string
   /** Connections of this (source, consumer) pair, in the consumer's order. */
   connectionIds: string[]
+  /** More than MAX_EDGE_CHIPS connections: the edge shows one summary chip, not one chip per connection. */
+  collapsed: boolean
   /** Some connection of the pair joins two members of one loop. */
   loop: boolean
   /** The pair is a loop's back connection: the source comes later in the loop's order than the consumer. */
@@ -46,7 +50,7 @@ export interface BlockEdgeLayout {
   x2: number
   y2: number
   /**
-   * Centre of the label stack (one chip per connection): in the gutter just before the
+   * Centre of the label stack (one chip per connection, or one summary chip when collapsed): in the gutter just before the
    * consumer's column, or, for a back edge, on its lane.
    */
   labelX: number
@@ -68,6 +72,11 @@ interface Pair {
   connectionIds: string[]
   loop: boolean
   back: boolean
+}
+
+/** Height of an edge's label stack: one chip per connection, or a single summary chip when collapsed. */
+export function labelStackHeight(e: Pick<BlockEdgeLayout, 'connectionIds' | 'collapsed'>): number {
+  return (e.collapsed ? 1 : e.connectionIds.length) * LABEL_CHIP_H
 }
 
 export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
@@ -141,6 +150,7 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
     from: p.from,
     to: p.to,
     connectionIds: p.connectionIds,
+    collapsed: p.connectionIds.length > MAX_EDGE_CHIPS,
     loop: p.loop,
     back: p.back,
     x1: nodes[p.from].x + NODE_W,
@@ -153,7 +163,7 @@ export function layoutBlockGraph(blocks: Block[]): BlockGraphLayout {
 
   // Labels sit in the gutter before the consumer's column, which holds no node, on the
   // straight line between the endpoints; labels sharing a gutter are pushed apart.
-  const stackH = (e: BlockEdgeLayout) => e.connectionIds.length * LABEL_CHIP_H
+  const stackH = labelStackHeight
   const byGutter = new Map<number, BlockEdgeLayout[]>()
   for (const e of edges) {
     if (e.back) continue

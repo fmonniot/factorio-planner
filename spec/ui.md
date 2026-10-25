@@ -196,8 +196,19 @@ near-full-screen modal showing every block and the connections between them, lik
   the reason: pulls form a cycle, the source cannot make the item, the source receives it itself, or an
   earlier connection already takes the item from the same source;
   the connection then behaves as a push).
-  The chips of an edge are stacked in the gutter just before the consumer's column, which never
-  holds a node, at the height of the edge there; chips of different edges sharing a gutter are
+  An edge with more than three connections (`MAX_EDGE_CHIPS`) shows one **summary chip**
+  (`graph-edge-summary`) instead of one chip each: the first three item icons, `+N` for the rest,
+  `↻` if the edge is part of a loop, `⇠` if any connection pulls, and a `▾`, with the border in the
+  edge's status. Its title gives the count and how many connections are limited, not used or
+  pulled (for example "12 items from Metals to Sciences; 2 limited — click to list them"). Clicking
+  it opens a list (`graph-edge-list`, a popover over the graph; the layout does not move) with one
+  full chip per connection, item name included, in the consumer's connection order; limit, pull and
+  remove work there as on a plain chip. A click outside or Escape closes the list; Escape closes only
+  the list, or cancels a limit edit, never the graph. If removals bring the edge to three
+  connections or fewer, plain chips come back.
+  The chips of an edge (or its summary chip) are stacked in the gutter just before the consumer's
+  column, which never holds a node, at the height of the edge there; the layout reserves one chip
+  height for a summarised edge. Chips of different edges sharing a gutter are
   pushed apart so none covers another; if a tall stack would reach above the first row, the whole
   graph is moved down to make room. Edges are drawn under the nodes. A graph edit is recorded
   in the *consumer* block's history, while undo and redo act on the *active* block, so undoing

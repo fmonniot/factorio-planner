@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   layoutBlockGraph, edgePath, NODE_W, NODE_H, COL_GAP, ROW_GAP, LABEL_W, LABEL_CHIP_H, BACK_CURVE, BACK_LANE_GAP,
+  MAX_EDGE_CHIPS, labelStackHeight,
 } from './blockGraphLayout'
 import type { BlockEdgeLayout, BlockGraphLayout } from './blockGraphLayout'
 import { makeEmptyBlock } from '../store/blockStore'
@@ -17,6 +18,9 @@ function block(id: string, from: (string | [string, string])[] = []): Block {
     }),
   }
 }
+
+/** `n` connections from `src`, each of a distinct item. */
+const many = (src: string, n: number) => Array.from({ length: n }, (_, i): [string, string] => [src, `i${i}`])
 
 describe('layoutBlockGraph', () => {
   it('returns an empty layout for an empty plan', () => {
@@ -112,7 +116,7 @@ describe('layoutBlockGraph', () => {
 
   describe('edge labels', () => {
     const rect = (e: BlockEdgeLayout) => {
-      const h = e.connectionIds.length * LABEL_CHIP_H
+      const h = labelStackHeight(e)
       return { l: e.labelX - LABEL_W / 2, r: e.labelX + LABEL_W / 2, t: e.labelY - h / 2, b: e.labelY + h / 2 }
     }
     const overlap = (a: ReturnType<typeof rect>, b: ReturnType<typeof rect>) =>
@@ -147,9 +151,13 @@ describe('layoutBlockGraph', () => {
     })
 
     it('keeps a tall label stack on the top row inside the layout', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e']
-      const layout = layoutBlockGraph([block('A'), block('B', ids.map(id => ['A', id]))])
+      const layout = layoutBlockGraph([block('A'), block('B', many('A', MAX_EDGE_CHIPS))])
       const [edge] = layout.edges
+      expect(edge.collapsed, 'a full stack stays stacked').toBe(false)
+      // The stack is centred on the node row, so it reaches above it by half the difference in height.
+      const reach = (MAX_EDGE_CHIPS * LABEL_CHIP_H - NODE_H) / 2
+      expect(reach, 'the stack is taller than the node').toBeGreaterThan(0)
+      expect(layout.nodes.A.y, 'everything moved down by that reach').toBe(reach)
       expect(rect(edge).t).toBeGreaterThanOrEqual(0)
       expect(rect(edge).b).toBeLessThanOrEqual(layout.height)
       for (const n of Object.values(layout.nodes)) expect(n.y + NODE_H).toBeLessThanOrEqual(layout.height)
@@ -180,6 +188,44 @@ describe('layoutBlockGraph', () => {
       const layout = layoutBlockGraph([block('A'), block('B'), block('C', [['A', 'x'], ['A', 'y']]), block('D', ['B'])])
       const [r1, r2] = layout.edges.map(rect)
       expect(overlap(r1, r2)).toBe(false)
+    })
+
+    it('keeps up to MAX_EDGE_CHIPS connections as separate chips', () => {
+      const layout = layoutBlockGraph([block('A'), block('B', many('A', MAX_EDGE_CHIPS))])
+      const [edge] = layout.edges
+      expect(edge.collapsed, 'at the threshold').toBe(false)
+      expect(labelStackHeight(edge)).toBe(MAX_EDGE_CHIPS * LABEL_CHIP_H)
+    })
+
+    it('reserves one chip for an edge with many connections', () => {
+      const layout = layoutBlockGraph([block('A'), block('B', many('A', 12))])
+      const [edge] = layout.edges
+      expect(edge.collapsed, 'more than the threshold').toBe(true)
+      expect(edge.connectionIds).toHaveLength(12)
+      expect(labelStackHeight(edge)).toBe(LABEL_CHIP_H)
+      expect(layout.nodes.A.y).toBe(0)
+      expect(layout.height).toBe(NODE_H)
+      expect(edge.labelY).toBe(NODE_H / 2)
+    })
+
+    it('keeps the labels of several busy edges apart and out of the nodes', () => {
+      const layout = layoutBlockGraph([block('A'), block('B'), block('C', many('A', 20)), block('D', many('B', 20))])
+      expect(layout.edges).toHaveLength(2)
+      const [r1, r2] = layout.edges.map(rect)
+      expect(overlap(r1, r2)).toBe(false)
+      for (const e of layout.edges) expect(inNode(layout, e), `${e.from}>${e.to}`).toBe(false)
+      expect(layout.height).toBeLessThanOrEqual(2 * NODE_H + ROW_GAP + LABEL_CHIP_H)
+    })
+
+    it('reserves one chip for a busy back edge', () => {
+      const layout = layoutBlockGraph([block('A', many('B', 12)), block('B', ['A'])])
+      const back = layout.edges.find(e => e.back)!
+      expect(back.connectionIds.length, 'the busy pair is the back edge').toBe(12)
+      expect(back.collapsed).toBe(true)
+      const r = rect(back)
+      expect(r.b - r.t).toBe(LABEL_CHIP_H)
+      expect(layout.height).toBe(r.b)
+      expect(inNode(layout, back)).toBe(false)
     })
   })
 })
