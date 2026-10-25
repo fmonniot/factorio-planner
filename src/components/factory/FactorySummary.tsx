@@ -125,6 +125,7 @@ export function FactorySummary() {
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
+  const addBlockForItem = useBlockStore(s => s.addBlockForItem)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
@@ -202,7 +203,6 @@ export function FactorySummary() {
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
 
-  // A product change asks first when it changes how other blocks' connections behave.
   function requestAddProduct(itemId: string, extraRate?: number) {
     if (!activeBlock) return
     const product: Product = { id: crypto.randomUUID(), itemId, ...(extraRate !== undefined ? { extraRate } : {}) }
@@ -218,6 +218,11 @@ export function FactorySummary() {
     const effects = productChangeEffects(blocks, activeBlock.id, product.itemId, 'remove', allFlows)
     if (effects.length === 0) removeProduct(productId)
     else setPendingChange({ change: 'remove', productId, itemId: product.itemId, effects })
+  }
+
+  /** Add a block that makes the item and request it; the picker then adds its recipe to that block. */
+  function makeInNewBlock(itemId: string) {
+    if (addBlockForItem(itemId, gameData?.items[itemId]?.name ?? itemId)) setProducerPickerItemId(itemId)
   }
 
   function handleAddProduct(itemId: string, rate: number | undefined) {
@@ -387,6 +392,7 @@ export function FactorySummary() {
           x={connectionMenu.x}
           y={connectionMenu.y}
           onClose={() => setConnectionMenu(null)}
+          onMakeInNewBlock={makeInNewBlock}
         />
       )}
 

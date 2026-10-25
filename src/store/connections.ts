@@ -125,7 +125,7 @@ export interface ItemCandidate {
 
 /**
  * Items `targetId` still imports (in its `unsatisfied` order) that `sourceId`
- * can send it. Empty when the target has no result yet.
+ * has as a product (whatever it offers now) or has left over. Empty when the target has no result yet.
  */
 export function connectableItems(
   blocks: Block[],
@@ -142,9 +142,9 @@ export function connectableItems(
     if (u.rate <= FLOW_TOLERANCE) continue
     if (!canConnect(blocks, target, u.itemId, sourceId)) continue
     const offered = offeredRate(sourceId, u.itemId, results, flows)
-    if (offered <= FLOW_TOLERANCE) continue
     const source = blocks.find(b => b.id === sourceId)
     const request = !!source && hasProduct(source, u.itemId)
+    if (!request && offered <= FLOW_TOLERANCE) continue
     const blocker = request ? requestBlocker(blocks, u.itemId, sourceId) : undefined
     items.push({ itemId: u.itemId, offered, needed: u.rate, request, ...(blocker ? { blocker } : {}) })
   }

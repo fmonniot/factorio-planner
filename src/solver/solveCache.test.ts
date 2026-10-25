@@ -13,7 +13,7 @@ function subPlan(name: string, nodes: RecipeNode[], updatedAt: string, subPlans:
 
 function block(rootPlan: SubPlan, extra: Partial<Block> = {}): Block {
   const products: Product[] = [{ id: 'g', itemId: 'plate', extraRate: 60 }]
-  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], inputConnections: [], rootPlan, ...extra }
+  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], connectionsFirstItems: [], inputConnections: [], rootPlan, ...extra }
 }
 
 const keyOf = (nodes: RecipeNode[]) =>
@@ -27,6 +27,14 @@ describe('planKey', () => {
     const a = block(subPlan('one', [node('n', 'plate')], '2020-01-01T00:00:00.000Z'))
     const b = block(subPlan('two', [node('n', 'plate')], '2030-01-01T00:00:00.000Z'), { name: 'Other', color: '#000000' })
     expect(planKey(flattenBlock(a))).toBe(planKey(flattenBlock(b)))
+  })
+
+  it('differs when connections-first items change; absent equals empty', () => {
+    const nodes = [node('n', 'plate')]
+    const base = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'))
+    const first = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { connectionsFirstItems: ['plate'] })
+    expect(planKey(flattenBlock(first))).not.toBe(planKey(flattenBlock(base)))
+    expect(planKey({ ...flattenBlock(base), connectionsFirstItems: undefined })).toBe(planKey(flattenBlock(base)))
   })
 
   it('differs for a one-ulp-ish rate change', () => {

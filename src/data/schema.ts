@@ -435,6 +435,8 @@ export const BlockSchema = z.preprocess(
     products: z.array(ProductSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
+    /** Items whose connected supply is used before the block's own recipes. */
+    connectionsFirstItems: z.array(z.string()).default([]),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),
     rootPlan: SubPlanSchema,

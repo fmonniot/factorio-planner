@@ -188,6 +188,12 @@ describe('connectableItems', () => {
       .toEqual([{ itemId: 'plate', offered: 100, needed: 40, request: false }])
   })
 
+  it('lists a product of the source even when it offers nothing, but not other items', () => {
+    const blocks = [block('S', { products: ['plate'] }), block('T')]
+    expect(connectableItems(blocks, 'S', 'T', { T: result({}, { plate: 40, rod: 3 }) }, []))
+      .toEqual([{ itemId: 'plate', offered: 0, needed: 40, request: true }])
+  })
+
   it('marks items the source has as a product as requests, with a blocker when one applies', () => {
     const plain = [block('S', { products: ['plate'] }), block('T')]
     expect(connectableItems(plain, 'S', 'T', results({ plate: 40 }), []))

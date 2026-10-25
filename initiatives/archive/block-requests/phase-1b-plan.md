@@ -35,7 +35,7 @@ The implementation followed a revised plan written after PR 1a landed, which sup
 
 ## Phase 1b plan: requests between blocks (model and migration)
 
-Phase 1 of `initiatives/block-requests/plan.md`, second half. After 1a (rename `goals`→`products`, `rate`→`extraRate`, `RecipeProduct`, `SolverGoal`, store renames) this PR does the behaviour change:
+Phase 1 of `initiatives/archive/block-requests/plan.md`, second half. After 1a (rename `goals`→`products`, `rate`→`extraRate`, `RecipeProduct`, `SolverGoal`, store renames) this PR does the behaviour change:
 
 - `Product.extraRate` becomes optional.
 - `BlockConnection.pull` is removed. A connection is a **request** or a **take existing** depending on the source's products.
@@ -382,7 +382,7 @@ export const ProductSchema = z.object({
   - `:60`: products are the hard constraints.
   - `:126`: add `ProductChangeDialog.tsx`.
   - `:141`: `block-requests.spec.ts`.
-- **`initiatives/block-requests/plan.md`**: append to phase 1: "Shipped."; in phase 2, a note that `pending` currently makes the requester served first absorb a shortfall (the Shortfall rule in this doc is implemented in phase 2).
+- **`initiatives/archive/block-requests/plan.md`**: append to phase 1: "Shipped."; in phase 2, a note that `pending` currently makes the requester served first absorb a shortfall (the Shortfall rule in this doc is implemented in phase 2).
 - **`initiatives/backlog.md`**: the Requests item notes phases 1 shipped and 2 to 6 remain.
 - **PR description (no changelog exists).** Release note: a plain connection to an item its source has as a goal is now a request, so that source makes the goal plus the demand. A former pull from a block that could not make the item now shows as short in that block.
 

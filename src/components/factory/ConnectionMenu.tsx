@@ -5,6 +5,7 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../store/connections'
+import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
 import { fmtRate } from './ItemTile'
 
@@ -12,7 +13,8 @@ import { fmtRate } from './ItemTile'
 // ConnectionMenu — pick the block that supplies an item to the active block
 // (not for its own products): Request from a block that has the item as a product
 // (it makes what this block needs), or Take existing output from a block that has
-// some to spare. Also forbids or allows imports of the item.
+// some to spare, or Make it in a new block and request it from there. Also puts the
+// item's connections before the block's own recipes, and forbids or allows imports.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -21,13 +23,16 @@ interface ConnectionMenuProps {
   x: number
   y: number
   onClose: () => void
+  /** Create a block that makes the item and request it from there. */
+  onMakeInNewBlock: (itemId: string) => void
 }
 
-export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
+export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: ConnectionMenuProps) {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
+  const toggleConnectionsFirstItem = useBlockStore(s => s.toggleConnectionsFirstItem)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const gameData = useGameDataStore(selectGameData)
@@ -71,6 +76,13 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
   const locked = activeBlock?.noImportItems.includes(itemId) ?? false
   // A product shortfall cannot be fed by a connection (products never receive supply).
   const connectable = activeBlock ? !hasProduct(activeBlock, itemId) : false
+  // Only connections the solver honours count: a missing or own-block source is ignored.
+  const connected = activeBlock?.inputConnections.some(
+    c => c.itemId === itemId && c.fromBlockId !== activeBlock.id && blocks.some(b => b.id === c.fromBlockId),
+  ) ?? false
+  // Raw resources have no recipe, so a new block could never make them.
+  const makeable = connectable && !!gameData && isMadeByAnyRecipe(gameData, itemId)
+  const first = activeBlock?.connectionsFirstItems.includes(itemId) ?? false
 
   const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
   const takes = connectable ? takeCandidates(blocks, activeBlockId, itemId, results, flows) : []
@@ -146,7 +158,37 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
           </span>
         </button>
       ))}
+      {makeable && (
+        <button
+          type="button"
+          role="menuitem"
+          title={`Create a block that makes ${itemName} and request it from there`}
+          className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+          onClick={() => {
+            onMakeInNewBlock(itemId)
+            onClose()
+          }}
+        >
+          Make in a new block…
+        </button>
+      )}
       {connectable && <div className="border-t border-gray-700 my-1" />}
+      {connectable && connected && (
+        <button
+          type="button"
+          role="menuitemcheckbox"
+          aria-checked={first}
+          title="Use what this block's connections deliver before its own recipes, which make only the rest"
+          className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+          onClick={() => {
+            toggleConnectionsFirstItem(itemId)
+            onClose()
+          }}
+        >
+          <span aria-hidden className="w-3">{first ? '✓' : ''}</span>
+          Use connections first
+        </button>
+      )}
       <button
         type="button"
         role="menuitem"

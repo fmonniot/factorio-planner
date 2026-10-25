@@ -57,5 +57,7 @@ test.describe('block loops', () => {
     await expect(edges.nth(1)).toHaveAttribute('data-loop', 'true')
     await expect(page.locator('[data-testid="graph-edge"][data-back="true"]')).toHaveAttribute('data-from', GEARS_ID)
     await expect(page.getByTestId('graph-loop-status')).toContainText('1 loop')
+    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="take"]').getByTestId('graph-edge-existing')).toHaveCount(1)
+    await expect(page.locator('[data-testid="graph-edge-label"][data-kind="request"]').getByTestId('graph-edge-existing')).toHaveCount(0)
   })
 })

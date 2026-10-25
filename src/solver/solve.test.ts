@@ -519,4 +519,46 @@ describe('solveLP — supply caps', () => {
     expect(lp.supply.size).toBe(0)
     expect(lp.slack.get('plate')).toBeCloseTo(30, 4)
   })
+
+  describe('connections first', () => {
+    function system(extra: Record<string, ReturnType<typeof recipe>> = {}) {
+      const gameData = makeGameData({
+        recipes: {
+          gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+          'plate-from-ingot': recipe('plate-from-ingot', 1, [item('ingot', 1)], [product('plate', 1)]),
+          'ingot-from-ore': recipe('ingot-from-ore', 1, [item('ore', 1)], [product('ingot', 1)]),
+          ...extra,
+        },
+      })
+      return buildClassifiedSystem(
+        gameData,
+        ['gear', 'plate-from-ingot', 'ingot-from-ore', ...Object.keys(extra)],
+        new Map([['gear', 30]]),
+      )
+    }
+
+    it('takes all of an infinite supply before own production', () => {
+      const lp = solveLP(system(), new Map(), new Set(), new Set(), new Map([['plate', Infinity]]), new Set(['plate']))
+      expect(lp.feasible).toBe(true)
+      expect(lp.supply.get('plate')).toBeCloseTo(60, 4)
+      expect(lp.throughput.get('plate-from-ingot')).toBeCloseTo(0, 4)
+      expect(lp.slack.size).toBe(0)
+    })
+
+    it('does not let supply feed a byproduct-consumer recipe', () => {
+      const sys = system({ 'plate-burner': recipe('plate-burner', 1, [item('plate', 1)], [product('ash', 1)]) })
+      const lp = solveLP(
+        sys, new Map(), new Set(['plate-burner']), new Set(), new Map([['plate', Infinity]]), new Set(['plate']),
+      )
+      expect(lp.feasible).toBe(true)
+      expect(lp.supply.get('plate')).toBeCloseTo(60, 4)
+      expect(lp.throughput.get('plate-burner')).toBeCloseTo(0, 4)
+    })
+
+    it('makes the rest with own recipes when the cap is finite', () => {
+      const lp = solveLP(system(), new Map(), new Set(), new Set(), new Map([['plate', 10]]), new Set(['plate']))
+      expect(lp.supply.get('plate')).toBeCloseTo(10, 4)
+      expect(lp.throughput.get('plate-from-ingot')).toBeCloseTo(50, 4)
+    })
+  })
 })

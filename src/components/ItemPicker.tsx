@@ -6,6 +6,7 @@ import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
+import { recipeMakes } from '../data/recipeProducts'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -228,7 +229,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
   const { filteredRecipes, outsideHorizonCount } = useMemo(() => {
     const matching = Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
-      .filter(r => !filterByItemId || r.products.some(p => p.itemId === filterByItemId))
+      .filter(r => !filterByItemId || recipeMakes(r, filterByItemId))
       .filter(r => !consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId))
       .filter(r => matchesRecipe(query, r))
     // Hidden recipes are never part of research progression: the horizon only applies to the others.

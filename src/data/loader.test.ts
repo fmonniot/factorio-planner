@@ -469,6 +469,18 @@ describe('parseAppState — inputConnections', () => {
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
+  it('defaults connectionsFirstItems to an empty list and round-trips a value', () => {
+    expect(parseAppState({ blocks: [blockJson()], activeBlockId: 'b1' }).blocks[0].connectionsFirstItems).toEqual([])
+    const state = parseAppState({ blocks: [blockJson({ connectionsFirstItems: ['x'] })], activeBlockId: 'b1' })
+    expect(state.blocks[0].connectionsFirstItems).toEqual(['x'])
+    expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+  })
+
+  it('gives a legacy block with sub-plan goals an empty connectionsFirstItems', () => {
+    const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
+    expect(parseAppState({ blocks: [legacy], activeBlockId: 'b1' }).blocks[0].connectionsFirstItems).toEqual([])
+  })
+
   it('hoists legacy per-subplan goals into products', () => {
     const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
     const state = parseAppState({ blocks: [legacy], activeBlockId: 'b1' })

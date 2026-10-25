@@ -131,6 +131,7 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]))
     color,
     products: [],
     noImportItems: [],
+    connectionsFirstItems: [],
     inputConnections: [],
     rootPlan: makeEmptySubPlan('Main'),
   }
@@ -192,6 +193,29 @@ export function clonePlan(appState: AppState): AppState {
     activeBlockId: ids.get(appState.activeBlockId) ?? appState.activeBlockId,
     horizonTechnologyIds: [...appState.horizonTechnologyIds],
     defaultMachineOverrides: { ...appState.defaultMachineOverrides },
+  }
+}
+
+/** `list` without `itemId` if it has it, with it appended otherwise. */
+function toggled(list: string[], itemId: string): string[] {
+  return list.includes(itemId) ? list.filter(i => i !== itemId) : [...list, itemId]
+}
+
+/** Toggle `itemId` in one of the block's item lists; the toggle is its own inverse. */
+function toggleItemCommand(field: 'noImportItems' | 'connectionsFirstItems', itemId: string): Command {
+  const toggle = (b: Block): Block => ({ ...b, [field]: toggled(b[field], itemId) })
+  return { apply: toggle, undo: toggle }
+}
+
+/** Command adding a connection for `itemId` from `fromBlockId`; undo removes it, redo is checked against the then-current blocks. */
+function addConnectionCommand(itemId: string, fromBlockId: string): Command {
+  // The id is fixed here so redo restores the same connection.
+  const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
+  return {
+    apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
+    undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
+    // Redo after other blocks changed may no longer be legal.
+    canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
   }
 }
 
@@ -257,6 +281,13 @@ export interface BlockStoreState {
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
+  toggleConnectionsFirstItem: (itemId: string) => void
+  /**
+   * Append a block that makes `itemId` (named `name`), make it active, and request the item
+   * from it on `consumerId` (default: the active block). Returns the new block's id, or
+   * undefined, with no change, when the consumer is missing or cannot connect.
+   */
+  addBlockForItem: (itemId: string, name: string, consumerId?: string) => string | undefined
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
   /** Connect; a request when `itemId` is a product of the source (a cycle of requests is allowed and solved in rounds), otherwise it takes existing output. */
@@ -549,28 +580,33 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   toggleNoImportItem: (itemId) =>
     set(state => {
-      const cmd: Command = {
-        apply: b => {
-          const has = b.noImportItems.includes(itemId)
-          return {
-            ...b,
-            noImportItems: has
-              ? b.noImportItems.filter(i => i !== itemId)
-              : [...b.noImportItems, itemId],
-          }
-        },
-        undo: b => {
-          const has = b.noImportItems.includes(itemId)
-          return {
-            ...b,
-            noImportItems: has
-              ? b.noImportItems.filter(i => i !== itemId)
-              : [...b.noImportItems, itemId],
-          }
-        },
-      }
-      return applyCommand(state, cmd)
+      return applyCommand(state, toggleItemCommand('noImportItems', itemId))
     }),
+
+  toggleConnectionsFirstItem: (itemId) =>
+    set(state => {
+      return applyCommand(state, toggleItemCommand('connectionsFirstItems', itemId))
+    }),
+
+  addBlockForItem: (itemId, name, consumerId) => {
+    let newId: string | undefined
+    set(state => {
+      const targetId = consumerId ?? state.activeBlockId
+      const consumer = state.blocks.find(b => b.id === targetId)
+      if (!consumer) return state
+      const block: Block = {
+        ...makeEmptyBlock(name, pickBlockColor(state.blocks.map(b => b.color))),
+        products: [{ id: crypto.randomUUID(), itemId }],
+      }
+      const blocks = [...state.blocks, block]
+      if (!canConnect(blocks, consumer, itemId, block.id)) return state
+      const cmd = addConnectionCommand(itemId, block.id)
+      newId = block.id
+      // Block creation is not undoable (like addBlock); only the request is in the consumer's history.
+      return { ...applyCommand({ ...state, blocks }, cmd, targetId), activeBlockId: block.id }
+    })
+    return newId
+  },
 
   addInputConnection: (itemId, fromBlockId, toBlockId) =>
     set(state => {
@@ -578,14 +614,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const block = state.blocks.find(b => b.id === targetId)
       if (!block) return state
       if (!canConnect(state.blocks, block, itemId, fromBlockId)) return state
-      // The id is fixed here so redo restores the same connection.
-      const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
-      const cmd: Command = {
-        apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
-        undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
-        // Redo after other blocks changed may no longer be legal.
-        canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
-      }
+      const cmd = addConnectionCommand(itemId, fromBlockId)
       return applyCommand(state, cmd, targetId)
     }),
 

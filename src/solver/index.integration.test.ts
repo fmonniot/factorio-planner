@@ -238,6 +238,7 @@ describe('multi-block loops on the real Seablock data', () => {
       color: '#60a5fa',
       products,
       noImportItems: [],
+      connectionsFirstItems: [],
       inputConnections,
       rootPlan: { id: `root-${id}`, name: id, nodes: recipeIds.map(planNode), subPlans: [], createdAt: now, updatedAt: now },
     }

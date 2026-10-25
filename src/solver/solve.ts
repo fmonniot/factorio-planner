@@ -45,6 +45,9 @@ const BC_BONUS = -0.01
  *     - Goal items:         Σ S_ij * x_j ≥ d_i        (hard, no slack)
  *     - Intermediate items: Σ S_ij * x_j + s_i ≥ 0
  *     - Intermediate items with a cap: Σ S_ij * x_j + s_i + u_i ≥ 0,  u_i ≤ cap_i
+ *       (no cap row when the cap is infinite)
+ *     - Connections-first items: u_i + Σ_{j∉BC, S_ij<0} S_ij * x_j ≤ 0
+ *       (supply covers at most what non-byproduct-consumer recipes use)
  *     - Pinned recipes:     x_j = rate  (equality)
  *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i
  *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes; supply u_i is free,
@@ -60,6 +63,7 @@ export function solveLP(
   bcRecipeIds: Set<string> = new Set(),
   noImportItems: Set<string> = new Set(),
   supplyCaps: Map<string, number> = new Map(),
+  connectionsFirst: Set<string> = new Set(),
 ): LPResult {
   const { S, recipes, classification } = system
   const warnings: SolverWarning[] = []
@@ -138,8 +142,26 @@ export function solveLP(
       const supplyName = `supply_${lpName(itemId)}`
       const capName = `supcap_${lpName(itemId)}`
       itemToSupply.set(itemId, supplyName)
-      constraints[capName] = { max: cap }
-      variables[supplyName] = { __obj__: 0, [cName]: 1, [capName]: 1 }
+      variables[supplyName] = { __obj__: 0, [cName]: 1 }
+      // An infinite cap (a probe's unlimited supply) needs no row.
+      if (Number.isFinite(cap)) {
+        constraints[capName] = { max: cap }
+        variables[supplyName][capName] = 1
+      }
+      if (connectionsFirst.has(itemId)) {
+        // Supply covers at most what the non-byproduct-consumer recipes use.
+        // Without this row a free u_i could feed a byproduct consumer for its
+        // bonus, and be unbounded when the cap is infinite.
+        const useName = `supuse_${lpName(itemId)}`
+        constraints[useName] = { max: 0 }
+        variables[supplyName][useName] = 1
+        for (const [recipeId, coeff] of S.get(itemId) ?? []) {
+          if (coeff < 0 && !bcRecipeIds.has(recipeId)) {
+            const varName = recipeToVar.get(recipeId)
+            if (varName) variables[varName][useName] = coeff
+          }
+        }
+      }
     }
   }
 

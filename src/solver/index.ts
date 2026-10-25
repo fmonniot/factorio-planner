@@ -26,6 +26,7 @@ interface SolverPlan {
   goals: SolverGoal[]
   nodes: RecipeNode[]
   noImportItems?: string[]
+  connectionsFirstItems?: string[]
 }
 
 /**
@@ -44,6 +45,7 @@ export function flattenBlock(block: Block): SolverPlan {
     goals: productGoals(block.products),
     nodes,
     noImportItems: block.noImportItems,
+    connectionsFirstItems: block.connectionsFirstItems,
   }
 }
 
@@ -112,6 +114,8 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  *   2. Only if a connected intermediate is short, solve again with the original
  *      locks and a supply variable per short item, capped at min(offer, shortfall).
  * `received` is what the block actually takes from each offer (items/min).
+ * Exception: connections-first items (`plan.connectionsFirstItems`) have their supply in every
+ * pass, capped by the offer only, so it is used before the block's own recipes.
  *
  * The solve cache key (see solveCache.ts) must grow if this ever reads
  * anything beyond `plan`, `gameData` and `supplyCaps`.
@@ -223,7 +227,15 @@ export function solveBlock(
   const pass1NoImport = totalCaps.size === 0
     ? noImportItems
     : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport)
+  // Connections-first intermediates have their supply in every pass, capped by the
+  // offer only, so the LP uses it before the block's own recipes.
+  const firstItems = new Set(
+    (plan.connectionsFirstItems ?? []).filter(
+      itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
+    ),
+  )
+  const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems)
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
@@ -236,13 +248,21 @@ export function solveBlock(
   for (const [itemId, cap] of totalCaps) {
     if (!system.classification.intermediates.has(itemId)) continue
     const residual = lp.slack.get(itemId) ?? 0
+    if (firstItems.has(itemId)) {
+      // Already supplied in pass 1 up to its offer: stays unlocked only if something is left.
+      if (residual > FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+      continue
+    }
     if (residual > FLOW_TOLERANCE) {
       pass2Caps.set(itemId, Math.min(cap, residual))
       if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
     }
   }
   if (pass2Caps.size > 0) {
-    lp = solveLP(system, pinnedRates, bcRecipeIds, pass2NoImport, pass2Caps)
+    lp = solveLP(
+      system, pinnedRates, bcRecipeIds, pass2NoImport,
+      new Map([...firstCaps, ...pass2Caps]), firstItems,
+    )
   }
 
   const { throughput: throughputMap, slack: slackMap, warnings } = lp
@@ -764,7 +784,8 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
 /**
  * How much each source must make for its requesting consumers. A consumer's need
  * for an item does not depend on what it receives (solving it with unlimited
- * supply on every connection, a "request probe", gives exactly what it would import),
+ * supply on every connection, a "request probe", gives exactly what it would import; a
+ * connections-first item's need is its whole use, as the probe's supply is unlimited),
  * and a source's goals only depend on its own products plus what its consumers
  * request of it. So requests are computed before any supply is handed out, consumers first.
  *
@@ -933,6 +954,7 @@ function computeRequests(
               m.products,
               flat.nodes,
               flat.noImportItems ?? [],
+              flat.connectionsFirstItems ?? [],
               [...connectedCaps(m, byId, selfConnectionIds).keys()],
               (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
               [...(takeOf.get(m.id) ?? [])].map(([itemId, takes]) => [

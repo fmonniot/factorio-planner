@@ -59,6 +59,7 @@ test.describe('block graph', () => {
     await expect(edge).toHaveAttribute('data-from', PLATES_ID)
     await expect(page.getByTestId('graph-edge-label')).toContainText('30.0')
     await expect(page.getByTestId('graph-edge-label')).toHaveAttribute('data-status', 'ok')
+    await expect(page.getByTestId('graph-edge-existing')).toHaveCount(0)
 
     // Gears (still the active block) now receives the plates.
     await closeGraph(page)
@@ -80,6 +81,28 @@ test.describe('block graph', () => {
 
     await node(page, 'Plates').getByTestId('graph-connect-handle').click()
     await expect(node(page, 'Gears')).toHaveAttribute('data-connect', 'blocked')
+  })
+
+  test('lists a source\'s product even when it offers nothing', async ({ page }) => {
+    await setup(page)
+    // Plates keeps only what is requested: with no request, it offers nothing.
+    await page.locator('button[title="Plates"]').click()
+    await selectSlot(page, 'Products', 'Iron plate')
+    await detail(page, 'Products').getByRole('button', { name: 'Remove extra' }).click()
+    await openGraph(page)
+
+    await node(page, 'Plates').getByTestId('graph-connect-handle').click()
+    await expect(node(page, 'Gears')).toHaveAttribute('data-connect', 'target')
+    await node(page, 'Gears').getByRole('button', { name: 'Gears', exact: true }).click()
+    const entry = page.getByRole('menuitem', { name: /Iron plate/ })
+    await expect(entry).toHaveAttribute('data-kind', 'request')
+    await expect(entry).toContainText('needs 30.0')
+    await entry.click()
+
+    const chip = page.getByTestId('graph-edge-label')
+    await expect(chip).toContainText('30.0')
+    await expect(chip).toHaveAttribute('data-kind', 'request')
+    await expect(page.getByTestId('graph-edge-existing')).toHaveCount(0)
   })
 
   test('a click on the background leaves connect mode', async ({ page }) => {

@@ -78,6 +78,8 @@ test.describe('Ingredients pane', () => {
     const menu = page.getByRole('menu')
     await expect(menu.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Forbid imports' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Make in a new block…' })).toBeVisible()
+    await expect(menu.getByRole('menuitemcheckbox')).toHaveCount(0)
   })
 
   test('Receive from… in the strip opens the same menu', async ({ page }) => {

@@ -36,6 +36,12 @@ async function requestPlates(page: Page) {
   await expect(sourceSegment(page)).toBeVisible()
 }
 
+/** Select the Iron plate ingredient slot unless it already is. */
+async function ensureSelected(page: Page) {
+  if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
+  await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
+}
+
 /** Add a product through the item picker; `amount` '' clears the field (no extra output). */
 async function addProduct(page: Page, itemName: string, itemId: string, amount?: string) {
   await page.getByTitle('Add product').click()
@@ -254,5 +260,76 @@ test.describe('requests between blocks', () => {
     await expect(page.getByTestId('product-change-effect')).not.toContainText('cycle')
     await confirm(page, 'Cancel').click()
     await expect(slotById(page, 'Byproducts', 'nullius-iron-ingot')).toHaveCount(1)
+  })
+
+  test('Make in a new block creates a block that makes the item and requests it', async ({ page }) => {
+    await setup(page)
+
+    await slot(page, 'Ingredients', 'Iron rod').click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Make in a new block…' }).click()
+
+    // The new block is last, active, and named after the item; the picker is filtered to its recipes.
+    await expect(page.getByTestId('block-tab-strip').getByRole('button', { name: 'Iron rod' })).toHaveAttribute('aria-current', 'true')
+    await expect(page.getByText("Choose a recipe to produce 'Iron rod'")).toBeVisible()
+    await page.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-iron-rod"]').click()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
+
+    // Gears' 15 rods are requested from it.
+    await selectSlot(page, 'Products', 'Iron rod')
+    await expect(detail(page, 'Products')).toContainText('requested 15.0')
+    await expect(productEntry(page, 'export')).toHaveText('Gears requests 15.0')
+
+    await page.locator('button[title="Gears"]').click()
+    await selectSlot(page, 'Ingredients', 'Iron rod')
+    await expect(sourceEntry(page)).toContainText('Iron rod')
+    await expect(sourceEntry(page)).toContainText('15.0')
+    await expect(importEntry(page)).toHaveCount(0)
+
+    const download = await exportPlan(page)
+    const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
+    const rods = exported.blocks.find((b: { name: string }) => b.name === 'Iron rod')
+    expect(rods.products).toEqual([{ id: expect.any(String), itemId: 'nullius-iron-rod' }])
+    const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
+    expect(gears.inputConnections).toContainEqual(
+      expect.objectContaining({ itemId: 'nullius-iron-rod', fromBlockId: rods.id }),
+    )
+  })
+
+  test('Use connections first makes the source supply what the own recipe would make', async ({ page }) => {
+    await setup(page)
+    await requestPlates(page)
+
+    // Gears gets its own iron plate recipe: it comes first, so the request delivers nothing.
+    await detail(page, 'Ingredients').getByRole('button', { name: 'Find recipe' }).click()
+    await page.locator('[data-testid="recipe-slot"][data-recipe-id="nullius-iron-plate"]').click()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
+    await ensureSelected(page)
+    await expect(sourceSegment(page)).toHaveCount(0)
+    await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
+
+    await plateSlot(page).click({ button: 'right' })
+    const first = page.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+    await expect(first).toHaveAttribute('aria-checked', 'false')
+    await first.click()
+
+    await ensureSelected(page)
+    await expect(sourceEntry(page)).toContainText('30.0')
+    await expect(slot(page, 'Ingredients', 'Iron ingot')).toHaveCount(0)
+    await page.locator('button[title="Plates"]').click()
+    await selectSlot(page, 'Products', 'Iron plate')
+    await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
+    await page.locator('button[title="Gears"]').click()
+
+    await plateSlot(page).click({ button: 'right' })
+    await expect(page.getByRole('menuitemcheckbox', { name: /Use connections first/ })).toHaveAttribute('aria-checked', 'true')
+    await page.keyboard.press('Escape')
+    const download = await exportPlan(page)
+    const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
+    const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
+    expect(gears.connectionsFirstItems).toEqual(['nullius-iron-plate'])
+
+    await plateSlot(page).click({ button: 'right' })
+    await page.getByRole('menuitemcheckbox', { name: /Use connections first/ }).click()
+    await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
   })
 })

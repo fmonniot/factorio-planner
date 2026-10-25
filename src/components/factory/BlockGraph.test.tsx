@@ -486,6 +486,42 @@ describe('BlockGraph', () => {
       expect(chip().getAttribute('title')).toContain('taken as existing: the requests around this loop do not settle')
     })
 
+    it('tags a take chip as existing', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).getByTestId('graph-edge-existing').textContent).toBe('existing')
+    })
+
+    it('has no existing tag on a request', () => {
+      setup({ connected: true, minerProducts: [ironOre], flow: { kind: 'request', requested: 30 } })
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).queryByTestId('graph-edge-existing')).toBeNull()
+    })
+
+    it('has no existing tag before the first solve', () => {
+      setup({ connected: true })
+      useSolverStore.setState({ flows: [] })
+      render(<BlockGraphButton />)
+      open()
+      expect(within(chip()).queryByTestId('graph-edge-existing')).toBeNull()
+    })
+
+    it('lists a source product it offers nothing of, showing only what the target needs', () => {
+      setup({ minerProducts: [ironOre] })
+      useSolverStore.setState({ lastResults: { consumer: consumerResult() } })
+      render(<BlockGraphButton />)
+      open()
+      fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
+      expect(node('consumer').getAttribute('data-connect')).toBe('target')
+      fireEvent.click(within(node('consumer')).getByRole('button', { name: 'Consumer' }))
+      const item = screen.getByRole('menuitem', { name: /Iron Ore/ })
+      expect(item.getAttribute('data-kind')).toBe('request')
+      expect(item.textContent).toContain('needs 30.0')
+      expect(item.textContent).not.toContain('offers')
+    })
+
     it('has no pull toggle', () => {
       setup({ connected: true })
       render(<BlockGraphButton />)
