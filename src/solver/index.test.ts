@@ -1125,15 +1125,41 @@ describe('solveAll — requests', () => {
     it('keeps round 1 and takes existing output when the cycle does not settle', () => {
       const all = solveAll(pair(['gx', 'gy']), cycleData())
       expect(all.requestLoops).toHaveLength(1)
-      expect(all.requestLoops[0]).toMatchObject({ rounds: 3, converged: false })
+      expect(all.requestLoops[0]).toMatchObject({ rounds: 4, converged: false })
       expect(flowOf(all, 'ca').requested).toBeCloseTo(60, 4)
       expect(flowOf(all, 'cb')).toMatchObject({ kind: 'take', requestIgnored: 'request-loop' })
       expect(flowOf(all, 'cb').rate).toBeCloseTo(60, 4)
       expect(throughput(all, 'A')).toBeCloseTo(60, 4)
       expect(throughput(all, 'B')).toBeCloseTo(60, 4)
       for (const id of ['A', 'B']) {
-        expect(all.results[id].warnings).toContainEqual({ type: 'request-loop-not-converged', blockIds: ['A', 'B'], rounds: 3 })
+        expect(all.results[id].warnings).toContainEqual({ type: 'request-loop-not-converged', blockIds: ['A', 'B'], rounds: 4 })
       }
+    })
+
+    it('gives the whole need to the other requests of a member when the cycle does not settle', () => {
+      const data = cycleData()
+      data.recipes.ox = recipe('ox', 1, [], [product('x', 1)])
+      const [a, b] = pair(['gx', 'gy'])
+      const blocks = [
+        a,
+        { ...b, inputConnections: [...b.inputConnections, link('co', 'O', 'x')] },
+        block('O', [prod('x')], [planNode('o', 'ox')]),
+      ]
+      const all = solveAll(blocks, data)
+      expect(all.requestLoops[0]).toMatchObject({ converged: false })
+      expect(flowOf(all, 'cb').requestIgnored).toBe('request-loop')
+      expect(flowOf(all, 'co').requested).toBeCloseTo(60, 4)
+      expect(flowOf(all, 'co').rate).toBeCloseTo(60, 4)
+      expect(flowOf(all, 'cb').rate).toBeCloseTo(0, 4)
+      expect(throughput(all, 'O')).toBeCloseTo(60, 4)
+      expect(rate(all.results.B.unsatisfied, 'x')).toBe(0)
+    })
+
+    it('settles a cycle whose demand grows until a request limit', () => {
+      const all = solveAll(pair(['gx', 'gy'], 60, { maxRate: 180 }), cycleData())
+      expect(all.requestLoops[0]).toMatchObject({ rounds: 4, converged: true })
+      expect(flowOf(all, 'cb').requested).toBeCloseTo(180, 4)
+      expect(flowOf(all, 'ca').requested).toBeCloseTo(240, 4)
     })
 
     it('stops at the round limit and keeps round 1', () => {
@@ -1183,7 +1209,7 @@ describe('solveAll — requests', () => {
       const first = solveAll(pair(['gx', 'gy']), gd, cache)
       const second = solveAll(pair(['gx', 'gy']), gd, cache)
       expect(second.results.A).toBe(first.results.A)
-      expect(second.requestLoops[0]).toMatchObject({ rounds: 3, converged: false })
+      expect(second.requestLoops[0]).toMatchObject({ rounds: 4, converged: false })
     })
   })
 
@@ -1242,10 +1268,39 @@ describe('solveAll — requests', () => {
       )
       const all = solveAll([twinSource(), smelter(), b], data)
       expect(flowOf(all, 'cr').requested).toBeCloseTo(50, 4)
-      // B's slag request makes T produce 10 more plate than estimated; the take only gets it at delivery.
-      expect(flowOf(all, 'ct').rate).toBeCloseTo(30, 4)
-      expect(flowOf(all, 'cr').rate).toBeCloseTo(20, 4)
+      // The take got no credit, so it does not draw ahead of the request: what A made for B is used.
+      expect(flowOf(all, 'cr').rate).toBeCloseTo(50, 4)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
       expect(throughput(all, 'A')).toBeCloseTo(50, 4)
+    })
+
+    it('reserves a credited take against a take consumer solved before it', () => {
+      const all = solveAll([
+        twinSource(),
+        smelter(),
+        consumer('D', 10, [link('dt', 'T', 'plate')]),
+        consumer('C', 25, [take(), request()]),
+      ], requestGameData())
+      expect(flowOf(all, 'cr').requested).toBeCloseTo(30, 4)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'dt').rate).toBeCloseTo(0, 4)
+      expect(rate(all.results.C.unsatisfied, 'plate')).toBe(0)
+      expect(rate(all.results.D.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+    })
+
+    it('credits a take source whose own supply is short with what it still offers', () => {
+      const data = requestGameData()
+      data.recipes.twinOre = recipe('twinOre', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('slag', 1), product('plate', 1)])
+      const all = solveAll([
+        block('U', [prod('ore')], [planNode('i', 'ingot')]),
+        block('T', [prod('slag', 20)], [planNode('t', 'twinOre')], [link('tu', 'U', 'ore')]),
+        smelter(),
+        consumer('B', 25, [take(), request()]),
+      ], data)
+      expect(flowOf(all, 'tu').rate).toBe(0)
+      expect(flowOf(all, 'cr').requested).toBeCloseTo(30, 4)
+      expect(flowOf(all, 'ct').rate).toBeCloseTo(20, 4)
+      expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
     })
   })
 

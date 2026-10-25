@@ -315,7 +315,7 @@ describe('multi-block loops on the real Seablock data', () => {
       expect.objectContaining({
         blockIds: ['Metals', 'Ores', 'Sciences'],
         backConnectionIds: ['c_ms_inv', 'c_ms_br'],
-        rounds: 3,
+        rounds: 4,
         converged: false,
       }),
     ])
@@ -328,7 +328,7 @@ describe('multi-block loops on the real Seablock data', () => {
     expect(all.results.Sciences.unsatisfied.find(u => u.itemId === 'bob-brass-alloy')?.rate).toBeCloseTo(10, 4)
     for (const id of ['Metals', 'Ores', 'Sciences']) {
       expect(all.results[id].warnings).toContainEqual({
-        type: 'request-loop-not-converged', blockIds: ['Metals', 'Ores', 'Sciences'], rounds: 3,
+        type: 'request-loop-not-converged', blockIds: ['Metals', 'Ores', 'Sciences'], rounds: 4,
       })
     }
     expectSaneAll(all)

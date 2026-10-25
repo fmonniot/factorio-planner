@@ -171,7 +171,7 @@ describe('exactKey', () => {
 
 describe('request loop entries', () => {
   const loopSolve = (): RequestLoopSolve => ({
-    shares: new Map([['c', 20]]), credited: [['t', 'plate', 5]], rounds: 3, converged: true,
+    shares: new Map([['c', 20]]), credits: new Map([['ct', 5]]), credited: [['t', 'plate', 5]], rounds: 3, converged: true,
   })
 
   it('round-trips an entry for the same members, key and game data', () => {
@@ -201,6 +201,18 @@ describe('request loop entries', () => {
     expect(cache.getRequestLoop(['c', 'd'], gd, 'k')).toBeUndefined()
     cache.clear()
     expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBeUndefined()
+  })
+
+  it('retain drops entries not read or written since the last retain', () => {
+    const cache = createSolveCache()
+    const gd = gameData()
+    cache.setRequestLoop(['a', 'b'], gd, 'k', loopSolve())
+    cache.setRequestLoop(['c', 'd'], gd, 'k', loopSolve())
+    cache.retain(new Set(['a', 'b', 'c', 'd']))
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBeDefined()
+    cache.retain(new Set(['a', 'b', 'c', 'd']))
+    expect(cache.getRequestLoop(['a', 'b'], gd, 'k')).toBeDefined()
+    expect(cache.getRequestLoop(['c', 'd'], gd, 'k')).toBeUndefined()
   })
 
   it('does not count towards size or has', () => {

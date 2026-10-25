@@ -6,7 +6,8 @@
  * settled solve of a block in a loop all survive.
  *
  * It also memoises the outcome of a whole cycle of requests (one entry per member list), so a
- * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`.
+ * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
+ * and `retain` drops the ones the solve since the last `retain` did not use.
  */
 import type { GameData, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -22,6 +23,8 @@ export const SLOTS_PER_BLOCK = 3
 export interface RequestLoopSolve {
   /** request connection id → items/min requested, for every request of a member (round 1's when not converged). */
   shares: Map<string, number>
+  /** take connection id → items/min credited, for the members' takes credited more than 0. */
+  credits: Map<string, number>
   /** [take source, item, leftover estimate after the members' takes]. */
   credited: [string, string, number][]
   rounds: number
@@ -35,7 +38,7 @@ export interface SolveCache {
   getRequestLoop(blockIds: string[], gameData: GameData, key: string): RequestLoopSolve | undefined
   setRequestLoop(blockIds: string[], gameData: GameData, key: string, solved: RequestLoopSolve): void
   delete(blockId: string): void
-  /** Drop entries of blocks not in `blockIds`. */
+  /** Drop entries of blocks not in `blockIds`, and cycle entries not read or written since the last call. */
   retain(blockIds: ReadonlySet<string>): void
   clear(): void
   has(blockId: string): boolean
@@ -84,13 +87,18 @@ function sameInputs(e: Entry, gameData: GameData, key: string, caps: Map<string,
 export function createSolveCache(): SolveCache {
   const entries = new Map<string, Entry[]>() // most recently used first
   const loops = new Map<string, { blockIds: string[]; gameData: GameData; key: string; solved: RequestLoopSolve }>()
+  const usedLoops = new Set<string>() // member lists read or written since the last retain
   return {
     getRequestLoop(blockIds, gameData, key) {
-      const hit = loops.get(blockIds.join('\0'))
+      const k = blockIds.join('\0')
+      usedLoops.add(k)
+      const hit = loops.get(k)
       return hit && hit.gameData === gameData && hit.key === key ? hit.solved : undefined
     },
     setRequestLoop(blockIds, gameData, key, solved) {
-      loops.set(blockIds.join('\0'), { blockIds, gameData, key, solved })
+      const k = blockIds.join('\0')
+      usedLoops.add(k)
+      loops.set(k, { blockIds, gameData, key, solved })
     },
     get(blockId, gameData, key, caps) {
       const list = entries.get(blockId)
@@ -120,11 +128,13 @@ export function createSolveCache(): SolveCache {
     },
     retain(blockIds) {
       for (const id of [...entries.keys()]) if (!blockIds.has(id)) entries.delete(id)
-      for (const [k, e] of [...loops]) if (e.blockIds.some(id => !blockIds.has(id))) loops.delete(k)
+      for (const [k, e] of [...loops]) if (!usedLoops.has(k) || e.blockIds.some(id => !blockIds.has(id))) loops.delete(k)
+      usedLoops.clear()
     },
     clear() {
       entries.clear()
       loops.clear()
+      usedLoops.clear()
     },
     has: blockId => entries.has(blockId),
     get size() {

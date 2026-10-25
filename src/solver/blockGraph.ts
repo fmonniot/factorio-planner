@@ -10,7 +10,7 @@ import type { Block } from '../data/types'
 // ---------------------------------------------------------------------------
 
 /** blockId → ids of the blocks that receive something from it. */
-function consumersOf(blocks: Block[]): Map<string, string[]> {
+export function consumersOf(blocks: Block[]): Map<string, string[]> {
   const ids = new Set(blocks.map(b => b.id))
   const map = new Map<string, string[]>()
   for (const b of blocks) {
@@ -25,7 +25,7 @@ function consumersOf(blocks: Block[]): Map<string, string[]> {
 }
 
 /** True when `target` can be reached from `start` along source → consumer edges. */
-function reaches(consumers: Map<string, string[]>, start: string, target: string): boolean {
+export function reaches(consumers: Map<string, string[]>, start: string, target: string): boolean {
   const seen = new Set<string>()
   const stack = [start]
   while (stack.length > 0) {
@@ -41,7 +41,7 @@ function reaches(consumers: Map<string, string[]>, start: string, target: string
 /**
  * Would adding the edge fromBlockId → toBlockId close a loop? True when `from`
  * is already downstream of `to`. A self-connection is not a loop (it is
- * rejected outright). Used for hints and by the request pass; loops are allowed.
+ * rejected outright). Used for hints; loops are allowed.
  */
 export function closesLoop(blocks: Block[], fromBlockId: string, toBlockId: string): boolean {
   return fromBlockId !== toBlockId && reaches(consumersOf(blocks), toBlockId, fromBlockId)
