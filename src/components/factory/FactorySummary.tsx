@@ -8,55 +8,59 @@ import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { connectionPullBlocker, pullBlockerTitle, isGoalItem } from '../../store/connections'
+import { productChangeEffects } from '../../store/connections'
+import type { ProductChangeEffect } from '../../store/connections'
+import { hasProduct } from '../../solver/blockGraph'
+import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { SummaryPane } from './SummaryPane'
 import type { StripAction } from './SummaryDetailStrip'
 import { ingredientRows, byproductRows } from './summaryRows'
-import { productSlot, pulledSlot, byproductSlot, ingredientSlot } from './summarySegments'
-import type { GoalInfo } from './summarySegments'
+import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
+import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, FLOW_TOLERANCE } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
-// GoalRates — a goal's target → actual in the detail strip, with inline edit for the target
+// ProductRates — a product's extra → actual in the detail strip, with inline edit for the extra
 // ---------------------------------------------------------------------------
 
-interface GoalRatesProps {
-  goal: Product
-  info: GoalInfo
+interface ProductRatesProps {
+  product: Product
+  info: ProductInfo
   rateUnit: RateUnit
   editing: boolean
   onStart: () => void
   onStop: () => void
-  onUpdateRate: (rate: number) => void
+  onUpdateExtra: (extraRate: number) => void
 }
 
-function GoalRates({ goal, info, rateUnit, editing, onStart, onStop, onUpdateRate }: GoalRatesProps) {
-  // goal.extraRate is stored in items/min internally
+function ProductRates({ product, info, rateUnit, editing, onStart, onStop, onUpdateExtra }: ProductRatesProps) {
+  // product.extraRate is stored in items/min internally
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
-  const targetDisplay = fmtRate(goal.extraRate / 60, rateUnit)
+  const hasExtra = product.extraRate !== undefined
+  const targetDisplay = hasExtra ? fmtRate(product.extraRate! / 60, rateUnit) : '—'
   const actualDisplay = info.actual !== undefined ? fmtRate(info.actual / 60, rateUnit) : null
   const shortfallDisplay = info.actual !== undefined ? fmtRate((info.required - info.actual) / 60, rateUnit) : null
   const { short } = info
 
   return (
     <span className="flex items-center gap-1 text-xs">
-      {/* Target rate — editable */}
+      {/* Extra output — editable */}
       {editing ? (
         <RateInput
-          initial={targetDisplay}
+          initial={hasExtra ? targetDisplay : ''}
           rateUnit={rateUnit}
           ariaLabel="Goal target rate"
-          onCommit={perMin => perMin !== undefined && onUpdateRate(perMin)}
+          onCommit={perMin => perMin !== undefined && onUpdateExtra(perMin)}
           onStop={onStop}
         />
       ) : (
         <button
           type="button"
           onClick={onStart}
-          title={`Target: ${targetDisplay}${unitLabel} — click to edit`}
+          title={hasExtra ? `Target: ${targetDisplay}${unitLabel} — click to edit` : 'Target: none — click to edit'}
           className="text-gray-300 hover:text-yellow-300 tabular-nums font-mono text-[11px] leading-none"
         >
           {targetDisplay}
@@ -103,18 +107,22 @@ export function FactorySummary() {
   const blocks = useBlockStore(s => s.blocks)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
-  const setConnectionPull = useBlockStore(s => s.setConnectionPull)
   const allFlows = useSolverStore(selectFlows)
   const addNode = useBlockStore(s => s.addNode)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   const [consumerPickerItemId, setConsumerPickerItemId] = useState<string | null>(null)
   const [producerPickerItemId, setProducerPickerItemId] = useState<string | null>(null)
-  const [goalMenu, setGoalMenu] = useState<{ goalId: string; x: number; y: number } | null>(null)
+  const [productMenu, setProductMenu] = useState<{ productId: string; x: number; y: number } | null>(null)
+  const [pendingChange, setPendingChange] = useState<
+    | { change: 'add'; product: Product; effects: ProductChangeEffect[] }
+    | { change: 'remove'; productId: string; itemId: string; effects: ProductChangeEffect[] }
+    | null
+  >(null)
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
-  const goals: Product[] = activeBlock?.products ?? []
-  const goalIds = new Set(goals.map(g => g.itemId))
+  const products: Product[] = activeBlock?.products ?? []
+  const productItemIds = new Set(products.map(p => p.itemId))
 
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
 
@@ -131,36 +139,19 @@ export function FactorySummary() {
   const exportedPerMin = new Map<string, number>()
   for (const f of outputFlows) exportedPerMin.set(f.itemId, (exportedPerMin.get(f.itemId) ?? 0) + f.rate)
 
-  // What other blocks pull from this one, by item: made on demand, so neither a goal nor a byproduct.
-  const pulledPerMin = new Map<string, number>()
+  // What other blocks request from this one, by item. Uses every flow (a request for 0 draws nothing).
+  const requestedPerMin = new Map<string, number>()
   for (const f of allFlows) {
-    if (f.fromBlockId !== activeBlockId || !f.demand) continue
-    pulledPerMin.set(f.itemId, (pulledPerMin.get(f.itemId) ?? 0) + f.demand)
-  }
-  const pulledOnlyIds = [...pulledPerMin]
-    .filter(([id, rate]) => !goalIds.has(id) && rate > FLOW_TOLERANCE)
-    .map(([id]) => id)
-  const isPulledOnly = (id: string) => pulledOnlyIds.includes(id)
-
-  // Deliveries of an item that are not for a pull: a pulled-only item's byproduct surplus is
-  // what is made beyond the pulled amount, minus what push connections take of it.
-  const pushExportedPerMin = new Map<string, number>()
-  for (const f of outputFlows) {
-    if (f.demand === undefined) pushExportedPerMin.set(f.itemId, (pushExportedPerMin.get(f.itemId) ?? 0) + f.rate)
+    if (f.fromBlockId !== activeBlockId || f.requested === undefined) continue
+    requestedPerMin.set(f.itemId, (requestedPerMin.get(f.itemId) ?? 0) + f.requested)
   }
 
-  // Byproducts: net positive balance not in goals, minus what is pulled and what other blocks take.
+  // Byproducts: net positive balance of items that are not products, minus what other blocks take.
   const byproductItems = [...netBalance]
-    .filter(([id]) => !goalIds.has(id))
-    .map(([id, net]) =>
-      isPulledOnly(id)
-        ? { itemId: id, ratePerMin: Math.max(0, net - pulledPerMin.get(id)!) - (pushExportedPerMin.get(id) ?? 0) }
-        : { itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) },
-    )
+    .filter(([id]) => !productItemIds.has(id))
+    .map(([id, net]) => ({ itemId: id, ratePerMin: net - (exportedPerMin.get(id) ?? 0) }))
     .filter(({ ratePerMin }) => ratePerMin > FLOW_TOLERANCE)
-  const exportedByproducts = [...exportedPerMin.keys()].filter(
-    id => !goalIds.has(id) && (!isPulledOnly(id) || (pushExportedPerMin.get(id) ?? 0) > FLOW_TOLERANCE),
-  )
+  const exportedByproducts = [...exportedPerMin.keys()].filter(id => !productItemIds.has(id))
   const byproductRowList = byproductRows(byproductItems, exportedByproducts)
 
   // Ingredients: unsatisfied raw inputs
@@ -169,43 +160,54 @@ export function FactorySummary() {
   const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
-  // A pulled-only item's pulled part sits in its product slot, the rest in Byproducts.
-  const byproductExportsOf = (itemId: string) =>
-    exportsOf(itemId).filter(f => !isPulledOnly(itemId) || f.demand === undefined)
   const blockIds = new Set(blocks.map(b => b.id))
-  // The solver adds a pulled amount to the first goal of the item.
-  const pulledGoalIds = new Set(goalIds)
-  const goalSlots = goals.map(g => {
-    const pulled = pulledGoalIds.delete(g.itemId) ? (pulledPerMin.get(g.itemId) ?? 0) : 0
+  // The solver adds a requested amount to the first product of the item.
+  const requestedItemIds = new Set(productItemIds)
+  const productSlots = products.map(p => {
+    const requested = requestedItemIds.delete(p.itemId) ? (requestedPerMin.get(p.itemId) ?? 0) : 0
     return productSlot(
-      g,
-      // No node makes the item: the goal is fully short, not unknown.
-      solverResult ? (netBalance.get(g.itemId) ?? 0) : undefined,
-      exportsOf(g.itemId),
+      p,
+      // No node makes the item: the product is fully short, not unknown.
+      solverResult ? (netBalance.get(p.itemId) ?? 0) : undefined,
+      exportsOf(p.itemId),
       rateUnit,
-      pulled,
+      requested,
     )
   })
-  const productSlots = [
-    ...goalSlots,
-    ...pulledOnlyIds.map(id =>
-      pulledSlot(
-        id,
-        pulledPerMin.get(id)!,
-        netBalance.get(id) ?? 0,
-        exportsOf(id).filter(f => f.demand !== undefined),
-        rateUnit,
-      )),
-  ]
-  const byproductSlots = byproductRowList.map(r => byproductSlot(r, byproductExportsOf(r.itemId)))
+  const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
-  // A goal shortfall can neither receive supply nor be forbidden imports (goals have no slack).
-  const connectable = (itemId: string) => (activeBlock ? !isGoalItem(activeBlock, itemId) : false)
+  // A product shortfall can neither receive supply nor be forbidden imports (products have no slack).
+  const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
 
-  function handleAddGoal(itemId: string, rate: number) {
-    addProduct({ id: crypto.randomUUID(), itemId, extraRate: rate })
+  // A product change asks first when it changes how other blocks' connections behave.
+  function requestAddProduct(itemId: string, extraRate?: number) {
+    if (!activeBlock) return
+    const product: Product = { id: crypto.randomUUID(), itemId, ...(extraRate !== undefined ? { extraRate } : {}) }
+    const effects = productChangeEffects(blocks, activeBlock.id, itemId, 'add', allFlows)
+    if (effects.length === 0) addProduct(product)
+    else setPendingChange({ change: 'add', product, effects })
+  }
+
+  function requestRemoveProduct(productId: string) {
+    if (!activeBlock) return
+    const product = activeBlock.products.find(p => p.id === productId)
+    if (!product) return
+    const effects = productChangeEffects(blocks, activeBlock.id, product.itemId, 'remove', allFlows)
+    if (effects.length === 0) removeProduct(productId)
+    else setPendingChange({ change: 'remove', productId, itemId: product.itemId, effects })
+  }
+
+  function handleAddGoal(itemId: string, rate: number | undefined) {
+    requestAddProduct(itemId, rate)
+  }
+
+  function confirmPendingChange() {
+    if (!pendingChange) return
+    if (pendingChange.change === 'add') addProduct(pendingChange.product)
+    else removeProduct(pendingChange.productId)
+    setPendingChange(null)
   }
 
   // The plan may not belong to the selected data set until its data has loaded,
@@ -240,43 +242,27 @@ export function FactorySummary() {
           rateUnit={rateUnit}
           editable
           onSlotContextMenu={(slot, e) => {
-            // A pulled-only item has no goal to edit or remove.
-            if (slot.pulledOnly) return
             e.preventDefault()
-            setGoalMenu({ goalId: slot.goal!.id, x: e.clientX, y: e.clientY })
+            setProductMenu({ productId: slot.product!.id, x: e.clientX, y: e.clientY })
           }}
           renderRates={(slot, edit) => {
-            if (slot.pulledOnly) {
-              return (
-                <span className="text-xs text-gray-300">
-                  pulled{' '}
-                  {slot.pulledShort !== undefined && (
-                    <span className="text-amber-400 font-mono tabular-nums">{fmt(slot.rate - slot.pulledShort)} of </span>
-                  )}
-                  <span className="font-mono tabular-nums">{fmt(slot.rate)}</span>
-                  <span className="text-gray-600 text-[10px]">{unitLabel}</span>
-                </span>
-              )
-            }
-            const goal = goals.find(g => g.id === slot.goal!.id)
-            return goal && (
-              <GoalRates
-                goal={goal}
-                info={slot.goal!}
+            const product = products.find(p => p.id === slot.product!.id)
+            return product && (
+              <ProductRates
+                product={product}
+                info={slot.product!}
                 rateUnit={rateUnit}
                 editing={edit.editing}
                 onStart={edit.start}
                 onStop={edit.stop}
-                onUpdateRate={rate => updateProductExtra(goal.id, rate)}
+                onUpdateExtra={rate => updateProductExtra(product.id, rate)}
               />
             )
           }}
-          actionsFor={slot => slot.pulledOnly
-            ? [{ label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) }]
-            : [
-              { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
-              { label: 'Remove goal', danger: true, onSelect: () => removeProduct(slot.goal!.id) },
-            ]}
+          actionsFor={slot => [
+            { label: 'Find recipe', onSelect: () => setProducerPickerItemId(slot.itemId) },
+            { label: 'Remove goal', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) },
+          ]}
           onOpenBlock={setActiveBlock}
         />
 
@@ -365,36 +351,17 @@ export function FactorySummary() {
         />
       )}
 
-      {goalMenu && (
+      {productMenu && (
         <RowActionsMenu
-          x={goalMenu.x}
-          y={goalMenu.y}
-          actions={[{ label: 'Remove goal', danger: true, onSelect: () => removeProduct(goalMenu.goalId) }]}
-          onClose={() => setGoalMenu(null)}
+          x={productMenu.x}
+          y={productMenu.y}
+          actions={[{ label: 'Remove goal', danger: true, onSelect: () => requestRemoveProduct(productMenu.productId) }]}
+          onClose={() => setProductMenu(null)}
         />
       )}
 
       {connectionChipMenu && (() => {
-        const connection = connections.find(c => c.id === connectionChipMenu.connectionId)
         const actions: RowAction[] = []
-        if (activeBlock && connection) {
-          actions.push(connection.pull
-            ? { label: 'Stop pulling', onSelect: () => setConnectionPull(connection.id, false) }
-            : (() => {
-              const blocker = gameData ? connectionPullBlocker(blocks, activeBlock, connection, gameData) : 'no-producer'
-              return {
-                label: 'Pull from source',
-                disabled: blocker !== undefined,
-                title: blocker && pullBlockerTitle(
-                  blocker,
-                  blocks.find(b => b.id === connection.fromBlockId)?.name ?? connection.fromBlockId,
-                  activeBlock.name,
-                  gameData?.items[connection.itemId]?.name ?? connection.itemId,
-                ),
-                onSelect: () => setConnectionPull(connection.id, true),
-              }
-            })())
-        }
         actions.push({
           label: 'Remove connection',
           danger: true,
@@ -434,6 +401,19 @@ export function FactorySummary() {
           filterByItemId={producerPickerItemId}
           onSelect={id => addNode(makeRecipeNode(id))}
           onClose={() => setProducerPickerItemId(null)}
+        />
+      )}
+
+      {pendingChange && activeBlock && (
+        <ProductChangeDialog
+          change={pendingChange.change}
+          itemName={gameData.items[pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId]?.name
+            ?? (pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId)}
+          blockName={activeBlock.name}
+          effects={pendingChange.effects}
+          rateUnit={rateUnit}
+          onCancel={() => setPendingChange(null)}
+          onConfirm={confirmPendingChange}
         />
       )}
 

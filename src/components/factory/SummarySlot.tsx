@@ -103,11 +103,11 @@ export function SegmentBar({
           </button>
         )
       })}
-      {slot.goal && slot.goal.tickAt !== null && (
+      {slot.product && slot.product.tickAt !== null && (
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 w-0.5 -ml-px bg-gray-200"
-          style={{ left: `${slot.goal.tickAt * 100}%` }}
+          style={{ left: `${slot.product.tickAt * 100}%` }}
         />
       )}
     </div>
@@ -170,7 +170,11 @@ export function SummarySlot({
       data-dimmed={slot.dimmed || undefined}
       data-traced={traced}
       aria-pressed={selected}
-      aria-label={`${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}${slot.status ? `, ${slot.status}` : ''}`}
+      aria-label={
+        slot.empty
+          ? `${name}, nothing requested yet`
+          : `${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}${slot.status ? `, ${slot.status}` : ''}`
+      }
       title={name}
       onClick={onClick}
       onDoubleClick={onDoubleClick}
@@ -191,7 +195,7 @@ export function SummarySlot({
         className={`absolute right-1 bottom-[9px] font-mono font-semibold text-[10px] leading-none ${countColor}`}
         style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}
       >
-        {fmtRate(slot.rate / 60, rateUnit)}
+        {slot.empty ? '—' : fmtRate(slot.rate / 60, rateUnit)}
       </span>
       {badge && (
         <span aria-hidden="true" className={`absolute right-[3px] top-px text-[9px] font-bold leading-none ${badge.className}`}>
