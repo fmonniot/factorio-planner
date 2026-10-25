@@ -14,10 +14,11 @@ function warningTitle(w: SolverWarning): string {
     case 'duplicate-recipe': return 'Duplicate recipe'
     case 'infeasible-pins': return 'Pinned rate is impossible'
     case 'overconstrained': return "Recipe network can't fully balance"
+    case 'loop-not-converged': return 'Loop between blocks did not settle'
   }
 }
 
-function warningBody(w: SolverWarning, gameData: GameData): string {
+function warningBody(w: SolverWarning, gameData: GameData, blockName: (id: string) => string): string {
   switch (w.type) {
     case 'no-recipe': {
       const name = gameData.items[w.itemId]?.name ?? w.itemId
@@ -35,6 +36,10 @@ function warningBody(w: SolverWarning, gameData: GameData): string {
       const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
     }
+    case 'loop-not-converged': {
+      const names = [...w.blockIds, w.blockIds[0]].map(blockName)
+      return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
+    }
   }
 }
 
@@ -44,6 +49,7 @@ function warningHint(w: SolverWarning): string {
     case 'duplicate-recipe': return 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
+    case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
   }
 }
 
@@ -60,6 +66,7 @@ export function WarningsPopover() {
   const block = useBlockStore(selectActiveBlock)
   const result = useSolverStore(selectBlockResult(block?.id))
   const removeNode = useBlockStore(s => s.removeNode)
+  const blocks = useBlockStore(s => s.blocks)
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -130,7 +137,7 @@ export function WarningsPopover() {
                   ⚠ {warningTitle(w)}
                 </div>
                 <div className="text-gray-300 leading-snug mb-1">
-                  {warningBody(w, gameData)}
+                  {warningBody(w, gameData, id => blocks.find(b => b.id === id)?.name ?? id)}
                 </div>
                 <div className="text-gray-500 leading-snug">
                   → {warningHint(w)}

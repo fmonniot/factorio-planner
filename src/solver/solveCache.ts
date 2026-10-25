@@ -1,7 +1,9 @@
 /**
  * Memoises `solveBlock` per block. A block is re-solved only when its flattened
  * plan, the game data object or the caps on offer to it changed. Errors are
- * never stored.
+ * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
+ * recently used first), so the first-round and the settled solve of a block in
+ * a loop both survive.
  */
 import type { GameData, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -9,6 +11,9 @@ export interface BlockSolve {
   result: SolverResult
   received: Map<string, number>
 }
+
+/** Entries kept per block. */
+export const SLOTS_PER_BLOCK = 2
 
 export interface SolveCache {
   get(blockId: string, gameData: GameData, planKey: string, caps: Map<string, number>): BlockSolve | undefined
@@ -51,16 +56,35 @@ function sameCaps(stored: [string, number][], caps: Map<string, number>): boolea
   return true
 }
 
+function sameInputs(e: Entry, gameData: GameData, key: string, caps: Map<string, number>): boolean {
+  return e.gameData === gameData && e.planKey === key && sameCaps(e.caps, caps)
+}
+
 export function createSolveCache(): SolveCache {
-  const entries = new Map<string, Entry>()
+  const entries = new Map<string, Entry[]>() // most recently used first
   return {
     get(blockId, gameData, key, caps) {
-      const e = entries.get(blockId)
-      if (!e || e.gameData !== gameData || e.planKey !== key || !sameCaps(e.caps, caps)) return undefined
-      return e.solved
+      const list = entries.get(blockId)
+      if (!list) return undefined
+      const i = list.findIndex(e => sameInputs(e, gameData, key, caps))
+      if (i < 0) return undefined
+      const [hit] = list.splice(i, 1)
+      list.unshift(hit)
+      return hit.solved
     },
     set(blockId, gameData, key, caps, solved) {
-      entries.set(blockId, { gameData, planKey: key, caps: [...caps], solved })
+      const entry: Entry = { gameData, planKey: key, caps: [...caps], solved }
+      const list = entries.get(blockId)
+      if (!list) {
+        entries.set(blockId, [entry])
+        return
+      }
+      const i = list.findIndex(e => sameInputs(e, gameData, key, caps))
+      if (i >= 0) list[i] = entry
+      else {
+        list.unshift(entry)
+        list.length = Math.min(list.length, SLOTS_PER_BLOCK)
+      }
     },
     delete(blockId) {
       entries.delete(blockId)

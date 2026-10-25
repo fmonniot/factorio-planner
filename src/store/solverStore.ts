@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import type { ConnectionFlow, GameData, MultiBlockSolve, SolverResult } from '../data/types'
+import type { BlockLoop, ConnectionFlow, GameData, MultiBlockSolve, SolverResult } from '../data/types'
 import { solveAll } from '../solver/index'
 import { createSolveCache } from '../solver/solveCache'
 import { useBlockStore } from './blockStore'
@@ -26,6 +26,8 @@ export interface SolverStoreState {
   lastErrors: Record<string, string>
   /** Latest delivery on every block-to-block connection. */
   flows: ConnectionFlow[]
+  /** Latest loops of blocks that supply each other. */
+  loops: BlockLoop[]
   /** Internal — set by the subscription wiring; not for direct use. */
   _setStatus: (status: SolverStatus) => void
   /** Internal — point status/lastResult at another block using the stored results (no solve). */
@@ -40,6 +42,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
   lastResults: {},
   lastErrors: {},
   flows: [],
+  loops: [],
   _setStatus: (status) => {
     if (status.type === 'solved') {
       set({ status, lastResult: status.result })
@@ -55,7 +58,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
       return result ? { status: { type: 'solved', result }, lastResult: result } : {}
     }),
   _setSolved: (all, activeBlockId) => {
-    const shared = { lastResults: all.results, lastErrors: all.errors, flows: all.flows }
+    const shared = { lastResults: all.results, lastErrors: all.errors, flows: all.flows, loops: all.loops }
     const error = all.errors[activeBlockId]
     // A failure in one block is that block's status only; other blocks stay solved.
     if (error !== undefined) {
@@ -186,4 +189,9 @@ export function selectBlockResults(state: SolverStoreState): Record<string, Solv
 /** Latest delivery on every block-to-block connection. Filter in useMemo, not here. */
 export function selectFlows(state: SolverStoreState): ConnectionFlow[] {
   return state.flows
+}
+
+/** Latest loops of blocks that supply each other. */
+export function selectLoops(state: SolverStoreState): BlockLoop[] {
+  return state.loops
 }

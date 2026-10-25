@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { WarningsPopover } from './WarningsPopover'
 import { useSolverStore } from '../../store/solverStore'
 import { useGameDataStore } from '../../store/gameDataStore'
+import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import type { GameData, SolverResult } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -87,6 +88,34 @@ describe('WarningsPopover — overconstrained', () => {
 
   it('hint mentions material loop', () => {
     expect(screen.getByText(/material loop/i)).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// loop-not-converged
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — loop-not-converged', () => {
+  beforeEach(() => {
+    useBlockStore.setState({
+      blocks: [{ ...makeEmptyBlock('Metals'), id: 'm' }, { ...makeEmptyBlock('Ores'), id: 'o' }],
+      activeBlockId: 'm',
+    })
+    setupWithWarnings({ warnings: [{ type: 'loop-not-converged', blockIds: ['m', 'o'], rounds: 8 }] })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title', () => {
+    expect(screen.getByText(/Loop between blocks did not settle/)).toBeInTheDocument()
+  })
+
+  it('names the blocks around the loop and the rounds', () => {
+    expect(screen.getByText(/Metals → Ores → Metals.*after 8 rounds/)).toBeInTheDocument()
+  })
+
+  it('hint suggests removing or limiting a connection', () => {
+    expect(screen.getByText(/set a limit on one/i)).toBeInTheDocument()
   })
 })
 

@@ -17,7 +17,7 @@ A linear program handles both naturally: cycles are just additional constraints,
 
 ## Pipeline
 
-Entry point: `solveAll(blocks, gameData, cache?)` in [src/solver/index.ts](../src/solver/index.ts). It orders the blocks with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) so every source is solved before its consumers, then calls `solveBlock(plan, gameData, supplyCaps)` for each one, where `plan = flattenBlock(block)` and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`. With a `SolveCache` ([src/solver/solveCache.ts](../src/solver/solveCache.ts)), a block whose flattened plan, game data object and supply caps (exact values, in order) are all unchanged reuses its previous `solveBlock` output instead of solving again. Offers and flows are still recomputed for every block. A failed solve is never cached.
+Entry point: `solveAll(blocks, gameData, cache?, options?)` in [src/solver/index.ts](../src/solver/index.ts). It groups the blocks into components with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) and orders them so every source is solved before its consumers; a component of mutually supplying blocks is a loop and is solved in rounds (see [Loops](#loops)). For each block it calls `solveBlock(plan, gameData, supplyCaps)` for each one, where `plan = flattenBlock(block)` and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`. With a `SolveCache` ([src/solver/solveCache.ts](../src/solver/solveCache.ts)), a block whose flattened plan, game data object and supply caps (exact values, in order) are all unchanged reuses its previous `solveBlock` output instead of solving again. Offers and flows are still recomputed for every block. A failed solve is never cached. The cache keeps up to two entries per block (most recently used first), so the first-round and the settled solve of a block in a loop both survive.
 
 Per block, `solveBlock` runs:
 
@@ -103,8 +103,9 @@ Warnings (`SolverWarning` in [src/data/types.ts](../src/data/types.ts)):
 - **`no-recipe`** — a goal item has no positive coefficient in `S` (no producer in the plan); emitted before the LP. Checked before `discard` policies are applied.
 - **`infeasible-pins`** — the LP is infeasible and pins are present.
 - **`overconstrained`** — one or more intermediates end with positive net flow at the LP optimum; lists each surplus item and rate.
+- **`loop-not-converged`** — added by `solveAll` to every member of a loop of blocks that did not settle within the round limit; lists the loop's `blockIds` and the rounds run (see [Loops](#loops)).
 
-Warnings come out in that order: `duplicate-recipe`, `no-recipe`, then the LP warnings (`infeasible-pins`, `overconstrained`).
+Warnings come out in that order: `duplicate-recipe`, `no-recipe`, then the LP warnings (`infeasible-pins`, `overconstrained`); `loop-not-converged` is appended last.
 
 Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
@@ -136,7 +137,7 @@ A `BlockConnection` on block B says "B receives item X from block A" (see [data-
 
 **Offer.** What a source can offer of X is `max(0, Σ outputRates[X] − Σ inputRates[X])` over its solved nodes (`netBalance`): goal output, surplus intermediates and byproducts. A block's received items are consumed by its own recipes, so it never re-exports them.
 
-**Solve order.** `orderBlocks` sorts blocks topologically (Kahn's algorithm, ties broken by position in `blocks`). `solveAll` keeps, per block, the offer still unclaimed. Several consumers of the same `(A, X)` are served in solve order, each getting what earlier ones left. Several sources of the same `(B, X)` are summed into one cap, and the amount delivered is split between them in `inputConnections` order. A connection's optional `maxRate` caps its share of the offer; whatever the cap holds back stays on offer for consumers solved later. A block with no goals or no nodes offers and receives nothing.
+**Solve order.** `orderBlocks` groups blocks into strongly connected components (blocks that supply each other, directly or through other blocks) and sorts the components topologically (Kahn's algorithm, ties broken by the lowest position of a component's blocks in `blocks`). A block outside any loop is its own component and is solved once. `solveAll` keeps, per block, the offer still unclaimed. Several consumers of the same `(A, X)` are served in solve order, each getting what earlier ones left. Several sources of the same `(B, X)` are summed into one cap, and the amount delivered is split between them in `inputConnections` order. A connection's optional `maxRate` caps its share of the offer; whatever the cap holds back stays on offer for consumers solved later. A block with no goals or no nodes offers and receives nothing.
 
 **What B takes.** `delivered = min(what B would otherwise import, what is still on offer, maxRate)`, where "would otherwise import" depends on how X is classified in B:
 
@@ -159,9 +160,23 @@ Diagnostics come from the final pass only. The amount actually received is compu
 - `unused` — otherwise, when `rate ≤ 1e-6` (B makes the item, or does not need it from outside), and always for a repeated `(fromBlockId, itemId)` pair. A goal item is never fed, so the UI does not offer a connection on a goal shortfall; a goal connection from imported JSON just reads `unused`.
 - `ok` — otherwise.
 - `missing-source` — the source block does not exist; the connection is ignored.
-- `cycle` — the connection lies on a cycle (the store rejects those when adding, undoing and redoing, so only imported or hand-edited JSON can contain one); it is ignored. Every other block is still solved.
+- `self` — the connection's source is its own block (the store rejects those, so only imported or hand-edited JSON can contain one); it is ignored. Every other block is still solved.
+
+`ConnectionFlow.loop` is `true` on an active flow whose two ends are members of one loop.
 
 A repeated `(fromBlockId, itemId)` on one block counts once. A block whose solve throws gets an empty result, offers nothing, and is reported in `MultiBlockSolve.errors`; other blocks are unaffected.
+
+### Loops
+
+Blocks may supply each other (Metals → Sciences → Ores → Metals). A loop is a strongly connected component of two or more blocks; a connection from a block to itself is never a loop (status `self`). `MultiBlockSolve.loops` lists one `BlockLoop` per loop: `blockIds` in member order, `connectionIds` (in-loop connections: members in order, each in `inputConnections` order), `backConnectionIds`, `rounds` and `converged`.
+
+**Member order.** The entry is the first member (in `blocks` order) that receives from a block outside the loop, else the first member. The other members follow breadth-first along in-loop connections, each member's consumers in `blocks` order. A connection whose source comes later in this order than its consumer is a *back connection*.
+
+**Rounds.** The members are solved once per round, in member order. A back connection reads its source's offer from the previous round; in round 1 that offer is zero, since a loop never starts from supply nobody made. Offers from blocks upstream of the loop are re-read from a snapshot every round, so they are never drawn twice. Consumers that compete for one offer inside a loop are served in member order. A loop is settled when, for every `(source, item)` pair carried by a back connection, the source's offer equals the previous round's within a relative `1e-6` (`|a − b| ≤ 1e-6 · max(1, |a|, |b|)`).
+
+**Why it settles in round 2.** A block's solved nodes, and so its offers, do not depend on the supply it receives: raw supply never enters the LP; for an intermediate, the pass-1 optimum stays optimal in pass 2 because supply only fills the residual that pass 1 measured; and a block never re-exports what it receives. A loop therefore cannot amplify an item, round 2 reads the same back offers round 1 produced, and the loop is settled in two rounds (one when the back connections carry nothing). Only the split of a source's offer among consumers depends on other blocks. `LOOP_ROUND_LIMIT = 8` (overridable with `options.loopRoundLimit`) only guards against ties in the LP.
+
+**Not settled.** The last round's results are kept, `converged` is `false`, and each member's result gets a `loop-not-converged` warning (on a shallow copy, so cached results are never mutated).
 
 ---
 
@@ -200,7 +215,7 @@ Drain is not affected by consumption modules. Beacon power is not counted. For a
 
 ## Statelessness and store integration
 
-`solveBlock` is stateless and deterministic. The only state is the optional per-block `SolveCache`, which holds one entry per block id (the last successful solve), replaced when its inputs change and dropped when the block is removed, fails or has nothing to solve.
+`solveBlock` is stateless and deterministic. The only state is the optional per-block `SolveCache`, which holds up to two entries per block id (the most recent successful solves, least recently used evicted first; an entry with equal inputs is replaced in place), dropped when the block is removed, fails or has nothing to solve.
 
 `wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll`. Only blocks whose inputs changed are solved (up to two LPs each). Renaming or recolouring a block, or an edit elsewhere that leaves a block's supply unchanged, solves nothing in that block. `wireSolver` owns the cache and reuses one effective game data object while the data and the effective default machines are unchanged. It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
 

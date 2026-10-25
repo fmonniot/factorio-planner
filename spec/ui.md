@@ -170,13 +170,14 @@ near-full-screen modal showing every block and the connections between them, lik
 [technology tree](#technology-tree) but without pan or zoom: the viewport scrolls natively.
 
 - **Layout** (`src/utils/blockGraphLayout.ts`). A block's column is the longest chain of
-  sources feeding it (sources on the left); rows follow one barycenter pass (the mean row of a
+  sources feeding it (sources on the left), not counting the *back connections* of loops (see
+  [solver.md](solver.md#loops)), so every other edge runs left to right; rows follow one barycenter pass (the mean row of a
   block's sources, ties by plan order). Positions are recomputed on every change and never saved.
 - **Nodes.** Block name, first goal icon (or `?`) and up to four goal icons plus `+N`. The active
   block has a teal ring. A 3px stripe across the top of the node shows the block's colour
   (`Block.color`) at full strength. Clicking a node makes that block active and closes the graph.
 - **Edges.** One curve per (source, consumer) pair, coloured by its connections' status (limited,
-  then ok, then not used, then cycle, which is dashed). An ok edge is stroked, and its chips
+  then ok, then not used). An ok edge is stroked, and its chips
   bordered, in the *source* block's colour, matching the source segment on the consumer's bar;
   the other statuses keep their status colours (limited stays amber). The legend's OK swatch is
   a multi-colour gradient with the title "In the source block's colour". Each connection is a chip:
@@ -193,10 +194,23 @@ near-full-screen modal showing every block and the connections between them, lik
   after editing another block's connections does not revert that edit. Titles match the
   [Ingredients pane's segment titles](#ingredients-pane). Connections whose source was deleted and
   self-connections are not drawn; they stay visible and removable in the Ingredients pane.
+- **Loops.** Blocks that supply each other form a loop. The back edge runs from the source's right
+  side down to its own lane under every block and label in the columns it spans, left along that
+  lane, and up into the consumer's left side; its chips sit on the lane, and two back edges that
+  overlap use separate lanes. The graph grows to make room (the corner reaches slightly left of
+  and right of the first and last column, inside the padding). Edges and chips that belong to a loop
+  carry `data-loop`, the back edge `data-back`; a loop chip has a `↻` prefix and the title suffix
+  " — part of a loop". The legend ends with **↻ Loop**. When the plan has loops the header shows
+  `↻ N loop(s)` (title: the members of each loop in order, `A → B → C → A`, loops joined by `; `);
+  when a loop did not settle it instead shows, in red, "Loop through <blocks> did not settle after
+  N rounds; rates are from the last round".
 - **Connecting from the source side.** The `→` handle on a node (disabled with a single block)
   starts connect mode: blocks that import something the source still has left to offer are
-  highlighted, the others are dimmed with a reason ("Would create a cycle", "<block> has not been
-  solved yet" or "Nothing to send").
+  highlighted, the others are dimmed with a reason ("<block> has not been
+  solved yet" or "Nothing to send"). A highlighted block that would close a loop is marked
+  (`data-closes-loop`) with the title "Closes a loop: <source> already receives from <block>, directly or
+  through other blocks", and its item menu starts with "↻ Closes a loop with <source>"; the
+  connection is made without confirmation.
   Clicking a highlighted block opens a menu "Send to <block>" with one entry per item, showing
   what the source offers and the target needs; choosing one adds the connection to the target.
   The same rules as the Ingredients menu apply (`src/store/connections.ts`). **Cancel**, the
@@ -514,7 +528,7 @@ Each of the three panes is a `SummaryPane` (a `section` region named after its l
 | `kept`, `left` | dark fill, grey border |
 | `import` | no fill, light grey outline |
 | `short` | faint amber fill, dashed amber border |
-| unused / cycle / deleted source | no fill, dashed grey border; takes no share of the bar, but fills it (dark grey in the micro-bar) when the item has no segment, and otherwise outlines the detail bar with a dashed line |
+| unused / self / deleted source | no fill, dashed grey border; takes no share of the bar, but fills it (dark grey in the micro-bar) when the item has no segment, and otherwise outlines the detail bar with a dashed line |
 | imports forbidden | grey stripes; fills the bar when the item has no segment |
 
 The looks live in `segmentLooks.ts` and are shared by the micro-bar, the detail bar, the colour key and the overview's swatches and bars.
@@ -530,7 +544,7 @@ Products also draw a 2px light tick at the target when the actual rate differs f
 
 Clicking a slot selects it and clicking it again clears the selection. A double-click on a slot leaves it selected. Escape (heard on the document, so it works wherever focus is, and only when no input or menu handled it) clears the selection, or the trace when nothing is selected. Selection, hover and trace are view state: not saved. Slots are identified by a pane-unique id (the goal id in Products, so two goals for one item are separate slots; the item id elsewhere).
 
-Segments in the detail bar and entries in the colour key are interactive (an entry whose block was deleted is still focusable, so its context menu opens from the keyboard): an `export` or `source` whose block exists opens that block when clicked; right-clicking a `source`, or an unused / cycle / deleted-source entry, opens a `RowActionsMenu` with **Remove connection** (Ingredients pane only). Titles: `Sends <item> to <consumer> — click to open`, `<item> from <source> — click to open, right-click to remove`, `Limited: <source> only offers N — …`, `Not used: this block makes or needs none from outside — right-click to remove`, and for a deleted source or a cycle the corresponding explanation.
+Segments in the detail bar and entries in the colour key are interactive (an entry whose block was deleted is still focusable, so its context menu opens from the keyboard): an `export` or `source` whose block exists opens that block when clicked; right-clicking a `source`, or an unused / self / deleted-source entry, opens a `RowActionsMenu` with **Remove connection** (Ingredients pane only). Titles: `Sends <item> to <consumer> — click to open`, `<item> from <source> — click to open, right-click to remove`, `Limited: <source> only offers N — …`, `Not used: this block makes or needs none from outside — right-click to remove`, and for a deleted source or a self-connection the corresponding explanation. The label of an `export` or `source` that belongs to a loop ends with ` ↻`, and its title gets ` — part of a loop` before ` — click to open`.
 
 ### Products pane
 
@@ -552,8 +566,8 @@ Right-clicking a slot, or **Add consumer recipe…** in the strip, opens a recip
 The solver's `unsatisfied` list: everything the block must import (goal shortfalls, intermediate slack, raw resources), together with the block's connections and locked items, grouped into one slot per item. Slots are ordered by first appearance: connected items, then imported items, then locked items. The slot rate is the need: what is delivered plus what is still imported. Segments: one `source` per connection that delivers something, then `import`. Header rates: `need N`.
 
 - Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Receive from…** opens `ConnectionMenu` under the button; **Forbid imports** / **Allow imports**. A plain left click on a slot only selects it, locked or not.
-- Right-clicking a slot opens `ConnectionMenu` under the slot, except on a goal shortfall, which has no menu: goals are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a goal item can still exist (the lock predates the goal, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu lists "Receive <item> from" with one entry per other block that still has the item to give (the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed), excluding blocks already connected for that item and blocks that would close a cycle. Choosing one adds a connection to the active block. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block produces this item". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
-- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · cycle, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable).
+- Right-clicking a slot opens `ConnectionMenu` under the slot, except on a goal shortfall, which has no menu: goals are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a goal item can still exist (the lock predates the goal, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu lists "Receive <item> from" with one entry per other block that still has the item to give (the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed), excluding blocks already connected for that item. A block that would close a loop (it already receives from the active block, directly or through other blocks) is still listed, marked with `↻` and the title "Closes a loop: <block> already receives from this block, directly or through other blocks". Choosing one adds a connection to the active block. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block has this item to spare". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
+- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · self, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable).
 - A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
 ### Warnings popover
@@ -569,6 +583,7 @@ explanation naming the items or recipes involved, and a hint:
 | `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe (a plan's own nodes before its sub-plans, as the solver does) and removes the others; until then a duplicate row shows zero |
 | `infeasible-pins` | Pinned rate is impossible |
 | `overconstrained` | Recipe network can't fully balance |
+| `loop-not-converged` | Loop between blocks did not settle — amber; names the blocks around the loop and the rounds run, with the hint to remove one of the loop's connections or set a limit on one |
 
 The popover closes on Escape or a click outside.
 

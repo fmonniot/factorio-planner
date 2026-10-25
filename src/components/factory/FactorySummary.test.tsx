@@ -489,11 +489,20 @@ describe('FactorySummary — connections', () => {
       expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
     })
 
-    it('shows a connection that forms a cycle as ignored', () => {
-      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'cycle', rate: 0 })] })
+    it('shows a self-connection as ignored', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'self', rate: 0 })] })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      expect(keyEntries('Ingredients', 'cycle')[0].textContent).toContain('cycle, ignored')
+      expect(keyEntries('Ingredients', 'self')[0].textContent).toContain('self, ignored')
+    })
+
+    it('marks a source that is part of a loop', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ loop: true })] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      const [entry] = keyEntries('Ingredients', 'source')
+      expect(entry.textContent).toContain('↻')
+      expect(entry.getAttribute('title')).toMatch(/part of a loop/)
     })
 
     it('right-clicking a source segment offers "Remove connection"', () => {
@@ -596,14 +605,28 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       expect(screen.queryByRole('menuitem', { name: /Miner/ })).not.toBeInTheDocument()
-      expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
+      expect(screen.getByText('No other block has this item to spare')).toBeInTheDocument()
     })
 
-    it('says so when no other block produces the item', () => {
+    it('marks a source that would close a loop', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'miner'
+          ? { ...b, inputConnections: [{ id: 'cm', itemId: 'iron-plate', fromBlockId: 'consumer' }] }
+          : b)),
+      }))
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      const item = screen.getByRole('menuitem', { name: /Miner/ })
+      expect(item.getAttribute('data-closes-loop')).toBe('true')
+      expect(item.getAttribute('title')).toMatch(/Closes a loop/)
+    })
+
+    it('says so when no other block has the item to spare', () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult, minerOffers: false })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getByText('No other block produces this item')).toBeInTheDocument()
+      expect(screen.getByText('No other block has this item to spare')).toBeInTheDocument()
     })
   })
 

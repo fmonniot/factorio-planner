@@ -68,14 +68,14 @@ test.describe('block graph', () => {
     await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
   })
 
-  test('rejects a cycle and a connection with nothing left to send', async ({ page }) => {
+  test('blocks a target with nothing left to send', async ({ page }) => {
     await setup(page)
     await openGraph(page)
     await connectPlatesToGears(page)
 
     await node(page, 'Gears').getByTestId('graph-connect-handle').click()
     await expect(node(page, 'Plates')).toHaveAttribute('data-connect', 'blocked')
-    await expect(node(page, 'Plates')).toHaveAttribute('title', /cycle/)
+    await expect(node(page, 'Plates')).toHaveAttribute('title', /Nothing to send/)
     await page.getByRole('button', { name: 'Cancel' }).click()
 
     await node(page, 'Plates').getByTestId('graph-connect-handle').click()

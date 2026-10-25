@@ -41,7 +41,13 @@ const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   available: 30, capped: false, rate: 30, status: 'ok', ...over,
 })
 
-function setup(opts: { connected?: boolean; maxRate?: number; flow?: Partial<ConnectionFlow> } = {}) {
+function setup(opts: {
+  connected?: boolean
+  maxRate?: number
+  flow?: Partial<ConnectionFlow>
+  /** Miner also receives iron plate from Consumer, so the two supply each other. */
+  loop?: { converged: boolean; rounds?: number }
+} = {}) {
   const consumer: Block = {
     ...makeEmptyBlock('Consumer'), id: 'consumer',
     goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
@@ -51,13 +57,28 @@ function setup(opts: { connected?: boolean; maxRate?: number; flow?: Partial<Con
   }
   const miner: Block = {
     ...makeEmptyBlock('Miner'), id: 'miner',
+    inputConnections: opts.loop ? [{ id: 'c2', itemId: 'iron-plate', fromBlockId: 'consumer' }] : [],
   }
   useBlockStore.setState({ blocks: [miner, consumer], activeBlockId: 'consumer', history: {} })
   useUiStore.setState({ rateUnit: 'min' })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     lastResults: { miner: minerResult(), consumer: consumerResult() },
-    flows: opts.connected ? [flow(opts.flow)] : [],
+    flows: opts.loop
+      ? [
+          flow({ loop: true, ...opts.flow }),
+          flow({ connectionId: 'c2', fromBlockId: 'consumer', toBlockId: 'miner', itemId: 'iron-plate', loop: true }),
+        ]
+      : opts.connected ? [flow(opts.flow)] : [],
+    loops: opts.loop
+      ? [{
+          blockIds: ['miner', 'consumer'],
+          connectionIds: ['c1', 'c2'],
+          backConnectionIds: ['c2'],
+          rounds: opts.loop.rounds ?? 2,
+          converged: opts.loop.converged,
+        }]
+      : [],
     _setStatus: () => {},
   })
 }
@@ -158,13 +179,87 @@ describe('BlockGraph', () => {
     expect(useBlockStore.getState().activeBlockId).toBe('consumer')
   })
 
-  it('blocks a target that would close a cycle', () => {
+  it('highlights a target that closes a loop', () => {
+    setup({ connected: true })
+    useSolverStore.setState({
+      lastResults: {
+        miner: { ...minerResult(), unsatisfied: [{ itemId: 'iron-plate', rate: 10 }] },
+        consumer: {
+          ...consumerResult(),
+          nodes: [{
+            recipeNodeId: 'c', inputRates: {}, outputRates: { 'iron-plate': 60 },
+            throughput: 60, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+          }],
+        },
+      },
+    })
+    render(<BlockGraphButton />)
+    open()
+    fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
+    expect(node('miner').getAttribute('data-connect')).toBe('target')
+    expect(node('miner').getAttribute('data-closes-loop')).toBe('true')
+    expect(node('miner').getAttribute('title')).toMatch(/Closes a loop/)
+
+    fireEvent.click(within(node('miner')).getByRole('button', { name: 'Miner' }))
+    expect(screen.getByTestId('graph-closes-loop')).toBeTruthy()
+    fireEvent.click(screen.getByRole('menuitem', { name: /Iron Plate/ }))
+    const miner = useBlockStore.getState().blocks.find(b => b.id === 'miner')!
+    expect(miner.inputConnections).toEqual([
+      { id: expect.any(String), itemId: 'iron-plate', fromBlockId: 'consumer' },
+    ])
+  })
+
+  it('blocks a target with nothing left to send', () => {
     setup({ connected: true })
     render(<BlockGraphButton />)
     open()
     fireEvent.click(within(node('consumer')).getByTestId('graph-connect-handle'))
     expect(node('miner').getAttribute('data-connect')).toBe('blocked')
-    expect(node('miner').getAttribute('title')).toMatch(/cycle/i)
+    expect(node('miner').getAttribute('title')).toMatch(/Nothing to send/)
+  })
+
+  describe('loops', () => {
+    it('marks the edges, the back edge and the chips of a loop', () => {
+      setup({ connected: true, loop: { converged: true } })
+      render(<BlockGraphButton />)
+      open()
+      const edges = screen.getAllByTestId('graph-edge')
+      expect(edges).toHaveLength(2)
+      for (const e of edges) expect(e.getAttribute('data-loop')).toBe('true')
+      const back = edges.filter(e => e.getAttribute('data-back') === 'true')
+      expect(back).toHaveLength(1)
+      expect(back[0].getAttribute('data-from')).toBe('consumer')
+      expect(back[0].getAttribute('data-to')).toBe('miner')
+      const chip = screen.getAllByTestId('graph-edge-label').find(l => l.getAttribute('data-connection-id') === 'c2')!
+      expect(chip.getAttribute('data-loop')).toBe('true')
+      expect(chip.getAttribute('title')).toMatch(/part of a loop/)
+      expect(screen.getByTestId('graph-legend-loop')).toBeTruthy()
+    })
+
+    it('counts the loops in the header', () => {
+      setup({ connected: true, loop: { converged: true } })
+      render(<BlockGraphButton />)
+      open()
+      const status = screen.getByTestId('graph-loop-status')
+      expect(status.textContent).toBe('↻ 1 loop')
+      expect(status.getAttribute('title')).toBe('Miner → Consumer → Miner')
+    })
+
+    it('says in red when a loop did not settle', () => {
+      setup({ connected: true, loop: { converged: false, rounds: 8 } })
+      render(<BlockGraphButton />)
+      open()
+      const status = screen.getByTestId('graph-loop-status')
+      expect(status.getAttribute('data-converged')).toBe('false')
+      expect(status.textContent).toMatch(/did not settle after 8 rounds/)
+    })
+
+    it('shows no loop status without a loop', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(screen.queryByTestId('graph-loop-status')).toBeNull()
+    })
   })
 
   it('cancels connect mode', () => {

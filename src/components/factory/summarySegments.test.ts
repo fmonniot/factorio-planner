@@ -155,10 +155,18 @@ describe('ingredientSlot', () => {
     expect(slot.overlays).toMatchObject([{ kind: 'missing-source', key: 'from:GONE' }])
   })
 
-  it('turns a cycle into an overlay', () => {
+  it('turns a self-connection into an overlay', () => {
     const row = ingredientRow({ connections: [conn('c1', 'A')] })
-    const slot = ingredientSlot(row, new Map([['c1', flow({ rate: 0, status: 'cycle' })]]), blocks)
-    expect(slot.overlays).toMatchObject([{ kind: 'cycle' }])
+    const slot = ingredientSlot(row, new Map([['c1', flow({ rate: 0, status: 'self' })]]), blocks)
+    expect(slot.overlays).toMatchObject([{ kind: 'self' }])
+  })
+
+  it('carries the loop mark of a flow onto its segment', () => {
+    const row = ingredientRow({ connections: [conn('c1', 'A')] })
+    const slot = ingredientSlot(row, new Map([['c1', flow({ loop: true })]]), blocks)
+    expect(slot.segments[0].loop).toBe(true)
+    const plain = ingredientSlot(row, new Map([['c1', flow()]]), blocks)
+    expect('loop' in plain.segments[0]).toBe(false)
   })
 
   it('draws nothing for a connection whose first solve has not landed', () => {
@@ -228,6 +236,17 @@ describe('overviewRows', () => {
     expect(rows[0]).toMatchObject({ key: 'from:B', kind: 'source', total: 30, count: 2 })
   })
 
+  it('carries the loop mark onto the overview row', () => {
+    const slot = ingredientSlot(
+      ingredientRow({ connections: [conn('c1', 'A')] }),
+      new Map([['c1', flow({ loop: true })]]),
+      new Set(['A']),
+    )
+    expect(overviewRows([slot])[0].loop).toBe(true)
+    const exported = productSlot(goal(), 90, [flow({ rate: 30, loop: true })], 'min')
+    expect(exported.segments[0].loop).toBe(true)
+  })
+
   it('flags a key as limited when any of its segments is', () => {
     const slot = ingredientSlot(
       ingredientRow({ connections: [conn('c1', 'A')] }),
@@ -266,9 +285,19 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentLabel(seg('import'), undefined)).toBe('Imported')
     expect(segmentLabel(seg('short'), undefined)).toBe('Short')
     expect(segmentLabel(ov('unused'), 'Miner')).toBe('← Miner · unused')
-    expect(segmentLabel(ov('cycle'), 'Miner')).toBe('← Miner · cycle, ignored')
+    expect(segmentLabel(ov('self'), 'Miner')).toBe('← Miner · self, ignored')
     expect(segmentLabel(ov('missing-source'), undefined)).toBe('(deleted block)')
     expect(segmentLabel(ov('locked'), undefined)).toBe('Imports forbidden')
+  })
+
+  it('marks loop segments in labels and titles', () => {
+    expect(segmentLabel(seg('source', { loop: true }), 'Ores')).toBe('← Ores ↻')
+    expect(segmentLabel(seg('export', { loop: true }), 'Ores')).toBe('→ Ores ↻')
+    expect(segmentTitle(seg('export', { loop: true }), ctx)).toMatch(/— part of a loop — click to open/)
+    expect(segmentTitle(seg('source', { loop: true }), ctx)).toMatch(/— part of a loop — click to open/)
+    expect(segmentTitle(seg('source', { loop: true, limited: true }), ctx)).toMatch(/— part of a loop — click to open/)
+    expect(segmentTitle(seg('source', { loop: true, limited: true, capped: true, maxRate: 8 }), ctx))
+      .toMatch(/— part of a loop — click to open/)
   })
 
   it('titles every kind', () => {
@@ -282,7 +311,7 @@ describe('segmentLabel / segmentTitle', () => {
     )
     expect(segmentTitle(ov('unused'), ctx)).toMatch(/^Not used: /)
     expect(segmentTitle(ov('missing-source'), ctx)).toMatch(/source block was deleted/)
-    expect(segmentTitle(ov('cycle'), ctx)).toMatch(/forms a cycle/)
+    expect(segmentTitle(ov('self'), ctx)).toMatch(/cannot supply itself/)
     expect(segmentTitle(seg('kept'), ctx)).toBe('Kept')
     expect(segmentTitle(ov('locked'), ctx)).toBe('Imports forbidden')
   })
