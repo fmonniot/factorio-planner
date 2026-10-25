@@ -581,7 +581,7 @@ describe('FactorySummary — connections', () => {
       fireEvent.change(input, { target: { value: '12' } })
       fireEvent.keyDown(input, { key: 'Enter' })
       const rate = () => useBlockStore.getState().blocks[0].inputConnections?.[0].maxRate
-      expect(rate()).toBeGreaterThan(0)
+      expect(rate()).toBe(12) // 12 per minute, stored as items/min
       expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).not.toBeInTheDocument()
 
       fireEvent.contextMenu(segments('Ingredients', 'source')[0])
@@ -590,6 +590,39 @@ describe('FactorySummary — connections', () => {
       fireEvent.change(again, { target: { value: '' } })
       fireEvent.keyDown(again, { key: 'Enter' })
       expect(rate()).toBeUndefined()
+    })
+
+    it('Limit rate… converts a per-second entry to items/min', () => {
+      useUiStore.setState({ rateUnit: 'sec' })
+      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      fireEvent.contextMenu(segments('Ingredients', 'source')[0])
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Limit rate…' }))
+      const input = screen.getByRole('spinbutton', { name: 'Connection limit' })
+      fireEvent.change(input, { target: { value: '12' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(useBlockStore.getState().blocks[0].inputConnections?.[0].maxRate).toBe(720)
+    })
+
+    it('the limit editor closes without writing on scroll, and when its connection disappears', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      const open = () => {
+        fireEvent.contextMenu(segments('Ingredients', 'source')[0])
+        fireEvent.click(screen.getByRole('menuitem', { name: 'Limit rate…' }))
+      }
+      open()
+      fireEvent.change(screen.getByRole('spinbutton', { name: 'Connection limit' }), { target: { value: '12' } })
+      fireEvent.scroll(window)
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).not.toBeInTheDocument()
+      expect(useBlockStore.getState().blocks[0].inputConnections?.[0].maxRate).toBeUndefined()
+
+      open()
+      expect(screen.getByRole('spinbutton', { name: 'Connection limit' })).toBeInTheDocument()
+      act(() => useBlockStore.getState().removeInputConnection(useBlockStore.getState().blocks[0].inputConnections![0].id))
+      expect(screen.queryByRole('spinbutton', { name: 'Connection limit' })).not.toBeInTheDocument()
     })
 
     it('clicking a source segment opens the source block', () => {

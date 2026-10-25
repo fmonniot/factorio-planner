@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { RateInput } from './RateInput'
 import type { RateUnit } from '../../store/uiStore'
@@ -33,6 +33,24 @@ export function ConnectionLimitEditor({ x, y, initial, rateUnit, onCommit, onClo
       y: Math.max(0, Math.min(y, window.innerHeight - height)),
     })
   }, [x, y])
+
+  // A fixed box would float away from its segment, so close on scroll, resize and focus loss.
+  // Closing never writes: RateInput only commits on Enter or its own blur.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => {
+    onCloseRef.current = onClose
+  })
+  useEffect(() => {
+    const dismiss = () => onCloseRef.current()
+    window.addEventListener('blur', dismiss)
+    window.addEventListener('resize', dismiss)
+    window.addEventListener('scroll', dismiss, true)
+    return () => {
+      window.removeEventListener('blur', dismiss)
+      window.removeEventListener('resize', dismiss)
+      window.removeEventListener('scroll', dismiss, true)
+    }
+  }, [])
 
   return createPortal(
     <div

@@ -106,6 +106,9 @@ test.describe('block connections', () => {
     await page.keyboard.press('Escape')
     await expect(limit).toHaveCount(0)
     await expect(sourceEntry(page)).toContainText('10.0')
+    // The pane selection survives the Escape.
+    await expect(plateSlot(page)).toHaveAttribute('aria-pressed', 'true')
+    await expect(detail(page, 'Ingredients')).toBeVisible()
 
     // Emptying the field gives the plates back.
     await sourceSegment(page).click({ button: 'right' })

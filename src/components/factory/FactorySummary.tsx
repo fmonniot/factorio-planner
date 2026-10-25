@@ -139,7 +139,7 @@ export function FactorySummary() {
   >(null)
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   // The limit editor outlives the menu, which closes itself after a selection.
-  const [limitEditor, setLimitEditor] = useState<{ connectionId: string; x: number; y: number } | null>(null)
+  const [limitEditor, setLimitEditor] = useState<{ connectionId: string; toBlockId: string; x: number; y: number } | null>(null)
   const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
 
   const products: Product[] = activeBlock?.products ?? []
@@ -186,6 +186,12 @@ export function FactorySummary() {
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
   const connections = activeBlock?.inputConnections ?? []
   const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
+  const limitConnection =
+    limitEditor && limitEditor.toBlockId === activeBlockId
+      ? connections.find(c => c.id === limitEditor.connectionId)
+      : undefined
+  // The editor is tied to one connection of one block: close it when either goes away.
+  if (limitEditor && !limitConnection) setLimitEditor(null)
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
   const blockIds = new Set(blocks.map(b => b.id))
@@ -419,11 +425,14 @@ export function FactorySummary() {
       })()}
 
       {connectionChipMenu && (() => {
-        const hasLimit = connections.find(c => c.id === connectionChipMenu.connectionId)?.maxRate !== undefined
+        const chipConnection = connections.find(c => c.id === connectionChipMenu.connectionId)
+        const hasLimit = chipConnection?.maxRate !== undefined
         const actions: RowAction[] = []
         actions.push({
           label: hasLimit ? 'Change limit…' : 'Limit rate…',
-          onSelect: () => setLimitEditor(connectionChipMenu),
+          onSelect: () => {
+            if (activeBlockId) setLimitEditor({ ...connectionChipMenu, toBlockId: activeBlockId })
+          },
         })
         actions.push({
           label: 'Remove connection',
@@ -440,20 +449,17 @@ export function FactorySummary() {
         )
       })()}
 
-      {limitEditor && (() => {
-        const maxRate = connections.find(c => c.id === limitEditor.connectionId)?.maxRate
-        return (
-          <ConnectionLimitEditor
-            key={`${limitEditor.connectionId}-${rateUnit}`}
-            x={limitEditor.x}
-            y={limitEditor.y}
-            initial={maxRate !== undefined ? fmt(maxRate) : ''}
-            rateUnit={rateUnit}
-            onCommit={perMin => setConnectionMaxRate(limitEditor.connectionId, perMin)}
-            onClose={() => setLimitEditor(null)}
-          />
-        )
-      })()}
+      {limitEditor && limitConnection && (
+        <ConnectionLimitEditor
+          key={`${limitEditor.connectionId}-${rateUnit}`}
+          x={limitEditor.x}
+          y={limitEditor.y}
+          initial={limitConnection.maxRate !== undefined ? fmt(limitConnection.maxRate) : ''}
+          rateUnit={rateUnit}
+          onCommit={perMin => setConnectionMaxRate(limitEditor.connectionId, perMin, limitEditor.toBlockId)}
+          onClose={() => setLimitEditor(null)}
+        />
+      )}
 
       {byproductMenu && (
         <RowActionsMenu
