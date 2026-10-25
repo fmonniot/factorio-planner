@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve, solveBlock, solveAll, flattenBlock, netBalance } from './index'
 import { createSolveCache } from './solveCache'
-import type { GameData, GameRecipeNode, ProductionGoal, RecipeNode, Block, SubPlan } from '../data/types'
+import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
 function makeGameData(overrides: Partial<GameData> = {}): GameData {
   return {
@@ -53,8 +53,9 @@ function planNode(id: string, recipeId: string): GameRecipeNode {
 
 const ironRecipe = recipe('iron-plate', 1, [], [product('iron-plate', 1)])
 const simpleGameData = makeGameData({ recipes: { 'iron-plate': ironRecipe } })
-const ironGoal: ProductionGoal = { id: 'g1', itemId: 'iron-plate', rate: 60 }
-const simplePlan: { goals: ProductionGoal[]; nodes: RecipeNode[] } = {
+const ironGoal: SolverGoal = { id: 'g1', itemId: 'iron-plate', rate: 60 }
+const ironProduct: Product = { id: 'g1', itemId: 'iron-plate', extraRate: 60 }
+const simplePlan: { goals: SolverGoal[]; nodes: RecipeNode[] } = {
   goals: [ironGoal],
   nodes: [planNode('n1', 'iron-plate')],
 }
@@ -64,12 +65,12 @@ function makeSubPlan(name: string, nodes: RecipeNode[], subPlans: SubPlan[] = []
   return { id: name, name, nodes, subPlans, createdAt: now, updatedAt: now }
 }
 
-function makeBlock(rootPlan: SubPlan, goals: ProductionGoal[]): Block {
+function makeBlock(rootPlan: SubPlan, products: Product[]): Block {
   return {
     id: 'block-1',
     name: 'Block',
     color: '#60a5fa',
-    goals,
+    products,
     noImportItems: [],
     inputConnections: [],
     rootPlan,
@@ -170,7 +171,7 @@ describe('flattenBlock + solve(block) — subplan grouping is solver-transparent
   it('a flat block and a block with the same recipe wrapped in a subplan produce identical throughput', () => {
     const ironNode = planNode('n1', 'iron-plate')
 
-    const flatBlock = makeBlock(makeSubPlan('Root', [ironNode]), [ironGoal])
+    const flatBlock = makeBlock(makeSubPlan('Root', [ironNode]), [ironProduct])
 
     // Same recipe, but moved into a child subplan referenced from root via a SubPlanNode handle.
     const child = makeSubPlan('Iron Smelting', [ironNode])
@@ -180,7 +181,7 @@ describe('flattenBlock + solve(block) — subplan grouping is solver-transparent
         nodes: [{ kind: 'subplan', id: 'sp-handle', subPlanId: child.id }],
         subPlans: [child],
       },
-      [ironGoal],
+      [ironProduct],
     )
 
     const flatResult = solve(flattenBlock(flatBlock), simpleGameData)
@@ -202,7 +203,7 @@ describe('flattenBlock + solve(block) — subplan grouping is solver-transparent
         ...makeSubPlan('Root', [a]),
         subPlans: [child],
       },
-      [ironGoal],
+      [ironProduct],
     )
     const plan = flattenBlock(block)
     const ids = plan.nodes.map(n => n.id).sort()
@@ -241,7 +242,7 @@ function rate(items: { itemId: string; rate: number }[], itemId: string): number
 }
 
 describe('solveBlock — own production first', () => {
-  const gearGoal: ProductionGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
+  const gearGoal: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
 
   it('supply covers only what a pinned own recipe leaves over', () => {
     const plan = { goals: gearGoal, nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)] }
@@ -356,11 +357,11 @@ describe('netBalance', () => {
 })
 
 describe('solveAll', () => {
-  function block(id: string, goals: ProductionGoal[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
-    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), goals), id, name: id, inputConnections: connections }
+  function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
+    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections }
   }
-  const plateGoal = (rate: number): ProductionGoal[] => [{ id: 'gp', itemId: 'plate', rate }]
-  const gearGoal = (rate: number): ProductionGoal[] => [{ id: 'gg', itemId: 'gear', rate }]
+  const plateGoal = (rate: number): Product[] => [{ id: 'gp', itemId: 'plate', extraRate: rate }]
+  const gearGoal = (rate: number): Product[] => [{ id: 'gg', itemId: 'gear', extraRate: rate }]
   const link = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
 
@@ -594,7 +595,7 @@ describe('solveAll', () => {
       const cache = createSolveCache()
       const C = block('C', gearGoal(30), [planNode('g', 'gear')])
       const first = solveAll([A(), C], gd, cache)
-      const second = solveAll([A(), { ...C, goals: gearGoal(20) }], gd, cache)
+      const second = solveAll([A(), { ...C, products: gearGoal(20) }], gd, cache)
       expect(second.results.A, 'untouched block reused').toBe(first.results.A)
       expect(second.results.C).not.toBe(first.results.C)
     })
@@ -619,7 +620,7 @@ describe('solveAll', () => {
       const gd = connectionGameData()
       const cache = createSolveCache()
       const first = solveAll([A(), B()], gd, cache)
-      const second = solveAll([{ ...A(), goals: plateGoal(40) }, B()], gd, cache)
+      const second = solveAll([{ ...A(), products: plateGoal(40) }, B()], gd, cache)
       expect(second.results.A).not.toBe(first.results.A)
       expect(second.results.B).not.toBe(first.results.B)
       expect(flowOf(second, 'c1').rate).toBeCloseTo(40, 4)
@@ -640,7 +641,7 @@ describe('solveAll', () => {
       const gd = connectionGameData()
       const cache = createSolveCache()
       const first = solveAll([A(), B()], gd, cache)
-      const second = solveAll([A(), { ...B(), goals: gearGoal(20) }], gd, cache)
+      const second = solveAll([A(), { ...B(), products: gearGoal(20) }], gd, cache)
       expect(second.results.A).toBe(first.results.A)
       expect(second.results.B).not.toBe(first.results.B)
     })
@@ -726,7 +727,7 @@ describe('solveAll', () => {
         mine: recipe('mine', 1, [], [product('ore', 1)]),
       },
     })
-    const goal = (itemId: string, rate: number): ProductionGoal[] => [{ id: `g-${itemId}`, itemId, rate }]
+    const goal = (itemId: string, rate: number): Product[] => [{ id: `g-${itemId}`, itemId, extraRate: rate }]
     const metals = (connections: Block['inputConnections'] = [{ id: 'c_om', itemId: 'ore', fromBlockId: 'Ores' }], rate = 60) =>
       block('Metals', goal('metal', rate), [planNode('n', 'smelt')], connections)
     const sciences = (rate = 30) =>
@@ -880,15 +881,15 @@ describe('solveAll — pull connections', () => {
     data.recipes.machine = machineRecipe
     return data
   }
-  function block(id: string, goals: ProductionGoal[], nodes: RecipeNode[], connections: Block['inputConnections'] = [], extra: Partial<Block> = {}): Block {
-    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), goals), id, name: id, inputConnections: connections, ...extra }
+  function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = [], extra: Partial<Block> = {}): Block {
+    return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections, ...extra }
   }
-  const goal = (itemId: string, rate: number): ProductionGoal[] => [{ id: `g-${itemId}`, itemId, rate }]
+  const goal = (itemId: string, rate: number): Product[] => [{ id: `g-${itemId}`, itemId, extraRate: rate }]
   const pull = (id: string, from: string, itemId = 'plate', extra: object = {}) => ({ id, itemId, fromBlockId: from, pull: true as const, ...extra })
   const push = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
   const throughput = (all: ReturnType<typeof solveAll>, id: string) => all.results[id].nodes.reduce((sum, n) => sum + n.throughput, 0)
-  const smelter = (id = 'A', goals: ProductionGoal[] = []) => block(id, goals, [planNode('p', 'plate')])
+  const smelter = (id = 'A', goals: Product[] = []) => block(id, goals, [planNode('p', 'plate')])
   const gearmaker = (id: string, rate: number, connections: Block['inputConnections']) =>
     block(id, goal('gear', rate), [planNode('g', 'gear')], connections)
 
@@ -931,7 +932,7 @@ describe('solveAll — pull connections', () => {
   })
 
   it('keeps what a source makes for a pull away from a push consumer solved earlier', () => {
-    const blocks = (aGoals: ProductionGoal[]) => [
+    const blocks = (aGoals: Product[]) => [
       smelter('A', aGoals),
       gearmaker('C', 10, [push('cc', 'A')]),
       gearmaker('B', 25, [pull('cb', 'A')]),
@@ -1223,7 +1224,7 @@ describe('solve — duplicate recipe nodes', () => {
     machines: { asm: machine() },
     defaultMachines: { crafting: 'asm' },
   })
-  const goalOf = (rate: number): ProductionGoal[] => [{ id: 'g1', itemId: 'iron-plate', rate }]
+  const goalOf = (rate: number): SolverGoal[] => [{ id: 'g1', itemId: 'iron-plate', rate }]
 
   it('uses the first node and zeroes the later duplicate', () => {
     const single = solve({ goals: goalOf(60), nodes: [pinned('a', 'iron-plate', 30)] }, data())

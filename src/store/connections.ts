@@ -8,7 +8,7 @@ import type { Block, BlockConnection, ConnectionFlow, GameData, SolverResult } f
 
 /** Goals never receive supply from other blocks. */
 export function isGoalItem(block: Block, itemId: string): boolean {
-  return block.goals.some(g => g.itemId === itemId)
+  return block.products.some(p => p.itemId === itemId)
 }
 
 /**

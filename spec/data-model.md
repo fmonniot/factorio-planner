@@ -79,7 +79,7 @@ interface Recipe {
   category: string           // open string; absent in the dump means "crafting"
   craftingTime: number       // seconds at crafting speed 1 (dump: energy_required, default 0.5); > 0
   ingredients: Ingredient[]
-  products: Product[]
+  products: RecipeProduct[]
   madeIn: string[]           // ids of machines whose craftingCategories include `category`, sorted
   allowProductivity: boolean // dump: allow_productivity, default false
   hidden: boolean            // default false
@@ -97,7 +97,7 @@ interface Ingredient {
   maximumTemperature?: number
 }
 
-interface Product {
+interface RecipeProduct {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // >= 0; the only amount the solver reads
@@ -406,7 +406,7 @@ plans, one of them active, and the app saves to `localStorage` on every change:
 Plan ids and names are chosen by `src/store/persistence.ts`, which owns the plan actions (new, switch,
 rename, duplicate, delete, import); `src/store/plansStore.ts` mirrors the active data set's index in
 memory. Duplicating or importing a plan runs it through `clonePlan` (`src/store/blockStore.ts`), which
-gives every block, sub-plan, node, goal and connection a fresh id so two plans never share ids
+gives every block, sub-plan, node, product and connection a fresh id so two plans never share ids
 (solver results and undo history are keyed by block id).
 
 Known limitations: the index is written whole from the tab's memory and `storage` events are not
@@ -477,7 +477,7 @@ interface Block {
   id: string
   name: string
   color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
-  goals: ProductionGoal[]    // default []
+  products: Product[]        // default []; what the block makes for outside the plan
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
   inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
@@ -491,30 +491,31 @@ interface BlockConnection {
   pull?: boolean       // true (the only stored value): the consumer's demand drives the source's goal for itemId; absent = push
 }
 
-interface ProductionGoal {
-  id: string        // uuid
+interface Product {
+  id: string          // uuid
   itemId: string
-  rate: number      // > 0, items per minute
+  extraRate: number   // > 0, items per minute
 }
 ```
 
-**Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`:
-older plans stored `goals` and `noImportItems` on each sub-plan. The migration
-walks the tree, hoists them to the block (goals deduplicated by `itemId` with
-rates summed; non-positive rates dropped; no-import items deduplicated), and strips
-them from the sub-plans. Block-level values already present on the input win.
+**Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
+Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
+`goals` and `noImportItems` on each sub-plan: the migration walks the tree, hoists them to
+the block (goals become products, deduplicated by `itemId` with rates summed; non-positive
+rates dropped; no-import items deduplicated), and strips them from the sub-plans. A
+non-empty `products` on the input wins over legacy `goals`, which win over goals hoisted from
+sub-plans. Saved plans are written back in the new shape on the next save.
 
 **Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
 
 **Connections.** A connection is stored on the *consumer* block and points at its
 source by id, so renaming a block changes nothing and a source is never modified
 by its consumers. A block must not connect to itself or twice to the same
-`(fromBlockId, itemId)`, and a connection must not supply one of the consumer's own goal
-items. The store enforces all three (rules in
+`(fromBlockId, itemId)`, and a connection must not supply one of the consumer's own products. The store enforces all three (rules in
 `src/store/connections.ts`) when a connection is added, on redo of an add and on undo of a
 removal (a command that is no longer legal is dropped from the history instead of applied).
-Adding a goal does not remove an existing connection for the same item: such a connection stays
-in the plan and the solver reads it as `unused` (a goal is never fed). The connection actions
+Adding a product does not remove an existing connection for the same item: such a connection stays
+in the plan and the solver reads it as `unused` (a product is never fed). The connection actions
 take an optional target block (default: the active one), and the undo entry goes to *that*
 block's history; `undo` / `redo` only read the active block's history, so an edit made on another
 block (e.g. from the block graph) is not reverted by undoing while a different block is active.

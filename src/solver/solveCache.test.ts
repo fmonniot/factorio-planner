@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { createSolveCache, planKey, type BlockSolve } from './solveCache'
 import { flattenBlock } from './index'
-import type { Block, GameData, GameRecipeNode, ProductionGoal, RecipeNode, SubPlan } from '../data/types'
+import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SubPlan } from '../data/types'
 
 function node(id: string, recipeId: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode {
   return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...extra }
@@ -12,8 +12,8 @@ function subPlan(name: string, nodes: RecipeNode[], updatedAt: string, subPlans:
 }
 
 function block(rootPlan: SubPlan, extra: Partial<Block> = {}): Block {
-  const goals: ProductionGoal[] = [{ id: 'g', itemId: 'plate', rate: 60 }]
-  return { id: 'b', name: 'Block', color: '#60a5fa', goals, noImportItems: [], inputConnections: [], rootPlan, ...extra }
+  const products: Product[] = [{ id: 'g', itemId: 'plate', extraRate: 60 }]
+  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], inputConnections: [], rootPlan, ...extra }
 }
 
 const keyOf = (nodes: RecipeNode[]) =>

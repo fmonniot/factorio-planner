@@ -5,7 +5,7 @@
  * recently used first), so the demand probe, the first-round solve and the
  * settled solve of a block in a loop all survive.
  */
-import type { GameData, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
+import type { GameData, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
 export interface BlockSolve {
   result: SolverResult
@@ -42,7 +42,7 @@ function exactNumberReplacer(_key: string, v: unknown): unknown {
 }
 
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
-export function planKey(plan: { goals: ProductionGoal[]; nodes: RecipeNode[]; noImportItems?: string[] }): string {
+export function planKey(plan: { goals: SolverGoal[]; nodes: RecipeNode[]; noImportItems?: string[] }): string {
   return JSON.stringify([plan.goals, plan.nodes, plan.noImportItems ?? []], exactNumberReplacer)
 }
 

@@ -5,7 +5,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { Block, ConnectionFlow, GameData, SolverResult, ProductionGoal } from '../../data/types'
+import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
 
 const mockGameData: GameData = {
   factorioVersion: '2.0.0',
@@ -24,8 +24,8 @@ const mockGameData: GameData = {
   startingRecipes: [],
 } as unknown as GameData
 
-// goal.rate is items/min; solver outputs are also items/min
-const ironGoal: ProductionGoal = { id: 'g1', itemId: 'iron-plate', rate: 60 }
+// goal.extraRate is items/min; solver outputs are also items/min
+const ironGoal: Product = { id: 'g1', itemId: 'iron-plate', extraRate: 60 }
 
 const mockSolverResult: SolverResult = {
   nodes: [
@@ -43,10 +43,10 @@ const mockSolverResult: SolverResult = {
   warnings: [],
 }
 
-function setupStore(goals: ProductionGoal[] = [ironGoal], withSolver = true) {
+function setupStore(goals: Product[] = [ironGoal], withSolver = true) {
   const block = makeEmptyBlock('Test')
   useBlockStore.setState({
-    blocks: [{ ...block, goals }],
+    blocks: [{ ...block, products: goals }],
     activeBlockId: block.id,
     history: {},
   })
@@ -148,7 +148,7 @@ describe('FactorySummary — detail strip states', () => {
   })
 
   it('previews another slot while one is selected, then returns to the selection', () => {
-    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', rate: 10 }])
+    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     expect(strip('Products')).toHaveAttribute('data-state', 'selected')
@@ -267,7 +267,7 @@ describe('FactorySummary — goal target and actual', () => {
 })
 
 describe('FactorySummary — goal target editing', () => {
-  const goalRate = () => useBlockStore.getState().blocks[0].goals[0].rate
+  const goalRate = () => useBlockStore.getState().blocks[0].products[0].extraRate
 
   function startEdit() {
     render(<FactorySummary />)
@@ -321,7 +321,7 @@ describe('FactorySummary — goal target editing', () => {
   })
 
   it('hovering another slot does not change the strip while editing', () => {
-    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', rate: 10 }])
+    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     fireEvent.doubleClick(slot('Products', 'Iron Plate'))
     fireEvent.mouseEnter(slot('Products', 'Iron Ore'))
@@ -341,14 +341,14 @@ describe('FactorySummary — remove goal', () => {
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Products', 'Iron Plate'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove goal' }))
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(0)
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(0)
   })
 
   it('the strip action removes the goal too', () => {
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
     fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(0)
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(0)
     expect(strip('Products')).toHaveAttribute('data-state', 'overview')
   })
 
@@ -358,7 +358,7 @@ describe('FactorySummary — remove goal', () => {
     expect(screen.getByRole('menu')).toBeInTheDocument()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    expect(useBlockStore.getState().blocks[0].goals).toHaveLength(1)
+    expect(useBlockStore.getState().blocks[0].products).toHaveLength(1)
   })
 })
 
@@ -395,7 +395,7 @@ describe('FactorySummary — add goal', () => {
     await waitFor(() => expect(screen.getByRole('heading', { name: 'Add product' })).toBeInTheDocument())
   })
 
-  it('adding a goal via picker calls addGoal', async () => {
+  it('adding a goal via picker adds a product', async () => {
     setupStore([])
     render(<FactorySummary />)
     fireEvent.click(screen.getByTitle('Add goal'))
@@ -403,10 +403,10 @@ describe('FactorySummary — add goal', () => {
     const slots = screen.getAllByTestId('item-slot')
     const ironSlot = slots.find(b => b.getAttribute('data-item-id') === 'iron-plate')!
     fireEvent.click(ironSlot)
-    const goals = useBlockStore.getState().blocks[0].goals
-    expect(goals).toHaveLength(1)
-    expect(goals[0].itemId).toBe('iron-plate')
-    expect(goals[0].rate).toBe(60)
+    const products = useBlockStore.getState().blocks[0].products
+    expect(products).toHaveLength(1)
+    expect(products[0].itemId).toBe('iron-plate')
+    expect(products[0].extraRate).toBe(60)
   })
 })
 
@@ -431,10 +431,10 @@ describe('FactorySummary — connections', () => {
 
   function setupBlocks(opts: { activeId: 'consumer' | 'miner', connected: boolean, result?: SolverResult, flows?: ConnectionFlow[], minerOffers?: boolean }) {
     const consumer: Block = {
-      ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal],
+      ...makeEmptyBlock('Consumer'), id: 'consumer', products: [ironGoal],
       inputConnections: opts.connected ? [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner' }] : [],
     }
-    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', goals: [ironGoal] }
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal] }
     useBlockStore.setState({ blocks: [consumer, miner], activeBlockId: opts.activeId, history: {} })
     useSolverStore.setState({
       lastResult: opts.result ?? emptyResult(),
@@ -701,7 +701,7 @@ describe('FactorySummary — connections', () => {
         flows: [flow({ connectionId: 'e1', itemId: 'iron-plate', fromBlockId: 'miner', toBlockId: 'consumer', rate: 20 })],
       })
       useBlockStore.setState(s => ({
-        blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, goals: [ironGoal, { id: 'g2', itemId: 'iron-ore', rate: 10 }] } : b)),
+        blocks: s.blocks.map(b => (b.id === 'miner' ? { ...b, products: [ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }] } : b)),
       }))
       render(<FactorySummary />)
       const row = overviewRow('Products', 'to:consumer')
@@ -746,7 +746,7 @@ describe('FactorySummary — pull', () => {
     result?: SolverResult
     /** Miner has a recipe that makes iron ore, so pulling from it can apply. */
     minerMakes?: boolean
-    minerGoals?: Block['goals']
+    minerGoals?: Block['products']
   }) {
     if (opts.minerMakes) {
       useGameDataStore.setState({
@@ -754,11 +754,11 @@ describe('FactorySummary — pull', () => {
       })
     }
     const consumer: Block = {
-      ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal],
+      ...makeEmptyBlock('Consumer'), id: 'consumer', products: [ironGoal],
       inputConnections: [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.pull ? { pull: true as const } : {}) }],
     }
     const miner: Block = {
-      ...makeEmptyBlock('Miner'), id: 'miner', goals: opts.minerGoals ?? [ironGoal],
+      ...makeEmptyBlock('Miner'), id: 'miner', products: opts.minerGoals ?? [ironGoal],
       ...(opts.minerMakes
         ? { rootPlan: { ...makeEmptyBlock('Miner').rootPlan, nodes: [{ kind: 'game-recipe' as const, id: 'n', recipeId: 'mine', modules: [], byproductPolicy: {} }] } }
         : {}),
@@ -879,7 +879,7 @@ describe('FactorySummary — pull', () => {
     useGameDataStore.setState({
       status: { type: 'loaded', gameData: { ...mockGameData, recipes: { mine } } as unknown as GameData, sourceId: 'test' },
     })
-    const consumer: Block = { ...makeEmptyBlock('Consumer'), id: 'consumer', goals: [ironGoal] }
+    const consumer: Block = { ...makeEmptyBlock('Consumer'), id: 'consumer', products: [ironGoal] }
     const miner: Block = {
       ...makeEmptyBlock('Miner'), id: 'miner',
       rootPlan: {
@@ -973,7 +973,7 @@ describe('FactorySummary — short goal', () => {
 
 describe('FactorySummary — pane layout', () => {
   it('keeps Add goal outside the scrolling grid', () => {
-    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', rate: 10 }])
+    setupStore([ironGoal, { id: 'g2', itemId: 'iron-ore', extraRate: 10 }])
     render(<FactorySummary />)
     expect(pane('Products').textContent).toContain('· 2')
     expect(screen.getByTitle('Add goal').closest('.overflow-y-auto')).toBeNull()
@@ -1191,7 +1191,7 @@ describe('FactorySummary — import lock', () => {
 })
 
 describe('FactorySummary — two goals for the same item', () => {
-  const second: ProductionGoal = { id: 'g2', itemId: 'iron-plate', rate: 30 }
+  const second: Product = { id: 'g2', itemId: 'iron-plate', extraRate: 30 }
   const slots = () => within(pane('Products')).getAllByTestId('summary-slot')
 
   beforeEach(() => setupStore([ironGoal, second]))
@@ -1207,7 +1207,7 @@ describe('FactorySummary — two goals for the same item', () => {
     render(<FactorySummary />)
     fireEvent.click(slots()[1])
     fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Remove goal' }))
-    expect(useBlockStore.getState().blocks[0].goals.map(g => g.id)).toEqual(['g1'])
+    expect(useBlockStore.getState().blocks[0].products.map(p => p.id)).toEqual(['g1'])
   })
 
   it('edits the target of the second goal', () => {
@@ -1217,6 +1217,6 @@ describe('FactorySummary — two goals for the same item', () => {
     const input = screen.getByLabelText('Goal target rate')
     fireEvent.change(input, { target: { value: '45' } })
     fireEvent.keyDown(input, { key: 'Enter' })
-    expect(useBlockStore.getState().blocks[0].goals.map(g => g.rate)).toEqual([60, 45])
+    expect(useBlockStore.getState().blocks[0].products.map(p => p.extraRate)).toEqual([60, 45])
   })
 })

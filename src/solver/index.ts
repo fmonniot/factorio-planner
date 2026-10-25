@@ -6,10 +6,10 @@ import type {
   ConnectionFlowStatus,
   GameData,
   MultiBlockSolve,
-  ProductionGoal,
   PullIgnoredReason,
   RecipeNode,
   SolvedNode,
+  SolverGoal,
   SolverResult,
   SolverWarning,
   SubPlan,
@@ -22,14 +22,14 @@ import { orderBlocks, type LoopShape } from './blockGraph'
 import { planKey, type SolveCache } from './solveCache'
 
 interface SolverPlan {
-  goals: ProductionGoal[]
+  goals: SolverGoal[]
   nodes: RecipeNode[]
   noImportItems?: string[]
 }
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
- * node, and surface block-level goals + noImportItems. SubPlanNode handles
+ * node, and surface the block's products as goals + noImportItems. SubPlanNode handles
  * are pure UI grouping; solve() skips them by filtering on kind.
  */
 export function flattenBlock(block: Block): SolverPlan {
@@ -40,7 +40,7 @@ export function flattenBlock(block: Block): SolverPlan {
   }
   visit(block.rootPlan)
   return {
-    goals: block.goals,
+    goals: block.products.map(p => ({ id: p.id, itemId: p.itemId, rate: p.extraRate })),
     nodes,
     noImportItems: block.noImportItems,
   }
@@ -441,6 +441,8 @@ interface StepContext {
   cache?: SolveCache
   /** connection id → what the pull pass decided for a connection marked `pull`. */
   pull: Map<string, PullInfo>
+  /** blockId → goals with pulled demand added; absent = the block's own. */
+  goals: Map<string, SolverGoal[]>
 }
 
 interface BlockStep {
@@ -517,7 +519,8 @@ function solveStep(
   let error: string | undefined
   let result = emptyResult()
   let received = new Map<string, number>()
-  const plan = flattenBlock(block)
+  const base = flattenBlock(block)
+  const plan = { ...base, goals: ctx.goals.get(block.id) ?? base.goals }
   if (plan.goals.length > 0 && plan.nodes.length > 0) {
     const key = cache ? planKey(plan) : ''
     const hit = cache?.get(block.id, gameData, key, caps)
@@ -644,13 +647,13 @@ type PullInfo = { demand: number } | { ignored: PullIgnoredReason }
 
 interface PullPlan {
   /** blockId → the block's goals plus what its pull consumers ask of it; only for blocks that gained some. */
-  goals: Map<string, ProductionGoal[]>
+  goals: Map<string, SolverGoal[]>
   /** connection id → decision; absent for push connections and for ones that never count (missing source, self, duplicate). */
   info: Map<string, PullInfo>
 }
 
 /** `goals` plus `pulled` (itemId → items/min): added to the own goal of that item, or as a new goal `pull:<item>`. */
-function mergePulledGoals(goals: ProductionGoal[], pulled: Map<string, number> | undefined): ProductionGoal[] {
+function mergePulledGoals(goals: SolverGoal[], pulled: Map<string, number> | undefined): SolverGoal[] {
   let merged = goals
   for (const [itemId, rate] of pulled ?? []) {
     if (rate <= FLOW_TOLERANCE) continue
@@ -678,7 +681,7 @@ function computePullDemands(
   const byId = new Map(blocks.map(b => [b.id, b]))
   const blockIds = new Set(byId.keys())
   const info = new Map<string, PullInfo>()
-  const goals = new Map<string, ProductionGoal[]>()
+  const goals = new Map<string, SolverGoal[]>()
 
   // Candidates: pulls that count, in plan order. Applicable ones go on to the cycle check.
   const applicable: { consumer: Block; connection: BlockConnection }[] = []
@@ -729,8 +732,9 @@ function computePullDemands(
   for (const component of components) {
     for (const member of component.blocks) {
       const block = byId.get(member.id)!
-      const effectiveGoals = mergePulledGoals(block.goals, pulled.get(block.id))
-      if (effectiveGoals !== block.goals) goals.set(block.id, effectiveGoals)
+      const own = flattenBlock(block).goals
+      const effectiveGoals = mergePulledGoals(own, pulled.get(block.id))
+      if (effectiveGoals !== own) goals.set(block.id, effectiveGoals)
 
       const pulls = pullsOf.get(block.id)
       if (!pulls) continue
@@ -794,10 +798,6 @@ export function solveAll(
 ): MultiBlockSolve {
   const { components, selfConnectionIds } = orderBlocks(blocks)
   const pullPlan = computePullDemands(blocks, gameData, selfConnectionIds, cache)
-  const effective = (b: Block): Block => {
-    const goals = pullPlan.goals.get(b.id)
-    return goals ? { ...b, goals } : b
-  }
   // blockId → itemId → items/min asked by applied pulls and not yet served
   let pending = new Map<string, Offers>()
   for (const b of blocks) {
@@ -835,8 +835,9 @@ export function solveAll(
         gameData,
         cache,
         pull: pullPlan.info,
+        goals: pullPlan.goals,
       }
-      const step = solveStep(effective(block), ctx, remaining, pending)
+      const step = solveStep(block, ctx, remaining, pending)
       commit(block, step)
       remaining.set(block.id, step.offers)
       continue
@@ -849,6 +850,7 @@ export function solveAll(
       gameData,
       cache,
       pull: pullPlan.info,
+      goals: pullPlan.goals,
     }
     // One round: members in loop order against the snapshot plus last round's offers of the members.
     const runRound = (prev: Map<string, Offers>) => {
@@ -861,7 +863,7 @@ export function solveAll(
       for (const m of component.blocks) {
         const before = rem.get(m.id)!
         const prevOffers = prev.get(m.id)
-        const step = solveStep(effective(m), ctx, rem, pend)
+        const step = solveStep(m, ctx, rem, pend)
         // Earlier members already drew from last round's offers of this block. If they drew more than
         // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
         // this only happens in a round that has not settled).

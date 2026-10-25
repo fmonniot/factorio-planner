@@ -58,7 +58,7 @@ function setup(opts: {
 } = {}) {
   const consumer: Block = {
     ...makeEmptyBlock('Consumer'), id: 'consumer',
-    goals: [{ id: 'g1', itemId: 'iron-plate', rate: 60 }],
+    products: [{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }],
     inputConnections: opts.connected
       ? [
           { id: 'c1', itemId: 'iron-ore', fromBlockId: 'miner', ...(opts.maxRate === undefined ? {} : { maxRate: opts.maxRate }), ...(opts.pull ? { pull: true as const } : {}) },

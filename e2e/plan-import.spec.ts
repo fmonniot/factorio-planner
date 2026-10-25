@@ -133,6 +133,7 @@ test.describe('Plan import', () => {
 
     await pickPlanFile(page, ghost)
     await expect(page.getByTestId('import-unknown-ids')).toContainText('does-not-exist')
+    await expect(page.getByTestId('import-unknown-ids')).toContainText('nope-item')
     await page.getByRole('button', { name: 'Cancel' }).click()
     await expectPlanOne(page)
     expect(await planNames(page)).toEqual(['Plan 1'])

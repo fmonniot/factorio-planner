@@ -123,7 +123,7 @@ function parseRawAppState(raw: string, malformedPrefix: string): ParseRawResult 
 // Import
 // ---------------------------------------------------------------------------
 
-/** Recipe ids (game-recipe nodes) and goal item ids that the loaded game data does not define, deduped, in first-seen order. */
+/** Recipe ids (game-recipe nodes) and product item ids that the loaded game data does not define, deduped, in first-seen order. */
 export function findUnknownPlanIds(appState: AppState, gameData: GameData): string[] {
   const unknown = new Set<string>()
   for (const block of appState.blocks) {
@@ -131,8 +131,8 @@ export function findUnknownPlanIds(appState: AppState, gameData: GameData): stri
     for (const n of plan.nodes) {
       if (n.kind === 'game-recipe' && !gameData.recipes[n.recipeId]) unknown.add(n.recipeId)
     }
-    for (const g of plan.goals) {
-      if (!gameData.items[g.itemId]) unknown.add(g.itemId)
+    for (const p of block.products) {
+      if (!gameData.items[p.itemId]) unknown.add(p.itemId)
     }
   }
   return [...unknown]

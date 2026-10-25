@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
-import type { GameData, GameRecipeNode, Machine, ProductionGoal, RecipeNode, SolverResult } from '../data/types'
+import type { GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius export).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -130,7 +130,7 @@ function run(
   recipeIds: string[],
   modules: Record<string, GameRecipeNode['modules']> = {},
 ): SolverResult {
-  const plan: { goals: ProductionGoal[]; nodes: RecipeNode[] } = {
+  const plan: { goals: SolverGoal[]; nodes: RecipeNode[] } = {
     goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
     nodes: recipeIds.map(id => planNode(id, modules[id])),
   }

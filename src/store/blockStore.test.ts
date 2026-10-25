@@ -387,6 +387,55 @@ describe('toggleNoImportItem', () => {
   })
 })
 
+describe('products', () => {
+  const store = () => useBlockStore.getState()
+  const products = () => store().blocks[0].products
+  const plate = { id: 'p1', itemId: 'iron-plate', extraRate: 60 }
+
+  it('addProduct appends, undo removes, redo re-adds', () => {
+    store().addProduct(plate)
+    expect(products()).toEqual([plate])
+    store().undo()
+    expect(products()).toEqual([])
+    store().redo()
+    expect(products()).toEqual([plate])
+  })
+
+  it('removeProduct removes and undo re-appends', () => {
+    store().addProduct(plate)
+    store().addProduct({ id: 'p2', itemId: 'gear', extraRate: 5 })
+    store().removeProduct('p1')
+    expect(products().map(p => p.id)).toEqual(['p2'])
+    store().undo()
+    expect(products().map(p => p.id)).toEqual(['p2', 'p1'])
+  })
+
+  it('updateProductExtra sets extraRate and undo restores the old value', () => {
+    store().addProduct(plate)
+    store().updateProductExtra('p1', 20)
+    expect(products()[0].extraRate).toBe(20)
+    store().undo()
+    expect(products()[0].extraRate).toBe(60)
+  })
+
+  it('updateProductExtra ignores an unknown id', () => {
+    store().addProduct(plate)
+    const before = store().blocks
+    store().updateProductExtra('nope', 20)
+    expect(store().blocks, 'blocks unchanged').toBe(before)
+  })
+
+  it('duplicateBlock copies products with fresh ids and the same extraRate', () => {
+    store().addProduct(plate)
+    store().duplicateBlock(store().blocks[0].id)
+    const [original, copy] = store().blocks
+    expect(copy.products).toHaveLength(1)
+    expect(copy.products[0].extraRate).toBe(60)
+    expect(copy.products[0].itemId).toBe('iron-plate')
+    expect(copy.products[0].id).not.toBe(original.products[0].id)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Input connections
 // ---------------------------------------------------------------------------
@@ -654,7 +703,7 @@ describe('input connections', () => {
   })
 
   it('ignores a connection for a goal item of the target', () => {
-    useBlockStore.getState().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    useBlockStore.getState().addProduct({ id: 'g1', itemId: 'plate', extraRate: 60 })
     const before = useBlockStore.getState().blocks
     useBlockStore.getState().addInputConnection('plate', sourceId)
     expect(useBlockStore.getState().blocks).toBe(before)
@@ -664,7 +713,7 @@ describe('input connections', () => {
     const store = () => useBlockStore.getState()
     store().addInputConnection('plate', sourceId)
     store().undo()
-    store().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    store().addProduct({ id: 'g1', itemId: 'plate', extraRate: 60 })
     store().undo()
     store().redo()
     expect(active().inputConnections).toEqual([])
@@ -672,9 +721,9 @@ describe('input connections', () => {
 
   it('undo of a removal is dropped when the item is a goal of the target', () => {
     const store = () => useBlockStore.getState()
-    // A goal and a connection for the same item can coexist (addGoal does not drop the connection).
+    // A goal and a connection for the same item can coexist (addProduct does not drop the connection).
     store().addInputConnection('plate', sourceId)
-    store().addGoal({ id: 'g1', itemId: 'plate', rate: 60 })
+    store().addProduct({ id: 'g1', itemId: 'plate', extraRate: 60 })
     store().removeInputConnection(active().inputConnections[0].id)
     expect(active().inputConnections).toEqual([])
     store().undo() // would re-add a connection for a goal item: dropped
@@ -788,7 +837,7 @@ describe('default machine overrides', () => {
 describe('clonePlan', () => {
   function makePlan(): AppState {
     const a = makeEmptyBlock('A', '#112233')
-    a.goals = [{ id: 'goal-a', itemId: 'iron-plate', rate: 30 }]
+    a.products = [{ id: 'goal-a', itemId: 'iron-plate', extraRate: 30 }]
     a.rootPlan.nodes = [{ ...ironNode, id: 'node-a' }]
     const b = makeEmptyBlock('B', '#445566')
     b.inputConnections = [{ id: 'conn-b', itemId: 'iron-plate', fromBlockId: a.id }]
@@ -802,7 +851,7 @@ describe('clonePlan', () => {
       p.subPlans.forEach(walk)
     }
     for (const b of plan.blocks) {
-      ids.push(b.id, ...b.goals.map(g => g.id), ...b.inputConnections.map(c => c.id))
+      ids.push(b.id, ...b.products.map(p => p.id), ...b.inputConnections.map(c => c.id))
       walk(b.rootPlan)
     }
     return ids
@@ -920,12 +969,12 @@ describe('duplicateBlock', () => {
       { ...ironNode, id: 'root-node' },
       { kind: 'subplan', id: 'root-subplan-node', subPlanId: child.id },
     ]
-    block.goals = [{ id: 'goal-1', itemId: 'iron-plate', rate: 30 }]
+    block.products = [{ id: 'goal-1', itemId: 'iron-plate', extraRate: 30 }]
     return block
   }
 
   function collectIds(block: Block): string[] {
-    const ids = [block.id, ...block.goals.map(g => g.id), ...block.inputConnections.map(c => c.id)]
+    const ids = [block.id, ...block.products.map(p => p.id), ...block.inputConnections.map(c => c.id)]
     const walk = (p: Block['rootPlan']) => {
       ids.push(p.id, ...p.nodes.map(n => n.id))
       p.subPlans.forEach(walk)
@@ -997,9 +1046,9 @@ describe('duplicateBlock', () => {
 
   it('does not share state with the original', () => {
     useBlockStore.getState().duplicateBlock(original.id)
-    useBlockStore.getState().addGoal({ id: 'extra', itemId: 'copper-plate', rate: 5 })
-    expect(blocks()[1].goals).toHaveLength(2)
-    expect(blocks()[0].goals).toHaveLength(1)
+    useBlockStore.getState().addProduct({ id: 'extra', itemId: 'copper-plate', extraRate: 5 })
+    expect(blocks()[1].products).toHaveLength(2)
+    expect(blocks()[0].products).toHaveLength(1)
   })
 
   it('is a no-op for an unknown block id', () => {
