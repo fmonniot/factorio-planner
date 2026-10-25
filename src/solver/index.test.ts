@@ -192,6 +192,14 @@ describe('flattenBlock + solve(block) — subplan grouping is solver-transparent
     expect(wrappedResult.nodes[0].recipeNodeId).toBe('n1')
   })
 
+  it('flattenBlock turns products into goals: extra only, products without extra dropped', () => {
+    const block = makeBlock(makeSubPlan('Root', []), [
+      { id: 'p1', itemId: 'plate', extraRate: 60 },
+      { id: 'p2', itemId: 'gear' },
+    ])
+    expect(flattenBlock(block).goals).toEqual([{ id: 'p1', itemId: 'plate', rate: 60 }])
+  })
+
   it('flattenBlock walks nested subplans and surfaces every game-recipe node', () => {
     const a = planNode('a', 'iron-plate')
     const b = planNode('b', 'iron-plate')
@@ -219,6 +227,7 @@ const plateRecipe = recipe('plate', 1, [], [product('plate', 1)])
 const gearRecipe = recipe('gear', 1, [{ itemId: 'plate', type: 'item', amount: 2 }], [product('gear', 1)])
 const ingotRecipe = recipe('ingot', 1, [], [product('ingot', 1)])
 const plateFromIngotRecipe = recipe('plateFromIngot', 1, [{ itemId: 'ingot', type: 'item', amount: 1 }], [product('plate', 1)])
+const twinRecipe = recipe('twin', 1, [], [product('slag', 1), product('plate', 1)])
 const ingotFromOreRecipe = recipe('ingotFromOre', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('ingot', 1)])
 
 function connectionGameData(): GameData {
@@ -229,6 +238,7 @@ function connectionGameData(): GameData {
       ingot: ingotRecipe,
       plateFromIngot: plateFromIngotRecipe,
       ingotFromOre: ingotFromOreRecipe,
+      twin: twinRecipe,
     },
   })
 }
@@ -360,14 +370,16 @@ describe('solveAll', () => {
   function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block {
     return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections }
   }
-  const plateGoal = (rate: number): Product[] => [{ id: 'gp', itemId: 'plate', extraRate: rate }]
+  // A's goal is slag, which the twin recipe makes together with plate: the plate is leftover output a
+  // connection takes, not a product, so connections to A take existing output.
+  const plateGoal = (rate: number): Product[] => [{ id: 'gp', itemId: 'slag', extraRate: rate }]
   const gearGoal = (rate: number): Product[] => [{ id: 'gg', itemId: 'gear', extraRate: rate }]
   const link = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
 
   it('feeds the consumer from the source and reports an ok flow', () => {
     const all = solveAll([
-      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('A', plateGoal(60), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
     ], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -380,7 +392,7 @@ describe('solveAll', () => {
 
   it('marks the flow limited when the source offers less than needed', () => {
     const all = solveAll([
-      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('A', plateGoal(40), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
     ], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -391,7 +403,7 @@ describe('solveAll', () => {
 
   it('stops a connection at its limit and reports the shortfall as imported', () => {
     const all = solveAll([
-      block('A', plateGoal(100), [planNode('p', 'plate')]),
+      block('A', plateGoal(100), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 20 }]),
     ], connectionGameData())
     expect(flowOf(all, 'c1')).toMatchObject({ available: 20, capped: true, status: 'limited' })
@@ -401,7 +413,7 @@ describe('solveAll', () => {
 
   it('keeps a limit above the need ok but capped', () => {
     const all = solveAll([
-      block('A', plateGoal(200), [planNode('p', 'plate')]),
+      block('A', plateGoal(200), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 100 }]),
     ], connectionGameData())
     expect(flowOf(all, 'c1')).toMatchObject({ capped: true, status: 'ok' })
@@ -410,7 +422,7 @@ describe('solveAll', () => {
 
   it('does not call a limit above the source offer capped', () => {
     const all = solveAll([
-      block('A', plateGoal(30), [planNode('p', 'plate')]),
+      block('A', plateGoal(30), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 50 }]),
     ], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -421,7 +433,7 @@ describe('solveAll', () => {
 
   it('leaves what a limit holds back on offer for the next consumer', () => {
     const all = solveAll([
-      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('A', plateGoal(40), [planNode('p', 'twin')]),
       block('B', gearGoal(15), [planNode('g', 'gear')], [{ ...link('cb', 'A'), maxRate: 10 }]),
       block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
     ], connectionGameData())
@@ -432,7 +444,7 @@ describe('solveAll', () => {
 
   it('applies a limit below the residual of an item the consumer also makes', () => {
     const all = solveAll([
-      block('A', plateGoal(100), [planNode('p', 'plate')]),
+      block('A', plateGoal(100), [planNode('p', 'twin')]),
       block('B', gearGoal(25), [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)], [{ ...link('c1', 'A'), maxRate: 10 }]),
     ], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -444,7 +456,7 @@ describe('solveAll', () => {
 
   it('marks the flow unused when the consumer makes the item itself', () => {
     const all = solveAll([
-      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('A', plateGoal(60), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear'), planNode('m', 'plateFromIngot')], [link('c1', 'A')]),
     ], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -457,7 +469,7 @@ describe('solveAll', () => {
       ...block('B', gearGoal(25), [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)], [link('c1', 'A')]),
       noImportItems: ['plate'],
     }
-    const all = solveAll([block('A', plateGoal(10), [planNode('p', 'plate')]), locked], connectionGameData())
+    const all = solveAll([block('A', plateGoal(10), [planNode('p', 'twin')]), locked], connectionGameData())
     const f = flowOf(all, 'c1')
     expect(f.rate).toBeCloseTo(10, 4)
     expect(f.status).toBe('limited')
@@ -466,7 +478,7 @@ describe('solveAll', () => {
 
   it('marks a repeated (source, item) connection unused instead of limited', () => {
     const all = solveAll([
-      block('A', plateGoal(10), [planNode('p', 'plate')]),
+      block('A', plateGoal(10), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A'), link('c2', 'A')]),
     ], connectionGameData())
     expect(flowOf(all, 'c1').status).toBe('limited')
@@ -484,7 +496,7 @@ describe('solveAll', () => {
 
   it('serves several consumers of one source in solve order', () => {
     const all = solveAll([
-      block('A', plateGoal(40), [planNode('p', 'plate')]),
+      block('A', plateGoal(40), [planNode('p', 'twin')]),
       block('B', gearGoal(15), [planNode('g', 'gear')], [link('cb', 'A')]),
       block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
     ], connectionGameData())
@@ -495,8 +507,8 @@ describe('solveAll', () => {
 
   it('drains several sources of one item in connection order', () => {
     const all = solveAll([
-      block('A1', plateGoal(20), [planNode('p', 'plate')]),
-      block('A2', plateGoal(50), [planNode('p', 'plate')]),
+      block('A1', plateGoal(20), [planNode('p', 'twin')]),
+      block('A2', plateGoal(50), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A1'), link('c2', 'A2')]),
     ], connectionGameData())
     expect(flowOf(all, 'c1').rate).toBeCloseTo(20, 4)
@@ -506,7 +518,7 @@ describe('solveAll', () => {
   it('solves a source listed after its consumer first', () => {
     const all = solveAll([
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
-      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('A', plateGoal(60), [planNode('p', 'twin')]),
     ], connectionGameData())
     expect(flowOf(all, 'c1').rate).toBeCloseTo(60, 4)
   })
@@ -521,7 +533,7 @@ describe('solveAll', () => {
 
   it('ignores a block connected to itself but still solves it', () => {
     const all = solveAll([
-      block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'A')]),
+      block('A', plateGoal(60), [planNode('p', 'twin')], [link('c1', 'A')]),
     ], connectionGameData())
     expect(flowOf(all, 'c1')).toMatchObject({ status: 'self', rate: 0, available: 0 })
     expect(all.results.A.nodes).toHaveLength(1)
@@ -531,7 +543,7 @@ describe('solveAll', () => {
   it('records a failing block in errors and still solves the others', () => {
     const broken = { ...planNode('g', 'gear'), modules: undefined } as unknown as RecipeNode
     const all = solveAll([
-      block('A', plateGoal(60), [planNode('p', 'plate')]),
+      block('A', plateGoal(60), [planNode('p', 'twin')]),
       block('B', gearGoal(30), [broken], [link('c1', 'A')]),
     ], connectionGameData())
     expect(all.errors.B).toBeTruthy()
@@ -542,14 +554,14 @@ describe('solveAll', () => {
   })
 
   describe('with a solve cache', () => {
-    const A = () => block('A', plateGoal(60), [planNode('p', 'plate')])
+    const A = () => block('A', plateGoal(60), [planNode('p', 'twin')])
     const B = () => block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')])
     const broken = () => ({ ...planNode('g', 'gear'), modules: undefined } as unknown as RecipeNode)
 
     const scenarios: Record<string, () => Block[]> = {
       'feed ok': () => [A(), B()],
       'limited source': () => [
-        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('A', plateGoal(40), [planNode('p', 'twin')]),
         block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
       ],
       'maxRate below need': () => [
@@ -557,18 +569,18 @@ describe('solveAll', () => {
         block('B', gearGoal(30), [planNode('g', 'gear')], [{ ...link('c1', 'A'), maxRate: 20 }]),
       ],
       'two consumers of one source': () => [
-        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('A', plateGoal(40), [planNode('p', 'twin')]),
         block('B', gearGoal(15), [planNode('g', 'gear')], [link('cb', 'A')]),
         block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
       ],
       'two sources of one item': () => [
-        block('A1', plateGoal(20), [planNode('p', 'plate')]),
-        block('A2', plateGoal(50), [planNode('p', 'plate')]),
+        block('A1', plateGoal(20), [planNode('p', 'twin')]),
+        block('A2', plateGoal(50), [planNode('p', 'twin')]),
         block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A1'), link('c2', 'A2')]),
       ],
       'missing source': () => [block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'ghost')])],
       loop: () => [
-        block('A', plateGoal(60), [planNode('p', 'plate')], [link('c1', 'B', 'gear')]),
+        block('A', plateGoal(60), [planNode('p', 'twin')], [link('c1', 'B', 'gear')]),
         block('B', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
       ],
       'failing block': () => [A(), block('B', gearGoal(30), [broken()], [link('c1', 'A')])],
@@ -630,7 +642,7 @@ describe('solveAll', () => {
       const gd = connectionGameData()
       const cache = createSolveCache()
       const first = solveAll([A(), B()], gd, cache)
-      const edited = block('A', plateGoal(60), [{ ...planNode('p', 'plate'), machineId: 'ghost' }])
+      const edited = block('A', plateGoal(60), [{ ...planNode('p', 'twin'), machineId: 'ghost' }])
       const second = solveAll([edited, B()], gd, cache)
       expect(second.results.A).not.toBe(first.results.A)
       expect(second.results.B).toBe(first.results.B)
@@ -650,7 +662,7 @@ describe('solveAll', () => {
       const gd = connectionGameData()
       const cache = createSolveCache()
       const blocks = (bRate: number) => [
-        block('A', plateGoal(40), [planNode('p', 'plate')]),
+        block('A', plateGoal(40), [planNode('p', 'twin')]),
         block('B', gearGoal(bRate), [planNode('g', 'gear')], [link('cb', 'A')]),
         block('C', gearGoal(15), [planNode('g', 'gear')], [link('cc', 'A')]),
       ]
@@ -710,7 +722,7 @@ describe('solveAll', () => {
     it('leaves no entry for a block with goals but no nodes', () => {
       const gd = connectionGameData()
       const cache = createSolveCache()
-      solveAll([block('E', plateGoal(10), [planNode('p', 'plate')])], gd, cache)
+      solveAll([block('E', plateGoal(10), [planNode('p', 'twin')])], gd, cache)
       expect(cache.has('E')).toBe(true)
       solveAll([block('E', plateGoal(10), [])], gd, cache)
       expect(cache.has('E')).toBe(false)
@@ -721,19 +733,19 @@ describe('solveAll', () => {
     // Metals -> Sciences -> Ores -> Metals: smelting metal, researching with it, sorting the waste back into ore.
     const loopGameData = () => makeGameData({
       recipes: {
-        smelt: recipe('smelt', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('metal', 1)]),
+        smelt: recipe('smelt', 1, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('metal', 1), product('heat', 1)]),
         research: recipe('research', 1, [{ itemId: 'metal', type: 'item', amount: 2 }], [product('science', 1), product('waste', 1)]),
-        sort: recipe('sort', 1, [{ itemId: 'waste', type: 'item', amount: 1 }], [product('ore', 1)]),
-        mine: recipe('mine', 1, [], [product('ore', 1)]),
+        sort: recipe('sort', 1, [{ itemId: 'waste', type: 'item', amount: 1 }], [product('ore', 1), product('dust', 1)]),
+        mine: recipe('mine', 1, [], [product('ore', 1), product('rock', 1)]),
       },
     })
     const goal = (itemId: string, rate: number): Product[] => [{ id: `g-${itemId}`, itemId, extraRate: rate }]
     const metals = (connections: Block['inputConnections'] = [{ id: 'c_om', itemId: 'ore', fromBlockId: 'Ores' }], rate = 60) =>
-      block('Metals', goal('metal', rate), [planNode('n', 'smelt')], connections)
+      block('Metals', goal('heat', rate), [planNode('n', 'smelt')], connections)
     const sciences = (rate = 30) =>
       block('Sciences', goal('science', rate), [planNode('n', 'research')], [{ id: 'c_ms', itemId: 'metal', fromBlockId: 'Metals' }])
     const ores = (rate = 30) =>
-      block('Ores', goal('ore', rate), [planNode('n', 'sort')], [{ id: 'c_so', itemId: 'waste', fromBlockId: 'Sciences' }])
+      block('Ores', goal('dust', rate), [planNode('n', 'sort')], [{ id: 'c_so', itemId: 'waste', fromBlockId: 'Sciences' }])
     const flow = (all: ReturnType<typeof solveAll>, id: string) => {
       const f = flowOf(all, id)
       return { rate: f.rate, available: f.available, status: f.status, loop: f.loop }
@@ -797,7 +809,7 @@ describe('solveAll', () => {
     })
 
     it('serves a block outside the loop from what the loop leaves over', () => {
-      const extra = block('Extra', goal('metal', 50), [planNode('n', 'smelt')], [{ id: 'c_oe', itemId: 'ore', fromBlockId: 'Ores' }])
+      const extra = block('Extra', goal('heat', 50), [planNode('n', 'smelt')], [{ id: 'c_oe', itemId: 'ore', fromBlockId: 'Ores' }])
       const all = solveAll([metals(), sciences(), ores(90), extra], loopGameData())
       near(flow(all, 'c_om'), { rate: 60, available: 90, status: 'ok', loop: true })
       near(flow(all, 'c_oe'), { rate: 30, available: 30, status: 'limited', loop: undefined })
@@ -805,7 +817,7 @@ describe('solveAll', () => {
     })
 
     it('reads upstream supply afresh every round and enters the loop where the supply arrives', () => {
-      const mine = block('Mine', goal('ore', 20), [planNode('n', 'mine')])
+      const mine = block('Mine', goal('rock', 20), [planNode('n', 'mine')])
       const entered = metals([
         { id: 'c_um', itemId: 'ore', fromBlockId: 'Mine' },
         { id: 'c_om', itemId: 'ore', fromBlockId: 'Ores' },
@@ -852,7 +864,7 @@ describe('solveAll', () => {
     })
 
     it('settles in one round when the back connection carries nothing', () => {
-      const first = block('Metals', goal('metal', 60), [planNode('n', 'smelt')], [{ id: 'c_back', itemId: 'ore', fromBlockId: 'Sciences' }])
+      const first = block('Metals', goal('heat', 60), [planNode('n', 'smelt')], [{ id: 'c_back', itemId: 'ore', fromBlockId: 'Sciences' }])
       const second = block('Sciences', goal('science', 30), [planNode('n', 'research')], [{ id: 'c_fwd', itemId: 'metal', fromBlockId: 'Metals' }])
       const all = solveAll([first, second], loopGameData())
       expect(all.loops).toMatchObject([{ rounds: 1, converged: true }])
@@ -874,9 +886,9 @@ describe('solveAll', () => {
 
 })
 
-describe('solveAll — pull connections', () => {
+describe('solveAll — requests', () => {
   const machineRecipe = recipe('machine', 1, [{ itemId: 'gear', type: 'item', amount: 1 }], [product('machine', 1)])
-  const pullGameData = (): GameData => {
+  const requestGameData = (): GameData => {
     const data = connectionGameData()
     data.recipes.machine = machineRecipe
     return data
@@ -884,37 +896,37 @@ describe('solveAll — pull connections', () => {
   function block(id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = [], extra: Partial<Block> = {}): Block {
     return { ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections, ...extra }
   }
-  const goal = (itemId: string, rate: number): Product[] => [{ id: `g-${itemId}`, itemId, extraRate: rate }]
-  const pull = (id: string, from: string, itemId = 'plate', extra: object = {}) => ({ id, itemId, fromBlockId: from, pull: true as const, ...extra })
-  const push = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
+  const prod = (itemId: string, extra?: number): Product => ({ id: `p-${itemId}`, itemId, ...(extra !== undefined ? { extraRate: extra } : {}) })
+  const link = (id: string, from: string, itemId = 'plate', extra: object = {}) => ({ id, itemId, fromBlockId: from, ...extra })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
   const throughput = (all: ReturnType<typeof solveAll>, id: string) => all.results[id].nodes.reduce((sum, n) => sum + n.throughput, 0)
-  const smelter = (id = 'A', goals: Product[] = []) => block(id, goals, [planNode('p', 'plate')])
+  const smelter = (id = 'A', products: Product[] = [prod('plate')]) => block(id, products, [planNode('p', 'plate')])
   const gearmaker = (id: string, rate: number, connections: Block['inputConnections']) =>
-    block(id, goal('gear', rate), [planNode('g', 'gear')], connections)
+    block(id, [prod('gear', rate)], [planNode('g', 'gear')], connections)
 
-  it('drives a source that has no goals', () => {
-    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A')])], pullGameData())
+  it('drives a source whose product has no extra', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [link('c1', 'A')])], requestGameData())
     expect(throughput(all, 'A')).toBeCloseTo(50, 4)
     const f = flowOf(all, 'c1')
-    expect(f.demand).toBeCloseTo(50, 4)
+    expect(f.kind).toBe('request')
+    expect(f.requested).toBeCloseTo(50, 4)
     expect(f.rate).toBeCloseTo(50, 4)
     expect(f.status).toBe('ok')
-    expect(f.pullIgnored).toBeUndefined()
+    expect(f.requestIgnored).toBeUndefined()
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
   })
 
-  it('adds the demand to the source goal for the same item', () => {
-    const all = solveAll([smelter('A', goal('plate', 10)), gearmaker('B', 25, [pull('c1', 'A')])], pullGameData())
+  it('adds the request to the extra of the same product', () => {
+    const all = solveAll([smelter('A', [prod('plate', 10)]), gearmaker('B', 25, [link('c1', 'A')])], requestGameData())
     expect(throughput(all, 'A')).toBeCloseTo(60, 4)
     expect(flowOf(all, 'c1').rate).toBeCloseTo(50, 4)
     expect(netBalance(all.results.A.nodes).get('plate')! - flowOf(all, 'c1').rate).toBeCloseTo(10, 4)
   })
 
-  it('limits the demand to the connection limit', () => {
-    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A', 'plate', { maxRate: 30 })])], pullGameData())
+  it('limits the request to the connection limit', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [link('c1', 'A', 'plate', { maxRate: 30 })])], requestGameData())
     const f = flowOf(all, 'c1')
-    expect(f.demand).toBeCloseTo(30, 4)
+    expect(f.requested).toBeCloseTo(30, 4)
     expect(throughput(all, 'A')).toBeCloseTo(30, 4)
     expect(f.rate).toBeCloseTo(30, 4)
     expect(f.capped).toBe(true)
@@ -922,50 +934,46 @@ describe('solveAll — pull connections', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
   })
 
-  it('does not call a limit the bound when it is above the demand', () => {
-    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A', 'plate', { maxRate: 100 })])], pullGameData())
+  it('does not call a limit the bound when it is above the request', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [link('c1', 'A', 'plate', { maxRate: 100 })])], requestGameData())
     const f = flowOf(all, 'c1')
-    expect(f.demand).toBeCloseTo(50, 4)
+    expect(f.requested).toBeCloseTo(50, 4)
     expect(f.rate).toBeCloseTo(50, 4)
     expect(f.capped).toBe(false)
     expect(f.status).toBe('ok')
   })
 
-  it('keeps what a source makes for a pull away from a push consumer solved earlier', () => {
-    const blocks = (aGoals: Product[]) => [
-      smelter('A', aGoals),
-      gearmaker('C', 10, [push('cc', 'A')]),
-      gearmaker('B', 25, [pull('cb', 'A')]),
-    ]
-    const bare = solveAll(blocks([]), pullGameData())
-    expect(flowOf(bare, 'cb').rate).toBeCloseTo(50, 4)
-    expect(flowOf(bare, 'cc').rate).toBeCloseTo(0, 4)
-    expect(flowOf(bare, 'cc').status).toBe('limited')
-
-    const withGoal = solveAll(blocks(goal('plate', 10)), pullGameData())
-    expect(flowOf(withGoal, 'cb').rate).toBeCloseTo(50, 4)
-    expect(flowOf(withGoal, 'cc').rate).toBeCloseTo(10, 4)
+  it('takes existing output when the item is not a product of the source', () => {
+    const source = block('A', [prod('slag', 40)], [planNode('p', 'twin')])
+    const all = solveAll([source, gearmaker('B', 25, [link('c1', 'A')])], requestGameData())
+    const f = flowOf(all, 'c1')
+    expect(f.kind).toBe('take')
+    expect('requested' in f).toBe(false)
+    expect('requestIgnored' in f).toBe(false)
+    expect(f.rate).toBeCloseTo(40, 4)
+    expect(f.status).toBe('limited')
+    expect(throughput(all, 'A')).toBeCloseTo(40, 4)
   })
 
-  it('sums the demand of several pulling consumers', () => {
+  it('sums the requests of several consumers', () => {
     const all = solveAll([
       smelter(),
-      gearmaker('B', 25, [pull('cb', 'A')]),
-      gearmaker('C', 10, [pull('cc', 'A')]),
-    ], pullGameData())
+      gearmaker('B', 25, [link('cb', 'A')]),
+      gearmaker('C', 10, [link('cc', 'A')]),
+    ], requestGameData())
     expect(throughput(all, 'A')).toBeCloseTo(70, 4)
     expect(flowOf(all, 'cb').rate).toBeCloseTo(50, 4)
     expect(flowOf(all, 'cc').rate).toBeCloseTo(20, 4)
   })
 
-  it('passes demand along a chain of pulls', () => {
+  it('passes requests along a chain', () => {
     const all = solveAll([
       smelter(),
-      block('B', [], [planNode('g', 'gear')], [pull('cb', 'A')]),
-      block('C', goal('machine', 10), [planNode('m', 'machine')], [pull('cc', 'B', 'gear')]),
-    ], pullGameData())
-    expect(flowOf(all, 'cc').demand).toBeCloseTo(10, 4)
-    expect(flowOf(all, 'cb').demand).toBeCloseTo(20, 4)
+      block('B', [prod('gear')], [planNode('g', 'gear')], [link('cb', 'A')]),
+      block('C', [prod('machine', 10)], [planNode('m', 'machine')], [link('cc', 'B', 'gear')]),
+    ], requestGameData())
+    expect(flowOf(all, 'cc').requested).toBeCloseTo(10, 4)
+    expect(flowOf(all, 'cb').requested).toBeCloseTo(20, 4)
     expect(throughput(all, 'B')).toBeCloseTo(10, 4)
     expect(throughput(all, 'A')).toBeCloseTo(20, 4)
   })
@@ -973,89 +981,109 @@ describe('solveAll — pull connections', () => {
   it('asks only for what a locked consumer cannot make with its pinned recipe', () => {
     const consumer = block(
       'B',
-      goal('gear', 25),
+      [prod('gear', 25)],
       [planNode('g', 'gear'), pinned('f', 'plateFromIngot', 20)],
-      [pull('c1', 'A')],
+      [link('c1', 'A')],
       { noImportItems: ['plate'] },
     )
-    const all = solveAll([smelter(), consumer], pullGameData())
-    expect(flowOf(all, 'c1').demand).toBeCloseTo(30, 4)
+    const all = solveAll([smelter(), consumer], requestGameData())
+    expect(flowOf(all, 'c1').requested).toBeCloseTo(30, 4)
     expect(throughput(all, 'A')).toBeCloseTo(30, 4)
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
   })
 
-  it('ignores a pull from a source that cannot make the item', () => {
+  it('leaves a request unserved when the source has no recipe for the item', () => {
     const all = solveAll([
-      block('A', [], [planNode('i', 'ingot')]),
-      gearmaker('B', 25, [pull('c1', 'A')]),
-    ], pullGameData())
+      block('A', [prod('plate')], [planNode('i', 'ingot')]),
+      gearmaker('B', 25, [link('c1', 'A')]),
+    ], requestGameData())
     const f = flowOf(all, 'c1')
-    expect(f.pullIgnored).toBe('no-producer')
-    expect(f.demand).toBeUndefined()
-    expect(f.available).toBe(0)
-    expect(all.results.A.nodes).toEqual([])
+    expect(f.requested).toBeCloseTo(50, 4)
+    expect(f.rate).toBe(0)
+    expect(f.status).toBe('limited')
+    expect(all.results.A.warnings).toContainEqual({ type: 'no-recipe', itemId: 'plate' })
+    expect(rate(all.results.A.unsatisfied, 'plate')).toBeCloseTo(50, 4)
+  })
+
+  it('gives a source with nothing to make the empty result', () => {
+    const empty = { nodes: [], unsatisfied: [], warnings: [] }
+    const cache = createSolveCache()
+    const all = solveAll([smelter()], requestGameData(), cache)
+    expect(all.results.A).toEqual(empty)
+    expect(cache.has('A')).toBe(false)
+  })
+
+  it('ignores products without extra when nothing requests them', () => {
+    const source = block('A', [prod('machine'), prod('plate', 10)], [planNode('p', 'plate')])
+    const all = solveAll([source], requestGameData())
+    expect(all.results.A.warnings.some(w => w.type === 'no-recipe')).toBe(false)
+    expect(all.results.A.unsatisfied.some(u => u.itemId === 'machine')).toBe(false)
+    expect(throughput(all, 'A')).toBeCloseTo(10, 4)
+  })
+
+  it('keeps a request away from a take consumer and from a later source of the same item', () => {
+    const all = solveAll([
+      block('A1', [prod('plate')], [planNode('i', 'ingot')]),
+      block('A2', [prod('plate')], [planNode('p', 'plate')]),
+      block('B', [prod('gear', 25)], [planNode('g', 'gear')], [link('b1', 'A1'), link('b2', 'A2')]),
+      block('C', [prod('gear', 10)], [planNode('g', 'gear')], [link('c1', 'A2')]),
+    ], requestGameData())
+    expect(flowOf(all, 'b1').requested).toBeCloseTo(50, 4)
+    expect(flowOf(all, 'b2').requested).toBeCloseTo(0, 4)
+    expect(flowOf(all, 'b2').rate).toBe(0)
+    expect(flowOf(all, 'c1').rate).toBeCloseTo(20, 4)
+    expect(rate(all.results.C.unsatisfied, 'plate')).toBe(0)
     expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(50, 4)
   })
 
-  it('ignores a pull from a source that discards the item', () => {
-    const discarding = block('A', [], [{ ...planNode('p', 'plate'), byproductPolicy: { plate: 'discard' as const } }])
-    const all = solveAll([discarding, gearmaker('B', 25, [pull('c1', 'A')])], pullGameData())
-    expect(flowOf(all, 'c1').pullIgnored).toBe('no-producer')
-  })
-
-  it('ignores a pull from a source that receives the item itself', () => {
+  it('takes existing output when the source receives the item itself', () => {
     const all = solveAll([
-      smelter('Z', goal('plate', 100)),
-      block('A', [], [planNode('p', 'plate')], [push('cz', 'Z')]),
-      gearmaker('B', 25, [pull('c1', 'A')]),
-    ], pullGameData())
-    expect(flowOf(all, 'c1').pullIgnored).toBe('source-receives')
-    expect(flowOf(all, 'c1').demand).toBeUndefined()
+      block('Z', [prod('slag', 100)], [planNode('p', 'twin')]),
+      block('A', [prod('plate')], [planNode('p', 'plate')], [link('cz', 'Z')]),
+      gearmaker('B', 25, [link('c1', 'A')]),
+    ], requestGameData())
+    expect(flowOf(all, 'c1').kind).toBe('take')
+    expect(flowOf(all, 'c1').requestIgnored).toBe('source-receives')
     expect(all.results.A.nodes).toEqual([])
   })
 
-  it('ignores a pull repeating an earlier (source, item) pair', () => {
-    const all = solveAll([smelter(), gearmaker('B', 25, [pull('c1', 'A'), pull('c2', 'A')])], pullGameData())
-    expect(flowOf(all, 'c1').demand).toBeCloseTo(50, 4)
-    expect(flowOf(all, 'c2').pullIgnored).toBe('duplicate')
-    expect(flowOf(all, 'c2').demand).toBeUndefined()
+  it('ignores a request repeating an earlier (source, item) pair', () => {
+    const all = solveAll([smelter(), gearmaker('B', 25, [link('c1', 'A'), link('c2', 'A')])], requestGameData())
+    expect(flowOf(all, 'c1').requested).toBeCloseTo(50, 4)
+    expect(flowOf(all, 'c2').requestIgnored).toBe('duplicate')
+    expect(flowOf(all, 'c2').kind).toBe('take')
     expect(flowOf(all, 'c2').status).toBe('unused')
   })
 
-  it('ignores pulls that form a cycle', () => {
+  it('takes existing output in every connection of a cycle of requests', () => {
     const both = [planNode('p', 'plate'), planNode('g', 'gear')]
     const all = solveAll([
-      block('A', goal('gear', 10), both, [pull('ca', 'B')]),
-      block('B', goal('plate', 10), both, [pull('cb', 'A', 'gear')]),
-    ], pullGameData())
-    expect(flowOf(all, 'ca').pullIgnored).toBe('pull-loop')
-    expect(flowOf(all, 'cb').pullIgnored).toBe('pull-loop')
-    expect(flowOf(all, 'ca').demand).toBeUndefined()
+      block('A', [prod('gear', 10)], both, [link('ca', 'B')]),
+      block('B', [prod('plate', 10)], both, [link('cb', 'A', 'gear')]),
+    ], requestGameData())
+    expect(flowOf(all, 'ca').requestIgnored).toBe('request-loop')
+    expect(flowOf(all, 'cb').requestIgnored).toBe('request-loop')
+    expect(flowOf(all, 'ca').kind).toBe('take')
+    expect(flowOf(all, 'cb').kind).toBe('take')
   })
 
-  it('serves a pull inside a loop of blocks', () => {
+  it('serves a request inside a loop that closes through a take', () => {
     const all = solveAll([
-      block('A', [], [planNode('p', 'plate')], [push('cg', 'B', 'gear')]),
-      gearmaker('B', 25, [pull('c1', 'A')]),
-    ], pullGameData())
+      block('A', [prod('plate')], [planNode('p', 'plate')], [link('cg', 'B', 'gear')]),
+      block('B', [prod('machine', 25)], [planNode('g', 'gear'), planNode('m', 'machine')], [link('c1', 'A')]),
+    ], requestGameData())
     expect(all.loops).toHaveLength(1)
     expect(all.loops[0].converged).toBe(true)
+    expect(flowOf(all, 'c1').requested).toBeCloseTo(50, 4)
     expect(flowOf(all, 'c1').rate).toBeCloseTo(50, 4)
+    expect(flowOf(all, 'cg').kind).toBe('take')
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
   })
 
-  it('behaves as a push connection without the flag', () => {
-    const all = solveAll([smelter(), gearmaker('B', 25, [push('c1', 'A')])], pullGameData())
-    expect(all.results.A.nodes).toEqual([])
-    expect(flowOf(all, 'c1').demand).toBeUndefined()
-    expect(flowOf(all, 'c1').pullIgnored).toBeUndefined()
-    expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(50, 4)
-  })
-
-  it('reuses cached results and re-solves the source when the consumer goal changes', () => {
-    const gd = pullGameData()
+  it('reuses cached results and re-solves the source when the consumer product changes', () => {
+    const gd = requestGameData()
     const cache = createSolveCache()
-    const blocks = (gears: number) => [smelter(), gearmaker('B', gears, [pull('c1', 'A')])]
+    const blocks = (gears: number) => [smelter(), gearmaker('B', gears, [link('c1', 'A')])]
     const first = solveAll(blocks(25), gd, cache)
     const second = solveAll(blocks(25), gd, cache)
     expect(second.results.A).toBe(first.results.A)

@@ -515,34 +515,121 @@ describe('parseAppState — inputConnections', () => {
       expect(() => parseWith(-1)).toThrow(AppStateLoadError)
     })
   })
+})
 
-  describe('pull', () => {
-    const parseWith = (pull?: boolean) => parseAppState({
-      blocks: [
-        blockJson({ id: 'b0' }),
-        blockJson({ inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: 'b0', ...(pull === undefined ? {} : { pull }) }] }),
-      ],
-      activeBlockId: 'b1',
-    })
+describe('parseAppState — legacy pull connections', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const rootPlan = (extra: Record<string, unknown> = {}) => ({ id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now, ...extra })
+  const blockJson = (id: string, extra: Record<string, unknown> = {}) => ({
+    id, name: id, products: [], noImportItems: [], rootPlan: rootPlan(), ...extra,
+  })
+  const conn = (id: string, fromBlockId: string, extra: Record<string, unknown> = {}) => ({ id, itemId: 'iron-plate', fromBlockId, ...extra })
+  const load = (blocks: Record<string, unknown>[]) => parseAppState({ blocks, activeBlockId: blocks[0].id })
+  const byId = (state: ReturnType<typeof load>, id: string) => state.blocks.find(b => b.id === id)!
+  const noPull = (state: ReturnType<typeof load>) =>
+    expect(state.blocks.flatMap(b => b.inputConnections).every(c => !('pull' in c))).toBe(true)
 
-    it('round-trips pull: true through JSON', () => {
-      const state = parseWith(true)
-      expect(state.blocks[1].inputConnections[0].pull).toBe(true)
-      expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
-    })
+  it('leaves the products alone when the source already has one for the item', () => {
+    const products = [{ id: 'p', itemId: 'iron-plate', extraRate: 60 }]
+    const state = load([blockJson('s', { products }), blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] })])
+    expect(byId(state, 's').products).toEqual(products)
+    noPull(state)
+  })
 
-    it.each([undefined, false])('loads pull %s with no key', pull => {
-      expect('pull' in parseWith(pull).blocks[1].inputConnections[0]).toBe(false)
-    })
+  it('gives the source a product without extra when it had no goal for the item', () => {
+    const state = load([blockJson('s'), blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] })])
+    expect(byId(state, 's').products).toEqual([{ id: expect.any(String), itemId: 'iron-plate' }])
+    expect('extraRate' in byId(state, 's').products[0]).toBe(false)
+    noPull(state)
+  })
 
-    it('parses the connection fixture saved before pull existed', () => {
-      const raw = JSON.parse(readFileSync('e2e/fixtures/block-connection.json', 'utf8'))
-      const state = parseAppState(raw.appState ?? raw)
-      const connections = state.blocks.flatMap(b => b.inputConnections)
-      expect(connections.some(c => 'pull' in c)).toBe(false)
-      expect(state.blocks.every(b => b.products.length > 0)).toBe(true)
-      expect(state.blocks.every(b => !('goals' in b))).toBe(true)
-    })
+  it('sees a goal that is only on the source root plan (hoisted first)', () => {
+    const source = blockJson('s', { products: undefined, rootPlan: rootPlan({ goals: [{ id: 'g', itemId: 'iron-plate', rate: 30 }] }) })
+    const state = load([source, blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] })])
+    expect(byId(state, 's').products).toEqual([{ id: 'g', itemId: 'iron-plate', extraRate: 30 }])
+    noPull(state)
+  })
+
+  it('adds nothing when the source receives the item from another block', () => {
+    const state = load([
+      blockJson('s', { inputConnections: [conn('cz', 'z')] }),
+      blockJson('z'),
+      blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] }),
+    ])
+    expect(byId(state, 's').products).toEqual([])
+    noPull(state)
+  })
+
+  it('still adds the product when the source only "receives" the item from a missing block', () => {
+    const state = load([
+      blockJson('s', { inputConnections: [conn('cz', 'ghost')] }),
+      blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] }),
+    ])
+    expect(byId(state, 's').products).toHaveLength(1)
+    noPull(state)
+  })
+
+  it('ignores a pull that repeats an earlier push of the same (source, item)', () => {
+    const state = load([
+      blockJson('s'),
+      blockJson('t', { inputConnections: [conn('c1', 's'), conn('c2', 's', { pull: true })] }),
+    ])
+    expect(byId(state, 's').products).toEqual([])
+    noPull(state)
+  })
+
+  it('adds one product when two consumers pull the same item', () => {
+    const state = load([
+      blockJson('s'),
+      blockJson('t', { inputConnections: [conn('c1', 's', { pull: true })] }),
+      blockJson('u', { inputConnections: [conn('c2', 's', { pull: true })] }),
+    ])
+    expect(byId(state, 's').products).toHaveLength(1)
+    noPull(state)
+  })
+
+  it('adds nothing for a pull from itself or from a missing block, and does not throw', () => {
+    const state = load([
+      blockJson('t', { inputConnections: [conn('c1', 't', { pull: true }), conn('c2', 'ghost', { pull: true })] }),
+    ])
+    expect(byId(state, 't').products).toEqual([])
+    noPull(state)
+  })
+
+  it('drops pull: false and adds nothing', () => {
+    const state = load([blockJson('s'), blockJson('t', { inputConnections: [conn('c', 's', { pull: false })] })])
+    expect(byId(state, 's').products).toEqual([])
+    noPull(state)
+  })
+
+  it('leaves a push to a goal item unchanged', () => {
+    const products = [{ id: 'p', itemId: 'iron-plate', extraRate: 60 }]
+    const state = load([blockJson('s', { products }), blockJson('t', { inputConnections: [conn('c', 's')] })])
+    expect(byId(state, 's').products).toEqual(products)
+    expect(byId(state, 't').inputConnections).toEqual([conn('c', 's')])
+  })
+
+  it('does not mutate the raw input', () => {
+    const raw = {
+      blocks: [blockJson('s'), blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] })],
+      activeBlockId: 's',
+    }
+    const before = structuredClone(raw)
+    parseAppState(raw)
+    expect(raw).toEqual(before)
+  })
+
+  it('is idempotent', () => {
+    const once = load([blockJson('s'), blockJson('t', { inputConnections: [conn('c', 's', { pull: true })] })])
+    expect(parseAppState(JSON.parse(JSON.stringify(once)))).toEqual(once)
+  })
+
+  it('parses the connection fixture saved before pull existed', () => {
+    const raw = JSON.parse(readFileSync('e2e/fixtures/block-connection.json', 'utf8'))
+    const state = parseAppState(raw.appState ?? raw)
+    noPull(state)
+    expect(state.blocks.every(b => b.products.length > 0)).toBe(true)
+    expect(state.blocks.every(b => !('goals' in b))).toBe(true)
   })
 })
 
@@ -614,11 +701,27 @@ describe('parseAppState — products migration', () => {
     expect(parseAppState(JSON.parse(JSON.stringify(once)))).toEqual(once)
   })
 
+  it('loads a legacy goal with rate 0 as a product without extraRate', () => {
+    const block = load(blockJson({ goals: [{ id: 'g', itemId: 'iron-plate', rate: 0 }] })).blocks[0]
+    expect(block.products).toEqual([{ id: 'g', itemId: 'iron-plate' }])
+    expect('extraRate' in block.products[0]).toBe(false)
+  })
+
+  it('loads a product with extraRate 0 as an absent key', () => {
+    const block = load(blockJson({ products: [{ id: 'p', itemId: 'iron-plate', extraRate: 0 }] })).blocks[0]
+    expect(block.products).toEqual([{ id: 'p', itemId: 'iron-plate' }])
+    expect('extraRate' in block.products[0]).toBe(false)
+  })
+
+  it('round-trips a product without extraRate without the key', () => {
+    const once = load(blockJson({ products: [{ id: 'p', itemId: 'iron-plate' }] }))
+    expect('extraRate' in once.blocks[0].products[0]).toBe(false)
+    expect(parseAppState(JSON.parse(JSON.stringify(once)))).toEqual(once)
+  })
+
   it.each([
-    ['a legacy goal with rate 0', { goals: [{ id: 'g', itemId: 'iron-plate', rate: 0 }] }],
-    ['a legacy goal with a negative rate', { goals: [{ id: 'g', itemId: 'iron-plate', rate: -5 }] }],
-    ['a product with extraRate 0', { products: [{ id: 'p', itemId: 'iron-plate', extraRate: 0 }] }],
-    ['a product with no extraRate', { products: [{ id: 'p', itemId: 'iron-plate' }] }],
+    ['a legacy goal with a negative rate', { goals: [{ id: 'g', itemId: 'iron-plate', rate: -5, extraRate: -1 }] }],
+    ['a product with a negative extraRate', { products: [{ id: 'p', itemId: 'iron-plate', extraRate: -1 }] }],
   ])('rejects %s', (_name, extra) => {
     expect(() => load(blockJson(extra))).toThrow(AppStateLoadError)
   })

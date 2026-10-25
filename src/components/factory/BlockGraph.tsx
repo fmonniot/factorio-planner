@@ -5,7 +5,8 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows, selectLoops } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { closesLoop } from '../../solver/blockGraph'
-import { connectableItems, pullBlocker, pullBlockerTitle } from '../../store/connections'
+import { connectableItems, requestBlockerTitle } from '../../store/connections'
+import type { ItemCandidate } from '../../store/connections'
 import { BLOCK_PALETTE, MISSING_BLOCK_COLOR } from '../../data/blockColors'
 import { layoutBlockGraph, edgePath, NODE_W, NODE_H, MAX_EDGE_CHIPS } from '../../utils/blockGraphLayout'
 import type { BlockEdgeLayout } from '../../utils/blockGraphLayout'
@@ -155,7 +156,7 @@ interface ConnectItemMenuProps {
   closesLoop: boolean
   x: number
   y: number
-  candidates: { itemId: string; offered: number; needed: number }[]
+  candidates: ItemCandidate[]
   items: GameData['items']
   onPick: (itemId: string) => void
 }
@@ -179,15 +180,20 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
           ↻ Closes a loop with {sourceName}
         </div>
       )}
-      {candidates.map(({ itemId, offered, needed }) => {
+      {candidates.map(({ itemId, offered, needed, request, blocker }) => {
         const item = items[itemId]
         return (
           <button
             key={itemId}
             type="button"
             role="menuitem"
-            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-            onClick={() => onPick(itemId)}
+            data-kind={request ? 'request' : 'take'}
+            disabled={!!blocker}
+            title={blocker ? requestBlockerTitle(blocker, sourceName, targetName, item?.name ?? itemId) : undefined}
+            className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+            onClick={() => {
+              if (!blocker) onPick(itemId)
+            }}
           >
             {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
             <span>{item?.name ?? itemId}</span>
@@ -208,28 +214,23 @@ interface EdgeLabelsProps {
   blocks: Block[]
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
-  gameData: GameData
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
-  onTogglePull: (connectionId: string, toBlockId: string, pull: boolean) => void
 }
 
-const PULL_IGNORED_TITLE = {
-  'pull-loop': 'pulls form a cycle, so this behaves as a push',
-  'no-producer': 'the source has no recipe that makes this item, so this behaves as a push',
-  'source-receives': 'the source receives this item itself, so this behaves as a push',
-  duplicate: 'an earlier connection already takes this item from the same source, so this behaves as a push',
+const REQUEST_IGNORED_TITLE = {
+  'request-loop': 'requests form a cycle, so this takes what is left over',
+  'source-receives': 'the source receives this item itself, so this takes what is left over',
+  duplicate: 'an earlier connection already takes this item from the same source',
 } as const
 
 interface ConnectionChipProps {
   connectionId: string
   edge: BlockEdgeLayout
-  blocks: Block[]
   source: Block | undefined
   target: Block | undefined
   flow: ConnectionFlow | undefined
   items: GameData['items']
-  gameData: GameData
   editing: boolean
   /** Spell the item name out after its icon (the summary chip's list). */
   showName?: boolean
@@ -237,12 +238,11 @@ interface ConnectionChipProps {
   onStopEdit: () => void
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
-  onTogglePull: (connectionId: string, toBlockId: string, pull: boolean) => void
 }
 
 function ConnectionChip({
-  connectionId: id, edge, blocks, source, target, flow, items, gameData, editing, showName,
-  onEdit, onStopEdit, onRemove, onSetLimit, onTogglePull,
+  connectionId: id, edge, source, target, flow, items, editing, showName,
+  onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const unit = rateUnit === 'min' ? '/m' : '/s'
@@ -262,17 +262,11 @@ function ConnectionChip({
   } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
   else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
   if (flow?.loop) title += ' — part of a loop'
-  if (flow?.demand !== undefined) {
-    title += ` — pulled: ${sourceName} makes ${fmt(flow.demand)}${unit} for ${targetName}`
-  } else if (flow?.pullIgnored) {
-    title += ` — pull ignored: ${PULL_IGNORED_TITLE[flow.pullIgnored]}`
+  if (flow?.kind === 'request') {
+    title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)}${unit} for ${targetName}`
+  } else if (flow?.requestIgnored) {
+    title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
-  const pullState = !connection.pull ? undefined : flow?.pullIgnored ? 'ignored' : 'applied'
-  // Same rule as the Pull menu: the solver must be able to apply the pull and it must close no cycle.
-  const blocker = !connection.pull && source && target
-    ? pullBlocker(blocks, target, connection.itemId, edge.from, gameData)
-    : undefined
-  const pullBlocked = blocker !== undefined
 
   return (
     <span
@@ -280,7 +274,8 @@ function ConnectionChip({
       data-connection-id={id}
       data-status={status}
       data-loop={flow?.loop ? 'true' : undefined}
-      data-pull={pullState}
+      data-kind={flow?.kind}
+      data-request-ignored={flow?.requestIgnored}
       title={title}
       style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
@@ -323,22 +318,6 @@ function ConnectionChip({
       )}
       <button
         type="button"
-        data-testid="graph-edge-pull"
-        aria-label={`${connection.pull ? 'Stop pulling' : 'Pull'} ${itemName} from ${sourceName} to ${targetName}`}
-        aria-pressed={!!connection.pull}
-        title={blocker
-          ? pullBlockerTitle(blocker, sourceName, targetName, itemName)
-          : connection.pull
-            ? `Stop pulling: ${targetName} takes what ${sourceName} has left over`
-            : `Pull: what ${targetName} needs makes ${sourceName} produce`}
-        disabled={pullBlocked}
-        onClick={() => onTogglePull(id, edge.to, !connection.pull)}
-        className={`text-[10px] leading-none ${connection.pull ? 'text-sky-300' : 'opacity-60 hover:opacity-100'} disabled:opacity-30 disabled:hover:opacity-30`}
-      >
-        ⇠
-      </button>
-      <button
-        type="button"
         data-testid="graph-edge-remove"
         aria-label={`Remove ${itemName} from ${sourceName} to ${targetName}`}
         onClick={() => onRemove(id, edge.to)}
@@ -352,19 +331,18 @@ function ConnectionChip({
 
 /** Tooltip of a summary chip: the count, then what is notable among its connections. */
 function edgeSummaryTitle(
-  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], pulled: number, loop: boolean,
+  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean,
 ): string {
   let title = `${n} items from ${sourceName} to ${targetName}`
   const limited = statuses.filter(s => s === 'limited').length
   const unused = statuses.filter(s => s === 'unused').length
   if (limited > 0) title += `; ${limited} limited`
   if (unused > 0) title += `; ${unused} not used`
-  if (pulled > 0) title += `; ${pulled} pulled`
   if (loop) title += '; part of a loop'
   return `${title} — click to list them`
 }
 
-function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove, onSetLimit, onTogglePull }: EdgeLabelsProps) {
+function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLimit }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -399,19 +377,16 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
       key={id}
       connectionId={id}
       edge={edge}
-      blocks={blocks}
       source={source}
       target={target}
       flow={flowsById.get(id)}
       items={items}
-      gameData={gameData}
       editing={editingId === id}
       showName={showName}
       onEdit={() => setEditingId(id)}
       onStopEdit={() => setEditingId(null)}
       onRemove={onRemove}
       onSetLimit={onSetLimit}
-      onTogglePull={onTogglePull}
     />
   )
 
@@ -431,8 +406,6 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
     .map(id => target?.inputConnections.find(c => c.id === id))
     .filter(c => c !== undefined)
   const statuses = edge.connectionIds.map(id => connectionStatus(flowsById.get(id)))
-  // A pull the solver ignored behaves as a push: it is not counted.
-  const pulled = connections.filter(c => c.pull && !flowsById.get(c.id)?.pullIgnored).length
   const shown = connections.slice(0, MAX_SUMMARY_ICONS)
 
   return (
@@ -451,12 +424,11 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
           data-count={n}
           data-status={status}
           data-loop={edge.loop ? 'true' : undefined}
-          data-pull={pulled > 0 ? 'true' : undefined}
           aria-expanded={open}
           aria-haspopup="dialog"
           aria-controls={listId}
           aria-label={`${n} items from ${sourceName} to ${targetName}`}
-          title={edgeSummaryTitle(n, sourceName, targetName, statuses, pulled, edge.loop)}
+          title={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop)}
           style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
           onClick={() => setOpen(o => !o)}
           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap hover:brightness-125 ${CHIP_TONE[status]}`}
@@ -471,7 +443,6 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove
             )
           })}
           {n > MAX_SUMMARY_ICONS && <span className="text-[10px] font-mono">+{n - MAX_SUMMARY_ICONS}</span>}
-          {pulled > 0 && <span aria-hidden className="text-[10px] leading-none text-sky-300">⇠</span>}
           <span aria-hidden className="text-[10px] leading-none">▾</span>
         </button>
         {open && (
@@ -528,7 +499,6 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
-  const setConnectionPull = useBlockStore(s => s.setConnectionPull)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
@@ -673,10 +643,8 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 blocks={blocks}
                 flowsById={flowsById}
                 items={gameData.items}
-                gameData={gameData}
                 onRemove={(id, to) => removeInputConnection(id, to)}
                 onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
-                onTogglePull={(id, to, pull) => setConnectionPull(id, pull, to)}
               />
             ))}
             {blocks.map(b => {

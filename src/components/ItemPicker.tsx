@@ -430,7 +430,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
 interface ItemPickerBodyProps {
   gameData: GameData
   initialQuery: string
-  onSelect: (id: string, rate: number) => void
+  onSelect: (id: string, rate: number | undefined) => void
   onClose: () => void
 }
 
@@ -506,7 +506,9 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
       })
   }, [filteredItems, selectedGroupId, gameData])
 
-  function parseAmount(): number | null {
+  /** An empty field is a product without extra output (undefined); anything else must be a positive number (else null). */
+  function parseAmount(): number | undefined | null {
+    if (amountText.trim() === '') return undefined
     const v = parseFloat(amountText)
     return Number.isFinite(v) && v > 0 ? v : null
   }
@@ -559,6 +561,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
             value={amountText}
             onChange={e => setAmountText(e.target.value)}
             aria-label="Amount"
+            placeholder="—"
             className="ml-2 w-24 bg-gray-800 text-gray-100 px-2 py-1 rounded outline-none focus:ring-1 focus:ring-blue-500"
           />
         </label>
@@ -670,7 +673,7 @@ interface RecipeModeProps extends BasePickerProps {
 interface ItemModeProps extends BasePickerProps {
   source?: 'items'
   /** Items mode passes the chosen rate (items/min) alongside the item id. */
-  onSelect: (itemId: string, rate: number) => void
+  onSelect: (itemId: string, rate: number | undefined) => void
 }
 
 export type ItemPickerProps = RecipeModeProps | ItemModeProps

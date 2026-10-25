@@ -4,13 +4,15 @@ import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResults, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
-import { sourceCandidates, pullCandidates, isGoalItem } from '../../store/connections'
+import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../store/connections'
+import { hasProduct } from '../../solver/blockGraph'
 import { fmtRate } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
-// (non-goal items only) or that makes it on demand (pull), and forbid or allow
-// imports of the item.
+// (not for its own products): Request from a block that has the item as a product
+// (it makes what this block needs), or Take existing output from a block that has
+// some to spare. Also forbids or allows imports of the item.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -67,11 +69,12 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
 
   const activeBlock = blocks.find(b => b.id === activeBlockId)
   const locked = activeBlock?.noImportItems.includes(itemId) ?? false
-  // A goal shortfall cannot be fed by a connection (goals never receive supply).
-  const connectable = activeBlock ? !isGoalItem(activeBlock, itemId) : false
+  // A product shortfall cannot be fed by a connection (products never receive supply).
+  const connectable = activeBlock ? !hasProduct(activeBlock, itemId) : false
 
-  const candidates = sourceCandidates(blocks, activeBlockId, itemId, results, flows)
-  const pullable = connectable && gameData ? pullCandidates(blocks, activeBlockId, itemId, gameData) : []
+  const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
+  const takes = connectable ? takeCandidates(blocks, activeBlockId, itemId, results, flows) : []
+  const nameOf = (id: string) => blocks.find(b => b.id === id)?.name ?? id
 
   return createPortal(
     <div
@@ -80,65 +83,70 @@ export function ConnectionMenu({ itemId, x, y, onClose }: ConnectionMenuProps) {
       style={{ left: x, top: y }}
       className="fixed mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
     >
-      {connectable && (
+      {requests.length > 0 && (
         <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
-          Receive {itemName} from
+          Request {itemName} from
         </div>
       )}
-      {connectable && (candidates.length === 0 ? (
+      {requests.map(({ block, closesLoop, blocker }) => (
+        <button
+          key={block.id}
+          type="button"
+          role="menuitem"
+          data-kind="request"
+          data-closes-loop={closesLoop ? 'true' : undefined}
+          disabled={!!blocker}
+          title={blocker
+            ? requestBlockerTitle(blocker, block.name, nameOf(activeBlockId), itemName)
+            : closesLoop
+              ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+              : `${block.name} makes what this block needs`}
+          className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
+          onClick={() => {
+            addInputConnection(itemId, block.id)
+            onClose()
+          }}
+        >
+          {block.name}
+          {closesLoop && <span aria-hidden> ↻</span>}
+        </button>
+      ))}
+      {connectable && requests.length > 0 && takes.length > 0 && <div className="border-t border-gray-700 my-1" />}
+      {connectable && (takes.length > 0 || requests.length === 0) && (
+        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+          Take existing {itemName} from
+        </div>
+      )}
+      {connectable && requests.length === 0 && takes.length === 0 && (
         <div className="px-3 py-1 text-xs text-gray-500 cursor-default">
           No other block has this item to spare
         </div>
-      ) : (
-        candidates.map(({ block, offered, closesLoop }) => (
-          <button
-            key={block.id}
-            type="button"
-            role="menuitem"
-            data-closes-loop={closesLoop ? 'true' : undefined}
-            title={closesLoop
-              ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
-              : undefined}
-            className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-            onClick={() => {
-              addInputConnection(itemId, block.id)
-              onClose()
-            }}
-          >
-            <span>
-              {block.name}
-              {closesLoop && <span aria-hidden> ↻</span>}
-            </span>
-            <span className="font-mono tabular-nums text-gray-500">
-              {fmtRate(offered / 60, rateUnit)}{unit}
-            </span>
-          </button>
-        ))
-      ))}
-      {pullable.length > 0 && (
-        <>
-          <div className="border-t border-gray-700 my-1" />
-          <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
-            Pull {itemName} from
-          </div>
-          {pullable.map(block => (
-            <button
-              key={block.id}
-              type="button"
-              role="menuitem"
-              data-pull="true"
-              title={`${block.name} makes what this block needs`}
-              className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-              onClick={() => {
-                addInputConnection(itemId, block.id, undefined, true)
-                onClose()
-              }}
-            >
-              {block.name}
-            </button>
-          ))}
-        </>
       )}
+      {takes.map(({ block, offered, closesLoop }) => (
+        <button
+          key={block.id}
+          type="button"
+          role="menuitem"
+          data-kind="take"
+          data-closes-loop={closesLoop ? 'true' : undefined}
+          title={closesLoop
+            ? `Closes a loop: ${block.name} already receives from this block, directly or through other blocks`
+            : undefined}
+          className="w-full flex items-center justify-between gap-3 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+          onClick={() => {
+            addInputConnection(itemId, block.id)
+            onClose()
+          }}
+        >
+          <span>
+            {block.name}
+            {closesLoop && <span aria-hidden> ↻</span>}
+          </span>
+          <span className="font-mono tabular-nums text-gray-500">
+            {fmtRate(offered / 60, rateUnit)}{unit}
+          </span>
+        </button>
+      ))}
       {connectable && <div className="border-t border-gray-700 my-1" />}
       <button
         type="button"

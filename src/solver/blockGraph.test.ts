@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { closesLoop, closesPullLoop, orderBlocks } from './blockGraph'
+import { closesLoop, closesRequestLoop, hasProduct, orderBlocks } from './blockGraph'
 import type { Block } from '../data/types'
 import { makeEmptyBlock } from '../store/blockStore'
 
@@ -33,33 +33,61 @@ describe('closesLoop', () => {
   })
 })
 
-describe('closesPullLoop', () => {
-  /** Like `block`, but every connection pulls. */
-  const puller = (id: string, from: string[] = []): Block => {
-    const b = block(id, from)
-    return { ...b, inputConnections: b.inputConnections.map(c => ({ ...c, pull: true as const })) }
-  }
+describe('hasProduct', () => {
+  const withProducts = (products: Block['products']): Block => ({ ...makeEmptyBlock('A'), products })
 
-  it('is true for the reverse of a direct pull', () => {
-    // B pulls from A; A pulling from B would make a cycle.
-    expect(closesPullLoop([puller('A'), puller('B', ['A'])], 'B', 'A')).toBe(true)
+  it('is true for a product with and without extra output', () => {
+    expect(hasProduct(withProducts([{ id: 'p', itemId: 'plate', extraRate: 10 }]), 'plate')).toBe(true)
+    expect(hasProduct(withProducts([{ id: 'p', itemId: 'plate' }]), 'plate')).toBe(true)
   })
 
-  it('is true through a chain of pulls', () => {
-    const blocks = [puller('A'), puller('B', ['A']), puller('C', ['B'])]
-    expect(closesPullLoop(blocks, 'C', 'A')).toBe(true)
+  it('is false for another item', () => {
+    expect(hasProduct(withProducts([{ id: 'p', itemId: 'gear' }]), 'plate')).toBe(false)
+  })
+})
+
+describe('closesRequestLoop', () => {
+  /** Like `block`, but it also has `plate` as a product, so connections to it are requests. */
+  const maker = (id: string, from: string[] = []): Block => ({
+    ...block(id, from),
+    products: [{ id: `${id}-plate`, itemId: 'plate' }],
   })
 
-  it('is false when the reverse connection only pushes', () => {
-    expect(closesPullLoop([puller('A'), block('B', ['A'])], 'B', 'A')).toBe(false)
+  it('is true for the reverse of a direct request', () => {
+    // B requests from A; A requesting from B would make a cycle.
+    expect(closesRequestLoop([maker('A'), block('B', ['A'])], 'B', 'A')).toBe(true)
+  })
+
+  it('is true through a chain of requests', () => {
+    // B requests plate from A; C requests gear from B; A requesting from C would make a cycle.
+    const B: Block = {
+      ...maker('B'),
+      products: [{ id: 'B-gear', itemId: 'gear' }],
+      inputConnections: [{ id: 'B<A', itemId: 'plate', fromBlockId: 'A' }],
+    }
+    const C: Block = { ...block('C'), inputConnections: [{ id: 'C<B', itemId: 'gear', fromBlockId: 'B' }] }
+    expect(closesRequestLoop([maker('A'), B, C], 'C', 'A')).toBe(true)
+  })
+
+  it('is false when the reverse connection only takes existing output', () => {
+    expect(closesRequestLoop([block('A'), block('B', ['A'])], 'B', 'A')).toBe(false)
+  })
+
+  it('ignores requests whose source receives the item itself (the solver ignores them)', () => {
+    // B requests plate from A, but A receives plate from D: that request is not an edge, so no cycle.
+    const blocks = [maker('A', ['D']), block('B', ['A']), block('D')]
+    expect(closesRequestLoop(blocks, 'B', 'A')).toBe(false)
+    // A connection from a missing block does not count as receiving.
+    expect(closesRequestLoop([maker('A', ['ghost']), block('B', ['A'])], 'B', 'A')).toBe(true)
   })
 
   it('is false for a second source, a self-connection and a missing source', () => {
-    const blocks = [puller('A'), puller('B', ['A']), puller('C')]
-    expect(closesPullLoop(blocks, 'C', 'B')).toBe(false)
-    expect(closesPullLoop(blocks, 'A', 'A')).toBe(false)
-    expect(closesPullLoop([puller('A', ['ghost']), puller('B', ['A'])], 'B', 'A')).toBe(true)
-    expect(closesPullLoop([puller('A', ['ghost']), puller('B')], 'ghost', 'A')).toBe(false)
+    const blocks = [maker('A'), block('B', ['A']), maker('C')]
+    expect(closesRequestLoop(blocks, 'C', 'B')).toBe(false)
+    expect(closesRequestLoop(blocks, 'A', 'A')).toBe(false)
+    expect(closesRequestLoop([maker('A', ['ghost']), block('B', ['A'])], 'B', 'A')).toBe(true)
+    expect(closesRequestLoop([maker('A', ['ghost']), block('B')], 'ghost', 'A')).toBe(false)
+    expect(closesRequestLoop([maker('A', ['A']), block('B')], 'A', 'B')).toBe(false)
   })
 })
 

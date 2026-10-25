@@ -878,6 +878,12 @@ describe('plan import', () => {
       expect(findUnknownPlanIds(state, knownData())).toEqual(['nope-item'])
     })
 
+    it('reports the unknown item of a product without extra output', () => {
+      const block = makeBlock('b1')
+      const state = { ...makeState(), blocks: [{ ...block, products: [{ id: 'p', itemId: 'nope-item' }] }] }
+      expect(findUnknownPlanIds(state, knownData())).toEqual(['nope-item'])
+    })
+
     it('reports a repeated id once and skips known ids', () => {
       const state = {
         ...makeState(),

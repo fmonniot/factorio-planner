@@ -2,7 +2,7 @@
  * Memoises `solveBlock` per block. A block is re-solved only when its flattened
  * plan, the game data object or the caps on offer to it changed. Errors are
  * never stored. Up to `SLOTS_PER_BLOCK` entries are kept per block (most
- * recently used first), so the demand probe, the first-round solve and the
+ * recently used first), so the request probe, the first-round solve and the
  * settled solve of a block in a loop all survive.
  */
 import type { GameData, SolverGoal, RecipeNode, SolverResult } from '../data/types'

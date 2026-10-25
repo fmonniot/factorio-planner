@@ -201,7 +201,7 @@ describe('wireSolver — several blocks', () => {
     const state = useSolverStore.getState()
     expect(Object.keys(state.lastResults).sort()).toEqual([plates.id, gears.id].sort())
     expect(state.flows).toHaveLength(1)
-    expect(state.flows[0]).toMatchObject({ connectionId: 'c1', status: 'ok' })
+    expect(state.flows[0]).toMatchObject({ connectionId: 'c1', status: 'ok', kind: 'request' })
     expect(state.flows[0].rate).toBeCloseTo(60, 4)
     expect(state.status.type === 'solved' && state.status.result).toBe(state.lastResults[gears.id])
   })
@@ -267,15 +267,17 @@ describe('wireSolver — several blocks', () => {
     expect(state.status.type).toBe('solved')
   })
 
-  it('re-solves only the block whose goal changed', () => {
+  it('re-solves the source when its consumer\'s request changes', () => {
     const [plates, gears] = setupTwoBlocks(1)
     const before = useSolverStore.getState().lastResults
     useBlockStore.getState().updateProductExtra('gg', 20)
     vi.runAllTimers()
     const state = useSolverStore.getState()
-    expect(state.lastResults[plates.id]).toBe(before[plates.id])
+    // Gears' request drives Plates, so both are solved again.
+    expect(state.lastResults[plates.id]).not.toBe(before[plates.id])
     expect(state.lastResults[gears.id]).not.toBe(before[gears.id])
     expect(state.flows[0].rate).toBeCloseTo(40, 4)
+    expect(state.flows[0].requested).toBeCloseTo(40, 4)
   })
 
   it('keeps solving after a block is removed', () => {

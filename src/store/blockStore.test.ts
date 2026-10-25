@@ -401,13 +401,23 @@ describe('products', () => {
     expect(products()).toEqual([plate])
   })
 
-  it('removeProduct removes and undo re-appends', () => {
+  it('removeProduct removes and undo restores the old index', () => {
     store().addProduct(plate)
     store().addProduct({ id: 'p2', itemId: 'gear', extraRate: 5 })
     store().removeProduct('p1')
     expect(products().map(p => p.id)).toEqual(['p2'])
     store().undo()
-    expect(products().map(p => p.id)).toEqual(['p2', 'p1'])
+    expect(products().map(p => p.id)).toEqual(['p1', 'p2'])
+  })
+
+  it('removing then undoing a product that another block requests leaves that block identical', () => {
+    const consumer = { ...makeEmptyBlock('T'), inputConnections: [{ id: 'c', itemId: 'iron-plate', fromBlockId: store().blocks[0].id }] }
+    useBlockStore.setState(st => ({ blocks: [...st.blocks, consumer] }))
+    store().addProduct(plate)
+    const before = store().blocks[1]
+    store().removeProduct('p1')
+    store().undo()
+    expect(store().blocks[1]).toBe(before)
   })
 
   it('updateProductExtra sets extraRate and undo restores the old value', () => {
@@ -416,6 +426,42 @@ describe('products', () => {
     expect(products()[0].extraRate).toBe(20)
     store().undo()
     expect(products()[0].extraRate).toBe(60)
+  })
+
+  it('updateProductExtra(undefined) clears the key; undo restores it and redo clears it again', () => {
+    store().addProduct(plate)
+    store().updateProductExtra('p1', undefined)
+    expect('extraRate' in products()[0]).toBe(false)
+    store().undo()
+    expect(products()[0].extraRate).toBe(60)
+    store().redo()
+    expect('extraRate' in products()[0]).toBe(false)
+  })
+
+  it('sets an extra on a product added without one, and undo removes the key again', () => {
+    store().addProduct({ id: 'p1', itemId: 'iron-plate' })
+    store().updateProductExtra('p1', 20)
+    expect(products()[0].extraRate).toBe(20)
+    store().undo()
+    expect('extraRate' in products()[0]).toBe(false)
+  })
+
+  it.each([0, -1, NaN, Infinity])('updateProductExtra ignores %s with no history entry', value => {
+    store().addProduct(plate)
+    const before = store().blocks
+    const depth = store().history[before[0].id].undoStack.length
+    store().updateProductExtra('p1', value)
+    expect(store().blocks, 'blocks unchanged').toBe(before)
+    expect(store().history[before[0].id].undoStack).toHaveLength(depth)
+  })
+
+  it('updateProductExtra ignores an unchanged value with no history entry', () => {
+    store().addProduct(plate)
+    const before = store().blocks
+    const depth = store().history[before[0].id].undoStack.length
+    store().updateProductExtra('p1', 60)
+    expect(store().blocks).toBe(before)
+    expect(store().history[before[0].id].undoStack).toHaveLength(depth)
   })
 
   it('updateProductExtra ignores an unknown id', () => {
@@ -616,73 +662,44 @@ describe('input connections', () => {
     })
   })
 
-  describe('pull connections', () => {
+  describe('requests', () => {
     const store = () => useBlockStore.getState()
-    const other = () => store().blocks.find(b => b.id === otherId())!
+    /** Give a block a product of `itemId` (no extra output). */
+    const giveProduct = (blockId: string, itemId: string) =>
+      useBlockStore.setState(st => ({
+        blocks: st.blocks.map(b => (b.id === blockId ? { ...b, products: [...b.products, { id: `p-${itemId}`, itemId }] } : b)),
+      }))
 
-    it('addInputConnection with pull stores the flag and undo/redo restore it', () => {
-      store().addInputConnection('plate', sourceId, undefined, true)
-      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'plate', fromBlockId: sourceId, pull: true }])
+    beforeEach(() => {
+      giveProduct(activeId, 'gear')
+      giveProduct(sourceId, 'plate')
+    })
+
+    it('refuses a request that would close a cycle of requests', () => {
+      // Source requests gear from the consumer; the consumer requesting plate from the source would close the cycle.
+      store().addInputConnection('gear', activeId, sourceId)
+      const before = store().blocks
+      store().addInputConnection('plate', sourceId)
+      expect(store().blocks).toBe(before)
+      // The same pair is fine when the item is not a product of the source: it only takes existing output.
+      store().addInputConnection('rod', sourceId)
+      expect(active().inputConnections).toEqual([{ id: expect.any(String), itemId: 'rod', fromBlockId: sourceId }])
+    })
+
+    it('drops a redo of an add that has since become a cycle', () => {
+      store().addInputConnection('plate', sourceId)
+      store().undo()
+      store().addInputConnection('gear', activeId, sourceId)
+      store().redo()
+      expect(active().inputConnections).toEqual([])
+    })
+
+    it('drops an undo of a removal that would now close a cycle', () => {
+      store().addInputConnection('plate', sourceId)
+      store().removeInputConnection(active().inputConnections[0].id)
+      store().addInputConnection('gear', activeId, sourceId)
       store().undo()
       expect(active().inputConnections).toEqual([])
-      store().redo()
-      expect(active().inputConnections[0].pull).toBe(true)
-    })
-
-    it('setConnectionPull turns pulling on and off; undo and redo restore the key', () => {
-      store().addInputConnection('plate', sourceId)
-      const id = active().inputConnections[0].id
-      store().setConnectionPull(id, true)
-      expect(active().inputConnections[0].pull).toBe(true)
-      store().undo()
-      expect('pull' in active().inputConnections[0]).toBe(false)
-      store().redo()
-      store().setConnectionPull(id, false)
-      expect('pull' in active().inputConnections[0]).toBe(false)
-      store().undo()
-      expect(active().inputConnections[0].pull).toBe(true)
-    })
-
-    it('setConnectionPull is a no-op when unchanged or for an unknown connection', () => {
-      store().addInputConnection('plate', sourceId)
-      const id = active().inputConnections[0].id
-      const before = store().blocks
-      store().setConnectionPull(id, false)
-      store().setConnectionPull('ghost', true)
-      expect(store().blocks).toBe(before)
-    })
-
-    it('rejects a pull that would close a cycle of pulls', () => {
-      store().addInputConnection('gear', activeId, sourceId, true)
-      const before = store().blocks
-      store().addInputConnection('plate', sourceId, undefined, true)
-      expect(store().blocks).toBe(before)
-      // A push in the other direction is fine, but cannot be switched to pull.
-      store().addInputConnection('plate', sourceId)
-      const id = active().inputConnections[0].id
-      store().setConnectionPull(id, true)
-      expect('pull' in active().inputConnections[0]).toBe(false)
-    })
-
-    it('drops an undo that would turn a pull back on after it became a cycle', () => {
-      store().addInputConnection('plate', sourceId, undefined, true)
-      const id = active().inputConnections[0].id
-      store().setConnectionPull(id, false)
-      // Meanwhile the source starts pulling from the consumer.
-      useBlockStore.setState(s => ({
-        blocks: s.blocks.map(b =>
-          b.id === sourceId ? { ...b, inputConnections: [{ id: 'back', itemId: 'gear', fromBlockId: activeId, pull: true as const }] } : b),
-      }))
-      store().undo()
-      expect('pull' in active().inputConnections[0]).toBe(false)
-      expect(store().history[activeId].redoStack).toHaveLength(0)
-    })
-
-    it('can target a block that is not active', () => {
-      store().addInputConnection('plate', sourceId, otherId())
-      store().setConnectionPull(other().inputConnections[0].id, true, otherId())
-      expect(other().inputConnections[0].pull).toBe(true)
-      expect(store().history[otherId()].undoStack).toHaveLength(2)
     })
   })
 

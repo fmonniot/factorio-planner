@@ -24,7 +24,7 @@ behind each feature so you can find it.
 3. Wires the solver (`wireSolver`, `src/store/solverStore.ts`): any change to the
    block store or the game data schedules a re-solve after a 150 ms debounce; only
    blocks whose plan, supply or game data changed are solved again, the others keep
-   their previous result. A block with no goals or no recipe nodes gets an empty
+   their previous result. A block with nothing to make (no product with extra output and no request) or no recipe nodes gets an empty
    result without calling the solver.
 4. Mounts `FactoryShell`.
 
@@ -185,24 +185,13 @@ near-full-screen modal showing every block and the connections between them, lik
   connection at once. The limit control reads `≤` (no limit) or `≤ N` and opens an inline number
   input (display unit); Enter or blur commits, an empty field clears the limit, Escape cancels
   without closing the graph. A chip held back by its limit has the title "Limited by this
-  connection's limit of N". Between the limit control and `×` sits the **pull toggle**
-  (`data-testid="graph-edge-pull"`, `⇠`, `aria-pressed`, label "Pull <item> from <source> to <target>" or
-  "Stop pulling …"); it switches the connection between push and [pull](solver.md#pull-connections) and is
-  disabled, with the reason as its title, when the pull could not apply or would close a cycle of pulls:
-  "<source> has no recipe that makes <item>", "<source> receives <item> itself" or "<source> already pulls
-  from <target>, directly or through other blocks" (the same rule, `pullBlocker`, as the Pull section of
-  the connection menu). A pull chip carries `data-pull="applied"` (title suffix
-  " — pulled: <source> makes N/m for <target>") or `data-pull="ignored"` (suffix " — pull ignored: " and
-  the reason: pulls form a cycle, the source cannot make the item, the source receives it itself, or an
-  earlier connection already takes the item from the same source;
-  the connection then behaves as a push).
+  connection's limit of N". There is no pull toggle: whether a connection is a [request](solver.md#requests) follows from the source's products. A chip carries `data-kind="request"` or `"take"` (absent before the first solve) and, when the source has the item as a product but the request is not applied, `data-request-ignored` with the reason. A request chip's title ends " — requested: <source> makes N/m for <target>"; an ignored request ends " — taken as existing: " and the reason: requests form a cycle, the source receives the item itself, or an earlier connection already takes the item from the same source (the connection then takes existing output).
   An edge with more than three connections (`MAX_EDGE_CHIPS`) shows one **summary chip**
   (`graph-edge-summary`) instead of one chip each: the first three item icons, `+N` for the rest,
-  `↻` if the edge is part of a loop, `⇠` if any connection pulls, and a `▾`, with the border in the
-  edge's status. Its title gives the count and how many connections are limited, not used or
-  pulled (for example "12 items from Metals to Sciences; 2 limited — click to list them"). Clicking
+  `↻` if the edge is part of a loop and a `▾`, with the border in the
+  edge's status. Its title gives the count and how many connections are limited or not used (for example "12 items from Metals to Sciences; 2 limited — click to list them"). Clicking
   it opens a list (`graph-edge-list`, a popover over the graph; the layout does not move) with one
-  full chip per connection, item name included, in the consumer's connection order; limit, pull and
+  full chip per connection, item name included, in the consumer's connection order; limit and
   remove work there as on a plain chip. A click outside or Escape closes the list; Escape closes only
   the list, or cancels a limit edit, never the graph. If removals bring the edge to three
   connections or fewer, plain chips come back.
@@ -233,7 +222,8 @@ near-full-screen modal showing every block and the connections between them, lik
   through other blocks", and its item menu starts with "↻ Closes a loop with <source>"; the
   connection is made without confirmation.
   Clicking a highlighted block opens a menu "Send to <block>" with one entry per item, showing
-  what the source offers and the target needs; choosing one adds the connection to the target.
+  what the source offers and the target needs (`data-kind` `request` when the source has the item as a product, else `take`);
+  choosing one adds the connection to the target. An item whose request would close a cycle of requests or that the source receives itself is disabled, with the reason as its title ("<source> already requests from <target>, directly or through other blocks", "<source> receives <item> itself").
   The same rules as the Ingredients menu apply (`src/store/connections.ts`). **Cancel**, the
   handle again or a click on the empty background (anywhere outside nodes, chips and the menu) leaves connect mode; Escape closes the whole graph.
 
@@ -569,14 +559,21 @@ Segments in the detail bar and entries in the colour key are interactive (an ent
 
 ### Products pane
 
-One slot per block goal, in goal order. The slot rate is the actual output (the target before the first solve). Segments: one `export` per consumer, `kept`, and `short` when short.
+One slot per block product, in product order. The slot's requirement is `required` = the product's extra output plus what other blocks request of the item (the `requested` of the flows leaving the block; summed over the first product of the item only, as the solver adds it). The slot rate is the actual output (the requirement before the first solve). Segments: one `export` per consumer, `kept`, and `short` when short. There are no pulled-only slots: everything other blocks request is a product.
 
-After the goals come **pulled-only slots**: one per item that other blocks [pull](solver.md#pull-connections) from this block and that is not one of its goals (summed from the `demand` of the flows leaving the block). They are read-only (`SlotModel.pulledOnly`, id `pull:<item>`): the rate is what is pulled, but the segments reflect what the block really makes of it (`pulledSlot`): the `export`s to the pulling consumers, `kept` for what is made but not delivered, and a `short` segment (amber slot, header `pulled N of M`) for the part it does not make. There is no goal menu, and the only action is **Find recipe**. Only the pulled part of the output belongs to this slot: whatever the block makes beyond the pulled amount (a coproduct, say), minus what push connections take of it, stays in the Byproducts pane as an ordinary byproduct, so nothing is counted twice. A goal item that is also pulled has no extra slot: the pulled demand is added to its goal, and the slot is short (`GoalInfo.required` = goal + pulled) when the output misses that sum.
+A product with no extra output and nothing requested, exported or made is an **empty slot** (`SlotModel.empty`, accessible name "<item>, nothing requested yet"): it shows `—` instead of a rate and has no bar. An item made only as a coproduct of a product without extra shows what is made, never short.
 
-- Header rates in the strip: `target → actual /unit`. The target is a button (`Target: X/m — click to edit`) that edits inline in the current display unit (Enter or blur commits, Escape cancels and keeps the selection); double-clicking a slot selects it and edits its target at once.
-- The actual rate is the item's net balance across all solved nodes; it appears once the solver has a result. When it is below the target (by more than the solver's flow tolerance, and by an amount that does not round to zero in the displayed precision) the slot gets an amber border and a `▼` badge, and the actual turns amber with a leading `▼` and its tooltip reads "Actual: X/m — short by Y/m"; a met or exceeded goal stays teal. Once the solver has a result, a goal that no node produces counts as an actual of 0, so it is fully short. "Short" compares the goal's net balance with its target and does not subtract what the block exports, so a goal whose output is partly delivered to other blocks is not marked short for that reason.
-- Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Remove goal**. Right-clicking a slot opens a `RowActionsMenu` with **Remove goal**.
-- `+`, pinned in the pane header so it never scrolls away, opens the [item picker](#item-picker) to add a goal.
+- Header rates in the strip: `target → actual /unit`. The target is the product's extra output: a button (`Target: X/m — click to edit`, or `—` with `Target: none — click to edit` when absent) that edits inline in the current display unit (Enter or blur commits, Escape cancels and keeps the selection); double-clicking a slot selects it and edits its target at once.
+- The actual rate is the item's net balance across all solved nodes; it appears once the solver has a result. When it is below the target (by more than the solver's flow tolerance, and by an amount that does not round to zero in the displayed precision) the slot gets an amber border and a `▼` badge, and the actual turns amber with a leading `▼` and its tooltip reads "Actual: X/m — short by Y/m"; a met or exceeded product stays teal. Once the solver has a result, a product that no node produces counts as an actual of 0, so it is fully short when something is requested. "Short" compares the product's net balance with `required` (extra plus requested) and does not subtract what the block exports, so a product whose output is partly delivered to other blocks is not marked short for that reason.
+- Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Remove goal**. Right-clicking a slot opens a `RowActionsMenu` with **Remove goal**. Removing a product asks first when it changes other blocks (see below).
+- `+`, pinned in the pane header so it never scrolls away, opens the [item picker](#item-picker) to add a product (an empty amount adds one without extra output). Adding one asks first when it changes other blocks (see below).
+
+#### Product change confirmation
+
+`ProductChangeDialog` (a `Modal`, `data-testid="product-change-confirm"`, `w-[28rem]`) opens instead of applying the change when adding or removing a product changes how connections of other blocks behave (`productChangeEffects` in `src/store/connections.ts`, texts in `productChangeText.ts`). Adding a product of an item that no other block takes from this one, and removing one nobody uses, apply at once. Otherwise the dialog lists one line per affected connection (`data-testid="product-change-effect"`, consumers in plan order, with the rate delivered now, `—` without a flow); Cancel leaves the plan unchanged.
+
+- Add, heading "Make <item> a product of <block>?", button **Make it a product**: "<consumer> takes existing <item> from this block (<rate>). It will request it instead, so its needs will drive how much this block makes." If the request would close a cycle of requests: "…It would request it instead, but that closes a cycle of requests: every request in the cycle will only take what is left over." If this block receives the item itself: "…It would request it instead, but this block receives <item> itself, so it will still only take what is left over." The change is allowed in both cases; the solver treats every connection of the cycle as take existing (`requestIgnored: 'request-loop'`).
+- Remove (only when it is the item's only product), heading "Remove <item> from <block>'s products?" (a bare apostrophe after a block name ending in `s`), button **Remove product** (red): "<consumer> requests <item> from this block (<rate>). It will only take what is left over and no longer drive this block." Connections whose request was already ignored are not listed.
 
 ### Byproducts pane
 
@@ -586,11 +583,11 @@ Right-clicking a slot, or **Add consumer recipe…** in the strip, opens a recip
 
 ### Ingredients pane
 
-The solver's `unsatisfied` list: everything the block must import (goal shortfalls, intermediate slack, raw resources), together with the block's connections and locked items, grouped into one slot per item. Slots are ordered by first appearance: connected items, then imported items, then locked items. The slot rate is the need: what is delivered plus what is still imported. Segments: one `source` per connection that delivers something, then `import`. Header rates: `need N`.
+The solver's `unsatisfied` list: everything the block must import (product shortfalls, intermediate slack, raw resources), together with the block's connections and locked items, grouped into one slot per item. Slots are ordered by first appearance: connected items, then imported items, then locked items. The slot rate is the need: what is delivered plus what is still imported. Segments: one `source` per connection that delivers something, then `import`. Header rates: `need N`.
 
 - Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Receive from…** opens `ConnectionMenu` under the button; **Forbid imports** / **Allow imports**. A plain left click on a slot only selects it, locked or not.
-- Right-clicking a slot opens `ConnectionMenu` under the slot, except on a goal shortfall, which has no menu: goals are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a goal item can still exist (the lock predates the goal, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu lists "Receive <item> from" with one entry per other block that still has the item to give (the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed), excluding blocks already connected for that item. A block that would close a loop (it already receives from the active block, directly or through other blocks) is still listed, marked with `↻` and the title "Closes a loop: <block> already receives from this block, directly or through other blocks". Choosing one adds a connection to the active block. When another block can make the item (it has a recipe producing it that is not discarded, does not itself receive the item, and pulling would close no cycle of pulls), a second section **Pull <item> from** follows, listing those blocks whatever they offer now (`data-pull="true"`, title "<block> makes what this block needs"); choosing one adds a [pull](solver.md#pull-connections) connection. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block has this item to spare". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
-- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · self, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable). That menu also holds **Pull from source** (disabled, with the reason as its title, under the same `pullBlocker` rule as the graph toggle) or, for a pull connection, **Stop pulling**. The segment of a pull connection that is applied has the title suffix ` — pulled` before ` — click to open` (`Segment.pulled`).
+- Right-clicking a slot opens `ConnectionMenu` under the slot, except on a product shortfall, which has no menu: products are never fed by connections and have no import slack, so forbidding imports would change nothing (see [solver.md](solver.md)). A lock for a product's item can still exist (the lock predates the product, or comes from saved data); it stays removable, and its menu and strip hold only **Allow imports**. The menu has up to two sections, excluding blocks already connected for that item. **Request <item> from** comes first and lists the blocks that have the item as a product, whatever they offer now (`data-kind="request"`, no rate, title "<block> makes what this block needs"); choosing one adds a [request](solver.md#requests). A request that would close a cycle of requests, or whose source receives the item itself, is disabled with the reason as its title ("<source> already requests from <target>, directly or through other blocks", "<source> receives <item> itself"; `requestBlocker`). **Take existing <item> from** follows (after a divider when both show) with the blocks that still have the item left over and no product for it (`data-kind="take"`, the offered rate minus what it already delivers to other blocks; sources with nothing left are not listed). A block that would close a loop (it already receives from the active block, directly or through other blocks) is still listed in either section, marked with `↻` and, when enabled, the title "Closes a loop: <block> already receives from this block, directly or through other blocks". Choosing one adds a connection to the active block. Connections can also be made from the source side in the [block graph](#block-graph). With no candidate the menu reads "No other block has this item to spare". It is rendered in a portal at the bottom-left corner of the slot or button (so the grid's scrolling cannot clip it) and closes on Escape, a click outside, or a scroll. After a divider it ends with **Forbid imports** (adds the item to the block's `noImportItems`, so the solver never imports it) or, for a locked item, **Allow imports**.
+- Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · self, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable). That menu holds only **Remove connection**. The segment of a request has the title suffix ` — requested` before ` — click to open` (`Segment.requested`).
 - A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
 ### Warnings popover
@@ -747,11 +744,11 @@ backdrop and close on Escape or a click on the backdrop.
 
 ### Item picker
 
-`ItemPicker.tsx`, items mode (`source="items"`), used to add a goal.
+`ItemPicker.tsx`, items mode (`source="items"`), used to add a product.
 
 - Search box (case-insensitive substring match on display name or id).
 - **Amount** field in items per minute, default 60 (always /min, regardless of the
-  rate-unit toggle).
+  rate-unit toggle). Empty adds a product without extra output (the field shows `—`); anything else must be a positive number, or the item cannot be picked and Submit is disabled.
 - Item-group tabs, then items of the selected group in rows by subgroup, sorted by
   Factorio `order`. Hidden items are never shown.
 - With a research horizon, items produced only by non-hidden recipes outside it are
@@ -760,7 +757,7 @@ backdrop and close on Escape or a click on the backdrop.
   non-hidden extraction recipe is offered because that recipe is inside every horizon. An empty
   result caused by the horizon reads "No items match within the research horizon
   (N outside it)". Goals already set are unaffected.
-- Clicking an item adds it as a goal immediately when the amount is valid;
+- Clicking an item adds it as a product immediately when the amount is valid or empty;
   **Submit** does the same for the last clicked item.
 
 ### Recipe picker

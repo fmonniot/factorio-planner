@@ -183,12 +183,18 @@ export const GameDataSchema = z.object({
 // Plan schemas
 // ---------------------------------------------------------------------------
 
-export const ProductSchema = z.object({
-  id: z.string(),
-  itemId: z.string(),
-  /** Items/min the block makes for outside the plan. */
-  extraRate: z.number().positive(),
-})
+export const ProductSchema = z
+  .object({
+    id: z.string(),
+    itemId: z.string(),
+    /** Extra output, items/min, made beyond what other blocks request; absent = only what is requested. */
+    extraRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
+  })
+  // A saved 0 parses to a present-but-undefined key; keep the key truly absent.
+  .transform(p => {
+    if (p.extraRate === undefined) delete p.extraRate
+    return p
+  })
 
 export const ModuleConfigSchema = z.object({
   moduleId: z.string(),
@@ -352,6 +358,58 @@ function migrateBlock(input: unknown): unknown {
   }
 }
 
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v)
+}
+
+/**
+ * Legacy `pull: true` connections: the consumer's demand drove the source's goal. A connection is
+ * now a request when its item is a product of the source, so a pull to a source that has no product
+ * for the item gets one (without extra). Pulls that would not have been applied are left alone:
+ * duplicates, self-connections, missing sources, sources that already have the product, and sources
+ * that receive the item themselves. Pure: the raw input is never mutated.
+ */
+function migrateLegacyPulls(raw: unknown): unknown {
+  if (!isRecord(raw) || !Array.isArray(raw.blocks)) return raw
+  const blocks = raw.blocks.map(b => {
+    const m = migrateBlock(b)
+    return isRecord(m) ? { ...m } : m
+  })
+  const byId = new Map<string, Record<string, unknown>>()
+  for (const b of blocks) {
+    if (isRecord(b) && typeof b.id === 'string' && !byId.has(b.id)) byId.set(b.id, b)
+  }
+  const connectionsOf = (b: Record<string, unknown>): Record<string, unknown>[] =>
+    Array.isArray(b.inputConnections) ? b.inputConnections.filter(isRecord) : []
+
+  for (const consumer of blocks) {
+    if (!isRecord(consumer)) continue
+    const seen = new Set<string>()
+    for (const c of connectionsOf(consumer)) {
+      if (typeof c.itemId !== 'string' || typeof c.fromBlockId !== 'string') continue
+      const key = `${c.fromBlockId}\0${c.itemId}`
+      const duplicate = seen.has(key)
+      seen.add(key)
+      if (c.pull !== true || duplicate) continue
+      if (c.fromBlockId === consumer.id) continue
+      const source = byId.get(c.fromBlockId)
+      if (!source) continue
+      const itemId = c.itemId
+      const products = Array.isArray(source.products) ? source.products : []
+      if (products.some(p => isRecord(p) && p.itemId === itemId)) continue
+      const receives = connectionsOf(source).some(
+        sc => sc.itemId === itemId
+          && typeof sc.fromBlockId === 'string'
+          && sc.fromBlockId !== source.id
+          && byId.has(sc.fromBlockId),
+      )
+      if (receives) continue
+      source.products = [...products, { id: crypto.randomUUID(), itemId }]
+    }
+  }
+  return { ...raw, blocks }
+}
+
 export const BlockConnectionSchema = z
   .object({
     id: z.string(),
@@ -360,16 +418,10 @@ export const BlockConnectionSchema = z
     fromBlockId: z.string(),
     /** Most this consumer takes over this connection, items/min; absent = no limit. */
     maxRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
-    /**
-     * The consumer's demand for itemId drives the source's goal for that item.
-     * Absent = push: the consumer takes whatever the source has left over.
-     */
-    pull: z.boolean().optional(),
   })
   // A saved 0 parses to a present-but-undefined key; keep the key truly absent.
   .transform(c => {
     if (c.maxRate === undefined) delete c.maxRate
-    if (!c.pull) delete c.pull
     return c
   })
 
@@ -390,8 +442,9 @@ export const BlockSchema = z.preprocess(
 )
 
 export const AppStateSchema = z.preprocess(
-  // Per-block migration cannot see the other blocks, so colours are handed out here.
-  assignMissingBlockColors,
+  // Per-block migration cannot see the other blocks, so colours are handed out here, and legacy
+  // pulls (which add a product to their source) are migrated after block migration hoisted products.
+  raw => migrateLegacyPulls(assignMissingBlockColors(raw)),
   z.object({
     blocks: z.array(BlockSchema),
     activeBlockId: z.string(),

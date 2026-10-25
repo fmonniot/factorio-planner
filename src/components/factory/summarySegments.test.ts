@@ -8,13 +8,13 @@ import {
   segmentLabel,
   segmentTitle,
   isShortfall,
-  pulledSlot,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
 import type { BlockConnection, ConnectionFlow, Product } from '../../data/types'
 import type { IngredientRow } from './summaryRows'
 
 const goal = (rate = 60): Product => ({ id: 'g1', itemId: 'iron-plate', extraRate: rate })
+const noExtra = (): Product => ({ id: 'g1', itemId: 'iron-plate' })
 
 const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   connectionId: 'c1',
@@ -25,6 +25,7 @@ const flow = (over: Partial<ConnectionFlow> = {}): ConnectionFlow => ({
   capped: false,
   rate: 30,
   status: 'ok',
+  kind: 'take',
   ...over,
 })
 
@@ -44,34 +45,34 @@ describe('productSlot', () => {
   it('shows the target and no segments before the first solve', () => {
     const slot = productSlot(goal(), undefined, [], 'min')
     expect(slot).toMatchObject({ rate: 60, scale: 60, segments: [], status: null })
-    expect(slot.goal).toMatchObject({ actual: undefined, short: false, tickAt: null })
+    expect(slot.product).toMatchObject({ actual: undefined, short: false, tickAt: null })
   })
 
   it('keeps everything when the goal is met and nothing is exported', () => {
     const slot = productSlot(goal(), 60, [], 'min')
     expect(shape(slot.segments)).toEqual([['kept', 60]])
     expect(slot.scale).toBe(60)
-    expect(slot.goal!.tickAt).toBeNull()
+    expect(slot.product!.tickAt).toBeNull()
   })
 
   it('adds a short segment and a tick at the end of the bar when short', () => {
     const slot = productSlot(goal(), 58, [], 'min')
     expect(shape(slot.segments)).toEqual([['kept', 58], ['short', 2]])
     expect(slot).toMatchObject({ status: 'short', rate: 58 })
-    expect(slot.goal).toMatchObject({ short: true, tickAt: 1 })
+    expect(slot.product).toMatchObject({ short: true, tickAt: 1 })
   })
 
   it('puts the tick inside the bar when over-producing', () => {
     const slot = productSlot(goal(), 90, [flow({ rate: 30 })], 'min')
     expect(shape(slot.segments)).toEqual([['to:B', 30], ['kept', 60]])
     expect(slot.scale).toBe(90)
-    expect(slot.goal!.tickAt).toBeCloseTo(60 / 90)
+    expect(slot.product!.tickAt).toBeCloseTo(60 / 90)
   })
 
   it('does not count a shortfall that rounds to zero', () => {
     const slot = productSlot(goal(), 59.9999, [], 'min')
     expect(slot.status).toBeNull()
-    expect(slot.goal!.short).toBe(false)
+    expect(slot.product!.short).toBe(false)
     expect(slot.segments.map(s => s.key)).toEqual(['kept'])
   })
 
@@ -318,56 +319,60 @@ describe('segmentLabel / segmentTitle', () => {
   })
 })
 
-describe('pulled flows', () => {
-  it('marks the source segment of a pulled connection and words its title', () => {
+describe('requested flows', () => {
+  it('marks the source segment of a request and words its title', () => {
     const row = ingredientRow({ connections: [conn('c1', 'A')] })
-    const pulled = ingredientSlot(row, new Map([['c1', flow({ demand: 30 })]]), new Set(['A']))
-    expect(pulled.segments[0].pulled).toBe(true)
-    const push = ingredientSlot(row, new Map([['c1', flow()]]), new Set(['A']))
-    expect('pulled' in push.segments[0]).toBe(false)
+    const requested = ingredientSlot(row, new Map([['c1', flow({ kind: 'request', requested: 30 })]]), new Set(['A']))
+    expect(requested.segments[0].requested).toBe(true)
+    const take = ingredientSlot(row, new Map([['c1', flow()]]), new Set(['A']))
+    expect('requested' in take.segments[0]).toBe(false)
     const ctx = { itemName: 'Iron Plate', blockName: 'Miner', fmt: (n: number) => String(n), unit: '/m' }
-    expect(segmentTitle(pulled.segments[0], ctx)).toBe('Iron Plate from Miner — pulled — click to open, right-click to remove')
-    expect(segmentTitle(push.segments[0], ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
+    expect(segmentTitle(requested.segments[0], ctx)).toBe('Iron Plate from Miner — requested — click to open, right-click to remove')
+    expect(segmentTitle(take.segments[0], ctx)).toBe('Iron Plate from Miner — click to open, right-click to remove')
   })
 })
 
-describe('pulledSlot', () => {
-  it('is a read-only slot of what is pulled, split into exports and what is not yet delivered', () => {
-    const slot = pulledSlot('iron-plate', 50, 50, [flow({ rate: 30, toBlockId: 'B' })], 'min')
-    expect(slot).toMatchObject({ id: 'pull:iron-plate', itemId: 'iron-plate', rate: 50, scale: 50, pulledOnly: true, status: null })
-    expect(shape(slot.segments)).toEqual([['to:B', 30], ['kept', 20]])
-    expect(slot.goal).toBeUndefined()
-  })
-
-  it('has no kept segment when every unit is delivered', () => {
-    expect(shape(pulledSlot('iron-plate', 30, 30, [flow({ rate: 30 })], 'min').segments)).toEqual([['to:B', 30]])
-  })
-
-  it('shows a shortfall when less is made than pulled, instead of calling it kept', () => {
-    const slot = pulledSlot('iron-plate', 5, 3, [flow({ rate: 3 })], 'min')
-    expect(shape(slot.segments)).toEqual([['to:B', 3], ['short', 2]])
-    expect(slot).toMatchObject({ status: 'short', rate: 5, scale: 5, pulledShort: 2 })
-  })
-
-  it('counts only the pulled part of the output; the surplus is left to Byproducts', () => {
-    const slot = pulledSlot('iron-plate', 3, 10, [flow({ rate: 3 })], 'min')
-    expect(shape(slot.segments)).toEqual([['to:B', 3]])
-    expect(slot.status).toBeNull()
-  })
-})
-
-describe('productSlot with a pulled amount', () => {
-  it('is short against the goal plus what is pulled', () => {
-    // goal 10, 5 pulled, 12 made: the solver reports a 3/min shortfall.
+describe('productSlot with a requested amount', () => {
+  it('is short against the extra plus what is requested', () => {
+    // extra 10, 5 requested, 12 made: the solver reports a 3/min shortfall.
     const slot = productSlot(goal(10), 12, [flow({ rate: 5 })], 'min', 5)
     expect(slot.status).toBe('short')
-    expect(slot.goal).toMatchObject({ target: 10, required: 15, short: true })
+    expect(slot.product).toMatchObject({ extra: 10, required: 15, short: true })
     expect(shape(slot.segments)).toEqual([['to:B', 5], ['kept', 7], ['short', 3]])
   })
 
-  it('is not short when the output covers goal plus pulled', () => {
+  it('is not short when the output covers extra plus requested', () => {
     const slot = productSlot(goal(10), 15, [flow({ rate: 5 })], 'min', 5)
     expect(slot.status).toBeNull()
-    expect(slot.goal).toMatchObject({ required: 15, short: false, tickAt: null })
+    expect(slot.product).toMatchObject({ required: 15, short: false, tickAt: null })
+  })
+})
+
+describe('productSlot without extra', () => {
+  it('is short against what is requested when nothing is made of it', () => {
+    const slot = productSlot(noExtra(), 20, [flow({ rate: 20 })], 'min', 30)
+    expect(slot.status).toBe('short')
+    expect(slot.product).toMatchObject({ extra: undefined, required: 30, short: true })
+    expect(shape(slot.segments)).toEqual([['to:B', 20], ['short', 10]])
+  })
+
+  it('is empty when nothing is requested, made or exported, even with a negative balance', () => {
+    const slot = productSlot(noExtra(), -15, [], 'min')
+    expect(slot).toMatchObject({ empty: true, status: null, rate: 0, scale: 0, segments: [], overlays: [], dimmed: false })
+    expect(slot.product).toMatchObject({ short: false, tickAt: null })
+  })
+
+  it('is empty before the first solve', () => {
+    expect(productSlot(noExtra(), undefined, [], 'min').empty).toBe(true)
+  })
+
+  it('shows what a coproduct makes without calling it short', () => {
+    const slot = productSlot(noExtra(), 15, [], 'min')
+    expect(slot.empty).toBeUndefined()
+    expect(slot.rate).toBe(15)
+    expect(shape(slot.segments)).toEqual([['kept', 15]])
+    expect(slot.status).toBeNull()
+    expect(slot.product!.tickAt).toBeNull()
+    expect(slot.product!.short).toBe(false)
   })
 })

@@ -411,6 +411,25 @@ describe('ItemPicker — items mode', () => {
     expect(onSelect).toHaveBeenCalledWith('iron-plate', 120)
   })
 
+  it('clicking a slot with the amount cleared selects it without extra output', () => {
+    const onSelect = vi.fn()
+    render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '' } })
+    const slot = screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'iron-plate')!
+    fireEvent.click(slot)
+    expect(onSelect).toHaveBeenCalledWith('iron-plate', undefined)
+  })
+
+  it.each(['0', '-3'])('does not select with an amount of %s and disables Submit', value => {
+    const onSelect = vi.fn()
+    render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value } })
+    const slot = screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'iron-plate')!
+    fireEvent.click(slot)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeDisabled()
+  })
+
   it('Cancel button closes without selecting', () => {
     const onSelect = vi.fn()
     const onClose = vi.fn()

@@ -5,7 +5,7 @@ import { detail, pane, slotById } from './support/summary'
 
 /**
  * Fixture: the active block "Metals" has 16 goals (one producing recipe each).
- * "Sciences" receives 12 of those items from Metals and "Circuits" receives 3,
+ * "Sciences" requests 12 of those items from Metals and "Circuits" requests 3,
  * so Metals shows exports on many product slots and its panes overflow.
  */
 const FIXTURE = path.resolve('e2e/fixtures/summary-many-items.json')

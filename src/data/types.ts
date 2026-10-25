@@ -74,8 +74,11 @@ export interface SolverResult {
 
 export type ConnectionFlowStatus = 'ok' | 'unused' | 'limited' | 'missing-source' | 'self'
 
-/** Why a connection marked `pull` behaves like a push connection. */
-export type PullIgnoredReason = 'pull-loop' | 'no-producer' | 'source-receives' | 'duplicate'
+/** A connection is a request when its item is a product of the source, otherwise it takes existing output. */
+export type ConnectionKind = 'request' | 'take'
+
+/** Why a connection to a product of its source takes existing output instead of requesting. */
+export type RequestIgnoredReason = 'request-loop' | 'source-receives' | 'duplicate'
 
 export interface ConnectionFlow {
   connectionId: string
@@ -96,10 +99,12 @@ export interface ConnectionFlow {
   status: ConnectionFlowStatus
   /** true when both ends are members of one loop of blocks */
   loop?: true
-  /** Present iff the connection pulls and the pull is applied: items/min the consumer asked the source to make (may be 0). */
-  demand?: number
-  /** Present iff the connection is marked `pull` but behaves like a push connection. */
-  pullIgnored?: PullIgnoredReason
+  /** request: the item is a product of the source and the request is applied; take: it takes existing output. */
+  kind: ConnectionKind
+  /** Present iff `kind === 'request'`: items/min the consumer asked the source to make (may be 0). */
+  requested?: number
+  /** Present iff the item is a product of the source but the request is not applied; the connection then takes existing output. */
+  requestIgnored?: RequestIgnoredReason
 }
 
 /** A group of blocks that supply each other, directly or through other blocks. */
