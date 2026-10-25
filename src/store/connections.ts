@@ -62,11 +62,13 @@ export function takeCandidates(
 export type RequestBlocker = 'request-loop' | 'source-receives'
 
 /**
- * The one rule for "can `target` request `itemId` from `fromBlockId`", shared by the
- * Request menu section, the connect-mode menu and the store. Undefined when the
+ * The one rule for "can `target` request `itemId` from `fromBlockId`", used by the
+ * Request menu section, the connect-mode menu and the product-change effects. The store
+ * only refuses the cycle (`closesRequestLoop`), so it still accepts a request whose
+ * source receives the item (the solver ignores it as `source-receives`). Undefined when the
  * connection is not a request (the source has no product for the item) or when the
- * request can be applied. The cycle check counts every connection to a product of its
- * source, applicable or not (see `closesRequestLoop`).
+ * request can be applied. The cycle check follows the connections the solver would
+ * apply (see `closesRequestLoop`).
  */
 export function requestBlocker(
   blocks: Block[],

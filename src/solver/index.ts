@@ -19,7 +19,7 @@ import type {
 import { buildClassifiedSystem, effectiveProductAmount } from './build'
 import { solveLP } from './solve'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
-import { hasProduct, orderBlocks, type LoopShape } from './blockGraph'
+import { hasProduct, orderBlocks, receivesItem, type LoopShape } from './blockGraph'
 import { planKey, type SolveCache } from './solveCache'
 
 interface SolverPlan {
@@ -66,15 +66,7 @@ function productGoals(products: Product[], requested?: Map<string, number>): Sol
   return goals
 }
 
-/**
- * Does `block` take `itemId` from a connection of its own, from an existing
- * block other than itself? Then it is not a pure producer of the item: a
- * request to it would cancel its own supply. The one definition of "source
- * receives the item", shared by the solver and the connection menus.
- */
-export function receivesItem(block: Block, itemId: string, blockIds: ReadonlySet<string>): boolean {
-  return block.inputConnections.some(c => c.itemId === itemId && c.fromBlockId !== block.id && blockIds.has(c.fromBlockId))
-}
+export { receivesItem }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
 export const FLOW_TOLERANCE = 1e-6

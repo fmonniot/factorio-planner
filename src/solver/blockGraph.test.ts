@@ -59,12 +59,26 @@ describe('closesRequestLoop', () => {
   })
 
   it('is true through a chain of requests', () => {
-    const blocks = [maker('A'), maker('B', ['A']), block('C', ['B'])]
-    expect(closesRequestLoop(blocks, 'C', 'A')).toBe(true)
+    // B requests plate from A; C requests gear from B; A requesting from C would make a cycle.
+    const B: Block = {
+      ...maker('B'),
+      products: [{ id: 'B-gear', itemId: 'gear' }],
+      inputConnections: [{ id: 'B<A', itemId: 'plate', fromBlockId: 'A' }],
+    }
+    const C: Block = { ...block('C'), inputConnections: [{ id: 'C<B', itemId: 'gear', fromBlockId: 'B' }] }
+    expect(closesRequestLoop([maker('A'), B, C], 'C', 'A')).toBe(true)
   })
 
   it('is false when the reverse connection only takes existing output', () => {
     expect(closesRequestLoop([block('A'), block('B', ['A'])], 'B', 'A')).toBe(false)
+  })
+
+  it('ignores requests whose source receives the item itself (the solver ignores them)', () => {
+    // B requests plate from A, but A receives plate from D: that request is not an edge, so no cycle.
+    const blocks = [maker('A', ['D']), block('B', ['A']), block('D')]
+    expect(closesRequestLoop(blocks, 'B', 'A')).toBe(false)
+    // A connection from a missing block does not count as receiving.
+    expect(closesRequestLoop([maker('A', ['ghost']), block('B', ['A'])], 'B', 'A')).toBe(true)
   })
 
   it('is false for a second source, a self-connection and a missing source', () => {

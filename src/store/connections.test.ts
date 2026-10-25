@@ -262,6 +262,21 @@ describe('productChangeEffects', () => {
     expect(effects([s, block('T', { from: [['plate', 'S']] })], 'remove')).toEqual([])
   })
 
+  it('does not report a cycle through a request the solver ignores because its source receives the item', () => {
+    // S requests gear from C, but C receives gear from D, so that request is ignored (source-receives): no cycle.
+    const blocks = [
+      block('S', { from: [['gear', 'C']] }),
+      block('C', { products: ['gear'], from: [['gear', 'D'], ['plate', 'S']] }),
+      block('D'),
+    ]
+    expect(effects(blocks, 'add')).toEqual([
+      { connectionId: 'C<S:plate', consumerId: 'C', consumerName: blocks[1].name, rate: undefined },
+    ])
+    // Without D's supply the request applies and the same product change closes a cycle.
+    const cyc = [blocks[0], block('C', { products: ['gear'], from: [['plate', 'S']] })]
+    expect(effects(cyc, 'add')[0].blocker).toBe('request-loop')
+  })
+
   it('leaves the rate undefined without a flow, and is empty for an unknown block', () => {
     const blocks = [block('S'), block('T', { from: [['plate', 'S']] })]
     expect(effects(blocks, 'add')[0].rate).toBeUndefined()
