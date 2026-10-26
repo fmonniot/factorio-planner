@@ -37,6 +37,16 @@ export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
   return undefined
 }
 
+/** Find the SubPlan whose `subPlans` directly contains the given child id. */
+function findParentSubPlan(plan: SubPlan, childId: string): SubPlan | undefined {
+  if (plan.subPlans.some(sp => sp.id === childId)) return plan
+  for (const sp of plan.subPlans) {
+    const found = findParentSubPlan(sp, childId)
+    if (found) return found
+  }
+  return undefined
+}
+
 /** Find the SubPlan that directly contains a node with the given nodeId. */
 function findSubPlanContainingNode(plan: SubPlan, nodeId: string): SubPlan | undefined {
   if (plan.nodes.some(n => n.id === nodeId)) return plan
@@ -510,13 +520,36 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      let newRootPlan = removeSubPlanFromTree(block.rootPlan, subPlanId)
-      newRootPlan = removeSubPlanNodeReferences(newRootPlan, subPlanId)
-      return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+      const parent = findParentSubPlan(block.rootPlan, subPlanId)
+      if (!parent) return state
+      // Snapshot the removed sub-plan and its handle so undo reinserts the same
+      // objects at their original positions.
+      const parentId = parent.id
+      const subPlanIndex = parent.subPlans.findIndex(sp => sp.id === subPlanId)
+      const removed = parent.subPlans[subPlanIndex]
+      const handleIndex = parent.nodes.findIndex(n => n.kind === 'subplan' && n.subPlanId === subPlanId)
+      const handle = handleIndex >= 0 ? parent.nodes[handleIndex] : undefined
+      const cmd: Command = {
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, subPlanId), subPlanId),
+        }, parentId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, parentId, p => {
+            const subPlans = [...p.subPlans]
+            subPlans.splice(subPlanIndex, 0, removed)
+            const nodes = [...p.nodes]
+            if (handle) nodes.splice(handleIndex, 0, handle)
+            return { ...p, subPlans, nodes }
+          }),
+        }, parentId),
+        // Drop the command rather than orphan the sub-plan or duplicate its id when
+        // the tree changed through an action that is not undoable.
+        canUndo: (_blocks, b) =>
+          findSubPlan(b.rootPlan, parentId) !== undefined && findSubPlan(b.rootPlan, removed.id) === undefined,
       }
+      return applyCommand(state, cmd)
     }),
 
   renameSubPlan: (subPlanId, name) =>

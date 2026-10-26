@@ -116,6 +116,105 @@ describe('renameSubPlan', () => {
   })
 })
 
+describe('removeSubPlan', () => {
+  function recipe(id: string): RecipeNode {
+    return { ...ironNode, id }
+  }
+  function handleFor(id: string, subPlanId: string): SubPlanNode {
+    return { kind: 'subplan', id, subPlanId }
+  }
+
+  /** Root holds [r-before, handle(a), handle(target), r-after] with sub-plans [a, target];
+   *  target holds a recipe and a nested sub-plan. */
+  function setup() {
+    const nested = makeEmptySubPlan('Nested')
+    const target = { ...makeEmptySubPlan('Target'), nodes: [recipe('t-node'), handleFor('h-nested', nested.id)], subPlans: [nested] }
+    const sibling = makeEmptySubPlan('Sibling')
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlan = {
+      ...block.rootPlan,
+      nodes: [recipe('r-before'), handleFor('h-sibling', sibling.id), handleFor('h-target', target.id), recipe('r-after')],
+      subPlans: [sibling, target],
+    }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+    return { nested, target, sibling, blockId: block.id }
+  }
+  const root = () => useBlockStore.getState().blocks[0].rootPlan
+  const stripTimes = (p: import('../data/types').SubPlan): unknown => ({
+    ...p,
+    updatedAt: undefined,
+    subPlans: p.subPlans.map(stripTimes),
+  })
+
+  it('removes the sub-plan and its handle from the parent', () => {
+    const { target } = setup()
+    useBlockStore.getState().removeSubPlan(target.id)
+    expect(root().subPlans.map(sp => sp.name)).toEqual(['Sibling'])
+    expect(root().nodes.map(n => n.id)).toEqual(['r-before', 'h-sibling', 'r-after'])
+  })
+
+  it('undo restores the same objects at their original positions', () => {
+    const { target, sibling } = setup()
+    const handle = root().nodes[2]
+    const before = structuredClone(target)
+    useBlockStore.getState().removeSubPlan(target.id)
+    useBlockStore.getState().undo()
+    expect(root().subPlans[0]).toEqual(sibling)
+    expect(root().subPlans[1]).toBe(target)
+    expect(root().nodes[2]).toBe(handle)
+    expect(root().nodes.map(n => n.id)).toEqual(['r-before', 'h-sibling', 'h-target', 'r-after'])
+    expect(root().subPlans[1]).toEqual(before)
+  })
+
+  it('redo removes it again, and a new command clears the redo stack', () => {
+    const { target, blockId } = setup()
+    useBlockStore.getState().removeSubPlan(target.id)
+    useBlockStore.getState().undo()
+    useBlockStore.getState().redo()
+    expect(root().subPlans.map(sp => sp.id)).not.toContain(target.id)
+    expect(root().nodes.map(n => n.id)).toEqual(['r-before', 'h-sibling', 'r-after'])
+
+    useBlockStore.getState().undo()
+    expect(useBlockStore.getState().history[blockId].redoStack).toHaveLength(1)
+    useBlockStore.getState().addNode(recipe('new'))
+    expect(useBlockStore.getState().history[blockId].redoStack).toHaveLength(0)
+  })
+
+  it('is a no-op for the root plan id or an unknown id', () => {
+    setup()
+    const before = structuredClone(root())
+    useBlockStore.getState().removeSubPlan(root().id)
+    useBlockStore.getState().removeSubPlan('missing')
+    expect(root()).toEqual(before)
+    expect(useBlockStore.getState().history).toEqual({})
+  })
+
+  it('drops the command on undo when a sub-plan with the same id was added back', () => {
+    const { target, blockId } = setup()
+    useBlockStore.getState().removeSubPlan(target.id)
+    const impostor = { ...makeEmptySubPlan('Impostor'), id: target.id }
+    const rp = root()
+    useBlockStore.setState({
+      blocks: [{ ...useBlockStore.getState().blocks[0], rootPlan: { ...rp, subPlans: [...rp.subPlans, impostor] } }],
+    })
+    const before = structuredClone(root())
+    useBlockStore.getState().undo()
+    expect(root()).toEqual(before)
+    expect(useBlockStore.getState().history[blockId].undoStack).toHaveLength(0)
+    expect(useBlockStore.getState().history[blockId].redoStack).toHaveLength(0)
+  })
+
+  it('undoes nested removals in order (inner then outer)', () => {
+    const { nested, target } = setup()
+    const original = stripTimes(structuredClone(root()))
+    useBlockStore.getState().removeSubPlan(nested.id)
+    useBlockStore.getState().removeSubPlan(target.id)
+    useBlockStore.getState().undo()
+    useBlockStore.getState().undo()
+    expect(stripTimes(root())).toEqual(original)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // moveNodeUp / moveNodeDown
 // ---------------------------------------------------------------------------
