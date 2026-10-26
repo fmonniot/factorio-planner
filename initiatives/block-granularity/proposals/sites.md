@@ -1,25 +1,15 @@
-# Initiative: Sub-factory sites
+# Proposal: Sub-factory sites
 
-Status: Future
+Proposal for [Block granularity](../problem.md). Not implemented.
 
-Let a block say *where* its machines are built, not only *what* they make. A sub-factory can be marked as a **site** (a separate place on the map), a recipe can have **copies** in other sites, and the planner shows what each site makes, uses and has to ship in or out. Nothing is implemented yet.
+A sub-factory can be marked as a **site** (an area, in the problem's vocabulary), a recipe can have **copies** in other sites, and the planner shows what each site makes, uses and has to ship in or out. The proposal keeps one block (one solve, one table) per product chain, which covers R1, and adds sites on top of it.
 
 ---
-
-## Why
-
-A block answers two questions at once: what it takes to make its products (the recipe chain) and where the machines go (one place on the map). With a few blocks that is fine. With the 20–30+ blocks a Seablock, Nullius or Pyanodons factory needs, it breaks down:
-
-1. **One block per place loses the overview.** The chain for one product is spread over many blocks, and connecting them by hand is tedious.
-2. **One big block loses the layout.** Sub-factories group rows, but the solver flattens them (see [spec/solver.md](../../spec/solver.md#sub-plans)), and a recipe can appear only once per block: the solver zeroes later duplicates and warns `duplicate-recipe`.
-3. **Intermediates are built in several places.** The table says "hydrogen: 14 electrolysers". The factory has 6 next to the plastics line, 5 next to rocket fuel and 3 on the main bus. The planner cannot represent that split, nor what still has to be carried between those places.
-
-The goal is to keep one block (one solve, one table) per product chain, and add the spatial layer on top of it.
 
 ## Principles
 
 - **The user decides where things go.** The planner has no idea where buildings will be placed, so it never moves a recipe or creates a copy by itself. It sizes what the user placed and reports the consequences.
-- **Bookkeeping, not constraints.** Sites never change the block's solve: the totals, machine counts and imports of the block are the same with or without sites. Sites only split those totals by place and list the flows between places. Capacity limits between sites (belts, trains) are out of scope.
+- **Bookkeeping, not constraints.** Sites never change the block's rates: what each recipe runs at, what the block imports and exports, and its power are the same with or without sites. Sites split those rates by place and list the flows between places. Building counts do change: each row is rounded up to whole machines on its own, so splitting a recipe over two sites can add buildings (one machine at 60 % becomes two at 30 %). Capacity limits between sites (belts, trains) are out of scope.
 - **The table is what you build.** Every group of machines that exists on the map is a row in the table.
 
 ## The model
@@ -28,7 +18,7 @@ The goal is to keep one block (one solve, one table) per product chain, and add 
 
 **Copies.** A recipe row can have **copies** in other sites. The original row is the **main row**; it owns every setting (machine, modules, beacons, pin, byproduct policy, primary product). A copy has no settings of its own: it builds the same recipe, the same way, in another place. A copy produces what its site uses of the recipe's primary product; the main row produces the rest (the block's products, and every site without a copy).
 
-Example: *Hydrogen* (14 electrolysers) is a main row in the root. The user adds a copy in the *Plastics* site, which uses 30 % of the hydrogen, and one in *Rocket fuel*, which uses 36 %. The table then shows the copies at 4.2 and 5 electrolysers and the main row at the remaining 4.8, and *Plastics* and *Rocket fuel* no longer import hydrogen from the root.
+Example: *Hydrogen* is a main row in the root, needing 13.6 electrolysers (14 buildings). The user adds a copy in the *Plastics* site, which uses enough hydrogen for 4.2 electrolysers, and one in *Rocket fuel*, which uses 4.8. The copies show 5 buildings each, the main row 5 for the remaining 4.6: 15 buildings instead of 14. *Plastics* and *Rocket fuel* no longer import hydrogen from the root.
 
 At most one row per recipe (main or copy) per site. A second one in the same site is a duplicate, handled as today: it solves to zero with a warning.
 
@@ -46,7 +36,7 @@ A new **site allocation** step runs after each block solve:
 
 The system is square (one equation per row), so the result is unique in practice. Solving it as one small LP, rather than recipe by recipe, handles chained copies: a hydrogen copy needs water, and if water has a copy in the same site, its share depends on hydrogen's. It also handles loops, which Nullius has plenty of. Slack absorbs the cases where a copy cannot balance its site: the site makes the item as a byproduct of something else (the copy runs at 0 and the surplus is shipped out), or the block imports part of the item, so the main row cannot make up for all the copies (the shortfall is shipped in).
 
-The ledger is then a sum over the allocated rows per site. Allocation and ledger are part of `SolverResult`; they do not feed back into the block solve or into connections between blocks.
+Machine metrics (`computeMachineMetrics`) are then computed per row from its allocated rate: each row's building count is rounded up on its own, so a recipe's building count is the sum over its rows, which can be more than the rounded-up count of the merged recipe. Power uses the exact count and adds up to the same total. The ledger is a sum over the allocated rows per site. Allocation and ledger are part of `SolverResult`; they do not feed back into the block solve or into connections between blocks.
 
 New warnings: a copy in a site that does not use its primary product (it runs at 0); two rows of one recipe in the same site (today's `duplicate-recipe`, now per site).
 
@@ -61,11 +51,11 @@ New warnings: a copy in a site that does not use its primary product (it runs at
 - **Sub-factory menu:** a **Separate site** checkbox. Site group rows get a site marker; collapsed, they show the site's in and out items as chips.
 - **Recipe row menu:** **Copy to site…**, listing the sites that use the recipe's primary product and have no row for it yet, with how much each one uses. The copy is added at the end of that site; it can then be dragged like any row.
 - **Copy rows:** a link badge on the recipe icon; the machine count and rates are the copy's own. The machine, module and beacon cells show the main row's settings and open the main row's editors, with a note that the change applies to every copy. Row menu: **Go to main row**, **Remove copy**.
-- **Main rows** show the total machine count and, in a tooltip, the split: "14 = 4.8 here + 4.2 Plastics + 5 Rocket fuel".
+- **Main rows** show their own building count, like copies, and a tooltip with the recipe's total and the split: "15 buildings (13.6 exact): 5 here, 5 Plastics, 5 Rocket fuel".
 - **Removing a main row with copies** asks first and removes the copies too (one undoable command).
 - **Sites pane** in the summary: every site of the block with its in and out items, including the root.
 
-Every new action is an undoable `Command` (see [backlog.md](../backlog.md) for the sub-factory edits that are not yet).
+Every new action is an undoable `Command` (see [backlog.md](../../backlog.md) for the sub-factory edits that are not yet).
 
 ## Phases
 
@@ -89,4 +79,4 @@ Every new action is an undoable `Command` (see [backlog.md](../backlog.md) for t
 
 - *Prevent adding a recipe already present in the block* becomes "…already present in the same site".
 - *Isolate a subfactory from the rest of the plan* is related but separate: an isolated sub-factory shuts out the other *blocks*, while a site still exchanges items with the other sites of its block.
-- Spec updates when this ships: [spec/data-model.md](../../spec/data-model.md) (`SubPlan`, `RecipeNode`), [spec/solver.md](../../spec/solver.md) (sub-plans, site allocation), [spec/ui.md](../../spec/ui.md) (sub-factory rows, recipe rows, summary).
+- Spec updates when this ships: [spec/data-model.md](../../../spec/data-model.md) (`SubPlan`, `RecipeNode`), [spec/solver.md](../../../spec/solver.md) (sub-plans, site allocation), [spec/ui.md](../../../spec/ui.md) (sub-factory rows, recipe rows, summary).
