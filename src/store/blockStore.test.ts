@@ -204,6 +204,21 @@ describe('removeSubPlan', () => {
     expect(useBlockStore.getState().history[blockId].redoStack).toHaveLength(0)
   })
 
+  it('undo after redo restores edits made to the subtree while the removal was undone', () => {
+    const { target } = setup()
+    useBlockStore.getState().removeSubPlan(target.id)
+    useBlockStore.getState().undo()
+    useBlockStore.getState().renameSubPlan(target.id, 'Renamed')
+    useBlockStore.getState().addSubPlan(target.id, 'Added')
+    useBlockStore.getState().redo()
+    expect(root().subPlans.map(sp => sp.id)).not.toContain(target.id)
+    useBlockStore.getState().undo()
+    const restored = findSubPlan(root(), target.id)!
+    expect(restored.name).toBe('Renamed')
+    expect(restored.subPlans.map(sp => sp.name)).toEqual(['Nested', 'Added'])
+    expect(restored.nodes).toHaveLength(3)
+  })
+
   it('undoes nested removals in order (inner then outer)', () => {
     const { nested, target } = setup()
     const original = stripTimes(structuredClone(root()))

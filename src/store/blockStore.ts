@@ -522,32 +522,51 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       if (!block) return state
       const parent = findParentSubPlan(block.rootPlan, subPlanId)
       if (!parent) return state
-      // Snapshot the removed sub-plan and its handle so undo reinserts the same
-      // objects at their original positions.
       const parentId = parent.id
-      const subPlanIndex = parent.subPlans.findIndex(sp => sp.id === subPlanId)
-      const removed = parent.subPlans[subPlanIndex]
-      const handleIndex = parent.nodes.findIndex(n => n.kind === 'subplan' && n.subPlanId === subPlanId)
-      const handle = handleIndex >= 0 ? parent.nodes[handleIndex] : undefined
+      // Snapshot taken each time the removal is applied (creation and every redo), so a
+      // non-undoable edit made to the subtree while the command sat on the redo stack
+      // (rename, nested add, wrap) is not lost when the removal is undone again.
+      let snapshot:
+        | { removed: SubPlan; subPlanIndex: number; handle: SubPlan['nodes'][number] | undefined; handleIndex: number }
+        | undefined
       const cmd: Command = {
-        apply: b => touchSubPlan({
-          ...b,
-          rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, subPlanId), subPlanId),
-        }, parentId),
-        undo: b => touchSubPlan({
-          ...b,
-          rootPlan: updateSubPlanInTree(b.rootPlan, parentId, p => {
-            const subPlans = [...p.subPlans]
-            subPlans.splice(subPlanIndex, 0, removed)
-            const nodes = [...p.nodes]
-            if (handle) nodes.splice(handleIndex, 0, handle)
-            return { ...p, subPlans, nodes }
-          }),
-        }, parentId),
+        apply: b => {
+          const p = findSubPlan(b.rootPlan, parentId)
+          const subPlanIndex = p?.subPlans.findIndex(sp => sp.id === subPlanId) ?? -1
+          if (p && subPlanIndex >= 0) {
+            const handleIndex = p.nodes.findIndex(n => n.kind === 'subplan' && n.subPlanId === subPlanId)
+            snapshot = {
+              removed: p.subPlans[subPlanIndex],
+              subPlanIndex,
+              handle: handleIndex >= 0 ? p.nodes[handleIndex] : undefined,
+              handleIndex,
+            }
+          }
+          return touchSubPlan({
+            ...b,
+            rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, subPlanId), subPlanId),
+          }, parentId)
+        },
+        undo: b => {
+          const snap = snapshot
+          if (!snap) return b
+          return touchSubPlan({
+            ...b,
+            rootPlan: updateSubPlanInTree(b.rootPlan, parentId, p => {
+              const subPlans = [...p.subPlans]
+              subPlans.splice(snap.subPlanIndex, 0, snap.removed)
+              const nodes = [...p.nodes]
+              if (snap.handle) nodes.splice(snap.handleIndex, 0, snap.handle)
+              return { ...p, subPlans, nodes }
+            }),
+          }, parentId)
+        },
         // Drop the command rather than orphan the sub-plan or duplicate its id when
         // the tree changed through an action that is not undoable.
         canUndo: (_blocks, b) =>
-          findSubPlan(b.rootPlan, parentId) !== undefined && findSubPlan(b.rootPlan, removed.id) === undefined,
+          snapshot !== undefined &&
+          findSubPlan(b.rootPlan, parentId) !== undefined &&
+          findSubPlan(b.rootPlan, snapshot.removed.id) === undefined,
       }
       return applyCommand(state, cmd)
     }),
