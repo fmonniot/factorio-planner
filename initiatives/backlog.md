@@ -61,3 +61,5 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [~] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
 ## Tests and tooling
+
+- [ ] **Run e2e against the production build.** Playwright starts `npm run dev`, so every test pays for Vite's on-demand module transforms and the dev server's PNG→WebP conversion. Serving the built `dist/` with `vite preview` should be faster and closer to what ships. It needs the `/factorio-planner/` base path in `baseURL` and the specs' URLs, and a build before the e2e step (the CI `e2e` and `build` jobs could share one build through an artifact). Measure a local run of both before committing to it.
