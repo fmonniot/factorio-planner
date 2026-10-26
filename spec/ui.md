@@ -729,9 +729,11 @@ Rename opens a browser prompt prefilled with the current name; cancelling or a
 blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.
-Removal is not undoable. Expanding shows its
-nodes indented beneath it (including nested sub-factories); an empty expanded
-group shows a "Drop here" target. Expanded/collapsed state is not saved.
+Removal, with all its contents, is undoable at store level: undo restores the
+sub-factory at its original position. The undo history is session-only and per
+block. Expanding shows its nodes indented beneath it (including nested
+sub-factories); an empty expanded group shows a "Drop here" target.
+Expanded/collapsed state is not saved.
 
 Sub-factories exist only to organise the table; the solver ignores the grouping.
 
