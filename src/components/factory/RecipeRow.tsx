@@ -102,6 +102,7 @@ export function RecipeRow({
   const removeNode = useBlockStore(s => s.removeNode)
   const removeSubPlan = useBlockStore(s => s.removeSubPlan)
   const renameSubPlan = useBlockStore(s => s.renameSubPlan)
+  const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
 
@@ -250,6 +251,15 @@ export function RecipeRow({
             >
               <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
               <span className="font-medium">{label}</span>
+              {childPlan?.area === true && (
+                <span
+                  data-testid="area-marker"
+                  title="Separate area"
+                  className="text-[10px] px-1 rounded border border-teal-700 text-teal-300"
+                >
+                  Area
+                </span>
+              )}
               {childPlan && (() => {
                 const { recipes } = countSubPlanContents(childPlan)
                 return (
@@ -266,6 +276,12 @@ export function RecipeRow({
               y={menuPos.y}
               actions={[
                 { label: 'Rename subfactory…', onSelect: handleRenameSubPlan },
+                {
+                  label: 'Separate area',
+                  checked: childPlan?.area === true,
+                  title: 'Solve this subfactory as its own area: its rows serve it first, and the summary lists what it receives and sends',
+                  onSelect: () => setSubPlanArea(subPlanId, !(childPlan?.area === true)),
+                },
                 { label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan },
               ]}
               onClose={() => setMenuPos(null)}

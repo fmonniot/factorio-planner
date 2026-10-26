@@ -23,6 +23,13 @@ const gameData = () => ({ items: {} }) as unknown as GameData
 const solved = (): BlockSolve => ({ result: { nodes: [], unsatisfied: [], warnings: [] }, received: new Map() })
 
 describe('planKey', () => {
+  it('is the exact key of the four plan parts when there are no areas, and appends the areas otherwise', () => {
+    const plan = flattenBlock(block(subPlan('r', [node('n', 'plate')], '2020-01-01T00:00:00.000Z')))
+    expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, [], []]))
+    const areas = [{ id: 'root', nodeIds: ['n'] }]
+    expect(planKey({ ...plan, areas })).toBe(exactKey([plan.goals, plan.nodes, [], [], areas]))
+  })
+
   it('ignores block name, colour, sub-plan names and updatedAt', () => {
     const a = block(subPlan('one', [node('n', 'plate')], '2020-01-01T00:00:00.000Z'))
     const b = block(subPlan('two', [node('n', 'plate')], '2030-01-01T00:00:00.000Z'), { name: 'Other', color: '#000000' })

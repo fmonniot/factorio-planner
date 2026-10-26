@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
-import { solve, solveAll, netBalance } from './index'
+import { solve, solveAll, flattenBlock, netBalance } from './index'
 import { loadGameDataFromJson } from '../data/loader'
 import type { Block, BlockConnection, GameRecipeNode, Product, SolverGoal, RecipeNode, SolverResult } from '../data/types'
 
@@ -206,6 +206,49 @@ describe('solver on the real Nullius data', () => {
       const plan = makePlan([[recipe.products[0].itemId, 60]], [recipe.id])
       expectSane(solve(plan, gameData), plan, recipe.id)
     }
+  })
+
+  it('builds steam electrolysis in the root and in a separate area, each serving its own side', () => {
+    const now = new Date().toISOString()
+    const compression = {
+      id: 'compression',
+      name: 'Compression',
+      nodes: [
+        { ...planNode('nullius-steam-electrolysis'), id: 'electrolysis-compression' },
+        planNode('nullius-compressed-hydrogen'),
+      ],
+      subPlans: [],
+      area: true,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const block: Block = {
+      id: 'b',
+      name: 'Hydrogen',
+      color: '#60a5fa',
+      products: [
+        { id: 'p1', itemId: 'nullius-hydrogen', extraRate: 800 },
+        { id: 'p2', itemId: 'nullius-compressed-hydrogen', extraRate: 240 },
+      ],
+      noImportItems: [],
+      connectionsFirstItems: [],
+      inputConnections: [],
+      rootPlan: {
+        id: 'root',
+        name: 'Hydrogen',
+        nodes: [planNode('nullius-steam-electrolysis'), { kind: 'subplan', id: 'h', subPlanId: compression.id }],
+        subPlans: [compression],
+        createdAt: now,
+        updatedAt: now,
+      },
+    }
+    const plan = flattenBlock(block)
+    const r = solve(plan, gameData)
+    expectSane(r, plan)
+    expect(nodeOf(r, 'nullius-steam-electrolysis').throughput).toBeGreaterThan(0)
+    expect(nodeOf(r, 'electrolysis-compression').throughput).toBeGreaterThan(0)
+    const received = r.areas!.find(a => a.areaId === 'compression')!.receives
+    expect(received.find(f => f.itemId === 'nullius-hydrogen')).toBeUndefined()
   })
 })
 

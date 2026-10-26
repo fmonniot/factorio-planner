@@ -1,0 +1,61 @@
+{
+  "blocks": [
+    {
+      "id": "eeee0001-0000-0000-0000-000000000001",
+      "name": "Hydrogen",
+      "color": "#60a5fa",
+      "products": [
+        { "id": "eeee0001-0000-0000-0000-0000000000p1", "itemId": "nullius-hydrogen", "extraRate": 800 },
+        { "id": "eeee0001-0000-0000-0000-0000000000p2", "itemId": "nullius-compressed-hydrogen", "extraRate": 240 }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "eeee0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "eeee0004-0000-0000-0000-000000000001",
+            "recipeId": "nullius-steam-electrolysis",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "eeee0005-0000-0000-0000-000000000001",
+            "subPlanId": "eeee0010-0000-0000-0000-000000000001"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "eeee0010-0000-0000-0000-000000000001",
+            "name": "Compression",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "eeee0011-0000-0000-0000-000000000001",
+                "recipeId": "nullius-steam-electrolysis",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "eeee0011-0000-0000-0000-000000000002",
+                "recipeId": "nullius-compressed-hydrogen",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-05-10T00:00:00.000Z",
+        "updatedAt": "2026-05-10T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "eeee0001-0000-0000-0000-000000000001"
+}

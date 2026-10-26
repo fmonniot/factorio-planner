@@ -282,6 +282,8 @@ export interface BlockStoreState {
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
   removeSubPlan: (subPlanId: string) => void
+  /** Make a sub-factory a separate area in the solve (or an organising group again). Undoable. */
+  setSubPlanArea: (subPlanId: string, area: boolean) => void
   renameSubPlan: (subPlanId: string, name: string) => void
 
   // Products (block-level)
@@ -567,6 +569,34 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           snapshot !== undefined &&
           findSubPlan(b.rootPlan, parentId) !== undefined &&
           findSubPlan(b.rootPlan, snapshot.removed.id) === undefined,
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  setSubPlanArea: (subPlanId, area) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block || subPlanId === block.rootPlan.id) return state
+      const target = findSubPlan(block.rootPlan, subPlanId)
+      if (!target || (target.area === true) === area) return state
+      const previous = target.area
+      // Off removes the key, so a saved plan without areas keeps exactly its old shape.
+      const setArea = (value: boolean | undefined) => (p: SubPlan): SubPlan => {
+        const next = { ...p }
+        delete next.area
+        return value === undefined ? next : { ...next, area: value }
+      }
+      const cmd: Command = {
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setArea(area ? true : undefined)),
+        }, subPlanId),
+        undo: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setArea(previous)),
+        }, subPlanId),
+        canApply: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
+        canUndo: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
       }
       return applyCommand(state, cmd)
     }),

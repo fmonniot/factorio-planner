@@ -1,6 +1,6 @@
 # Initiative: Block granularity
 
-Status: Future
+Status: Active
 
 Problem statement and requirements for planning a factory that is built in many places. This document is deliberately solution-neutral: it describes what is missing and what any answer must do, not how. Proposals live in [proposals/](proposals/) and are judged against the requirements and scenarios below. A proposal that disagrees with a requirement should say so explicitly rather than quietly drop it.
 

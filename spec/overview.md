@@ -15,7 +15,7 @@ The UI is a flat production table: the user sets goals for a block, adds recipes
 ## Non-Goals
 
 - Factorio 1.1 support — target is 2.0 only
-- Belt/logistics network layout or spatial planning
+- Belt/logistics network layout and spatial planning (maps, coordinates, distances). Areas are bookkeeping: the planner tracks which rows are built in which area and what flows between them, not where they are.
 - Multiplayer or shared editing sessions
 - Map-level infrastructure (power grids, train networks)
 - Mining productivity research, resource yield and depletion, and asteroid collection are not modelled (mining and pumping rows assume the base rate and, for fluid resources, a 100 % yield)

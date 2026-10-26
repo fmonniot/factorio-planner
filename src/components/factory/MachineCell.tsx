@@ -54,7 +54,7 @@ export function MachineCell({
           ?
         </span>
       )}
-      <span className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
+      <span data-testid="machine-count" className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
         style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>
         {machineCountCeil}
       </span>

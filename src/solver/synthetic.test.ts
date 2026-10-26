@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { solve } from './index'
-import type { GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolverResult } from '../data/types'
+import { solve, flattenBlock } from './index'
+import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius export).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -137,6 +137,30 @@ function run(
   return solve(plan, makeGameData())
 }
 
+// `where` makes the node id of a recipe built in several areas unique.
+function rowIn(recipeId: string, where: string): GameRecipeNode {
+  return { ...planNode(recipeId), id: `${recipeId}@${where}` }
+}
+
+function subPlan(id: string, nodes: RecipeNode[], subPlans: SubPlan[] = [], area?: boolean): SubPlan {
+  const now = new Date().toISOString()
+  return { id, name: id, nodes, subPlans, ...(area ? { area } : {}), createdAt: now, updatedAt: now }
+}
+
+function runBlock(rootPlan: SubPlan, products: Array<[string, number]>): SolverResult {
+  const block: Block = {
+    id: 'block-1',
+    name: 'Block',
+    color: '#60a5fa',
+    products: products.map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
+    noImportItems: [],
+    connectionsFirstItems: [],
+    inputConnections: [],
+    rootPlan,
+  }
+  return solve(flattenBlock(block), makeGameData())
+}
+
 function nodeOf(result: SolverResult, recipeId: string) {
   const n = result.nodes.find(x => x.recipeNodeId === recipeId)
   if (!n) throw new Error(`no solved node for ${recipeId}`)
@@ -237,5 +261,59 @@ describe('solver synthetic cases', () => {
     expect(n.machineCountExact).toBeCloseTo(5 / 1.4 / 0.4, 3)
     expect(unsatisfiedRate(r, 'uranium-238')).toBeCloseTo(10.714, 3)
     expect(n.throughput / nodeOf(base, 'kovarex-enrichment-process').throughput).toBeCloseTo(1 / 1.4, 3)
+  })
+
+  describe('case 7: intermediate built in two areas', () => {
+    // Top level {gear, ingot}; Plate line (area) {plate, ingot}; Rod line (area) {rod}.
+    const plateLine = subPlan('plate-line', [rowIn('nullius-iron-plate', 'plate-line'), rowIn('nullius-iron-ingot', 'plate-line')], [], true)
+    const rodLine = subPlan('rod-line', [rowIn('nullius-iron-rod', 'rod-line')], [], true)
+    const top = subPlan(
+      'top',
+      [
+        rowIn('nullius-iron-gear', 'top'),
+        rowIn('nullius-iron-ingot', 'top'),
+        { kind: 'subplan', id: 'h1', subPlanId: plateLine.id },
+        { kind: 'subplan', id: 'h2', subPlanId: rodLine.id },
+      ],
+      [plateLine, rodLine],
+    )
+    const r = runBlock(top, [['nullius-iron-gear', 60]])
+    const area = (id: string): SolvedArea => r.areas!.find(a => a.areaId === id)!
+    const rate = (flows: SolvedArea['sends'], itemId: string) => flows.find(f => f.itemId === itemId)
+
+    it('sizes every row for its own area', () => {
+      const expected: Array<[string, number, number, number]> = [
+        ['nullius-iron-gear@top', 30, 2, 2],
+        ['nullius-iron-plate@plate-line', 20, 1, 1],
+        ['nullius-iron-rod@rod-line', 6, 0.4, 1],
+        ['nullius-iron-ingot@plate-line', 40, 5.333, 6],
+        ['nullius-iron-ingot@top', 12, 1.6, 2],
+      ]
+      for (const [id, throughput, count, ceil] of expected) {
+        expect(nodeOf(r, id).throughput, `${id} throughput`).toBeCloseTo(throughput, 3)
+        expect(nodeOf(r, id).machineCountExact, `${id} machine count`).toBeCloseTo(count, 3)
+        expect(nodeOf(r, id).machineCountCeil, `${id} buildings`).toBe(ceil)
+      }
+      expect(unsatisfiedRate(r, 'iron-ore')).toBeCloseTo(260, 3)
+      expect(r.warnings).toEqual([])
+    })
+
+    it('reports what each area receives and sends', () => {
+      expect(rate(area('top').receives, 'nullius-iron-plate')!.rate).toBeCloseTo(60, 3)
+      expect(rate(area('top').receives, 'nullius-iron-rod')!.rate).toBeCloseTo(30, 3)
+      expect(rate(area('top').receives, 'iron-ore')).toMatchObject({ boundary: true })
+      expect(rate(area('top').receives, 'iron-ore')!.rate).toBeCloseTo(60, 3)
+      expect(rate(area('top').sends, 'nullius-iron-gear')).toMatchObject({ boundary: true })
+      expect(rate(area('top').sends, 'nullius-iron-gear')!.rate).toBeCloseTo(60, 3)
+      expect(rate(area('top').sends, 'nullius-iron-ingot')).toMatchObject({ boundary: false })
+      expect(rate(area('top').sends, 'nullius-iron-ingot')!.rate).toBeCloseTo(24, 3)
+      expect(rate(area('top').sends, 'nullius-gravel')!.rate).toBeCloseTo(12, 3)
+      expect(rate(area('plate-line').receives, 'iron-ore')!.rate).toBeCloseTo(200, 3)
+      expect(rate(area('plate-line').sends, 'nullius-iron-plate')!.rate).toBeCloseTo(60, 3)
+      expect(rate(area('plate-line').sends, 'nullius-gravel')!.rate).toBeCloseTo(40, 3)
+      expect(rate(area('rod-line').receives, 'nullius-iron-ingot')).toMatchObject({ boundary: false })
+      expect(rate(area('rod-line').receives, 'nullius-iron-ingot')!.rate).toBeCloseTo(24, 3)
+      expect(rate(area('rod-line').sends, 'nullius-iron-rod')!.rate).toBeCloseTo(30, 3)
+    })
   })
 })

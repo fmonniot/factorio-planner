@@ -13,6 +13,8 @@ export interface RowAction {
   disabled?: boolean
   /** Tooltip, e.g. why the action is disabled. */
   title?: string
+  /** Makes the item a checkbox in this state. */
+  checked?: boolean
 }
 
 interface RowActionsMenuProps {
@@ -86,7 +88,8 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
         <button
           key={action.label}
           type="button"
-          role="menuitem"
+          role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
+          aria-checked={action.checked}
           disabled={action.disabled}
           title={action.title}
           className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
@@ -97,6 +100,9 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
             onClose()
           }}
         >
+          {action.checked !== undefined && (
+            <span aria-hidden className="inline-block w-3 mr-1">{action.checked ? '✓' : ''}</span>
+          )}
           {action.label}
         </button>
       ))}
