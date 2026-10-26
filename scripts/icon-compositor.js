@@ -65,7 +65,36 @@ export function iconCanvasSize(proto) {
 }
 
 /**
+ * Add a light layer (tint alpha 0) onto a straight-alpha RGBA canvas, in place.
+ * Factorio adds the layer's colour to what is below it and keeps the alpha below,
+ * so the canvas alpha is unchanged and light that lands on a fully transparent
+ * canvas pixel is dropped (a straight-alpha PNG cannot hold additive light over an
+ * unknown background). Both buffers are raw 4-channel RGBA, square.
+ */
+export function addLightLayer(canvas, canvasSize, layer, layerSize, left, top) {
+  const y0 = Math.max(0, -top)
+  const y1 = Math.min(layerSize, canvasSize - top)
+  const x0 = Math.max(0, -left)
+  const x1 = Math.min(layerSize, canvasSize - left)
+  for (let y = y0; y < y1; y++) {
+    for (let x = x0; x < x1; x++) {
+      const ci = ((y + top) * canvasSize + x + left) * 4
+      const li = (y * layerSize + x) * 4
+      const da = canvas[ci + 3]
+      if (da === 0) continue
+      // Premultiplied add, converted back to straight alpha: C' = C + L * la / da.
+      const k = layer[li + 3] / da
+      for (let c = 0; c < 3; c++) {
+        canvas[ci + c] = Math.min(255, Math.round(canvas[ci + c] + layer[li + c] * k))
+      }
+    }
+  }
+}
+
+/**
  * Composite an array of Factorio IconData layers into a single PNG Buffer.
+ * Layers are drawn in order with normal alpha; a layer whose tint alpha is 0 is a
+ * light layer and is added to the layers below instead (see addLightLayer).
  *
  * @param {Array}  layers     - Array of IconData objects from proto.icons
  * @param {object} resolvers  - Mod name → resolver map
@@ -76,7 +105,7 @@ export function iconCanvasSize(proto) {
  * @returns {Promise<Buffer|null>} PNG buffer, or null if no layers could be rendered
  */
 export async function compositeIconLayers(layers, resolvers, outputSize = 64, expectedSize = outputSize) {
-  const compositeInputs = []
+  const steps = []
 
   for (const layer of layers) {
     const buf = readIconBuffer(layer.icon, resolvers)
@@ -93,9 +122,9 @@ export async function compositeIconLayers(layers, resolvers, outputSize = 64, ex
     const tint = normalizeColor(layer.tint)
     const isIdentityTint = tint.r === 1 && tint.g === 1 && tint.b === 1
     if (!isIdentityTint) {
-      // Factorio tinting is multiplicative: output = source * tint (per channel).
-      // sharp.recomb() applies a 3×3 matrix to RGB — a diagonal of [r, g, b] achieves
-      // the per-channel multiply without touching the alpha channel.
+      // Factorio draws layers with premultiplied alpha and multiplies the tint into the
+      // colour: output = source * tint (per channel). sharp.recomb() applies a 3×3 matrix
+      // to RGB — a diagonal of [r, g, b] does the per-channel multiply, alpha untouched.
       img = img.recomb([
         [tint.r, 0, 0],
         [0, tint.g, 0],
@@ -108,18 +137,42 @@ export async function compositeIconLayers(layers, resolvers, outputSize = 64, ex
     const left = Math.round((outputSize - scaledSize) / 2 + shiftX)
     const top  = Math.round((outputSize - scaledSize) / 2 + shiftY)
 
-    const layerBuf = await img.ensureAlpha().png().toBuffer()
-    compositeInputs.push({ input: layerBuf, blend: 'over', left, top })
+    if (tint.a === 0) {
+      // toColourspace guarantees 4 channels for grey+alpha sources.
+      const light = await img.toColourspace('srgb').ensureAlpha().raw().toBuffer()
+      steps.push({ light, size: scaledSize, left, top })
+    } else {
+      const input = await img.ensureAlpha().png().toBuffer()
+      steps.push({ over: { input, blend: 'over', left, top } })
+    }
   }
 
-  if (compositeInputs.length === 0) return null
+  if (steps.length === 0) return null
 
-  return sharp({
-    create: { width: outputSize, height: outputSize, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
-  })
-    .composite(compositeInputs)
-    .png()
-    .toBuffer()
+  const raw = { width: outputSize, height: outputSize, channels: 4 }
+  let canvas = await sharp({
+    create: { ...raw, background: { r: 0, g: 0, b: 0, alpha: 0 } },
+  }).raw().toBuffer()
+
+  // Consecutive normal layers go through one libvips composite; a light layer needs
+  // the pixels below it, so it flushes them first.
+  let pending = []
+  const flush = async () => {
+    if (pending.length === 0) return
+    canvas = await sharp(canvas, { raw }).composite(pending).raw().toBuffer()
+    pending = []
+  }
+  for (const step of steps) {
+    if (step.over) {
+      pending.push(step.over)
+    } else {
+      await flush()
+      addLightLayer(canvas, outputSize, step.light, step.size, step.left, step.top)
+    }
+  }
+  await flush()
+
+  return sharp(canvas, { raw }).png().toBuffer()
 }
 
 /**
