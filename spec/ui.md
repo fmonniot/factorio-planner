@@ -321,7 +321,7 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   box lists nothing; no match shows "No matching technologies"; the dropdown shows at most 50 results, then a
   "N more — refine the search" row. Choosing a result (click, or Enter for the first) centres its card at scale 1
   (`centerOn`), hides the unlocks popup, clears the box and highlights the card for 1.5 s (`data-highlight`,
-  a pulsing sky ring that wins over the target ring). It never changes the horizon. Escape clears a non-empty
+  a pulsing sky ring that wins over the target ring). It never changes the horizon. A pointer down in the viewport clears the box. The dropdown is right-aligned to the box so it stays inside the header. Escape clears a non-empty
   box before it closes the tree (captured ahead of the modal's listener); with the unlocks popup open, that
   popup's Escape comes first.
 - **Click** a card to toggle it as a horizon target; targets get a ring. Adding a locked technology researches its whole prerequisite

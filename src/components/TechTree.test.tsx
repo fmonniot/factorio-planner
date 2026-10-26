@@ -4,6 +4,8 @@ import { TechTreeButton } from './TechTree'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
 import type { GameData } from '../data/types'
+import { layoutTechTree, CARD_W, CARD_H } from '../data/techTree'
+import { centerOn, transformCss } from '../utils/viewTransform'
 
 function recipe(id: string): GameData['recipes'][string] {
   return {
@@ -340,10 +342,24 @@ describe('search', () => {
     expect(card('electronics').dataset.highlight).toBe('false')
     expect(box()).toHaveValue('')
     expect(screen.queryByTestId('tech-tree-search-results')).not.toBeInTheDocument()
-    expect(screen.getByTestId('tech-tree-canvas').dataset.scale).toBe('1')
     expect(screen.getByTestId('tech-tree-horizon').textContent).toBe(horizon)
     expect(Array.from(document.querySelectorAll('[data-testid="tech-card"]')).map(c => (c as HTMLElement).dataset.target)).toEqual(targets)
     expect(useBlockStore.getState().horizonTechnologyIds).toEqual([])
+  })
+
+  it('choosing a result centres its card at scale 1', () => {
+    open()
+    const vp = screen.getByTestId('tech-tree-viewport')
+    Object.defineProperty(vp, 'clientWidth', { configurable: true, value: 800 })
+    Object.defineProperty(vp, 'clientHeight', { configurable: true, value: 600 })
+    fireEvent.click(screen.getByRole('button', { name: 'Zoom in' }))
+    const canvas = screen.getByTestId('tech-tree-canvas')
+    expect(canvas.dataset.scale).not.toBe('1')
+    type('toolbelt')
+    fireEvent.click(results()[0])
+    const node = layoutTechTree(withLeveled().technologies).nodes['toolbelt-5']
+    expect(canvas.dataset.scale).toBe('1')
+    expect(canvas.style.transform).toBe(transformCss(centerOn(node.x + CARD_W / 2, node.y + CARD_H / 2, 800, 600, 1)))
   })
 
   it('the highlight expires', () => {
@@ -363,6 +379,40 @@ describe('search', () => {
     fireEvent.keyDown(box(), { key: 'Enter' })
     expect(card(first).dataset.highlight).toBe('true')
     expect(box()).toHaveValue('')
+  })
+
+  it('Enter during IME composition does not pick', () => {
+    open()
+    type('e')
+    fireEvent.keyDown(box(), { key: 'Enter', isComposing: true })
+    expect(box()).toHaveValue('e')
+    expect(document.querySelector('[data-highlight="true"]')).toBeNull()
+  })
+
+  it('a pointer down in the viewport clears the box', () => {
+    open()
+    type('elec')
+    fireEvent.pointerDown(screen.getByTestId('tech-tree-viewport'), { button: 0 })
+    expect(box()).toHaveValue('')
+    expect(screen.queryByTestId('tech-tree-search-results')).not.toBeInTheDocument()
+  })
+
+  it('Escape with the popup open: popup first, then the box, then the tree', () => {
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+      () => ({ left: 0, top: 0, right: 1000, bottom: 800, width: 1000, height: 800, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect)
+    open()
+    type('elec')
+    fireEvent.focus(card('rocket-silo'))
+    expect(screen.getByTestId('tech-unlocks-popup')).toBeInTheDocument()
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('tech-unlocks-popup')).not.toBeInTheDocument()
+    expect(box()).toHaveValue('elec')
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(box()).toHaveValue('')
+    expect(treeOpen()).toBe(true)
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(treeOpen()).toBe(false)
+    vi.restoreAllMocks()
   })
 
   it('Enter without a result does nothing', () => {

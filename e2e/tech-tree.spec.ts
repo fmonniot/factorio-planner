@@ -151,7 +151,9 @@ test.describe('Technology tree search', () => {
   })
 
   test('choosing a result centres and highlights its card without changing the horizon', async ({ page }) => {
-    await page.getByRole('button', { name: 'Fit to view' }).click()
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await expect(canvas(page)).not.toHaveAttribute('data-scale', '1')
     await search(page).fill('toolbelt 5')
     const result = page.getByTestId('tech-tree-search-result')
     await expect(result).toHaveCount(1)

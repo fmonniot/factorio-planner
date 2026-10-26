@@ -116,7 +116,7 @@ function TechSearch({ technologies, query, onQueryChange, onPick }: TechSearchPr
   const active = query.trim() !== ''
 
   return (
-    <div className="relative ml-auto">
+    <div className="relative mr-2">
       <input
         type="text"
         value={query}
@@ -125,7 +125,7 @@ function TechSearch({ technologies, query, onQueryChange, onPick }: TechSearchPr
         data-testid="tech-tree-search"
         onChange={e => onQueryChange(e.target.value)}
         onKeyDown={e => {
-          if (e.key === 'Enter' && shown.length > 0) {
+          if (e.key === 'Enter' && !e.nativeEvent.isComposing && shown.length > 0) {
             e.preventDefault()
             onPick(shown[0].id)
           }
@@ -137,7 +137,7 @@ function TechSearch({ technologies, query, onQueryChange, onPick }: TechSearchPr
           role="listbox"
           aria-label="Matching technologies"
           data-testid="tech-tree-search-results"
-          className="absolute left-0 top-full mt-1 z-10 w-72 max-h-64 overflow-y-auto bg-gray-900 border border-gray-600 rounded shadow-lg py-1"
+          className="absolute right-0 top-full mt-1 z-10 w-72 max-w-[calc(100vw-2rem)] max-h-64 overflow-y-auto bg-gray-900 border border-gray-600 rounded shadow-lg py-1"
         >
           {shown.map(t => (
             <button
@@ -338,6 +338,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
 
   function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
     hidePreview()
+    setQuery('')
     pointerDownRef.current = true
     if (e.button !== 0 || dragRef.current) return
     movedRef.current = false
@@ -450,8 +451,8 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-amber-500 bg-amber-900/30" />Available</span>
           <span className="flex items-center gap-1"><span className="w-3 h-3 rounded border border-gray-700 bg-gray-800" />Locked</span>
         </div>
-        <TechSearch technologies={gameData.technologies} query={query} onQueryChange={setQuery} onPick={pickResult} />
-        <div className="flex items-center gap-1">
+        <div className="ml-auto flex items-center gap-1">
+          <TechSearch technologies={gameData.technologies} query={query} onQueryChange={setQuery} onPick={pickResult} />
           <button type="button" aria-label="Zoom out" onClick={() => zoomBy(1 / ZOOM_STEP)} className={btn}>−</button>
           <button type="button" aria-label="Zoom in" onClick={() => zoomBy(ZOOM_STEP)} className={btn}>+</button>
           <button type="button" aria-label="Fit to view" onClick={fit} className={btn}>Fit</button>
