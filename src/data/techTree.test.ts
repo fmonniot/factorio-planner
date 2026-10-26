@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { techDepths, layoutTechTree, techStates, CARD_W, CARD_H, COL_GAP, ROW_GAP } from './techTree'
+import { techDepths, layoutTechTree, techStates, searchTechnologies, CARD_W, CARD_H, COL_GAP, ROW_GAP } from './techTree'
 import type { GameData } from './types'
 
 type Techs = GameData['technologies']
@@ -127,5 +127,46 @@ describe('techStates', () => {
 
   it('treats a technology with only unknown prerequisites as available', () => {
     expect(states([]).z).toBe('available')
+  })
+})
+
+describe('searchTechnologies', () => {
+  function named(...names: string[]): Techs {
+    return Object.fromEntries(names.map(n => [n.toLowerCase().replace(/ /g, '-'), { ...tech(n.toLowerCase().replace(/ /g, '-')), name: n }]))
+  }
+  const names = (techs: Techs, q: string) => searchTechnologies(techs, q).map(t => t.name)
+
+  it('matches case-insensitively', () => {
+    expect(names(named('Electronics', 'Steel'), 'ELEC')).toEqual(['Electronics'])
+  })
+
+  it('matches a leveled name by its full name or a fragment', () => {
+    const techs = named('Toolbelt 4', 'Toolbelt 5')
+    expect(names(techs, 'toolbelt 5')).toEqual(['Toolbelt 5'])
+    expect(names(techs, 'belt 5')).toEqual(['Toolbelt 5'])
+  })
+
+  it('lists prefix matches before infix matches', () => {
+    expect(names(named('Advanced electronics', 'Electronics', 'Electric energy'), 'elec')).toEqual([
+      'Electric energy', 'Electronics', 'Advanced electronics',
+    ])
+  })
+
+  it('orders numbers numerically', () => {
+    expect(names(named('Toolbelt 10', 'Toolbelt 2', 'Toolbelt 1'), 'toolbelt')).toEqual(['Toolbelt 1', 'Toolbelt 2', 'Toolbelt 10'])
+  })
+
+  it('returns nothing for a blank or whitespace-only query', () => {
+    const techs = named('Electronics')
+    expect(searchTechnologies(techs, '')).toEqual([])
+    expect(searchTechnologies(techs, '   ')).toEqual([])
+  })
+
+  it('returns nothing when nothing matches', () => {
+    expect(searchTechnologies(named('Electronics'), 'zzz')).toEqual([])
+  })
+
+  it('trims the query', () => {
+    expect(names(named('Electronics'), '  elec ')).toEqual(['Electronics'])
   })
 })

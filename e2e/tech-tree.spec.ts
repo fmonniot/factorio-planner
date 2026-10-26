@@ -131,6 +131,62 @@ test.describe('Technology tree', () => {
   })
 })
 
+test.describe('Technology tree search', () => {
+  // The shared fixture has no leveled technology, so add one.
+  function withLeveled(): Buffer {
+    const data = JSON.parse(fs.readFileSync(FIXTURE_PATH, 'utf8'))
+    data.technologies['toolbelt-5'] = {
+      id: 'toolbelt-5', name: 'Toolbelt 5', prerequisites: ['electronics'], unlockedRecipes: [], iconPath: '',
+    }
+    return Buffer.from(JSON.stringify(data))
+  }
+
+  const search = (page: Page) => page.getByRole('textbox', { name: 'Search technologies' })
+
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await upload(page, withLeveled())
+    await treeButton(page).click()
+    await expect(heading(page)).toBeVisible()
+  })
+
+  test('choosing a result centres and highlights its card without changing the horizon', async ({ page }) => {
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await page.getByRole('button', { name: 'Zoom out' }).click()
+    await expect(canvas(page)).not.toHaveAttribute('data-scale', '1')
+    await search(page).fill('toolbelt 5')
+    const result = page.getByTestId('tech-tree-search-result')
+    await expect(result).toHaveCount(1)
+    await expect(page.getByTestId('tech-tree-search-results')).toBeVisible()
+    await result.click()
+
+    await expect(canvas(page)).toHaveAttribute('data-scale', '1')
+    await expect(card(page, 'toolbelt-5')).toHaveAttribute('data-highlight', 'true')
+    const c = (await card(page, 'toolbelt-5').boundingBox())!
+    const v = (await viewport(page).boundingBox())!
+    expect(Math.abs(c.x + c.width / 2 - (v.x + v.width / 2))).toBeLessThanOrEqual(2)
+    expect(Math.abs(c.y + c.height / 2 - (v.y + v.height / 2))).toBeLessThanOrEqual(2)
+    await expect(search(page)).toHaveValue('')
+    await expect(page.getByTestId('tech-tree-horizon')).toContainText('No horizon')
+  })
+
+  test('Escape clears the box before closing the tree', async ({ page }) => {
+    await search(page).fill('toolbelt')
+    await search(page).press('Escape')
+    await expect(search(page)).toHaveValue('')
+    await expect(heading(page)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(heading(page)).toHaveCount(0)
+  })
+
+  test('Enter picks the first result', async ({ page }) => {
+    await search(page).fill('toolbelt')
+    await search(page).press('Enter')
+    await expect(card(page, 'toolbelt-5')).toHaveAttribute('data-highlight', 'true')
+    await expect(search(page)).toHaveValue('')
+  })
+})
+
 test.describe('Technology tree hover popup', () => {
   const popup = (page: Page) => page.getByTestId('tech-unlocks-popup')
 
