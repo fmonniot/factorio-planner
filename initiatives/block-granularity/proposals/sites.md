@@ -1,6 +1,6 @@
 # Proposal: Sub-factory sites
 
-Proposal for [Block granularity](../problem.md). Not implemented.
+Proposal for [Block granularity](../problem.md). Not chosen: [Areas in the solve](area-solve.md) was preferred (see [Decision](../problem.md#decision)). Not implemented.
 
 A sub-factory can be marked as a **site** (an area, in the problem's vocabulary), a recipe can have **copies** in other sites, and the planner shows what each site makes, uses and has to ship in or out. The proposal keeps one block (one solve, one table) per product chain, which covers R1, and adds sites on top of it.
 

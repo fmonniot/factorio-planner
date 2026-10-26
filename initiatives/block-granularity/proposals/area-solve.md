@@ -1,6 +1,6 @@
 # Proposal: Areas in the solve
 
-Proposal for [Block granularity](../problem.md). Not implemented.
+Proposal for [Block granularity](../problem.md). **Chosen** (see [Decision](../problem.md#decision)). Not implemented.
 
 A sub-factory can be marked as an **area**. A recipe can have an ordinary row in each area that builds it, each row with its own machine, modules and beacons. The block's LP knows which area every row is in: it balances each item per area, tracks what moves between areas, and sizes every row in the same solve. As in [Sub-factory sites](sites.md), one block (one solve, one table) stays one product chain, which covers R1. Unlike sites, areas are part of the solve, not bookkeeping after it.
 

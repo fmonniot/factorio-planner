@@ -1,6 +1,6 @@
 # Proposal: Areas as an overlay
 
-Proposal for [Block granularity](../problem.md). Not implemented.
+Proposal for [Block granularity](../problem.md). Not chosen: [Areas in the solve](area-solve.md) was preferred (see [Decision](../problem.md#decision)). Not implemented.
 
 Areas are a **plan-level layer** next to the blocks, not a kind of sub-factory. A block's table stays exactly the product chain, one row per recipe, solved as today. The player places work on the map by binding rows or sub-factories to an area (**Built in**), and by giving a row **parts** in other areas: a share of its work, a number of buildings, or what that area uses. An **Areas** view lists, per area and across every block, what is built there, how many buildings it takes and what comes in and goes out. The two questions of the problem get two views: the table answers *what does it take to make X*, the Areas view answers *where does each group of machines go*.
 
