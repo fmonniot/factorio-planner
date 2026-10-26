@@ -21,6 +21,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
+| Block granularity           | Future   | [block-granularity/](block-granularity/problem.md)     |
 | Requests between blocks     | Shipped  | [archive/block-requests/](archive/block-requests/)     |
 | Top bar workspace menu      | Shipped  | [archive/top-bar-workspace/](archive/top-bar-workspace/) |
 | Summary panes as slots      | Shipped  | [archive/summary-panes-slots/](archive/summary-panes-slots/) |
