@@ -246,12 +246,20 @@ function solveAreaLP(
   }
   const finish = (result: SolveResult, model: LPModel): AreaLPResult => {
     const lp = readLPResult(result, model, system.recipes, pinnedRates, result.feasible === true)
-    const dedicatedIn = penalised.map(p => ({
+    // The LP is keyed by column id; warnings name recipes.
+    const recipeOf = new Map(columns.map(c => [c.id, c.node.recipeId]))
+    const warnings = lp.warnings.map(w =>
+      w.type === 'infeasible-pins'
+        ? { ...w, recipeIds: [...new Set(w.recipeIds.map(id => recipeOf.get(id) ?? id))] }
+        : w,
+    )
+    // A failed solve still reports variable values; they say nothing about imports.
+    const dedicatedIn = result.feasible !== true ? [] : penalised.map(p => ({
       area: p.area,
       itemId: p.itemId,
       rate: typeof result[p.name] === 'number' ? Math.max(0, result[p.name] as number) : 0,
     }))
-    return { ...lp, dedicatedIn }
+    return { ...lp, warnings, dedicatedIn }
   }
 
   let stage1: SolveResult | undefined
@@ -266,7 +274,12 @@ function solveAreaLP(
   const bound = d1 <= LOCAL_ZERO ? 0 : relaxed
   let stage2 = run('__s2', stage1 ? bound : undefined)
   if (stage2.feasible !== true && stage1 && bound === 0) stage2 = run('__s2', relaxed)
-  if (stage2.feasible !== true) return finish(stage1 ?? stage2, base)
+  // Still infeasible with the relaxed bound: drop `local` rather than keep stage 1, whose
+  // objective puts no cost on recipe runs (its throughputs are arbitrary vertices).
+  // Not unit-tested: stage 2 only differs from stage 1 by `local` and the cost terms, and no
+  // fixture makes a feasible stage 1 infeasible without it.
+  if (stage2.feasible !== true && stage1) stage2 = run('__s2')
+  if (stage2.feasible !== true) return finish(stage2, base)
   return finish(stage2, base)
 }
 

@@ -384,6 +384,24 @@ describe('areas in the solve', () => {
     expect(on.areas).toHaveLength(2)
     expect(area(on, 'E')).toEqual({ areaId: 'E', receives: [], sends: [] })
   })
+
+  it('conflicting pins in an area block name recipes and raise no shortfall', () => {
+    const b = scenario1(true, { pinnedRate: 10 })
+    b.noImportItems = ['hydrogen']
+    const p = b.rootPlan.subPlans.find(x => x.id === 'P')!
+    ;(p.nodes.find(n => n.id === 'plastic@P') as GameRecipeNode).pinnedRate = 500
+    ;(b.rootPlan.nodes.find(n => n.id === 'electrolysis@root') as GameRecipeNode).pinnedRate = 5
+    const f = b.rootPlan.subPlans.find(x => x.id === 'F')!
+    ;(f.nodes.find(n => n.id === 'electrolysis@F') as GameRecipeNode).pinnedRate = 5
+    const r = solved(b)
+    const pins = r.warnings.find(w => w.type === 'infeasible-pins')
+    expect(pins).toBeDefined()
+    if (pins?.type === 'infeasible-pins') {
+      expect(pins.recipeIds.every(id => id in gd().recipes)).toBe(true)
+      expect(new Set(pins.recipeIds).size).toBe(pins.recipeIds.length)
+    }
+    expect(r.warnings.some(w => w.type === 'area-shortfall')).toBe(false)
+  })
 })
 
 function scenario2Off(): Block {
