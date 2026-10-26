@@ -21,9 +21,12 @@ function bundled(dir: string) {
 const nullius = bundled('nullius')
 const seablock = bundled('kompetenz-seablock')
 
+// Plans written for areas: their e2e flow turns an area on, so they are not part of the golden.
+const AREA_FIXTURES = new Set(['separate-area.json'])
+
 function planFixtures(): string[] {
   return readdirSync(FIXTURES)
-    .filter(f => f.endsWith('.json'))
+    .filter(f => f.endsWith('.json') && !AREA_FIXTURES.has(f))
     .filter(f => 'blocks' in JSON.parse(readFileSync(resolve(FIXTURES, f), 'utf-8')))
     .sort()
 }

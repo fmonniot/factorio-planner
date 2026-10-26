@@ -4,7 +4,8 @@ import { WarningsPopover } from './WarningsPopover'
 import { useSolverStore } from '../../store/solverStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import type { GameData, SolverResult } from '../../data/types'
+import { useUiStore } from '../../store/uiStore'
+import type { GameData, GameRecipeNode, SolverResult, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Minimal GameData with recipe and item names
@@ -173,6 +174,79 @@ describe('WarningsPopover — infeasible-pins', () => {
 
   it('hint mentions unpinning', () => {
     expect(screen.getByText(/unpin/i)).toBeInTheDocument()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// areas: area-shortfall and duplicate-recipe per area
+// ---------------------------------------------------------------------------
+
+function node(id: string, recipeId: string): GameRecipeNode {
+  return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} }
+}
+
+function plan(id: string, name: string, nodes: GameRecipeNode[], subPlans: SubPlan[] = [], area?: boolean): SubPlan {
+  return { id, name, nodes, subPlans, ...(area ? { area } : {}), createdAt: '', updatedAt: '' }
+}
+
+function setupAreaBlock() {
+  const block = makeEmptyBlock('Block')
+  const plastics = plan('plastics', 'Plastics', [node('boiler-p', 'boiler'), node('boiler-p2', 'boiler')], [], true)
+  const rootPlan = {
+    ...block.rootPlan,
+    nodes: [node('boiler-root', 'boiler'), node('boiler-root2', 'boiler')],
+    subPlans: [plastics],
+  }
+  useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+  return { block, rootPlan }
+}
+
+describe('WarningsPopover — area-shortfall', () => {
+  beforeEach(() => {
+    const { rootPlan } = setupAreaBlock()
+    useUiStore.setState({ rateUnit: 'min' })
+    setupWithWarnings({
+      warnings: [{ type: 'area-shortfall', shortfalls: [{ areaId: 'plastics', itemId: 'steam', rate: 52 }] }],
+    })
+    expect(rootPlan.subPlans).toHaveLength(1)
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title and a body naming the area, rate and item', () => {
+    expect(screen.getByText(/Area can't cover its own need/)).toBeInTheDocument()
+    expect(screen.getByText('Plastics takes 52.0/m of Steam from other areas, though it has its own row for it.')).toBeInTheDocument()
+  })
+
+  it('hint suggests unpinning or allowing imports, and the warning is not critical', () => {
+    expect(screen.getByText(/Unpin that row, or allow imports of its inputs/)).toBeInTheDocument()
+    expect(screen.getByText(/Area can't cover its own need/).className).toContain('text-yellow-400')
+  })
+})
+
+describe('WarningsPopover — duplicate-recipe in an area', () => {
+  const nodeIds = () => {
+    const root = useBlockStore.getState().blocks[0].rootPlan
+    return [...root.nodes, ...root.subPlans.flatMap(sp => sp.nodes)].map(n => n.id)
+  }
+
+  beforeEach(() => {
+    setupAreaBlock()
+    setupWithWarnings({
+      warnings: [{ type: 'duplicate-recipe', recipeId: 'boiler', count: 2, areaId: 'plastics' }],
+    })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('names the area and suggests separating a sub-factory', () => {
+    expect(screen.getByText(/"Boiler Recipe" appears on 2 rows in Plastics\./)).toBeInTheDocument()
+    expect(screen.getByText(/or make one of their sub-factories a separate area/)).toBeInTheDocument()
+  })
+
+  it('"Fix: remove duplicates" removes only the extra row of that area', () => {
+    fireEvent.click(screen.getByText('Fix: remove duplicates'))
+    expect(nodeIds()).toEqual(['boiler-root', 'boiler-root2', 'boiler-p'])
   })
 })
 

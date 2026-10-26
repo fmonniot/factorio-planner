@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import {
   useBlockStore,
   makeEmptyBlock,
@@ -233,6 +233,90 @@ describe('removeSubPlan', () => {
 // ---------------------------------------------------------------------------
 // moveNodeUp / moveNodeDown
 // ---------------------------------------------------------------------------
+
+describe('setSubPlanArea', () => {
+  function setup() {
+    const target = makeEmptySubPlan('Target')
+    const block = useBlockStore.getState().blocks[0]
+    const rootPlan = {
+      ...block.rootPlan,
+      nodes: [{ kind: 'subplan' as const, id: 'h-target', subPlanId: target.id }],
+      subPlans: [target],
+    }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+    return { target, blockId: block.id }
+  }
+  const plan = (id: string) => findSubPlan(useBlockStore.getState().blocks[0].rootPlan, id)!
+  const stack = (blockId: string) => useBlockStore.getState().history[blockId]
+
+  it('on sets area: true and touches updatedAt', () => {
+    const { target } = setup()
+    const before = plan(target.id).updatedAt
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2099-01-01T00:00:00.000Z'))
+    try {
+      useBlockStore.getState().setSubPlanArea(target.id, true)
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(plan(target.id).area).toBe(true)
+    expect(plan(target.id).updatedAt).not.toBe(before)
+  })
+
+  it('off removes the key', () => {
+    const { target } = setup()
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    useBlockStore.getState().setSubPlanArea(target.id, false)
+    expect('area' in plan(target.id)).toBe(false)
+  })
+
+  it('undo restores the absent key and redo sets it again', () => {
+    const { target } = setup()
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    useBlockStore.getState().undo()
+    expect('area' in plan(target.id)).toBe(false)
+    useBlockStore.getState().redo()
+    expect(plan(target.id).area).toBe(true)
+  })
+
+  it('a new command clears the redo stack', () => {
+    const { target, blockId } = setup()
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    useBlockStore.getState().undo()
+    expect(stack(blockId).redoStack).toHaveLength(1)
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    expect(stack(blockId).redoStack).toHaveLength(0)
+  })
+
+  it('a no-op leaves the undo stack alone', () => {
+    const { target, blockId } = setup()
+    useBlockStore.getState().setSubPlanArea(target.id, false)
+    expect(stack(blockId)).toBeUndefined()
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    expect(stack(blockId).undoStack).toHaveLength(1)
+  })
+
+  it('ignores the root plan and unknown ids', () => {
+    setup()
+    const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+    useBlockStore.getState().setSubPlanArea(rootId, true)
+    useBlockStore.getState().setSubPlanArea('missing', true)
+    expect('area' in useBlockStore.getState().blocks[0].rootPlan).toBe(false)
+    expect(useBlockStore.getState().history).toEqual({})
+  })
+
+  it('drops the command on undo when the sub-plan was removed meanwhile', () => {
+    const { target, blockId } = setup()
+    useBlockStore.getState().setSubPlanArea(target.id, true)
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [], subPlans: [] } }] })
+    const before = structuredClone(useBlockStore.getState().blocks)
+    useBlockStore.getState().undo()
+    expect(useBlockStore.getState().blocks).toEqual(before)
+    expect(stack(blockId).undoStack).toHaveLength(0)
+  })
+})
 
 describe('moveNodeUp', () => {
   it('moves a node up one position', () => {

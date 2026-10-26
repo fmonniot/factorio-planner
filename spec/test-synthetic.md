@@ -1,6 +1,6 @@
 # Solver Synthetic Test Cases
 
-Six recipe chains of increasing complexity, all using recipes from the committed
+Seven recipe chains of increasing complexity, all using recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it).
 
@@ -287,3 +287,49 @@ Compared to Case 4 (no modules): throughput 5.000 → 3.571 (−29%),
 U-238 consumption 15 → 10.714 (−29%). Productivity reduces both proportionally
 because U-238's `ignoredByProductivity` covers all its output — it is unaffected.
 The machine count goes the other way, 5 → 8.929, because the speed penalty outweighs the lower throughput.
+
+---
+
+## Case 7 — Intermediate built in two areas
+
+**Exercises:** areas. A recipe built in two areas gets a full row in each; each area's own row for an item serves it first, an area without one takes from the area highest in the table, and every row is rounded up on its own.
+
+**Goal:** 60 `nullius-iron-gear` / min
+
+Recipes are those of Case 2. Layout (the sub-factories after Top level are separate areas):
+- **Top level** (the block's root): `nullius-iron-gear`, `nullius-iron-ingot`
+- **Plate line** (area): `nullius-iron-plate`, `nullius-iron-ingot`
+- **Rod line** (area): `nullius-iron-rod`
+
+### Expected solver output
+
+| Row | Throughput (exec/min) | Machine count (exact) | Buildings |
+|---|---|---|---|
+| `nullius-iron-gear` (Top level) | 30 | 2.000 | 2 |
+| `nullius-iron-plate` (Plate line) | 20 | 1.000 | 1 |
+| `nullius-iron-rod` (Rod line) | 6 | 0.400 | 1 |
+| `nullius-iron-ingot` (Plate line) | 40 | 5.333 | 6 |
+| `nullius-iron-ingot` (Top level) | 12 | 1.600 | 2 |
+
+Raw resources: **iron-ore 260 / min** (Top level 60, Plate line 200). Gravel: 12 + 40 / min.
+
+| Area | Receives | Sends |
+|---|---|---|
+| Top level | plate 60, rod 30, iron-ore 60 (from outside) | gear 60 (leaves the block), ingot 24, gravel 12 (leaves the block) |
+| Plate line | iron-ore 200 (from outside) | plate 60, gravel 40 (leaves the block) |
+| Rod line | ingot 24 | rod 30 |
+
+### Derivation
+
+```
+nullius-iron-gear: 60/min ÷ 2 gears/exec = 30 exec/min (2.000 machines)
+  → plate demand 60/min, rod demand 30/min (both come from another area)
+nullius-iron-plate: 60/min ÷ 3 = 20 exec/min (1.000) → ingot demand 80/min
+nullius-iron-rod:   30/min ÷ 5 = 6 exec/min (0.400)  → ingot demand 24/min
+
+Plate line has its own ingot row, so it serves its 80/min first: 80 ÷ 2 = 40 exec/min (5.333 machines, 6 buildings).
+Rod line has no ingot row. Ingot costs the same to make in Top level and in Plate line,
+and the tie goes to the area higher in the table: Top level makes 24 ÷ 2 = 12 exec/min (1.600 machines, 2 buildings).
+```
+
+Total ingot is 52 exec/min, as in one area (6.933 machines, 7 buildings), but split into two rows it needs 6 + 2 = 8 buildings.

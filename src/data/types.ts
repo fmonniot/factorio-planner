@@ -57,16 +57,33 @@ export interface UnsatisfiedItem {
 
 export type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
-  | { type: 'duplicate-recipe'; recipeId: string; count: number }
+  | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
+
+/** An item moving into or out of an area; `boundary` when the block also imports or exports it. */
+export interface AreaFlow {
+  itemId: string
+  rate: number // items/min
+  boundary: boolean
+}
+
+/** What one area receives from and sends to the rest of the block (id: root plan or sub-plan id). */
+export interface SolvedArea {
+  areaId: string
+  receives: AreaFlow[]
+  sends: AreaFlow[]
+}
 
 export interface SolverResult {
   nodes: SolvedNode[]
   unsatisfied: UnsatisfiedItem[]
   warnings: SolverWarning[]
+  /** Present only when the block has a separate area, in table order (the root first). */
+  areas?: SolvedArea[]
 }
 
 // ---------------------------------------------------------------------------

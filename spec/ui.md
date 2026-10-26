@@ -49,6 +49,9 @@ session (see [Game data set](#game-data-set)).
 │ │ rows, or the selected │ │ selected slot with  │ │ Imported ▇▇ 5 · 1   │ │
 │ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
+│ ┌ AREAS · 2 (only when the block has an area) ───────────────────────────┐ │
+│ │ Top level  in [water 60]  out [gear 60]                                │ │
+│ └────────────────────────────────────────────────────────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │ [+]│ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
 │ ▲▼ │ ▶ Smelting  3 recipes                                               │
@@ -605,6 +608,10 @@ The solver's `unsatisfied` list: everything the block must import (product short
 - Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · self, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable). That menu holds **Limit rate…** / **Change limit…** and **Remove connection**. The limit action closes the menu and opens `ConnectionLimitEditor` (a portalled `RateInput`, `Connection limit`, at the click position; Enter or blur commits in items/min through `setConnectionMaxRate`, an empty field clears the limit, Escape cancels; undoable; the editor closes without writing when the pane scrolls, the window resizes or loses focus, or the connection or active block changes), the same limit as the graph's **≤** control. The segment of a request has the title suffix ` — requested` before ` — click to open` (`Segment.requested`).
 - A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
+### Areas pane
+
+`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a `section` region named "Areas" with a header button "Areas · N" (`aria-expanded`; collapsible, open by default; keyed by the active block like the panes) and a list capped at 120px that scrolls. There is one list item per area, in table order: the name (`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then "in" chips for what it receives and "out" chips for what it sends. A chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives` or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip adds " — from outside the block" or " — leaves the block". Clicking a chip selects its item (`aria-pressed`): every chip of that item, in every area, is highlighted and the others are dimmed, which shows who sends it and who receives it. Clicking it again clears the selection. Selection and collapse are view state.
+
 ### Warnings popover
 
 `WarningsPopover.tsx`, in the [top bar](#topbar). A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
@@ -615,7 +622,8 @@ explanation naming the items or recipes involved, and a hint:
 | Warning | Title |
 |---|---|
 | `no-recipe` | No recipe in plan |
-| `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe (a plan's own nodes before its sub-plans, as the solver does) and removes the others; until then a duplicate row shows zero |
+| `duplicate-recipe` | Duplicate recipe — with a **Fix: remove duplicates** button that keeps the first node using the recipe (a plan's own nodes before its sub-plans, as the solver does) and removes the others; until then a duplicate row shows zero. In a block with areas the warning has an area: the body names it ("appears on N rows in <area>"), the hint is to remove the duplicates from that area or make one of their sub-factories a separate area, and the fix touches only that area's rows, never the same recipe in another area |
+| `area-shortfall` | Area can't cover its own need — amber; one sentence per entry, "<area> takes <rate> of <item> from other areas, though it has its own row for it", with the hint to unpin that row or allow imports of its inputs |
 | `infeasible-pins` | Pinned rate is impossible |
 | `overconstrained` | Recipe network can't fully balance |
 | `loop-not-converged` | Loop between blocks did not settle — amber; names the blocks around the loop and the rounds run, with the hint to remove one of the loop's connections or set a limit on one |
@@ -657,7 +665,7 @@ tooltip explains the mode.
 
 Right-clicking anywhere in the recipe cell opens a context menu
 (`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
-clamped to the viewport) with:
+clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` with a leading ✓) with:
 
 - **Absorb byproduct** / **Stop absorbing byproduct** — "only run to absorb
   byproduct from other recipes" (sets `byproductConsumer`).
@@ -724,7 +732,8 @@ reach) the rate cells are empty and the machine count is 0.
 ### Sub-factory rows
 
 A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
-and a right-click menu with **Rename subfactory…** and **Remove subfactory**.
+and a right-click menu with **Rename subfactory…**, the checkbox **Separate area** and **Remove subfactory**.
+**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and the [Areas pane](#areas-pane) lists what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
 Rename opens a browser prompt prefilled with the current name; cancelling or a
 blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
@@ -735,7 +744,7 @@ block. Expanding shows its nodes indented beneath it (including nested
 sub-factories); an empty expanded group shows a "Drop here" target.
 Expanded/collapsed state is not saved.
 
-Sub-factories exist only to organise the table; the solver ignores the grouping.
+A sub-factory only organises the table unless it is a separate area; then the solver builds each recipe once per area.
 
 ### Drag and drop
 

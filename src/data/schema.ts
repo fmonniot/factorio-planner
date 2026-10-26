@@ -244,14 +244,16 @@ export const RecipeNodeSchema = z.preprocess(
 // SubPlan is recursive, so the TypeScript type is defined manually first, then
 // the Zod schema is annotated with it so z.lazy() can reference it correctly.
 //
-// SubPlans are a UI/persistence grouping only — they have no goals, no
-// noImportItems, and no semantic effect on the solver. The solver flattens
-// every RecipeNode in the tree into a single global LP per Block.
+// SubPlans organise rows — they have no goals and no noImportItems. The solver
+// flattens every RecipeNode in the tree into a single global LP per Block, except
+// that a SubPlan with `area: true` is a separate area in that LP: its rows serve it
+// first. Absent and `false` mean the same; turning the flag off removes the key.
 type SubPlanType = {
   id: string
   name: string
   nodes: z.output<typeof RecipeNodeSchema>[]
   subPlans: SubPlanType[]
+  area?: boolean
   createdAt: string
   updatedAt: string
 }
@@ -262,6 +264,7 @@ export const SubPlanSchema: z.ZodType<SubPlanType, unknown> = z.lazy(() =>
     name: z.string(),
     nodes: z.array(RecipeNodeSchema),
     subPlans: z.array(SubPlanSchema),
+    area: z.boolean().optional(),
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
   }),

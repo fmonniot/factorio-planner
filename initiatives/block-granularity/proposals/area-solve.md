@@ -1,6 +1,6 @@
 # Proposal: Areas in the solve
 
-Proposal for [Block granularity](../problem.md). **Chosen** (see [Decision](../problem.md#decision)). Not implemented.
+Proposal for [Block granularity](../problem.md). **Chosen** (see [Decision](../problem.md#decision)). Phase 1 implemented; phases 2–3 not implemented.
 
 A sub-factory can be marked as an **area**. A recipe can have an ordinary row in each area that builds it, each row with its own machine, modules and beacons. The block's LP knows which area every row is in: it balances each item per area, tracks what moves between areas, and sizes every row in the same solve. As in [Sub-factory sites](sites.md), one block (one solve, one table) stays one product chain, which covers R1. Unlike sites, areas are part of the solve, not bookkeeping after it.
 
@@ -150,3 +150,14 @@ Every new action is an undoable `Command`.
 - *Prevent adding a recipe already present in the block* becomes "…already present in the same area".
 - *Isolate a subfactory from the rest of the plan* is related but separate: an isolated sub-factory shuts out the other blocks, while an area still exchanges items with the other areas of its block.
 - Spec updates when this ships: [spec/data-model.md](../../../spec/data-model.md) (`SubPlan`, `primaryProduct`, `SolverResult.areas`), [spec/solver.md](../../../spec/solver.md) (sub-plans, area LP, stages, warnings), [spec/ui.md](../../../spec/ui.md) (sub-factory rows, recipe rows, modals, summary), and the overview's non-goals as [problem.md](../problem.md#out-of-scope) notes.
+
+## Implementation notes
+
+Phase 1 follows the design above, with these differences found while building it. The formulation as shipped is in [spec/solver.md](../../../spec/solver.md#areas).
+
+- **Stage 3 is folded into the second LP.** A separate third LP that minimised shipping after runs drifts: a relative `1e-9` bound is below the solver's resolution (1e-8), and any workable tolerance lets the shipping objective buy less shipping with tolerance-sized extra runs, so a row that should be at 0 runs at about 1e-6 and shows one building. Shipping is instead a dominated per-unit cost on the units sent, inside LP 2, so it only decides run-cost ties. There are two LP calls per pass, not three.
+- **Bound the dedicated imports alone.** Bounding the combined stage-1 value (`BIG_M·s` plus `din`) would let `din` drift by about `1e-7·BIG_M·s`, so only `Σ din` is bounded and slack is re-optimised in LP 2.
+- **The tie-break is on units sent**, not on runs, so a row cannot be over-run to manufacture "other supply" for an area that has its own row, and among senders the area higher in the table wins.
+- **Flows are read from per-area net production**, not from the flow variables, so out-and-back circulation never shows and degenerate flow values do not matter.
+- **A dedicated row needs a positive coefficient** for its item after `discard`; a primary product that is discarded or is not a product of the recipe makes the row dedicated to nothing.
+- The root area is shown as "Top level". `area-shortfall` is one warning with an entry per area and item, like `overconstrained`. The result carries no names; the UI resolves them from the block tree.

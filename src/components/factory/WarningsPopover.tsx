@@ -3,7 +3,12 @@ import { useShallow } from 'zustand/react/shallow'
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import type { SolverWarning, GameData } from '../../data/types'
+import { useUiStore } from '../../store/uiStore'
+import type { RateUnit } from '../../store/uiStore'
+import { blockAreas } from '../../solver/areas'
+import { areaName } from './areaRows'
+import { fmtRate } from './ItemTile'
+import type { SolverWarning, GameData, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Warning helpers (same logic as old SummaryBar)
@@ -15,12 +20,19 @@ function warningTitle(w: SolverWarning): string {
     case 'duplicate-recipe': return 'Duplicate recipe'
     case 'infeasible-pins': return 'Pinned rate is impossible'
     case 'overconstrained': return "Recipe network can't fully balance"
+    case 'area-shortfall': return "Area can't cover its own need"
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
   }
 }
 
-function warningBody(w: SolverWarning, gameData: GameData, blockName: (id: string) => string): string {
+function warningBody(
+  w: SolverWarning,
+  gameData: GameData,
+  blockName: (id: string) => string,
+  rootPlan: SubPlan | undefined,
+  rateUnit: RateUnit,
+): string {
   switch (w.type) {
     case 'no-recipe': {
       const name = gameData.items[w.itemId]?.name ?? w.itemId
@@ -28,6 +40,9 @@ function warningBody(w: SolverWarning, gameData: GameData, blockName: (id: strin
     }
     case 'duplicate-recipe': {
       const name = gameData.recipes[w.recipeId]?.name ?? w.recipeId
+      if (w.areaId !== undefined && rootPlan) {
+        return `"${name}" appears on ${w.count} rows in ${areaName(rootPlan, w.areaId)}. The solver uses the first one; the others show zero and their pin and modules are ignored.`
+      }
       return `"${name}" appears on ${w.count} nodes. The solver uses the first one; the others show zero and their pin and modules are ignored.`
     }
     case 'infeasible-pins': {
@@ -37,6 +52,16 @@ function warningBody(w: SolverWarning, gameData: GameData, blockName: (id: strin
     case 'overconstrained': {
       const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
+    }
+    case 'area-shortfall': {
+      const unit = rateUnit === 'min' ? '/m' : '/s'
+      return w.shortfalls
+        .map(s => {
+          const area = rootPlan ? areaName(rootPlan, s.areaId) : s.areaId
+          const item = gameData.items[s.itemId]?.name ?? s.itemId
+          return `${area} takes ${fmtRate(s.rate / 60, rateUnit)}${unit} of ${item} from other areas, though it has its own row for it.`
+        })
+        .join(' ')
     }
     case 'loop-not-converged': {
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
@@ -52,8 +77,12 @@ function warningBody(w: SolverWarning, gameData: GameData, blockName: (id: strin
 function warningHint(w: SolverWarning): string {
   switch (w.type) {
     case 'no-recipe': return 'Add a recipe node that outputs this item.'
-    case 'duplicate-recipe': return 'Remove the duplicate nodes from the production table.'
+    case 'duplicate-recipe':
+      return w.areaId !== undefined
+        ? 'Remove the duplicate rows from that area, or make one of their sub-factories a separate area.'
+        : 'Remove the duplicate nodes from the production table.'
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
+    case 'area-shortfall': return 'Unpin that row, or allow imports of its inputs.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
@@ -73,6 +102,7 @@ export function WarningsPopover() {
   const block = useBlockStore(selectActiveBlock)
   const result = useSolverStore(selectBlockResult(block?.id))
   const removeNode = useBlockStore(s => s.removeNode)
+  const rateUnit = useUiStore(s => s.rateUnit)
   // Only ids and names are read; a flat array keeps the popover from re-rendering on every plan edit.
   const idNames = useBlockStore(useShallow(s => s.blocks.flatMap(b => [b.id, b.name])))
   const blockName = (id: string) => {
@@ -84,10 +114,25 @@ export function WarningsPopover() {
 
   const warnings = result?.warnings ?? []
 
-  function fixDuplicateRecipe(recipeId: string) {
+  function fixDuplicateRecipe(recipeId: string, areaId?: string) {
     if (!block) return
     const b = block
     let kept = false
+    if (areaId !== undefined) {
+      // The duplicates are those of one area: rows of the same recipe in other areas stay.
+      const nodeIds = blockAreas(b.rootPlan)?.find(a => a.id === areaId)?.nodeIds ?? []
+      const rows = new Map<string, string>()
+      function collect(plan: typeof b.rootPlan) {
+        for (const n of plan.nodes) if (n.kind === 'game-recipe') rows.set(n.id, n.recipeId)
+        for (const sp of plan.subPlans) collect(sp)
+      }
+      collect(b.rootPlan)
+      for (const id of nodeIds) {
+        if (rows.get(id) !== recipeId) continue
+        if (!kept) { kept = true } else { removeNode(id) }
+      }
+      return
+    }
     function walk(plan: typeof b.rootPlan) {
       for (const n of plan.nodes) {
         if (n.kind === 'game-recipe' && n.recipeId === recipeId) {
@@ -149,7 +194,7 @@ export function WarningsPopover() {
                   ⚠ {warningTitle(w)}
                 </div>
                 <div className="text-gray-300 leading-snug mb-1">
-                  {warningBody(w, gameData, blockName)}
+                  {warningBody(w, gameData, blockName, block?.rootPlan, rateUnit)}
                 </div>
                 <div className="text-gray-500 leading-snug">
                   → {warningHint(w)}
@@ -157,7 +202,7 @@ export function WarningsPopover() {
                 {w.type === 'duplicate-recipe' && (
                   <button
                     type="button"
-                    onClick={() => fixDuplicateRecipe(w.recipeId)}
+                    onClick={() => fixDuplicateRecipe(w.recipeId, w.areaId)}
                     className="mt-1.5 text-teal-400 hover:text-teal-300 underline"
                   >
                     Fix: remove duplicates

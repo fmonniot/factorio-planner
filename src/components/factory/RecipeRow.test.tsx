@@ -918,6 +918,31 @@ describe('RecipeRow sub-factory actions', () => {
     expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Rename subfactory…', 'Remove subfactory'])
   })
 
+  it('offers "Separate area" as a checkbox and toggles it through the store', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Separate area' })
+    expect(item).toHaveAttribute('aria-checked', 'false')
+    fireEvent.click(item)
+    expect(rootPlan().subPlans[0].area).toBe(true)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('checks "Separate area" and shows the marker only when the flag is on', () => {
+    setupSubfactory({ ...makeSubPlan('sp-123', 'My Subfactory'), area: true })
+    expect(screen.getByTestId('area-marker')).toBeInTheDocument()
+    openMenu()
+    const item = screen.getByRole('menuitemcheckbox', { name: 'Separate area' })
+    expect(item).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(item)
+    expect('area' in rootPlan().subPlans[0]).toBe(false)
+  })
+
+  it('shows no area marker for an organising sub-factory', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    expect(screen.queryByTestId('area-marker')).not.toBeInTheDocument()
+  })
+
   it('"Rename subfactory…" prompts with the current name and applies the trimmed answer', () => {
     const prompt = vi.fn(() => '  Copper line  ')
     vi.stubGlobal('prompt', prompt)

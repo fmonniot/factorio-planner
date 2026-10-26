@@ -17,6 +17,8 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { SummaryPane } from './SummaryPane'
+import { AreasPane } from './AreasPane'
+import { areaRows } from './areaRows'
 import type { StripAction } from './SummaryDetailStrip'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
@@ -397,6 +399,15 @@ export function FactorySummary() {
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}
         />
       </div>
+
+      {activeBlock && solverResult?.areas && (
+        <AreasPane
+          key={`areas-${activeBlock.id}`}
+          rows={areaRows(activeBlock.rootPlan, solverResult.areas)}
+          items={gameData.items}
+          rateUnit={rateUnit}
+        />
+      )}
 
       {connectionMenu && (
         <ConnectionMenu

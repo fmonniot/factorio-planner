@@ -545,15 +545,19 @@ interface SubPlan {
   name: string
   nodes: RecipeNode[]
   subPlans: SubPlan[]
+  area?: boolean      // true: solved as a separate area; absent (or false): only organises rows
   createdAt: string   // ISO datetime
   updatedAt: string   // ISO datetime
 }
 ```
 
-Sub-plans are UI grouping only (the "sub-factories" in the production table).
-They carry no goals and no solver semantics: `flattenBlock`
-(`src/solver/index.ts`) collects every node in the tree into one flat list before
-solving. A new block's root sub-plan is named `"Main"`.
+Sub-plans group rows (the "sub-factories" in the production table). They carry
+no goals: `flattenBlock` (`src/solver/index.ts`) collects every node in the tree
+into one flat list before solving. A sub-plan with `area: true` is also a
+separate area in the solve (see [solver.md](solver.md#areas)): `flattenBlock`
+lists the areas, and a recipe can then have a row in each. The key is omitted
+when the toggle is off, so a plan without areas keeps its saved shape. A new
+block's root sub-plan is named `"Main"`; the root is always an area.
 
 A nested sub-plan is referenced twice: the `SubPlan` object lives in its parent's
 `subPlans`, and a `SubPlanNode` in the parent's `nodes` marks where the group is
@@ -596,9 +600,11 @@ interface SubPlanNode {
   items per run.
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
-- **`primaryProduct`.** Display-only override of the recipe's main product: it
-  decides which output appears in the row's Products cell (the rest go to
-  Byproducts) and which icon represents the recipe. The solver ignores it.
+- **`primaryProduct`.** Override of the recipe's main product: it decides which
+  output appears in the row's Products cell (the rest go to Byproducts) and
+  which icon represents the recipe. A block without areas ignores it in the
+  solve; with areas it decides the item the row is dedicated to (see
+  [solver.md](solver.md#areas)).
 - **`byproductConsumer`.** See [solver.md](solver.md). The UI hides the pin
   control on such nodes.
 
@@ -637,6 +643,19 @@ interface SolverResult {
   nodes: SolvedNode[]
   unsatisfied: UnsatisfiedItem[]
   warnings: SolverWarning[]
+  areas?: SolvedArea[]   // only when a sub-factory is a separate area; table order, root first
+}
+
+interface SolvedArea {
+  areaId: string         // root plan id or sub-plan id
+  receives: AreaFlow[]
+  sends: AreaFlow[]
+}
+
+interface AreaFlow {
+  itemId: string
+  rate: number           // items/min, net over the area's rows
+  boundary: boolean      // the block also imports (receives) or exports (sends) the item
 }
 
 interface SolvedNode {
@@ -656,9 +675,10 @@ interface UnsatisfiedItem {
 
 type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
-  | { type: 'duplicate-recipe'; recipeId: string; count: number }
+  | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
 ```

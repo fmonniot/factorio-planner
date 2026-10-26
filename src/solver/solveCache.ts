@@ -71,8 +71,10 @@ export function planKey(plan: {
   nodes: RecipeNode[]
   noImportItems?: string[]
   connectionsFirstItems?: string[]
+  areas?: unknown
 }): string {
-  return exactKey([plan.goals, plan.nodes, plan.noImportItems ?? [], plan.connectionsFirstItems ?? []])
+  const key = [plan.goals, plan.nodes, plan.noImportItems ?? [], plan.connectionsFirstItems ?? []]
+  return exactKey(plan.areas ? [...key, plan.areas] : key)
 }
 
 function sameCaps(stored: [string, number][], caps: Map<string, number>): boolean {

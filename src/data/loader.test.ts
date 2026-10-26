@@ -739,6 +739,24 @@ describe('parseAppState — products migration', () => {
   })
 })
 
+describe('parseAppState — sub-factory areas', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const plan = (extra: Record<string, unknown> = {}) => ({
+    id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now, ...extra,
+  })
+  const load = (subPlans: unknown[]) =>
+    parseAppState({
+      blocks: [{ id: 'b1', name: 'Block', noImportItems: [], products: [], rootPlan: plan({ subPlans }) }],
+      activeBlockId: 'b1',
+    }).blocks[0].rootPlan.subPlans
+
+  it('keeps area: true and adds no key when it is absent', () => {
+    const [on, absent] = load([plan({ id: 'a', area: true }), plan({ id: 'b' })])
+    expect(on.area).toBe(true)
+    expect('area' in absent).toBe(false)
+  })
+})
+
 describe('parsePlanDataSetStamp', () => {
   it('returns a full stamp whole', () => {
     const dataSet = { id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' }

@@ -17,11 +17,11 @@ A linear program handles both naturally: cycles are just additional constraints,
 
 ## Pipeline
 
-Entry point: `solveAll(blocks, gameData, cache?, options?)` in [src/solver/index.ts](../src/solver/index.ts). It groups the blocks into components with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) and orders them so every source is solved before its consumers; a component of mutually supplying blocks is a loop and is solved in rounds (see [Loops](#loops)). Each block (each round of a loop, for its members) is solved with `solveBlock(plan, gameData, supplyCaps)`, where `plan = flattenBlock(block)` (every node in the tree; the block's products as goals `{ id, itemId, rate }` built by `productGoals`: rate = `extraRate` (0 when absent) plus, for the first product of an item, what other blocks request of it; goals with a rate of 0 or less are dropped; `noImportItems`, `connectionsFirstItems`) and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`. With a `SolveCache` ([src/solver/solveCache.ts](../src/solver/solveCache.ts)), a block whose flattened plan, game data object and supply caps (exact values, in order) are all unchanged reuses its previous `solveBlock` output instead of solving again. Offers and flows are still recomputed for every block. A failed solve is never cached. The cache keeps up to three entries per block (most recently used first), so the request probe of a requesting block (see [Requests](#requests)) and the first-round and the settled solve of a block in a loop all survive. The cache also memoises the outcome of each cycle of requests (see [Cycles of requests](#cycles-of-requests)); those entries are not counted per block. Before any block is solved, `computeRequests` works out what requesting consumers ask of their sources and `solveAll` solves each source against its products' extra output plus those requests.
+Entry point: `solveAll(blocks, gameData, cache?, options?)` in [src/solver/index.ts](../src/solver/index.ts). It groups the blocks into components with `orderBlocks` ([src/solver/blockGraph.ts](../src/solver/blockGraph.ts)) and orders them so every source is solved before its consumers; a component of mutually supplying blocks is a loop and is solved in rounds (see [Loops](#loops)). Each block (each round of a loop, for its members) is solved with `solveBlock(plan, gameData, supplyCaps)`, where `plan = flattenBlock(block)` (every node in the tree, plus `areas` when a sub-factory is a separate area, see [Areas](#areas); the block's products as goals `{ id, itemId, rate }` built by `productGoals`: rate = `extraRate` (0 when absent) plus, for the first product of an item, what other blocks request of it; goals with a rate of 0 or less are dropped; `noImportItems`, `connectionsFirstItems`) and `supplyCaps` is what the block's sources have on offer (empty for a block without connections; see [Connections between blocks](#connections-between-blocks)). `solve(plan, gameData)` is `solveBlock` without supply, returning only the `SolverResult`. With a `SolveCache` ([src/solver/solveCache.ts](../src/solver/solveCache.ts)), a block whose flattened plan, game data object and supply caps (exact values, in order) are all unchanged reuses its previous `solveBlock` output instead of solving again. Offers and flows are still recomputed for every block. A failed solve is never cached. The cache keeps up to three entries per block (most recently used first), so the request probe of a requesting block (see [Requests](#requests)) and the first-round and the settled solve of a block in a loop all survive. The cache also memoises the outcome of each cycle of requests (see [Cycles of requests](#cycles-of-requests)); those entries are not counted per block. Before any block is solved, `computeRequests` works out what requesting consumers ask of their sources and `solveAll` solves each source against its products' extra output plus those requests.
 
-Per block, `solveBlock` runs:
+Per block, `solveBlock` runs the steps below. When `plan.areas` is present its first statement hands the block to `solveAreaBlock` ([src/solver/areas.ts](../src/solver/areas.ts)), which runs the same steps on one column per row instead of one per recipe (see [Areas](#areas)); a block without it takes exactly the path below.
 
-1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted). The first node in flatten order (a plan's own nodes before its sub-plans, depth-first) is authoritative for effects, pin and byproduct settings; later duplicates solve to zero throughput, machines and power, with empty rates.
+1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted; with areas the rule is per area, see [Areas](#areas)). The first node in flatten order (a plan's own nodes before its sub-plans, depth-first) is authoritative for effects, pin and byproduct settings; later duplicates solve to zero throughput, machines and power, with empty rates.
 2. `computeNodeEffects` — module + beacon bonuses per node ([src/solver/effects.ts](../src/solver/effects.ts)).
 3. `buildClassifiedSystem` — net stoichiometry `S[item][recipe]` with productivity applied, and item classification ([src/solver/build.ts](../src/solver/build.ts)).
 4. `no-recipe` check on goals.
@@ -31,7 +31,7 @@ Per block, `solveBlock` runs:
 8. Diagnostics: overconstrained surplus, goal shortfalls, intermediate slack, raw consumption (reduced by what was received).
 9. `computeMachineMetrics` — machine count and power per node.
 
-The result is a `SolverResult` `{ nodes, unsatisfied, warnings }` (see [src/data/types.ts](../src/data/types.ts)); `solveAll` returns one per block plus the connection flows. Rates are per minute; recipe throughput is executions per minute.
+The result is a `SolverResult` `{ nodes, unsatisfied, warnings, areas? }` (see [src/data/types.ts](../src/data/types.ts)); `solveAll` returns one per block plus the connection flows. Rates are per minute; recipe throughput is executions per minute.
 
 ---
 
@@ -100,14 +100,15 @@ A goal with no producer in the plan has no row in `S` and therefore no LP constr
 
 Warnings (`SolverWarning` in [src/data/types.ts](../src/data/types.ts)):
 
-- **`duplicate-recipe`** — the same `recipeId` is used by more than one node; emitted before the LP, with the count. The first node in flatten order is authoritative; later duplicates solve to zero.
+- **`duplicate-recipe`** — the same `recipeId` is used by more than one node; emitted before the LP, with the count. The first node in flatten order is authoritative; later duplicates solve to zero. In a block with areas it is emitted per area and carries `areaId`.
 - **`no-recipe`** — a goal item has no positive coefficient in `S` (no producer in the plan); emitted before the LP. Checked before `discard` policies are applied.
 - **`infeasible-pins`** — the LP is infeasible and pins are present.
 - **`overconstrained`** — one or more intermediates end with positive net flow above the tolerance in Tolerances at the LP optimum; lists each surplus item and rate.
+- **`area-shortfall`** — areas with their own row for an item that still take it from other areas' dedicated rows; lists `{ areaId, itemId, rate }` for each, above 1e-4 (see [Areas](#areas)). Grouped like `overconstrained`, and not critical.
 - **`loop-not-converged`** — added by `solveAll` to every member of a loop of blocks that did not settle within the round limit; lists the loop's `blockIds` and the rounds run (see [Loops](#loops)).
 - **`request-loop-not-converged`** — added by `solveAll` to every member of a cycle of requests whose demand did not settle; lists the cycle's `blockIds` and the demand rounds run (see [Cycles of requests](#cycles-of-requests)).
 
-Warnings come out in that order: `duplicate-recipe`, `no-recipe`, then the LP warnings (`infeasible-pins`, `overconstrained`); `loop-not-converged` and then `request-loop-not-converged` are appended last.
+Warnings come out in that order: `duplicate-recipe`, `no-recipe`, then the LP warnings (`infeasible-pins`, `overconstrained`) and, with areas, `area-shortfall`; `loop-not-converged` and then `request-loop-not-converged` are appended last.
 
 Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
@@ -129,7 +130,7 @@ The first three knobs sit on individual recipe nodes; `noImportItems` sits on th
 - **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. Its ingredients are added to the no-import set, so the LP can't import them just to fire the bonus — they must come from another in-plan producer.
 - **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input. An ore that has an extraction row is an intermediate, so a lock on it applies.
 
-`primaryProduct` on a node is display-only; the solver ignores it.
+`primaryProduct` on a node is display-only in a block without areas, where the solver ignores it. In a block with areas it decides which item a row is dedicated to (see [Areas](#areas)).
 
 ---
 
@@ -251,9 +252,53 @@ Blocks may supply each other (Metals → Sciences → Ores → Metals). A loop i
 
 ## Sub-plans
 
-Sub-plans are a UI/persistence grouping only. They do not affect solver output: every node in the tree, regardless of how deeply nested in `subPlans`, is collected into a single global LP per `Block` via [`flattenBlock(block)`](../src/solver/index.ts) before `solve()` runs. `flattenBlock` collects every node including `subplan` handles; `solve()` keeps only `kind === 'game-recipe'`. Goals and `noImportItems` live on the `Block`, not on individual sub-plans.
+A sub-plan organises rows. Unless it is a separate area (`area: true`, see [Areas](#areas)), it does not affect solver output: every node in the tree, regardless of how deeply nested in `subPlans`, is collected into a single global LP per `Block` via [`flattenBlock(block)`](../src/solver/index.ts) before `solve()` runs. `flattenBlock` collects every node including `subplan` handles; `solve()` keeps only `kind === 'game-recipe'`. Goals and `noImportItems` live on the `Block`, not on individual sub-plans.
 
 Wrapping a recipe into a sub-plan for organisation has no effect on its computed throughput.
+
+---
+
+## Areas
+
+A sub-factory with `area: true` is a separate area; the block's root plan is always one (the "top level"). The flag is absent or `true` (turning it off removes the key), and `false` is read like absent. A block where no sub-factory is an area never reaches this code: `flattenBlock` adds no `areas` key, `solveBlock` runs the path above unchanged and the cache keys are those of a block without areas (`src/solver/legacyParity.test.ts` pins the results of every e2e plan to a golden file).
+
+**Membership and rank.** `blockAreas(rootPlan)` ([src/solver/areas.ts](../src/solver/areas.ts)) walks the tree like `flattenBlock`: a row belongs to its nearest enclosing area, so a sub-factory that is not an area only organises the rows of the area around it. Areas are listed in table order: the root first, then a pre-order walk where each plan's sub-factories come in the order of their handles in `plan.nodes` (those without a handle last, in `subPlans` order). The rank of an area is its index. `flattenBlock` puts `areas: { id, nodeIds }[]` on the plan (id: root plan id or sub-plan id); `planKey` and the request-loop memo key include it only when present.
+
+**Columns.** Each area has one column per recipe: its first row of that recipe in flatten order. Later rows of the same recipe in the same area are duplicates (`duplicate-recipe` with `areaId`, solved to zero). The same recipe in two areas is not a duplicate. A column has its own effects (modules, beacons, so its own productivity) and its own `S` coefficients, named `n0`, `n1`, … in the LP. Classification, `no-recipe`, discard, pins, byproduct consumers and the no-import set work per column exactly as for a recipe. Machine count and `Math.ceil` are per row, so each area rounds up on its own.
+
+**Dedicated rows.** A column is dedicated to item `i` when `i` is the row's `primaryProduct`, else the recipe's `mainProduct`, else its first product (`dedicatedProduct`), and its coefficient for `i` is still positive after `discard`. A primary product that is discarded or is not a product of the recipe makes the row dedicated to nothing.
+
+**LP.** The base model is the one of [LP formulation](#lp-formulation), keyed by column. For every goal or intermediate item that columns of two areas or more touch (*area items*), each area `a` that touches it gets:
+
+- flow variables `din`, `oin` (taken in, from dedicated rows and from other rows), and `dout` (sent from dedicated rows; only when `a` has a dedicated column for `i`), `oout` (sent from other columns with a positive coefficient; only when `a` has one);
+- a balance `Σ_{col∈a} S x + din + oin − dout − oout = 0`;
+- caps `dout ≤ Σ S x` over the dedicated columns and `oout ≤ Σ S x` over the others with `S > 0`.
+
+Two pools per item bound what is taken by what is sent: `Σ din ≤ Σ dout`, and `Σ oin ≤ Σ oout + s_i + u_i`. Slack `s_i` and supply `u_i` (pass 2 and connections-first) are *other supply*, so they reach any area, including one with its own row. Byproduct consumers absorb surplus from any area. Items touched by one area keep only their block row.
+
+`din` of an area with its own dedicated row for the item is *penalised*: an area that makes an item itself does not take it from other areas' dedicated rows. Two LP calls per pass:
+
+1. Stage 1 minimises `BIG_M·Σ s + Σ penalised din`. If it is infeasible its values are returned like an infeasible plain LP (`infeasible-pins` when there are pins) and stage 2 is skipped. Otherwise `D1 = Σ penalised din`.
+2. Stage 2 adds `Σ penalised din ≤ L`, with `L = 0` when `D1 ≤ LOCAL_ZERO` and `D1·(1 + STAGE_REL) + STAGE_ABS` otherwise, and minimises the plain objective (runs, `BIG_M·s`, `BC_BONUS`) plus `SHIP_COST·(1 + RANK_STEP·rank)` per unit of `dout` and `oout`. If it is infeasible with `L = 0` it is retried with the relaxed `L`; if it is still infeasible stage 1's values are kept. With no penalised `din` stage 1 is skipped.
+
+The shipping cost is a tie-break only: it decides among equal run costs (or differences below about 1e-6 runs per unit), so local production wins ties and, among senders, the area higher in the table does. It is on units *sent*, not on runs, so a row cannot be over-run to manufacture "other supply" for an area that has its own row. A separate third LP that minimised shipping after runs was rejected: any tolerance on the runs lets it buy less shipping with tolerance-sized extra runs, and a row that should be at 0 would run at about 1e-6 and show one building. Bounding `Σ din` alone (not the combined stage-1 value) keeps `BIG_M·s` out of the bound, which would otherwise let `din` drift by about `1e-7·BIG_M·s`; slack is re-optimised in stage 2 with the plain trade-off. The two passes of connected supply are those of `solveBlock`, each with this LP.
+
+**Tolerances.** javascript-lp-solver 1.0.3 pivots with a precision of 1e-8 and rounds every returned value to the nearest 1e-8, so a bound built from returned values can be off by about 1e-8 per non-zero term:
+
+| Constant | Value | Why |
+|---|---|---|
+| `LOCAL_ZERO` | `1e-7` | A `D1` at or below this is no import; a relative 1e-9 would make stage 2 spuriously infeasible |
+| `STAGE_ABS` | `1e-7` | 10 times the solver's rounding step |
+| `STAGE_REL` | `1e-7` | Float error when `D1` is large |
+| `SHIP_COST` | `1e-6` | 100 times the pivot precision |
+| `RANK_STEP` | `0.1` | Root versus the next area differs by 1e-7 per unit; with 50 areas the weight is at most 6e-6 per unit, so a byproduct consumer (bonus 0.01 per run) still absorbs a cross-area surplus of up to about 1,600 units per run |
+| `AREA_SHORTFALL_TOLERANCE` | `1e-4` | Same as a goal shortfall; well above any `din` that `STAGE_ABS` can create |
+
+The values held up in the scenario tests ([src/solver/areas.test.ts](../src/solver/areas.test.ts)), including goal rates from 0.001 to 5 million times scenario 1, so none was adjusted from the design. With imports so large that the objective is around 1e8 the library may stop at a vertex before the tie-breaks act, so root-first is then best effort.
+
+**Result.** `SolverResult.areas` lists every area in rank order, each with `receives` and `sends` (`{ itemId, rate, boundary }`, items/min, sorted by rate descending then item id). They are read from the per-area net production `Σ_{col∈a} S x` (after `discard`), not from the flow variables, so circulation that cancels never shows: net above `surplusTolerance` of the area's gross flow is a send, below its negative a receive. `boundary` is true when the block's own net of the item has the same sign beyond its tolerance, that is the block exports it (a goal, a byproduct, a surplus) or imports it (raw, slack, connected supply); it is not an exact split. There are no names in the result: the UI resolves them from the block tree, so renaming an area does not solve again.
+
+**`area-shortfall`** lists the final pass's penalised `din` above 1e-4 per `(area, item)`; it appears when stage 2 had to relax `L`, as with a pinned row that cannot cover its own area.
 
 ---
 
@@ -286,6 +331,6 @@ Drain is not affected by consumption modules. Beacon power is not counted. For a
 
 `solveBlock` is stateless and deterministic. The only state is the optional per-block `SolveCache`, which holds up to three entries per block id (the most recent successful solves, least recently used evicted first; an entry with equal inputs is replaced in place), dropped when the block is removed, fails or has nothing to solve, and one entry per cycle of requests (dropped when a member is removed or a `solveAll` does not use it).
 
-`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll`. Only blocks whose inputs changed are solved (up to two LPs each, plus the request probe of a block that requests). Renaming or recolouring a block, or an edit elsewhere that leaves a block's supply unchanged, solves nothing in that block. `wireSolver` owns the cache and reuses one effective game data object while the data and the effective default machines are unchanged. It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
+`wireSolver()` in [src/store/solverStore.ts](../src/store/solverStore.ts) subscribes to the block and game-data stores and debounces (150 ms) so a burst of UI input collapses to one `solveAll`. Only blocks whose inputs changed are solved (up to two LPs each, or two passes of up to two LPs with areas, plus the request probe of a block that requests). Renaming or recolouring a block, or an edit elsewhere that leaves a block's supply unchanged, solves nothing in that block. `wireSolver` owns the cache and reuses one effective game data object while the data and the effective default machines are unchanged. It skips the solver when no game data is loaded — status becomes `idle`. A block with zero goals or zero nodes gets an empty result.
 
 The store keeps `lastResults` (every block's result by id) and `flows`. `status` and `lastResult` follow the active block, so `selectSolverResult` is unchanged. A solver exception in the active block sets status `error`; in any other block it only leaves that block's result empty. `lastResult` keeps the most recent successful result while a re-solve is pending, so views don't flash.

@@ -23,18 +23,30 @@ function lpName(id: string): string {
   return id.replace(/[^a-zA-Z0-9_]/g, '_')
 }
 
-const BIG_M = 1e6
-const SLACK_TOLERANCE = 1e-6
+export const BIG_M = 1e6
+export const SLACK_TOLERANCE = 1e-6
 /**
  * Tiny negative coefficient applied to byproduct-consumer recipes in the
  * objective. Makes the LP prefer to run them up to the surplus their
  * intermediate constraints allow, without overriding goal-meeting decisions
  * (BIG_M slack cost dominates if the LP would have to import inputs).
  */
-const BC_BONUS = -0.01
+export const BC_BONUS = -0.01
+
+/** The LP rows and columns of a classified system, before any objective is chosen beyond `__obj__`. */
+export interface LPModel {
+  constraints: Record<string, { min?: number; max?: number; equal?: number }>
+  variables: Record<string, Record<string, number>>
+  /** recipe id → LP variable name */
+  recipeToVar: Map<string, string>
+  /** itemId → slack variable name */
+  itemToSlack: Map<string, string>
+  /** itemId → supply variable name */
+  itemToSupply: Map<string, string>
+}
 
 /**
- * Build and solve the elastic LP for the given classified system.
+ * Build the elastic LP for the given classified system.
  *
  * LP formulation:
  *   Variables:
@@ -57,16 +69,15 @@ const BC_BONUS = -0.01
  * BIG_M ensures the LP only uses slack when the network is genuinely infeasible.
  * If pinned rates conflict, emits `infeasible-pins`.
  */
-export function solveLP(
+export function buildLPModel(
   system: ClassifiedSystem,
   pinnedRates: Map<string, number> = new Map(),
   bcRecipeIds: Set<string> = new Set(),
   noImportItems: Set<string> = new Set(),
   supplyCaps: Map<string, number> = new Map(),
   connectionsFirst: Set<string> = new Set(),
-): LPResult {
+): LPModel {
   const { S, recipes, classification } = system
-  const warnings: SolverWarning[] = []
 
   // Build recipe-name ↔ sanitized-LP-name mapping (handle collisions).
   const recipeToVar = new Map<string, string>()
@@ -174,15 +185,19 @@ export function solveLP(
     variables[varName][cName] = 1
   }
 
-  const model = {
-    optimize: '__obj__',
-    opType: 'min' as const,
-    constraints,
-    variables,
-  }
+  return { constraints, variables, recipeToVar, itemToSlack, itemToSupply }
+}
 
-  const result = solver.Solve(model) as SolveResult
-  const feasible = result.feasible === true
+/** Read the throughput, slack and supply of a solved `lp`; infeasible pins are reported here. */
+export function readLPResult(
+  result: SolveResult,
+  lp: LPModel,
+  recipes: string[],
+  pinnedRates: Map<string, number>,
+  feasible: boolean,
+): LPResult {
+  const { recipeToVar, itemToSlack, itemToSupply } = lp
+  const warnings: SolverWarning[] = []
 
   // With hard goal constraints, LP can still be infeasible (no producer, or conflicting pins).
   if (!feasible && pinnedRates.size > 0) {
@@ -220,4 +235,24 @@ export function solveLP(
   }
 
   return { throughput, slack, supply, warnings, feasible }
+}
+
+/** Build and solve the elastic LP of `buildLPModel`. */
+export function solveLP(
+  system: ClassifiedSystem,
+  pinnedRates: Map<string, number> = new Map(),
+  bcRecipeIds: Set<string> = new Set(),
+  noImportItems: Set<string> = new Set(),
+  supplyCaps: Map<string, number> = new Map(),
+  connectionsFirst: Set<string> = new Set(),
+): LPResult {
+  const lp = buildLPModel(system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst)
+  const model = {
+    optimize: '__obj__',
+    opType: 'min' as const,
+    constraints: lp.constraints,
+    variables: lp.variables,
+  }
+  const result = solver.Solve(model) as SolveResult
+  return readLPResult(result, lp, system.recipes, pinnedRates, result.feasible === true)
 }
