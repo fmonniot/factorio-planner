@@ -17,9 +17,11 @@ concurrency:
 jobs:
   test:
     uses: ./.github/workflows/test.yml
+    with:
+      skip_build: true
 
+  # Runs alongside the tests; deploy waits for both.
   build:
-    needs: test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -28,6 +30,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - uses: actions/cache@v6
+        with:
+          path: .cache/icons
+          key: icons-${{ hashFiles('scripts/build-icons.mjs') }}-${{ hashFiles('public/data/**/*.png') }}
+          restore-keys: icons-${{ hashFiles('scripts/build-icons.mjs') }}-
       - run: npm run build
       - uses: actions/configure-pages@v6
       - uses: actions/upload-pages-artifact@v5
@@ -35,7 +42,7 @@ jobs:
           path: dist
 
   deploy:
-    needs: build
+    needs: [test, build]
     runs-on: ubuntu-latest
     environment:
       name: github-pages

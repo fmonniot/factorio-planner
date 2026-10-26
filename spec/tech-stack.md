@@ -52,7 +52,7 @@ Component library: none. The production table, popovers, modals and the item pic
 
 Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
 
-`npm run build` type-checks (`tsc -b`), bundles with Vite, then runs `postbuild` → `scripts/build-icons.mjs`, which writes WebP siblings and optimised PNGs for the icons under `dist/data` (using `sharp`).
+`npm run build` type-checks (`tsc -b`), bundles with Vite, then runs `postbuild` → `scripts/build-icons.mjs`, which writes WebP siblings and optimised PNGs for the icons under `dist/data` (using `sharp`). Encoded icons are cached in `.cache/icons` (override with `ICON_CACHE_DIR`) by a hash of the source PNG and the encoder settings, so an unchanged icon is copied instead of re-encoded; entries no icon maps to are pruned after each run.
 
 ---
 
@@ -93,6 +93,7 @@ Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-pla
 
 GitHub Actions, Node 22 (`.github/workflows/`):
 
-- **`test.yml`** runs on every pull request and as a reusable workflow: `npm ci` → `npm run lint` → `npm run lint:docs` → `npm run test:unit` → Playwright chromium install → `npm run test:e2e` → `npm run build`. It does not run on pushes or tags; `deploy.yml` calls it before publishing a release.
-- **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): it calls `test.yml`, then builds and deploys `dist/` to GitHub Pages.
+- **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (two Playwright shards, `--shard=N/2`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
+- **Caches.** The `e2e` jobs cache `~/.cache/ms-playwright`, keyed on the Playwright version and the runner image version; apt system libraries are installed (`--with-deps`) only on a cache miss, because apt is slow and occasionally takes minutes. The `build` jobs cache `.cache/icons` (see above). Pull requests can only read caches created on `main`, which is why `test.yml` also runs on pushes to `main`.
+- **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): `test.yml` and a `build` job (which uploads `dist/` as the Pages artifact) run in parallel, then `deploy` publishes to GitHub Pages once both pass.
 - **Dependabot** (`.github/dependabot.yml`) opens weekly npm update PRs, grouping React and Vitest packages.
