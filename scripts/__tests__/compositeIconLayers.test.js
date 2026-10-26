@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
-import { compositeIconLayers, normalizeColor } from '../icon-compositor.js'
+import { compositeIconLayers, addLightLayer, normalizeColor } from '../icon-compositor.js'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 
@@ -189,6 +189,151 @@ describe('compositeIconLayers', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Light layers (tint alpha 0)
+// ---------------------------------------------------------------------------
+
+describe('light layers (tint alpha 0)', () => {
+  const LIGHT = { r: 1, g: 1, b: 1, a: 0 }
+
+  /** Composite a base PNG and a light PNG (both 64×64) with the given light tint. */
+  async function withLight(base, light, tint = LIGHT, extra = []) {
+    const resolvers = mockResolver('t', { 'base.png': base, 'light.png': light })
+    const layers = [
+      { icon: '__t__/base.png', icon_size: 64 },
+      { icon: '__t__/light.png', icon_size: 64, tint },
+      ...extra,
+    ]
+    return compositeIconLayers(layers, resolvers, 64)
+  }
+
+  function expectPixel(p, r, g, b, a) {
+    expect(Math.abs(p.r - r)).toBeLessThanOrEqual(1)
+    expect(Math.abs(p.g - g)).toBeLessThanOrEqual(1)
+    expect(Math.abs(p.b - b)).toBeLessThanOrEqual(1)
+    expect(p.a).toBe(a)
+  }
+
+  it('adds the light colour to an opaque base', async () => {
+    const out = await withLight(await solidPng(40, 40, 40), await solidPng(100, 150, 200))
+    const p = await pixel(out)
+    expectPixel(p, 140, 190, 240, 255)
+    expect(Math.min(p.r, p.g, p.b)).toBeGreaterThanOrEqual(40)
+  })
+
+  it('opaque black light leaves the base unchanged (no black square)', async () => {
+    const out = await withLight(await solidPng(200, 100, 50), await solidPng(0, 0, 0), [1, 1, 1, 0])
+    expectPixel(await pixel(out), 200, 100, 50, 255)
+  })
+
+  it('accepts a 0–255 tint', async () => {
+    const out = await withLight(
+      await solidPng(40, 40, 40), await solidPng(100, 150, 200), { r: 255, g: 255, b: 255, a: 0 },
+    )
+    expectPixel(await pixel(out), 140, 190, 240, 255)
+  })
+
+  it('multiplies the light by the tint colour', async () => {
+    const out = await withLight(
+      await solidPng(40, 40, 40), await solidPng(255, 255, 255), { r: 0.5, g: 0, b: 0, a: 0 },
+    )
+    expectPixel(await pixel(out), 168, 40, 40, 255)
+  })
+
+  it('weights a semi-transparent light pixel by its alpha', async () => {
+    const out = await withLight(await solidPng(0, 0, 0), await solidPng(200, 200, 200, 128))
+    expectPixel(await pixel(out), 100, 100, 100, 255)
+  })
+
+  it('keeps the alpha of a semi-transparent canvas', async () => {
+    const out = await withLight(await solidPng(40, 40, 40, 128), await solidPng(50, 50, 50))
+    // Premultiplied: 40*0.5 + 50 = 70, back to straight alpha: 70 / 0.5 = 140.
+    expectPixel(await pixel(out), 140, 140, 140, 128)
+  })
+
+  it('clamps at 255', async () => {
+    const out = await withLight(await solidPng(200, 200, 200), await solidPng(200, 200, 200))
+    expectPixel(await pixel(out), 255, 255, 255, 255)
+  })
+
+  it('drops light that falls on transparent pixels', async () => {
+    const red = await solidPng(255, 0, 0)
+    const white = await solidPng(255, 255, 255)
+    const resolvers = mockResolver('t', { 'red.png': red, 'white.png': white })
+    const layers = [
+      { icon: '__t__/red.png', icon_size: 64, scale: 0.5 },
+      { icon: '__t__/white.png', icon_size: 64, scale: 1, tint: LIGHT },
+    ]
+    const out = await compositeIconLayers(layers, resolvers, 64)
+    expect((await pixel(out, 0, 0)).a).toBe(0)
+    const centre = await pixel(out, 32, 32)
+    expect(centre.a).toBe(255)
+    expect(centre.g).toBeGreaterThan(250)
+  })
+
+  it('returns null for a lone light layer', async () => {
+    const resolvers = mockResolver('t', { 'white.png': await solidPng(255, 255, 255) })
+    const out = await compositeIconLayers([{ icon: '__t__/white.png', icon_size: 64, tint: LIGHT }], resolvers, 64)
+    expect(out).toBeNull()
+  })
+
+  it('applies layers in order: a layer above the light covers it', async () => {
+    const resolvers = mockResolver('t', {
+      'blue.png': await solidPng(0, 0, 255),
+      'white.png': await solidPng(255, 255, 255),
+      'red.png': await solidPng(255, 0, 0),
+    })
+    const layers = [
+      { icon: '__t__/blue.png', icon_size: 64, scale: 1 },
+      { icon: '__t__/white.png', icon_size: 64, scale: 1, tint: LIGHT },
+      { icon: '__t__/red.png', icon_size: 64, scale: 0.5 },
+    ]
+    const out = await compositeIconLayers(layers, resolvers, 64)
+    expectPixel(await pixel(out, 32, 32), 255, 0, 0, 255)
+    expectPixel(await pixel(out, 4, 4), 255, 255, 255, 255)
+  })
+
+  it('handles a grey+alpha light source', async () => {
+    const grey = await sharp(await solidPng(100, 100, 100)).toColourspace('b-w').png().toBuffer()
+    const out = await withLight(await solidPng(40, 40, 40), grey)
+    const p = await pixel(out)
+    expect(p.r).toBeGreaterThan(100)
+    expect(p.a).toBe(255)
+  })
+})
+
+describe('addLightLayer', () => {
+  const rgba = (size, r, g, b, a) => {
+    const buf = Buffer.alloc(size * size * 4)
+    for (let i = 0; i < buf.length; i += 4) buf.set([r, g, b, a], i)
+    return buf
+  }
+  const at = (buf, size, x, y) => Array.from(buf.subarray((y * size + x) * 4, (y * size + x) * 4 + 4))
+
+  it('touches only the overlap for negative offsets', () => {
+    const canvas = rgba(4, 10, 10, 10, 255)
+    addLightLayer(canvas, 4, rgba(4, 50, 50, 50, 255), 4, -2, -2)
+    expect(at(canvas, 4, 0, 0)).toEqual([60, 60, 60, 255])
+    expect(at(canvas, 4, 1, 1)).toEqual([60, 60, 60, 255])
+    expect(at(canvas, 4, 2, 2)).toEqual([10, 10, 10, 255])
+    expect(at(canvas, 4, 3, 0)).toEqual([10, 10, 10, 255])
+  })
+
+  it('touches only the overlap when the layer overflows the canvas', () => {
+    const canvas = rgba(4, 10, 10, 10, 255)
+    addLightLayer(canvas, 4, rgba(4, 50, 50, 50, 255), 4, 3, 3)
+    expect(at(canvas, 4, 3, 3)).toEqual([60, 60, 60, 255])
+    expect(at(canvas, 4, 2, 3)).toEqual([10, 10, 10, 255])
+    expect(at(canvas, 4, 3, 2)).toEqual([10, 10, 10, 255])
+  })
+
+  it('does not throw when the layer is entirely outside', () => {
+    const canvas = rgba(4, 10, 10, 10, 255)
+    expect(() => addLightLayer(canvas, 4, rgba(2, 50, 50, 50, 255), 2, 10, -10)).not.toThrow()
+    expect(at(canvas, 4, 0, 0)).toEqual([10, 10, 10, 255])
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Golden image tests
 // ---------------------------------------------------------------------------
 
@@ -242,6 +387,19 @@ describe('golden images', () => {
     const expected = readFileSync(join(dir, 'expected.png'))
 
     const out = await compositeIconLayers(layers, fixtureResolver(dir), 64)
+    expect(out).toBeInstanceOf(Buffer)
+
+    const diff = await maxPixelDiff(out, expected)
+    expect(diff).toBeLessThanOrEqual(2)
+  })
+
+  // Two light layers (tint alpha 0): a regression lock, expected.png is not ground truth.
+  it('seablock-advanced-material-processing-2 matches expected', async () => {
+    const dir = join(__dirname, 'golden/seablock-advanced-material-processing-2')
+    const layers = JSON.parse(readFileSync(join(dir, 'layers.json'), 'utf8'))
+    const expected = readFileSync(join(dir, 'expected.png'))
+
+    const out = await compositeIconLayers(layers, fixtureResolver(dir), 256, 256)
     expect(out).toBeInstanceOf(Buffer)
 
     const diff = await maxPixelDiff(out, expected)
