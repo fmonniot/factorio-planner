@@ -83,3 +83,4 @@ These are the player's own uncertainties, to settle while proposals are compared
 |---|---|
 | [Sub-factory sites](proposals/sites.md) | A sub-factory can be marked as a site; recipe rows get hand-placed copies in other sites, sized automatically; a per-site ledger lists flows. |
 | [Areas in the solve](proposals/area-solve.md) | A sub-factory can be marked as an area; a recipe has an ordinary row, with its own settings, in each area that builds it; the block LP balances items per area and an area's own rows serve it first. |
+| [Areas as an overlay](proposals/overlay.md) | Areas are a plan-level layer that can span blocks; rows and sub-factories are bound to an area, and a row gets parts in other areas (local, share or buildings), sized after the solve; the table stays the chain and an Areas view shows what each area builds and ships. |
