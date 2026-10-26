@@ -50,7 +50,7 @@ Component library: none. The production table, popovers, modals and the item pic
 
 ## Build Tooling: Vite
 
-Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request, mirroring the production build.
+Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
 
 `npm run build` type-checks (`tsc -b`), bundles with Vite, then runs `postbuild` → `scripts/build-icons.mjs`, which writes WebP siblings and optimised PNGs for the icons under `dist/data` (using `sharp`).
 
