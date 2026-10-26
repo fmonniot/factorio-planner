@@ -94,7 +94,8 @@ export function addLightLayer(canvas, canvasSize, layer, layerSize, left, top) {
 /**
  * Composite an array of Factorio IconData layers into a single PNG Buffer.
  * Layers are drawn in order with normal alpha; a layer whose tint alpha is 0 is a
- * light layer and is added to the layers below instead (see addLightLayer).
+ * light layer and is added to the layers below instead (see addLightLayer). Light layers
+ * alone render nothing, so without a normal layer the result is null.
  *
  * @param {Array}  layers     - Array of IconData objects from proto.icons
  * @param {object} resolvers  - Mod name → resolver map
@@ -102,7 +103,7 @@ export function addLightLayer(canvas, canvasSize, layer, layerSize, left, top) {
  * @param {number} expectedSize - Icon size the layers are authored for (64 for items,
  *                                256 for technologies); layers without `scale` are
  *                                drawn at half of it. Defaults to outputSize.
- * @returns {Promise<Buffer|null>} PNG buffer, or null if no layers could be rendered
+ * @returns {Promise<Buffer|null>} PNG buffer, or null if no normal (non-light) layer could be rendered
  */
 export async function compositeIconLayers(layers, resolvers, outputSize = 64, expectedSize = outputSize) {
   const steps = []
@@ -147,7 +148,7 @@ export async function compositeIconLayers(layers, resolvers, outputSize = 64, ex
     }
   }
 
-  if (steps.length === 0) return null
+  if (!steps.some(s => s.over)) return null
 
   const raw = { width: outputSize, height: outputSize, channels: 4 }
   let canvas = await sharp({

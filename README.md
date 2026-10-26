@@ -136,7 +136,7 @@ The paths above are the macOS defaults. Adjust them for your platform. [spec/dat
 | `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` |
 | `scripts/check-doc-links.mjs` | `lint:docs`: fails on broken relative links and missing repo paths in Markdown |
-| `scripts/__tests__/` | Tests for the icon compositor (golden images), the technology, extraction and place-result exports, locale resolution, icon path derivation and bundled-name and icon-path checks |
+| `scripts/__tests__/` | Tests for the icon compositor (synthetic pixel checks and golden images), the technology, extraction and place-result exports, locale resolution, icon path derivation and bundled-name and icon-path checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-requests.spec.ts` requests, take existing connections, Make in a new block and Use connections first, `request-loop.spec.ts` cycles of requests (with `fixtures/request-loop-seablock.json`), `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`, `block-color.spec.ts` block colours, `support/summary.ts` the slot and detail-strip helpers, `support/appMenu.ts` the workspace menu helpers, `plans.spec.ts` the saved plans with `support/planMenu.ts` as its plan helpers, `support/horizon.ts` the helpers that open and close the tech tree from the horizon flag) |
 | `spec/` | How the system works today |

@@ -270,12 +270,10 @@ describe('light layers (tint alpha 0)', () => {
     expect(centre.g).toBeGreaterThan(250)
   })
 
-  it('returns a transparent PNG, not null, for a lone light layer', async () => {
+  it('returns null for a lone light layer', async () => {
     const resolvers = mockResolver('t', { 'white.png': await solidPng(255, 255, 255) })
     const out = await compositeIconLayers([{ icon: '__t__/white.png', icon_size: 64, tint: LIGHT }], resolvers, 64)
-    expect(out).toBeInstanceOf(Buffer)
-    const { data } = await sharp(out).raw().toBuffer({ resolveWithObject: true })
-    for (let i = 3; i < data.length; i += 4) expect(data[i]).toBe(0)
+    expect(out).toBeNull()
   })
 
   it('applies layers in order: a layer above the light covers it', async () => {
