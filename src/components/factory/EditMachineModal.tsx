@@ -1,12 +1,13 @@
 import { useMemo, useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
-import { useBlockStore } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
+import { countRecipeRows } from './recipeAreas'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './moduleRules'
 
 // ---------------------------------------------------------------------------
@@ -127,6 +128,11 @@ export function EditMachineModal({
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
   const setDefaultMachine = useBlockStore(s => s.setDefaultMachine)
+  const recipeRowCount = useBlockStore(s => {
+    const b = selectActiveBlock(s)
+    return b ? countRecipeRows(b.rootPlan, recipeId) : 0
+  })
+  const applyRowSettingsToRecipe = useBlockStore(s => s.applyRowSettingsToRecipe)
   const blocks = useBlockStore(s => s.blocks)
   const requestDefaultMachines = useUiStore(s => s.requestDefaultMachines)
   const available = useAvailableRecipeIds()
@@ -429,7 +435,18 @@ export function EditMachineModal({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-end px-4 py-2.5 border-t border-gray-700">
+      <div className="flex items-center justify-between px-4 py-2.5 border-t border-gray-700">
+        {recipeRowCount > 1 && (
+          <button
+            type="button"
+            data-testid="apply-to-recipe-rows"
+            title={`Copy this row's machine and modules to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+            onClick={() => applyRowSettingsToRecipe(nodeId, 'machine')}
+            className="text-xs text-teal-400 hover:text-teal-300"
+          >
+            Apply to every row of this recipe ({recipeRowCount})
+          </button>
+        )}
         <button
           type="button"
           onClick={onClose}

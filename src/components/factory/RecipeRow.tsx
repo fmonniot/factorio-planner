@@ -1,8 +1,8 @@
-import { useState, useRef } from 'react'
-import type { SolvedNode, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
+import { useState, useRef, useMemo } from 'react'
+import type { SolvedNode, SolvedArea, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { isSubPlanDescendant } from '../../store/blockStore'
-import { useUiStore } from '../../store/uiStore'
+import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { ItemTile, fmtRate } from './ItemTile'
@@ -13,6 +13,16 @@ import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
+import { FlowChip } from './AreasPane'
+import {
+  buildAlsoInOptions,
+  goToRowOptions,
+  multiAreaSummary,
+  multiAreaTitle,
+  recipeAreaIds,
+  type AreaView,
+} from './recipeAreas'
+import { dedicatedProduct } from '../../solver/areas'
 import { countSubPlanContents } from './subPlanContents'
 import { ingredientTemperatureLabels } from './temperature'
 
@@ -56,6 +66,11 @@ export function primaryItemPerRun(
 const BYPRODUCT_CONSUMER_HINT =
   'Absorbs byproduct: runs only to consume surplus from other recipes and never imports its own inputs. Right-click the row to stop absorbing.'
 
+const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
+
+/** Chips shown per direction on a collapsed area row; the rest is a "+N". */
+const AREA_CHIP_CAP = 4
+
 interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
   planNode: RecipeNode | SubPlanNode
@@ -74,6 +89,10 @@ interface RecipeRowProps {
   onIngredientClick?: (itemId: string, subPlanId: string) => void
   /** Open the recipe picker filtered to recipes consuming this byproduct. */
   onAddConsumer?: (itemId: string, subPlanId: string) => void
+  /** Areas of the block, solved rows and flows; absent in tests that do not need them. */
+  areaView?: AreaView
+  /** Flash the row: it was just revealed. */
+  isHighlighted?: boolean
 }
 
 export function RecipeRow({
@@ -90,6 +109,8 @@ export function RecipeRow({
   nodeIndex,
   onIngredientClick,
   onAddConsumer,
+  areaView,
+  isHighlighted,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -103,6 +124,8 @@ export function RecipeRow({
   const removeSubPlan = useBlockStore(s => s.removeSubPlan)
   const renameSubPlan = useBlockStore(s => s.renameSubPlan)
   const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
+  const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
+  const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
 
@@ -115,9 +138,23 @@ export function RecipeRow({
   const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
   const indentPx = depth * 16
+  // The badge tooltip, memoised: it walks every area of the recipe, and a badged row renders often.
+  const multiAreaBadgeTitle = useMemo(() => {
+    if (planNode.kind !== 'game-recipe' || !areaView) return undefined
+    const hereId = areaView.index.rowById.get(planNode.id)?.areaId
+    const recipeName = gameData.recipes[planNode.recipeId]?.name
+    if (!hereId || recipeName === undefined || recipeAreaIds(areaView.index, planNode.recipeId).length < 2) return undefined
+    return multiAreaTitle(
+      recipeName,
+      multiAreaSummary(areaView.index, rootPlan, planNode.recipeId, hereId, areaView.solvedMap),
+      hereId,
+    )
+  }, [planNode, areaView, gameData, rootPlan])
   const [editMachineOpen, setEditMachineOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
+  // The menus opened from the row menu's "Build also in…" and "Go to row in…".
+  const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto'; x: number; y: number } | null>(null)
 
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.effectAllowed = 'move'
@@ -193,6 +230,9 @@ export function RecipeRow({
     endDrag()
   }
 
+  const highlightProps = isHighlighted ? { 'data-highlighted': 'true' } : {}
+  const highlightClass = isHighlighted ? 'bg-teal-900/40 outline outline-2 outline-teal-400' : ''
+
   // ── SubPlan node ─────────────────────────────────────────────────────────
 
   if (planNode.kind === 'subplan') {
@@ -218,13 +258,19 @@ export function RecipeRow({
       removeSubPlan(subPlanId)
     }
 
+    const solvedArea = childPlan?.area === true && !isExpanded
+      ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
+      : undefined
+
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
 
     return (
       <tr
         ref={rowRef}
-        className={`border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity}`}
+        data-node-id={planNode.id}
+        {...highlightProps}
+        className={`border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -269,6 +315,9 @@ export function RecipeRow({
                 )
               })()}
             </button>
+            {solvedArea && (solvedArea.receives.length > 0 || solvedArea.sends.length > 0) && (
+              <AreaChips area={solvedArea} items={gameData.items} rateUnit={rateUnit} />
+            )}
           </div>
           {menuPos && (
             <RowActionsMenu
@@ -301,13 +350,27 @@ export function RecipeRow({
 
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
-  const primaryItemId = planNode.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
+  const primaryItemId = dedicatedProduct(planNode, recipe)
   const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
   if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
   const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined)
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
+
+  const index = areaView?.index
+  const hasAreas = index?.hasAreas === true
+  const hereAreaId = index?.rowById.get(planNode.id)?.areaId
+  const recipeAreaCount = index ? recipeAreaIds(index, planNode.recipeId).length : 0
+  // Only while a menu is open: the options are not needed otherwise.
+  const menuOpen = menuPos !== null || areaMenu !== null
+  const buildOptions = menuOpen && index && areaView
+    ? buildAlsoInOptions(index, rootPlan, planNode.id, primaryItemId, areaView.solvedMap)
+    : []
+  const gotoOptions = menuOpen && index && areaView
+    ? goToRowOptions(index, rootPlan, planNode.id, areaView.solvedMap)
+    : []
+  const rateSuffix = rateUnit === 'min' ? '/m' : '/s'
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
@@ -322,6 +385,10 @@ export function RecipeRow({
 
   function handleUnpin() {
     updateNodePinnedRate(planNode.id, undefined)
+  }
+
+  function openAreaMenu(kind: 'build' | 'goto') {
+    if (menuPos) setAreaMenu({ kind, ...menuPos })
   }
 
   function handleToggleByproductConsumer() {
@@ -342,6 +409,21 @@ export function RecipeRow({
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
     { label: 'Wrap in subfactory…', onSelect: handleWrap },
+    ...(hasAreas
+      ? [
+          {
+            label: 'Build also in…',
+            disabled: buildOptions.length === 0,
+            title: buildOptions.length === 0
+              ? !areaView?.solvedMap.has(planNode.id)
+                ? 'Waiting for the solve'
+                : `No other area uses ${primaryItemId ? (gameData.items[primaryItemId]?.name ?? primaryItemId) : 'its product'} without a row of this recipe`
+              : undefined,
+            onSelect: () => openAreaMenu('build'),
+          },
+          ...(gotoOptions.length > 0 ? [{ label: 'Go to row in…', onSelect: () => openAreaMenu('goto') }] : []),
+        ]
+      : []),
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
@@ -360,7 +442,9 @@ export function RecipeRow({
   return (
     <tr
       ref={rowRef}
-      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity}`}
+      data-node-id={planNode.id}
+      {...highlightProps}
+      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity} ${highlightClass}`}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -378,6 +462,7 @@ export function RecipeRow({
         onContextMenu={e => {
           e.preventDefault()
           setByproductMenu(null)
+          setAreaMenu(null)
           setMenuPos({ x: e.clientX, y: e.clientY })
         }}
       >
@@ -412,9 +497,41 @@ export function RecipeRow({
               </span>
             )}
           </div>
+          {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
+            <span
+              data-testid="multi-area-badge"
+              title={multiAreaBadgeTitle}
+              className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 tabular-nums select-none"
+            >
+              {recipeAreaCount}
+            </span>
+          )}
         </div>
         {menuPos && (
           <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />
+        )}
+        {areaMenu && (
+          <RowActionsMenu
+            x={areaMenu.x}
+            y={areaMenu.y}
+            actions={
+              areaMenu.kind === 'build'
+                ? buildOptions.map(o => ({
+                    id: o.areaId,
+                    label: `${o.name} · uses ${fmtRate(o.rate / 60, rateUnit)}${rateSuffix}`,
+                    onSelect: () => {
+                      const id = buildRowAlsoIn(planNode.id, o.areaId)
+                      if (id) requestRevealRow(id)
+                    },
+                  }))
+                : gotoOptions.map(o => ({
+                    id: o.nodeId,
+                    label: `${o.name} · ${o.buildings} building${o.buildings === 1 ? '' : 's'}`,
+                    onSelect: () => requestRevealRow(o.nodeId),
+                  }))
+            }
+            onClose={() => setAreaMenu(null)}
+          />
         )}
       </td>
 
@@ -509,6 +626,7 @@ export function RecipeRow({
               ? (e: React.MouseEvent) => {
                   e.preventDefault()
                   setMenuPos(null)
+                  setAreaMenu(null)
                   setByproductMenu({ itemId, x: e.clientX, y: e.clientY })
                 }
               : undefined
@@ -524,7 +642,7 @@ export function RecipeRow({
                   variant="byproduct"
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
                   onContextMenu={openMenu}
-                  title={`${itemName} — Set as primary${hint}`}
+                  title={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
                 />
               )
             }
@@ -590,6 +708,37 @@ export function RecipeRow({
         </div>
       </td>
     </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// AreaChips — what a collapsed area receives and sends, display-only
+// ---------------------------------------------------------------------------
+
+function AreaChips({ area, items, rateUnit }: { area: SolvedArea; items: GameData['items']; rateUnit: RateUnit }) {
+  const unit = rateUnit === 'min' ? '/m' : '/s'
+  function more(rest: SolvedArea['receives']) {
+    if (rest.length === 0) return null
+    const title = rest.map(f => `${items[f.itemId]?.name ?? f.itemId} ${fmtRate(f.rate / 60, rateUnit)}${unit}`).join(', ')
+    return (
+      <span data-testid="area-chips-more" title={title} className="text-[10px] text-gray-500">
+        +{rest.length}
+      </span>
+    )
+  }
+  return (
+    <div data-testid="area-chips" className="flex flex-wrap items-center gap-1 ml-2">
+      {area.receives.length > 0 && <span className="text-[10px] text-gray-500">in</span>}
+      {area.receives.slice(0, AREA_CHIP_CAP).map(f => (
+        <FlowChip key={`in-${f.itemId}`} {...f} direction="receives" items={items} rateUnit={rateUnit} />
+      ))}
+      {more(area.receives.slice(AREA_CHIP_CAP))}
+      {area.sends.length > 0 && <span className="text-[10px] text-gray-500">out</span>}
+      {area.sends.slice(0, AREA_CHIP_CAP).map(f => (
+        <FlowChip key={`out-${f.itemId}`} {...f} direction="sends" items={items} rateUnit={rateUnit} />
+      ))}
+      {more(area.sends.slice(AREA_CHIP_CAP))}
+    </div>
   )
 }
 

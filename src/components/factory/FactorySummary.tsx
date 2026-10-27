@@ -20,6 +20,7 @@ import { SummaryPane } from './SummaryPane'
 import { AreasPane } from './AreasPane'
 import { areaRows } from './areaRows'
 import type { StripAction } from './SummaryDetailStrip'
+import { presentRecipesFor } from './recipeAreas'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
@@ -489,6 +490,7 @@ export function FactorySummary() {
           source="recipes"
           consumesItemId={consumerPickerItemId}
           onSelect={id => addNode(makeRecipeNode(id))}
+          presentRecipes={activeBlock ? presentRecipesFor(activeBlock.rootPlan, activeBlock.rootPlan.id) : undefined}
           onClose={() => setConsumerPickerItemId(null)}
         />
       )}
@@ -498,6 +500,7 @@ export function FactorySummary() {
           source="recipes"
           filterByItemId={producerPickerItemId}
           onSelect={id => addNode(makeRecipeNode(id))}
+          presentRecipes={activeBlock ? presentRecipesFor(activeBlock.rootPlan, activeBlock.rootPlan.id) : undefined}
           onClose={() => setProducerPickerItemId(null)}
         />
       )}

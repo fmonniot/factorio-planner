@@ -1,11 +1,16 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
+import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
+import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, type AreaView } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
+
+/** How long a revealed row stays highlighted. */
+const REVEAL_HIGHLIGHT_MS = 2000
 
 // ---------------------------------------------------------------------------
 // ProductionTable
@@ -33,6 +38,32 @@ export function ProductionTable() {
   const rootPlan = activeBlock?.rootPlan
   const nodes = rootPlan?.nodes ?? []
   const solvedMap = new Map(solverResult?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
+  const scrollRef = useRef<HTMLDivElement>(null)
+
+  const areaIndex = useMemo(() => (rootPlan ? indexRecipeAreas(rootPlan) : undefined), [rootPlan])
+  const areaView: AreaView | undefined = areaIndex && { index: areaIndex, solvedMap, solvedAreas: solverResult?.areas }
+
+  // A request to show a row (Build also in…, Go to row in…): expand its sub-factories now, scroll
+  // and flash once it is rendered. A request left over from before this table mounted is ignored.
+  const revealRequest = useUiStore(s => s.revealRowRequest)
+  const [handledRevealSeq, setHandledRevealSeq] = useState(() => useUiStore.getState().revealRowRequest?.seq ?? 0)
+  const [highlight, setHighlight] = useState<{ nodeId: string; seq: number } | null>(null)
+  if (revealRequest && revealRequest.seq !== handledRevealSeq) {
+    setHandledRevealSeq(revealRequest.seq)
+    const handles = rootPlan ? ancestorHandleIds(rootPlan, revealRequest.nodeId) : undefined
+    if (handles) {
+      if (handles.some(h => !expanded.has(h))) setExpanded(new Set([...expanded, ...handles]))
+      setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
+    }
+  }
+  useEffect(() => {
+    if (!highlight) return
+    scrollRef.current
+      ?.querySelector(`tr[data-node-id="${highlight.nodeId}"]`)
+      ?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    const t = window.setTimeout(() => setHighlight(cur => (cur === highlight ? null : cur)), REVEAL_HIGHLIGHT_MS)
+    return () => window.clearTimeout(t)
+  }, [highlight])
 
   function handleAddRecipe(recipeId: string) {
     addNode(makeRecipeNode(recipeId), picker?.targetSubPlanId)
@@ -50,7 +81,7 @@ export function ProductionTable() {
   return (
     <div className="flex flex-col flex-1 min-h-0 bg-gray-900">
       {/* Scrollable table body */}
-      <div className="flex-1 overflow-auto">
+      <div ref={scrollRef} className="flex-1 overflow-auto">
         {nodes.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
             <span className="text-sm">No recipes yet</span>
@@ -100,6 +131,8 @@ export function ProductionTable() {
                   toggleExpand,
                   (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
                   (itemId, subPlanId) => setPicker({ consumesItemId: itemId, targetSubPlanId: subPlanId }),
+                  areaView,
+                  highlight?.nodeId ?? null,
                 )}
                 {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
               </tbody>
@@ -113,6 +146,7 @@ export function ProductionTable() {
           source="recipes"
           filterByItemId={picker.filterByItemId}
           consumesItemId={picker.consumesItemId}
+          presentRecipes={rootPlan ? presentRecipesFor(rootPlan, picker.targetSubPlanId ?? rootPlan.id) : undefined}
           onSelect={handleAddRecipe}
           onClose={() => setPicker(null)}
         />
@@ -136,6 +170,8 @@ function renderNodes(
   toggleExpand: (id: string) => void,
   onIngredientClick: (itemId: string, subPlanId: string) => void,
   onAddConsumer: (itemId: string, subPlanId: string) => void,
+  areaView: AreaView | undefined,
+  highlightedNodeId: string | null,
 ): React.ReactNode[] {
   const rows: React.ReactNode[] = []
 
@@ -156,6 +192,8 @@ function renderNodes(
         nodeIndex={idx}
         onIngredientClick={onIngredientClick}
         onAddConsumer={onAddConsumer}
+        areaView={areaView}
+        isHighlighted={planNode.id === highlightedNodeId}
       />
     )
 
@@ -181,6 +219,8 @@ function renderNodes(
               toggleExpand,
               onIngredientClick,
               onAddConsumer,
+              areaView,
+              highlightedNodeId,
             )
           )
         }

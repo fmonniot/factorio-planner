@@ -55,6 +55,7 @@ session (see [Game data set](#game-data-set)).
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │ [+]│ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
 │ ▲▼ │ ▶ Smelting  3 recipes                                               │
+│ ▲▼ │ ▶ Plastics  Area  2 recipes   in [H 30]  out [plastic 60]           │
 │ ▲▼ │ [icon]           │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -388,6 +389,10 @@ machine modal's "All defaults…") opens the workspace menu with the flyout open
 checked machine of that category (else the first checked item). The request is transient; the item
 captures it on mount and clears it.
 
+`uiStore.revealRowRequest` / `requestRevealRow(nodeId)` is a similar transient request (not
+persisted, never cleared; `seq` changes on every request) to show a production-table row,
+see [Recipe rows](#recipe-rows).
+
 The checked data set's radio item carries a second line, "Factorio <version> · N mods · N recipes"
 (singular for 1; `aria-describedby`, so it is its accessible description; the tooltip lists the mod
 names). Mods are the `modSet` entries other than `base`, `elevated-rails`, `quality` and
@@ -610,7 +615,7 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Areas pane
 
-`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a `section` region named "Areas" with a header button "Areas · N" (`aria-expanded`; collapsible, open by default; keyed by the active block like the panes) and a list capped at 120px that scrolls. There is one list item per area, in table order: the name (`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then "in" chips for what it receives and "out" chips for what it sends. A chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives` or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip adds " — from outside the block" or " — leaves the block". Clicking a chip selects its item (`aria-pressed`): every chip of that item, in every area, is highlighted and the others are dimmed, which shows who sends it and who receives it. Clicking it again clears the selection. Selection and collapse are view state.
+`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a `section` region named "Areas" with a header button "Areas · N" (`aria-expanded`; collapsible, open by default; keyed by the active block like the panes) and a list capped at 120px that scrolls. There is one list item per area, in table order: the name (`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then "in" chips for what it receives and "out" chips for what it sends. A chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives` or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip adds " — from outside the block" or " — leaves the block". Clicking a chip selects its item (`aria-pressed`): every chip of that item, in every area, is highlighted and the others are dimmed, which shows who sends it and who receives it. Clicking it again clears the selection. Selection and collapse are view state. The same chips, display-only, appear on a collapsed area row of the [production table](#sub-factory-rows).
 
 ### Warnings popover
 
@@ -661,7 +666,14 @@ by depth. Nodes whose recipe does not exist in the loaded data render nothing.
 letters of the recipe name), with the recipe name as tooltip. The cell has no
 buttons; the row actions are in the right-click menu below. Byproduct-consumer
 rows carry a small amber "↓" badge at the icon's bottom-right corner, whose
-tooltip explains the mode.
+tooltip explains the mode. In a block with areas, a recipe that has rows in two or
+more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the
+number of areas) after the icon. Its tooltip names the recipe and splits its buildings
+per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5
+Rocket fuel" ("here" is the row's own area and comes first, the others follow in table
+order, the root is "Top level"; several rows in one area are summed, a row with no solve
+result counts as 0). The badge is display-only. Every row (recipe or sub-factory) carries
+`data-node-id`.
 
 Right-clicking anywhere in the recipe cell opens a context menu
 (`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
@@ -679,6 +691,26 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   does not remount or change value.
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
+- **Build also in…** (blocks with areas only) — adds a copy of this row to another area.
+  It is disabled when no area qualifies, with the title "No other area uses <item>
+  without a row of this recipe", or "Waiting for the solve" while the row has no solve
+  result (right after turning on Separate area, or when the solve failed). An area qualifies when its rows (including those in
+  organising groups inside it) consume the row's primary product (above a negligible
+  rate) and it has no row of the same recipe yet; an area that makes the item with a
+  different recipe is still offered. Choosing it opens a second menu with one entry per
+  area, "<area> · uses <rate>/m" (or `/s`, the area's total consumption of the item in
+  the current rate unit). Picking one appends a row to that area's own rows with the
+  recipe, machine, modules, beacon, byproduct policy and primary product, deep-copied;
+  the pin and the byproduct-consumer flag are not copied. It is one undoable command.
+  The table then reveals the new row (see **Go to row in…**).
+- **Go to row in…** (shown when at least one row can be revealed) — opens a second menu
+  listing this recipe's rows in the other areas, one entry per row in table order,
+  "<area> · N building(s)". Rows in a sub-plan without a handle in the table cannot be
+  revealed and are left out (the badge still counts them).
+  Choosing one expands the sub-factories above that row, scrolls it to the centre of the
+  table and highlights it (`data-highlighted="true"`, a teal outline) for two seconds. The
+  request is transient (`uiStore.revealRowRequest`, handled by the table of the active
+  block; a request made before the table mounted is ignored).
 - **Remove recipe** (red).
 
 The menu closes on an outside click, Escape, scroll, window blur or after choosing
@@ -714,7 +746,9 @@ module is outside the horizon gets an amber ring.
 `ItemTile` with its rate.
 
 **Byproducts cell.** Every other output. On multi-output recipes, clicking a
-byproduct makes it the primary product (it swaps places with the current one).
+byproduct makes it the primary product (it swaps places with the current one). In a
+block with areas the tile's tooltip adds "; the primary product decides what this row
+builds for its area" after "Set as primary".
 Right-clicking a byproduct tile opens a `RowActionsMenu` with **Add consumer
 recipe…**, which opens the recipe picker filtered to recipes consuming that item;
 the chosen recipe is added to the same sub-plan as the row. The menu follows the
@@ -738,6 +772,13 @@ Rename opens a browser prompt prefilled with the current name; cancelling or a
 blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.
+
+A collapsed sub-factory that is a separate area shows what it receives and sends right
+after its name (`data-testid="area-chips"`): an "in" label and the receive chips, then
+an "out" label and the send chips, the same chips as the Areas pane but display-only
+(`<span>`s; selecting an item stays in the pane). At most four chips per direction; the
+rest is a "+N" (`data-testid="area-chips-more"`) whose tooltip lists the remaining items
+with their rates. An expanded area and an organising sub-factory show none.
 Removal, with all its contents, is undoable at store level: undo restores the
 sub-factory at its original position. The undo history is session-only and per
 block. Expanding shows its nodes indented beneath it (including nested
@@ -823,6 +864,12 @@ The same component in recipes mode (`source="recipes"`).
   dimmed, carry `data-beyond-horizon="true"` and a "(beyond research horizon)"
   tooltip suffix, and are selected like any other slot. Hidden recipes are
   unaffected. While it is ticked the "outside it" empty-state message never appears.
+- A recipe that already has a row where the new one would go is disabled: dimmed,
+  `data-in-area="true"`, title "<name> (already in this area)" (or "this block" in a block
+  without areas), and clicking it does nothing. The target is the area that encloses the
+  sub-plan the row will be added to (the root for the header button and the summary's
+  Find recipe). Other routes (dragging a row into an area, **Alternate recipe**, turning an
+  area off) can still create a duplicate, which the solver reports as `duplicate-recipe`.
 - Clicking a slot adds the recipe and closes the picker.
 
 ### Edit machine modal
@@ -856,6 +903,11 @@ The same component in recipes mode (`source="recipes"`).
 - **Effects** — "Module effects" (raw totals) and "Recipe effects" (after the
   machine's allowed effects, and with productivity zeroed if the recipe disallows
   it). Quality is listed only when relevant.
+- **Apply to every row of this recipe (N)** (footer; only when the active block has N > 1
+  rows of the recipe, in any area) — copies this row's machine and modules together
+  (including "Default", which clears the machine) to every other row of the recipe, as one
+  undoable command. The modal stays open; when every other row already matches, nothing
+  happens and no history entry is recorded.
 
 ### Edit beacon modal
 
@@ -871,6 +923,10 @@ The same component in recipes mode (`source="recipes"`).
   power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
 - **Module** — the module placed in every beacon slot (modules inside the research
   horizon are offered; productivity modules only when the recipe allows productivity).
+- **Apply to every row of this recipe (N)** (footer; only when N > 1, as in the machine
+  modal) — copies this row's beacon to every other row of the recipe, so rows without one
+  get one; the rows keep their own machine. Removing a beacon is not propagated. One
+  undoable command; the modal stays open.
 - **Remove beacon**.
 
 ---

@@ -1,7 +1,8 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
+import { areaRecipeIds, subPlanAreaIds } from '../solver/areas'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -105,6 +106,25 @@ function touchSubPlan(block: Block, subPlanId: string): Block {
     ...block,
     rootPlan: updateSubPlanInTree(block.rootPlan, subPlanId, withUpdatedAt),
   }
+}
+
+/**
+ * Apply `fn` to every game-recipe row of the tree. Returns the same object when nothing changed;
+ * only a sub-plan whose own rows changed is marked as updated.
+ */
+function mapGameRecipeNodes(plan: SubPlan, fn: (n: GameRecipeNode) => GameRecipeNode): SubPlan {
+  let changed = false
+  const nodes = plan.nodes.map(n => {
+    if (n.kind !== 'game-recipe') return n
+    const next = fn(n)
+    if (next !== n) changed = true
+    return next
+  })
+  const subPlans = plan.subPlans.map(sp => mapGameRecipeNodes(sp, fn))
+  const subChanged = subPlans.some((sp, i) => sp !== plan.subPlans[i])
+  if (!changed && !subChanged) return plan
+  const next = { ...plan, nodes: changed ? nodes : plan.nodes, subPlans: subChanged ? subPlans : plan.subPlans }
+  return changed ? withUpdatedAt(next) : next
 }
 
 // ---------------------------------------------------------------------------
@@ -310,6 +330,10 @@ export interface BlockStoreState {
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
+  /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, modules, beacon, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
+  buildRowAlsoIn: (nodeId: string, areaId: string) => string | undefined
+  /** Copy row `nodeId`'s machine and modules ('machine') or its beacon ('beacon') to every other row of the same recipe in the active block, as one undoable command. No-op when no other row differs. */
+  applyRowSettingsToRecipe: (nodeId: string, what: 'machine' | 'beacon') => void
   removeNode: (nodeId: string) => void
   moveNodeUp: (nodeId: string) => void
   moveNodeDown: (nodeId: string) => void
@@ -398,6 +422,67 @@ function nodeCommand(
       })),
     }, subPlanId),
   }
+}
+
+function addNodeCommand(node: RecipeNode, subPlanId: string): Command {
+  return {
+    apply: b => touchSubPlan({
+      ...b,
+      rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+        ...p,
+        nodes: [...p.nodes, node],
+      })),
+    }, subPlanId),
+    undo: b => touchSubPlan({
+      ...b,
+      rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
+        ...p,
+        nodes: p.nodes.filter(n => n.id !== node.id),
+      })),
+    }, subPlanId),
+  }
+}
+
+type RowSettings = Pick<GameRecipeNode, 'machineId' | 'modules' | 'beaconConfig'>
+
+/** The settings a row shares with the others of its recipe: machine and modules, or the beacon (cloned). */
+function pickSettings(n: GameRecipeNode, what: 'machine' | 'beacon'): Partial<RowSettings> {
+  return what === 'machine'
+    ? { machineId: n.machineId, modules: structuredClone(n.modules) }
+    : { beaconConfig: structuredClone(n.beaconConfig) }
+}
+
+/** `n` with `settings` set; a key whose value is undefined is removed. */
+function withSettings(n: GameRecipeNode, settings: Partial<RowSettings>): GameRecipeNode {
+  const next: GameRecipeNode = { ...n }
+  for (const [key, value] of Object.entries(settings)) {
+    if (value === undefined) delete (next as Record<string, unknown>)[key]
+    else (next as Record<string, unknown>)[key] = structuredClone(value)
+  }
+  return next
+}
+
+function sameSettings(a: GameRecipeNode, b: GameRecipeNode, what: 'machine' | 'beacon'): boolean {
+  return what === 'machine'
+    ? a.machineId === b.machineId && deepEqual(a.modules, b.modules)
+    : deepEqual(a.beaconConfig ?? null, b.beaconConfig ?? null)
+}
+
+/** Structural equality of plain JSON values; independent of object key order. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  const ka = Object.keys(a).filter(k => (a as Record<string, unknown>)[k] !== undefined)
+  const kb = Object.keys(b).filter(k => (b as Record<string, unknown>)[k] !== undefined)
+  return ka.length === kb.length && ka.every(k => deepEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
+function gameRecipeRows(plan: SubPlan): GameRecipeNode[] {
+  return [
+    ...plan.nodes.filter((n): n is GameRecipeNode => n.kind === 'game-recipe'),
+    ...plan.subPlans.flatMap(gameRecipeRows),
+  ]
 }
 
 // ---------------------------------------------------------------------------
@@ -746,21 +831,56 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
       const subPlanId = targetSubPlanId ?? block.rootPlan.id
+      return applyCommand(state, addNodeCommand(node, subPlanId))
+    }),
+
+  buildRowAlsoIn: (nodeId, areaId) => {
+    let newId: string | undefined
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const src = findSubPlanContainingNode(block.rootPlan, nodeId)?.nodes.find(n => n.id === nodeId)
+      if (!src || src.kind !== 'game-recipe') return state
+      if (subPlanAreaIds(block.rootPlan).get(areaId) !== areaId) return state
+      if (areaRecipeIds(block.rootPlan, areaId).has(src.recipeId)) return state
+      const copy: GameRecipeNode = {
+        kind: 'game-recipe',
+        id: crypto.randomUUID(),
+        recipeId: src.recipeId,
+        ...(src.machineId !== undefined && { machineId: src.machineId }),
+        modules: structuredClone(src.modules),
+        ...(src.beaconConfig && { beaconConfig: structuredClone(src.beaconConfig) }),
+        byproductPolicy: { ...src.byproductPolicy },
+        ...(src.primaryProduct !== undefined && { primaryProduct: src.primaryProduct }),
+      }
+      newId = copy.id
+      return applyCommand(state, addNodeCommand(copy, areaId))
+    })
+    return newId
+  },
+
+  applyRowSettingsToRecipe: (nodeId, what) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const rows = gameRecipeRows(block.rootPlan)
+      const source = rows.find(n => n.id === nodeId)
+      if (!source) return state
+      const targets = rows.filter(
+        n => n.id !== nodeId && n.recipeId === source.recipeId && !sameSettings(n, source, what),
+      )
+      if (targets.length === 0) return state
+      const value = pickSettings(source, what)
+      const before = new Map(targets.map(n => [n.id, pickSettings(n, what)]))
       const cmd: Command = {
-        apply: b => touchSubPlan({
+        apply: b => ({
           ...b,
-          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
-            ...p,
-            nodes: [...p.nodes, node],
-          })),
-        }, subPlanId),
-        undo: b => touchSubPlan({
+          rootPlan: mapGameRecipeNodes(b.rootPlan, n => (before.has(n.id) ? withSettings(n, value) : n)),
+        }),
+        undo: b => ({
           ...b,
-          rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, p => ({
-            ...p,
-            nodes: p.nodes.filter(n => n.id !== node.id),
-          })),
-        }, subPlanId),
+          rootPlan: mapGameRecipeNodes(b.rootPlan, n => (before.has(n.id) ? withSettings(n, before.get(n.id)!) : n)),
+        }),
       }
       return applyCommand(state, cmd)
     }),

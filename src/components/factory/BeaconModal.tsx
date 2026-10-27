@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
-import { useBlockStore } from '../../store/blockStore'
+import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
+import { countRecipeRows } from './recipeAreas'
 import { isModuleAllowedByProductivity } from './moduleRules'
 import type { EffectTotals } from './EditMachineModal'
 
@@ -57,6 +58,11 @@ export function BeaconModal({
   onClose,
 }: BeaconModalProps) {
   const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
+  const recipeRowCount = useBlockStore(s => {
+    const b = selectActiveBlock(s)
+    return b ? countRecipeRows(b.rootPlan, recipeId) : 0
+  })
+  const applyRowSettingsToRecipe = useBlockStore(s => s.applyRowSettingsToRecipe)
   const horizon = useHorizon(gameData)
 
   const [showBeaconPicker, setShowBeaconPicker] = useState(false)
@@ -308,13 +314,26 @@ export function BeaconModal({
         >
           Remove beacon
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          className="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm px-4 py-1.5 rounded"
-        >
-          Close
-        </button>
+        <div className="flex items-center gap-3">
+          {recipeRowCount > 1 && (
+            <button
+              type="button"
+              data-testid="apply-to-recipe-rows"
+              title={`Copy this beacon to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+              onClick={() => applyRowSettingsToRecipe(nodeId, 'beacon')}
+              className="text-xs text-teal-400 hover:text-teal-300"
+            >
+              Apply to every row of this recipe ({recipeRowCount})
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="bg-gray-700 hover:bg-gray-600 text-gray-200 text-sm px-4 py-1.5 rounded"
+          >
+            Close
+          </button>
+        </div>
       </div>
     </Modal>
   )

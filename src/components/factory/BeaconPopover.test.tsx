@@ -3,7 +3,7 @@ import { render, screen, fireEvent } from '@testing-library/react'
 import { BeaconModal } from './BeaconModal'
 import { BeaconCell } from './BeaconPopover'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import type { GameData, BeaconConfig, RecipeNode } from '../../data/types'
+import type { GameData, BeaconConfig, GameRecipeNode, RecipeNode } from '../../data/types'
 
 const speedModule = {
   id: 'speed-3',
@@ -299,5 +299,29 @@ describe('BeaconCell — research horizon', () => {
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).not.toBeDisabled()
     expect(btn).toHaveAttribute('title', 'Add beacon')
+  })
+})
+
+describe('BeaconModal — apply to every row of the recipe', () => {
+  const second: RecipeNode = { kind: 'game-recipe', id: 'n2', recipeId: 'iron-plate', modules: [], byproductPolicy: {} }
+  const rows = () => useBlockStore.getState().blocks[0].rootPlan.nodes as GameRecipeNode[]
+  const renderModal = () => render(
+    <BeaconModal nodeId="n1" beacon={beacon} recipeId="iron-plate" machineId={undefined}
+      recipeCategory="crafting" gameData={mockGameData} onClose={() => {}} />,
+  )
+
+  it('copies the beacon to the other rows of the recipe', () => {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node, second] } }],
+    })
+    renderModal()
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to every row of this recipe (2)' }))
+    expect(rows().find(r => r.id === 'n2')!.beaconConfig).toEqual(beacon)
+  })
+
+  it('has no such button with a single row', () => {
+    renderModal()
+    expect(screen.queryByRole('button', { name: /Apply to every row/ })).not.toBeInTheDocument()
   })
 })

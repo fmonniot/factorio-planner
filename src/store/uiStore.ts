@@ -22,6 +22,9 @@ export interface UiStoreState {
   defaultMachinesRequest: { seq: number; category: string | undefined } | null
   requestDefaultMachines: (category?: string) => void
   clearDefaultMachinesRequest: () => void
+  /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
+  revealRowRequest: { seq: number; nodeId: string } | null
+  requestRevealRow: (nodeId: string) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -35,6 +38,9 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
   clearDefaultMachinesRequest: () => set({ defaultMachinesRequest: null }),
+  revealRowRequest: null,
+  requestRevealRow: (nodeId) =>
+    set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),
 }))
 
 // ---------------------------------------------------------------------------

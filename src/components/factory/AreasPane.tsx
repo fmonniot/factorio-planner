@@ -18,11 +18,12 @@ interface ChipProps {
   direction: 'receives' | 'sends'
   items: GameData['items']
   rateUnit: RateUnit
-  selectedItemId: string | null
-  onSelect: (itemId: string) => void
+  selectedItemId?: string | null
+  /** Without it the chip is display-only (a span). */
+  onSelect?: (itemId: string) => void
 }
 
-function FlowChip({ itemId, rate, boundary, direction, items, rateUnit, selectedItemId, onSelect }: ChipProps) {
+export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit, selectedItemId = null, onSelect }: ChipProps) {
   const item = items[itemId]
   const name = item?.name ?? itemId
   const unitLabel = rateUnit === 'min' ? '/m' : '/s'
@@ -30,21 +31,9 @@ function FlowChip({ itemId, rate, boundary, direction, items, rateUnit, selected
   const outside = direction === 'receives' ? ' — from outside the block' : ' — leaves the block'
   const selected = selectedItemId === itemId
   const dimmed = selectedItemId !== null && !selected
-  return (
-    <button
-      type="button"
-      data-item-id={itemId}
-      data-direction={direction}
-      data-boundary={boundary ? 'true' : 'false'}
-      aria-pressed={selected}
-      title={`${name}: ${amount}${unitLabel}${boundary ? outside : ''}`}
-      onClick={() => onSelect(itemId)}
-      className={`inline-flex items-center gap-1 h-6 px-1 rounded border text-[10px] font-mono tabular-nums ${
-        boundary ? 'border-dashed' : 'border-solid'
-      } ${selected ? 'border-teal-400 bg-teal-500/20 text-teal-200' : 'border-gray-600 text-gray-300 hover:border-gray-400'} ${
-        dimmed ? 'opacity-40' : ''
-      }`}
-    >
+  const title = `${name}: ${amount}${unitLabel}${boundary ? outside : ''}`
+  const content = (
+    <>
       {item?.iconPath ? (
         <Icon iconPath={item.iconPath} alt={name} className="w-4 h-4 object-contain shrink-0" />
       ) : (
@@ -54,6 +43,39 @@ function FlowChip({ itemId, rate, boundary, direction, items, rateUnit, selected
         {amount}
         <span className="opacity-60">{unitLabel}</span>
       </span>
+    </>
+  )
+  if (!onSelect) {
+    return (
+      <span
+        data-item-id={itemId}
+        data-direction={direction}
+        data-boundary={boundary ? 'true' : 'false'}
+        title={title}
+        className={`inline-flex items-center gap-1 h-6 px-1 rounded border text-[10px] font-mono tabular-nums border-gray-600 text-gray-300 ${
+          boundary ? 'border-dashed' : ''
+        }`}
+      >
+        {content}
+      </span>
+    )
+  }
+  return (
+    <button
+      type="button"
+      data-item-id={itemId}
+      data-direction={direction}
+      data-boundary={boundary ? 'true' : 'false'}
+      aria-pressed={selected}
+      title={title}
+      onClick={() => onSelect(itemId)}
+      className={`inline-flex items-center gap-1 h-6 px-1 rounded border text-[10px] font-mono tabular-nums ${
+        boundary ? 'border-dashed' : 'border-solid'
+      } ${selected ? 'border-teal-400 bg-teal-500/20 text-teal-200' : 'border-gray-600 text-gray-300 hover:border-gray-400'} ${
+        dimmed ? 'opacity-40' : ''
+      }`}
+    >
+      {content}
     </button>
   )
 }

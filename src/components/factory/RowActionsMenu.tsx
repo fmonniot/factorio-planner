@@ -6,6 +6,8 @@ import { createPortal } from 'react-dom'
 // ---------------------------------------------------------------------------
 
 export interface RowAction {
+  /** React key when labels can repeat. */
+  id?: string
   label: string
   onSelect: () => void
   danger?: boolean
@@ -86,7 +88,7 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
     >
       {actions.map(action => (
         <button
-          key={action.label}
+          key={action.id ?? action.label}
           type="button"
           role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
           aria-checked={action.checked}

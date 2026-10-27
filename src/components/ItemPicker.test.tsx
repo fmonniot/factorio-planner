@@ -129,6 +129,26 @@ describe('ItemPicker — recipes mode', () => {
     expect(subgroupIds).toEqual(['fluid'])
   })
 
+  it('disables the recipes already present where the new one would go', () => {
+    const onSelect = vi.fn()
+    render(
+      <ItemPicker
+        source="recipes"
+        presentRecipes={{ ids: new Set(['iron-plate']), where: 'this area' }}
+        onSelect={onSelect}
+        onClose={() => {}}
+      />,
+    )
+    const slot = (id: string) => screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === id)!
+    const present = slot('iron-plate')
+    expect(present).toBeDisabled()
+    expect(present).toHaveAttribute('data-in-area', 'true')
+    expect(present).toHaveAttribute('title', 'Iron Plate (already in this area)')
+    fireEvent.click(present)
+    expect(onSelect).not.toHaveBeenCalled()
+    expect(slot('copper-plate')).toBeEnabled()
+  })
+
   it('groups recipes by subgroup within the selected tab', () => {
     render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
     const rows = screen.getAllByTestId('recipe-subgroup-row')

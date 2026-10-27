@@ -1,6 +1,6 @@
 # Proposal: Areas in the solve
 
-Proposal for [Block granularity](../problem.md). **Chosen** (see [Decision](../problem.md#decision)). Phase 1 implemented; phases 2–3 not implemented.
+Proposal for [Block granularity](../problem.md). **Chosen** (see [Decision](../problem.md#decision)). Phases 1 and 2 implemented; phase 3 not implemented.
 
 A sub-factory can be marked as an **area**. A recipe can have an ordinary row in each area that builds it, each row with its own machine, modules and beacons. The block's LP knows which area every row is in: it balances each item per area, tracks what moves between areas, and sizes every row in the same solve. As in [Sub-factory sites](sites.md), one block (one solve, one table) stays one product chain, which covers R1. Unlike sites, areas are part of the solve, not bookkeeping after it.
 
@@ -114,7 +114,7 @@ Every new action is an undoable `Command`.
 ## Phases
 
 1. **Areas in the solve.** The toggle, the area-aware LP with staged objective, `SolverResult.areas`, the Areas pane and the per-area duplicate rule. This already covers R2–R8: a second row in another area is added with the existing ingredient click.
-2. **Row conveniences.** **Build also in…**, the multi-area badge and tooltip, **Apply to every row of this recipe**, collapsed-area chips.
+2. **Row conveniences.** **Build also in…**, the multi-area badge and tooltip, **Apply to every row of this recipe**, collapsed-area chips, the primary-product tooltip and the recipe picker's same-area check.
 3. **Scale.** A plan-level list of areas across blocks (scenario 3), and a "by recipe" view of the table that shows one line per recipe with its total and opens to its rows per area.
 
 ## Compared with sites
@@ -147,7 +147,7 @@ Every new action is an undoable `Command`.
 
 ## Backlog interactions
 
-- *Prevent adding a recipe already present in the block* becomes "…already present in the same area".
+- *Prevent adding a recipe already present in the block* becomes "…already present in the same area"; phase 2 does it in the recipe picker.
 - *Isolate a subfactory from the rest of the plan* is related but separate: an isolated sub-factory shuts out the other blocks, while an area still exchanges items with the other areas of its block.
 - Spec updates when this ships: [spec/data-model.md](../../../spec/data-model.md) (`SubPlan`, `primaryProduct`, `SolverResult.areas`), [spec/solver.md](../../../spec/solver.md) (sub-plans, area LP, stages, warnings), [spec/ui.md](../../../spec/ui.md) (sub-factory rows, recipe rows, modals, summary), and the overview's non-goals as [problem.md](../problem.md#out-of-scope) notes.
 
@@ -161,3 +161,14 @@ Phase 1 follows the design above, with these differences found while building it
 - **Flows are read from per-area net production**, not from the flow variables, so out-and-back circulation never shows and degenerate flow values do not matter.
 - **A dedicated row needs a positive coefficient** for its item after `discard`; a primary product that is discarded or is not a product of the recipe makes the row dedicated to nothing.
 - The root area is shown as "Top level". `area-shortfall` is one warning with an entry per area and item, like `overconstrained`. The result carries no names; the UI resolves them from the block tree.
+
+Phase 2 follows the UI section, with these choices:
+
+- **Consumption, not receipt, ranks the areas in Build also in….** An area "uses" the primary product when its rows (organising groups inside it included) consume it, summed from the rows' solved input rates above a negligible rate. `SolvedArea.receives` is a net figure and reads 0 when the area makes some of the item itself. The label shows that consumption in the current rate unit.
+- **Areas are excluded by recipe, not by item.** The row's own area and any area with a row of the same recipe are left out, which matches the per-area duplicate rule; an area that makes the item with a different recipe is still offered.
+- **The badge tooltip names the recipe**, not the item, because the badge counts rows of a recipe and the rows can have different primary products. The badge is display-only; **Go to row in…** in the row menu is the way to jump.
+- **The new row does not copy the pin nor the byproduct-consumer flag.** A pin sized for another area is wrong there, and the flag would change the row's role. Recipe, machine, modules, beacon, byproduct policy and primary product are deep-copied, and the row is appended to the area sub-plan's own rows, not to nested organising groups.
+- **The new row is revealed.** Build also in… and Go to row in… share one transient request (`uiStore.revealRowRequest`): the table expands the ancestors, scrolls to the row and highlights it for two seconds. A request is ignored if the row is not in the active block or was made before the table mounted. Nothing is persisted and the schema is unchanged.
+- **Apply to every row copies machine and modules together** (the machine modal, "Default" included), and the beacon (the beacon modal). Removing a beacon is not propagated, since the modal is only open while a beacon exists. It is one undoable command and does nothing, with no history entry, when every other row already matches.
+- **Collapsed-area chips are display-only and capped at four per direction**, then a "+N" whose tooltip lists the rest; selecting an item stays in the Areas pane.
+- **The picker disables, `addNode` stays permissive.** Recipes with a row in the target area (the whole block without areas) are greyed out. Dragging a row, **Alternate recipe** and turning an area off can still create a duplicate, which the solver reports as `duplicate-recipe`.
