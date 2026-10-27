@@ -2,7 +2,9 @@ import { describe, it, expect } from 'vitest'
 import {
   ancestorHandleIds,
   buildAlsoInOptions,
+  copyConflictTitle,
   countRecipeRows,
+  duplicateToOptions,
   goToRowOptions,
   indexRecipeAreas,
   multiAreaSummary,
@@ -144,6 +146,45 @@ describe('buildAlsoInOptions', () => {
     expect(buildAlsoInOptions(idx, root, 'e-root', undefined, solved())).toEqual([])
     const flat = scenario(false)
     expect(buildAlsoInOptions(indexRecipeAreas(flat), flat, 'e-root', 'hydrogen', solved())).toEqual([])
+  })
+})
+
+describe('duplicateToOptions', () => {
+  const n = (id: string) => (id === 'iron' ? 'Iron' : id)
+
+  it('lists every area, disabling those with a conflicting row', () => {
+    const root = scenario()
+    expect(duplicateToOptions(indexRecipeAreas(root), root, 'G', n)).toEqual([
+      { areaId: 'root', name: 'Top level' },
+      { areaId: 'P', name: 'Plastics', disabledReason: 'Already has a row of Iron' },
+      { areaId: 'F', name: 'Rocket fuel' },
+      { areaId: 'C', name: 'Chlorides', disabledReason: 'Already has a row of Iron' },
+    ])
+  })
+
+  it('disables the sub-factory itself', () => {
+    const root = scenario()
+    const options = duplicateToOptions(indexRecipeAreas(root), root, 'P', n)
+    expect(options.find(o => o.areaId === 'P')).toEqual({
+      areaId: 'P', name: 'Plastics', disabledReason: 'Cannot copy a subfactory into itself',
+    })
+    expect(options.filter(o => !o.disabledReason).map(o => o.areaId)).toEqual(['root', 'F', 'C'])
+  })
+
+  it('is empty without areas and for an unknown sub-factory', () => {
+    const flat = scenario(false)
+    expect(duplicateToOptions(indexRecipeAreas(flat), flat, 'P', n)).toEqual([])
+    const root = scenario()
+    expect(duplicateToOptions(indexRecipeAreas(root), root, 'missing', n)).toEqual([])
+  })
+})
+
+describe('copyConflictTitle', () => {
+  it('names up to three recipes then counts the rest', () => {
+    expect(copyConflictTitle(['X'])).toBe('Already has a row of X')
+    expect(copyConflictTitle(['X', 'Y'])).toBe('Already has rows of X and Y')
+    expect(copyConflictTitle(['X', 'Y', 'Z'])).toBe('Already has rows of X, Y and Z')
+    expect(copyConflictTitle(['X', 'Y', 'Z', 'W', 'V'])).toBe('Already has rows of X, Y, Z and 2 more')
   })
 })
 

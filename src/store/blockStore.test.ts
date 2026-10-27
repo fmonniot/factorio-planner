@@ -11,7 +11,7 @@ import {
 } from './blockStore'
 import type { AppState, BeaconConfig, Block, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
-import { blockAreas } from '../solver/areas'
+import { areaRecipeIds, blockAreas } from '../solver/areas'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -1643,6 +1643,95 @@ describe('buildRowAlsoIn', () => {
     const id = useBlockStore.getState().buildRowAlsoIn('a1', 'root')
     expect(id).toBeDefined()
     expect(rowIn('root', id!).recipeId).toBe('electrolysis')
+  })
+})
+
+describe('duplicateSubPlanTo', () => {
+  // root [r1 iron, h-A, h-B, h-G]; A (area) [a1 electrolysis, h-N]; N (organising) [n1 plastic, h-X];
+  // X (area) [x1 iron]; B (area) [b1 copper]; G (organising) [g1 gear]
+  function setup(): string {
+    const x = planOf('X', [gameRow('x1', 'iron')], [], true)
+    const n = planOf('N', [gameRow('n1', 'plastic'), handleOf(x)], [x])
+    const a1 = gameRow('a1', 'electrolysis', {
+      machineId: 'm2',
+      modules: [{ moduleId: 'speed', count: 2 }],
+      beaconConfig: { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 },
+      pinnedRate: 10,
+      byproductPolicy: { oxygen: 'discard' },
+      primaryProduct: 'hydrogen',
+      byproductConsumer: true,
+    })
+    const a = planOf('A', [a1, handleOf(n)], [n], true)
+    const b = planOf('B', [gameRow('b1', 'copper')], [], true)
+    const g = planOf('G', [gameRow('g1', 'gear')])
+    return loadRoot(planOf('root', [gameRow('r1', 'iron'), handleOf(a), handleOf(b), handleOf(g)], [a, b, g]))
+  }
+
+  const stripVolatile = (plan: SubPlan) =>
+    JSON.parse(JSON.stringify(plan, (k, v) => (k === 'id' || k === 'subPlanId' || k === 'createdAt' || k === 'updatedAt' || k === 'name' ? undefined : v)))
+  const allIds = (plan: SubPlan): string[] => [plan.id, ...plan.nodes.map(n => n.id), ...plan.subPlans.flatMap(allIds)]
+
+  it('copies the sub-factory into the area with fresh ids, appended after the area\'s rows', () => {
+    setup()
+    const original = structuredClone(treePlan('A'))
+    const id = useBlockStore.getState().duplicateSubPlanTo('A', 'B')
+    expect(id).toBeDefined()
+    const b = treePlan('B')
+    expect(b.nodes.map(n => n.id)).toEqual(['b1', id])
+    const copy = b.subPlans[b.subPlans.length - 1]
+    expect((b.nodes[1] as SubPlanNode).subPlanId).toBe(copy.id)
+    expect(copy.name).toBe('A (copy)')
+    expect(copy.area).toBe(true)
+    expect(stripVolatile(copy)).toEqual(stripVolatile(original))
+    const originalIds = new Set(allIds(original))
+    expect(allIds(copy).some(i => originalIds.has(i)), 'no id is shared').toBe(false)
+    const copyN = copy.subPlans[0]
+    expect((copy.nodes[1] as SubPlanNode).subPlanId).toBe(copyN.id)
+    const a1 = original.nodes[0] as GameRecipeNode
+    const copyA1 = copy.nodes[0] as GameRecipeNode
+    expect(copyA1).toEqual({ ...a1, id: copyA1.id })
+    expect(copyA1.modules).not.toBe(a1.modules)
+  })
+
+  it('inserts right after the source\'s handle when the target holds it', () => {
+    setup()
+    const id = useBlockStore.getState().duplicateSubPlanTo('A', 'root')!
+    expect(treePlan('root').nodes.map(n => n.id)).toEqual(['r1', 'h-A', id, 'h-B', 'h-G'])
+    const copyA = treePlan('root').subPlans.at(-1)!
+    const copyX = copyA.subPlans[0].subPlans[0]
+    const areas = blockAreas(useBlockStore.getState().blocks[0].rootPlan)!
+    expect(areas.map(a => a.id)).toEqual(['root', 'A', 'X', copyA.id, copyX.id, 'B'])
+  })
+
+  it('copies an organising group into an area without its recipes', () => {
+    setup()
+    expect(useBlockStore.getState().duplicateSubPlanTo('G', 'B')).toBeDefined()
+    expect(areaRecipeIds(useBlockStore.getState().blocks[0].rootPlan, 'B').has('gear')).toBe(true)
+  })
+
+  it('refuses invalid copies without touching the state', () => {
+    setup()
+    const before = useBlockStore.getState().blocks
+    const store = useBlockStore.getState()
+    for (const [from, to] of [['G', 'root'], ['A', 'A'], ['A', 'X'], ['N', 'A'], ['A', 'G'], ['root', 'B'], ['missing', 'B']]) {
+      expect(store.duplicateSubPlanTo(from, to), `${from} -> ${to}`).toBeUndefined()
+    }
+    expect(useBlockStore.getState().blocks).toBe(before)
+    expect(useBlockStore.getState().history).toEqual({})
+  })
+
+  it('undoes in one step, redoes with the same ids and keeps a rename made before the undo', () => {
+    const blockId = setup()
+    const id = useBlockStore.getState().duplicateSubPlanTo('A', 'B')!
+    const copyId = treePlan('B').subPlans[0].id
+    expect(useBlockStore.getState().history[blockId].undoStack).toHaveLength(1)
+    useBlockStore.getState().renameSubPlan(copyId, 'Second')
+    useBlockStore.getState().undo()
+    expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1'])
+    expect(treePlan('B').subPlans).toEqual([])
+    useBlockStore.getState().redo()
+    expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1', id])
+    expect(treePlan(copyId).name).toBe('Second')
   })
 })
 

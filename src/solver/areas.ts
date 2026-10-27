@@ -125,6 +125,40 @@ export function areaRecipeIds(root: SubPlan, subPlanId: string): Set<string> {
   return ids
 }
 
+export type SubPlanCopyBlocker = { reason: 'invalid' } | { reason: 'inside' } | { reason: 'recipes'; recipeIds: string[] }
+
+function findPlan(plan: SubPlan, id: string): SubPlan | undefined {
+  if (plan.id === id) return plan
+  for (const sp of plan.subPlans) {
+    const found = findPlan(sp, id)
+    if (found) return found
+  }
+  return undefined
+}
+
+/**
+ * Why a copy of sub-plan `subPlanId` cannot go into area `areaId`, or undefined when it can.
+ * `invalid`: not a copyable sub-plan or not an area of the block. `inside`: the area is the sub-plan
+ * or lies in its subtree. `recipes`: the rows that would join the area (the sub-plan's own rows and
+ * those of its nested non-area sub-plans; none when the sub-plan is itself an area, as it keeps its own
+ * area) already have a row of these recipes there, which would be a `duplicate-recipe`.
+ */
+export function subPlanCopyBlocker(root: SubPlan, subPlanId: string, areaId: string): SubPlanCopyBlocker | undefined {
+  const source = subPlanId === root.id ? undefined : findPlan(root, subPlanId)
+  if (!source || subPlanAreaIds(root).get(areaId) !== areaId) return { reason: 'invalid' }
+  if (findPlan(source, areaId)) return { reason: 'inside' }
+  if (source.area === true) return undefined
+  const joining = new Set<string>()
+  function collect(plan: SubPlan): void {
+    for (const n of plan.nodes) if (n.kind === 'game-recipe') joining.add(n.recipeId)
+    for (const sp of plan.subPlans) if (sp.area !== true) collect(sp)
+  }
+  collect(source)
+  const taken = areaRecipeIds(root, areaId)
+  const recipeIds = [...joining].filter(id => taken.has(id))
+  return recipeIds.length > 0 ? { reason: 'recipes', recipeIds } : undefined
+}
+
 interface Column {
   /** LP name of the row (`n0`, `n1`, …): never collides with the other LP names. */
   id: string

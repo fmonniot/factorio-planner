@@ -1,7 +1,7 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
-import { openRowMenu } from './support/rowMenu'
+import { clickRowAction, openRowMenu } from './support/rowMenu'
 
 /**
  * Row conveniences in a block with areas. The fixture builds steam electrolysis in the root and in
@@ -112,4 +112,70 @@ test('the recipe picker greys out a recipe the target area already has', async (
 
   await group(page, 'Chlorides').getByText('Chlorides').click()
   await expect(await pickerSlot(page, row(page, CHLORIDE_ROW))).toBeEnabled()
+})
+
+const COMP_HANDLE = 'ffff0005-0000-0000-0000-000000000001'
+
+interface CopyPlan { name: string; area?: boolean; nodes: { id: string; kind: string; recipeId?: string; subPlanId?: string }[]; subPlans: CopyPlan[] }
+
+test('Duplicate to… copies an area into another area', async ({ page }) => {
+  await open(page)
+
+  const menu = await openRowMenu(page, row(page, COMP_HANDLE))
+  await menu.getByRole('menuitem', { name: 'Duplicate to…' }).click()
+  const items = page.getByRole('menu').getByRole('menuitem')
+  await expect(items).toHaveText(['Top level', 'Compression', 'Chlorides'])
+  await expect(items.nth(1)).toBeDisabled()
+  await expect(items.nth(1)).toHaveAttribute('title', 'Cannot copy a subfactory into itself')
+  await items.nth(2).click()
+
+  const revealed = page.locator('tr[data-highlighted="true"]')
+  await expect(revealed).toContainText('Compression (copy)')
+  await expect(revealed.getByTestId('area-marker')).toBeVisible()
+  await expect.poll(async () => {
+    const plan = await readActivePlan(page, 'nullius') as { blocks: { rootPlan: CopyPlan }[] }
+    const chlorides = plan.blocks[0].rootPlan.subPlans[1]
+    const copy = chlorides.subPlans[0]
+    return {
+      kinds: chlorides.nodes.map(n => n.kind),
+      name: copy?.name,
+      area: copy?.area,
+      recipes: copy?.nodes.map(n => n.recipeId),
+      fresh: copy?.nodes.every(n => n.id !== COMP_ELEC && n.id !== COMP_ROW),
+    }
+  }).toEqual({
+    kinds: ['game-recipe', 'subplan'],
+    name: 'Compression (copy)',
+    area: true,
+    recipes: ['nullius-steam-electrolysis', 'nullius-compressed-hydrogen'],
+    fresh: true,
+  })
+  await expect(row(page, ROOT_ELEC).getByTestId('multi-area-badge')).toHaveText('3')
+})
+
+test('Duplicate to… disables an area that already has a row of the recipe', async ({ page }) => {
+  await open(page)
+
+  await group(page, 'Compression').getByText('Compression').click()
+  page.once('dialog', d => void d.accept('Packing'))
+  await clickRowAction(page, row(page, COMP_ROW), 'Wrap in subfactory…')
+  await expect(group(page, 'Packing')).toBeVisible()
+
+  const menu = await openRowMenu(page, group(page, 'Packing'))
+  await menu.getByRole('menuitem', { name: 'Duplicate to…' }).click()
+  const compression = page.getByRole('menu').getByRole('menuitem', { name: 'Compression' })
+  await expect(compression).toBeDisabled()
+  await expect(compression).toHaveAttribute('title', 'Already has a row of Compressed hydrogen')
+  await page.getByRole('menu').getByRole('menuitem', { name: 'Top level' }).click()
+
+  await expect.poll(async () => {
+    const plan = await readActivePlan(page, 'nullius') as { blocks: { rootPlan: CopyPlan }[] }
+    const root = plan.blocks[0].rootPlan
+    const copy = root.subPlans.find(sp => sp.name === 'Packing (copy)')
+    return {
+      lastKind: root.nodes.at(-1)?.kind,
+      area: copy && 'area' in copy,
+      recipes: copy?.nodes.map(n => n.recipeId),
+    }
+  }).toEqual({ lastKind: 'subplan', area: false, recipes: ['nullius-compressed-hydrogen'] })
 })

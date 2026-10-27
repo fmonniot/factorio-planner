@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
-import { areaRecipeIds, subPlanAreaIds } from '../solver/areas'
+import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
 
@@ -168,21 +168,19 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]))
 }
 
 /**
- * Deep copy of a block with a fresh id on the block, its products, input
- * connections, sub-plans and nodes. `subplan` nodes are remapped to the cloned
- * child sub-plans. Connections from other blocks reading this one are not part
- * of the block, so they are not copied.
+ * Deep copy of a sub-plan tree with a fresh id on every sub-plan and node. `subplan` nodes are
+ * remapped to the cloned child sub-plans; names, timestamps and `area` flags are kept.
  */
-export function cloneBlock(block: Block, color: string): Block {
+export function cloneSubPlanTree(plan: SubPlan): SubPlan {
   const subPlanIds = new Map<string, string>()
 
-  function cloneSubPlan(plan: SubPlan): SubPlan {
+  function cloneSubPlan(source: SubPlan): SubPlan {
     const id = crypto.randomUUID()
-    subPlanIds.set(plan.id, id)
-    return { ...structuredClone(plan), id, nodes: [], subPlans: plan.subPlans.map(cloneSubPlan) }
+    subPlanIds.set(source.id, id)
+    return { ...structuredClone(source), id, nodes: [], subPlans: source.subPlans.map(cloneSubPlan) }
   }
 
-  const rootPlan = cloneSubPlan(block.rootPlan)
+  const rootPlan = cloneSubPlan(plan)
 
   function cloneNodes(source: SubPlan, target: SubPlan) {
     target.nodes = source.nodes.map((node): RecipeNode | SubPlanNode => {
@@ -193,8 +191,17 @@ export function cloneBlock(block: Block, color: string): Block {
     })
     source.subPlans.forEach((child, i) => cloneNodes(child, target.subPlans[i]))
   }
-  cloneNodes(block.rootPlan, rootPlan)
+  cloneNodes(plan, rootPlan)
 
+  return rootPlan
+}
+
+/**
+ * Deep copy of a block with a fresh id on the block, its products, input
+ * connections, sub-plans and nodes (see `cloneSubPlanTree`). Connections from
+ * other blocks reading this one are not part of the block, so they are not copied.
+ */
+export function cloneBlock(block: Block, color: string): Block {
   return {
     ...structuredClone(block),
     id: crypto.randomUUID(),
@@ -202,7 +209,7 @@ export function cloneBlock(block: Block, color: string): Block {
     color,
     products: block.products.map(p => ({ ...structuredClone(p), id: crypto.randomUUID() })),
     inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
-    rootPlan,
+    rootPlan: cloneSubPlanTree(block.rootPlan),
   }
 }
 
@@ -302,6 +309,12 @@ export interface BlockStoreState {
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
   removeSubPlan: (subPlanId: string) => void
+  /**
+   * Copy a sub-factory (handle and sub-plan, fresh ids, named "<name> (copy)") into area `areaId` of the
+   * active block as one undoable command; returns the new handle's node id. Refused (undefined, no history
+   * entry) when `subPlanCopyBlocker` reports a reason.
+   */
+  duplicateSubPlanTo: (subPlanId: string, areaId: string) => string | undefined
   /** Make a sub-factory a separate area in the solve (or an organising group again). Undoable. */
   setSubPlanArea: (subPlanId: string, area: boolean) => void
   renameSubPlan: (subPlanId: string, name: string) => void
@@ -657,6 +670,48 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       }
       return applyCommand(state, cmd)
     }),
+
+  duplicateSubPlanTo: (subPlanId, areaId) => {
+    let newId: string | undefined
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block || subPlanCopyBlocker(block.rootPlan, subPlanId, areaId)) return state
+      const source = findSubPlan(block.rootPlan, subPlanId)
+      const target = findSubPlan(block.rootPlan, areaId)
+      if (!source || !target) return state
+      const now = new Date().toISOString()
+      const copy: SubPlan = { ...cloneSubPlanTree(source), name: `${source.name} (copy)`, createdAt: now, updatedAt: now }
+      const handle: SubPlanNode = { kind: 'subplan', id: crypto.randomUUID(), subPlanId: copy.id }
+      // Right after the source's handle when the target holds it, else at the end of the target's rows.
+      const sourceHandleIndex = target.nodes.findIndex(n => n.kind === 'subplan' && n.subPlanId === subPlanId)
+      const insertAt = sourceHandleIndex >= 0 ? sourceHandleIndex + 1 : target.nodes.length
+      newId = handle.id
+      // Re-read from the tree on every undo, so a rename made in between survives the redo.
+      let snapshot = copy
+      const cmd: Command = {
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, areaId, p => {
+            const nodes = [...p.nodes]
+            nodes.splice(Math.min(insertAt, nodes.length), 0, handle)
+            return { ...p, nodes, subPlans: [...p.subPlans, snapshot] }
+          }),
+        }, areaId),
+        undo: b => {
+          snapshot = findSubPlan(b.rootPlan, copy.id) ?? snapshot
+          return touchSubPlan({
+            ...b,
+            rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, copy.id), copy.id),
+          }, areaId)
+        },
+        // Drop the command rather than duplicate the copy's id or orphan it.
+        canApply: (_blocks, b) => findSubPlan(b.rootPlan, areaId) !== undefined && findSubPlan(b.rootPlan, copy.id) === undefined,
+        canUndo: (_blocks, b) => findSubPlan(b.rootPlan, copy.id) !== undefined,
+      }
+      return applyCommand(state, cmd)
+    })
+    return newId
+  },
 
   setSubPlanArea: (subPlanId, area) =>
     set(state => {

@@ -845,7 +845,7 @@ reach) the rate cells are empty and the machine count is 0.
 ### Sub-factory rows
 
 A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
-and a right-click menu with **Rename subfactory…**, the checkbox **Separate area** and **Remove subfactory**.
+and a right-click menu with **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
 **Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and the [Areas pane](#areas-pane) lists what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
 Rename opens a browser prompt prefilled with the current name; cancelling or a
 blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
@@ -858,6 +858,7 @@ an "out" label and the send chips, the same chips as the Areas pane but display-
 (`<span>`s; selecting an item stays in the pane). At most four chips per direction; the
 rest is a "+N" (`data-testid="area-chips-more"`) whose tooltip lists the remaining items
 with their rates. An expanded area and an organising sub-factory show none.
+**Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too ("Every area already has a row of one of its recipes"). The entry is hidden in a block without areas. The copy is one undoable command.
 Removal, with all its contents, is undoable at store level: undo restores the
 sub-factory at its original position. The undo history is session-only and per
 block. Expanding shows its nodes indented beneath it (including nested

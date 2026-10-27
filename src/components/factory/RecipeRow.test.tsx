@@ -1225,6 +1225,67 @@ describe('RecipeRow in a block with areas', () => {
     expect(screen.getByTitle('Oxygen — Set as primary')).toBeInTheDocument()
   })
 
+  describe('Duplicate to… on a sub-factory row', () => {
+    const openGroupMenu = (name: string) => fireEvent.contextMenu(screen.getByText(name).closest('td')!)
+
+    it('offers Duplicate to… among the sub-factory actions', () => {
+      renderAreaRow('h-P', { solvedNode: undefined })
+      openGroupMenu('Plastics')
+      expect(labels()).toEqual(['Rename subfactory…', 'Duplicate to…', 'Remove subfactory'])
+      expect(screen.getByRole('menuitemcheckbox', { name: 'Separate area' })).toBeInTheDocument()
+    })
+
+    it('opens the list of areas, disabling the sub-factory itself, and copies into the one chosen', () => {
+      renderAreaRow('h-P', { solvedNode: undefined })
+      openGroupMenu('Plastics')
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate to…' }))
+      expect(screen.getAllByRole('menu')).toHaveLength(1)
+      expect(labels()).toEqual(['Top level', 'Plastics', 'Rocket fuel', 'Chlorides'])
+      const self = screen.getByRole('menuitem', { name: 'Plastics' })
+      expect(self).toBeDisabled()
+      expect(self).toHaveAttribute('title', 'Cannot copy a subfactory into itself')
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Rocket fuel' }))
+
+      const target = planOf('F')
+      expect(target.subPlans[0].name).toBe('Plastics (copy)')
+      expect(target.subPlans[0].area).toBe(true)
+      expect(useUiStore.getState().revealRowRequest?.nodeId).toBe(target.nodes[1].id)
+    })
+
+    it('disables an area that already has a row of one of the recipes', () => {
+      renderAreaRow('h-G', { solvedNode: undefined, parentSubPlanId: 'C' })
+      openGroupMenu('Group')
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate to…' }))
+      const chlorides = screen.getByRole('menuitem', { name: 'Chlorides' })
+      expect(chlorides).toBeDisabled()
+      expect(chlorides).toHaveAttribute('title', 'Already has a row of Iron Plate')
+    })
+
+    it('disables the entry when every area already has a row of one of the recipes', () => {
+      const g = sp('G', 'Group', [iron('g-i')], [], false)
+      const p = sp('P', 'Plastics', [iron('p-i')])
+      const root: SubPlan = {
+        ...makeEmptyBlock('Test').rootPlan,
+        id: 'root',
+        nodes: [handleOf('h-G', 'G'), handleOf('h-P', 'P')],
+        subPlans: [g, p],
+      }
+      const block = makeEmptyBlock('Test')
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+      renderRow({
+        planNode: root.nodes[0],
+        solvedNode: undefined,
+        rootPlan: root,
+        parentSubPlanId: root.id,
+        areaView: { index: indexRecipeAreas(root), solvedMap: new Map(), solvedAreas: undefined },
+      })
+      openGroupMenu('Group')
+      const item = screen.getByRole('menuitem', { name: 'Duplicate to…' })
+      expect(item).toBeDisabled()
+      expect(item).toHaveAttribute('title', 'Every area already has a row of one of its recipes')
+    })
+  })
+
   describe('collapsed area rows', () => {
     const flow = (itemId: string, rate: number, boundary = false) => ({ itemId, rate, boundary })
     const areaOf = (receives: ReturnType<typeof flow>[], sends: ReturnType<typeof flow>[]) => ({ areaId: 'P', receives, sends })
