@@ -49,9 +49,6 @@ session (see [Game data set](#game-data-set)).
 │ │ rows, or the selected │ │ selected slot with  │ │ Imported ▇▇ 5 · 1   │ │
 │ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
-│ ┌ AREAS · 2 (only when the block has an area) ───────────────────────────┐ │
-│ │ Top level  in [water 60]  out [gear 60]                                │ │
-│ └────────────────────────────────────────────────────────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
 │ [+]│ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
 │ ▲▼ │ ▶ Smelting  3 recipes                                               │
@@ -247,8 +244,7 @@ areas in M blocks"), a text filter (`aria-label="Filter areas"`, placeholder "Fi
 area, block or item") and **Close**. The body has one section per block that has areas,
 in tab order (a region named after the block, with a dot in the block's colour and the
 block name as a button titled "Open <block>" that makes it the active block and closes
-the modal), each listing its areas like the [Areas pane](#areas-pane) (same
-`AreaListItem`: name, "in" and "out" chips). A footer "K block(s) without areas not
+the modal), each listing its areas (`AreaListItem` in `AreaFlow.tsx`: the name, then "in" chips for what the area receives and "out" chips for what it sends; a chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` and `data-boundary`, and a boundary chip has a dashed border and a tooltip that adds " — from outside the block" or " — leaves the block"). A footer "K block(s) without areas not
 listed" shows when some blocks have none.
 
 Areas are never merged by name: each block has its own pool, so what an area receives or
@@ -644,25 +640,6 @@ The solver's `unsatisfied` list: everything the block must import (product short
 - Connection states: normal (a `source` segment in the source's colour); `limited` (amber border and `!` badge on the slot, title "Limited: <source> only offers N", or "Limited by this connection's limit of N" when the connection's limit is the bound; the rest of the need stays in the `import` segment); `unused` (dashed overlay, slot dimmed when nothing else is shown, title "Not used: …"); `(deleted block)` or `← <source> · self, ignored` (dashed overlay). A connection whose first solve has not landed draws nothing yet. Remove a connection by right-clicking its segment or key entry (undoable). That menu holds **Limit rate…** / **Change limit…** and **Remove connection**. The limit action closes the menu and opens `ConnectionLimitEditor` (a portalled `RateInput`, `Connection limit`, at the click position; Enter or blur commits in items/min through `setConnectionMaxRate`, an empty field clears the limit, Escape cancels; undoable; the editor closes without writing when the pane scrolls, the window resizes or loses focus, or the connection or active block changes), the same limit as the graph's **≤** control. The segment of a request has the title suffix ` — requested` before ` — click to open` (`Segment.requested`).
 - A locked item shows grey hatching across the bar, a `⊘` badge and a dimmed slot; its key entry reads "Imports forbidden".
 
-### Areas pane
-
-`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved
-block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a
-`section` region named "Areas" with a header button "Areas · N" (`aria-expanded`;
-collapsible, open by default; keyed by the active block like the panes) and a list
-capped at 120px that scrolls. There is one list item per area, in table order: the name
-(`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then
-"in" chips for what it receives and "out" chips for what it sends. A chip is the item
-icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives`
-or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip
-adds " — from outside the block" or " — leaves the block". Clicking a chip selects its
-item (`aria-pressed`): every chip of that item, in every area, is highlighted and the
-others are dimmed, which shows who sends it and who receives it. Clicking it again
-clears the selection. Selection and collapse are view state. The same chips,
-display-only, appear on a collapsed area row of the [production
-table](#sub-factory-rows). The list item is the exported `AreaListItem`, also used by
-the [plan areas](#plan-areas) modal, where the name is a button.
-
 ### Warnings popover
 
 `WarningsPopover.tsx`, in the [top bar](#topbar). A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
@@ -851,7 +828,7 @@ reach) the rate cells are empty and the machine count is 0.
 
 A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
 and a right-click menu with **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
-**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and the [Areas pane](#areas-pane) lists what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
+**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
 Rename opens a browser prompt prefilled with the current name; cancelling or a
 blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
@@ -859,8 +836,8 @@ counts its recipes and nested sub-factories; an empty one is removed at once.
 
 A collapsed sub-factory that is a separate area shows what it receives and sends right
 after its name (`data-testid="area-chips"`): an "in" label and the receive chips, then
-an "out" label and the send chips, the same chips as the Areas pane but display-only
-(`<span>`s; selecting an item stays in the pane). At most four chips per direction; the
+an "out" label and the send chips, the same chips as the [plan areas](#plan-areas) modal but display-only
+(`<span>`s; selecting an item stays in the modal). At most four chips per direction; the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per

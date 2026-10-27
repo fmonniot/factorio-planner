@@ -101,26 +101,6 @@ describe('FactorySummary — panes', () => {
   })
 })
 
-describe('FactorySummary — areas', () => {
-  it('shows no Areas region when the result has no areas', () => {
-    render(<FactorySummary />)
-    expect(screen.queryByRole('region', { name: 'Areas' })).not.toBeInTheDocument()
-  })
-
-  it('shows the Areas region, named from the block tree, when the result has areas', () => {
-    const rootId = useBlockStore.getState().blocks[0].rootPlan.id
-    useSolverStore.setState({
-      lastResult: {
-        ...mockSolverResult,
-        areas: [{ areaId: rootId, receives: [{ itemId: 'iron-ore', rate: 120, boundary: true }], sends: [] }],
-      },
-    })
-    render(<FactorySummary />)
-    const region = screen.getByRole('region', { name: 'Areas' })
-    expect(within(region).getByRole('listitem', { name: 'Top level' })).toBeInTheDocument()
-  })
-})
-
 describe('FactorySummary — without loaded game data', () => {
   it.each([
     ['empty', { type: 'empty' as const }],

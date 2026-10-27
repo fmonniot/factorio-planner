@@ -1,15 +1,8 @@
-import { useState } from 'react'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { fmtRate } from './ItemTile'
 import type { AreaRow } from './areaRows'
-
-interface AreasPaneProps {
-  rows: AreaRow[]
-  items: GameData['items']
-  rateUnit: RateUnit
-}
 
 interface ChipProps {
   itemId: string
@@ -134,42 +127,5 @@ export function AreaListItem({ row, items, rateUnit, selectedItemId, onSelect, o
         ))}
       </div>
     </li>
-  )
-}
-
-// What each area of the block receives from the others and sends to them. Selecting a chip lights
-// up the same item in every area: who sends it and who receives it. View state only.
-export function AreasPane({ rows, items, rateUnit }: AreasPaneProps) {
-  const [open, setOpen] = useState(true)
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
-  const select = (itemId: string) => setSelectedItemId(cur => (cur === itemId ? null : itemId))
-
-  return (
-    <section aria-label="Areas" className="border border-gray-700 rounded-md mx-3 mb-2">
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-1 px-2 py-1 text-[10px] uppercase tracking-[0.06em] text-gray-400 hover:text-gray-200 text-left"
-      >
-        <span aria-hidden>{open ? '▼' : '▶'}</span>
-        <span>Areas</span>
-        <span className="tabular-nums">· {rows.length}</span>
-      </button>
-      {open && (
-        <ul className="max-h-[120px] overflow-y-auto px-2 pb-2 flex flex-col gap-1">
-          {rows.map(row => (
-            <AreaListItem
-              key={row.areaId}
-              row={row}
-              items={items}
-              rateUnit={rateUnit}
-              selectedItemId={selectedItemId}
-              onSelect={select}
-            />
-          ))}
-        </ul>
-      )}
-    </section>
   )
 }
