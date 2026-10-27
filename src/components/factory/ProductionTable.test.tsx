@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { ProductionTable } from './ProductionTable'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -63,7 +63,7 @@ beforeEach(() => {
     activeBlockId: block.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min' })
+  useUiStore.setState({ rateUnit: 'min', revealRowRequest: null })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, _setStatus: () => {} })
 })
@@ -243,5 +243,84 @@ describe('ProductionTable', () => {
       expect(root.nodes).toHaveLength(1)
       expect(root.subPlans[0].nodes).toHaveLength(2)
     })
+  })
+})
+
+describe('ProductionTable — revealing a row', () => {
+  const original = Element.prototype.scrollIntoView
+  const scrollIntoView = vi.fn()
+
+  /** Root with a row and a collapsed area P holding the row `p-1`. */
+  function loadAreaBlock() {
+    const block = useBlockStore.getState().blocks[0]
+    const area = {
+      ...makeEmptyBlock('P').rootPlan,
+      id: 'P',
+      name: 'Plastics',
+      area: true,
+      nodes: [{ ...existingNode, id: 'p-1' }],
+    }
+    const handle: SubPlanNode = { kind: 'subplan', id: 'h-p', subPlanId: 'P' }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [existingNode, handle], subPlans: [area] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+  }
+  const rowEl = (id: string) => document.querySelector(`tr[data-node-id="${id}"]`)
+
+  beforeEach(() => {
+    vi.useFakeTimers()
+    scrollIntoView.mockClear()
+    Element.prototype.scrollIntoView = scrollIntoView
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+    Element.prototype.scrollIntoView = original
+  })
+
+  it('expands the sub-factory, scrolls to the row and highlights it for two seconds', () => {
+    loadAreaBlock()
+    render(<ProductionTable />)
+    expect(rowEl('p-1')).toBeNull()
+
+    act(() => useUiStore.getState().requestRevealRow('p-1'))
+    expect(rowEl('p-1')).toHaveAttribute('data-highlighted', 'true')
+    expect(scrollIntoView).toHaveBeenCalledTimes(1)
+
+    act(() => { vi.advanceTimersByTime(2000) })
+    expect(rowEl('p-1')).not.toHaveAttribute('data-highlighted')
+  })
+
+  it('ignores a request for a row that is not in the block', () => {
+    loadAreaBlock()
+    render(<ProductionTable />)
+    act(() => useUiStore.getState().requestRevealRow('nope'))
+    expect(rowEl('p-1')).toBeNull()
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it('ignores a request made before the table mounted', () => {
+    loadAreaBlock()
+    useUiStore.getState().requestRevealRow('p-1')
+    render(<ProductionTable />)
+    expect(rowEl('p-1')).toBeNull()
+  })
+})
+
+describe('ProductionTable — recipe picker', () => {
+  it('disables a recipe the block already has', () => {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [existingNode] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    render(<ProductionTable />)
+    fireEvent.click(within(screen.getAllByRole('columnheader')[0]).getByRole('button', { name: 'Add recipe' }))
+    const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
+    expect(slot).toBeDisabled()
+    expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')
   })
 })

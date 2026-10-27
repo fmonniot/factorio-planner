@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', defaultMachinesRequest: null })
+  useUiStore.setState({ rateUnit: 'min', defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -70,6 +70,23 @@ describe('defaultMachinesRequest', () => {
 
   it('is not persisted', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
+    saveUiState()
+    const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit'])
+  })
+})
+
+describe('revealRowRequest', () => {
+  it('counts requests up, carrying the row id', () => {
+    useUiStore.getState().requestRevealRow('a')
+    const first = useUiStore.getState().revealRowRequest
+    expect(first?.nodeId).toBe('a')
+    useUiStore.getState().requestRevealRow('b')
+    expect(useUiStore.getState().revealRowRequest).toEqual({ seq: (first?.seq ?? 0) + 1, nodeId: 'b' })
+  })
+
+  it('is not persisted', () => {
+    useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
     expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit'])

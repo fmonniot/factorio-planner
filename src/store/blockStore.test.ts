@@ -9,7 +9,7 @@ import {
   isSubPlanDescendant,
   selectAppState,
 } from './blockStore'
-import type { AppState, Block, RecipeNode, SubPlanNode } from '../data/types'
+import type { AppState, BeaconConfig, Block, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
 
 // ---------------------------------------------------------------------------
@@ -1433,5 +1433,197 @@ describe('block colours', () => {
       expect(useBlockStore.getState().blocks.map(x => x.color)).toEqual(before.map(x => x.color))
       expect(useBlockStore.getState().blocks[0].id).toBe(a.id)
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Row conveniences across areas
+// ---------------------------------------------------------------------------
+
+function gameRow(id: string, recipeId: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode {
+  return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...extra }
+}
+
+function planOf(id: string, nodes: RecipeNode[], subPlans: SubPlan[] = [], area?: boolean): SubPlan {
+  return { ...makeEmptySubPlan(id), id, nodes, subPlans, ...(area === undefined ? {} : { area }) }
+}
+
+function handleOf(sp: SubPlan): SubPlanNode {
+  return { kind: 'subplan', id: `h-${sp.id}`, subPlanId: sp.id }
+}
+
+/** Puts `rootPlan` (id 'root') into the store as the only, active block. */
+function loadRoot(rootPlan: SubPlan): string {
+  const block = makeEmptyBlock('Test Block')
+  useBlockStore.setState({
+    blocks: [{ ...block, rootPlan }],
+    activeBlockId: block.id,
+    history: {},
+  })
+  return block.id
+}
+
+const treePlan = (id: string) => findSubPlan(useBlockStore.getState().blocks[0].rootPlan, id)!
+const rowIn = (planId: string, nodeId: string) => treePlan(planId).nodes.find(n => n.id === nodeId) as GameRecipeNode
+
+describe('buildRowAlsoIn', () => {
+  const beacon: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  function setup(): string {
+    const src = gameRow('src', 'electrolysis', {
+      machineId: 'm2',
+      modules: [{ moduleId: 'speed', count: 2 }],
+      beaconConfig: { ...beacon },
+      pinnedRate: 10,
+      byproductPolicy: { oxygen: 'discard' },
+      primaryProduct: 'hydrogen',
+      byproductConsumer: true,
+    })
+    const g = planOf('G', [gameRow('g1', 'iron-plate')])
+    const a = planOf('A', [handleOf(g)], [g], true)
+    const b = planOf('B', [])
+    return loadRoot(planOf('root', [src, handleOf(a), handleOf(b)], [a, b]))
+  }
+
+  it('appends a copy without the pin nor the byproduct-consumer flag', () => {
+    setup()
+    const id = useBlockStore.getState().buildRowAlsoIn('src', 'A')
+    expect(id).toBeDefined()
+    const a = treePlan('A')
+    const copy = a.nodes[a.nodes.length - 1] as GameRecipeNode
+    expect(copy).toEqual({
+      kind: 'game-recipe',
+      id,
+      recipeId: 'electrolysis',
+      machineId: 'm2',
+      modules: [{ moduleId: 'speed', count: 2 }],
+      beaconConfig: beacon,
+      byproductPolicy: { oxygen: 'discard' },
+      primaryProduct: 'hydrogen',
+    })
+    expect('pinnedRate' in copy, 'pin is not copied').toBe(false)
+    expect('byproductConsumer' in copy, 'consumer flag is not copied').toBe(false)
+    expect(copy.modules).not.toBe(rowIn('root', 'src').modules)
+  })
+
+  it('undoes and redoes with the same id', () => {
+    const blockId = setup()
+    const id = useBlockStore.getState().buildRowAlsoIn('src', 'A')!
+    useBlockStore.getState().undo()
+    expect(treePlan('A').nodes.some(n => n.id === id)).toBe(false)
+    useBlockStore.getState().redo()
+    expect(treePlan('A').nodes.some(n => n.id === id)).toBe(true)
+    expect(useBlockStore.getState().history[blockId].undoStack).toHaveLength(1)
+  })
+
+  it('changes nothing for a non-area, a duplicate, the row\'s own area or an unknown row', () => {
+    setup()
+    const store = useBlockStore.getState()
+    expect(store.buildRowAlsoIn('src', 'B')).toBeUndefined()
+    expect(store.buildRowAlsoIn('src', 'root')).toBeUndefined()
+    expect(store.buildRowAlsoIn('nope', 'A')).toBeUndefined()
+    // A's organising group G gets a row of the recipe: A already has it.
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => ({
+        ...b,
+        rootPlan: {
+          ...b.rootPlan,
+          subPlans: b.rootPlan.subPlans.map(sp => sp.id !== 'A' ? sp : {
+            ...sp,
+            subPlans: sp.subPlans.map(g => ({ ...g, nodes: [...g.nodes, gameRow('dup', 'electrolysis')] })),
+          }),
+        },
+      })),
+    }))
+    expect(useBlockStore.getState().buildRowAlsoIn('src', 'A')).toBeUndefined()
+    expect(Object.keys(useBlockStore.getState().history)).toEqual([])
+  })
+
+  it('accepts the root as the target', () => {
+    const a = planOf('A', [gameRow('a1', 'electrolysis')], [], true)
+    loadRoot(planOf('root', [handleOf(a)], [a]))
+    const id = useBlockStore.getState().buildRowAlsoIn('a1', 'root')
+    expect(id).toBeDefined()
+    expect(rowIn('root', id!).recipeId).toBe('electrolysis')
+  })
+})
+
+describe('applyRowSettingsToRecipe', () => {
+  function setup(): string {
+    const r1 = gameRow('r1', 'plate', {
+      machineId: 'm2',
+      modules: [{ moduleId: 'speed', count: 1 }],
+    })
+    const x1 = gameRow('x1', 'plate-alt')
+    const g = planOf('G', [gameRow('r3', 'plate')])
+    const a = planOf('A', [gameRow('r2', 'plate', { machineId: 'm1' }), handleOf(g)], [g], true)
+    const untouched = planOf('U', [gameRow('u1', 'other')])
+    return loadRoot(planOf('root', [r1, x1, handleOf(a), handleOf(untouched)], [a, untouched]))
+  }
+
+  it('copies machine and modules to the other rows of the recipe, as one command', () => {
+    const blockId = setup()
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    for (const [plan, id] of [['A', 'r2'], ['G', 'r3']]) {
+      expect(rowIn(plan, id).machineId).toBe('m2')
+      expect(rowIn(plan, id).modules).toEqual([{ moduleId: 'speed', count: 1 }])
+    }
+    expect(rowIn('root', 'x1').machineId, 'another recipe is untouched').toBeUndefined()
+    expect(useBlockStore.getState().history[blockId].undoStack).toHaveLength(1)
+  })
+
+  it('undoes to each row\'s own settings and redoes', () => {
+    setup()
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    useBlockStore.getState().undo()
+    expect(rowIn('A', 'r2').machineId).toBe('m1')
+    expect(rowIn('A', 'r2').modules).toEqual([])
+    expect('machineId' in rowIn('G', 'r3')).toBe(false)
+    useBlockStore.getState().redo()
+    expect(rowIn('G', 'r3').machineId).toBe('m2')
+  })
+
+  it('removes the machine key when the source uses the default', () => {
+    setup()
+    useBlockStore.getState().applyRowSettingsToRecipe('r3', 'machine')
+    expect('machineId' in rowIn('root', 'r1')).toBe(false)
+    expect('machineId' in rowIn('A', 'r2')).toBe(false)
+    expect(rowIn('root', 'r1').modules).toEqual([])
+  })
+
+  it('copies the beacon to rows without one, and undo removes it again', () => {
+    setup()
+    const beacon: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => ({
+        ...b,
+        rootPlan: { ...b.rootPlan, nodes: b.rootPlan.nodes.map(n => n.id === 'r1' ? { ...n, beaconConfig: beacon } as GameRecipeNode : n) },
+      })),
+    }))
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    expect(rowIn('A', 'r2').beaconConfig).toEqual(beacon)
+    expect(rowIn('A', 'r2').machineId, 'machine is untouched').toBe('m1')
+    useBlockStore.getState().undo()
+    expect('beaconConfig' in rowIn('A', 'r2')).toBe(false)
+  })
+
+  it('does nothing when no other row exists or every row already matches', () => {
+    const blockId = setup()
+    useBlockStore.getState().applyRowSettingsToRecipe('x1', 'machine')
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    expect(useBlockStore.getState().history[blockId]).toBeUndefined()
+  })
+
+  it('marks only the sub-plans whose rows changed as updated', () => {
+    setup()
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2099-01-01T00:00:00.000Z'))
+    try {
+      useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    } finally {
+      vi.useRealTimers()
+    }
+    expect(treePlan('A').updatedAt).toBe('2099-01-01T00:00:00.000Z')
+    expect(treePlan('G').updatedAt).toBe('2099-01-01T00:00:00.000Z')
+    expect(treePlan('U').updatedAt).not.toBe('2099-01-01T00:00:00.000Z')
   })
 })

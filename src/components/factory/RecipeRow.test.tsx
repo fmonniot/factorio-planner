@@ -3,7 +3,8 @@ import { render, screen, fireEvent, within } from '@testing-library/react'
 import { RecipeRow, primaryItemPerRun } from './RecipeRow'
 import { countSubPlanContents } from './subPlanContents'
 import { RecipeDndProvider } from './RecipeDnd'
-import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, findSubPlan } from '../../store/blockStore'
+import { indexRecipeAreas } from './recipeAreas'
 import { useUiStore } from '../../store/uiStore'
 import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 
@@ -1043,5 +1044,201 @@ describe('RecipeRow sub-factory actions', () => {
       renderRow()
       expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
     })
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Areas
+// ---------------------------------------------------------------------------
+
+describe('RecipeRow in a block with areas', () => {
+  const MULTI_TITLE = 'Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel'
+  const elec = (id: string): GameRecipeNode => ({ kind: 'game-recipe', id, recipeId: 'electrolysis', modules: [], byproductPolicy: {} })
+  const iron = (id: string): GameRecipeNode => ({ kind: 'game-recipe', id, recipeId: 'iron-plate', modules: [], byproductPolicy: {} })
+  const sp = (id: string, name: string, nodes: (GameRecipeNode | SubPlanNode)[], subPlans: SubPlan[] = [], area = true): SubPlan =>
+    ({ id, name, nodes, subPlans, ...(area ? { area: true } : {}), createdAt: '', updatedAt: '' })
+  const handleOf = (id: string, subPlanId: string): SubPlanNode => ({ kind: 'subplan', id, subPlanId })
+
+  /** Root with electrolysis and areas P (electrolysis), F (electrolysis), C (iron in an organising group). */
+  function areaBlock(areas = true): SubPlan {
+    const g = sp('G', 'Group', [iron('c-c')], [], false)
+    return {
+      ...makeEmptyBlock('Test').rootPlan,
+      id: 'root',
+      nodes: [elec('e-root'), handleOf('h-P', 'P'), handleOf('h-F', 'F'), handleOf('h-C', 'C')],
+      subPlans: [
+        sp('P', 'Plastics', [elec('e-p')], [], areas),
+        sp('F', 'Rocket fuel', [elec('e-f')], [], areas),
+        sp('C', 'Chlorides', [handleOf('h-G', 'G')], [g], areas),
+      ],
+    }
+  }
+
+  const solvedOf = (id: string, extra: Partial<SolvedNode> = {}): SolvedNode =>
+    ({ ...electrolysisSolved, recipeNodeId: id, machineCountCeil: 5, machineCountExact: id === 'e-root' ? 4.6 : id === 'e-p' ? 4.2 : 4.8, ...extra })
+
+  function solvedMap(consumers = true) {
+    return new Map<string, SolvedNode>([
+      ['e-root', solvedOf('e-root')],
+      ['e-p', solvedOf('e-p')],
+      ['e-f', solvedOf('e-f')],
+      ...(consumers ? [['c-c', { ...solvedNode, recipeNodeId: 'c-c', inputRates: { hydrogen: 45 } }] as const] : []),
+    ])
+  }
+
+  function renderAreaRow(nodeId: string, extra: Partial<Parameters<typeof RecipeRow>[0]> = {}, opts: { areas?: boolean; consumers?: boolean } = {}) {
+    const root = areaBlock(opts.areas ?? true)
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    const map = solvedMap(opts.consumers ?? true)
+    const planNode = [root, ...root.subPlans, ...root.subPlans.flatMap(s => s.subPlans)]
+      .flatMap(p => p.nodes).find(n => n.id === nodeId)!
+    return renderRow({
+      planNode,
+      solvedNode: map.get(nodeId),
+      rootPlan: root,
+      parentSubPlanId: root.id,
+      areaView: { index: indexRecipeAreas(root), solvedMap: map, solvedAreas: undefined },
+      ...extra,
+    })
+  }
+
+  const openMenu = () => fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
+  const labels = () => screen.getAllByRole('menuitem').map(i => i.textContent)
+  const planOf = (id: string) => findSubPlan(useBlockStore.getState().blocks[0].rootPlan, id)!
+
+  beforeEach(() => {
+    useUiStore.setState({ rateUnit: 'min', revealRowRequest: null })
+  })
+
+  it('shows the area count on a recipe built in several areas, with the split as tooltip', () => {
+    renderAreaRow('e-root')
+    const badge = screen.getByTestId('multi-area-badge')
+    expect(badge.textContent).toBe('3')
+    expect(badge).toHaveAttribute('title', MULTI_TITLE)
+  })
+
+  it('lists Build also in… and Go to row in… in the row menu', () => {
+    renderAreaRow('e-root')
+    openMenu()
+    expect(labels()).toEqual(
+      ['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Build also in…', 'Go to row in…', 'Remove recipe'],
+    )
+  })
+
+  it('Build also in… offers the areas that use the product and adds a row to the one chosen', () => {
+    renderAreaRow('e-root')
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(labels()).toEqual(['Chlorides · uses 45.0/m'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Chlorides · uses 45.0/m' }))
+
+    const nodes = planOf('C').nodes
+    expect(nodes).toHaveLength(2)
+    const added = nodes[1]
+    expect(added.kind === 'game-recipe' && added.recipeId).toBe('electrolysis')
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe(added.id)
+  })
+
+  it('shows the consumption in the current rate unit', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    renderAreaRow('e-root')
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
+    expect(labels()).toEqual(['Chlorides · uses 0.75/s'])
+  })
+
+  it('disables Build also in… when no other area uses the product', () => {
+    renderAreaRow('e-root', {}, { consumers: false })
+    openMenu()
+    const item = screen.getByRole('menuitem', { name: 'Build also in…' })
+    expect(item).toBeDisabled()
+    expect(item).toHaveAttribute('title', 'No other area uses Hydrogen without a row of this recipe')
+  })
+
+  it('Go to row in… lists the recipe\'s rows in the other areas and asks to reveal the one chosen', () => {
+    renderAreaRow('e-root')
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Go to row in…' }))
+    expect(labels()).toEqual(['Plastics · 5 buildings', 'Rocket fuel · 5 buildings'])
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rocket fuel · 5 buildings' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('e-f')
+  })
+
+  it('has no badge and no area menu items when no sub-factory is an area', () => {
+    renderAreaRow('e-root', {}, { areas: false })
+    expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
+    openMenu()
+    expect(labels()).toEqual(['Absorb byproduct', 'Pin rate', 'Wrap in subfactory…', 'Remove recipe'])
+  })
+
+  it('explains in a block with areas what the primary product decides', () => {
+    renderAreaRow('e-root', { onAddConsumer: vi.fn() })
+    expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe',
+    )
+  })
+
+  it('keeps the plain primary-product tooltip without areas', () => {
+    renderAreaRow('e-root', {}, { areas: false })
+    expect(screen.getByTitle('Oxygen — Set as primary')).toBeInTheDocument()
+  })
+
+  describe('collapsed area rows', () => {
+    const flow = (itemId: string, rate: number, boundary = false) => ({ itemId, rate, boundary })
+    const areaOf = (receives: ReturnType<typeof flow>[], sends: ReturnType<typeof flow>[]) => ({ areaId: 'P', receives, sends })
+    function renderAreaHandle(solvedArea: ReturnType<typeof areaOf>, extra: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+      return renderAreaRow('h-P', {
+        solvedNode: undefined,
+        areaView: { index: indexRecipeAreas(areaBlock()), solvedMap: solvedMap(), solvedAreas: [solvedArea] },
+        ...extra,
+      })
+    }
+
+    it('shows what the area receives and sends as display-only chips', () => {
+      renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
+      const chips = screen.getByTestId('area-chips')
+      const received = chips.querySelector('[data-item-id="water"][data-direction="receives"]')!
+      expect(received.tagName).toBe('SPAN')
+      expect(chips.querySelector('[data-item-id="hydrogen"][data-direction="sends"]')).not.toBeNull()
+      expect(within(chips).queryAllByRole('button')).toHaveLength(0)
+    })
+
+    it('shows no chips on an expanded area', () => {
+      renderAreaHandle(areaOf([flow('water', 60)], []), { isExpanded: true })
+      expect(screen.queryByTestId('area-chips')).not.toBeInTheDocument()
+    })
+
+    it('shows no chips on an organising sub-factory', () => {
+      const root = areaBlock(false)
+      renderAreaRow('h-P', {
+        solvedNode: undefined,
+        areaView: { index: indexRecipeAreas(root), solvedMap: solvedMap(), solvedAreas: [areaOf([flow('water', 60)], [])] },
+      }, { areas: false })
+      expect(screen.queryByTestId('area-chips')).not.toBeInTheDocument()
+    })
+
+    it('caps each direction at four chips and lists the rest in a +N', () => {
+      const ids = ['a', 'b', 'c', 'd', 'e', 'f']
+      renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 60 - i)), []))
+      const chips = screen.getByTestId('area-chips')
+      expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
+      const more = screen.getByTestId('area-chips-more')
+      expect(more.textContent).toBe('+2')
+      expect(more.getAttribute('title')).toBe('e 56.0/m, f 55.0/m')
+    })
+  })
+
+  it('flags a highlighted row and gives every row its node id', () => {
+    const { container } = renderAreaRow('e-root', { isHighlighted: true })
+    const tr = container.querySelector('tr')!
+    expect(tr).toHaveAttribute('data-highlighted', 'true')
+    expect(tr).toHaveAttribute('data-node-id', 'e-root')
+  })
+
+  it('does not flag a row that is not highlighted', () => {
+    const { container } = renderAreaRow('e-root')
+    expect(container.querySelector('tr')).not.toHaveAttribute('data-highlighted')
   })
 })

@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { solve, solveAll, flattenBlock } from './index'
+import { subPlanAreaIds, areaRecipeIds } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
@@ -178,6 +179,44 @@ describe('blockAreas via flattenBlock', () => {
   it('has no areas unless a flag is on', () => {
     const plan = root([row('ammonia', 'root')], [sub('A', [], [], false), sub('B', [])])
     expect('areas' in flattenBlock(blk(plan, []))).toBe(false)
+  })
+})
+
+describe('subPlanAreaIds', () => {
+  it('maps a sub-plan to its own id when it is an area, else to the enclosing area', () => {
+    const a2 = sub('A2', [], [], true)
+    const a1 = sub('A1', [handle(a2)], [a2])
+    const a = sub('A', [handle(a1)], [a1], true)
+    const o = sub('O', [])
+    const plan = root([], [a, o])
+    expect(Object.fromEntries(subPlanAreaIds(plan))).toEqual({
+      root: 'root', A: 'A', A1: 'A', A2: 'A2', O: 'root',
+    })
+  })
+
+  it('maps everything to the root when no flag is on', () => {
+    const plan = root([], [sub('A', [], [sub('B', [])]), sub('C', [])])
+    expect(new Set(subPlanAreaIds(plan).values())).toEqual(new Set(['root']))
+  })
+})
+
+describe('areaRecipeIds', () => {
+  function layout(): SubPlan {
+    const a2 = sub('A2', [], [], true)
+    const a1 = sub('A1', [row('plate', 'A1')], [a2], false)
+    const a = sub('A', [handle(a1), row('gear', 'A')], [a1], true)
+    const o = sub('O', [row('copper', 'O')])
+    return root([row('iron', 'root')], [a, o])
+  }
+
+  it('collects the recipes of the whole area around a sub-plan', () => {
+    expect(areaRecipeIds(layout(), 'O')).toEqual(new Set(['iron', 'copper']))
+    expect(areaRecipeIds(layout(), 'A1')).toEqual(new Set(['gear', 'plate']))
+  })
+
+  it('is empty for an area without rows and for an unknown sub-plan', () => {
+    expect(areaRecipeIds(layout(), 'A2')).toEqual(new Set())
+    expect(areaRecipeIds(layout(), 'missing')).toEqual(new Set())
   })
 })
 

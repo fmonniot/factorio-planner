@@ -4,7 +4,7 @@ import { EditMachineModal } from './EditMachineModal'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import type { GameData } from '../../data/types'
+import type { GameData, GameRecipeNode } from '../../data/types'
 
 function recipe(id: string, name: string): GameData['recipes'][string] {
   return {
@@ -327,5 +327,56 @@ describe('EditMachineModal — module counts and slots', () => {
     setModules([{ moduleId: 'speed', count: 2 }])
     renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
     expect(screen.getByText('2 / 4 slots used')).toBeInTheDocument()
+  })
+})
+
+describe('EditMachineModal — apply to every row of the recipe', () => {
+  const plateRow = (id: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode =>
+    ({ kind: 'game-recipe', id, recipeId: 'plate', modules: [], byproductPolicy: {}, ...extra })
+
+  function renderWithRows(rows: GameRecipeNode[]) {
+    const gameData = makeGameData()
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: rows } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    render(
+      <EditMachineModal
+        nodeId="n1"
+        recipeId="plate"
+        recipeCategory="crafting"
+        machineId="assembler"
+        machineCountCeil={1}
+        modules={[{ moduleId: 'speed', count: 1 }]}
+        gameData={gameData}
+        onClose={() => {}}
+      />,
+    )
+  }
+  const rows = () => useBlockStore.getState().blocks[0].rootPlan.nodes as GameRecipeNode[]
+
+  it('copies machine and modules to the other rows of the recipe and stays open', () => {
+    renderWithRows([
+      plateRow('n1', { machineId: 'assembler', modules: [{ moduleId: 'speed', count: 1 }] }),
+      plateRow('n2'),
+      plateRow('n3'),
+      { ...plateRow('n4'), recipeId: 'plate-alt' },
+    ])
+    fireEvent.click(screen.getByRole('button', { name: 'Apply to every row of this recipe (3)' }))
+    for (const id of ['n2', 'n3']) {
+      const n = rows().find(r => r.id === id)!
+      expect(n.machineId).toBe('assembler')
+      expect(n.modules).toEqual([{ moduleId: 'speed', count: 1 }])
+    }
+    expect(rows().find(r => r.id === 'n4')!.machineId, 'another recipe is untouched').toBeUndefined()
+    expect(screen.getByRole('button', { name: /Apply to every row/ }), 'the modal stays open').toBeInTheDocument()
+  })
+
+  it('has no such button when the recipe has a single row', () => {
+    renderWithRows([plateRow('n1', { machineId: 'assembler' })])
+    expect(screen.queryByRole('button', { name: /Apply to every row/ })).not.toBeInTheDocument()
   })
 })

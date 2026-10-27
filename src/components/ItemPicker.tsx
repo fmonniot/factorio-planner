@@ -207,12 +207,14 @@ interface RecipePickerBodyProps {
   gameData: GameData
   filterByItemId?: string
   consumesItemId?: string
+  /** Recipes that already have a row where the new one would go: shown disabled ("already in <where>"). */
+  presentRecipes?: { ids: ReadonlySet<string>; where: string }
   initialQuery: string
   onSelect: (id: string) => void
   onClose: () => void
 }
 
-function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQuery, onSelect, onClose }: RecipePickerBodyProps) {
+function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRecipes, initialQuery, onSelect, onClose }: RecipePickerBodyProps) {
   const [query, setQuery] = useState(initialQuery)
   const [showHidden, setShowHidden] = useState(false)
   const [showBeyondHorizon, setShowBeyondHorizon] = useState(false)
@@ -391,6 +393,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
               const product = recipeIconItem(gameData, r)
               // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
               const beyond = !!available && !r.hidden && !available.has(r.id)
+              const present = presentRecipes?.ids.has(r.id) === true
               return (
                 <button
                   key={r.id}
@@ -398,14 +401,18 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, initialQue
                   data-testid="recipe-slot"
                   data-recipe-id={r.id}
                   data-beyond-horizon={beyond ? 'true' : undefined}
-                  title={beyond ? `${r.name} (beyond research horizon)` : r.name}
+                  data-in-area={present ? 'true' : undefined}
+                  disabled={present}
+                  title={present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name}
                   onClick={() => { onSelect(r.id); onClose() }}
                   onMouseEnter={() => setHoveredRecipeId(r.id)}
                   onMouseLeave={() => setHoveredRecipeId(null)}
                   onFocus={() => setHoveredRecipeId(r.id)}
                   onBlur={() => setHoveredRecipeId(null)}
                   className={`aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
-                    beyond
+                    present
+                      ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
+                      : beyond
                       ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
                       : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
                   }`}
@@ -669,6 +676,8 @@ interface RecipeModeProps extends BasePickerProps {
   filterByItemId?: string
   /** When set, only show recipes that take this item as an ingredient. */
   consumesItemId?: string
+  /** Recipes that already have a row where the new one would go: shown disabled ("already in <where>"). */
+  presentRecipes?: { ids: ReadonlySet<string>; where: string }
 }
 
 interface ItemModeProps extends BasePickerProps {
@@ -698,6 +707,7 @@ export function ItemPicker(props: ItemPickerProps) {
         gameData={gameData}
         filterByItemId={props.filterByItemId}
         consumesItemId={props.consumesItemId}
+        presentRecipes={props.presentRecipes}
         initialQuery={props.initialQuery ?? ''}
         onSelect={props.onSelect}
         onClose={props.onClose}

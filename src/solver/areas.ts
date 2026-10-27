@@ -98,6 +98,33 @@ export function blockAreas(root: SubPlan): SolverArea[] | undefined {
   return order.map(id => areas.get(id)!)
 }
 
+/** The area of every sub-plan: its own id when it is a separate area, else its nearest enclosing area's (the root's id at the top level). Blocks without areas map everything to the root. */
+export function subPlanAreaIds(root: SubPlan): Map<string, string> {
+  const map = new Map<string, string>()
+  function visit(plan: SubPlan, areaId: string): void {
+    map.set(plan.id, areaId)
+    for (const sp of plan.subPlans) visit(sp, sp.area === true ? sp.id : areaId)
+  }
+  visit(root, root.id)
+  return map
+}
+
+/** Recipe ids of the rows in the area containing sub-plan `subPlanId` (the whole block without areas); empty set when the sub-plan is not in the tree. */
+export function areaRecipeIds(root: SubPlan, subPlanId: string): Set<string> {
+  const areaIds = subPlanAreaIds(root)
+  const areaId = areaIds.get(subPlanId)
+  const ids = new Set<string>()
+  if (areaId === undefined) return ids
+  function visit(plan: SubPlan): void {
+    if (areaIds.get(plan.id) === areaId) {
+      for (const n of plan.nodes) if (n.kind === 'game-recipe') ids.add(n.recipeId)
+    }
+    for (const sp of plan.subPlans) visit(sp)
+  }
+  visit(root)
+  return ids
+}
+
 interface Column {
   /** LP name of the row (`n0`, `n1`, …): never collides with the other LP names. */
   id: string
