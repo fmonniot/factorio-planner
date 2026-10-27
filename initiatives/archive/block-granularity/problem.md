@@ -1,6 +1,6 @@
 # Initiative: Block granularity
 
-Status: Active
+Status: Shipped
 
 Problem statement and requirements for planning a factory that is built in many places. This document is deliberately solution-neutral: it describes what is missing and what any answer must do, not how. Proposals live in [proposals/](proposals/) and are judged against the requirements and scenarios below. A proposal that disagrees with a requirement should say so explicitly rather than quietly drop it.
 
@@ -24,7 +24,7 @@ Planning a factory means answering two different questions:
 The planner today answers both questions with a single concept: a **block** is one product chain (one solve, one table) and, implicitly, one area. In small factories the two answers coincide. In large overhaul mods (Seablock, Nullius, Pyanodons) they do not, and neither of the planner's two grouping tools fits:
 
 - **Blocks are good building blocks, but do not combine well at scale.** A large factory needs 20–30+ of them. Once a product chain is spread over that many blocks, there is no single place to see everything needed to make one product.
-- **Sub-factories are good for organising a block, but are not areas.** They group rows of the table, and nothing more: the solver flattens them (see [spec/solver.md](../../spec/solver.md#sub-plans)), so they cannot express "these machines are over there" or what flows between groups.
+- **Sub-factories are good for organising a block, but are not areas.** They group rows of the table, and nothing more: the solver flattens them (see [spec/solver.md](../../../../spec/solver.md#sub-plans)), so they cannot express "these machines are over there" or what flows between groups.
 
 The sharpest symptom is **intermediates built in several places**. A block can contain a recipe only once (later duplicates solve to zero with a `duplicate-recipe` warning), so a shared intermediate is one row with one machine count. In the factory, the same intermediate is often built several times, next to each of the lines that use it, because that is easier than shipping it. The planner cannot show that split, how many machines each place needs, or what still has to be shipped between places.
 
@@ -54,7 +54,7 @@ Each requirement comes from what the player asked for or from a constraint they 
 
 - **Capacity limits between areas.** No belt, pipe or train throughput limits, and no optimisation of what to ship versus build locally.
 - **Automatic placement.** See R6.
-- **Spatial layout.** No map, coordinates, distances or drawing of areas. The project's non-goals exclude belt and logistics layout and spatial planning ([spec/overview.md](../../spec/overview.md#non-goals)). Areas as bookkeeping are compatible with that, but the overview's wording should be revisited when this ships so it does not read as excluding them.
+- **Spatial layout.** No map, coordinates, distances or drawing of areas. The project's non-goals exclude belt and logistics layout and spatial planning ([spec/overview.md](../../../../spec/overview.md#non-goals)). Areas as bookkeeping are compatible with that, but the overview's wording should be revisited when this ships so it does not read as excluding them.
 
 ## Scenarios
 
