@@ -1284,6 +1284,30 @@ describe('RecipeRow in a block with areas', () => {
       expect(item).toBeDisabled()
       expect(item).toHaveAttribute('title', 'Every area already has a row of one of its recipes')
     })
+
+    it('uses a neutral tooltip when some areas are disabled only for being inside the source', () => {
+      const t = sp('T', 'Inner', [elec('t-e')])
+      const s = sp('S', 'Group', [iron('s-i'), handleOf('h-T', 'T')], [t], false)
+      const root: SubPlan = {
+        ...makeEmptyBlock('Test').rootPlan,
+        id: 'root',
+        nodes: [handleOf('h-S', 'S')],
+        subPlans: [s],
+      }
+      const block = makeEmptyBlock('Test')
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+      renderRow({
+        planNode: root.nodes[0],
+        solvedNode: undefined,
+        rootPlan: root,
+        parentSubPlanId: root.id,
+        areaView: { index: indexRecipeAreas(root), solvedMap: new Map(), solvedAreas: undefined },
+      })
+      openGroupMenu('Group')
+      const item = screen.getByRole('menuitem', { name: 'Duplicate to…' })
+      expect(item).toBeDisabled()
+      expect(item).toHaveAttribute('title', 'No area can take a copy of this subfactory')
+    })
   })
 
   describe('collapsed area rows', () => {

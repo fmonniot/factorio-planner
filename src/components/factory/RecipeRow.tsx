@@ -269,6 +269,10 @@ export function RecipeRow({
       ? duplicateToOptions(areaView.index, rootPlan, subPlanId, id => gameData.recipes[id]?.name ?? id)
       : []
     const dupEnabled = dupOptions.some(o => !o.disabledReason)
+    // Blame recipe rows only when every area is disabled for that reason (not for being inside the source).
+    const dupDisabledTitle = dupOptions.every(o => o.disabledReason?.startsWith('Already has'))
+      ? 'Every area already has a row of one of its recipes'
+      : 'No area can take a copy of this subfactory'
 
     const solvedArea = childPlan?.area === true && !isExpanded
       ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
@@ -348,7 +352,7 @@ export function RecipeRow({
                   ? [{
                       label: 'Duplicate to…',
                       disabled: !dupEnabled,
-                      title: dupEnabled ? undefined : 'Every area already has a row of one of its recipes',
+                      title: dupEnabled ? undefined : dupDisabledTitle,
                       onSelect: () => {
                         if (menuPos) setAreaMenu({ kind: 'duplicate', ...menuPos })
                       },

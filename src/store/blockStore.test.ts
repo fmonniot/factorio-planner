@@ -1687,6 +1687,11 @@ describe('duplicateSubPlanTo', () => {
     expect(allIds(copy).some(i => originalIds.has(i)), 'no id is shared').toBe(false)
     const copyN = copy.subPlans[0]
     expect((copy.nodes[1] as SubPlanNode).subPlanId).toBe(copyN.id)
+    const originalN = original.subPlans[0]
+    expect(copyN.name).toBe(originalN.name)
+    expect(copyN.createdAt).toBe(originalN.createdAt)
+    expect(copyN.updatedAt).toBe(originalN.updatedAt)
+    expect(copy.name).not.toBe(original.name)
     const a1 = original.nodes[0] as GameRecipeNode
     const copyA1 = copy.nodes[0] as GameRecipeNode
     expect(copyA1).toEqual({ ...a1, id: copyA1.id })
