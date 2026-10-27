@@ -757,6 +757,39 @@ describe('parseAppState — sub-factory areas', () => {
   })
 })
 
+describe('parseAppState — sub-plans stored under the plan that holds their handle', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const plan = (id: string, nodes: unknown[] = [], subPlans: unknown[] = []) => ({
+    id, name: id, nodes, subPlans, createdAt: now, updatedAt: now,
+  })
+  const handle = (subPlanId: string) => ({ kind: 'subplan', id: `h-${subPlanId}`, subPlanId })
+  const load = (rootPlan: unknown) =>
+    parseAppState({
+      blocks: [{ id: 'b1', name: 'Block', noImportItems: [], products: [], rootPlan }],
+      activeBlockId: 'b1',
+    }).blocks[0].rootPlan
+
+  it('moves a sub-plan under the plan whose handle shows it', () => {
+    // Dragging the handle of "group" into "bottom" used to leave group stored under the root.
+    const loaded = load(plan('root', [handle('top'), handle('bottom')], [
+      plan('group'), plan('top'), plan('bottom', [handle('group')]),
+    ]))
+    expect(loaded.subPlans.map(sp => sp.id)).toEqual(['top', 'bottom'])
+    expect(loaded.subPlans[1].subPlans.map(sp => sp.id)).toEqual(['group'])
+  })
+
+  it('leaves a well-formed tree as it is', () => {
+    const loaded = load(plan('root', [handle('b'), handle('a')], [plan('a', [handle('c')], [plan('c')]), plan('b')]))
+    expect(loaded.subPlans.map(sp => sp.id)).toEqual(['a', 'b'])
+    expect(loaded.subPlans[0].subPlans.map(sp => sp.id)).toEqual(['c'])
+  })
+
+  it('is stable: a saved, migrated plan loads to the same tree', () => {
+    const once = load(plan('root', [handle('bottom')], [plan('group'), plan('bottom', [handle('group')])]))
+    expect(load(structuredClone(once))).toEqual(once)
+  })
+})
+
 describe('parsePlanDataSetStamp', () => {
   it('returns a full stamp whole', () => {
     const dataSet = { id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' }

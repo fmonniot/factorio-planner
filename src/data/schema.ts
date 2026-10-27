@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
+import { reparentSubPlans } from './subPlanTree'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -444,7 +445,11 @@ export const BlockSchema = z.preprocess(
     inputConnections: z.array(BlockConnectionSchema).default([]),
     rootPlan: SubPlanSchema,
   }),
-)
+).transform(block => {
+  // Sub-plans stored under a plan other than the one holding their handle (see reparentSubPlans).
+  const rootPlan = reparentSubPlans(block.rootPlan)
+  return rootPlan === block.rootPlan ? block : { ...block, rootPlan }
+})
 
 export const AppStateSchema = z.preprocess(
   // Per-block migration cannot see the other blocks, so colours are handed out here, and legacy

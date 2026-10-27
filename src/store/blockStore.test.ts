@@ -11,6 +11,7 @@ import {
 } from './blockStore'
 import type { AppState, BeaconConfig, Block, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
+import { blockAreas } from '../solver/areas'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -539,6 +540,86 @@ describe('moveNode', () => {
     const before = useBlockStore.getState().blocks[0].rootPlan
     useBlockStore.getState().moveNode('sp-node', child.id, 0)
     expect(useBlockStore.getState().blocks[0].rootPlan).toBe(before)
+  })
+
+  describe('moving a sub-factory handle', () => {
+    // root: [handle(Top), handle(Bottom), node-a]; Top holds a handle to Group, which is stored under Top.
+    function setup() {
+      const group = { ...makeEmptySubPlan('Group'), nodes: [nodeB] }
+      const top = { ...makeEmptySubPlan('Top'), nodes: [{ kind: 'subplan', id: 'h-group', subPlanId: group.id } as SubPlanNode], subPlans: [group], area: true }
+      const bottom = { ...makeEmptySubPlan('Bottom'), area: true }
+      const block = makeEmptyBlock('B')
+      const rootPlan = {
+        ...block.rootPlan,
+        nodes: [
+          { kind: 'subplan', id: 'h-top', subPlanId: top.id } as SubPlanNode,
+          { kind: 'subplan', id: 'h-bottom', subPlanId: bottom.id } as SubPlanNode,
+          nodeA,
+        ],
+        subPlans: [top, bottom],
+      }
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+      return { group, top, bottom, rootPlan }
+    }
+    const rootOf = () => useBlockStore.getState().blocks[0].rootPlan
+    const idsOf = (p: SubPlan) => p.subPlans.map(sp => sp.id)
+
+    it('moves the sub-plan with its handle, so its rows belong to the new plan', () => {
+      const { group, top, bottom } = setup()
+      useBlockStore.getState().moveNode('h-group', bottom.id, 0)
+
+      expect(idsOf(findSubPlan(rootOf(), top.id)!)).toEqual([])
+      expect(findSubPlan(rootOf(), top.id)!.nodes).toEqual([])
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([group.id])
+      expect(findSubPlan(rootOf(), bottom.id)!.nodes.map(n => n.id)).toEqual(['h-group'])
+      expect(findSubPlan(rootOf(), group.id)!.nodes.map(n => n.id)).toEqual(['node-b'])
+    })
+
+    it('moves a sub-plan together with its own sub-plans', () => {
+      const { group, top, bottom } = setup()
+      useBlockStore.getState().moveNode('h-top', bottom.id, 0)
+
+      expect(idsOf(rootOf())).toEqual([bottom.id])
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([top.id])
+      expect(idsOf(findSubPlan(rootOf(), top.id)!)).toEqual([group.id])
+    })
+
+    it('puts the sub-plan back where it was on undo, and again on redo', () => {
+      const { group, top, bottom, rootPlan } = setup()
+      useBlockStore.getState().moveNode('h-group', bottom.id, 0)
+      // An edit made to the sub-plan while it sits in its new place survives undo and redo.
+      useBlockStore.getState().renameSubPlan(group.id, 'Renamed')
+
+      useBlockStore.getState().undo()
+      expect(idsOf(findSubPlan(rootOf(), top.id)!)).toEqual([group.id])
+      expect(findSubPlan(rootOf(), top.id)!.nodes.map(n => n.id)).toEqual(['h-group'])
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([])
+      expect(findSubPlan(rootOf(), group.id)!.name).toBe('Renamed')
+      expect(idsOf(rootOf())).toEqual(idsOf(rootPlan))
+
+      useBlockStore.getState().redo()
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([group.id])
+      expect(idsOf(findSubPlan(rootOf(), top.id)!)).toEqual([])
+      expect(findSubPlan(rootOf(), group.id)!.name).toBe('Renamed')
+    })
+
+    it('keeps the sub-plan in place when its handle only moves within its plan', () => {
+      const { top, bottom } = setup()
+      useBlockStore.getState().moveNode('h-top', rootOf().id, 3)
+      expect(rootOf().nodes.map(n => n.id)).toEqual(['h-bottom', 'node-a', 'h-top'])
+      expect(idsOf(rootOf())).toEqual([top.id, bottom.id])
+    })
+
+    it('keeps areas right: the moved sub-plan\'s rows join the area it was moved into', () => {
+      const { bottom } = setup()
+      useBlockStore.getState().moveNode('h-group', bottom.id, 0)
+      const areas = blockAreas(rootOf())!
+      expect(areas.map(a => [a.id === bottom.id ? 'bottom' : a.id === rootOf().id ? 'root' : 'top', a.nodeIds])).toEqual([
+        ['root', ['node-a']],
+        ['top', []],
+        ['bottom', ['node-b']],
+      ])
+    })
   })
 
   it('trivial no-op does not push to history', () => {

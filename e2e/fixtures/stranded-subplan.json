@@ -1,0 +1,106 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0001-0000-0000-0000-000000000001",
+      "name": "Hydrogen",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "ffff0001-0000-0000-0000-0000000000p1",
+          "itemId": "nullius-compressed-hydrogen",
+          "extraRate": 240
+        },
+        {
+          "id": "ffff0001-0000-0000-0000-0000000000p2",
+          "itemId": "nullius-hydrogen-chloride",
+          "extraRate": 600
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "ffff0002-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0004-0000-0000-0000-000000000001",
+            "recipeId": "nullius-steam-electrolysis",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "subplan",
+            "id": "ffff0005-0000-0000-0000-000000000001",
+            "subPlanId": "ffff0010-0000-0000-0000-000000000001"
+          },
+          {
+            "kind": "subplan",
+            "id": "ffff0005-0000-0000-0000-000000000002",
+            "subPlanId": "ffff0020-0000-0000-0000-000000000001"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "ffff0010-0000-0000-0000-000000000001",
+            "name": "Compression",
+            "nodes": [
+              {
+                "kind": "subplan",
+                "id": "ffff0005-0000-0000-0000-000000000003",
+                "subPlanId": "ffff0030-0000-0000-0000-000000000001"
+              },
+              {
+                "kind": "game-recipe",
+                "id": "ffff0011-0000-0000-0000-000000000002",
+                "recipeId": "nullius-compressed-hydrogen",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          },
+          {
+            "id": "ffff0020-0000-0000-0000-000000000001",
+            "name": "Chlorides",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "ffff0021-0000-0000-0000-000000000001",
+                "recipeId": "nullius-hydrogen-chloride",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          },
+          {
+            "id": "ffff0030-0000-0000-0000-000000000001",
+            "name": "Electrolysers",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "ffff0011-0000-0000-0000-000000000001",
+                "recipeId": "nullius-steam-electrolysis",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-05-10T00:00:00.000Z",
+        "updatedAt": "2026-05-10T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0001-0000-0000-0000-000000000001"
+}
