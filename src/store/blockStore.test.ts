@@ -1613,6 +1613,38 @@ describe('applyRowSettingsToRecipe', () => {
     expect(useBlockStore.getState().history[blockId]).toBeUndefined()
   })
 
+  it('treats beacon configs and modules with the same values in another key order as matching', () => {
+    const blockId = setup()
+    const beaconA = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const beaconB = { distributionEfficiency: 0.5, modulesPerBeacon: 2, beaconCount: 2, moduleId: 'speed' }
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => ({
+        ...b,
+        rootPlan: {
+          ...b.rootPlan,
+          nodes: b.rootPlan.nodes.map(n => n.id === 'r1'
+            ? { ...n, beaconConfig: beaconA, modules: [{ moduleId: 'speed', count: 1 }] } as GameRecipeNode
+            : n),
+          subPlans: b.rootPlan.subPlans.map(sp => sp.id !== 'A' ? sp : {
+            ...sp,
+            nodes: sp.nodes.map(n => n.id === 'r2'
+              ? { ...n, machineId: 'm2', beaconConfig: beaconB, modules: [{ count: 1, moduleId: 'speed' }] } as GameRecipeNode
+              : n),
+            subPlans: sp.subPlans.map(g => ({
+              ...g,
+              nodes: g.nodes.map(n => ({ ...n, machineId: 'm2', beaconConfig: beaconB, modules: [{ count: 1, moduleId: 'speed' }] }) as GameRecipeNode),
+            })),
+          }),
+        },
+      })),
+    }))
+    const before = treePlan('A').updatedAt
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    expect(useBlockStore.getState().history[blockId]).toBeUndefined()
+    expect(treePlan('A').updatedAt).toBe(before)
+  })
+
   it('marks only the sub-plans whose rows changed as updated', () => {
     setup()
     vi.useFakeTimers()

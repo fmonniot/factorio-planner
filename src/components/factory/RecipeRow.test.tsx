@@ -1086,11 +1086,11 @@ describe('RecipeRow in a block with areas', () => {
     ])
   }
 
-  function renderAreaRow(nodeId: string, extra: Partial<Parameters<typeof RecipeRow>[0]> = {}, opts: { areas?: boolean; consumers?: boolean } = {}) {
+  function renderAreaRow(nodeId: string, extra: Partial<Parameters<typeof RecipeRow>[0]> = {}, opts: { areas?: boolean; consumers?: boolean; unsolved?: boolean } = {}) {
     const root = areaBlock(opts.areas ?? true)
     const block = makeEmptyBlock('Test')
     useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
-    const map = solvedMap(opts.consumers ?? true)
+    const map = opts.unsolved ? new Map<string, SolvedNode>() : solvedMap(opts.consumers ?? true)
     const planNode = [root, ...root.subPlans, ...root.subPlans.flatMap(s => s.subPlans)]
       .flatMap(p => p.nodes).find(n => n.id === nodeId)!
     return renderRow({
@@ -1155,6 +1155,37 @@ describe('RecipeRow in a block with areas', () => {
     const item = screen.getByRole('menuitem', { name: 'Build also in…' })
     expect(item).toBeDisabled()
     expect(item).toHaveAttribute('title', 'No other area uses Hydrogen without a row of this recipe')
+  })
+
+  it('says it is waiting for the solve, not that no area qualifies, before the block is solved', () => {
+    renderAreaRow('e-root', {}, { unsolved: true })
+    openMenu()
+    const item = screen.getByRole('menuitem', { name: 'Build also in…' })
+    expect(item).toBeDisabled()
+    expect(item).toHaveAttribute('title', 'Waiting for the solve')
+  })
+
+  it('hides Go to row in… when no other row can be revealed', () => {
+    // Area P has a row of the recipe but no handle in the table: counted by the badge, not revealable.
+    const root: SubPlan = {
+      ...makeEmptyBlock('Test').rootPlan,
+      id: 'root',
+      nodes: [elec('e-root')],
+      subPlans: [sp('P', 'Plastics', [elec('e-p')], [], true)],
+    }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    const map = solvedMap()
+    renderRow({
+      planNode: root.nodes.find(n => n.id === 'e-root')!,
+      solvedNode: map.get('e-root'),
+      rootPlan: root,
+      parentSubPlanId: root.id,
+      areaView: { index: indexRecipeAreas(root), solvedMap: map, solvedAreas: undefined },
+    })
+    expect(screen.getByTestId('multi-area-badge').textContent).toBe('2')
+    openMenu()
+    expect(labels()).not.toContain('Go to row in…')
   })
 
   it('Go to row in… lists the recipe\'s rows in the other areas and asks to reveal the one chosen', () => {

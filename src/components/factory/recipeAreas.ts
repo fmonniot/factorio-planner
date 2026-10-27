@@ -160,7 +160,7 @@ export interface GoToRowOption {
   buildings: number
 }
 
-/** The rows of the same recipe in the other areas, in table order. */
+/** The rows of the same recipe in the other areas, in table order; rows that cannot be revealed (no handle above them) are left out. */
 export function goToRowOptions(
   index: RecipeAreaIndex,
   root: SubPlan,
@@ -170,7 +170,7 @@ export function goToRowOptions(
   const row = index.rowById.get(nodeId)
   if (!row) return []
   return (index.rowsByRecipe.get(row.node.recipeId) ?? [])
-    .filter(r => r.areaId !== row.areaId)
+    .filter(r => r.areaId !== row.areaId && ancestorHandleIds(root, r.node.id) !== undefined)
     .map(r => ({
       nodeId: r.node.id,
       areaId: r.areaId,

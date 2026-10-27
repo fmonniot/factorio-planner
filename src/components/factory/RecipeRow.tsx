@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import type { SolvedNode, SolvedArea, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { isSubPlanDescendant } from '../../store/blockStore'
@@ -138,6 +138,18 @@ export function RecipeRow({
   const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
   const indentPx = depth * 16
+  // The badge tooltip, memoised: it walks every area of the recipe, and a badged row renders often.
+  const multiAreaBadgeTitle = useMemo(() => {
+    if (planNode.kind !== 'game-recipe' || !areaView) return undefined
+    const hereId = areaView.index.rowById.get(planNode.id)?.areaId
+    const recipeName = gameData.recipes[planNode.recipeId]?.name
+    if (!hereId || recipeName === undefined || recipeAreaIds(areaView.index, planNode.recipeId).length < 2) return undefined
+    return multiAreaTitle(
+      recipeName,
+      multiAreaSummary(areaView.index, rootPlan, planNode.recipeId, hereId, areaView.solvedMap),
+      hereId,
+    )
+  }, [planNode, areaView, gameData, rootPlan])
   const [editMachineOpen, setEditMachineOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
@@ -403,11 +415,13 @@ export function RecipeRow({
             label: 'Build also in…',
             disabled: buildOptions.length === 0,
             title: buildOptions.length === 0
-              ? `No other area uses ${primaryItemId ? (gameData.items[primaryItemId]?.name ?? primaryItemId) : 'its product'} without a row of this recipe`
+              ? !areaView?.solvedMap.has(planNode.id)
+                ? 'Waiting for the solve'
+                : `No other area uses ${primaryItemId ? (gameData.items[primaryItemId]?.name ?? primaryItemId) : 'its product'} without a row of this recipe`
               : undefined,
             onSelect: () => openAreaMenu('build'),
           },
-          ...(recipeAreaCount >= 2 ? [{ label: 'Go to row in…', onSelect: () => openAreaMenu('goto') }] : []),
+          ...(gotoOptions.length > 0 ? [{ label: 'Go to row in…', onSelect: () => openAreaMenu('goto') }] : []),
         ]
       : []),
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
@@ -486,11 +500,7 @@ export function RecipeRow({
           {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
-              title={multiAreaTitle(
-                recipe.name,
-                multiAreaSummary(index, rootPlan, planNode.recipeId, hereAreaId, areaView.solvedMap),
-                hereAreaId,
-              )}
+              title={multiAreaBadgeTitle}
               className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 tabular-nums select-none"
             >
               {recipeAreaCount}

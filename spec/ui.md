@@ -692,8 +692,9 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
 - **Build also in…** (blocks with areas only) — adds a copy of this row to another area.
-  It is disabled, with the title "No other area uses <item> without a row of this
-  recipe", when no area qualifies. An area qualifies when its rows (including those in
+  It is disabled when no area qualifies, with the title "No other area uses <item>
+  without a row of this recipe", or "Waiting for the solve" while the row has no solve
+  result (right after turning on Separate area, or when the solve failed). An area qualifies when its rows (including those in
   organising groups inside it) consume the row's primary product (above a negligible
   rate) and it has no row of the same recipe yet; an area that makes the item with a
   different recipe is still offered. Choosing it opens a second menu with one entry per
@@ -702,8 +703,10 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   recipe, machine, modules, beacon, byproduct policy and primary product, deep-copied;
   the pin and the byproduct-consumer flag are not copied. It is one undoable command.
   The table then reveals the new row (see **Go to row in…**).
-- **Go to row in…** (shown with the badge) — opens a second menu listing this recipe's
-  rows in the other areas, one entry per row in table order, "<area> · N building(s)".
+- **Go to row in…** (shown when at least one row can be revealed) — opens a second menu
+  listing this recipe's rows in the other areas, one entry per row in table order,
+  "<area> · N building(s)". Rows in a sub-plan without a handle in the table cannot be
+  revealed and are left out (the badge still counts them).
   Choosing one expands the sub-factories above that row, scrolls it to the centre of the
   table and highlights it (`data-highlighted="true"`, a teal outline) for two seconds. The
   request is transient (`uiStore.revealRowRequest`, handled by the table of the active

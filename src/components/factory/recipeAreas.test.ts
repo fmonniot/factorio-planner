@@ -128,6 +128,15 @@ describe('goToRowOptions', () => {
   })
 })
 
+describe('goToRowOptions without a handle', () => {
+  it('omits rows in a sub-plan without a handle, which cannot be revealed', () => {
+    const root = scenario()
+    root.subPlans.push(plan('X', 'Orphan', [gameRow('x-1', 'electrolysis')]))
+    const options = goToRowOptions(indexRecipeAreas(root), root, 'e-root', solved())
+    expect(options.map(o => o.nodeId)).toEqual(['e-p', 'e-f'])
+  })
+})
+
 describe('ancestorHandleIds', () => {
   it('lists the handles to expand, outermost first', () => {
     const root = scenario()
