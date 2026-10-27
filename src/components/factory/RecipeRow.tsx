@@ -14,6 +14,7 @@ import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreasPane'
+import { areaName } from './areaRows'
 import {
   buildAlsoInOptions,
   goToRowOptions,
@@ -93,6 +94,8 @@ interface RecipeRowProps {
   areaView?: AreaView
   /** Flash the row: it was just revealed. */
   isHighlighted?: boolean
+  /** Shown under a recipe line of the by-recipe view: no reorder or drag (the position means nothing there), and the area's name instead of the multi-area badge. */
+  byRecipeView?: boolean
 }
 
 export function RecipeRow({
@@ -111,6 +114,7 @@ export function RecipeRow({
   onAddConsumer,
   areaView,
   isHighlighted,
+  byRecipeView = false,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -445,15 +449,17 @@ export function RecipeRow({
       data-node-id={planNode.id}
       {...highlightProps}
       className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity} ${highlightClass}`}
-      draggable
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
+      draggable={!byRecipeView}
+      onDragStart={byRecipeView ? undefined : handleDragStart}
+      onDragEnd={byRecipeView ? undefined : handleDragEnd}
+      onDragOver={byRecipeView ? undefined : handleDragOver}
+      onDragLeave={byRecipeView ? undefined : handleDragLeave}
+      onDrop={byRecipeView ? undefined : handleDrop}
     >
       {/* Reorder */}
-      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
+      {byRecipeView
+        ? <td />
+        : <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />}
 
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
@@ -497,7 +503,12 @@ export function RecipeRow({
               </span>
             )}
           </div>
-          {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
+          {byRecipeView && hasAreas && hereAreaId && (
+            <span data-testid="row-area" className="text-[10px] text-gray-400 select-none">
+              {areaName(rootPlan, hereAreaId)}
+            </span>
+          )}
+          {!byRecipeView && index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
               title={multiAreaBadgeTitle}

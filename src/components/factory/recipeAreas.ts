@@ -1,5 +1,5 @@
-import type { GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
-import { areaRecipeIds, blockAreas, subPlanAreaIds } from '../../solver/areas'
+import type { GameData, GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
+import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds } from '../../solver/areas'
 import { areaName } from './areaRows'
 
 // ---------------------------------------------------------------------------
@@ -88,12 +88,16 @@ export interface MultiAreaSummary {
   split: AreaSplit[]
 }
 
-/** The buildings a recipe takes in every area that builds it; a row with no solve result counts as 0. */
+/**
+ * The buildings a recipe takes in every area that builds it; a row with no solve result counts as 0.
+ * The total is the sum of each row's whole machines (R4), not the ceiling of the exact sum.
+ * `hereAreaId` undefined names every area, in table order.
+ */
 export function multiAreaSummary(
   index: RecipeAreaIndex,
   root: SubPlan,
   recipeId: string,
-  hereAreaId: string,
+  hereAreaId: string | undefined,
   solvedMap: ReadonlyMap<string, SolvedNode>,
 ): MultiAreaSummary {
   const buildings = new Map<string, number>()
@@ -114,11 +118,77 @@ export function multiAreaSummary(
   }
 }
 
-/** "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel". */
-export function multiAreaTitle(recipeName: string, s: MultiAreaSummary, hereAreaId: string): string {
+/** "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel"; without a row's own area, "5 Top level" and so on. */
+export function multiAreaTitle(recipeName: string, s: MultiAreaSummary, hereAreaId: string | undefined): string {
   const b = s.buildings
   const parts = s.split.map(a => (a.areaId === hereAreaId ? `${a.buildings} here` : `${a.buildings} ${a.name}`))
   return `${recipeName}: ${b} building${b === 1 ? '' : 's'} (${s.exact.toFixed(1)} exact) in ${s.areaCount} areas: ${parts.join(', ')}`
+}
+
+export interface RecipeGroup {
+  recipeId: string
+  /** in table order of their areas, root first */
+  rows: RecipeRowRef[]
+}
+
+/**
+ * The rows of the by-recipe view: one group per recipe, in the order the table shows their first
+ * row. Only rows the tree shows are listed (a sub-plan without a handle has none), although
+ * `multiAreaSummary` still counts them.
+ */
+export function recipeGroups(root: SubPlan, index: RecipeAreaIndex): RecipeGroup[] {
+  const groups = new Map<string, RecipeRowRef[]>()
+  function visit(plan: SubPlan): void {
+    const areaId = index.areaOfSubPlan.get(plan.id) ?? root.id
+    for (const node of plan.nodes) {
+      if (node.kind === 'game-recipe') {
+        const list = groups.get(node.recipeId) ?? []
+        list.push({ node, areaId, subPlanId: plan.id })
+        groups.set(node.recipeId, list)
+      } else {
+        const child = plan.subPlans.find(sp => sp.id === node.subPlanId)
+        if (child) visit(child)
+      }
+    }
+  }
+  visit(root)
+  const rank = (ref: RecipeRowRef) => index.areaRank.get(ref.areaId) ?? 0
+  return [...groups].map(([recipeId, rows]) => ({ recipeId, rows: rows.sort((a, b) => rank(a) - rank(b)) }))
+}
+
+export interface RecipeGroupRates {
+  products: [string, number][]
+  byproducts: [string, number][]
+  inputs: [string, number][]
+  powerKw: number
+}
+
+/** What a recipe line shows: the rows' solved rates added up. An output is a product when any row is built for it. */
+export function recipeGroupRates(
+  rows: RecipeRowRef[],
+  recipe: GameData['recipes'][string],
+  solvedMap: ReadonlyMap<string, SolvedNode>,
+): RecipeGroupRates {
+  const outputs = new Map<string, number>()
+  const inputs = new Map<string, number>()
+  let powerKw = 0
+  const primary = new Set<string>()
+  for (const row of rows) {
+    const primaryId = dedicatedProduct(row.node, recipe)
+    if (primaryId !== undefined) primary.add(primaryId)
+    const solved = solvedMap.get(row.node.id)
+    if (!solved) continue
+    for (const [id, rate] of Object.entries(solved.outputRates)) outputs.set(id, (outputs.get(id) ?? 0) + rate)
+    for (const [id, rate] of Object.entries(solved.inputRates)) inputs.set(id, (inputs.get(id) ?? 0) + rate)
+    powerKw += solved.powerKw
+  }
+  const out = [...outputs]
+  return {
+    products: out.filter(([id]) => primary.has(id)),
+    byproducts: out.filter(([id]) => !primary.has(id)),
+    inputs: [...inputs],
+    powerKw,
+  }
 }
 
 export interface BuildAlsoInOption {

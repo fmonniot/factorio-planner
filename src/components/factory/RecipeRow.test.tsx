@@ -1197,6 +1197,15 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('e-f')
   })
 
+  it('under a recipe line of the by-recipe view: no reorder, not draggable, the area name instead of the badge', () => {
+    renderAreaRow('e-p', { byRecipeView: true })
+    expect(screen.queryByLabelText('Move up')).not.toBeInTheDocument()
+    expect(screen.queryByLabelText('Move down')).not.toBeInTheDocument()
+    expect(document.querySelector('tr[data-node-id="e-p"]')).toHaveAttribute('draggable', 'false')
+    expect(screen.getByTestId('row-area').textContent).toBe('Plastics')
+    expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
+  })
+
   it('has no badge and no area menu items when no sub-factory is an area', () => {
     renderAreaRow('e-root', {}, { areas: false })
     expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()

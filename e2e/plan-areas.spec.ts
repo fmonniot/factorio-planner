@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
+import { openRowMenu } from './support/rowMenu'
 
 /**
  * The plan-level list of areas and the by-recipe view. The fixture has two copies of the
@@ -43,4 +44,26 @@ test('the plan-level list shows the areas of every block and jumps to one', asyn
   await expect(page.getByLabel('Filter areas')).toHaveCount(0)
   await expect(page.locator('button[title="Hydrogen 2"]')).toHaveAttribute('aria-current', 'true')
   await expect(row(page, COMP_HANDLE_2)).toHaveAttribute('data-highlighted', 'true')
+})
+
+test('By recipe shows one line per recipe, opens to its rows per area and is remembered', async ({ page }) => {
+  await open(page)
+
+  await page.getByRole('button', { name: 'By recipe' }).click()
+  const line = page.locator('[data-testid="recipe-group"][data-recipe-id="nullius-steam-electrolysis"]')
+  await expect(line.getByTestId('recipe-group-buildings')).toHaveText(/\d+ buildings?/)
+  await expect(row(page, ROOT_ELEC)).toBeHidden()
+
+  await line.getByRole('button', { name: /rows per area/ }).click()
+  await expect(row(page, ROOT_ELEC).getByTestId('row-area')).toHaveText('Top level')
+  await expect(row(page, COMP_ELEC).getByTestId('row-area')).toHaveText('Compression')
+
+  const menu = await openRowMenu(page, row(page, ROOT_ELEC))
+  await menu.getByRole('menuitem', { name: 'Go to row in…' }).click()
+  await page.getByRole('menu').getByRole('menuitem', { name: /^Compression · / }).click()
+  await expect(row(page, COMP_ELEC)).toHaveAttribute('data-highlighted', 'true')
+
+  // Not a reload: loadPlanFixture seeds the plan again on every navigation.
+  const stored = await page.evaluate(() => localStorage.getItem('factorio-planner:ui'))
+  expect(stored).toContain('"tableView":"recipe"')
 })
