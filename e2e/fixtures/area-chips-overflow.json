@@ -1,0 +1,51 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0101-0000-0000-0000-000000000001",
+      "name": "Turrets",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "ffff0101-0000-0000-0000-0000000000p1",
+          "itemId": "nullius-turret",
+          "extraRate": 1
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "ffff0102-0000-0000-0000-000000000001",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "subplan",
+            "id": "ffff0105-0000-0000-0000-000000000001",
+            "subPlanId": "ffff0110-0000-0000-0000-000000000001"
+          }
+        ],
+        "subPlans": [
+          {
+            "id": "ffff0110-0000-0000-0000-000000000001",
+            "name": "Assembly",
+            "nodes": [
+              {
+                "kind": "game-recipe",
+                "id": "ffff0111-0000-0000-0000-000000000001",
+                "recipeId": "nullius-turret",
+                "modules": [],
+                "byproductPolicy": {}
+              }
+            ],
+            "subPlans": [],
+            "area": true,
+            "createdAt": "2026-05-10T00:00:00.000Z",
+            "updatedAt": "2026-05-10T00:00:00.000Z"
+          }
+        ],
+        "createdAt": "2026-05-10T00:00:00.000Z",
+        "updatedAt": "2026-05-10T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0101-0000-0000-0000-000000000001"
+}

@@ -14,6 +14,7 @@ import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreasPane'
+import { AreaChipsMore } from './AreaChipsMore'
 import { areaName } from './areaRows'
 import {
   buildAlsoInOptions,
@@ -763,32 +764,23 @@ export function RecipeRow({
 }
 
 // ---------------------------------------------------------------------------
-// AreaChips — what a collapsed area receives and sends, display-only
+// AreaChips — what a collapsed area receives and sends. The chips are display-only;
+// the "+N" for the flows past the cap is a button that opens a popup.
 // ---------------------------------------------------------------------------
 
 function AreaChips({ area, items, rateUnit }: { area: SolvedArea; items: GameData['items']; rateUnit: RateUnit }) {
-  const unit = rateUnit === 'min' ? '/m' : '/s'
-  function more(rest: SolvedArea['receives']) {
-    if (rest.length === 0) return null
-    const title = rest.map(f => `${items[f.itemId]?.name ?? f.itemId} ${fmtRate(f.rate / 60, rateUnit)}${unit}`).join(', ')
-    return (
-      <span data-testid="area-chips-more" title={title} className="text-[10px] text-gray-500">
-        +{rest.length}
-      </span>
-    )
-  }
   return (
     <div data-testid="area-chips" className="flex flex-wrap items-center gap-1 ml-2">
       {area.receives.length > 0 && <span className="text-[10px] text-gray-500">in</span>}
       {area.receives.slice(0, AREA_CHIP_CAP).map(f => (
         <FlowChip key={`in-${f.itemId}`} {...f} direction="receives" items={items} rateUnit={rateUnit} />
       ))}
-      {more(area.receives.slice(AREA_CHIP_CAP))}
+      <AreaChipsMore flows={area.receives.slice(AREA_CHIP_CAP)} direction="receives" items={items} rateUnit={rateUnit} />
       {area.sends.length > 0 && <span className="text-[10px] text-gray-500">out</span>}
       {area.sends.slice(0, AREA_CHIP_CAP).map(f => (
         <FlowChip key={`out-${f.itemId}`} {...f} direction="sends" items={items} rateUnit={rateUnit} />
       ))}
-      {more(area.sends.slice(AREA_CHIP_CAP))}
+      <AreaChipsMore flows={area.sends.slice(AREA_CHIP_CAP)} direction="sends" items={items} rateUnit={rateUnit} />
     </div>
   )
 }

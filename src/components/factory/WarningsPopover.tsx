@@ -146,7 +146,7 @@ export function WarningsPopover() {
 
   useEffect(() => {
     if (!open) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') setOpen(false) }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape' && !e.defaultPrevented) setOpen(false) }
     function onPointer(e: PointerEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
