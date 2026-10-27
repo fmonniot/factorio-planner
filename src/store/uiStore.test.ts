@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', tableView: 'tree', defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -72,7 +72,15 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView'])
+  })
+})
+
+describe('tableView', () => {
+  it('defaults to the tree and can be switched', () => {
+    expect(useUiStore.getState().tableView).toBe('tree')
+    useUiStore.getState().setTableView('recipe')
+    expect(useUiStore.getState().tableView).toBe('recipe')
   })
 })
 
@@ -89,7 +97,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView'])
   })
 })
 
@@ -120,6 +128,26 @@ describe('loadPersistedUiState', () => {
     expect(useUiStore.getState().rateUnit).toBe('sec')
   })
 
+  it('restores tableView from localStorage', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'min', tableView: 'recipe' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().tableView).toBe('recipe')
+  })
+
+  it('ignores unknown tableView values', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec', tableView: 'grid' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().tableView).toBe('tree')
+    expect(useUiStore.getState().rateUnit).toBe('sec')
+  })
+
+  it('loads state saved before tableView existed', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec' }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().rateUnit).toBe('sec')
+    expect(useUiStore.getState().tableView).toBe('tree')
+  })
+
   it('ignores missing entry', () => {
     loadPersistedUiState()
     expect(useUiStore.getState().rateUnit).toBe('min')
@@ -146,6 +174,16 @@ describe('initUiStatePersistence', () => {
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       UI_STATE_STORAGE_KEY,
       expect.stringContaining('"sec"'),
+    )
+  })
+
+  it('auto-saves when tableView changes', () => {
+    const unsub = initUiStatePersistence()
+    useUiStore.getState().setTableView('recipe')
+    unsub()
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      UI_STATE_STORAGE_KEY,
+      expect.stringContaining('"tableView":"recipe"'),
     )
   })
 

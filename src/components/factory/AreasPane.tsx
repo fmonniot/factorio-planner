@@ -80,6 +80,63 @@ export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit, s
   )
 }
 
+interface AreaListItemProps {
+  row: AreaRow
+  items: GameData['items']
+  rateUnit: RateUnit
+  selectedItemId: string | null
+  onSelect: (itemId: string) => void
+  /** Makes the name a button (the plan-level list opens the area from it); without it the name is plain text. */
+  onOpen?: () => void
+  openTitle?: string
+}
+
+/** One area: its name, then what it receives and sends as chips. */
+export function AreaListItem({ row, items, rateUnit, selectedItemId, onSelect, onOpen, openTitle }: AreaListItemProps) {
+  return (
+    <li aria-label={row.name} className="flex items-start gap-2 text-xs">
+      {onOpen ? (
+        <button
+          type="button"
+          title={openTitle}
+          onClick={onOpen}
+          className="w-28 shrink-0 truncate text-left text-gray-200 hover:text-white hover:underline leading-6"
+        >
+          {row.name}
+        </button>
+      ) : (
+        <span className="w-28 shrink-0 truncate text-gray-200 leading-6" title={row.name}>{row.name}</span>
+      )}
+      <div className="flex flex-wrap items-center gap-1 min-w-0">
+        {row.receives.length > 0 && <span className="text-[10px] text-gray-500">in</span>}
+        {row.receives.map(f => (
+          <FlowChip
+            key={`in-${f.itemId}`}
+            {...f}
+            direction="receives"
+            items={items}
+            rateUnit={rateUnit}
+            selectedItemId={selectedItemId}
+            onSelect={onSelect}
+          />
+        ))}
+        {row.sends.length > 0 && <span className="text-[10px] text-gray-500">out</span>}
+        {row.sends.map(f => (
+          <FlowChip
+            key={`out-${f.itemId}`}
+            {...f}
+            direction="sends"
+            items={items}
+            rateUnit={rateUnit}
+            selectedItemId={selectedItemId}
+            onSelect={onSelect}
+          />
+        ))}
+      </div>
+    </li>
+  )
+}
+
 // What each area of the block receives from the others and sends to them. Selecting a chip lights
 // up the same item in every area: who sends it and who receives it. View state only.
 export function AreasPane({ rows, items, rateUnit }: AreasPaneProps) {
@@ -102,35 +159,14 @@ export function AreasPane({ rows, items, rateUnit }: AreasPaneProps) {
       {open && (
         <ul className="max-h-[120px] overflow-y-auto px-2 pb-2 flex flex-col gap-1">
           {rows.map(row => (
-            <li key={row.areaId} aria-label={row.name} className="flex items-start gap-2 text-xs">
-              <span className="w-28 shrink-0 truncate text-gray-200 leading-6" title={row.name}>{row.name}</span>
-              <div className="flex flex-wrap items-center gap-1 min-w-0">
-                {row.receives.length > 0 && <span className="text-[10px] text-gray-500">in</span>}
-                {row.receives.map(f => (
-                  <FlowChip
-                    key={`in-${f.itemId}`}
-                    {...f}
-                    direction="receives"
-                    items={items}
-                    rateUnit={rateUnit}
-                    selectedItemId={selectedItemId}
-                    onSelect={select}
-                  />
-                ))}
-                {row.sends.length > 0 && <span className="text-[10px] text-gray-500">out</span>}
-                {row.sends.map(f => (
-                  <FlowChip
-                    key={`out-${f.itemId}`}
-                    {...f}
-                    direction="sends"
-                    items={items}
-                    rateUnit={rateUnit}
-                    selectedItemId={selectedItemId}
-                    onSelect={select}
-                  />
-                ))}
-              </div>
-            </li>
+            <AreaListItem
+              key={row.areaId}
+              row={row}
+              items={items}
+              rateUnit={rateUnit}
+              selectedItemId={selectedItemId}
+              onSelect={select}
+            />
           ))}
         </ul>
       )}

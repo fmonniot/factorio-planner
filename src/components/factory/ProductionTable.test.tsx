@@ -309,6 +309,117 @@ describe('ProductionTable — revealing a row', () => {
   })
 })
 
+describe('ProductionTable — by-recipe view', () => {
+  const original = Element.prototype.scrollIntoView
+
+  const solvedNode = (id: string, ceil: number) => ({
+    recipeNodeId: id, inputRates: { 'iron-ore': 60 }, outputRates: { 'iron-plate': 60 },
+    throughput: 1, machineCountExact: ceil - 0.5, machineCountCeil: ceil, powerKw: 0,
+  })
+
+  /** Block `id` with a root row `node-1` and an area "Plastics" (handle `h-p`) holding `p-1`, the same recipe. */
+  function areaBlock(id: string, areas = true) {
+    const block = { ...makeEmptyBlock(`Block ${id}`), id }
+    const plastics = { ...makeEmptyBlock('P').rootPlan, id: `P-${id}`, name: 'Plastics', area: areas, nodes: [{ ...existingNode, id: `p-1${id}` }] }
+    const handle: SubPlanNode = { kind: 'subplan', id: `h-p${id}`, subPlanId: plastics.id }
+    return {
+      ...block,
+      rootPlan: { ...block.rootPlan, nodes: [{ ...existingNode, id: `node-1${id}` }, handle], subPlans: [plastics] },
+    }
+  }
+  const load = (blocks: ReturnType<typeof areaBlock>[], active = blocks[0].id) => {
+    useBlockStore.setState({ blocks, activeBlockId: active, history: {} })
+    useSolverStore.setState({
+      lastResults: Object.fromEntries(blocks.map(b => [b.id, {
+        nodes: [solvedNode(`node-1${b.id}`, 2), solvedNode(`p-1${b.id}`, 1)], unsatisfied: [], warnings: [],
+      }])),
+    })
+  }
+  const rowEl = (id: string) => document.querySelector(`tr[data-node-id="${id}"]`)
+  const toggle = () => screen.queryByRole('button', { name: 'By recipe' })
+
+  beforeEach(() => {
+    useUiStore.setState({ tableView: 'tree', revealRowRequest: null })
+    Element.prototype.scrollIntoView = vi.fn()
+  })
+
+  afterEach(() => {
+    Element.prototype.scrollIntoView = original
+  })
+
+  it('has no toggle in a block without areas, and shows the tree there even if recipe view is stored', () => {
+    load([areaBlock('A', false)])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    expect(toggle()).not.toBeInTheDocument()
+    expect(screen.queryByTestId('recipe-group')).not.toBeInTheDocument()
+    expect(rowEl('node-1A')).toBeInTheDocument()
+  })
+
+  it('toggles the view in a block with areas', () => {
+    load([areaBlock('A')])
+    render(<ProductionTable />)
+    expect(toggle()).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(toggle()!)
+    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
+    expect(useUiStore.getState().tableView).toBe('recipe')
+  })
+
+  it('shows one line per recipe with the total, and the rows per area when opened', () => {
+    load([areaBlock('A')])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    expect(screen.getByTestId('recipe-group-buildings').textContent).toBe('3 buildings')
+    expect(screen.queryByTitle('Plastics')).not.toBeInTheDocument() // the area's handle row is not in this view
+    expect(rowEl('node-1A')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Iron Plate: rows per area' }))
+    expect(screen.getAllByTestId('row-area').map(e => e.textContent)).toEqual(['Top level', 'Plastics'])
+    expect(screen.queryByLabelText('Move up')).not.toBeInTheDocument()
+    expect(rowEl('node-1A')).toHaveAttribute('draggable', 'false')
+  })
+
+  it('opens the line of a revealed row and highlights the row', () => {
+    load([areaBlock('A')])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    act(() => useUiStore.getState().requestRevealRow('p-1A'))
+    expect(rowEl('p-1A')).toHaveAttribute('data-highlighted', 'true')
+    expect(screen.getAllByTestId('row-area')).toHaveLength(2)
+  })
+
+  it('closes the lines again after another block was active', () => {
+    load([areaBlock('A'), areaBlock('B')])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    fireEvent.click(screen.getByRole('button', { name: 'Iron Plate: rows per area' }))
+    expect(screen.getAllByTestId('row-area')).toHaveLength(2)
+    act(() => useBlockStore.getState().setActiveBlock('B'))
+    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
+    act(() => useBlockStore.getState().setActiveBlock('A'))
+    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
+  })
+
+  it('ignores a reveal request for a handle', () => {
+    load([areaBlock('A')])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    act(() => useUiStore.getState().requestRevealRow('h-pA'))
+    expect(document.querySelector('[data-highlighted]')).toBeNull()
+    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
+  })
+
+  it('reveals a row of another block after switching to it in the same update', () => {
+    load([areaBlock('A'), areaBlock('B')])
+    render(<ProductionTable />)
+    act(() => {
+      useBlockStore.getState().setActiveBlock('B')
+      useUiStore.getState().requestRevealRow('h-pB')
+    })
+    expect(rowEl('h-pB')).toHaveAttribute('data-highlighted', 'true')
+  })
+})
+
 describe('ProductionTable — recipe picker', () => {
   it('disables a recipe the block already has', () => {
     const block = useBlockStore.getState().blocks[0]

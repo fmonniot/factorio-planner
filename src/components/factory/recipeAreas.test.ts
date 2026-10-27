@@ -9,6 +9,8 @@ import {
   multiAreaTitle,
   presentRecipesFor,
   recipeAreaIds,
+  recipeGroupRates,
+  recipeGroups,
 } from './recipeAreas'
 import type { GameRecipeNode, RecipeNode, SolvedNode, SubPlan } from '../../data/types'
 
@@ -89,6 +91,13 @@ describe('multiAreaTitle', () => {
     expect(multiAreaTitle('Electrolysis', inF, 'F')).toMatch(/in 3 areas: 5 here, 5 Top level, 5 Plastics$/)
   })
 
+  it('names every area, in table order, without a row of its own', () => {
+    const root = scenario()
+    const s = multiAreaSummary(indexRecipeAreas(root), root, 'electrolysis', undefined, solved())
+    expect(multiAreaTitle('Electrolysis', s, undefined))
+      .toBe('Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 Top level, 5 Plastics, 5 Rocket fuel')
+  })
+
   it('uses the singular and counts a row without a solve result as 0', () => {
     const root = scenario()
     root.subPlans = root.subPlans.map(sp => (sp.id === 'F' ? { ...sp, nodes: [] } : sp))
@@ -96,6 +105,26 @@ describe('multiAreaTitle', () => {
     const s = multiAreaSummary(indexRecipeAreas(root), root, 'electrolysis', 'root', only)
     expect(multiAreaTitle('Electrolysis', s, 'root'))
       .toBe('Electrolysis: 1 building (0.3 exact) in 2 areas: 1 here, 0 Plastics')
+  })
+})
+
+describe('two rows of a recipe in one area', () => {
+  it('counts rows apart from areas, and says "1 area"', () => {
+    const root = plan('root', 'Main', [gameRow('a', 'iron'), gameRow('b', 'iron')])
+    const solvedRows = new Map([
+      ['a', solvedNode('a', { machineCountCeil: 2, machineCountExact: 1.5 })],
+      ['b', solvedNode('b', { machineCountCeil: 1, machineCountExact: 0.5 })],
+    ])
+    const s = multiAreaSummary(indexRecipeAreas(root), root, 'iron', undefined, solvedRows)
+    expect([s.areaCount, s.rowCount, s.buildings]).toEqual([1, 2, 3])
+    expect(multiAreaTitle('Iron', s, undefined)).toBe('Iron: 3 buildings (2.0 exact) in 1 area: 3 Top level')
+  })
+
+  it('counts only the given rows when asked', () => {
+    const root = plan('root', 'Main', [gameRow('a', 'iron'), gameRow('b', 'iron')])
+    const idx = indexRecipeAreas(root)
+    const s = multiAreaSummary(idx, root, 'iron', undefined, new Map([['a', solvedNode('a', { machineCountCeil: 2 })]]), [idx.rowById.get('a')!])
+    expect([s.rowCount, s.buildings]).toEqual([1, 2])
   })
 })
 
@@ -162,5 +191,62 @@ describe('presentRecipesFor', () => {
       ids: new Set(['electrolysis', 'iron']),
       where: 'this block',
     })
+  })
+})
+
+describe('recipeGroups', () => {
+  const ids = (g: { rows: { node: { id: string } }[] }) => g.rows.map(r => r.node.id)
+
+  it('groups rows by recipe in display order, rows in area order', () => {
+    const p = plan('P', 'Plastics', [gameRow('y', 'Y'), gameRow('x2', 'X')], [], true)
+    const root = plan('root', 'Main', [gameRow('x1', 'X'), handle('h', 'P'), gameRow('z', 'Z')], [p])
+    const groups = recipeGroups(root, indexRecipeAreas(root))
+    expect(groups.map(g => g.recipeId)).toEqual(['X', 'Y', 'Z'])
+    expect(groups.map(ids)).toEqual([['x1', 'x2'], ['y'], ['z']])
+  })
+
+  it('puts the root row first even when the area comes first in the table', () => {
+    const p = plan('P', 'Plastics', [gameRow('x2', 'X')], [], true)
+    const root = plan('root', 'Main', [handle('h', 'P'), gameRow('x1', 'X')], [p])
+    expect(recipeGroups(root, indexRecipeAreas(root)).map(ids)).toEqual([['x1', 'x2']])
+  })
+
+  it('leaves out rows of a sub-plan without a handle', () => {
+    const p = plan('P', 'Plastics', [gameRow('x2', 'X')], [], true)
+    const root = plan('root', 'Main', [gameRow('x1', 'X')], [p])
+    expect(recipeGroups(root, indexRecipeAreas(root)).map(ids)).toEqual([['x1']])
+  })
+})
+
+describe('recipeGroupRates', () => {
+  const recipe = { products: [{ itemId: 'h2' }, { itemId: 'o2' }], mainProduct: 'h2' } as unknown as Parameters<typeof recipeGroupRates>[1]
+  const ref = (id: string, primaryProduct?: string) => ({
+    node: { ...gameRow(id, 'e'), ...(primaryProduct ? { primaryProduct } : {}) },
+    areaId: 'root',
+    subPlanId: 'root',
+  })
+  const map = () => new Map([
+    ['a', solvedNode('a', { outputRates: { h2: 10, o2: 5 }, inputRates: { water: 7 }, powerKw: 100 })],
+    ['b', solvedNode('b', { outputRates: { h2: 6, o2: 3 }, inputRates: { water: 4 }, powerKw: 50 })],
+  ])
+
+  it('adds the rows up, the primary product being a product and the rest byproducts', () => {
+    const r = recipeGroupRates([ref('a'), ref('b')], recipe, map())
+    expect(r.products).toEqual([['h2', 16]])
+    expect(r.byproducts).toEqual([['o2', 8]])
+    expect(r.inputs).toEqual([['water', 11]])
+    expect(r.powerKw).toBe(150)
+  })
+
+  it('counts a row without a result as 0', () => {
+    const r = recipeGroupRates([ref('a'), ref('missing')], recipe, map())
+    expect(r.products).toEqual([['h2', 10]])
+    expect(r.powerKw).toBe(100)
+  })
+
+  it('shows both items as products when the rows are built for different ones', () => {
+    const r = recipeGroupRates([ref('a'), ref('b', 'o2')], recipe, map())
+    expect(r.products).toEqual([['h2', 16], ['o2', 8]])
+    expect(r.byproducts).toEqual([])
   })
 })
