@@ -15,6 +15,8 @@ import { computeNodeEffects, type NodeEffects } from './effects'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
+  byproductsFirstSet,
+  itemsWithSourcing,
   solvedNodeOf,
   surplusTolerance,
   zeroNode,
@@ -228,15 +230,22 @@ function solveAreaLP(
   noImportItems: Set<string>,
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
+  byproductsFirst: Set<string>,
 ): AreaLPResult {
   const { S, classification } = system
-  const base = buildLPModel(system, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst)
+  const base = buildLPModel(system, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst)
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
 
   // Every variable carries both stage objectives; the library ignores attributes that are neither
   // a constraint nor the optimised one.
   for (const v of Object.values(variables)) v.__s2 = v.__obj__ ?? 0
+  // Stage 1 only produces the bound L on dedicated imports, so every slack keeps BIG_M, byproducts-first
+  // ones included: stage 2 already carries the real slack cost and chooses the import over running a row.
+  // Epsilon here would make stage 1 import rather than use another area's dedicated row, forcing L = 0
+  // and forbidding that area's dedicated output even when it is made anyway. Byproducts from other
+  // areas' non-dedicated rows flow through the unpenalised `o…` pools at SHIP_COST, below epsilon,
+  // so they are shipped before importing.
   for (const name of base.itemToSlack.values()) variables[name].__s1 = BIG_M
 
   const penalised: { name: string; area: number; itemId: string }[] = []
@@ -484,13 +493,14 @@ export function solveAreaBlock(
   const pass1NoImport = totalCaps.size === 0
     ? noImportItems
     : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
+  const byproductsFirst = byproductsFirstSet(plan, noImportItems)
   const firstItems = new Set(
-    (plan.connectionsFirstItems ?? []).filter(
+    itemsWithSourcing(plan, 'connections-first').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems)
+  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst)
 
   const pass2Caps = new Map<string, number>()
   const pass2NoImport = new Set(noImportItems)
@@ -509,7 +519,7 @@ export function solveAreaBlock(
   if (pass2Caps.size > 0) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, pass2NoImport,
-      new Map([...firstCaps, ...pass2Caps]), firstItems,
+      new Map([...firstCaps, ...pass2Caps]), firstItems, byproductsFirst,
     )
   }
 

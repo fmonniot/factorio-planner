@@ -9,7 +9,7 @@
  * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
  * and `retain` drops the ones the solve since the last `retain` did not use.
  */
-import type { GameData, SolverGoal, RecipeNode, SolverResult } from '../data/types'
+import type { GameData, SolverGoal, RecipeNode, SolverResult, ItemSourcing } from '../data/types'
 
 export interface BlockSolve {
   result: SolverResult
@@ -65,15 +65,20 @@ export function exactKey(value: unknown): string {
   return JSON.stringify(value, exactNumberReplacer)
 }
 
+/** An item-sourcing map as sorted entries, so equal maps give equal keys. */
+export function sourcingKey(s?: ItemSourcing): [string, string][] {
+  return Object.entries(s ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+}
+
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
 export function planKey(plan: {
   goals: SolverGoal[]
   nodes: RecipeNode[]
   noImportItems?: string[]
-  connectionsFirstItems?: string[]
+  itemSourcing?: ItemSourcing
   areas?: unknown
 }): string {
-  const key = [plan.goals, plan.nodes, plan.noImportItems ?? [], plan.connectionsFirstItems ?? []]
+  const key = [plan.goals, plan.nodes, plan.noImportItems ?? [], sourcingKey(plan.itemSourcing)]
   return exactKey(plan.areas ? [...key, plan.areas] : key)
 }
 

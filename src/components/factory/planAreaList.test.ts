@@ -9,7 +9,7 @@ const handle = (id: string, subPlanId: string): SubPlan['nodes'][number] => ({ k
 
 function block(id: string, name: string, rootPlan: SubPlan): Block {
   return {
-    id, name, color: '#123456', products: [], noImportItems: [], connectionsFirstItems: [], inputConnections: [], rootPlan,
+    id, name, color: '#123456', products: [], noImportItems: [], itemSourcing: {}, inputConnections: [], rootPlan,
   }
 }
 const result = (areas?: SolvedArea[]): SolverResult => ({ nodes: [], unsatisfied: [], warnings: [], ...(areas ? { areas } : {}) })

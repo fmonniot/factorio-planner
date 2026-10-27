@@ -13,7 +13,7 @@ function subPlan(name: string, nodes: RecipeNode[], updatedAt: string, subPlans:
 
 function block(rootPlan: SubPlan, extra: Partial<Block> = {}): Block {
   const products: Product[] = [{ id: 'g', itemId: 'plate', extraRate: 60 }]
-  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], connectionsFirstItems: [], inputConnections: [], rootPlan, ...extra }
+  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], itemSourcing: {}, inputConnections: [], rootPlan, ...extra }
 }
 
 const keyOf = (nodes: RecipeNode[]) =>
@@ -36,12 +36,22 @@ describe('planKey', () => {
     expect(planKey(flattenBlock(a))).toBe(planKey(flattenBlock(b)))
   })
 
-  it('differs when connections-first items change; absent equals empty', () => {
+  it('differs when item sourcing changes; absent equals empty', () => {
     const nodes = [node('n', 'plate')]
     const base = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'))
-    const first = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { connectionsFirstItems: ['plate'] })
+    const first = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { plate: 'connections-first' } })
+    const byproducts = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { plate: 'byproducts-first' } })
     expect(planKey(flattenBlock(first))).not.toBe(planKey(flattenBlock(base)))
-    expect(planKey({ ...flattenBlock(base), connectionsFirstItems: undefined })).toBe(planKey(flattenBlock(base)))
+    expect(planKey(flattenBlock(byproducts))).not.toBe(planKey(flattenBlock(base)))
+    expect(planKey(flattenBlock(byproducts))).not.toBe(planKey(flattenBlock(first)))
+    expect(planKey({ ...flattenBlock(base), itemSourcing: undefined })).toBe(planKey(flattenBlock(base)))
+  })
+
+  it('does not depend on the order of the item sourcing entries', () => {
+    const nodes = [node('n', 'plate')]
+    const ab = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { a: 'byproducts-first', b: 'connections-first' } })
+    const ba = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { b: 'connections-first', a: 'byproducts-first' } })
+    expect(planKey(flattenBlock(ab))).toBe(planKey(flattenBlock(ba)))
   })
 
   it('differs for a one-ulp-ish rate change', () => {

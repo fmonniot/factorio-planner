@@ -351,15 +351,31 @@ function migrateBlock(input: unknown): unknown {
     ? data.noImportItems
     : [...collectedNoImports]
 
-  const { goals: _legacy, ...restWithoutGoals } = data
-  void _legacy
+  const { goals: _legacy, connectionsFirstItems: _cf, ...restWithoutGoals } = data
+  void _legacy; void _cf
+
+  const itemSourcing = migrateItemSourcing(data)
 
   return {
     ...restWithoutGoals,
     products,
     noImportItems: blockNoImports,
+    ...(itemSourcing === undefined ? {} : { itemSourcing }),
     rootPlan: migratedRoot,
   }
+}
+
+/** A saved map keeps its entries with a known mode (an unknown one loads as own recipes first); without a map,
+ *  legacy `connectionsFirstItems` become 'connections-first' entries. Undefined lets the schema default apply. */
+function migrateItemSourcing(data: Record<string, unknown>): unknown {
+  if (isRecord(data.itemSourcing))
+    return Object.fromEntries(Object.entries(data.itemSourcing).filter(([, m]) => ItemSourcingModeSchema.safeParse(m).success))
+  if (data.itemSourcing === undefined && Array.isArray(data.connectionsFirstItems)) {
+    const out: Record<string, string> = {}
+    for (const id of data.connectionsFirstItems) if (typeof id === 'string') out[id] = 'connections-first'
+    return out
+  }
+  return data.itemSourcing // undefined -> default {}; anything else (array, string, null) -> rejected by the schema, like any malformed field
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -429,6 +445,10 @@ export const BlockConnectionSchema = z
     return c
   })
 
+/** How a block sources an item; an absent entry means own recipes first. */
+export const ItemSourcingModeSchema = z.enum(['byproducts-first', 'connections-first'])
+export const ItemSourcingSchema = z.record(z.string(), ItemSourcingModeSchema)
+
 export const BlockSchema = z.preprocess(
   migrateBlock,
   z.object({
@@ -439,8 +459,8 @@ export const BlockSchema = z.preprocess(
     products: z.array(ProductSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
-    /** Items whose connected supply is used before the block's own recipes. */
-    connectionsFirstItems: z.array(z.string()).default([]),
+    /** itemId → how the block sources it; absent = own recipes first. */
+    itemSourcing: ItemSourcingSchema.default({}),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),
     rootPlan: SubPlanSchema,
@@ -514,6 +534,8 @@ export type GameRecipeNode = z.output<typeof GameRecipeNodeSchema>
 export type SubPlanNode = z.output<typeof SubPlanNodeSchema>
 export type SubPlan = SubPlanType
 export type BlockConnection = z.output<typeof BlockConnectionSchema>
+export type ItemSourcingMode = z.output<typeof ItemSourcingModeSchema>
+export type ItemSourcing = z.output<typeof ItemSourcingSchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
 export type PlanDataSetStamp = z.output<typeof PlanDataSetStampSchema>

@@ -72,7 +72,7 @@ Read these before making decisions that affect core behaviour:
 | [spec/tech-stack.md](spec/tech-stack.md) | Technology choices, rationale, CI and deploy |
 | [spec/solver.md](spec/solver.md) | LP formulation, solver pipeline, warnings, machine metrics |
 | [spec/data-model.md](spec/data-model.md) | Field-level game-data and plan-state model |
-| [spec/test-synthetic.md](spec/test-synthetic.md) | 7 synthetic cases with full derivations — ground truth for the solver |
+| [spec/test-synthetic.md](spec/test-synthetic.md) | 8 synthetic cases with full derivations — ground truth for the solver |
 | [spec/ui.md](spec/ui.md) | The production-table UI as it is today |
 | [initiatives/README.md](initiatives/README.md) | Index of active and archived initiatives |
 | [initiatives/backlog.md](initiatives/backlog.md) | Planned and possible work, known bugs |

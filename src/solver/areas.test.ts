@@ -118,7 +118,7 @@ function blk(rootPlan: SubPlan, products: [string, number][], id = 'block-1'): B
     color: '#60a5fa',
     products: products.map(([itemId, extraRate]): Product => ({ id: `p-${itemId}`, itemId, extraRate })),
     noImportItems: [],
-    connectionsFirstItems: [],
+    itemSourcing: {},
     inputConnections: [],
     rootPlan,
   }
@@ -389,6 +389,34 @@ describe('areas in the solve', () => {
       expect(flow(ar.receives, 'x')).toBeUndefined()
       expect(flow(ar.sends, 'x')).toBeUndefined()
     }
+  })
+
+  describe('byproducts first', () => {
+    // The root's r-main makes 10 x on the side; S (an area) uses 30 x and has its own x-make.
+    const s5 = (extra: Partial<Block> = {}): Block => ({
+      ...blk(
+        root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
+        [['y', 10], ['z', 30]],
+      ),
+      ...extra,
+    })
+
+    it('runs the area\'s x-make without the mode', () => {
+      const r = solved(s5())
+      expect(node(r, 'x-make@s').throughput).toBeCloseTo(10, 6)
+    })
+
+    it('uses the other area\'s byproduct and imports the rest instead of running x-make', () => {
+      const r = solved(s5({ itemSourcing: { x: 'byproducts-first' } }))
+      expect(node(r, 'x-make@s').throughput).toBeCloseTo(0, 6)
+      expect(node(r, 'r-main@root').throughput).toBeCloseTo(10, 6)
+      expect(r.unsatisfied.find(u => u.itemId === 'x')?.rate).toBeCloseTo(20, 6)
+      expect(flow(area(r, 'root').sends, 'x')!.rate).toBeCloseTo(10, 6)
+      expect(flow(area(r, 'S').receives, 'x')).toMatchObject({ boundary: true })
+      expect(flow(area(r, 'S').receives, 'x')!.rate).toBeCloseTo(30, 6)
+      expect(r.warnings.map(w => w.type)).not.toContain('overconstrained')
+      expect(r.warnings.map(w => w.type)).not.toContain('area-shortfall')
+    })
   })
 
   it('S5b: a surplus byproduct goes to the area that makes x itself', () => {

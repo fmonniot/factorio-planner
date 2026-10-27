@@ -32,6 +32,15 @@ export const SLACK_TOLERANCE = 1e-6
  * (BIG_M slack cost dominates if the LP would have to import inputs).
  */
 export const BC_BONUS = -0.01
+/**
+ * Objective cost per unit imported of a byproducts-first item (instead of BIG_M).
+ * > 0: output that recipes make anyway is used before importing (at 0 the LP may import and leave that output as surplus).
+ * << 1 (a recipe run): a recipe runs only for the item if one run replaced more than 1e5 imported units
+ *   (the bundled data sets yield at most 5000 per run: nullius-boxed-wood-chip-burning; Seablock max 1500).
+ * ~10x SHIP_COST·(1 + RANK_STEP·area) in areas.ts (below ~90 areas), so another area's output is shipped before importing.
+ * 1000x the solver's 1e-8 pivot precision.
+ */
+export const BYPRODUCTS_FIRST_SLACK_COST = 1e-5
 
 /** The LP rows and columns of a classified system, before any objective is chosen beyond `__obj__`. */
 export interface LPModel {
@@ -61,12 +70,14 @@ export interface LPModel {
  *     - Connections-first items: u_i + Σ_{j∉BC, S_ij<0} S_ij * x_j ≤ 0
  *       (supply covers at most what non-byproduct-consumer recipes use)
  *     - Pinned recipes:     x_j = rate  (equality)
- *   Objective: minimize Σ c_j * x_j + BIG_M * Σ s_i
- *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes; supply u_i is free,
+ *   Objective: minimize Σ c_j * x_j + Σ m_i * s_i
+ *     where c_j = 1, or BC_BONUS for byproduct-consumer recipes, and m_i = BYPRODUCTS_FIRST_SLACK_COST
+ *     for byproducts-first items, BIG_M otherwise; supply u_i is free,
  *     so it is used ahead of slack. Callers cap it at what own production can't cover.
  *
  * Slack s_i represents external import required for item i to balance.
- * BIG_M ensures the LP only uses slack when the network is genuinely infeasible.
+ * BIG_M ensures the LP only uses slack when the network is genuinely infeasible; a byproducts-first
+ * item's cheap slack instead lets the LP import it rather than run a recipe just to make it.
  * If pinned rates conflict, emits `infeasible-pins`.
  */
 export function buildLPModel(
@@ -76,6 +87,7 @@ export function buildLPModel(
   noImportItems: Set<string> = new Set(),
   supplyCaps: Map<string, number> = new Map(),
   connectionsFirst: Set<string> = new Set(),
+  byproductsFirst: Set<string> = new Set(),
 ): LPModel {
   const { S, recipes, classification } = system
 
@@ -125,10 +137,10 @@ export function buildLPModel(
     // No-import items: hard constraint (no slack). LP becomes infeasible if
     // the network can't balance internally.
     if (noImportItems.has(itemId)) return cName
-    // Slack variable: one per row, coefficient +1 in the row and BIG_M in objective.
+    // Slack variable: one per row, coefficient +1 in the row and the item's import cost in the objective.
     const slackName = `slack_${lpName(itemId)}`
     itemToSlack.set(itemId, slackName)
-    variables[slackName] = { __obj__: BIG_M, [cName]: 1 }
+    variables[slackName] = { __obj__: byproductsFirst.has(itemId) ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M, [cName]: 1 }
     return cName
   }
 
@@ -245,8 +257,9 @@ export function solveLP(
   noImportItems: Set<string> = new Set(),
   supplyCaps: Map<string, number> = new Map(),
   connectionsFirst: Set<string> = new Set(),
+  byproductsFirst: Set<string> = new Set(),
 ): LPResult {
-  const lp = buildLPModel(system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst)
+  const lp = buildLPModel(system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst)
   const model = {
     optimize: '__obj__',
     opType: 'min' as const,

@@ -5,6 +5,8 @@ import type {
   Recipe,
   SolvedNode,
   SolverGoal,
+  ItemSourcing,
+  ItemSourcingMode,
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
@@ -20,9 +22,19 @@ export interface SolverPlan {
   goals: SolverGoal[]
   nodes: RecipeNode[]
   noImportItems?: string[]
-  connectionsFirstItems?: string[]
+  itemSourcing?: ItemSourcing
   /** Present only when a sub-factory is a separate area; its absence selects the plain solve. */
   areas?: SolverArea[]
+}
+
+/** Items set to `mode` in the plan's itemSourcing. */
+export function itemsWithSourcing(plan: SolverPlan, mode: ItemSourcingMode): string[] {
+  return Object.entries(plan.itemSourcing ?? {}).filter(([, m]) => m === mode).map(([id]) => id)
+}
+
+/** Byproducts-first items whose import is cheap: not in `noImportItems` (a user lock, or a byproduct consumer's ingredient). */
+export function byproductsFirstSet(plan: SolverPlan, noImportItems: Set<string>): Set<string> {
+  return new Set(itemsWithSourcing(plan, 'byproducts-first').filter(id => !noImportItems.has(id)))
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */

@@ -684,31 +684,46 @@ describe('toggleNoImportItem', () => {
   })
 })
 
-describe('toggleConnectionsFirstItem', () => {
+describe('setItemSourcing', () => {
   const store = () => useBlockStore.getState()
-  const first = (i = 0) => store().blocks[i].connectionsFirstItems
+  const sourcing = (i = 0) => store().blocks[i].itemSourcing
 
-  it('adds, then removes, an item', () => {
-    store().toggleConnectionsFirstItem('plate')
-    expect(first()).toEqual(['plate'])
-    store().toggleConnectionsFirstItem('plate')
-    expect(first()).toEqual([])
+  it('sets, switches and clears a mode', () => {
+    store().setItemSourcing('plate', 'byproducts-first')
+    expect(sourcing()).toEqual({ plate: 'byproducts-first' })
+    store().setItemSourcing('plate', 'connections-first')
+    expect(sourcing()).toEqual({ plate: 'connections-first' })
+    store().setItemSourcing('plate', undefined)
+    expect(Object.keys(sourcing())).toEqual([])
   })
 
   it('undoes and redoes', () => {
-    store().toggleConnectionsFirstItem('plate')
+    store().setItemSourcing('plate', 'byproducts-first')
+    store().setItemSourcing('plate', 'connections-first')
     store().undo()
-    expect(first()).toEqual([])
+    expect(sourcing()).toEqual({ plate: 'byproducts-first' })
+    store().undo()
+    expect(Object.keys(sourcing())).toEqual([])
     store().redo()
-    expect(first()).toEqual(['plate'])
+    store().redo()
+    expect(sourcing()).toEqual({ plate: 'connections-first' })
+  })
+
+  it('is a no-op when the mode does not change', () => {
+    store().setItemSourcing('plate', 'byproducts-first')
+    const before = store()
+    store().setItemSourcing('plate', 'byproducts-first')
+    store().setItemSourcing('gear', undefined)
+    expect(store().history[before.activeBlockId].undoStack).toHaveLength(before.history[before.activeBlockId].undoStack.length)
+    expect(store().blocks).toBe(before.blocks)
   })
 
   it('changes only the active block', () => {
     const other = makeEmptyBlock('Other')
     useBlockStore.setState({ blocks: [...store().blocks, other] })
-    store().toggleConnectionsFirstItem('plate')
-    expect(first(0)).toEqual(['plate'])
-    expect(first(1)).toEqual([])
+    store().setItemSourcing('plate', 'byproducts-first')
+    expect(sourcing(0)).toEqual({ plate: 'byproducts-first' })
+    expect(sourcing(1)).toEqual({})
   })
 })
 
@@ -1398,12 +1413,13 @@ describe('duplicateBlock', () => {
     expect(blocks()[0]).toEqual(snapshot)
   })
 
-  it('copies connectionsFirstItems', () => {
+  it('copies itemSourcing', () => {
     useBlockStore.setState({
-      blocks: blocks().map(b => (b.id === original.id ? { ...b, connectionsFirstItems: ['plate'] } : b)),
+      blocks: blocks().map(b => (b.id === original.id ? { ...b, itemSourcing: { plate: 'byproducts-first' as const } } : b)),
     })
     useBlockStore.getState().duplicateBlock(original.id)
-    expect(blocks()[1].connectionsFirstItems).toEqual(['plate'])
+    expect(blocks()[1].itemSourcing).toEqual({ plate: 'byproducts-first' })
+    expect(blocks()[1].itemSourcing).not.toBe(blocks()[0].itemSourcing)
   })
 
   it('keeps the structure but gives every entity a fresh id', () => {

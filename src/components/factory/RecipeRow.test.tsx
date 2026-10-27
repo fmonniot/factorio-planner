@@ -857,10 +857,21 @@ describe('RecipeRow byproduct context menu', () => {
     expect(updated.kind === 'game-recipe' && updated.primaryProduct).toBe('oxygen')
   })
 
-  it('opens no menu without onAddConsumer', () => {
+  it('offers only the sourcing choice without onAddConsumer', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+  })
+
+  it('lists the sourcing radios after a separator below "Add consumer recipe…"', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.getByRole('separator')).toBeInTheDocument()
+    expect(screen.getAllByRole('menuitemradio').map(i => i.textContent)).toEqual(
+      expect.arrayContaining([expect.stringContaining('Own recipes first')]),
+    )
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
   })
 
   it('never has the recipe-cell menu and the byproduct menu open together', () => {
@@ -874,6 +885,63 @@ describe('RecipeRow byproduct context menu', () => {
     fireEvent.contextMenu(oxygenTile())
     expect(screen.getAllByRole('menu')).toHaveLength(1)
     expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Add consumer recipe…'])
+  })
+})
+
+describe('RecipeRow item sourcing menu', () => {
+  beforeEach(() => {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+  })
+  const waterTile = () => screen.getByTitle(/^Water/)
+  const sourcing = () => useBlockStore.getState().blocks[0].itemSourcing
+
+  it('right-clicking an ingredient chip offers the three choices, own recipes first checked', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(waterTile())
+    const radios = screen.getAllByRole('menuitemradio')
+    expect(radios.map(r => r.textContent)).toEqual(['•Own recipes first', 'Byproducts first', 'Connections first'])
+    expect(radios.map(r => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
+  })
+
+  it('choosing Byproducts first sets the block\'s map and closes the menu', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(waterTile())
+    fireEvent.click(screen.getByRole('menuitemradio', { name: /Byproducts first/ }))
+    expect(sourcing()).toEqual({ water: 'byproducts-first' })
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('disables the choices on the chip of a product of the block', () => {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{ ...block, products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }] }],
+    })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
+    const radios = screen.getAllByRole('menuitemradio')
+    expect(radios).toHaveLength(3)
+    for (const r of radios) {
+      expect(r).toBeDisabled()
+      expect(r).toHaveAttribute('title', 'Hydrogen is a product of this block, so the block always makes it')
+    }
+  })
+
+  it('shows a badge and a title suffix on a chip with a mode', () => {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...block, itemSourcing: { water: 'byproducts-first' } }] })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    const tile = screen.getByTitle(/\(byproducts first\)$/)
+    const badge = tile.querySelector('[data-sourcing="byproducts-first"]')
+    expect(badge).toHaveTextContent('B')
+  })
+
+  it('has one menu open at a time across chips', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(waterTile())
+    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
   })
 })
 

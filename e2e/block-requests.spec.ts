@@ -295,7 +295,7 @@ test.describe('requests between blocks', () => {
     )
   })
 
-  test('Use connections first makes the source supply what the own recipe would make', async ({ page }) => {
+  test('Connections first makes the source supply what the own recipe would make', async ({ page }) => {
     await setup(page)
     await requestPlates(page)
 
@@ -308,7 +308,7 @@ test.describe('requests between blocks', () => {
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
 
     await plateSlot(page).click({ button: 'right' })
-    const first = page.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+    const first = page.getByRole('menuitemradio', { name: 'Connections first' })
     await expect(first).toHaveAttribute('aria-checked', 'false')
     await first.click()
 
@@ -321,15 +321,16 @@ test.describe('requests between blocks', () => {
     await page.locator('button[title="Gears"]').click()
 
     await plateSlot(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemcheckbox', { name: /Use connections first/ })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('menuitemradio', { name: 'Connections first' })).toHaveAttribute('aria-checked', 'true')
     await page.keyboard.press('Escape')
     const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
     const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
-    expect(gears.connectionsFirstItems).toEqual(['nullius-iron-plate'])
+    expect(gears.itemSourcing).toEqual({ 'nullius-iron-plate': 'connections-first' })
+    expect(gears.connectionsFirstItems).toBeUndefined()
 
     await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitemcheckbox', { name: /Use connections first/ }).click()
+    await page.getByRole('menuitemradio', { name: 'Own recipes first' }).click()
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
   })
 })
