@@ -84,6 +84,17 @@ describe('reparentSubPlans', () => {
     expect(reparentSubPlans(root)).toBe(root)
   })
 
+  it('still applies the other moves when some sub-plans form a cycle', () => {
+    // x is shown under bottom but stored under the root; p and q hold handles to each other.
+    const root = plan('root', [handle('bottom')], [
+      plan('x'), plan('bottom', [handle('x')]), plan('p', [handle('q')], [plan('q', [handle('p')])]),
+    ])
+    const fixed = reparentSubPlans(root)
+    expect(childIds(find(fixed, 'bottom')!)).toEqual(['x'])
+    expect(childIds(fixed)).toEqual(['bottom', 'p'])
+    expect(childIds(find(fixed, 'p')!)).toEqual(['q'])
+  })
+
   it('does not mutate its input', () => {
     const group = plan('group')
     const root = plan('root', [handle('bottom')], [group, plan('bottom', [handle('group')])])

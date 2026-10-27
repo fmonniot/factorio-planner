@@ -603,6 +603,24 @@ describe('moveNode', () => {
       expect(findSubPlan(rootOf(), group.id)!.name).toBe('Renamed')
     })
 
+    it('does not store a sub-plan twice when the plan the handle moves into already stores it', () => {
+      // Not a shape the loader leaves behind; a store built by hand can still have it: the handle is
+      // in Top, the sub-plan is stored under Bottom.
+      const { group, top, bottom } = setup()
+      const block = useBlockStore.getState().blocks[0]
+      const rootPlan = { ...block.rootPlan, subPlans: [{ ...top, subPlans: [] }, { ...bottom, subPlans: [group] }] }
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan }], history: {} })
+
+      useBlockStore.getState().moveNode('h-group', bottom.id, 0)
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([group.id])
+      expect(findSubPlan(rootOf(), bottom.id)!.nodes.map(n => n.id)).toEqual(['h-group'])
+      expect(findSubPlan(rootOf(), top.id)!.nodes).toEqual([])
+
+      useBlockStore.getState().undo()
+      expect(idsOf(findSubPlan(rootOf(), bottom.id)!)).toEqual([group.id])
+      expect(findSubPlan(rootOf(), top.id)!.nodes.map(n => n.id)).toEqual(['h-group'])
+    })
+
     it('keeps the sub-plan in place when its handle only moves within its plan', () => {
       const { top, bottom } = setup()
       useBlockStore.getState().moveNode('h-top', rootOf().id, 3)

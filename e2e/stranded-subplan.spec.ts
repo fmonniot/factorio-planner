@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
-import { loadPlanFixture } from './support/loadPlan'
+import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 
 /**
  * A plan saved when dragging a sub-factory's handle into another plan left the sub-factory stored
@@ -27,4 +27,33 @@ test('a sub-factory shown under an area belongs to that area', async ({ page }) 
 
   // Two rows of one recipe in one area would be a duplicate; in two areas they are not.
   await expect(page.getByText(/duplicate/i)).toHaveCount(0)
+})
+
+interface PlanTree { id: string; name: string; subPlans: PlanTree[] }
+
+test('dragging a sub-factory into an area stores it under that area', async ({ page }) => {
+  await loadPlanFixture(page, path.resolve('e2e/fixtures/area-row-conveniences.json'))
+  await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+  await expect(row(page, ROOT_ELEC)).toBeVisible({ timeout: 10000 })
+
+  const storedUnder = async (name: string): Promise<string | undefined> => {
+    const plan = await readActivePlan(page, 'nullius') as { blocks: { rootPlan: PlanTree }[] }
+    const find = (p: PlanTree, parent?: string): string | undefined =>
+      p.name === name ? parent : p.subPlans.map(sp => find(sp, p.name)).find(x => x !== undefined)
+    return find(plan.blocks[0].rootPlan)
+  }
+  expect(await storedUnder('Chlorides')).toBe('Main')
+
+  // Drag the Chlorides group onto the collapsed Compression group, which appends into it.
+  const groupRow = (name: string) => page.locator('main table tbody tr').filter({ hasText: name }).first()
+  const from = (await groupRow('Chlorides').boundingBox())!
+  const to = (await groupRow('Compression').boundingBox())!
+  await page.mouse.move(from.x + 60, from.y + from.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(from.x + 70, from.y + from.height / 2 + 12, { steps: 4 })
+  await page.mouse.move(to.x + 100, to.y + to.height / 2, { steps: 4 })
+  await page.mouse.move(to.x + 101, to.y + to.height / 2)
+  await page.mouse.up()
+
+  await expect.poll(() => storedUnder('Chlorides')).toBe('Compression')
 })
