@@ -26,8 +26,8 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
   const recipe = gameData.recipes[group.recipeId]
   if (!recipe) return null
 
-  // The total counts every row of the recipe, also those in a sub-plan without a handle, which the view does not list.
-  const summary = multiAreaSummary(index, rootPlan, group.recipeId, undefined, solvedMap)
+  // The same rows as the tiles below: the ones the view lists (a sub-plan without a handle has none).
+  const summary = multiAreaSummary(index, rootPlan, group.recipeId, undefined, solvedMap, group.rows)
   const rates = recipeGroupRates(group.rows, recipe, solvedMap)
   const primaryItemId = dedicatedProduct(group.rows[0].node, recipe)
   const iconPath = primaryItemId ? gameData.items[primaryItemId]?.iconPath : undefined
@@ -58,7 +58,9 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
             </span>
           )}
           <span className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 tabular-nums select-none">
-            {summary.areaCount} areas
+            {summary.areaCount === summary.rowCount
+              ? `${summary.areaCount} areas`
+              : `${summary.rowCount} rows in ${summary.areaCount} area${summary.areaCount === 1 ? '' : 's'}`}
           </span>
         </div>
       </td>

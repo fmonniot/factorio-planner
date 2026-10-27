@@ -34,7 +34,7 @@ Example: *Hydrogen* has a row in the root, one in *Plastics* and one in *Rocket 
 
 ### LP
 
-The single-area case is today's LP. With areas, the variables and constraints of [spec/solver.md](../../../../../spec/solver.md#lp-formulation) become:
+The single-area case is today's LP. With areas, the variables and constraints of [spec/solver.md](../../../../spec/solver.md#lp-formulation) become:
 
 ```
 x_n ≥ 0                       for each row n, in area a(n)       (one variable per row, not per recipe)
@@ -56,7 +56,7 @@ Summing the area equalities gives today's block row, so with one area the flow v
 
 ### Objective in stages
 
-One weighted objective cannot put "local first" between imports and recipe runs, for the same reason it cannot put own production before connected supply ([spec/solver.md](../../../../../spec/solver.md#connections-between-blocks)): the weight would have to exceed any recipe chain's cost and stay below `BIG_M`. The objective is solved in stages instead, each one an LP that keeps the previous optimum (within a relative `1e-9`):
+One weighted objective cannot put "local first" between imports and recipe runs, for the same reason it cannot put own production before connected supply ([spec/solver.md](../../../../spec/solver.md#connections-between-blocks)): the weight would have to exceed any recipe chain's cost and stay below `BIG_M`. The objective is solved in stages instead, each one an LP that keeps the previous optimum (within a relative `1e-9`):
 
 1. **Imports, then local first:** minimise `BIG_M · Σ s_i + Σ din_ia` over the areas that have a dedicated row for `i`.
 2. **Recipe runs:** minimise `Σ c_n · x_n`, today's run cost (`BC_BONUS` for byproduct consumers).
@@ -149,11 +149,11 @@ Every new action is an undoable `Command`.
 
 - *Prevent adding a recipe already present in the block* becomes "…already present in the same area"; phase 2 does it in the recipe picker.
 - *Isolate a subfactory from the rest of the plan* is related but separate: an isolated sub-factory shuts out the other blocks, while an area still exchanges items with the other areas of its block.
-- Spec updates when this ships: [spec/data-model.md](../../../../../spec/data-model.md) (`SubPlan`, `primaryProduct`, `SolverResult.areas`), [spec/solver.md](../../../../../spec/solver.md) (sub-plans, area LP, stages, warnings), [spec/ui.md](../../../../../spec/ui.md) (sub-factory rows, recipe rows, modals, summary), and the overview's non-goals as [problem.md](../problem.md#out-of-scope) notes.
+- Spec updates when this ships: [spec/data-model.md](../../../../spec/data-model.md) (`SubPlan`, `primaryProduct`, `SolverResult.areas`), [spec/solver.md](../../../../spec/solver.md) (sub-plans, area LP, stages, warnings), [spec/ui.md](../../../../spec/ui.md) (sub-factory rows, recipe rows, modals, summary), and the overview's non-goals as [problem.md](../problem.md#out-of-scope) notes.
 
 ## Implementation notes
 
-Phase 1 follows the design above, with these differences found while building it. The formulation as shipped is in [spec/solver.md](../../../../../spec/solver.md#areas).
+Phase 1 follows the design above, with these differences found while building it. The formulation as shipped is in [spec/solver.md](../../../../spec/solver.md#areas).
 
 - **Stage 3 is folded into the second LP.** A separate third LP that minimised shipping after runs drifts: a relative `1e-9` bound is below the solver's resolution (1e-8), and any workable tolerance lets the shipping objective buy less shipping with tolerance-sized extra runs, so a row that should be at 0 runs at about 1e-6 and shows one building. Shipping is instead a dominated per-unit cost on the units sent, inside LP 2, so it only decides run-cost ties. There are two LP calls per pass, not three.
 - **Bound the dedicated imports alone.** Bounding the combined stage-1 value (`BIG_M·s` plus `din`) would let `din` drift by about `1e-7·BIG_M·s`, so only `Σ din` is bounded and slack is re-optimised in LP 2.

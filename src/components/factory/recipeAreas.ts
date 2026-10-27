@@ -82,6 +82,8 @@ export interface AreaSplit {
 
 export interface MultiAreaSummary {
   areaCount: number
+  /** how many rows of the recipe the summary covers (more than areaCount when an area has several) */
+  rowCount: number
   buildings: number
   exact: number
   /** the row's own area first, then the others in table order */
@@ -99,19 +101,23 @@ export function multiAreaSummary(
   recipeId: string,
   hereAreaId: string | undefined,
   solvedMap: ReadonlyMap<string, SolvedNode>,
+  /** the rows to count; default every row of the recipe in the block */
+  rows?: RecipeRowRef[],
 ): MultiAreaSummary {
   const buildings = new Map<string, number>()
   let exact = 0
-  for (const ref of index.rowsByRecipe.get(recipeId) ?? []) {
+  const refs = rows ?? index.rowsByRecipe.get(recipeId) ?? []
+  for (const ref of refs) {
     const solved = solvedMap.get(ref.node.id)
     buildings.set(ref.areaId, (buildings.get(ref.areaId) ?? 0) + (solved?.machineCountCeil ?? 0))
     exact += solved?.machineCountExact ?? 0
   }
-  const areaIds = recipeAreaIds(index, recipeId)
+  const areaIds = [...new Set(refs.map(r => r.areaId))]
   const ordered = [...areaIds.filter(id => id === hereAreaId), ...areaIds.filter(id => id !== hereAreaId)]
   const split = ordered.map(areaId => ({ areaId, name: areaName(root, areaId), buildings: buildings.get(areaId) ?? 0 }))
   return {
     areaCount: areaIds.length,
+    rowCount: refs.length,
     buildings: split.reduce((sum, s) => sum + s.buildings, 0),
     exact,
     split,
@@ -122,7 +128,8 @@ export function multiAreaSummary(
 export function multiAreaTitle(recipeName: string, s: MultiAreaSummary, hereAreaId: string | undefined): string {
   const b = s.buildings
   const parts = s.split.map(a => (a.areaId === hereAreaId ? `${a.buildings} here` : `${a.buildings} ${a.name}`))
-  return `${recipeName}: ${b} building${b === 1 ? '' : 's'} (${s.exact.toFixed(1)} exact) in ${s.areaCount} areas: ${parts.join(', ')}`
+  const n = s.areaCount
+  return `${recipeName}: ${b} building${b === 1 ? '' : 's'} (${s.exact.toFixed(1)} exact) in ${n} area${n === 1 ? '' : 's'}: ${parts.join(', ')}`
 }
 
 export interface RecipeGroup {
@@ -133,8 +140,7 @@ export interface RecipeGroup {
 
 /**
  * The rows of the by-recipe view: one group per recipe, in the order the table shows their first
- * row. Only rows the tree shows are listed (a sub-plan without a handle has none), although
- * `multiAreaSummary` still counts them.
+ * row. Only rows the tree shows are listed (a sub-plan without a handle has none).
  */
 export function recipeGroups(root: SubPlan, index: RecipeAreaIndex): RecipeGroup[] {
   const groups = new Map<string, RecipeRowRef[]>()

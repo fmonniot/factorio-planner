@@ -108,6 +108,26 @@ describe('multiAreaTitle', () => {
   })
 })
 
+describe('two rows of a recipe in one area', () => {
+  it('counts rows apart from areas, and says "1 area"', () => {
+    const root = plan('root', 'Main', [gameRow('a', 'iron'), gameRow('b', 'iron')])
+    const solvedRows = new Map([
+      ['a', solvedNode('a', { machineCountCeil: 2, machineCountExact: 1.5 })],
+      ['b', solvedNode('b', { machineCountCeil: 1, machineCountExact: 0.5 })],
+    ])
+    const s = multiAreaSummary(indexRecipeAreas(root), root, 'iron', undefined, solvedRows)
+    expect([s.areaCount, s.rowCount, s.buildings]).toEqual([1, 2, 3])
+    expect(multiAreaTitle('Iron', s, undefined)).toBe('Iron: 3 buildings (2.0 exact) in 1 area: 3 Top level')
+  })
+
+  it('counts only the given rows when asked', () => {
+    const root = plan('root', 'Main', [gameRow('a', 'iron'), gameRow('b', 'iron')])
+    const idx = indexRecipeAreas(root)
+    const s = multiAreaSummary(idx, root, 'iron', undefined, new Map([['a', solvedNode('a', { machineCountCeil: 2 })]]), [idx.rowById.get('a')!])
+    expect([s.rowCount, s.buildings]).toEqual([1, 2])
+  })
+})
+
 describe('buildAlsoInOptions', () => {
   it('offers the areas that use the item and have no row of the recipe, with their consumption', () => {
     const root = scenario()

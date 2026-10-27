@@ -388,6 +388,18 @@ describe('ProductionTable — by-recipe view', () => {
     expect(screen.getAllByTestId('row-area')).toHaveLength(2)
   })
 
+  it('closes the lines again after another block was active', () => {
+    load([areaBlock('A'), areaBlock('B')])
+    useUiStore.setState({ tableView: 'recipe' })
+    render(<ProductionTable />)
+    fireEvent.click(screen.getByRole('button', { name: 'Iron Plate: rows per area' }))
+    expect(screen.getAllByTestId('row-area')).toHaveLength(2)
+    act(() => useBlockStore.getState().setActiveBlock('B'))
+    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
+    act(() => useBlockStore.getState().setActiveBlock('A'))
+    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
+  })
+
   it('ignores a reveal request for a handle', () => {
     load([areaBlock('A')])
     useUiStore.setState({ tableView: 'recipe' })

@@ -69,7 +69,9 @@ The layout is designed for desktop widths; there is no mobile layout.
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
 are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
 warnings), the rate unit toggle, the icon-only tool buttons (the [horizon](#research-horizon)
-flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button, shown only while some block has areas, and the [tech tree](#technology-tree)), a divider (shown only
+flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
+shown only while some block has areas, and the [tech tree](#technology-tree)), a divider
+(shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu). The root
 carries `data-testid="top-bar"`.
 
@@ -237,11 +239,32 @@ near-full-screen modal showing every block and the connections between them, lik
 
 ### Plan areas
 
-`PlanAreas.tsx`. The **Areas in every block** icon button (four small squares in a grid; hidden until game data is loaded, and while no block's last solve has areas) opens a modal listing the areas of every block, built from the last solve of each block (`planAreaBlocks` in `planAreaList.ts`). The header has the title "Areas", a count ("N areas in M blocks"), a text filter (`aria-label="Filter areas"`, placeholder "Filter by area, block or item") and **Close**. The body has one section per block that has areas, in tab order (a region named after the block, with a dot in the block's colour and the block name as a button titled "Open <block>" that makes it the active block and closes the modal), each listing its areas like the [Areas pane](#areas-pane) (same `AreaListItem`: name, "in" and "out" chips). A footer "K block(s) without areas not listed" shows when some blocks have none.
+`PlanAreas.tsx`. The **Areas in every block** icon button (four small squares in a grid;
+hidden until game data is loaded, and while no block's last solve has areas) opens a
+modal listing the areas of every block, built from the last solve of each block
+(`planAreaBlocks` in `planAreaList.ts`). The header has the title "Areas", a count ("N
+areas in M blocks"), a text filter (`aria-label="Filter areas"`, placeholder "Filter by
+area, block or item") and **Close**. The body has one section per block that has areas,
+in tab order (a region named after the block, with a dot in the block's colour and the
+block name as a button titled "Open <block>" that makes it the active block and closes
+the modal), each listing its areas like the [Areas pane](#areas-pane) (same
+`AreaListItem`: name, "in" and "out" chips). A footer "K block(s) without areas not
+listed" shows when some blocks have none.
 
-Areas are never merged by name: each block has its own pool, so what an area receives or sends is relative to its block, and every block has a "Top level". The same name in two blocks is two rows, each under its block. The filter matches case-insensitively on the block name (which keeps all its rows), an area name, or the name of an item the area receives or sends; blocks left empty are dropped and "No area matches "<query>"" shows when nothing is left. Selecting a chip lights up that item in every block of the modal (`aria-pressed`, the others dimmed); the selection and the filter are view state.
+Areas are never merged by name: each block has its own pool, so what an area receives or
+sends is relative to its block, and every block has a "Top level". The same name in two
+blocks is two rows, each under its block. The filter matches case-insensitively on the
+block name (which keeps all its rows), an area name, or the name of an item the area
+receives or sends; blocks left empty are dropped and "No area matches "<query>"" shows
+when nothing is left. Selecting a chip lights up that item in every block of the modal
+(`aria-pressed`, the others dimmed); the selection and the filter are view state.
 
-An area name is a button titled "Show <area> in <block>". It makes the block active, then, for an area other than "Top level", switches the [table](#productiontable) back to the tree view and asks it to reveal the area's sub-factory row (expanding the sub-factories above it and flashing it, as **Go to row in…** does; the area row itself is not expanded), then closes the modal. For "Top level" it only switches the block. Escape and a click on the backdrop also close the modal.
+An area name is a button titled "Show <area> in <block>". It makes the block active,
+then, for an area other than "Top level", switches the [table](#productiontable) back to
+the tree view and asks it to reveal the area's sub-factory row (expanding the
+sub-factories above it and flashing it, as **Go to row in…** does; the area row itself
+is not expanded), then closes the modal. For "Top level" it only switches the block.
+Escape and a click on the backdrop also close the modal.
 
 ### Research horizon
 
@@ -623,7 +646,22 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Areas pane
 
-`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a `section` region named "Areas" with a header button "Areas · N" (`aria-expanded`; collapsible, open by default; keyed by the active block like the panes) and a list capped at 120px that scrolls. There is one list item per area, in table order: the name (`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then "in" chips for what it receives and "out" chips for what it sends. A chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives` or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip adds " — from outside the block" or " — leaves the block". Clicking a chip selects its item (`aria-pressed`): every chip of that item, in every area, is highlighted and the others are dimmed, which shows who sends it and who receives it. Clicking it again clears the selection. Selection and collapse are view state. The same chips, display-only, appear on a collapsed area row of the [production table](#sub-factory-rows). The list item is the exported `AreaListItem`, also used by the [plan areas](#plan-areas) modal, where the name is a button.
+`AreasPane.tsx` is a full-width strip under the three panes, shown only when the solved
+block has areas (`SolverResult.areas`, see [solver.md](solver.md#areas)). It is a
+`section` region named "Areas" with a header button "Areas · N" (`aria-expanded`;
+collapsible, open by default; keyed by the active block like the panes) and a list
+capped at 120px that scrolls. There is one list item per area, in table order: the name
+(`areaRows.ts`: the root is **Top level**, a sub-factory shows its current name), then
+"in" chips for what it receives and "out" chips for what it sends. A chip is the item
+icon and the rate in the current unit, with `data-item-id`, `data-direction` (`receives`
+or `sends`) and `data-boundary`; a boundary chip has a dashed border and its tooltip
+adds " — from outside the block" or " — leaves the block". Clicking a chip selects its
+item (`aria-pressed`): every chip of that item, in every area, is highlighted and the
+others are dimmed, which shows who sends it and who receives it. Clicking it again
+clears the selection. Selection and collapse are view state. The same chips,
+display-only, appear on a collapsed area row of the [production
+table](#sub-factory-rows). The list item is the exported `AreaListItem`, also used by
+the [plan areas](#plan-areas) modal, where the name is a button.
 
 ### Warnings popover
 
@@ -658,7 +696,8 @@ The popover closes on Escape or a click outside.
 - In a block with areas, the Recipe header also carries a **By recipe** toggle button
   (`aria-pressed`) that switches between the tree and the [by-recipe view](#by-recipe-view).
   The choice is global, not per block, and persisted in `uiStore` (`tableView`, with the
-  rate unit under `factorio-planner:ui`); a block without areas has no toggle and always shows the tree.
+  rate unit under `factorio-planner:ui`); a block without areas has no toggle and always
+  shows the tree.
 
 The header `+` button (and the empty-state `+ Add recipe` link) opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -669,11 +708,31 @@ the user arranges rows by drag-and-drop or the ▲/▼ buttons.
 
 ### By-recipe view
 
-With **By recipe** on (blocks with areas only), the table shows one line per recipe instead of the tree, so a recipe built in several areas can be read as one total. Lines are in the order the tree would first show the recipe (nodes in order, descending into sub-factory handles). Sub-factory rows, drop zones and the ▲/▼ buttons are not part of this view; rows in a sub-plan without a handle are left out, as in the tree.
+With **By recipe** on (blocks with areas only), the table shows one line per recipe
+instead of the tree, so a recipe built in several areas can be read as one total. Lines
+are in the order the tree would first show the recipe (nodes in order, descending into
+sub-factory handles). Sub-factory rows, drop zones and the ▲/▼ buttons are not part of
+this view; rows in a sub-plan without a handle are left out, as in the tree.
 
-A recipe with two or more rows is a **recipe line** (`RecipeGroupRow.tsx`, `data-testid="recipe-group"`, `data-recipe-id`): a ▶/▼ button (`aria-expanded`, `aria-label` "<recipe>: rows per area"), the recipe icon, a teal badge "N areas", the total buildings (`data-testid="recipe-group-buildings"`, "N building(s)": the sum of each row's whole machines, so it equals the sum of the per-area figures in the tooltip rather than the ceiling of the exact total; the tooltip lists the exact count and the split by area, the root named "Top level"), and display-only product, byproduct, ingredient and electricity tiles summing the rows' solved rates. An output is a product when any row is built for it, else a byproduct. A recipe with a single row is that row itself, with no line.
+A recipe with two or more rows is a **recipe line** (`RecipeGroupRow.tsx`,
+`data-testid="recipe-group"`, `data-recipe-id`): a ▶/▼ button (`aria-expanded`,
+`aria-label` "<recipe>: rows per area"), the recipe icon, a teal badge ("N areas", or "N
+rows in M area(s)" when an area has several rows of the recipe), the total buildings
+(`data-testid="recipe-group-buildings"`, "N building(s)": the sum of each row's whole
+machines, so it equals the sum of the per-area figures in the tooltip rather than the
+ceiling of the exact total; the tooltip lists the exact count and the split by area, the
+root named "Top level"), and display-only product, byproduct, ingredient and electricity
+tiles summing the rows' solved rates. The buildings, the badge and the tiles all cover
+the rows the line lists. An output is a product when any row is built for it, else a
+byproduct. A recipe with a single row is that row itself, with no line.
 
-Opening a line shows its rows indented under it, in area table order (root first). These are ordinary [recipe rows](#recipe-rows) with the full row menu, except that there is no reorder cell, no dragging, and the area's name (`data-testid="row-area"`) replaces the multi-area badge. Which lines are open is local to the table: not persisted, and reset when another block becomes active. **Go to row in…** and **Build also in…** open the line of the target row and flash it; a reveal request for a sub-factory row (not shown in this view) is ignored.
+Opening a line shows its rows indented under it, in area table order (root first). These
+are ordinary [recipe rows](#recipe-rows) with the full row menu, except that there is no
+reorder cell, no dragging, and the area's name (`data-testid="row-area"`) replaces the
+multi-area badge. Which lines are open is local to the table: not persisted, and cleared
+when another block becomes active (coming back finds every line closed). **Go to row
+in…** and **Build also in…** open the line of the target row and flash it; a reveal
+request for a sub-factory row (not shown in this view) is ignored.
 
 ### Recipe rows
 
@@ -809,7 +868,8 @@ A sub-factory only organises the table unless it is a separate area; then the so
 
 ### Drag and drop
 
-Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop, except in the [by-recipe view](#by-recipe-view), where nothing is draggable.
+Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop, except
+in the [by-recipe view](#by-recipe-view), where nothing is draggable.
 `RecipeDnd.tsx` holds the drag state in a context; the drop logic is in
 `RecipeRow` and `ProductionTable`.
 

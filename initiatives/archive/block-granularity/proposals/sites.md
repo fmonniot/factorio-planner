@@ -79,4 +79,4 @@ Every new action is an undoable `Command` (see [backlog.md](../../../backlog.md)
 
 - *Prevent adding a recipe already present in the block* becomes "…already present in the same site".
 - *Isolate a subfactory from the rest of the plan* is related but separate: an isolated sub-factory shuts out the other *blocks*, while a site still exchanges items with the other sites of its block.
-- Spec updates when this ships: [spec/data-model.md](../../../../../spec/data-model.md) (`SubPlan`, `RecipeNode`), [spec/solver.md](../../../../../spec/solver.md) (sub-plans, site allocation), [spec/ui.md](../../../../../spec/ui.md) (sub-factory rows, recipe rows, summary).
+- Spec updates when this ships: [spec/data-model.md](../../../../spec/data-model.md) (`SubPlan`, `RecipeNode`), [spec/solver.md](../../../../spec/solver.md) (sub-plans, site allocation), [spec/ui.md](../../../../spec/ui.md) (sub-factory rows, recipe rows, summary).

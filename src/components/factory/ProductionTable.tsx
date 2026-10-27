@@ -51,6 +51,8 @@ export function ProductionTable() {
   const groups = useMemo(() => (rootPlan && areaIndex ? recipeGroups(rootPlan, areaIndex) : []), [rootPlan, areaIndex])
   // The recipe lines that are open (a line with one row has nothing to open). Not persisted; it starts over in another block.
   const [openRecipes, setOpenRecipes] = useState<{ blockId: string | undefined; ids: Set<string> }>({ blockId: undefined, ids: new Set() })
+  // Another block became active: drop the old set now, so coming back to a block finds its lines closed.
+  if (openRecipes.blockId !== activeBlock?.id) setOpenRecipes({ blockId: activeBlock?.id, ids: new Set() })
   const openIds = openRecipes.blockId === activeBlock?.id ? openRecipes.ids : new Set<string>()
 
   function toggleRecipe(recipeId: string) {
@@ -296,7 +298,6 @@ function renderRecipeView(
 ): React.ReactNode[] {
   const rows: React.ReactNode[] = []
   const row = (ref: RecipeGroup['rows'][number], depth: number) => {
-    const plan = findSubPlanAnywhere(rootPlan, ref.subPlanId)
     return (
       <RecipeRow
         key={ref.node.id}
@@ -308,7 +309,7 @@ function renderRecipeView(
         gameData={gameData}
         rootPlan={rootPlan}
         parentSubPlanId={ref.subPlanId}
-        nodeIndex={plan?.nodes.findIndex(n => n.id === ref.node.id) ?? 0}
+        nodeIndex={0} // only the drop handler reads it, and drag is off in this view
         areaView={areaView}
         isHighlighted={ref.node.id === highlightedNodeId}
         byRecipeView
