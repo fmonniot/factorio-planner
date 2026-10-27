@@ -882,6 +882,8 @@ in the [by-recipe view](#by-recipe-view), where nothing is draggable.
 - While dragging, a "Drop here to append" row at the end of the table appends to
   the root plan.
 - A sub-factory cannot be dropped inside itself or its descendants.
+- Dropping a sub-factory into another plan moves the sub-factory with its rows, so they join the
+  area of the plan it lands in (see [data-model.md](data-model.md#subplan)); undo puts it back.
 
 ---
 

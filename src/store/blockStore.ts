@@ -975,6 +975,19 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       // No-op guard.
       if (sourceSubPlanId === targetSubPlanId && sourceIndex === normIndex) return state
 
+      // A sub-plan is stored in the `subPlans` of the plan that holds its handle, so moving the
+      // handle to another plan moves the sub-plan with it (its rows then belong to the new plan's area).
+      const handled = node.kind === 'subplan' && sourceSubPlanId !== targetSubPlanId ? node.subPlanId : undefined
+      const storedUnder = handled === undefined ? undefined : findParentSubPlan(block.rootPlan, handled)
+      // Nothing to move when the target already stores it.
+      const movedSubPlanId = storedUnder && storedUnder.id !== targetSubPlanId ? handled : undefined
+      const storedIndex = storedUnder?.subPlans.findIndex(sp => sp.id === movedSubPlanId) ?? -1
+      const movedSubPlan = movedSubPlanId === undefined ? undefined : storedUnder?.subPlans[storedIndex]
+      const storedUnderId = movedSubPlanId === undefined ? undefined : storedUnder?.id
+      const touchAll = (b: Block): Block =>
+        [...new Set([sourceSubPlanId, targetSubPlanId, storedUnderId])].reduce<Block>(
+          (acc, id) => (id === undefined ? acc : touchSubPlan(acc, id)), b)
+
       const cmd: Command = {
         apply: b => {
           let root = b.rootPlan
@@ -982,19 +995,29 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           root = updateSubPlanInTree(root, sourceSubPlanId, p => ({
             ...p, nodes: p.nodes.filter(n => n.id !== nodeId),
           }))
+          if (movedSubPlanId !== undefined && storedUnderId !== undefined) {
+            root = updateSubPlanInTree(root, storedUnderId, p => ({
+              ...p, subPlans: p.subPlans.filter(sp => sp.id !== movedSubPlanId),
+            }))
+          }
           // Insert into target.
           root = updateSubPlanInTree(root, targetSubPlanId, p => {
             const nodes = [...p.nodes]
             nodes.splice(normIndex, 0, node)
-            return { ...p, nodes }
+            // Read from the tree at hand, so an edit made to the sub-plan since the move is kept on redo.
+            const subPlans = movedSubPlan ? [...p.subPlans, findSubPlan(b.rootPlan, movedSubPlan.id) ?? movedSubPlan] : p.subPlans
+            return { ...p, nodes, subPlans }
           })
-          return touchSubPlan(touchSubPlan({ ...b, rootPlan: root }, sourceSubPlanId), targetSubPlanId)
+          return touchAll({ ...b, rootPlan: root })
         },
         undo: b => {
           let root = b.rootPlan
+          const current = movedSubPlan ? findSubPlan(b.rootPlan, movedSubPlan.id) ?? movedSubPlan : undefined
           // Remove from target.
           root = updateSubPlanInTree(root, targetSubPlanId, p => ({
-            ...p, nodes: p.nodes.filter(n => n.id !== nodeId),
+            ...p,
+            nodes: p.nodes.filter(n => n.id !== nodeId),
+            subPlans: movedSubPlanId === undefined ? p.subPlans : p.subPlans.filter(sp => sp.id !== movedSubPlanId),
           }))
           // Restore at source.
           root = updateSubPlanInTree(root, sourceSubPlanId, p => {
@@ -1002,7 +1025,14 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
             nodes.splice(sourceIndex, 0, node)
             return { ...p, nodes }
           })
-          return touchSubPlan(touchSubPlan({ ...b, rootPlan: root }, sourceSubPlanId), targetSubPlanId)
+          if (current && storedUnderId !== undefined) {
+            root = updateSubPlanInTree(root, storedUnderId, p => {
+              const subPlans = [...p.subPlans]
+              subPlans.splice(storedIndex, 0, current)
+              return { ...p, subPlans }
+            })
+          }
+          return touchAll({ ...b, rootPlan: root })
         },
       }
       return applyCommand(state, cmd)

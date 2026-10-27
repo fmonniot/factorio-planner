@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { solve, solveAll, flattenBlock } from './index'
 import { subPlanAreaIds, areaRecipeIds } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
+import { parseAppState } from '../data/loader'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
 // Areas: a sub-factory with `area: true` is solved as its own area. Every recipe takes 1 s in a
@@ -174,6 +175,30 @@ describe('blockAreas via flattenBlock', () => {
     expect(areas.map(x => x.id)).toEqual(['root', 'A'])
     expect(areas[0].nodeIds).toEqual(['ammonia@root'])
     expect(areas[1].nodeIds).toEqual(['plastic@A', 'electrolysis@G'])
+  })
+
+  it('gives a loaded plan\'s sub-factory to the area that holds its handle, whichever plan stored it', () => {
+    // Saved when dragging a handle into another plan left the sub-plan where it was: the table
+    // shows G under A, the tree stores G under the root.
+    const g = sub('G', [row('electrolysis', 'G')])
+    const a = sub('A', [handle(g), row('plastic', 'A')], [], true)
+    const stranded = sub('root', [row('ammonia', 'root'), handle(a)], [a, g])
+    const block = blk(stranded, [['plastic', 60], ['ammonia', 60]])
+
+    const raw = flattenBlock(block).areas!
+    expect(raw[0].nodeIds).toEqual(['ammonia@root', 'electrolysis@G'])
+
+    const loaded = parseAppState({ blocks: [block], activeBlockId: block.id }).blocks[0]
+    const areas = flattenBlock(loaded).areas!
+    expect(areas.map(x => [x.id, x.nodeIds])).toEqual([
+      ['root', ['ammonia@root']],
+      ['A', ['plastic@A', 'electrolysis@G']],
+    ])
+    // A makes its own hydrogen and sends the root what the root's ammonia needs: it has only the one electrolysis row.
+    const r = solved(loaded)
+    expect(node(r, 'electrolysis@G').throughput).toBeCloseTo(120, 6)
+    expect(flow(area(r, 'A').receives, 'hydrogen')).toBeUndefined()
+    expect(flow(area(r, 'root').receives, 'hydrogen')!.rate).toBeCloseTo(60, 6)
   })
 
   it('has no areas unless a flag is on', () => {

@@ -510,6 +510,8 @@ rates dropped; no-import items deduplicated), and strips them from the sub-plans
 non-empty `products` on the input wins over legacy `goals`, which win over goals hoisted from
 sub-plans. Saved plans are written back in the new shape on the next save.
 
+**Stranded sub-plans.** Before `moveNode` moved the `SubPlan` with its handle, dragging a sub-factory into another plan left the object where it was. `BlockSchema` post-processes the parsed block with `reparentSubPlans` ([src/data/subPlanTree.ts](../src/data/subPlanTree.ts)), so every load path (local storage, import, duplicate) stores each sub-plan under the plan that holds its handle. A sub-plan with several handles goes under the first one in tree order (a plan's nodes, then its sub-plans, depth first). One without a handle, or whose handle is in no plan of the tree, stays put. Sub-plans that stay keep their order and adopted ones follow in handle order, so a well-formed tree comes back as the same object. A sub-plan whose move would cut it off from the root (handles that form a cycle) stays where it is stored, the other moves still apply. The migration is idempotent and saved plans are written back in the new shape on the next save.
+
 **Legacy pulls.** Earlier plans stored `pull: true` on a connection whose consumer's demand drove the source. `AppStateSchema` preprocesses the whole state with `migrateLegacyPulls` (after `assignMissingBlockColors`): it first runs `migrateBlock` on a shallow copy of every raw block, so hoisted goals already exist as products, then, for every `pull: true` connection that is not one of the cases below, adds a product for the item (no `extraRate`) to its source, whether or not the source has a recipe for it (a former pull from a block that could not make the item now shows as short in that block). A pull is left alone (the key is simply dropped on load) when it repeats an earlier `(source, item)` pair of the consumer, points at the consumer itself or a missing block, or when its source already has a product for the item or receives the item itself (one of its connections for the item comes from another existing block). Pulls that formed a cycle are not skipped: each source gets an empty product, and the solver then solves the cycle of requests in rounds (see [solver.md](solver.md#cycles-of-requests)), so the cycle now drives its blocks. The raw input is never mutated and the migration is idempotent. `BlockConnectionSchema` has no `pull` field; Zod strips it.
 
 **Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
@@ -561,7 +563,10 @@ block's root sub-plan is named `"Main"`; the root is always an area.
 
 A nested sub-plan is referenced twice: the `SubPlan` object lives in its parent's
 `subPlans`, and a `SubPlanNode` in the parent's `nodes` marks where the group is
-displayed in the row order.
+displayed in the row order. The two always name the same parent: the table follows
+the handles and the solver's areas follow `subPlans`, so a sub-plan stored under
+another plan than the one holding its handle would put its rows in the wrong area.
+Moving a handle to another plan (`moveNode`) moves the `SubPlan` with it.
 
 ### RecipeNode
 
