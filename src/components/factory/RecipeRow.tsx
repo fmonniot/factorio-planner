@@ -17,6 +17,7 @@ import { FlowChip } from './AreasPane'
 import { areaName } from './areaRows'
 import {
   buildAlsoInOptions,
+  duplicateToOptions,
   goToRowOptions,
   multiAreaSummary,
   multiAreaTitle,
@@ -129,6 +130,7 @@ export function RecipeRow({
   const renameSubPlan = useBlockStore(s => s.renameSubPlan)
   const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
   const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
+  const duplicateSubPlanTo = useBlockStore(s => s.duplicateSubPlanTo)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
@@ -157,8 +159,8 @@ export function RecipeRow({
   const [editMachineOpen, setEditMachineOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   const [byproductMenu, setByproductMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
-  // The menus opened from the row menu's "Build also in…" and "Go to row in…".
-  const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto'; x: number; y: number } | null>(null)
+  // The menus opened from the row menu's "Build also in…" and "Go to row in…", and a sub-factory's "Duplicate to…".
+  const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto' | 'duplicate'; x: number; y: number } | null>(null)
 
   function handleDragStart(e: React.DragEvent) {
     e.dataTransfer.effectAllowed = 'move'
@@ -262,6 +264,16 @@ export function RecipeRow({
       removeSubPlan(subPlanId)
     }
 
+    // Only while a menu is open: the options walk the tree for every area.
+    const dupOptions = (menuPos || areaMenu) && areaView
+      ? duplicateToOptions(areaView.index, rootPlan, subPlanId, id => gameData.recipes[id]?.name ?? id)
+      : []
+    const dupEnabled = dupOptions.some(o => !o.disabledReason)
+    // Blame recipe rows only when every area is disabled for that reason (not for being inside the source).
+    const dupDisabledTitle = dupOptions.every(o => o.disabledReason?.startsWith('Already has'))
+      ? 'Every area already has a row of one of its recipes'
+      : 'No area can take a copy of this subfactory'
+
     const solvedArea = childPlan?.area === true && !isExpanded
       ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
       : undefined
@@ -289,6 +301,7 @@ export function RecipeRow({
           style={{ paddingLeft: `${8 + indentPx}px` }}
           onContextMenu={e => {
             e.preventDefault()
+            setAreaMenu(null)
             setMenuPos({ x: e.clientX, y: e.clientY })
           }}
         >
@@ -335,9 +348,36 @@ export function RecipeRow({
                   title: 'Solve this subfactory as its own area: its rows serve it first, and the summary lists what it receives and sends',
                   onSelect: () => setSubPlanArea(subPlanId, !(childPlan?.area === true)),
                 },
+                ...(dupOptions.length > 0
+                  ? [{
+                      label: 'Duplicate to…',
+                      disabled: !dupEnabled,
+                      title: dupEnabled ? undefined : dupDisabledTitle,
+                      onSelect: () => {
+                        if (menuPos) setAreaMenu({ kind: 'duplicate', ...menuPos })
+                      },
+                    }]
+                  : []),
                 { label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan },
               ]}
               onClose={() => setMenuPos(null)}
+            />
+          )}
+          {areaMenu?.kind === 'duplicate' && (
+            <RowActionsMenu
+              x={areaMenu.x}
+              y={areaMenu.y}
+              actions={dupOptions.map(o => ({
+                id: o.areaId,
+                label: o.name,
+                disabled: o.disabledReason !== undefined,
+                title: o.disabledReason,
+                onSelect: () => {
+                  const id = duplicateSubPlanTo(subPlanId, o.areaId)
+                  if (id) requestRevealRow(id)
+                },
+              }))}
+              onClose={() => setAreaMenu(null)}
             />
           )}
         </td>
@@ -521,7 +561,7 @@ export function RecipeRow({
         {menuPos && (
           <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />
         )}
-        {areaMenu && (
+        {areaMenu && areaMenu.kind !== 'duplicate' && (
           <RowActionsMenu
             x={areaMenu.x}
             y={areaMenu.y}

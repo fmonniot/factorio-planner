@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { solve, solveAll, flattenBlock } from './index'
-import { subPlanAreaIds, areaRecipeIds } from './areas'
+import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
 import { parseAppState } from '../data/loader'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
@@ -242,6 +242,46 @@ describe('areaRecipeIds', () => {
   it('is empty for an area without rows and for an unknown sub-plan', () => {
     expect(areaRecipeIds(layout(), 'A2')).toEqual(new Set())
     expect(areaRecipeIds(layout(), 'missing')).toEqual(new Set())
+  })
+})
+
+describe('subPlanCopyBlocker', () => {
+  // root [iron, A, O]; A (area) [A1, gear]; A1 (organising) [plate, A2]; A2 (area) [iron]; O (organising) [copper]
+  function layout(): SubPlan {
+    const a2 = sub('A2', [row('iron', 'A2')], [], true)
+    const a1 = sub('A1', [row('plate', 'A1'), handle(a2)], [a2], false)
+    const a = sub('A', [handle(a1), row('gear', 'A')], [a1], true)
+    const o = sub('O', [row('copper', 'O')])
+    return root([row('iron', 'root')], [a, o])
+  }
+
+  it('allows a copy into an area without conflicting rows', () => {
+    expect(subPlanCopyBlocker(layout(), 'O', 'A')).toBeUndefined()
+  })
+
+  it('reports the recipes the target area already builds', () => {
+    expect(subPlanCopyBlocker(layout(), 'O', 'root')).toEqual({ reason: 'recipes', recipeIds: ['copper'] })
+    expect(subPlanCopyBlocker(layout(), 'A1', 'A')).toEqual({ reason: 'recipes', recipeIds: ['plate'] })
+  })
+
+  it('leaves out rows of nested areas', () => {
+    expect(subPlanCopyBlocker(layout(), 'A1', 'root')).toBeUndefined()
+  })
+
+  it('never conflicts for an area source', () => {
+    expect(subPlanCopyBlocker(layout(), 'A', 'root')).toBeUndefined()
+  })
+
+  it('refuses a target inside the source', () => {
+    expect(subPlanCopyBlocker(layout(), 'A', 'A')).toEqual({ reason: 'inside' })
+    expect(subPlanCopyBlocker(layout(), 'A', 'A2')).toEqual({ reason: 'inside' })
+  })
+
+  it('refuses invalid sources and targets', () => {
+    expect(subPlanCopyBlocker(layout(), 'A', 'O')).toEqual({ reason: 'invalid' })
+    expect(subPlanCopyBlocker(layout(), 'root', 'A')).toEqual({ reason: 'invalid' })
+    expect(subPlanCopyBlocker(layout(), 'missing', 'A')).toEqual({ reason: 'invalid' })
+    expect(subPlanCopyBlocker(layout(), 'A', 'missing')).toEqual({ reason: 'invalid' })
   })
 })
 

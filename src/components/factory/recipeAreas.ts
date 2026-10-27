@@ -1,5 +1,5 @@
 import type { GameData, GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
-import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds } from '../../solver/areas'
+import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
 import { areaName } from './areaRows'
 
 // ---------------------------------------------------------------------------
@@ -227,6 +227,40 @@ export function buildAlsoInOptions(
     .sort((a, b) => a[1] - b[1])
     .filter(([areaId]) => !skip.has(areaId) && (used.get(areaId) ?? 0) > USE_TOLERANCE)
     .map(([areaId]) => ({ areaId, name: areaName(root, areaId), rate: used.get(areaId)! }))
+}
+
+export interface DuplicateToOption {
+  areaId: string
+  name: string
+  /** Why the copy cannot go into this area (the option is then shown disabled). */
+  disabledReason?: string
+}
+
+/** "Already has a row of X", "… rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more". */
+export function copyConflictTitle(names: string[]): string {
+  if (names.length === 1) return `Already has a row of ${names[0]}`
+  if (names.length <= 3) return `Already has rows of ${names.slice(0, -1).join(', ')} and ${names.at(-1)}`
+  return `Already has rows of ${names.slice(0, 3).join(', ')} and ${names.length - 3} more`
+}
+
+/** Every area of the block in table order as a target for copying sub-factory `subPlanId`; empty without areas or for an unknown sub-factory. */
+export function duplicateToOptions(
+  index: RecipeAreaIndex,
+  root: SubPlan,
+  subPlanId: string,
+  recipeName: (recipeId: string) => string,
+): DuplicateToOption[] {
+  if (!index.hasAreas || !index.areaOfSubPlan.has(subPlanId)) return []
+  const options: DuplicateToOption[] = []
+  for (const [areaId] of [...index.areaRank.entries()].sort((a, b) => a[1] - b[1])) {
+    const blocker = subPlanCopyBlocker(root, subPlanId, areaId)
+    if (blocker?.reason === 'invalid') continue
+    const name = areaName(root, areaId)
+    if (!blocker) options.push({ areaId, name })
+    else if (blocker.reason === 'inside') options.push({ areaId, name, disabledReason: 'Cannot copy a subfactory into itself' })
+    else options.push({ areaId, name, disabledReason: copyConflictTitle(blocker.recipeIds.map(recipeName)) })
+  }
+  return options
 }
 
 export interface GoToRowOption {
