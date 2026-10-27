@@ -46,8 +46,16 @@ test('dragging a sub-factory into an area stores it under that area', async ({ p
 
   // Drag the Chlorides group onto the collapsed Compression group, which appends into it.
   const groupRow = (name: string) => page.locator('main table tbody tr').filter({ hasText: name }).first()
-  const from = (await groupRow('Chlorides').boundingBox())!
-  const to = (await groupRow('Compression').boundingBox())!
+  // Column widths and row heights keep settling for a moment after load; drag from boxes taken once they stop moving.
+  const boxes = async () => JSON.stringify([await groupRow('Chlorides').boundingBox(), await groupRow('Compression').boundingBox()])
+  let previous = ''
+  await expect.poll(async () => {
+    const current = await boxes()
+    const stable = current === previous
+    previous = current
+    return stable
+  }, { intervals: [300] }).toBe(true)
+  const [from, to] = JSON.parse(previous) as { x: number; y: number; height: number }[]
   await page.mouse.move(from.x + 60, from.y + from.height / 2)
   await page.mouse.down()
   await page.mouse.move(from.x + 70, from.y + from.height / 2 + 12, { steps: 4 })
