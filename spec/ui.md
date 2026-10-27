@@ -856,8 +856,19 @@ A collapsed sub-factory that is a separate area shows what it receives and sends
 after its name (`data-testid="area-chips"`): an "in" label and the receive chips, then
 an "out" label and the send chips, the same chips as the Areas pane but display-only
 (`<span>`s; selecting an item stays in the pane). At most four chips per direction; the
-rest is a "+N" (`data-testid="area-chips-more"`) whose tooltip lists the remaining items
-with their rates. An expanded area and an organising sub-factory show none.
+rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
+or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
+`role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per
+line: a chip (icon and rate) and the item name. Hovering the button opens it after 300 ms;
+keyboard focus opens it at once (focus caused by a mouse press does not); a click opens it at
+once and pins it, and a second click, Enter or Space closes it. Leaving the button or the popup
+closes it after a 100 ms grace period unless it is pinned or opened by focus, so the pointer can
+move onto the popup, which scrolls when the list is long. Escape (default prevented, so it closes
+nothing else), blur, a press outside, any scroll outside the popup, a window resize or blur and
+the start of a row drag also close it. The popup is rendered in a portal on `document.body`
+(`position: fixed`, to the right of the button, flipped left or clamped by `anchoredPosition`), since
+the table scrolls. Timing, placement and dismissal live in the `useHoverPopup.ts` hook. An expanded
+area and an organising sub-factory show no chips.
 **Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too, with the tooltip "Every area already has a row of one of its recipes" when each area is disabled for a recipe conflict, else "No area can take a copy of this subfactory" (some areas are inside the source). The entry is hidden in a block without areas. The copy is one undoable command.
 Removal, with all its contents, is undoable at store level: undo restores the
 sub-factory at its original position. The undo history is session-only and per

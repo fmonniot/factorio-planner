@@ -1351,7 +1351,25 @@ describe('RecipeRow in a block with areas', () => {
       expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+2')
-      expect(more.getAttribute('title')).toBe('e 56.0/m, f 55.0/m')
+      expect(more.tagName).toBe('BUTTON')
+      expect(more).not.toHaveAttribute('title')
+      fireEvent.focus(more)
+      const popup = screen.getByRole('tooltip')
+      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="f"]')).not.toBeNull()
+      for (const id of ['a', 'b', 'c', 'd']) expect(popup.querySelector(`[data-item-id="${id}"]`)).toBeNull()
+    })
+
+    it('lists the sends past the cap in the same way', () => {
+      const ids = ['a', 'b', 'c', 'd', 'e']
+      renderAreaHandle(areaOf([], ids.map((id, i) => flow(id, 60 - i))))
+      const more = screen.getByTestId('area-chips-more')
+      expect(more.textContent).toBe('+1')
+      fireEvent.focus(more)
+      const popup = screen.getByRole('tooltip')
+      expect(popup.getAttribute('data-direction')).toBe('sends')
+      expect(popup.querySelectorAll('[data-item-id]')).toHaveLength(1)
+      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
     })
   })
 
