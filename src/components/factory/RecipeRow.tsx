@@ -13,7 +13,7 @@ import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
-import { FlowChip } from './AreasPane'
+import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
 import { areaName } from './areaRows'
 import {

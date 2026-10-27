@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import type { GameData, SolvedArea } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { useHoverPopup } from '../useHoverPopup'
-import { FlowChip } from './AreasPane'
+import { FlowChip } from './AreaFlow'
 
 // ---------------------------------------------------------------------------
 // AreaChipsMore — the "+N" of a collapsed area row: a button that opens a popup

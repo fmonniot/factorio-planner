@@ -34,11 +34,13 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await expect(toggle).toHaveAttribute('aria-checked', 'false')
   await toggle.click()
 
-  const areas = page.getByRole('region', { name: 'Areas' })
+  const areasButton = page.getByRole('button', { name: 'Areas in every block' })
   await expect(page.getByTestId('area-marker')).toBeVisible()
   await expect(warnings).toHaveCount(0)
   await expect(counts.nth(0)).not.toHaveText('0')
   await expect(counts.nth(1)).not.toHaveText('0')
+  await areasButton.click()
+  const areas = page.locator('div.fixed.inset-0')
   await expect(areas.getByRole('listitem', { name: 'Top level' })).toBeVisible()
   const compressionArea = areas.getByRole('listitem', { name: 'Compression' })
   await expect(compressionArea).toBeVisible()
@@ -46,6 +48,7 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await expect(
     compressionArea.locator('[data-item-id="nullius-compressed-hydrogen"][data-direction="sends"]'),
   ).toHaveCount(1)
+  await areas.getByRole('button', { name: 'Close' }).click()
 
   // The flag is saved with the plan. (A reload cannot show it: the fixture seeds storage on every navigation.)
   const savedArea = async () => {
@@ -54,10 +57,10 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   }
   await expect.poll(savedArea).toBe(true)
 
-  // Off again: the Areas pane goes and the duplicate is back.
+  // Off again: the areas list button goes and the duplicate is back.
   const again = await openRowMenu(page, compression)
   await again.getByRole('menuitemcheckbox', { name: 'Separate area' }).click()
-  await expect(areas).toHaveCount(0)
+  await expect(areasButton).toHaveCount(0)
   await expect(page.getByTestId('area-marker')).toHaveCount(0)
   await expect.poll(savedArea).toBeUndefined()
   await warnings.click()

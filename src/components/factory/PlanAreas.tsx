@@ -6,7 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { Modal } from '../Modal'
 import { IconButton } from '../IconButton'
 import { AreasIcon } from '../icons'
-import { AreaListItem } from './AreasPane'
+import { AreaListItem } from './AreaFlow'
 import { filterPlanAreas, planAreaBlocks, type PlanAreaRow } from './planAreaList'
 import type { GameData } from '../../data/types'
 
