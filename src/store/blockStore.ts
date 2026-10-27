@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { canConnect } from './connections'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -161,7 +161,7 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]))
     color,
     products: [],
     noImportItems: [],
-    connectionsFirstItems: [],
+    itemSourcing: {},
     inputConnections: [],
     rootPlan: makeEmptySubPlan('Main'),
   }
@@ -238,10 +238,16 @@ function toggled(list: string[], itemId: string): string[] {
   return list.includes(itemId) ? list.filter(i => i !== itemId) : [...list, itemId]
 }
 
-/** Toggle `itemId` in one of the block's item lists; the toggle is its own inverse. */
-function toggleItemCommand(field: 'noImportItems' | 'connectionsFirstItems', itemId: string): Command {
-  const toggle = (b: Block): Block => ({ ...b, [field]: toggled(b[field], itemId) })
+/** Toggle `itemId` in the block's no-import list; the toggle is its own inverse. */
+function toggleNoImportCommand(itemId: string): Command {
+  const toggle = (b: Block): Block => ({ ...b, noImportItems: toggled(b.noImportItems, itemId) })
   return { apply: toggle, undo: toggle }
+}
+
+/** The block with itemId's sourcing mode set, or its entry removed for undefined (own recipes first). */
+function withItemSourcing(block: Block, itemId: string, mode: ItemSourcingMode | undefined): Block {
+  const rest = Object.fromEntries(Object.entries(block.itemSourcing).filter(([id]) => id !== itemId))
+  return { ...block, itemSourcing: mode === undefined ? rest : { ...rest, [itemId]: mode } }
 }
 
 /** Command adding a connection for `itemId` from `fromBlockId`; undo removes it, redo is checked against the then-current blocks. */
@@ -326,7 +332,8 @@ export interface BlockStoreState {
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
-  toggleConnectionsFirstItem: (itemId: string) => void
+  /** Set how the active block sources an item (undefined = own recipes first). Undoable; no-op when unchanged. */
+  setItemSourcing: (itemId: string, mode: ItemSourcingMode | undefined) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item
    * from it on `consumerId` (default: the active block). Returns the new block's id, or
@@ -802,12 +809,19 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   toggleNoImportItem: (itemId) =>
     set(state => {
-      return applyCommand(state, toggleItemCommand('noImportItems', itemId))
+      return applyCommand(state, toggleNoImportCommand(itemId))
     }),
 
-  toggleConnectionsFirstItem: (itemId) =>
+  setItemSourcing: (itemId, mode) =>
     set(state => {
-      return applyCommand(state, toggleItemCommand('connectionsFirstItems', itemId))
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const old = block.itemSourcing[itemId]
+      if (old === mode) return state
+      return applyCommand(state, {
+        apply: b => withItemSourcing(b, itemId, mode),
+        undo: b => withItemSourcing(b, itemId, old),
+      })
     }),
 
   addBlockForItem: (itemId, name, consumerId) => {

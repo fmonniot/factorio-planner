@@ -72,6 +72,18 @@ describe('ItemTile', () => {
     expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
   })
 
+  it('renders a sourcing badge and a title suffix when given a mode', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" sourcing="connections-first" />)
+    expect(screen.getByTestId('item-tile-sourcing')).toHaveTextContent('C')
+    expect(screen.getByTitle('Iron Plate (connections first)')).toBeInTheDocument()
+  })
+
+  it('renders no sourcing badge by default', () => {
+    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
+    expect(screen.queryByTestId('item-tile-sourcing')).toBeNull()
+    expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
+  })
+
   it('renders rate in /min by default', () => {
     render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
     expect(screen.getByText(/60\.0/)).toBeInTheDocument()

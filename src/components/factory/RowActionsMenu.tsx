@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 
 // ---------------------------------------------------------------------------
@@ -15,8 +15,12 @@ export interface RowAction {
   disabled?: boolean
   /** Tooltip, e.g. why the action is disabled. */
   title?: string
-  /** Makes the item a checkbox in this state. */
+  /** Makes the item a checkbox in this state (a radio with `radio`). */
   checked?: boolean
+  /** With `checked`: the item is one of a set of exclusive choices. */
+  radio?: boolean
+  /** Draws a separator above the item. */
+  separatorBefore?: boolean
 }
 
 interface RowActionsMenuProps {
@@ -87,26 +91,28 @@ export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) 
       className="z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col"
     >
       {actions.map(action => (
-        <button
-          key={action.id ?? action.label}
-          type="button"
-          role={action.checked === undefined ? 'menuitem' : 'menuitemcheckbox'}
-          aria-checked={action.checked}
-          disabled={action.disabled}
-          title={action.title}
-          className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
-            action.danger ? 'text-red-400' : 'text-gray-200'
-          }`}
-          onClick={() => {
-            action.onSelect()
-            onClose()
-          }}
-        >
-          {action.checked !== undefined && (
-            <span aria-hidden className="inline-block w-3 mr-1">{action.checked ? '✓' : ''}</span>
-          )}
-          {action.label}
-        </button>
+        <Fragment key={action.id ?? action.label}>
+          {action.separatorBefore && <div role="separator" className="my-1 border-t border-gray-700" />}
+          <button
+            type="button"
+            role={action.checked === undefined ? 'menuitem' : action.radio ? 'menuitemradio' : 'menuitemcheckbox'}
+            aria-checked={action.checked}
+            disabled={action.disabled}
+            title={action.title}
+            className={`text-left whitespace-nowrap px-3 py-1 text-xs hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent ${
+              action.danger ? 'text-red-400' : 'text-gray-200'
+            }`}
+            onClick={() => {
+              action.onSelect()
+              onClose()
+            }}
+          >
+            {action.checked !== undefined && (
+              <span aria-hidden className="inline-block w-3 mr-1">{action.checked ? (action.radio ? '•' : '✓') : ''}</span>
+            )}
+            {action.label}
+          </button>
+        </Fragment>
       ))}
     </div>,
     document.body,

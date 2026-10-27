@@ -26,6 +26,8 @@ export type {
   SubPlan,
   BlockConnection,
   Block,
+  ItemSourcing,
+  ItemSourcingMode,
   AppState,
   PlanDataSetStamp,
   PlanEntry,

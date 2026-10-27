@@ -8,13 +8,14 @@ import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../st
 import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
 import { fmtRate } from './ItemTile'
+import { itemSourcingActions } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
 // (not for its own products): Request from a block that has the item as a product
 // (it makes what this block needs), or Take existing output from a block that has
-// some to spare, or Make it in a new block and request it from there. Also puts the
-// item's connections before the block's own recipes, and forbids or allows imports.
+// some to spare, or Make it in a new block and request it from there. Also sets how the
+// block sources the item (own recipes, byproducts or connections first), and forbids or allows imports.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -32,7 +33,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
-  const toggleConnectionsFirstItem = useBlockStore(s => s.toggleConnectionsFirstItem)
+  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const gameData = useGameDataStore(selectGameData)
@@ -82,7 +83,15 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   ) ?? false
   // Raw resources have no recipe, so a new block could never make them.
   const makeable = connectable && !!gameData && isMadeByAnyRecipe(gameData, itemId)
-  const first = activeBlock?.connectionsFirstItems.includes(itemId) ?? false
+  const mode = activeBlock?.itemSourcing[itemId]
+
+  // A leftover mode on one of the block's own products is shown so it can be cleared (the other choices are disabled).
+  const productName = activeBlock && !connectable ? itemName : undefined
+  const sourcingActions = (connectable && connected) || mode !== undefined
+    ? itemSourcingActions(mode, m => setItemSourcing(itemId, m), {
+        disabledTitle: productName ? `${productName} is a product of this block, so the block always makes it` : undefined,
+      })
+    : []
 
   const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
   const takes = connectable ? takeCandidates(blocks, activeBlockId, itemId, results, flows) : []
@@ -172,22 +181,29 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           Make in a new block…
         </button>
       )}
-      {connectable && <div className="border-t border-gray-700 my-1" />}
-      {connectable && connected && (
-        <button
-          type="button"
-          role="menuitemcheckbox"
-          aria-checked={first}
-          title="Use what this block's connections deliver before its own recipes, which make only the rest"
-          className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-          onClick={() => {
-            toggleConnectionsFirstItem(itemId)
-            onClose()
-          }}
-        >
-          <span aria-hidden className="w-3">{first ? '✓' : ''}</span>
-          Use connections first
-        </button>
+      {connectable && <div role="separator" className="border-t border-gray-700 my-1" />}
+      {sourcingActions.length > 0 && (
+        <>
+          {sourcingActions.map(action => (
+            <button
+              key={action.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={action.checked}
+              disabled={action.disabled}
+              title={action.title}
+              className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent"
+              onClick={() => {
+                action.onSelect()
+                onClose()
+              }}
+            >
+              <span aria-hidden className="w-3">{action.checked ? '•' : ''}</span>
+              {action.label}
+            </button>
+          ))}
+          <div role="separator" className="border-t border-gray-700 my-1" />
+        </>
       )}
       <button
         type="button"

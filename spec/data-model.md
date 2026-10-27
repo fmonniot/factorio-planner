@@ -479,7 +479,7 @@ interface Block {
   color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
   products: Product[]        // default []; what the block makes; other blocks may request them
   noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
-  connectionsFirstItems: string[]  // default []; items whose connected supply is used before the block's own recipes
+  itemSourcing: Record<string, 'byproducts-first' | 'connections-first'>  // default {}; how the block sources an item; absent = own recipes first
   inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
 }
@@ -500,7 +500,7 @@ interface Product {
 
 A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate }` with `rate = extraRate ?? 0` plus what other blocks request, built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
 
-`connectionsFirstItems` is toggled per item on the consumer (an undoable command in its history) and applies to every connection the block has for the item. It is kept when the item's last connection is removed (it has no effect without a connection, or for an item the block cannot make, and is active again on reconnect), and copied when a block or plan is duplicated. See [solver.md](solver.md#connections-first).
+`itemSourcing` is set per item on the block, from the right-click menu of an item chip in the production table or of an Ingredients slot (an undoable command in the block's history; choosing the current mode changes nothing, and *Own recipes first* removes the entry). `'connections-first'` applies to every connection the block has for the item and has no effect without a connection or for an item the block cannot make; `'byproducts-first'` works with or without connections and has no effect on a locked item, a raw item or a goal item; a product with no extra output and no request is not a goal, so a mode left on it still applies (the chip menu keeps *Own recipes first* enabled to clear it). The entry is kept when the item's last connection is removed (it is active again on reconnect), and copied when a block or plan is duplicated. See [solver.md](solver.md#connections-first) and [solver.md](solver.md#byproducts-first).
 
 **Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
 Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
@@ -509,6 +509,8 @@ the block (goals become products, deduplicated by `itemId` with rates summed; no
 rates dropped; no-import items deduplicated), and strips them from the sub-plans. A
 non-empty `products` on the input wins over legacy `goals`, which win over goals hoisted from
 sub-plans. Saved plans are written back in the new shape on the next save.
+
+`connectionsFirstItems: string[]` (older plans) loads as `itemSourcing` entries of `'connections-first'`, and the legacy key is dropped; when both are present the `itemSourcing` map wins. Entries of a saved map with an unknown mode are dropped (the item loads as own recipes first) and the file still loads; a map that is not an object is rejected like any malformed field. The migration is idempotent. Older builds of the app ignore `itemSourcing`.
 
 **Stranded sub-plans.** Before `moveNode` moved the `SubPlan` with its handle, dragging a sub-factory into another plan left the object where it was. `BlockSchema` post-processes the parsed block with `reparentSubPlans` ([src/data/subPlanTree.ts](../src/data/subPlanTree.ts)), so every load path (local storage, import, duplicate) stores each sub-plan under the plan that holds its handle. A sub-plan with several handles goes under the first one in tree order (a plan's nodes, then its sub-plans, depth first). One without a handle, or whose handle is in no plan of the tree, stays put. Sub-plans that stay keep their order and adopted ones follow in handle order, so a well-formed tree comes back as the same object. A sub-plan whose move would cut it off from the root (handles that form a cycle) stays where it is stored, the other moves still apply. The migration is idempotent and saved plans are written back in the new shape on the next save.
 

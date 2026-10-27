@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveAll, flattenBlock } from './index'
+import { solve, solveAll, solveBlock, flattenBlock } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
 import { parseAppState } from '../data/loader'
@@ -118,7 +118,7 @@ function blk(rootPlan: SubPlan, products: [string, number][], id = 'block-1'): B
     color: '#60a5fa',
     products: products.map(([itemId, extraRate]): Product => ({ id: `p-${itemId}`, itemId, extraRate })),
     noImportItems: [],
-    connectionsFirstItems: [],
+    itemSourcing: {},
     inputConnections: [],
     rootPlan,
   }
@@ -389,6 +389,45 @@ describe('areas in the solve', () => {
       expect(flow(ar.receives, 'x')).toBeUndefined()
       expect(flow(ar.sends, 'x')).toBeUndefined()
     }
+  })
+
+  describe('byproducts first', () => {
+    // The root's r-main makes 10 x on the side; S (an area) uses 30 x and has its own x-make.
+    const s5 = (extra: Partial<Block> = {}): Block => ({
+      ...blk(
+        root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
+        [['y', 10], ['z', 30]],
+      ),
+      ...extra,
+    })
+
+    it('runs the area\'s x-make without the mode', () => {
+      const r = solved(s5())
+      expect(node(r, 'x-make@s').throughput).toBeCloseTo(10, 6)
+    })
+
+    it('uses the other area\'s byproduct and imports the rest instead of running x-make', () => {
+      const r = solved(s5({ itemSourcing: { x: 'byproducts-first' } }))
+      expect(node(r, 'x-make@s').throughput).toBeCloseTo(0, 6)
+      expect(node(r, 'r-main@root').throughput).toBeCloseTo(10, 6)
+      expect(r.unsatisfied.find(u => u.itemId === 'x')?.rate).toBeCloseTo(20, 6)
+      expect(flow(area(r, 'root').sends, 'x')!.rate).toBeCloseTo(10, 6)
+      expect(flow(area(r, 'S').receives, 'x')).toMatchObject({ boundary: true })
+      expect(flow(area(r, 'S').receives, 'x')!.rate).toBeCloseTo(30, 6)
+      expect(r.warnings.map(w => w.type)).not.toContain('overconstrained')
+      expect(r.warnings.map(w => w.type)).not.toContain('area-shortfall')
+    })
+  })
+
+  it('ignores byproducts first on a locked item that a connection partly covers (area LP)', () => {
+    const base = blk(
+      root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
+      [['y', 10], ['z', 30]],
+    )
+    const withSourcing = (itemSourcing: Block['itemSourcing']): Block => ({ ...base, noImportItems: ['x'], itemSourcing })
+    const caps = () => new Map([['x', 5]])
+    const run = (b: Block) => solveBlock(flattenBlock(b), gd(), caps())
+    expect(run(withSourcing({ x: 'byproducts-first' }))).toEqual(run(withSourcing({})))
   })
 
   it('S5b: a surplus byproduct goes to the area that makes x itself', () => {

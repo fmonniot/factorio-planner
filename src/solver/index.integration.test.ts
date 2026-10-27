@@ -10,10 +10,13 @@ import type { Block, BlockConnection, GameRecipeNode, Product, SolverGoal, Recip
 // non-negative flows, positive machine counts, mass balance, a machine for every category).
 // synthetic.test.ts stays on synthetic fixtures so a re-export cannot break it; this file reads the
 // real export, so a re-export that renames or re-balances recipes may break it. That is intended.
-// A second describe runs multi-block plans (loops of requests) on the bundled Seablock export.
+// Further describes run multi-block plans (loops of requests) and a byproducts-first block on the bundled Seablock export.
 
 const GAME_DATA_PATH = resolve(import.meta.dirname, '../../public/data/nullius/game-data.json')
 const gameData = loadGameDataFromJson(readFileSync(GAME_DATA_PATH, 'utf-8'))
+const seablock = loadGameDataFromJson(
+  readFileSync(resolve(import.meta.dirname, '../../public/data/kompetenz-seablock/game-data.json'), 'utf-8'),
+)
 
 const EPS = 1e-9
 const FLOW_EPS = 1e-6
@@ -231,7 +234,7 @@ describe('solver on the real Nullius data', () => {
         { id: 'p2', itemId: 'nullius-compressed-hydrogen', extraRate: 240 },
       ],
       noImportItems: [],
-      connectionsFirstItems: [],
+      itemSourcing: {},
       inputConnections: [],
       rootPlan: {
         id: 'root',
@@ -257,9 +260,6 @@ describe('solver on the real Nullius data', () => {
 // ---------------------------------------------------------------------------
 
 describe('multi-block loops on the real Seablock data', () => {
-  const seablock = loadGameDataFromJson(
-    readFileSync(resolve(import.meta.dirname, '../../public/data/kompetenz-seablock/game-data.json'), 'utf-8'),
-  )
   const WASTE = 'sct-waste-ironcopper'
 
   const prod = (itemId: string, extraRate?: number): Product => ({
@@ -281,7 +281,7 @@ describe('multi-block loops on the real Seablock data', () => {
       color: '#60a5fa',
       products,
       noImportItems: [],
-      connectionsFirstItems: [],
+      itemSourcing: {},
       inputConnections,
       rootPlan: { id: `root-${id}`, name: id, nodes: recipeIds.map(planNode), subPlans: [], createdAt: now, updatedAt: now },
     }
@@ -387,5 +387,103 @@ describe('multi-block loops on the real Seablock data', () => {
     expect(flowOf(all, 'c_ms_br').requested).toBeCloseTo(10, 4)
     expect(flowOf(all, 'c_om_fe').requested).toBeCloseTo(80, 4)
     expectSaneAll(all)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Seablock: byproducts first on a block whose geodes feed a sulfur shortfall
+// ---------------------------------------------------------------------------
+
+describe('byproducts first on the real Seablock data', () => {
+  // An agriculture block making bio-yield modules. Sulfur is short: by default the LP runs more geodes
+  // (and leaves most of them as surplus) rather than import it; byproducts first imports it instead.
+  const RECIPE_IDS = [
+  'angels-bio-yield-module',
+  'bob-module-case',
+  'cp-speed-processor',
+  'cp-productivity-processor',
+  'bob-module-circuit-board',
+  'bob-topaz-5',
+  'bob-sapphire-5',
+  'bob-ruby-5',
+  'bob-polishing-wheel',
+  'bob-polishing-compound',
+  'bob-topaz-4',
+  'bob-sapphire-4',
+  'bob-ruby-4',
+  'bob-grinding-wheel',
+  'bob-silicon-carbide',
+  'bob-topaz-3',
+  'angels-ore7-crystallization-2',
+  'bob-sapphire-3',
+  'angels-ore7-crystallization-1',
+  'bob-ruby-3',
+  'angels-ore7-crystallization-3',
+  'angels-yellow-waste-water-purification',
+  'angels-crystal-slurry-filtering-1',
+  'angels-filter-coal',
+  'angels-geode-blue-liquify',
+  'angels-geode-yellow-liquify',
+  'angels-geode-purple-liquify',
+  'angels-geode-lightgreen-liquify',
+  'angels-geode-cyan-liquify',
+  'angels-geode-red-liquify',
+  'angels-solid-geodes',
+  'angels-water-viscous-mud',
+  'angels-solid-sulfur',
+  'angels-water-heavy-mud',
+  'offshore:angels-water-viscous-mud',
+  'angels-water-purified',
+  'angels-liquid-sulfuric-acid',
+  'angels-gas-sulfur-dioxide',
+  ]
+  const MODULES: Record<string, number> = {
+    'bob-module-case': 4, 'bob-module-circuit-board': 4, 'bob-topaz-4': 4, 'bob-sapphire-4': 4,
+  }
+  const BYPRODUCT_CONSUMERS = new Set(['angels-yellow-waste-water-purification', 'angels-water-viscous-mud', 'angels-solid-sulfur'])
+  const LIQUIFY = ['blue', 'yellow', 'purple', 'lightgreen', 'cyan', 'red'].map(c => `angels-geode-${c}-liquify`)
+
+  function solveAgri(itemSourcing: Block['itemSourcing']) {
+    const now = '2020-01-01T00:00:00.000Z'
+    const nodes: RecipeNode[] = RECIPE_IDS.map(id => ({
+      ...planNode(id),
+      ...(MODULES[id] ? { modules: [{ moduleId: 'angels-bio-yield-module', count: MODULES[id] }] } : {}),
+      ...(BYPRODUCT_CONSUMERS.has(id) ? { byproductConsumer: true } : {}),
+    }))
+    const block: Block = {
+      id: 'agri',
+      name: 'Agri mod 1',
+      color: '#60a5fa',
+      products: [{ id: 'p1', itemId: 'angels-bio-yield-module', extraRate: 1 }],
+      noImportItems: [],
+      itemSourcing,
+      inputConnections: [],
+      rootPlan: { id: 'root', name: 'Agri mod 1', nodes, subPlans: [], createdAt: now, updatedAt: now },
+    }
+    return solve(flattenBlock(block), seablock)
+  }
+  const overconstrained = (r: SolverResult) => r.warnings.find(w => w.type === 'overconstrained')
+
+  it('runs the geodes for the sulfur by default and leaves most of them over', () => {
+    const r = solveAgri({})
+    expect(nodeOf(r, 'angels-solid-geodes').throughput).toBeCloseTo(41.5009, 2)
+    expect(nodeOf(r, 'angels-geode-blue-liquify').throughput).toBeCloseTo(0, 6)
+    const surplus = overconstrained(r)
+    expect(surplus?.type === 'overconstrained' && surplus.surplusItems.map(i => i.itemId)).toEqual(
+      expect.arrayContaining(['angels-geode-blue', 'angels-geode-red']),
+    )
+    expect(unsatisfiedRate(r, 'sulfur')).toBeUndefined()
+    expect(nodeOf(r, 'angels-yellow-waste-water-purification').throughput).toBeCloseTo(7.2857, 2)
+  })
+
+  it('imports the sulfur instead when set to byproducts first', () => {
+    const r = solveAgri({ sulfur: 'byproducts-first' })
+    expect(nodeOf(r, 'angels-solid-geodes').throughput).toBeCloseTo(25.2976, 2)
+    for (const id of LIQUIFY) expect(nodeOf(r, id).throughput, id).toBeGreaterThan(1e-3)
+    expect(overconstrained(r)).toBeUndefined()
+    expect(unsatisfiedRate(r, 'sulfur')).toBeCloseTo(3.4974, 2)
+    // The purification (a byproduct consumer) runs as much as without the mode.
+    expect(nodeOf(r, 'angels-yellow-waste-water-purification').throughput)
+      .toBeCloseTo(nodeOf(solveAgri({}), 'angels-yellow-waste-water-purification').throughput, 6)
   })
 })

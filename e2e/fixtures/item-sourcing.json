@@ -1,0 +1,83 @@
+{
+  "blocks": [
+    {
+      "id": "dddd0001-0000-0000-0000-000000000001",
+      "name": "Acid",
+      "color": "#60a5fa",
+      "products": [
+        {
+          "id": "dddd0001-0000-0000-0000-0000000000p1",
+          "itemId": "nullius-hydrogen",
+          "extraRate": 800
+        },
+        {
+          "id": "dddd0001-0000-0000-0000-0000000000p2",
+          "itemId": "nullius-acid-nitric",
+          "extraRate": 125
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "dddd0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "dddd0001-0000-0000-0000-0000000000n1",
+            "recipeId": "nullius-steam-electrolysis",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "dddd0001-0000-0000-0000-0000000000n2",
+            "recipeId": "nullius-acid-nitric",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "dddd0001-0000-0000-0000-0000000000n3",
+            "recipeId": "nullius-decompress-oxygen",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-26T00:00:00.000Z",
+        "updatedAt": "2026-04-26T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "dddd0002-0000-0000-0000-000000000001",
+      "name": "O2 maker",
+      "color": "#f59e0b",
+      "products": [
+        {
+          "id": "dddd0002-0000-0000-0000-0000000000p1",
+          "itemId": "nullius-oxygen"
+        }
+      ],
+      "noImportItems": [],
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "dddd0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "dddd0002-0000-0000-0000-0000000000n1",
+            "recipeId": "nullius-decompress-oxygen",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-04-26T00:00:00.000Z",
+        "updatedAt": "2026-04-26T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "dddd0001-0000-0000-0000-000000000001"
+}

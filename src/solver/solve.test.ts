@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem } from './build'
-import { solveLP } from './solve'
+import { BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -560,5 +560,29 @@ describe('solveLP — supply caps', () => {
       expect(lp.supply.get('plate')).toBeCloseTo(10, 4)
       expect(lp.throughput.get('plate-from-ingot')).toBeCloseTo(50, 4)
     })
+  })
+})
+
+describe('byproducts first', () => {
+  function system() {
+    const gameData = makeGameData({
+      recipes: {
+        gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+        'plate-from-ingot': recipe('plate-from-ingot', 1, [item('ingot', 1)], [product('plate', 1)]),
+        'ingot-from-ore': recipe('ingot-from-ore', 1, [item('ore', 1)], [product('ingot', 1)]),
+      },
+    })
+    return buildClassifiedSystem(gameData, ['gear', 'plate-from-ingot', 'ingot-from-ore'], new Map([['gear', 30]]))
+  }
+
+  it('gives the item a cheap slack and leaves other slacks at BIG_M', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(), new Set(), new Map(), new Set(), new Set(['plate']))
+    expect(lp.variables.slack_plate.__obj__).toBe(BYPRODUCTS_FIRST_SLACK_COST)
+    expect(lp.variables.slack_ingot.__obj__).toBe(BIG_M)
+  })
+
+  it('creates no slack for a locked item', () => {
+    const lp = buildLPModel(system(), new Map(), new Set(), new Set(['plate']), new Map(), new Set(), new Set(['plate']))
+    expect(lp.variables.slack_plate).toBeUndefined()
   })
 })

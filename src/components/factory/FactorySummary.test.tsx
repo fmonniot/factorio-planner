@@ -783,7 +783,7 @@ describe('FactorySummary — connections', () => {
       expect(screen.getByRole('menuitem', { name: 'Forbid imports' })).toBeInTheDocument()
     })
 
-    it('hides Use connections first when the only connection is ignored', () => {
+    it('hides the sourcing choice when the only connection is ignored', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       useBlockStore.setState(s => ({
         blocks: s.blocks.map(b => (b.id === 'consumer'
@@ -792,17 +792,17 @@ describe('FactorySummary — connections', () => {
       }))
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
     })
 
-    it('offers Make in a new block before Forbid imports, and no connections-first entry without a connection', () => {
+    it('offers Make in a new block before Forbid imports, and no sourcing choice without a connection', () => {
       withOreRecipe()
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       const items = screen.getAllByRole('menuitem').map(el => el.textContent)
       expect(items.slice(-2)).toEqual(['Make in a new block…', 'Forbid imports'])
-      expect(screen.queryByRole('menuitemcheckbox')).not.toBeInTheDocument()
+      expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
     })
 
     it('Make in a new block creates the block, requests the item and opens the recipe picker', async () => {
@@ -826,24 +826,56 @@ describe('FactorySummary — connections', () => {
       expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
     })
 
-    it('toggles Use connections first for a connected item, before Forbid imports', () => {
+    it('sets Connections first for a connected item, before Forbid imports', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      const entry = screen.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+      expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+      expect(screen.getByRole('menuitemradio', { name: /Own recipes first/ })).toHaveAttribute('aria-checked', 'true')
+      const entry = screen.getByRole('menuitemradio', { name: /Connections first/ })
       expect(entry).toHaveAttribute('aria-checked', 'false')
       const forbid = screen.getByRole('menuitem', { name: 'Forbid imports' })
       expect(entry.compareDocumentPosition(forbid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
 
       fireEvent.click(entry)
-      expect(consumer().connectionsFirstItems).toEqual(['iron-ore'])
+      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      const checked = screen.getByRole('menuitemcheckbox', { name: /Use connections first/ })
+      const checked = screen.getByRole('menuitemradio', { name: /Connections first/ })
       expect(checked).toHaveAttribute('aria-checked', 'true')
-      fireEvent.click(checked)
-      expect(consumer().connectionsFirstItems).toEqual([])
+      fireEvent.click(screen.getByRole('menuitemradio', { name: /Own recipes first/ }))
+      expect(consumer().itemSourcing).toEqual({})
+    })
+
+    it('shows the sourcing choice for an unconnected item that has a mode', () => {
+      withOreRecipe()
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, itemSourcing: { 'iron-ore': 'byproducts-first' as const } } : b)),
+      }))
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toHaveAttribute('aria-checked', 'true')
+    })
+
+    it('lets a mode left on a product of the block be cleared, the other choices disabled', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer'
+          ? {
+              ...b,
+              products: [...b.products, { id: 'p-ore', itemId: 'iron-ore', extraRate: 60 }],
+              noImportItems: ['iron-ore'],
+              itemSourcing: { 'iron-ore': 'byproducts-first' as const },
+            }
+          : b)),
+      }))
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toBeDisabled()
+      fireEvent.click(screen.getByRole('menuitemradio', { name: /Own recipes first/ }))
+      expect(consumer().itemSourcing).toEqual({})
     })
   })
 

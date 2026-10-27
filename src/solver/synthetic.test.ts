@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { solve, flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
-// Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius export).
+// Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
 // Real-data checks are in index.integration.test.ts.
 
@@ -75,6 +75,15 @@ function recipes(): GameRecipe[] {
     recipe('nullius-air-separation-2', 'distillation', 1,
       [fluid('nullius-air', 100)],
       [fluid('nullius-nitrogen', 66), fluid('nullius-residual-gas', 3), fluid('nullius-carbon-dioxide', 30)]),
+    recipe('nullius-steam-electrolysis', 'nullius-electrolysis', 1,
+      [fluid('nullius-steam', 2000)],
+      [fluid('nullius-hydrogen', 800), fluid('nullius-oxygen', 400)]),
+    recipe('nullius-decompress-oxygen', 'decompression', 1,
+      [fluid('nullius-compressed-oxygen', 125)],
+      [fluid('nullius-oxygen', 500)]),
+    recipe('nullius-acid-nitric', 'basic-chemistry', 1,
+      [fluid('nullius-oxygen', 20), fluid('nullius-ammonia', 10)],
+      [fluid('nullius-acid-nitric', 5)]),
     recipe('kovarex-enrichment-process', 'centrifuging', 60,
       [item('uranium-235', 40), item('uranium-238', 5)],
       [
@@ -154,7 +163,7 @@ function runBlock(rootPlan: SubPlan, products: Array<[string, number]>): SolverR
     color: '#60a5fa',
     products: products.map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
     noImportItems: [],
-    connectionsFirstItems: [],
+    itemSourcing: {},
     inputConnections: [],
     rootPlan,
   }
@@ -314,6 +323,38 @@ describe('solver synthetic cases', () => {
       expect(rate(area('rod-line').receives, 'nullius-iron-ingot')).toMatchObject({ boundary: false })
       expect(rate(area('rod-line').receives, 'nullius-iron-ingot')!.rate).toBeCloseTo(24, 3)
       expect(rate(area('rod-line').sends, 'nullius-iron-rod')!.rate).toBeCloseTo(30, 3)
+    })
+  })
+
+  describe('case 8: byproducts first', () => {
+    // Electrolysis makes H2 (the goal) and O2 on the side; decompression is the only other source of O2.
+    const recipeIds = ['nullius-steam-electrolysis', 'nullius-decompress-oxygen', 'nullius-acid-nitric']
+    const goals: Array<[string, number]> = [['nullius-hydrogen', 800], ['nullius-acid-nitric', 125]]
+    const solveWith = (itemSourcing: Block['itemSourcing']) => {
+      const plan: { goals: SolverGoal[]; nodes: RecipeNode[]; itemSourcing: Block['itemSourcing'] } = {
+        goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
+        nodes: recipeIds.map(id => planNode(id)),
+        itemSourcing,
+      }
+      return solve(plan, makeGameData())
+    }
+
+    it('runs the decompression for the oxygen the electrolysis does not cover by default', () => {
+      const r = solveWith({})
+      expect(nodeOf(r, 'nullius-steam-electrolysis').throughput).toBeCloseTo(1, 3)
+      expect(nodeOf(r, 'nullius-acid-nitric').throughput).toBeCloseTo(25, 3)
+      expect(nodeOf(r, 'nullius-decompress-oxygen').throughput).toBeCloseTo(0.2, 3)
+      expect(unsatisfiedRate(r, 'nullius-compressed-oxygen')).toBeCloseTo(25, 3)
+      expect(unsatisfiedRate(r, 'nullius-oxygen') ?? 0).toBe(0)
+    })
+
+    it('imports the missing oxygen instead of running the decompression', () => {
+      const r = solveWith({ 'nullius-oxygen': 'byproducts-first' })
+      expect(nodeOf(r, 'nullius-steam-electrolysis').throughput).toBeCloseTo(1, 3)
+      expect(nodeOf(r, 'nullius-acid-nitric').throughput).toBeCloseTo(25, 3)
+      expect(nodeOf(r, 'nullius-decompress-oxygen').throughput).toBeCloseTo(0, 3)
+      expect(unsatisfiedRate(r, 'nullius-oxygen')).toBeCloseTo(100, 3)
+      expect(unsatisfiedRate(r, 'nullius-compressed-oxygen') ?? 0).toBe(0)
     })
   })
 })

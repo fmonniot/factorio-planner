@@ -469,16 +469,49 @@ describe('parseAppState — inputConnections', () => {
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
-  it('defaults connectionsFirstItems to an empty list and round-trips a value', () => {
-    expect(parseAppState({ blocks: [blockJson()], activeBlockId: 'b1' }).blocks[0].connectionsFirstItems).toEqual([])
-    const state = parseAppState({ blocks: [blockJson({ connectionsFirstItems: ['x'] })], activeBlockId: 'b1' })
-    expect(state.blocks[0].connectionsFirstItems).toEqual(['x'])
-    expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
-  })
+  describe('itemSourcing', () => {
+    const load = (extra: Record<string, unknown> = {}) =>
+      parseAppState({ blocks: [blockJson(extra)], activeBlockId: 'b1' }).blocks[0]
 
-  it('gives a legacy block with sub-plan goals an empty connectionsFirstItems', () => {
-    const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
-    expect(parseAppState({ blocks: [legacy], activeBlockId: 'b1' }).blocks[0].connectionsFirstItems).toEqual([])
+    it('defaults to an empty map', () => {
+      expect(load().itemSourcing).toEqual({})
+    })
+
+    it('turns the legacy connectionsFirstItems list into connections-first entries and drops the key', () => {
+      const block = load({ connectionsFirstItems: ['x', 'y', 'x', 3] })
+      expect(block.itemSourcing).toEqual({ x: 'connections-first', y: 'connections-first' })
+      expect(block).not.toHaveProperty('connectionsFirstItems')
+    })
+
+    it('prefers the map over the legacy list', () => {
+      expect(load({ itemSourcing: { y: 'byproducts-first' }, connectionsFirstItems: ['x'] }).itemSourcing)
+        .toEqual({ y: 'byproducts-first' })
+    })
+
+    it('drops entries with an unknown mode and still loads the file', () => {
+      expect(load({ itemSourcing: { x: 'imports-first', y: 'byproducts-first', z: 3 } }).itemSourcing)
+        .toEqual({ y: 'byproducts-first' })
+    })
+
+    it('keeps an item in both noImportItems and the legacy list', () => {
+      const block = load({ noImportItems: ['x'], connectionsFirstItems: ['x'] })
+      expect(block.noImportItems).toEqual(['x'])
+      expect(block.itemSourcing).toEqual({ x: 'connections-first' })
+    })
+
+    it('gives a legacy block with sub-plan goals an empty map', () => {
+      const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
+      expect(parseAppState({ blocks: [legacy], activeBlockId: 'b1' }).blocks[0].itemSourcing).toEqual({})
+    })
+
+    it('round-trips', () => {
+      const state = parseAppState({ blocks: [blockJson({ itemSourcing: { x: 'byproducts-first', y: 'connections-first' } })], activeBlockId: 'b1' })
+      expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+    })
+
+    it('rejects an array', () => {
+      expect(() => load({ itemSourcing: ['x'] })).toThrow()
+    })
   })
 
   it('hoists legacy per-subplan goals into products', () => {

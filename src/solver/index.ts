@@ -21,9 +21,9 @@ import { solveLP } from './solve'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
-import { exactKey, planKey, type RequestLoopSolve, type SolveCache } from './solveCache'
+import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
@@ -42,7 +42,7 @@ export function flattenBlock(block: Block): SolverPlan {
     goals: productGoals(block.products),
     nodes,
     noImportItems: block.noImportItems,
-    connectionsFirstItems: block.connectionsFirstItems,
+    itemSourcing: block.itemSourcing,
   }
   const areas = blockAreas(block.rootPlan)
   return areas ? { ...plan, areas } : plan
@@ -130,8 +130,12 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  *   2. Only if a connected intermediate is short, solve again with the original
  *      locks and a supply variable per short item, capped at min(offer, shortfall).
  * `received` is what the block actually takes from each offer (items/min).
- * Exception: connections-first items (`plan.connectionsFirstItems`) have their supply in every
+ * Exception: connections-first items (`itemSourcing`) have their supply in every
  * pass, capped by the offer only, so it is used before the block's own recipes.
+ * Byproducts-first items (`itemSourcing`) get a cheap import slack (not BIG_M) in both passes, so
+ * the LP imports them rather than run a recipe just for them; the pass-1 residual is then exactly
+ * what the byproducts don't cover, and the passes are otherwise unchanged. Locked items and
+ * byproduct consumers' ingredients keep the default cost.
  *
  * The solve cache key (see solveCache.ts) must grow if this ever reads
  * anything beyond `plan`, `gameData` and `supplyCaps`.
@@ -247,13 +251,14 @@ export function solveBlock(
     : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
   // Connections-first intermediates have their supply in every pass, capped by the
   // offer only, so the LP uses it before the block's own recipes.
+  const byproductsFirst = byproductsFirstSet(plan, noImportItems)
   const firstItems = new Set(
-    (plan.connectionsFirstItems ?? []).filter(
+    itemsWithSourcing(plan, 'connections-first').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems)
+  let lp = solveLP(system, pinnedRates, bcRecipeIds, pass1NoImport, firstCaps, firstItems, byproductsFirst)
 
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
@@ -279,7 +284,7 @@ export function solveBlock(
   if (pass2Caps.size > 0) {
     lp = solveLP(
       system, pinnedRates, bcRecipeIds, pass2NoImport,
-      new Map([...firstCaps, ...pass2Caps]), firstItems,
+      new Map([...firstCaps, ...pass2Caps]), firstItems, byproductsFirst,
     )
   }
 
@@ -679,7 +684,8 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * How much each source must make for its requesting consumers. A consumer's need
  * for an item does not depend on what it receives (solving it with unlimited
  * supply on every connection, a "request probe", gives exactly what it would import; a
- * connections-first item's need is its whole use, as the probe's supply is unlimited),
+ * connections-first item's need is its whole use, as the probe's supply is unlimited; a
+ * byproducts-first item's need is what recipes that run anyway don't cover),
  * and a source's goals only depend on its own products plus what its consumers
  * request of it. So requests are computed before any supply is handed out, consumers first.
  *
@@ -848,7 +854,7 @@ function computeRequests(
               m.products,
               flat.nodes,
               flat.noImportItems ?? [],
-              flat.connectionsFirstItems ?? [],
+              sourcingKey(flat.itemSourcing),
               [...connectedCaps(m, byId, selfConnectionIds).keys()],
               (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
               [...(takeOf.get(m.id) ?? [])].map(([itemId, takes]) => [

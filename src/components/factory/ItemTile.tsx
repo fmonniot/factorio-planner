@@ -1,6 +1,7 @@
-import type { Item } from '../../data/types'
+import type { Item, ItemSourcingMode } from '../../data/types'
 import { Icon } from '../Icon'
 import { useUiStore } from '../../store/uiStore'
+import { itemSourcingLabel } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
 // Rate formatting (shared across factory components)
@@ -39,6 +40,8 @@ interface ItemTileProps {
   title?: string
   /** Pre-formatted temperature requirement (e.g. "≥95°C"); rendered as a small badge after the rate. */
   temperature?: string
+  /** The block's sourcing mode for this item, when not the default; shown as a small letter badge. */
+  sourcing?: ItemSourcingMode
 }
 
 const variantClasses: Record<ItemTileVariant, string> = {
@@ -48,7 +51,7 @@ const variantClasses: Record<ItemTileVariant, string> = {
   electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
-export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature }: ItemTileProps) {
+export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature, sourcing }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
   const cls = variantClasses[variant]
 
@@ -57,7 +60,8 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   const label = isPower ? power!.value : fmtRate(ratePerSec, unit)
   const unitLabel = isPower ? power!.unit : unit === 'min' ? '/m' : '/s'
 
-  const tileTitle = title ?? item?.name
+  const baseTitle = title ?? item?.name
+  const tileTitle = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle
 
   const inner = (
     <>
@@ -84,6 +88,16 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
           className="text-[9px] font-mono tabular-nums leading-none text-orange-300"
         >
           {temperature}
+        </span>
+      )}
+      {sourcing && (
+        <span
+          data-testid="item-tile-sourcing"
+          data-sourcing={sourcing}
+          aria-hidden
+          className="text-[9px] font-semibold leading-none text-amber-300"
+        >
+          {sourcing === 'byproducts-first' ? 'B' : 'C'}
         </span>
       )}
     </>

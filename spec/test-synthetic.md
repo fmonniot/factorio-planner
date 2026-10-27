@@ -1,6 +1,6 @@
 # Solver Synthetic Test Cases
 
-Seven recipe chains of increasing complexity, all using recipes from the committed
+Eight recipe chains of increasing complexity, all using recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it).
 
@@ -333,3 +333,37 @@ and the tie goes to the area higher in the table: Top level makes 24 ÷ 2 = 12 e
 ```
 
 Total ingot is 52 exec/min, as in one area (6.933 machines, 7 buildings), but split into two rows it needs 6 + 2 = 8 buildings.
+
+---
+
+## Case 8 — Byproducts first
+
+**Exercises:** the per-item mode `itemSourcing[item] = 'byproducts-first'`. An item set to it is imported rather than made by a recipe that would run only for it; what recipes make anyway is used first.
+
+**Goals:** 800 `nullius-hydrogen` / min and 125 `nullius-acid-nitric` / min
+
+Recipes (all crafting time 1 s; the coefficients and item ids are those of the Nullius export, on synthetic fixtures):
+- `nullius-steam-electrolysis` (`nullius-electrolysis`): 2000 steam → 800 hydrogen + 400 oxygen
+- `nullius-decompress-oxygen` (decompression): 125 compressed oxygen → 500 oxygen
+- `nullius-acid-nitric` (basic chemistry): 20 oxygen + 10 ammonia → 5 nitric acid
+
+### Expected solver output
+
+| | Electrolysis | Nitric acid | Decompression | Imports |
+|---|---|---|---|---|
+| Default | 1 | 25 | 0.2 | compressed oxygen 25 |
+| `nullius-oxygen` byproducts first | 1 | 25 | 0 | oxygen 100 |
+
+Both runs use the same steam and ammonia (imports) and raise no `overconstrained` warning.
+
+### Derivation
+
+```
+Hydrogen 800/min needs 1 electrolysis run/min, which makes 400 oxygen as a side product.
+Nitric acid 125/min ÷ 5 = 25 runs/min, which needs 500 oxygen: 100 more than the electrolysis makes.
+
+Default: decompression at 0.2 runs/min (cost 0.2) makes the 100 oxygen from 25 compressed oxygen,
+cheaper than 0.25 extra electrolysis runs (hydrogen would be left over), so it runs.
+Byproducts first on oxygen: importing 100 oxygen costs 100 × 1e-5 = 1e-3, below the 0.2 of a decompression run,
+so the decompression stays idle and the 100 oxygen is an import.
+```
