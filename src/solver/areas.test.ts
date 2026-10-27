@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveAll, flattenBlock } from './index'
+import { solve, solveAll, solveBlock, flattenBlock } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
 import { parseAppState } from '../data/loader'
@@ -417,6 +417,17 @@ describe('areas in the solve', () => {
       expect(r.warnings.map(w => w.type)).not.toContain('overconstrained')
       expect(r.warnings.map(w => w.type)).not.toContain('area-shortfall')
     })
+  })
+
+  it('ignores byproducts first on a locked item that a connection partly covers (area LP)', () => {
+    const base = blk(
+      root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
+      [['y', 10], ['z', 30]],
+    )
+    const withSourcing = (itemSourcing: Block['itemSourcing']): Block => ({ ...base, noImportItems: ['x'], itemSourcing })
+    const caps = () => new Map([['x', 5]])
+    const run = (b: Block) => solveBlock(flattenBlock(b), gd(), caps())
+    expect(run(withSourcing({ x: 'byproducts-first' }))).toEqual(run(withSourcing({})))
   })
 
   it('S5b: a surplus byproduct goes to the area that makes x itself', () => {

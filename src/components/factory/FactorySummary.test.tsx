@@ -858,6 +858,25 @@ describe('FactorySummary — connections', () => {
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toHaveAttribute('aria-checked', 'true')
     })
+
+    it('lets a mode left on a product of the block be cleared, the other choices disabled', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'consumer'
+          ? {
+              ...b,
+              products: [...b.products, { id: 'p-ore', itemId: 'iron-ore', extraRate: 60 }],
+              noImportItems: ['iron-ore'],
+              itemSourcing: { 'iron-ore': 'byproducts-first' as const },
+            }
+          : b)),
+      }))
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toBeDisabled()
+      fireEvent.click(screen.getByRole('menuitemradio', { name: /Own recipes first/ }))
+      expect(consumer().itemSourcing).toEqual({})
+    })
   })
 
   describe('exports', () => {

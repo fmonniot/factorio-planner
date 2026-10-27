@@ -30,20 +30,26 @@ export function itemSourcingLabel(mode: ItemSourcingMode): string {
   return mode === 'byproducts-first' ? 'byproducts first' : 'connections first'
 }
 
-/** The three choices as radio actions of a RowActionsMenu; `disabledTitle` disables them all and explains why. */
+/**
+ * The three choices as radio actions of a RowActionsMenu. `disabledTitle` disables them and explains why, except
+ * "Own recipes first" while a mode is set: that one stays enabled so the entry can always be cleared.
+ */
 export function itemSourcingActions(
   current: ItemSourcingMode | undefined,
   onSet: (mode: ItemSourcingMode | undefined) => void,
   opts: { separate?: boolean; disabledTitle?: string } = {},
 ): RowAction[] {
-  return ITEM_SOURCING_CHOICES.map(({ mode, label, title }, i) => ({
-    id: ACTION_IDS[mode ?? 'own'],
-    label,
-    title: opts.disabledTitle ?? title,
-    radio: true,
-    checked: mode === current,
-    disabled: opts.disabledTitle !== undefined,
-    separatorBefore: i === 0 && opts.separate === true,
-    onSelect: () => onSet(mode),
-  }))
+  return ITEM_SOURCING_CHOICES.map(({ mode, label, title }, i) => {
+    const disabled = opts.disabledTitle !== undefined && !(mode === undefined && current !== undefined)
+    return {
+      id: ACTION_IDS[mode ?? 'own'],
+      label,
+      title: disabled ? opts.disabledTitle : title,
+      radio: true,
+      checked: mode === current,
+      disabled,
+      separatorBefore: i === 0 && opts.separate === true,
+      onSelect: () => onSet(mode),
+    }
+  })
 }

@@ -529,6 +529,22 @@ describe('solveBlock — byproducts first', () => {
     expect(solveBlock({ ...plan(burn), ...bf }, data)).toEqual(solveBlock(plan(burn), data))
   })
 
+  it('ignores the mode on a locked item that a connection partly covers', () => {
+    // The offer (10) is below the residual (30): the lock must still decide, not the cheap slack of pass 1.
+    const locked = { noImportItems: ['plate'] }
+    const caps = () => new Map([['plate', 10]])
+    expect(solveBlock({ ...plan(), ...locked, ...bf }, connectionGameData(), caps()))
+      .toEqual(solveBlock({ ...plan(), ...locked }, connectionGameData(), caps()))
+  })
+
+  it("ignores the mode on a byproduct consumer's ingredient that a connection partly covers", () => {
+    const data = connectionGameData()
+    data.recipes.burn = recipe('burn', 1, [{ itemId: 'plate', type: 'item', amount: 1 }], [product('ash', 1)])
+    const burn: RecipeNode = { ...planNode('b', 'burn'), byproductConsumer: true }
+    const caps = () => new Map([['plate', 10]])
+    expect(solveBlock({ ...plan(burn), ...bf }, data, caps())).toEqual(solveBlock(plan(burn), data, caps()))
+  })
+
   it('does not import when the byproducts cover the need', () => {
     const rich: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }, { id: 's', itemId: 'slag', rate: 60 }]
     const { result } = solveBlock({ ...plan(), goals: rich, ...bf }, connectionGameData())

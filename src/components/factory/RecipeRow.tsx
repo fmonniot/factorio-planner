@@ -705,7 +705,7 @@ export function RecipeRow({
             const itemName = gameData.items[itemId]?.name ?? itemId
             const openMenu = (e: React.MouseEvent) => openItemMenu(e, itemId, true)
             const sourcing = activeBlock?.itemSourcing[itemId]
-            const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
+            const hint = onAddConsumer ? '; right-click to add a consumer recipe or choose how it is sourced' : '; right-click to choose how it is sourced'
 
             if (isMultiOutput) {
               // In multi-output recipes, clicking a byproduct tile makes it primary.

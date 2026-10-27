@@ -37,7 +37,8 @@ export const BC_BONUS = -0.01
  * > 0: output that recipes make anyway is used before importing (at 0 the LP may import and leave that output as surplus).
  * << 1 (a recipe run): a recipe runs only for the item if one run replaced more than 1e5 imported units
  *   (the bundled data sets yield at most 5000 per run: nullius-boxed-wood-chip-burning; Seablock max 1500).
- * ~10x SHIP_COST·(1 + RANK_STEP·area) in areas.ts (below ~90 areas), so another area's output is shipped before importing.
+ * Above the shipping cost SHIP_COST·(1 + RANK_STEP·area) in areas.ts (1e-6 up to ~1e-5) for areas below ~90, so another
+ *   area's output is shipped before importing; at area 90 the two are equal (a tie), beyond it shipping costs more.
  * 1000x the solver's 1e-8 pivot precision.
  */
 export const BYPRODUCTS_FIRST_SLACK_COST = 1e-5

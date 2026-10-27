@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { solve, flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
-// Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius export).
+// Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
 // Real-data checks are in index.integration.test.ts.
 
@@ -75,7 +75,7 @@ function recipes(): GameRecipe[] {
     recipe('nullius-air-separation-2', 'distillation', 1,
       [fluid('nullius-air', 100)],
       [fluid('nullius-nitrogen', 66), fluid('nullius-residual-gas', 3), fluid('nullius-carbon-dioxide', 30)]),
-    recipe('nullius-steam-electrolysis', 'electrolysis', 1,
+    recipe('nullius-steam-electrolysis', 'nullius-electrolysis', 1,
       [fluid('nullius-steam', 2000)],
       [fluid('nullius-hydrogen', 800), fluid('nullius-oxygen', 400)]),
     recipe('nullius-decompress-oxygen', 'decompression', 1,
@@ -83,7 +83,7 @@ function recipes(): GameRecipe[] {
       [fluid('nullius-oxygen', 500)]),
     recipe('nullius-acid-nitric', 'basic-chemistry', 1,
       [fluid('nullius-oxygen', 20), fluid('nullius-ammonia', 10)],
-      [fluid('nullius-nitric-acid', 5)]),
+      [fluid('nullius-acid-nitric', 5)]),
     recipe('kovarex-enrichment-process', 'centrifuging', 60,
       [item('uranium-235', 40), item('uranium-238', 5)],
       [
@@ -329,7 +329,7 @@ describe('solver synthetic cases', () => {
   describe('case 8: byproducts first', () => {
     // Electrolysis makes H2 (the goal) and O2 on the side; decompression is the only other source of O2.
     const recipeIds = ['nullius-steam-electrolysis', 'nullius-decompress-oxygen', 'nullius-acid-nitric']
-    const goals: Array<[string, number]> = [['nullius-hydrogen', 800], ['nullius-nitric-acid', 125]]
+    const goals: Array<[string, number]> = [['nullius-hydrogen', 800], ['nullius-acid-nitric', 125]]
     const solveWith = (itemSourcing: Block['itemSourcing']) => {
       const plan: { goals: SolverGoal[]; nodes: RecipeNode[]; itemSourcing: Block['itemSourcing'] } = {
         goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),

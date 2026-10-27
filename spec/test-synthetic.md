@@ -342,8 +342,8 @@ Total ingot is 52 exec/min, as in one area (6.933 machines, 7 buildings), but sp
 
 **Goals:** 800 `nullius-hydrogen` / min and 125 `nullius-acid-nitric` / min
 
-Recipes (all crafting time 1 s, mirrored from the Nullius export):
-- `nullius-steam-electrolysis` (electrolysis): 2000 steam → 800 hydrogen + 400 oxygen
+Recipes (all crafting time 1 s; the coefficients and item ids are those of the Nullius export, on synthetic fixtures):
+- `nullius-steam-electrolysis` (`nullius-electrolysis`): 2000 steam → 800 hydrogen + 400 oxygen
 - `nullius-decompress-oxygen` (decompression): 125 compressed oxygen → 500 oxygen
 - `nullius-acid-nitric` (basic chemistry): 20 oxygen + 10 ammonia → 5 nitric acid
 

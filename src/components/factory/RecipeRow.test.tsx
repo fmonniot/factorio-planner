@@ -937,11 +937,37 @@ describe('RecipeRow item sourcing menu', () => {
     expect(badge).toHaveTextContent('B')
   })
 
-  it('has one menu open at a time across chips', () => {
+  it('closes an ingredient chip menu when the recipe-cell menu opens, and the reverse', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(waterTile())
-    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Remove recipe' })).toBeInTheDocument()
+    fireEvent.contextMenu(waterTile())
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+  })
+
+  it('keeps Own recipes first enabled to clear a mode left on a product of the block', () => {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{
+        ...block,
+        products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }],
+        itemSourcing: { hydrogen: 'byproducts-first' },
+      }],
+    })
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
+    const [own, byproducts, connections] = screen.getAllByRole('menuitemradio')
+    expect(own).toBeEnabled()
+    expect(byproducts).toBeDisabled()
+    expect(connections).toBeDisabled()
+    fireEvent.click(own)
+    expect(sourcing()).toEqual({})
   })
 })
 
@@ -1209,6 +1235,21 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe(added.id)
   })
 
+  it('closes the area menu when a chip menu opens, and the reverse', () => {
+    renderAreaRow('e-root')
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
+    expect(labels()).toEqual(['Chlorides · uses 45.0/m'])
+    fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    openMenu()
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(labels()).toContain('Build also in…')
+  })
+
   it('shows the consumption in the current rate unit', () => {
     useUiStore.setState({ rateUnit: 'sec' })
     renderAreaRow('e-root')
@@ -1284,13 +1325,13 @@ describe('RecipeRow in a block with areas', () => {
   it('explains in a block with areas what the primary product decides', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
-      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe',
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe or choose how it is sourced',
     )
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
-    expect(screen.getByTitle('Oxygen — Set as primary')).toBeInTheDocument()
+    expect(screen.getByTitle('Oxygen — Set as primary; right-click to choose how it is sourced')).toBeInTheDocument()
   })
 
   describe('Duplicate to… on a sub-factory row', () => {
