@@ -12,9 +12,14 @@ export const UI_STATE_STORAGE_KEY = 'factorio-planner:ui'
 
 export type RateUnit = 'sec' | 'min'
 
+/** How the production table lists its rows: the block's tree, or one line per recipe over every area. */
+export type TableView = 'tree' | 'recipe'
+
 export interface UiStoreState {
   rateUnit: RateUnit
   setRateUnit: (unit: RateUnit) => void
+  tableView: TableView
+  setTableView: (view: TableView) => void
   /**
    * Transient (not persisted) ask to open the workspace menu on its "Default machines"
    * flyout, optionally focused on one crafting category. `seq` changes on every request.
@@ -34,6 +39,8 @@ export interface UiStoreState {
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
   setRateUnit: (unit) => set({ rateUnit: unit }),
+  tableView: 'tree',
+  setTableView: (view) => set({ tableView: view }),
   defaultMachinesRequest: null,
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
@@ -49,12 +56,13 @@ export const useUiStore = create<UiStoreState>()((set) => ({
 
 interface PersistedUiState {
   rateUnit: RateUnit
+  tableView: TableView
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit }
+    const { rateUnit, tableView } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, tableView }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -69,6 +77,9 @@ export function loadPersistedUiState(): void {
     if (parsed.rateUnit === 'sec' || parsed.rateUnit === 'min') {
       useUiStore.setState({ rateUnit: parsed.rateUnit })
     }
+    if (parsed.tableView === 'tree' || parsed.tableView === 'recipe') {
+      useUiStore.setState({ tableView: parsed.tableView })
+    }
   } catch {
     // Malformed or unavailable — start with defaults.
   }
@@ -76,7 +87,7 @@ export function loadPersistedUiState(): void {
 
 export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
-    if (state.rateUnit !== prevState.rateUnit) {
+    if (state.rateUnit !== prevState.rateUnit || state.tableView !== prevState.tableView) {
       saveUiState()
     }
   })

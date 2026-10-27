@@ -1,6 +1,7 @@
 import { BlockTabs } from '../BlockTabs'
 import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
+import { PlanAreasButton } from './PlanAreas'
 import { TechTreeButton } from '../TechTree'
 import { WarningsPopover } from './WarningsPopover'
 import { RateUnitButton } from '../RateUnitButton'
@@ -22,6 +23,7 @@ export function TopBar() {
           <RateUnitButton />
           <HorizonButton />
           <BlockGraphButton />
+          <PlanAreasButton />
           <TechTreeButton />
           {hasGameData && <div aria-hidden className="w-px h-5 bg-gray-700 mx-1.5" />}
           <WorkspaceMenu />

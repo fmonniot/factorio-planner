@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { AreasPane, FlowChip } from './AreasPane'
+import { AreaListItem, AreasPane, FlowChip } from './AreasPane'
 import type { AreaRow } from './areaRows'
 import type { GameData } from '../../data/types'
 
@@ -75,5 +75,22 @@ describe('FlowChip without onSelect', () => {
     expect(chip.tagName).toBe('SPAN')
     expect(chip).toHaveAttribute('title', 'Water: 60.0/m — from outside the block')
     expect(screen.queryAllByRole('button')).toHaveLength(0)
+  })
+})
+
+describe('AreaListItem', () => {
+  const props = { items, rateUnit: 'min' as const, selectedItemId: null, onSelect: () => {} }
+
+  it('shows the name as plain text without onOpen', () => {
+    render(<ul><AreaListItem row={rows[1]} {...props} /></ul>)
+    expect(screen.queryByRole('button', { name: 'Plastics' })).toBeNull()
+  })
+
+  it('makes the name a button with onOpen', () => {
+    const onOpen = vi.fn()
+    render(<ul><AreaListItem row={rows[1]} {...props} onOpen={onOpen} openTitle="Show Plastics" /></ul>)
+    fireEvent.click(screen.getByRole('button', { name: 'Plastics' }))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(screen.getByTitle('Show Plastics')).toBeInTheDocument()
   })
 })
