@@ -122,6 +122,7 @@ describe('AreaChipsMore', () => {
   })
 
   it('closes on a press outside and on a scroll, but not on a scroll inside the popup', () => {
+    vi.useFakeTimers()
     renderMore()
     fireEvent.focus(trigger())
     fireEvent.pointerDown(screen.getByRole('tooltip'))
@@ -132,6 +133,7 @@ describe('AreaChipsMore', () => {
 
     fireEvent.focus(trigger())
     expect(popup()).not.toBeNull()
+    advance(1000)
     fireEvent.scroll(window)
     expect(popup()).toBeNull()
   })
@@ -149,5 +151,100 @@ describe('AreaChipsMore', () => {
     const p = screen.getByRole('tooltip')
     expect(p.textContent).toContain('Also sends')
     expect(p.querySelector('[data-direction="sends"]')).not.toBeNull()
+  })
+
+  it('stays pinned by a click made while the hover timer is pending, and a second click closes it', () => {
+    vi.useFakeTimers()
+    renderMore()
+    fireEvent.mouseEnter(trigger())
+    advance(100)
+    fireEvent.pointerDown(trigger())
+    fireEvent.click(trigger())
+    expect(popup()).not.toBeNull()
+    advance(HOVER_OPEN_DELAY_MS)
+    fireEvent.mouseLeave(trigger())
+    advance(HOVER_HIDE_GRACE_MS * 3)
+    expect(popup()).not.toBeNull()
+    fireEvent.click(trigger())
+    expect(popup()).toBeNull()
+  })
+
+  it('opens on focus after a press that never became a click', () => {
+    renderMore()
+    fireEvent.pointerDown(trigger())
+    fireEvent.pointerUp(window)
+    fireEvent.focus(trigger())
+    expect(popup()).not.toBeNull()
+    fireEvent.blur(trigger())
+    fireEvent.pointerDown(trigger())
+    fireEvent(window, new Event('dragstart'))
+    fireEvent.focus(trigger())
+    expect(popup()).not.toBeNull()
+  })
+
+  it('still ignores the focus a press causes', () => {
+    renderMore()
+    fireEvent.pointerDown(trigger())
+    fireEvent.focus(trigger())
+    expect(popup()).toBeNull()
+  })
+
+  it('follows the trigger when focus scrolls it into view, but closes on a later scroll', () => {
+    vi.useFakeTimers()
+    renderMore()
+    fireEvent.focus(trigger())
+    advance(16)
+    fireEvent.scroll(window)
+    expect(popup()).not.toBeNull()
+    advance(1000)
+    fireEvent.scroll(window)
+    expect(popup()).toBeNull()
+  })
+
+  it('keeps the contextmenu event inside the popup', () => {
+    const onContextMenu = vi.fn()
+    render(
+      <div onContextMenu={onContextMenu}>
+        <AreaChipsMore flows={FLOWS} direction="receives" items={items} rateUnit="min" />
+      </div>,
+    )
+    fireEvent.focus(trigger())
+    fireEvent.contextMenu(screen.getByRole('tooltip'))
+    expect(onContextMenu).not.toHaveBeenCalled()
+  })
+
+  it('closes when the overflow empties and does not come back with it', () => {
+    const { rerender } = renderMore()
+    fireEvent.focus(trigger())
+    expect(popup()).not.toBeNull()
+    rerender(<AreaChipsMore flows={[]} direction="receives" items={items} rateUnit="min" />)
+    expect(popup()).toBeNull()
+    rerender(<AreaChipsMore flows={FLOWS} direction="receives" items={items} rateUnit="min" />)
+    expect(popup()).toBeNull()
+  })
+
+  it('re-places the popup when it resizes', () => {
+    let notify: () => void = () => {}
+    vi.stubGlobal('ResizeObserver', class {
+      constructor(cb: () => void) { notify = cb }
+      observe() {}
+      disconnect() {}
+    })
+    try {
+      renderMore()
+      fireEvent.focus(trigger())
+      const p = screen.getByRole('tooltip')
+      const rect = vi.spyOn(p, 'getBoundingClientRect')
+      rect.mockReturnValue({ width: 100, height: 100, left: 0, top: 0, right: 100, bottom: 100, x: 0, y: 0, toJSON() {} })
+      act(() => notify())
+      const before = p.style.top
+      rect.mockReturnValue({ width: 100, height: 5000, left: 0, top: 0, right: 100, bottom: 5000, x: 0, y: 0, toJSON() {} })
+      act(() => notify())
+      expect(rect).toHaveBeenCalled()
+      expect(p.style.top).not.toBe('')
+      expect(before).not.toBeUndefined()
+    } finally {
+      vi.unstubAllGlobals()
+    }
   })
 })

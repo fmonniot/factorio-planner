@@ -860,12 +860,16 @@ rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more rec
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per
 line: a chip (icon and rate) and the item name. Hovering the button opens it after 300 ms;
-keyboard focus opens it at once (focus caused by a mouse press does not); a click opens it at
-once and pins it, and a second click, Enter or Space closes it. Leaving the button or the popup
+keyboard focus opens it at once (focus caused by a mouse press does not; the press ends with the
+pointer, so a press that never becomes a click leaves later focus working); a click opens it at
+once and pins it, even within the hover delay, and a second click, Enter or Space closes it. Leaving the button or the popup
 closes it after a 100 ms grace period unless it is pinned or opened by focus, so the pointer can
-move onto the popup, which scrolls when the list is long. Escape (default prevented, so it closes
-nothing else), blur, a press outside, any scroll outside the popup, a window resize or blur and
-the start of a row drag also close it. The popup is rendered in a portal on `document.body`
+move onto the popup, which scrolls when the list is long. Escape (default prevented, which the warnings popover, the menus and the summary pane honour, so it closes
+nothing else), blur, a press outside, any scroll outside the popup (except the one in the 300 ms after
+a focus opened it, which only re-anchors it: focus may scroll the button into view), a window resize or
+blur and the start of a row drag also close it. The placement is measured on opening and again whenever
+the popup resizes. Context-menu events from the popup do not reach the row. The popup closes when the
+overflow empties. The popup is rendered in a portal on `document.body`
 (`position: fixed`, to the right of the button, flipped left or clamped by `anchoredPosition`), since
 the table scrolls. Timing, placement and dismissal live in the `useHoverPopup.ts` hook. An expanded
 area and an organising sub-factory show no chips.

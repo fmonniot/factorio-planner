@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData, SolvedArea } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
@@ -19,8 +20,11 @@ interface AreaChipsMoreProps {
 }
 
 export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMoreProps) {
-  const { open, triggerProps, popupProps } = useHoverPopup<HTMLButtonElement>()
-  if (flows.length === 0) return null
+  const { open, hide, triggerProps, popupProps } = useHoverPopup<HTMLButtonElement>()
+  const empty = flows.length === 0
+  // A re-solve can empty the overflow while the popup is open: close it, so it does not come back stale.
+  useEffect(() => { if (empty) hide() }, [empty, hide])
+  if (empty) return null
   const received = direction === 'receives'
   return (
     <>
@@ -38,6 +42,8 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
           {...popupProps}
           data-testid="area-chips-popup"
           data-direction={direction}
+          // React events cross portals along the React tree: keep the row's context menu out of it.
+          onContextMenu={e => e.stopPropagation()}
           className="z-[60] w-max max-w-xs max-h-[60vh] overflow-y-auto p-2 text-xs bg-gray-900 border border-gray-700 rounded-lg shadow-2xl"
         >
           <div className="mb-1 text-gray-400">{received ? 'Also receives' : 'Also sends'}</div>

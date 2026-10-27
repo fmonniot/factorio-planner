@@ -264,4 +264,18 @@ describe('WarningsPopover — pill', () => {
     fireEvent.click(pill)
     expect(pill).toHaveAttribute('aria-expanded', 'true')
   })
+
+  it('ignores an Escape another layer already handled, and closes on a plain one', () => {
+    setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
+    render(<WarningsPopover />)
+    const pill = screen.getByTitle('Show solver warnings')
+    fireEvent.click(pill)
+    const handled = (e: KeyboardEvent) => e.preventDefault()
+    window.addEventListener('keydown', handled, true)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    window.removeEventListener('keydown', handled, true)
+    expect(pill).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(pill).toHaveAttribute('aria-expanded', 'false')
+  })
 })
