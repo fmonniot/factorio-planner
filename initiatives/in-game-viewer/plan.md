@@ -2,7 +2,7 @@
 
 Status: Future
 
-Design notes for a read-only Factorio mod that shows the planner's blocks and plans in the game, and the bridge that carries them there. Nothing is implemented yet, and the first phase is a spike because some transport details (datagram size, loss in practice, multiplayer) are not yet measured (see [Open questions](#open-questions)). External facts are listed with their sources in [Sources and verification](#sources-and-verification).
+Design notes for a read-only Factorio mod that shows the planner's blocks and plans in the game, and the bridge that carries them there. Nothing is implemented yet, and the first phase is a spike because some transport details (datagram size, loss in practice, behaviour while paused, browser-to-localhost access, multiplayer) are not yet measured (see [Open questions](#open-questions)). External facts are listed with their sources in [Sources and verification](#sources-and-verification).
 
 ---
 
@@ -55,10 +55,12 @@ The projection is defined once, as a Zod schema in the planner (the same rule as
 A `mod/` folder holding a normal Factorio mod (`info.json`, `control.lua`, `locale/`, `migrations/`).
 
 - **Receive.** A thin adapter calls `helpers.recv_udp()` on a timer (for example every few ticks), which dispatches `on_udp_packet_received` for the packets that arrived since the last call ([S1](#sources-and-verification)); the event handler reassembles chunked snapshots, validates them, and swaps the new snapshot in atomically. A snapshot that fails validation or is incomplete leaves the previous one on screen.
+- **Encoding.** The mod receives `payload` as a Lua string and decodes it with `helpers.json_to_table` ([U7](#sources-and-verification)). Snapshots carry ids, which are ASCII; whether the wire format is raw JSON or base64 depends on whether `payload` is binary-safe, measured in [Phase 0](#phase-0--spike). Everything the mod sends goes through `send_udp`, whose `data` is a `LocalisedString` with its own limits ([U8](#sources-and-verification)), so the mod's messages stay short.
+- **Bridge port.** `send_udp(port, …)` needs the bridge's port, and `--enable-lua-udp` only sets the game's own listening port. The mod reads the bridge's port from a runtime-global mod setting (default shared with the bridge's default), so the player never edits Lua.
 - **Store.** The accepted snapshot is kept in `storage`, so it survives save and load and shows after reloading a save without the bridge running.
-- **Display.** A top-bar button opens a window per player: a block list on the left (block colour, name), and the selected block on the right with products, recipe rows (icon, machine, count, power), imports and warnings. Read-only: no input except selecting a block, collapsing sections and closing. A `Disconnected` / `Stale` indicator shows when the bridge has not sent for a while or the snapshot is older than the one in the planner.
+- **Display.** A top-bar button opens a window per player: a block list on the left (block colour, name), and the selected block on the right with products, recipe rows (icon, machine, count, power), imports and warnings. Read-only: no input except selecting a block, collapsing sections and closing. A `Disconnected` / `Stale` indicator shows when the bridge has not sent for a while or the snapshot is older than the one in the planner. Silence is counted in game ticks, not wall-clock time, because no handler runs while the game is paused and the single-player main menu pauses it ([U9](#sources-and-verification)).
 - **Pure logic split.** Decoding, validation, reassembly and view-model building are plain Lua modules with no `game` / `script` / `storage` access, so they run under busted. Event handlers and GUI code stay thin.
-- **No effect on gameplay.** The mod changes no prototypes and no entities. Whether the mod, or `--enable-lua-udp`, disables achievements is not stated in the sources below; [Phase 0](#phase-0--spike) checks it.
+- **No effect on gameplay.** The mod changes no prototypes and no entities. Whether the mod, or `--enable-lua-udp`, disables achievements is not stated in the sources below ([U4](#sources-and-verification)).
 - **Packaging.** The release workflow builds the mod as a zip and attaches it to the GitHub release, next to the bridge binaries. Factorio expects the zip to be named `<mod name>_<version>.zip` with a folder of the same name at its root; confirm against the mod structure page ([U6](#sources-and-verification)) when writing the workflow. The version in `info.json` is the release version.
 
 ## The bridge
@@ -66,7 +68,8 @@ A `mod/` folder holding a normal Factorio mod (`info.json`, `control.lua`, `loca
 A `bridge/` Cargo workspace with a library crate (protocol, chunking, session state) and a binary crate (CLI, sockets).
 
 - Listens on a localhost WebSocket for the planner; sends UDP datagrams to the mod's port.
-- **Chunking and reliability.** A snapshot is split into datagrams under a size cap, each with `snapshotId`, `index`, `count` and a checksum. UDP can drop and reorder even on loopback, so the mod acknowledges a complete snapshot and the bridge resends missing chunks. Only the newest snapshot matters, so an older one is dropped when a newer one arrives.
+- **Chunking and reliability.** A snapshot is split into datagrams under a size cap, each with `snapshotId`, `index`, `count` and a checksum. UDP can drop and reorder even on loopback, so the mod acknowledges a complete snapshot and the bridge resends missing chunks. Only the newest snapshot matters, so an older one is dropped when a newer one arrives. The chunk size, and whether a snapshot is chunked at all, follow from the maximum datagram size measured in [Phase 0](#phase-0--spike).
+- **Pacing.** The game's receive buffer is 256 KB and data beyond it is lost between two `recv_udp` calls, including while the game is paused or saving ([S1](#sources-and-verification)). The bridge therefore sends at most a bounded number of bytes per poll interval and waits for acknowledgements before sending more; the bound is set from the buffer-limit measurement in Phase 0.
 - **Status.** Reports to the planner whether a mod is connected, and which protocol version and data-set it announced, so the planner can warn on a mismatch.
 - **Configuration.** Ports and the allowed web origin via flags with defaults; binds to `127.0.0.1` only, and checks the `Origin` of WebSocket connections so a random web page cannot push snapshots. Nothing is persisted.
 - **Single binary.** `cargo build --release` per platform in CI, attached to the GitHub release next to the mod zip.
@@ -97,11 +100,39 @@ A Factorio-free test of the transport is still possible: the bridge tests talk t
 
 ### Phase 0 — spike
 
-Throwaway mod and a few-line Rust UDP echo, run by hand in a real Factorio 2.0.77 game, to answer the [open questions](#open-questions) that decide the design: the maximum datagram size in each direction, whether packets are lost or reordered in practice, how fast `recv_udp` can be polled without cost, whether achievements are affected, and what happens to a multiplayer game. Exit criteria: a round trip of a 20 KB payload in chunks, with the measurements written into this document.
+Throwaway code, kept under `initiatives/in-game-viewer/spike/` while the phase runs and deleted when it closes; the results stay in this document, each with its date and the Factorio build. The phase answers the [open questions](#open-questions) that decide the design, in three steps.
 
-### Phase 1 — contract
+**Step 0 — read and measure, no spike code.**
 
-Snapshot schema in the planner, projection function and tests, generated JSON Schema, shared fixtures (small, a Seablock block with areas, a Nullius plan with connections and a loop).
+- Read the pages behind S2 (the fields of `on_udp_packet_received`), U1, U5, U6, U7 and U8, and move each to an **S** entry with its source.
+- Measure the size of a realistic snapshot on the planner side, using the same sample plan as [share-by-url](../share-by-url/plan.md) (a hand-built JSON of the fields listed in [What is sent](#what-is-sent) is enough; the real projection comes in Phase 1). This sets the range the Factorio probes need to cover.
+
+**Step 1 — browser to localhost (no Factorio).** A small page served from the GitHub Pages deployment opens `ws://127.0.0.1:<port>` against a throwaway WebSocket listener. Try current Chrome, Firefox and Safari, and record whether the connection is allowed, blocked, or behind a permission prompt ([U3](#sources-and-verification)). If it is blocked somewhere, decide between `wss` with a local certificate, a supported-browser list, or moving the [Tauri host](#later) up.
+
+**Step 2 — UDP in Factorio 2.0.77.** A spike mod and a few-line Rust UDP echo, run by hand on a minimal save with only the spike mod enabled (Nullius adds startup time and noise). The bridge→mod direction matters most, because that is where plan data flows; the mod→bridge direction only has to carry short messages. Fill in the table:
+
+| Measurement | Method | Feeds |
+|---|---|---|
+| Largest single datagram, bridge→mod and mod→bridge | Probe 1, 16, 60 and 64+ KB (UDP's ceiling is about 65,507 bytes) | Whether chunking exists; chunk size |
+| Binary safety of `payload` | Send NUL bytes and non-ASCII; compare byte for byte | Raw JSON or base64 |
+| Loss and reordering | Sequence-numbered datagrams, about 10,000 of them, at several send rates | Resend logic |
+| Behaviour at the 256 KB buffer limit | Send more than 256 KB between two `recv_udp` calls | Whether datagrams are dropped whole or truncated; the pacing bound |
+| Behaviour while paused | Send while the game is paused and while the main menu is open; see what arrives after resuming | Staleness indicator; resend timing |
+| Poll cost | UPS with `recv_udp` every tick, 10 ticks and 60 ticks | Poll interval |
+| Latency | Send to `on_udp_packet_received`, in single-player | Whether acks can be time-bound |
+| Decode cost | `helpers.json_to_table` on a payload as large as the snapshot size from Step 0 | Whether decoding needs spreading across ticks |
+| `for_player` | `send_udp` with and without it, in single-player | The mod's send call |
+| Port already in use | Repeat the [S5](#sources-and-verification) case | The bridge's port check |
+| Multiplayer (optional) | Host a game, receive a snapshot, check `storage` stays in sync | Whether multiplayer can ever be supported |
+| Achievements (optional) | Play with the spike mod and `--enable-lua-udp`, check whether achievements stay enabled | A README note if affected |
+
+**Step 3 — coexistence.** Load the spike mod in the maintainer's Nullius save and repeat the round trip once.
+
+Exit criteria: every non-optional row is filled in this document, the transport decision is recorded (chunked UDP, single datagram, or a [fallback](#if-the-udp-transport-does-not-work)), the browser-to-localhost outcome is recorded, and the U entries read in Step 0 are converted to S entries.
+
+### Phase 1 — snapshot contract
+
+Transport-independent, so it can start before Phase 0 closes. Snapshot schema in the planner, projection function and tests, generated JSON Schema, shared fixtures (small, a Seablock block with areas, a Nullius plan with connections and a loop). The wire protocol (chunk header, datagram size, pacing) belongs to Phase 3 and is designed from the Phase 0 measurements.
 
 ### Phase 2 — mod
 
@@ -109,7 +140,7 @@ Receive, validate, store, display; busted tests and the manual checklist.
 
 ### Phase 3 — bridge
 
-Rust workspace, protocol, resend logic, WebSocket endpoint, status; tests and release builds.
+Rust workspace, wire protocol (from the Phase 0 measurements), pacing, resend logic, WebSocket endpoint, status; tests and release builds.
 
 ### Phase 4 — planner integration
 
@@ -119,6 +150,15 @@ Top-bar control, status, send. Update the spec and the README.
 
 The local end-to-end script and the manual checklist, a release workflow that attaches the mod zip and the bridge binaries to the GitHub release, and a short "In-game viewer" section in the README that includes how to set the launch option.
 
+## If the UDP transport does not work
+
+Phase 0 decides whether UDP is used. If loss on loopback stays unacceptable after resend, `recv_udp` costs too much to poll, or the datagram limits make a snapshot undeliverable, the candidates are:
+
+- **Exported mod data.** The planner exports a small mod (or a Lua data file inside one) that the player drops into the mods folder. No bridge and no launch flag, but the game must be restarted to load a new plan, and the mod would carry the plan in its own files.
+- **RCON.** The bridge pushes snapshots through RCON commands. This only exists for a hosted multiplayer game, which the first version does not target.
+
+The loss and cost thresholds that select a fallback are recorded with the Phase 0 results.
+
 ## Later
 
 - **Tauri host.** A desktop app that bundles the planner and the bridge, removing the browser-to-localhost hop and the extra download. The library/binary split above keeps this open.
@@ -127,11 +167,12 @@ The local end-to-end script and the manual checklist, a release workflow that at
 
 ## Open questions
 
-- **Datagram size and fields.** The API page documents a 256 KB receive buffer and no send-size or rate limit ([S1](#sources-and-verification)); the event's fields (`on_udp_packet_received`) are not read yet ([S2](#sources-and-verification)). Read them, and measure the practical datagram size in the spike.
+- **Datagram size and fields.** The API page documents a 256 KB receive buffer and no send-size or rate limit ([S1](#sources-and-verification)); the event's fields (`on_udp_packet_received`) are not read yet ([S2](#sources-and-verification)). Reading them is Phase 0 step 0; the practical datagram size is measured in step 2.
 - **Port already in use.** A 2.0.60 report describes a crash when the UDP port is held by another process and a mod calls `send_udp`; staff replied it is "fixed for the next release" without naming a version ([S5](#sources-and-verification)). We target 2.0.77, which is later, but the spike should repeat the case, and the bridge should check that its own port is free and report a clear error.
 - **Multiplayer and determinism.** The API page says received packets are introduced into the game state through input actions and distributed to every client ([S1](#sources-and-verification)), which suggests storing a snapshot in `storage` is deterministic. This is a reading of the documentation, not a test; multiplayer stays out of v1 until the spike checks it.
-- **Browser to localhost.** A page served over HTTPS opening `ws://127.0.0.1` may be allowed or blocked depending on the browser's mixed-content and local-network access rules ([U3](#sources-and-verification)). Test on the GitHub Pages deployment, and decide whether to use `wss` with a local certificate or document a supported browser list.
-- **Size.** How big is a snapshot for a large plan? Measure with the same sample plan as [share-by-url](../share-by-url/plan.md), and decide whether the chunking needs compression.
+- **Browser to localhost.** A page served over HTTPS opening `ws://127.0.0.1` may be allowed or blocked depending on the browser's mixed-content and local-network access rules ([U3](#sources-and-verification)). Tested on the GitHub Pages deployment in Phase 0 step 1, which decides between `wss` with a local certificate and a documented browser list.
+- **Size.** How big is a snapshot for a large plan? Measured before the Factorio probes (Phase 0 step 0) with the same sample plan as [share-by-url](../share-by-url/plan.md); it decides whether chunking, and compression, are needed at all.
+- **Pause behaviour.** What the mod receives after the game was paused or the main menu was open ([S1](#sources-and-verification), [U9](#sources-and-verification)); it shapes the staleness indicator and the resend timing.
 - **Staleness.** Whether the mod should ask for a refresh on load, or only react to pushes.
 
 ## Sources and verification
@@ -148,7 +189,10 @@ Every external fact in this document is listed here. Entries marked **S** were r
 | S6 | Crash in 2.1.9 on `helpers.recv_udp(0)` on a headless server. A forum member replied "i posted a fix for this, pending review fixed for next release". Out of scope: we support 2.0.77 only. | [forums.factorio.com, p=697983](https://forums.factorio.com/viewtopic.php?p=697983) |
 | U1 | A mod can render items, recipes and entities with `[item=…]`, `[recipe=…]`, `[entity=…]` rich text and `item/<name>` sprites, so no names or icons need to be sent. | From memory; check the rich text and sprite path docs |
 | U2 | Zod 4 can export a JSON Schema. | From memory; check against the installed `zod` version (`^4.6.7` in `package.json`) |
-| U3 | A page served over HTTPS may open `ws://127.0.0.1` in current Chromium and Firefox; Safari differs. | From memory; test on the GitHub Pages deployment |
+| U3 | A page served over HTTPS may open `ws://127.0.0.1` in current Chromium and Firefox; Safari differs, and Chromium's local-network-access rules may add a permission prompt. | From memory; test on the GitHub Pages deployment (Phase 0 step 1) |
 | U4 | Whether the mod or `--enable-lua-udp` disables achievements. | Not stated in S1 to S6 |
 | U5 | The mod's `info.json` can pin the game version (`factorio_version`, a `base` dependency). | From memory; check the `info.json` documentation |
 | U6 | Mod zip layout and name: `<name>_<version>.zip` with a `<name>_<version>/` folder at the root. | From memory; check [Tutorial:Mod structure](https://wiki.factorio.com/Tutorial:Mod_structure) (not fetched) |
+| U7 | `helpers.json_to_table` (and `helpers.table_to_json`) exist in 2.0.77 and decode a JSON string in the runtime stage. | From memory; check the LuaHelpers page (S1) |
+| U8 | `LocalisedString` limits (number of parameters, string length) apply to the `data` argument of `send_udp`. | From memory; check the LocalisedString page, then the spike |
+| U9 | In single-player the main menu pauses the game, so no tick handlers run until it is closed. | From memory; observe in the Phase 0 pause test |
