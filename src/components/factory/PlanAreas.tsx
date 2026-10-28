@@ -31,7 +31,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
 
   const withAreas = useMemo(() => blocks.filter(b => results[b.id]?.areas !== undefined), [blocks, results])
-  const withoutAreas = blocks.length - withAreas.length
 
   const [tab, setTab] = useState<string>(() => {
     if (withAreas.some(b => b.id === activeBlockId)) return activeBlockId
@@ -105,11 +104,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           ))}
           <Segment pressed={tab === ALL} onClick={() => selectTab(ALL)}>All blocks</Segment>
         </Segmented>
-        {withoutAreas > 0 && (
-          <span className="text-xs text-gray-500">
-            {withoutAreas} {withoutAreas === 1 ? 'block' : 'blocks'} without areas
-          </span>
-        )}
         <Segmented label="Rows">
           <Segment pressed={rowMode === 'category'} onClick={() => setRowMode('category')}>By category</Segment>
           <Segment pressed={rowMode === 'rate'} onClick={() => setRowMode('rate')}>By rate</Segment>
