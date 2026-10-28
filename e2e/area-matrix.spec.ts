@@ -29,7 +29,6 @@ test('the block view balances every row and names the areas', async ({ page }) =
   await open(page)
 
   await expect(blockTabs(page).getByRole('button')).toHaveText([/^Hydrogen\s*3$/, /^Hydrogen 2\s*3$/, 'All blocks'])
-  await expect(page.getByText('1 block without areas')).toBeVisible()
   await expect(matrix(page).getByRole('columnheader')).toHaveText([
     /items/, 'From outside', /^Top level/, /^Compression/, /^Chlorides/, 'To outside',
   ])

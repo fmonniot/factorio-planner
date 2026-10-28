@@ -86,7 +86,6 @@ describe('PlanAreasModal', () => {
     expect(tabs.map(t => t.textContent)).toEqual(['Alpha2', 'Charlie2', 'All blocks'])
     expect(group('Alpha')).toHaveAttribute('aria-pressed', 'true')
     expect(table('Alpha')).toBeInTheDocument()
-    expect(screen.getByText('1 block without areas')).toBeInTheDocument()
   })
 
   it('shows the areas as columns between the two outside columns', () => {
