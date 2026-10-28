@@ -360,3 +360,12 @@ export function matchQuery<R extends { itemId: string; name: string }>(
   if (itemHits.length > 0) return { rows: itemHits, columnIds }
   return { rows: rows.filter(r => colHits.some(c => hasCell(r, c))), columnIds }
 }
+
+/** Every category an item can fall in, by id (the item groups of the bundle, Other and Machines). */
+export function itemGroupMap(gameData: GameData): Map<string, ItemGroupInfo> {
+  const map = new Map<string, ItemGroupInfo>()
+  for (const g of Object.values(gameData.itemGroups)) map.set(g.id, { id: g.id, name: g.name, order: g.order })
+  map.set(OTHER_GROUP, { id: OTHER_GROUP, name: 'Other', order: '' })
+  map.set(MACHINES_GROUP, { id: MACHINES_GROUP, name: 'Machines for buildings', order: '' })
+  return map
+}
