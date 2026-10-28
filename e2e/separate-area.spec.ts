@@ -41,13 +41,14 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await expect(counts.nth(1)).not.toHaveText('0')
   await areasButton.click()
   const areas = page.locator('div.fixed.inset-0')
-  await expect(areas.getByRole('listitem', { name: 'Top level' })).toBeVisible()
-  const compressionArea = areas.getByRole('listitem', { name: 'Compression' })
-  await expect(compressionArea).toBeVisible()
-  await expect(compressionArea.locator('[data-item-id="nullius-hydrogen"]')).toHaveCount(0)
-  await expect(
-    compressionArea.locator('[data-item-id="nullius-compressed-hydrogen"][data-direction="sends"]'),
-  ).toHaveCount(1)
+  const matrix = areas.getByRole('table', { name: /^Areas of / })
+  await expect(matrix.getByRole('button', { name: 'Top level' })).toBeVisible()
+  await expect(matrix.getByRole('button', { name: 'Compression' })).toBeVisible()
+  const header = matrix.locator('th[data-area-id]').filter({ has: page.getByRole('button', { name: 'Compression' }) })
+  const col = await header.getAttribute('data-area-id')
+  // Compression sends compressed hydrogen and does not touch plain hydrogen.
+  await expect(matrix.locator(`tr[data-item-id="nullius-compressed-hydrogen"] td[data-col="${col}"]`)).toHaveAttribute('data-sign', 'send')
+  await expect(matrix.locator(`tr[data-item-id="nullius-hydrogen"] td[data-col="${col}"]`)).not.toHaveAttribute('data-sign', /.+/)
   await areas.getByRole('button', { name: 'Close' }).click()
 
   // The flag is saved with the plan. (A reload cannot show it: the fixture seeds storage on every navigation.)

@@ -94,11 +94,12 @@ export function planMatrix(
     let neg = 0
     const net: Record<string, number> = {}
     const areaCells: Record<string, Record<string, number>> = {}
+    // Only the blocks shown count, so a row adds up with the columns next to it.
     for (const b of withNodes) {
+      if (!shownIds.has(b.id)) continue
       const v = nets.get(b.id)?.get(itemId) ?? 0
       if (v > 0) pos += v
       else if (v < 0) neg -= v
-      if (!shownIds.has(b.id)) continue
       if (v !== 0) net[b.id] = v
       const c = cells.get(b.id)?.[itemId]
       if (c) areaCells[b.id] = c
