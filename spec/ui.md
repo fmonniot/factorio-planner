@@ -243,12 +243,13 @@ items as rows, areas as columns, and an outside column at each end. It is built 
 last solve of each block and is read-only. View state (tab, row and column modes, filter,
 focus, open groups) is local to the modal: not persisted.
 
-**Header.** The title "Areas"; a `role="group"` named "Block" with one toggle
-(`aria-pressed`, teal when pressed like **By recipe**) per block that has areas (a dot in
-the block's colour, the name, the number of areas) and **All blocks**, then a muted "K
-block(s) without areas" when some have none; a group named "Rows" (**By category**, **By
-rate**, **A–Z**); in the block view a group named "Columns" (**Flow order**, **Table
-order**); the text filter (`aria-label="Filter areas"`, placeholder "Filter by area,
+**Header.** The title "Areas"; then three segmented controls, each a dark rounded track
+(`role="group"`) holding one pill button per option (`aria-pressed`; the pressed pill is
+filled grey with white text, the others muted): a group named "Block" with one pill per
+block that has areas (a dot in the block's colour, the name, the number of areas) and
+**All blocks**, followed by a muted "K block(s) without areas" when some have none; a group
+named "Rows" (**By category**, **By rate**, **A–Z**); in the block view a group named
+"Column order" (**Flow order**, **Table order**); the text filter (`aria-label="Filter areas"`, placeholder "Filter by area,
 block or item"); **Close**. The modal opens on the active block when it has areas, else
 on the first block that has some. Changing the tab clears the focus, the selected item
 and the open groups. A footer explains the colours (sky "+ sends", orange "− receives")

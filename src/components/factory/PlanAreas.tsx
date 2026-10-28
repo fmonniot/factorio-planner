@@ -19,14 +19,23 @@ import type { GameData } from '../../data/types'
 
 const ALL = 'all'
 
-function Toggle({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
+/** A segmented control: a dark track holding one pill per option, the pressed one filled. */
+function Segmented({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1 p-[3px] bg-gray-950 border border-gray-700 rounded-lg">
+      {children}
+    </div>
+  )
+}
+
+function Segment({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button
       type="button"
       aria-pressed={pressed}
       onClick={onClick}
-      className={`text-xs px-2 py-1 rounded border ${
-        pressed ? 'border-teal-400 bg-teal-500/20 text-teal-200' : 'border-gray-600 text-gray-400 hover:border-gray-400'
+      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] ${
+        pressed ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
       }`}
     >
       {children}
@@ -109,39 +118,31 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     <Modal onClose={onClose} className="w-[min(96rem,98vw)] h-[90vh] flex flex-col">
       <div className="p-3 border-b border-gray-700 flex flex-wrap items-center gap-x-4 gap-y-2">
         <h2 className="text-lg font-semibold text-amber-200">Areas</h2>
-        <div role="group" aria-label="Block" className="flex flex-wrap items-center gap-1">
+        <Segmented label="Block">
           {withAreas.map(b => (
-            <button
-              key={b.id}
-              type="button"
-              aria-pressed={tab === b.id}
-              onClick={() => selectTab(b.id)}
-              className={`flex items-center gap-1.5 text-xs px-2 py-1 rounded border ${
-                tab === b.id ? 'border-teal-400 bg-teal-500/20 text-teal-200' : 'border-gray-600 text-gray-300 hover:border-gray-400'
-              }`}
-            >
+            <Segment key={b.id} pressed={tab === b.id} onClick={() => selectTab(b.id)}>
               <span aria-hidden className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
               {b.name}
               <span className="text-gray-400 font-mono">{results[b.id].areas!.length}</span>
-            </button>
+            </Segment>
           ))}
-          <Toggle pressed={tab === ALL} onClick={() => selectTab(ALL)}>All blocks</Toggle>
-        </div>
+          <Segment pressed={tab === ALL} onClick={() => selectTab(ALL)}>All blocks</Segment>
+        </Segmented>
         {withoutAreas > 0 && (
           <span className="text-xs text-gray-500">
             {withoutAreas} {withoutAreas === 1 ? 'block' : 'blocks'} without areas
           </span>
         )}
-        <div role="group" aria-label="Rows" className="flex items-center gap-1">
-          <Toggle pressed={rowMode === 'category'} onClick={() => setRowMode('category')}>By category</Toggle>
-          <Toggle pressed={rowMode === 'rate'} onClick={() => setRowMode('rate')}>By rate</Toggle>
-          <Toggle pressed={rowMode === 'name'} onClick={() => setRowMode('name')}>{'A\u2013Z'}</Toggle>
-        </div>
+        <Segmented label="Rows">
+          <Segment pressed={rowMode === 'category'} onClick={() => setRowMode('category')}>By category</Segment>
+          <Segment pressed={rowMode === 'rate'} onClick={() => setRowMode('rate')}>By rate</Segment>
+          <Segment pressed={rowMode === 'name'} onClick={() => setRowMode('name')}>{'A\u2013Z'}</Segment>
+        </Segmented>
         {tab !== ALL && (
-          <div role="group" aria-label="Columns" className="flex items-center gap-1">
-            <Toggle pressed={columnMode === 'flow'} onClick={() => setColumnMode('flow')}>Flow order</Toggle>
-            <Toggle pressed={columnMode === 'table'} onClick={() => setColumnMode('table')}>Table order</Toggle>
-          </div>
+          <Segmented label="Column order">
+            <Segment pressed={columnMode === 'flow'} onClick={() => setColumnMode('flow')}>Flow order</Segment>
+            <Segment pressed={columnMode === 'table'} onClick={() => setColumnMode('table')}>Table order</Segment>
+          </Segmented>
         )}
         <input
           type="text"
