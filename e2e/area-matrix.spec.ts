@@ -86,6 +86,10 @@ test('the filter keeps the matching area column', async ({ page }) => {
   await expect(matrix(page).locator('th[data-area-id]')).toHaveCount(1)
   await expect(matrix(page).locator(`th[data-area-id="${CHLORIDES}"]`)).toBeVisible()
 
+  // A query naming the block keeps every area column.
+  await page.getByLabel('Filter areas').fill('Hydrogen')
+  await expect(matrix(page).locator('th[data-area-id]')).toHaveCount(3)
+
   await page.getByLabel('Filter areas').fill('zzz')
   await expect(page.getByText(/No area or item matches/)).toBeVisible()
 })
@@ -105,13 +109,18 @@ test('All blocks puts the blocks side by side with what no block takes', async (
   await expect(header).toHaveAttribute('aria-expanded', 'false')
   await expect(hcl.locator(`td[data-col="${HYDROGEN}:areas"]`)).toBeVisible()
   await expect(page.getByRole('columnheader', { name: /Acid/ }).getByRole('button')).toHaveCount(0)
-  await expect(hcl.locator('td[data-col="not-taken"]')).toHaveText('600')
+  await expect(hcl.locator('td[data-col="not-taken"]')).toHaveText('1200')
+
+  // The figure counts every block, so unticking the filter does not change it.
+  await page.getByRole('checkbox', { name: 'Only items that cross a block boundary' }).uncheck()
+  await expect(hcl.locator('td[data-col="not-taken"]')).toHaveText('1200')
+  await page.getByRole('checkbox', { name: 'Only items that cross a block boundary' }).check()
 
   await hcl.getByRole('button').click()
   const inspector = page.getByRole('region', { name: 'Hydrogen chloride across blocks' })
   await expect(inspector).toContainText('leaves the block')
   await expect(inspector).toContainText('enters the block')
-  await expect(inspector).toContainText('600/m is not taken')
+  await expect(inspector).toContainText('1200/m is not taken')
 })
 
 test('Escape closes the viewer', async ({ page }) => {

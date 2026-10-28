@@ -3,8 +3,8 @@ import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import {
-  OUTSIDE, flowOrder, focusArea, groupRows, itemGroupMap, matchQuery,
-  type BlockMatrix, type ColumnMode, type MatrixArea, type MatrixRow, type RowMode,
+  OUTSIDE, flowOrder, focusArea, groupRows, groupTotal, type GroupTotal, itemGroupMap, matchQuery,
+  type BlockMatrix, type ColumnMode,  type MatrixArea, type MatrixRow, type RowMode,
 } from './areaMatrix'
 import { fmtAmount, fmtSigned, unitSuffix } from './matrixFormat'
 
@@ -37,6 +37,20 @@ const FOCUS_COL = 'ring-1 ring-inset ring-teal-400 bg-teal-500/10'
 const COUNTERPART = 'ring-1 ring-inset ring-teal-400/60'
 const MANY_ROWS = 40
 
+function groupText(t: GroupTotal, unit: RateUnit): string {
+  if (t.kind === 'net') return t.t === 0 ? '' : fmtSigned(t.t, unit)
+  const parts = []
+  if (t.out > 0) parts.push(`${fmtAmount(t.out, unit)} →`)
+  if (t.in > 0) parts.push(`→ ${fmtAmount(t.in, unit)}`)
+  return parts.join(' · ')
+}
+
+function groupColor(t: GroupTotal): string {
+  if (t.kind === 'net') return t.t === 0 ? '' : t.t > 0 ? 'text-sky-300' : 'text-orange-300'
+  if (t.out > 0 && t.in > 0) return 'text-gray-300'
+  return t.out > 0 ? 'text-sky-300' : t.in > 0 ? 'text-orange-300' : ''
+}
+
 function headerNote(inRate: number, outRate: number, items: number): string {
   const n = `${items} ${items === 1 ? 'item' : 'items'}`
   if (inRate > 0 && outRate > 0) return `trades ${n}`
@@ -65,6 +79,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
       matrix.rows,
       matrix.areas.map(a => ({ id: a.areaId, names: [a.name] })),
       (r, colId) => (r.cells[colId] ?? 0) !== 0,
+      [matrix.blockName],
     ),
     [query, matrix],
   )
@@ -125,16 +140,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     return focus.counterpart[row.itemId]?.[OUTSIDE] ?? 0
   }
 
-  function groupTotal(list: MatrixRow[], areaId: string): number {
-    let t = 0
-    for (const r of list) {
-      if (counterpartMode && focus && areaId !== focus.areaId) {
-        const c = focus.counterpart[r.itemId]?.[areaId] ?? 0
-        t += c
-      } else t += r.cells[areaId] ?? 0
-    }
-    return t
-  }
+  const groupCell = (list: MatrixRow[], areaId: string) =>
+    groupTotal(list, areaId, counterpartMode && focus !== null && areaId !== focus.areaId ? focus : null)
 
   const cellClass = (areaId: string, extra = '') =>
     `${areaId === focusedAreaId ? FOCUS_COL : ''} ${extra}`
@@ -218,17 +225,15 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               {fromTotal > 0 ? fmtAmount(fromTotal, rateUnit) : ''}
             </td>
             {columns.map(a => {
-              const t = groupTotal(g.rows, a.areaId)
-              const plain = counterpartMode && focus !== null && a.areaId !== focus.areaId
-              const sends = !plain || (g.rows.find(r => (r.cells[a.areaId] ?? 0) !== 0)?.cells[a.areaId] ?? 0) > 0
+              const t = groupCell(g.rows, a.areaId)
+              const text = groupText(t, rateUnit)
               return (
                 <td
                   key={a.areaId}
-                  className={cellClass(a.areaId, `px-1 text-center font-mono tabular-nums border-b border-gray-700 ${
-                    t === 0 ? '' : (plain ? sends : t > 0) ? 'text-sky-300' : 'text-orange-300'
-                  }`)}
+                  title={t.kind === 'pair' && t.out > 0 && t.in > 0 ? 'Sends to the focus, then receives from it' : undefined}
+                  className={cellClass(a.areaId, `px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
                 >
-                  {t === 0 ? '' : plain ? `${fmtAmount(t, rateUnit)}${sends ? ' →' : ''}` : fmtSigned(t, rateUnit)}
+                  {text}
                 </td>
               )
             })}

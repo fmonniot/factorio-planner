@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  areaContents, blockMatrix, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery, rowPairs,
+  areaContents, blockMatrix, cancels, groupTotal, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery, rowPairs,
   MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow,
 } from './areaMatrix'
 import { makeEmptyBlock } from '../../store/blockStore'
@@ -327,7 +327,36 @@ describe('matchQuery', () => {
     expect(r.rows.map(x => x.itemId)).toEqual(['o'])
     expect([...r.columnIds!]).toEqual(['c1'])
   })
+  it('keeps everything when the query names the scope', () => {
+    expect(matchQuery('hydro', rows, cols, has, ['Hydrogen Block'])).toEqual({ rows, columnIds: null })
+    expect(matchQuery('zzz', rows, cols, has, ['Hydrogen Block'])).toBeNull()
+  })
   it('returns null when nothing matches', () => {
     expect(matchQuery('zzz', rows, cols, has)).toBeNull()
+  })
+})
+
+describe('groupTotal', () => {
+  const row = (itemId: string, cells: Record<string, number>): MatrixRow =>
+    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1 })
+  const focus = (counterpart: Record<string, Record<string, number>>) =>
+    ({ areaId: 'B', rows: [], counterpart, tradingAreaIds: [], trades: [] })
+
+  it('sums the nets, and blanks a sum that cancels to rounding noise', () => {
+    expect(groupTotal([row('a', { A: 10 }), row('b', { A: -4 })], 'A', null)).toEqual({ kind: 'net', t: 6 })
+    expect(groupTotal([row('a', { A: 0.1 + 0.2 }), row('b', { A: -0.3 })], 'A', null)).toEqual({ kind: 'net', t: 0 })
+    expect(cancels(1e-12, 1000)).toBe(true)
+    expect(cancels(0.5, 1000)).toBe(false)
+  })
+
+  it('keeps what an area sends to the focus apart from what it receives from it', () => {
+    const f = focus({ a: { A: 10 }, b: { A: 5 } })
+    const t = groupTotal([row('a', { A: 10, B: -10 }), row('b', { A: -5, B: 5 })], 'A', f)
+    expect(t).toEqual({ kind: 'pair', out: 10, in: 5 })
+  })
+
+  it('ignores rows where the area has no counterpart value', () => {
+    const f = focus({ a: { A: 10 }, b: {} })
+    expect(groupTotal([row('a', { A: 10 }), row('b', { A: -3 })], 'A', f)).toEqual({ kind: 'pair', out: 10, in: 0 })
   })
 })

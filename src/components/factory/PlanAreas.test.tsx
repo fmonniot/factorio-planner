@@ -130,6 +130,22 @@ describe('PlanAreasModal', () => {
     expect(screen.getByText('No area or item matches "zzz"')).toBeInTheDocument()
   })
 
+  it('treats a query naming the block as matching all of its areas', () => {
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: 'alph' } })
+    expect(colNames().some(n => n?.startsWith('Top level'))).toBe(true)
+    expect(colNames().some(n => n?.startsWith('Plastics'))).toBe(true)
+    expect(table('Alpha').querySelector('tr[data-item-id="h2"]')).not.toBeNull()
+  })
+
+  it('words the footer for the view', () => {
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    expect(screen.getByText(/Each row balances/)).toBeInTheDocument()
+    fireEvent.click(group('All blocks'))
+    expect(screen.queryByText(/Each row balances/)).toBeNull()
+    expect(screen.getByText(/Not taken and Not supplied/)).toBeInTheDocument()
+  })
+
   it('focuses an area from its header and shows its panel', () => {
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
     const header = within(table('Alpha')).getByRole('button', { name: 'Plastics' })
@@ -171,6 +187,45 @@ describe('PlanAreasModal', () => {
     fireEvent.click(group('All blocks'))
     expect(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' })).toBeChecked()
     expect(screen.getByText('No item crosses a block boundary.')).toBeInTheDocument()
+  })
+
+  it('says why All blocks is empty, by filter and by query', () => {
+    const quiet = (id: string): SolverResult => ({
+      nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+      unsatisfied: [], warnings: [],
+      areas: [{ areaId: `${id}-root`, receives: [], sends: [] }, { areaId: `${id}-p`, receives: [], sends: [] }],
+    })
+    useSolverStore.setState({ lastResults: { A: quiet('A'), C: quiet('C') } })
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.click(group('All blocks'))
+    expect(screen.getByText('No item crosses a block boundary.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' }))
+    expect(screen.queryByText('No item crosses a block boundary.')).toBeNull()
+    expect(screen.getByText('No item moves in or out of a block.')).toBeInTheDocument()
+  })
+
+  it('shows a message when a query matches a block that has no rows', () => {
+    // Alpha moves hydrogen; Charlie has a solve but moves nothing.
+    useSolverStore.setState({
+      lastResults: {
+        ...useSolverStore.getState().lastResults,
+        C: {
+          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+          unsatisfied: [], warnings: [],
+          areas: [{ areaId: 'C-root', receives: [], sends: [] }, { areaId: 'C-p', receives: [], sends: [] }],
+        },
+        A: {
+          ...useSolverStore.getState().lastResults.A,
+          nodes: [{ recipeNodeId: 'n', inputRates: {}, outputRates: { h2: 60 }, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0 }],
+        },
+      },
+    })
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.click(group('All blocks'))
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Only items that cross a block boundary' }))
+    fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: 'charlie' } })
+    expect(screen.getByText('Nothing to show for these blocks.')).toBeInTheDocument()
+    expect(screen.queryByRole('table', { name: 'Items across blocks' })).toBeNull()
   })
 
   it('closes on Escape', () => {

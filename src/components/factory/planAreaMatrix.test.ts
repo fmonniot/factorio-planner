@@ -70,6 +70,23 @@ describe('planMatrix', () => {
     expect(m.rows.map(r => r.itemId)).toEqual(['x'])
   })
 
+  it('counts every block in not taken and not supplied, whatever the crossing filter shows', () => {
+    const { blocks, results } = setup()
+    // C is no end of any flow, so it is hidden under crossingOnly, but its +600 is still not taken.
+    results.C = { nodes: [node({ x: 600 })], unsatisfied: [], warnings: [] }
+    const flows = [flow({})]
+    const shown = planMatrix(blocks, results, flows, makeGameData(), machines, { crossingOnly: true })
+    const all = planMatrix(blocks, results, flows, makeGameData(), machines, { crossingOnly: false })
+    expect(shown.blocks.map(b => b.blockId)).toEqual(['A', 'B'])
+    for (const m of [shown, all]) {
+      const x = m.rows.find(r => r.itemId === 'x')!
+      expect(x.notTaken).toBe(620)
+      expect(x.notSupplied).toBe(10)
+      expect(x.total).toBe(650)
+    }
+    expect(shown.rows.find(r => r.itemId === 'x')!.net).toEqual({ A: 50, B: -40 })
+  })
+
   it('ignores missing-source, self and zero-rate flows', () => {
     const { blocks, results } = setup()
     const flows = [flow({ status: 'missing-source' }), flow({ status: 'self' }), flow({ rate: 0, status: 'unused' })]

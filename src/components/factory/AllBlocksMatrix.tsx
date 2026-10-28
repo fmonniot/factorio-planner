@@ -197,7 +197,9 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   const q = query.trim()
   let empty: string | null = null
   if (match === null) empty = `No block, area or item matches "${q}"`
-  else if (model.rows.length === 0) empty = 'No item crosses a block boundary.'
+  else if (model.rows.length === 0) {
+    empty = crossingOnly ? 'No item crosses a block boundary.' : 'No item moves in or out of a block.'
+  } else if (rows.length === 0) empty = 'Nothing to show for these blocks.'
 
   const sub = 'px-1 py-1 text-[11px] uppercase tracking-wide text-gray-400 font-normal border-b border-gray-700'
 
@@ -303,7 +305,7 @@ function Inspector({ row, blockName, blocks, rateUnit }: {
         const areas = primaryAreas(row, b).map(p => p.name).join(', ')
         return (
           <p key={b.blockId}>
-            {b.name}{areas ? ` · ${areas}` : ''} {net > 0 ? '+' : '−'}{fmtAmount(net, rateUnit)}{unit}{' '}
+            {b.name}{areas ? ` · ${areas}` : ''} {fmtSigned(net, rateUnit)}{unit}{' '}
             {net > 0 ? 'leaves the block' : 'enters the block'}
           </p>
         )

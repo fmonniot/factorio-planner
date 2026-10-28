@@ -252,7 +252,8 @@ order**); the text filter (`aria-label="Filter areas"`, placeholder "Filter by a
 block or item"); **Close**. The modal opens on the active block when it has areas, else
 on the first block that has some. Changing the tab clears the focus, the selected item
 and the open groups. A footer explains the colours (sky "+ sends", orange "− receives")
-and that each row balances. Escape and a click on the backdrop close the modal.
+and, in the block view, that each row balances (in All blocks, what the block columns and
+**Not taken** / **Not supplied** mean). Escape and a click on the backdrop close the modal.
 
 **Block view** (`BlockAreaMatrix.tsx`, a table named "Areas of <block>"). A cell is the
 area's net of the item in the current rate unit: `+` (sky) when the area sends it, `−`
@@ -279,7 +280,8 @@ them (and reads "Show fewer"); a single leftover row of at least 1/min stays in 
 Groups start open when 40 rows or fewer are shown or a filter is active; otherwise only
 the first two. A filter turns the tails off. The filter matches item names and area names
 case-insensitively: an item match keeps those rows, an area match keeps only those
-columns (and the rows that have a cell there); nothing left shows `No area or item
+columns (and the rows that have a cell there). A query that matches the block's own name
+filters nothing (every area and row stays); nothing left shows `No area or item
 matches "<query>"`. A block that moves nothing between its areas says so.
 
 **Focus.** Clicking an area header focuses it (again to clear): its column is ringed in
@@ -291,7 +293,12 @@ rows) and a "Trades with" list of the areas and the outside it exchanges items w
 Unless **Show all N areas** is chosen, only the items the area moves and the areas it
 trades with stay; the other headers read "sends it N items", "takes N items" or "trades N
 items", and the counterpart cells (`data-counterpart="true"`, teal ring) read "13.8 →"
-(that area sends the focus 13.8) or "→ 4.2" (the focus sends it 4.2). **Show in table**
+(that area sends the focus 13.8) or "→ 4.2" (the focus sends it 4.2). A group row's total
+for such a column keeps the two directions apart: "10 →" when the area only sends to the
+focus, "→ 5" when it only receives from it, "10 → · → 5" when both; the direction comes
+from each row's own cell and rows with no counterpart value do not count. Outside
+counterpart mode a group total is the sum of the nets, blank when it cancels to rounding
+noise (within 1e-9 of its largest addend). **Show in table**
 makes the block active, then, for an area other than "Top level", switches the
 [table](#productiontable) back to the tree view and asks it to reveal the area's
 sub-factory row (expanding the sub-factories above it and flashing it, as **Go to row
@@ -319,16 +326,21 @@ swaps its **Areas** column (the areas that move the item the way the net goes, t
 largest first, "+N" for the others, all listed with their rates in the title) for one
 column per area; the active block starts expanded, the others collapsed, and a block
 without areas reads "<block> · no areas" and has only **Net**. **Not taken** is what the
-shown blocks leave beyond what the connections deliver: `max(0, Σ positive nets −
+blocks leave beyond what the connections deliver: `max(0, Σ positive nets −
 delivered)`; **Not supplied** (shown only when a row needs it) is `max(0, Σ negative
-nets − delivered)`, what is imported. Because the Net is taken before byproducts are
+nets − delivered)`, what is imported. Both sums run over every block with a solve, shown
+or not, so they do not change with the crossing checkbox (a hidden block's surplus still
+counts as not taken). Because the Net is taken before byproducts are
 discarded while area cells are taken after, a block's area cells may not add up to its
 Net. Selecting an item (the row label is a button, `aria-pressed`) opens a region named
 "<item> across blocks" under the table: one line per block with a net ("<block> ·
 <areas> +X/m leaves the block" or "−Y/m enters the block"), one per connection ("<from>
 → <to>: R/m", "(limited)" when limited) and the not-taken / not-supplied remainders. The
 rows are grouped, ordered, folded and filtered as in the block view (the filter also
-matches block names). With nothing to show it says "No item crosses a block boundary."
+matches block names, an area of a block, or items). With nothing to show it says "No item
+crosses a block boundary." under the checkbox, "No item moves in or out of a block."
+without it, and "Nothing to show for these blocks." when a query matches only a block or
+area that has no row.
 
 Areas are never merged by name: each block has its own pool, so what an area receives or
 sends is relative to its block, and every block has a "Top level".

@@ -342,6 +342,7 @@ export function focusArea(m: BlockMatrix, areaId: string): FocusView {
 /**
  * Filters rows and columns by a free-text query (trimmed, case-insensitive). Rows are the item hits
  * if any, otherwise the rows with a cell in a column hit; `columnIds` null = every column.
+ * `scopeNames` (e.g. the block's name): a query matching one of them keeps every row and column.
  * Returns null when nothing matches.
  */
 export function matchQuery<R extends { itemId: string; name: string }>(
@@ -349,10 +350,13 @@ export function matchQuery<R extends { itemId: string; name: string }>(
   rows: R[],
   columns: { id: string; names: string[] }[],
   hasCell: (r: R, colId: string) => boolean,
+  scopeNames: string[] = [],
 ): { rows: R[]; columnIds: Set<string> | null } | null {
   const q = query.trim().toLowerCase()
   if (q === '') return { rows, columnIds: null }
   const has = (text: string) => text.toLowerCase().includes(q)
+  // A query that names the whole scope (the block being shown) filters nothing.
+  if (scopeNames.some(has)) return { rows, columnIds: null }
   const itemHits = rows.filter(r => has(r.name))
   const colHits = columns.filter(c => c.names.some(has)).map(c => c.id)
   if (itemHits.length === 0 && colHits.length === 0) return null
@@ -368,4 +372,37 @@ export function itemGroupMap(gameData: GameData): Map<string, ItemGroupInfo> {
   map.set(OTHER_GROUP, { id: OTHER_GROUP, name: 'Other', order: '' })
   map.set(MACHINES_GROUP, { id: MACHINES_GROUP, name: 'Machines for buildings', order: '' })
   return map
+}
+
+/** Whether a sum of floats is zero: it cancels to within rounding of its largest addend. */
+export function cancels(sum: number, maxAbs: number): boolean {
+  return Math.abs(sum) <= 1e-9 * Math.max(1, maxAbs)
+}
+
+export type GroupTotal =
+  | { kind: 'net'; t: number }
+  /** counterpart mode: what the area sends to the focus (out) and receives from it (in), kept apart */
+  | { kind: 'pair'; out: number; in: number }
+
+export function groupTotal(list: MatrixRow[], areaId: string, focus: FocusView | null): GroupTotal {
+  if (focus) {
+    let out = 0
+    let inn = 0
+    for (const r of list) {
+      const c = focus.counterpart[r.itemId]?.[areaId] ?? 0
+      if (c <= 1e-9) continue
+      // The direction comes from this row: the area sends it (cell > 0) or receives it.
+      if ((r.cells[areaId] ?? 0) > 0) out += c
+      else inn += c
+    }
+    return { kind: 'pair', out, in: inn }
+  }
+  let t = 0
+  let maxAbs = 0
+  for (const r of list) {
+    const v = r.cells[areaId] ?? 0
+    t += v
+    maxAbs = Math.max(maxAbs, Math.abs(v))
+  }
+  return { kind: 'net', t: cancels(t, maxAbs) ? 0 : t }
 }

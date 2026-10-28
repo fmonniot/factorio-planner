@@ -202,7 +202,10 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
         <span className="flex items-center gap-1.5"><i aria-hidden className="w-5 h-3 rounded-sm bg-sky-400/30 inline-block" />+ sends</span>
         <span className="flex items-center gap-1.5"><i aria-hidden className="w-5 h-3 rounded-sm bg-orange-400/30 inline-block" />{'\u2212'} receives</span>
         <span>
-          Rates per {rateUnit === 'min' ? 'minute' : 'second'}. Each row balances: what areas send, plus what comes from outside, equals what areas receive plus what goes outside.
+          Rates per {rateUnit === 'min' ? 'minute' : 'second'}.{' '}
+          {tab === ALL
+            ? 'Each block column is what the block takes or leaves across its boundary; Not taken and Not supplied are what the connections between blocks leave over.'
+            : 'Each row balances: what areas send, plus what comes from outside, equals what areas receive plus what goes outside.'}
         </span>
       </div>
     </Modal>
