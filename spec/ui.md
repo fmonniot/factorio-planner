@@ -238,29 +238,100 @@ near-full-screen modal showing every block and the connections between them, lik
 
 `PlanAreas.tsx`. The **Areas in every block** icon button (four small squares in a grid;
 hidden until game data is loaded, and while no block's last solve has areas) opens a
-modal listing the areas of every block, built from the last solve of each block
-(`planAreaBlocks` in `planAreaList.ts`). The header has the title "Areas", a count ("N
-areas in M blocks"), a text filter (`aria-label="Filter areas"`, placeholder "Filter by
-area, block or item") and **Close**. The body has one section per block that has areas,
-in tab order (a region named after the block, with a dot in the block's colour and the
-block name as a button titled "Open <block>" that makes it the active block and closes
-the modal), each listing its areas (`AreaListItem` in `AreaFlow.tsx`: the name, then "in" chips for what the area receives and "out" chips for what it sends; a chip is the item icon and the rate in the current unit, with `data-item-id`, `data-direction` and `data-boundary`, and a boundary chip has a dashed border and a tooltip that adds " — from outside the block" or " — leaves the block"). A footer "K block(s) without areas not
-listed" shows when some blocks have none.
+wide modal (`w-[min(96rem,98vw)] h-[90vh]`) that shows the areas as a balance matrix:
+items as rows, areas as columns, and an outside column at each end. It is built from the
+last solve of each block and is read-only. View state (tab, row and column modes, filter,
+focus, open groups) is local to the modal: not persisted.
+
+**Header.** The title "Areas"; a `role="group"` named "Block" with one toggle
+(`aria-pressed`, teal when pressed like **By recipe**) per block that has areas (a dot in
+the block's colour, the name, the number of areas) and **All blocks**, then a muted "K
+block(s) without areas" when some have none; a group named "Rows" (**By category**, **By
+rate**, **A–Z**); in the block view a group named "Columns" (**Flow order**, **Table
+order**); the text filter (`aria-label="Filter areas"`, placeholder "Filter by area,
+block or item"); **Close**. The modal opens on the active block when it has areas, else
+on the first block that has some. Changing the tab clears the focus, the selected item
+and the open groups. A footer explains the colours (sky "+ sends", orange "− receives")
+and that each row balances. Escape and a click on the backdrop close the modal.
+
+**Block view** (`BlockAreaMatrix.tsx`, a table named "Areas of <block>"). A cell is the
+area's net of the item in the current rate unit: `+` (sky) when the area sends it, `−`
+(orange) when it receives it; a value that rounds to zero reads "<0.01". The rows
+balance: the area cells, plus the **From outside** column, equal the **To outside**
+column. The outside columns hold the residual of the block, derived from the areas'
+sends and receives (the same figures as an area's `sends`/`receives` after the solver
+discarded unwanted byproducts): a negative total is what the block imports, a positive
+one is what it exports, and a residual within the solver's surplus tolerance is shown as
+nothing. Each row carries `data-item-id`, each cell `data-col` (the area id, or
+`from-outside` / `to-outside`), `data-rate` (items/min, signed) and `data-sign`.
+Columns are in **Flow order** (senders left of receivers: a greedy ordering of the
+allocated area-to-area flows, ties and cycles resolved in table order) or **Table order**.
+Each area header is a button (`aria-pressed`, title "Focus <area>") with the name and its
+number of recipe rows.
+
+Rows are grouped by **category** — the Factorio item groups, then "Other", then "Machines
+for buildings" (items that place a machine or a beacon) — or listed by total rate, or
+A–Z (no groups). A group row (`th scope="rowgroup"` with a button, `aria-expanded`) shows
+the group's item count and its totals per column. Within a group rows are ordered by total
+rate (what the areas send plus what comes from outside), then name. Rows below 1 item/min
+fold into a tail, after at most seven rows: "+ N more, X/m and below: A, B, C, D…" opens
+them (and reads "Show fewer"); a single leftover row of at least 1/min stays in the head.
+Groups start open when 40 rows or fewer are shown or a filter is active; otherwise only
+the first two. A filter turns the tails off. The filter matches item names and area names
+case-insensitively: an item match keeps those rows, an area match keeps only those
+columns (and the rows that have a cell there); nothing left shows `No area or item
+matches "<query>"`. A block that moves nothing between its areas says so.
+
+**Focus.** Clicking an area header focuses it (again to clear): its column is ringed in
+teal and a panel (`aside`, named after the area) opens at the right with the area's
+name, "Area in <block> · N rows", **Show in table**, a close button ("Stop focusing
+<area>"), its contents (sub-factories, areas nested inside, the first recipes of its
+rows) and a "Trades with" list of the areas and the outside it exchanges items with
+(each area is a button that moves the focus; the outside reads "Outside the block").
+Unless **Show all N areas** is chosen, only the items the area moves and the areas it
+trades with stay; the other headers read "sends it N items", "takes N items" or "trades N
+items", and the counterpart cells (`data-counterpart="true"`, teal ring) read "13.8 →"
+(that area sends the focus 13.8) or "→ 4.2" (the focus sends it 4.2). **Show in table**
+makes the block active, then, for an area other than "Top level", switches the
+[table](#productiontable) back to the tree view and asks it to reveal the area's
+sub-factory row (expanding the sub-factories above it and flashing it, as **Go to row
+in…** does; the area row itself is not expanded), then closes the modal; for "Top level"
+it only switches the block.
+
+**Counterpart figures are an allocation.** The solver has pools per item and no routes
+between areas, so who sends how much to whom is not known. For display, each sender's
+output is split between the receivers pro rata to what each receives (the outside is a
+sender for what the block imports and a receiver for what it exports): the sender `s`
+gives receiver `t` the amount `send(s) × receive(t) / Σ receive`. Per sender the parts
+add up to what it sends. The tooltips of counterpart cells say so, and the Flow order
+uses the same allocation. The figures are an allocation for display; the solver has no
+routes between areas.
+
+**All blocks** (`AllBlocksMatrix.tsx`, built by `planAreaMatrix.ts`). Items are rows and
+each block is a column group. Under **Only items that cross a block boundary** (on by
+default) the columns are the ends of the active connections (rate above the flow
+tolerance, not `missing-source` or `self`) and the rows the items they carry; off, every
+block with a solve and every item with a boundary net or an area cell. A block's
+**Net** is its boundary balance from `netBalance` of its solved nodes (the quantity the
+solver offers to other blocks, before byproducts are discarded; signed, `+` leaves the
+block, `−` enters it). A block with areas has a header button (`aria-expanded`) that
+swaps its **Areas** column (the areas that move the item the way the net goes, the
+largest first, "+N" for the others, all listed with their rates in the title) for one
+column per area; the active block starts expanded, the others collapsed, and a block
+without areas reads "<block> · no areas" and has only **Net**. **Not taken** is what the
+shown blocks leave beyond what the connections deliver: `max(0, Σ positive nets −
+delivered)`; **Not supplied** (shown only when a row needs it) is `max(0, Σ negative
+nets − delivered)`, what is imported. Because the Net is taken before byproducts are
+discarded while area cells are taken after, a block's area cells may not add up to its
+Net. Selecting an item (the row label is a button, `aria-pressed`) opens a region named
+"<item> across blocks" under the table: one line per block with a net ("<block> ·
+<areas> +X/m leaves the block" or "−Y/m enters the block"), one per connection ("<from>
+→ <to>: R/m", "(limited)" when limited) and the not-taken / not-supplied remainders. The
+rows are grouped, ordered, folded and filtered as in the block view (the filter also
+matches block names). With nothing to show it says "No item crosses a block boundary."
 
 Areas are never merged by name: each block has its own pool, so what an area receives or
-sends is relative to its block, and every block has a "Top level". The same name in two
-blocks is two rows, each under its block. The filter matches case-insensitively on the
-block name (which keeps all its rows), an area name, or the name of an item the area
-receives or sends; blocks left empty are dropped and "No area matches "<query>"" shows
-when nothing is left. Selecting a chip lights up that item in every block of the modal
-(`aria-pressed`, the others dimmed); the selection and the filter are view state.
-
-An area name is a button titled "Show <area> in <block>". It makes the block active,
-then, for an area other than "Top level", switches the [table](#productiontable) back to
-the tree view and asks it to reveal the area's sub-factory row (expanding the
-sub-factories above it and flashing it, as **Go to row in…** does; the area row itself
-is not expanded), then closes the modal. For "Top level" it only switches the block.
-Escape and a click on the backdrop also close the modal.
+sends is relative to its block, and every block has a "Top level".
 
 ### Research horizon
 
@@ -836,8 +907,8 @@ counts its recipes and nested sub-factories; an empty one is removed at once.
 
 A collapsed sub-factory that is a separate area shows what it receives and sends right
 after its name (`data-testid="area-chips"`): an "in" label and the receive chips, then
-an "out" label and the send chips, the same chips as the [plan areas](#plan-areas) modal but display-only
-(`<span>`s; selecting an item stays in the modal). At most four chips per direction; the
+an "out" label and the send chips, display-only chips
+(`<span>`s). At most four chips per direction; the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per
