@@ -105,7 +105,7 @@ Throwaway code, kept under `initiatives/in-game-viewer/spike/` while the phase r
 **Step 0 — read and measure, no spike code.**
 
 - Read the pages behind S2 (the fields of `on_udp_packet_received`), U1, U5, U6, U7 and U8, and move each to an **S** entry with its source.
-- Measure the size of a realistic snapshot on the planner side, using the same sample plan as [share-by-url](../share-by-url/plan.md) (a hand-built JSON of the fields listed in [What is sent](#what-is-sent) is enough; the real projection comes in Phase 1). This sets the range the Factorio probes need to cover.
+- Measure the size of a realistic snapshot on the planner side, using the [share-by-url](../share-by-url/plan.md) sample plan scaled to ten times its size. That sample is a 10 % mid-game Seablock export, so the scaled plan approximates a complete Seablock run. A hand-built JSON of the fields listed in [What is sent](#what-is-sent) is enough; the real projection comes in Phase 1. This sets the range the Factorio probes need to cover.
 
 **Step 1 — browser to localhost (no Factorio).** A small page served from the GitHub Pages deployment opens `ws://127.0.0.1:<port>` against a throwaway WebSocket listener. Try current Chrome, Firefox and Safari, and record whether the connection is allowed, blocked, or behind a permission prompt ([U3](#sources-and-verification)). If it is blocked somewhere, decide between `wss` with a local certificate, a supported-browser list, or moving the [Tauri host](#later) up.
 
@@ -121,6 +121,7 @@ Throwaway code, kept under `initiatives/in-game-viewer/spike/` while the phase r
 | Poll cost | UPS with `recv_udp` every tick, 10 ticks and 60 ticks | Poll interval |
 | Latency | Send to `on_udp_packet_received`, in single-player | Whether acks can be time-bound |
 | Decode cost | `helpers.json_to_table` on a payload as large as the snapshot size from Step 0 | Whether decoding needs spreading across ticks |
+| Full-size delivery | Send a payload the size of the Step 0 snapshot from the echo to the mod, with the chunk size and pacing found above; the mod reassembles, decodes and acknowledges it, and the echo compares what it sent with what the mod read back | Whether the chunking and pacing design works end to end |
 | `for_player` | `send_udp` with and without it, in single-player | The mod's send call |
 | Port already in use | Repeat the [S5](#sources-and-verification) case | The bridge's port check |
 | Multiplayer (optional) | Host a game, receive a snapshot, check `storage` stays in sync | Whether multiplayer can ever be supported |
@@ -171,7 +172,7 @@ The loss and cost thresholds that select a fallback are recorded with the Phase 
 - **Port already in use.** A 2.0.60 report describes a crash when the UDP port is held by another process and a mod calls `send_udp`; staff replied it is "fixed for the next release" without naming a version ([S5](#sources-and-verification)). We target 2.0.77, which is later, but the spike should repeat the case, and the bridge should check that its own port is free and report a clear error.
 - **Multiplayer and determinism.** The API page says received packets are introduced into the game state through input actions and distributed to every client ([S1](#sources-and-verification)), which suggests storing a snapshot in `storage` is deterministic. This is a reading of the documentation, not a test; multiplayer stays out of v1 until the spike checks it.
 - **Browser to localhost.** A page served over HTTPS opening `ws://127.0.0.1` may be allowed or blocked depending on the browser's mixed-content and local-network access rules ([U3](#sources-and-verification)). Tested on the GitHub Pages deployment in Phase 0 step 1, which decides between `wss` with a local certificate and a documented browser list.
-- **Size.** How big is a snapshot for a large plan? Measured before the Factorio probes (Phase 0 step 0) with the same sample plan as [share-by-url](../share-by-url/plan.md); it decides whether chunking, and compression, are needed at all.
+- **Size.** How big is a snapshot for a large plan? Measured before the Factorio probes (Phase 0 step 0) with the [share-by-url](../share-by-url/plan.md) sample plan scaled to ten times its size (a complete Seablock run); it decides whether chunking, and compression, are needed at all.
 - **Pause behaviour.** What the mod receives after the game was paused or the main menu was open ([S1](#sources-and-verification), [U9](#sources-and-verification)); it shapes the staleness indicator and the resend timing.
 - **Staleness.** Whether the mod should ask for a refresh on load, or only react to pushes.
 
