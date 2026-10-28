@@ -243,9 +243,8 @@ items as rows, areas as columns, and an outside column at each end. It is built 
 last solve of each block and is read-only. View state (tab, row and column modes, filter,
 focus, open groups) is local to the modal: not persisted.
 
-**Header.** The title "Areas"; then three segmented controls, each a dark rounded track
-(`role="group"`) holding one pill button per option (`aria-pressed`; the pressed pill is
-filled grey with white text, the others muted): a group named "Block" with one pill per
+**Header.** The title "Areas"; then three [segmented controls](#segmented-control), each a
+`role="group"` with one pill button per option: a group named "Block" with one pill per
 block that has areas (a dot in the block's colour, the name, the number of areas) and
 **All blocks**, followed by a muted "K block(s) without areas" when some have none; a group
 named "Rows" (**By category**, **By rate**, **A–Z**); in the block view a group named
@@ -471,7 +470,7 @@ It opens a panel named "Plan and game data", in order:
   once there is one, and **Upload file…**; the current data set is the checked item (see
   [Game data set](#game-data-set)). The radio items carry their label as `aria-label`;
 - a separator, then, only once game data is loaded: a **Rate unit** group with `/sec` and `/min`
-  radio items (a segmented control; picking one sets the unit and leaves the menu open), the
+  radio items (a [segmented control](#segmented-control); picking one sets the unit and leaves the menu open), the
   **Default machines** submenu item (see below) and another separator;
 - **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
 
@@ -754,11 +753,11 @@ The popover closes on Escape or a click outside.
 - Otherwise: a table with a sticky header — reorder, Recipe, Machine, Beacon,
   Products, Byproducts, Ingredients. The left (reorder) header column carries a `+`
   button (Add recipe).
-- In a block with areas, the Recipe header also carries a **By recipe** toggle button
-  (`aria-pressed`) that switches between the tree and the [by-recipe view](#by-recipe-view).
-  The choice is global, not per block, and persisted in `uiStore` (`tableView`, with the
-  rate unit under `factorio-planner:ui`); a block without areas has no toggle and always
-  shows the tree.
+- In a block with areas, the Recipe header also carries a small [segmented control](#segmented-control)
+  named "Table view" with two options, **Tree** and **By recipe** (`aria-pressed`), that switches
+  between the tree and the [by-recipe view](#by-recipe-view). The choice is global, not per block,
+  and persisted in `uiStore` (`tableView`, with the rate unit under `factorio-planner:ui`); a block
+  without areas has no switch and always shows the tree.
 
 The header `+` button (and the empty-state `+ Add recipe` link) opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -1111,11 +1110,23 @@ The same component in recipes mode (`source="recipes"`).
 - `factory/Popover.tsx` — an absolutely positioned panel that closes on an outside pointerdown
   (except inside its optional `ignoreRef`, the trigger, so a click on the trigger just toggles) and on
   Escape, handled in the capture phase and prevented so it does not also clear a summary selection.
+- `SegmentedControl.tsx` — the [segmented control](#segmented-control) (`Segmented` and `Segment`).
 - `icons.tsx`, `IconButton.tsx` — the stroke SVG icons and the tooltip icon button of the top bar.
 - `src/utils/viewTransform.ts` — pure pan/zoom maths (zoom around a point, pan, fit,
   centre) used by the technology tree.
 - `src/utils/blockGraphLayout.ts` — layered layout of the blocks and their
   connections, used by the block graph.
+
+### Segmented control
+
+`SegmentedControl.tsx`: `Segmented` is a dark rounded track (`bg-gray-950`, grey border) and
+each `Segment` a pill button in it; the pressed pill is filled grey (`bg-gray-700`) with white
+text, the others are muted and brighten on hover. `Segmented` takes an optional `label` (it then
+is a `role="group"` with that name) and a `size`: `md` (28px pills, the Areas modal header), `sm`
+(24px, the workspace menu's rate unit) or `xs` (20px, 10px text, the table header's Table view).
+A `Segment` reports `aria-pressed`; given `role="menuitemradio"` it reports `aria-checked`
+instead and shows its keyboard focus on any focus (a teal inset ring), like the other menu
+items. Other props (`title`, `tabIndex`, …) go to the button.
 
 ---
 

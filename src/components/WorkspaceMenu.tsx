@@ -10,6 +10,7 @@ import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
 import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
+import { Segment, Segmented } from './SegmentedControl'
 import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
 
 // ---------------------------------------------------------------------------
@@ -506,21 +507,19 @@ export function WorkspaceMenu() {
               <>
                 <div role="group" aria-label="Rate unit" className="flex items-center px-3 py-1 gap-2">
                   <span aria-hidden className="text-gray-400 mr-auto">Rate unit</span>
-                  <div className="flex rounded border border-gray-600 overflow-hidden">
+                  <Segmented size="sm">
                     {(['sec', 'min'] as const).map(unit => (
-                      <button
+                      <Segment
                         key={unit}
-                        type="button"
                         role="menuitemradio"
-                        aria-checked={rateUnit === unit}
+                        pressed={rateUnit === unit}
                         tabIndex={-1}
-                        className={`px-2 py-0.5 outline-none focus:bg-gray-600 ${rateUnit === unit ? 'bg-teal-600 text-white' : 'text-gray-300 hover:bg-gray-700'}`}
                         onClick={() => setRateUnit(unit)}
                       >
                         /{unit}
-                      </button>
+                      </Segment>
                     ))}
-                  </div>
+                  </Segmented>
                 </div>
                 <DefaultMachinesMenuItem gameData={gameData} />
                 <div role="separator" className="my-1 border-t border-gray-700" />

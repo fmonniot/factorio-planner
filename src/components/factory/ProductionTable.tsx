@@ -6,6 +6,7 @@ import { RecipeRow } from './RecipeRow'
 import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
+import { Segment, Segmented } from '../SegmentedControl'
 import { RecipeGroupRow } from './RecipeGroupRow'
 import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, recipeGroups, type AreaView, type RecipeGroup } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
@@ -146,19 +147,22 @@ export function ProductionTable() {
                     <span className="flex items-center gap-2">
                       Recipe
                       {areaIndex?.hasAreas && (
-                        <button
-                          type="button"
-                          aria-pressed={view === 'recipe'}
-                          title="One line per recipe with its total over every area; open a line to see its rows per area"
-                          onClick={() => setTableView(view === 'recipe' ? 'tree' : 'recipe')}
-                          className={`text-[10px] font-normal px-1.5 py-0.5 rounded border ${
-                            view === 'recipe'
-                              ? 'border-teal-400 bg-teal-500/20 text-teal-200'
-                              : 'border-gray-600 text-gray-400 hover:border-gray-400'
-                          }`}
-                        >
-                          By recipe
-                        </button>
+                        <Segmented label="Table view" size="xs">
+                          <Segment
+                            pressed={view === 'tree'}
+                            title="One row per recipe node, grouped by sub-factory and area"
+                            onClick={() => setTableView('tree')}
+                          >
+                            Tree
+                          </Segment>
+                          <Segment
+                            pressed={view === 'recipe'}
+                            title="One line per recipe with its total over every area; open a line to see its rows per area"
+                            onClick={() => setTableView('recipe')}
+                          >
+                            By recipe
+                          </Segment>
+                        </Segmented>
                       )}
                     </span>
                   </th>
