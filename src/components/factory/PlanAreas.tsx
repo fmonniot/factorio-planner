@@ -6,6 +6,7 @@ import { useUiStore } from '../../store/uiStore'
 import { Modal } from '../Modal'
 import { IconButton } from '../IconButton'
 import { AreasIcon } from '../icons'
+import { Segment, Segmented } from '../SegmentedControl'
 import { BlockAreaMatrix } from './BlockAreaMatrix'
 import { AllBlocksMatrix } from './AllBlocksMatrix'
 import { blockMatrix, machineItemIds, type ColumnMode, type MatrixArea, type RowMode } from './areaMatrix'
@@ -18,30 +19,6 @@ import type { GameData } from '../../data/types'
 // ---------------------------------------------------------------------------
 
 const ALL = 'all'
-
-/** A segmented control: a dark track holding one pill per option, the pressed one filled. */
-function Segmented({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div role="group" aria-label={label} className="flex flex-wrap items-center gap-1 p-[3px] bg-gray-950 border border-gray-700 rounded-lg">
-      {children}
-    </div>
-  )
-}
-
-function Segment({ pressed, onClick, children }: { pressed: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={pressed}
-      onClick={onClick}
-      className={`flex items-center gap-1.5 h-7 px-2.5 rounded-md text-[13px] ${
-        pressed ? 'bg-gray-700 text-white' : 'text-gray-400 hover:text-gray-200'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
 
 export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onClose: () => void }) {
   const blocks = useBlockStore(s => s.blocks)
