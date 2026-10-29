@@ -279,6 +279,7 @@ describe('ProductionTable — block power total', () => {
     expect(total).toHaveTextContent('2.0')
     expect(total).toHaveTextContent('MW')
     expect(total).toHaveAccessibleName('Total power draw, 2.0 MW')
+    expect(screen.getByRole('img', { name: 'Total power draw, 2.0 MW' })).toBe(total)
   })
 
   it('shows no total when nothing draws power', () => {

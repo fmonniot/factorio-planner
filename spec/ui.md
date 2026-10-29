@@ -754,8 +754,8 @@ The popover closes on Escape or a click outside.
 - Otherwise: a table with a sticky header — reorder, Recipe, Machine, Beacon,
   Products, Byproducts, Ingredients. The left (reorder) header column carries a `+`
   button (Add recipe). The Ingredients header also shows the block's total power draw
-  (⚡, auto-scaled W / kW / MW / GW, right-aligned): the sum of the rows' power tiles,
-  hidden when it is zero, beacon power not included.
+  (⚡, auto-scaled W / kW / MW / GW, right-aligned): the sum of every row's power draw, including rows in
+  collapsed sub-plans (which have no tile of their own), hidden when it is zero, beacon power not included.
 - In a block with areas, the Recipe header also carries a small [segmented control](#segmented-control)
   named "Table view" with two options, **Tree** and **By recipe** (`aria-pressed`), that switches
   between the tree and the [by-recipe view](#by-recipe-view). The choice is global, not per block,
@@ -901,7 +901,7 @@ time.
 **Ingredients cell.** Every input with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
 same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. This is informational only: the solver and the other views (summary, goals, pickers, block graph) do not use it. A ⚡ tile at the end shows the row's power draw (a power generation row draws nothing, so it has none: its output is the electricity product tile, in power units)
-(auto-scaled W / kW / MW / GW) when it is above zero. Right-clicking an ingredient tile opens the [sourcing menu](#item-chip-sourcing-menu); the power tile has none. The sum of these tiles is the total in the Ingredients header.
+(auto-scaled W / kW / MW / GW) when it is above zero. Right-clicking an ingredient tile opens the [sourcing menu](#item-chip-sourcing-menu); the power tile has none. The Ingredients header total sums these draws over every row, including rows in collapsed sub-plans.
 
 #### Item chip sourcing menu
 

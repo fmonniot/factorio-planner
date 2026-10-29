@@ -179,6 +179,7 @@ export function ProductionTable() {
                       {totalPower && (
                         <span
                           data-testid="block-power-total"
+                          role="img"
                           title="Total power draw of the block"
                           aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
                           className="font-mono tabular-nums text-cyan-300 whitespace-nowrap"
