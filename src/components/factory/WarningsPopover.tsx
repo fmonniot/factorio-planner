@@ -7,7 +7,7 @@ import { useUiStore } from '../../store/uiStore'
 import type { RateUnit } from '../../store/uiStore'
 import { blockAreas } from '../../solver/areas'
 import { areaName } from './areaRows'
-import { fmtRate } from './ItemTile'
+import { fmtItemRateText } from './ItemTile'
 import type { SolverWarning, GameData, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -54,12 +54,11 @@ function warningBody(
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
     }
     case 'area-shortfall': {
-      const unit = rateUnit === 'min' ? '/m' : '/s'
       return w.shortfalls
         .map(s => {
           const area = rootPlan ? areaName(rootPlan, s.areaId) : s.areaId
           const item = gameData.items[s.itemId]?.name ?? s.itemId
-          return `${area} takes ${fmtRate(s.rate / 60, rateUnit)}${unit} of ${item} from other areas, though it has its own row for it.`
+          return `${area} takes ${fmtItemRateText(s.itemId, s.rate / 60, rateUnit)} of ${item} from other areas, though it has its own row for it.`
         })
         .join(' ')
     }

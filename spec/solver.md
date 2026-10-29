@@ -335,7 +335,7 @@ machineCountCeil  = Math.ceil(machineCountExact)
 powerKw           = machineCountExact · (energyUsageKw · (1 + consumptionBonus) + drainKw)
 ```
 
-Drain is not affected by consumption modules. Beacon power is not counted. For a mining drill or offshore pump, `craftingSpeed` is its mining or pumping speed (an offshore pump recipe yields 60 units per craft, so one pump of speed 20 makes 1200 per second).
+Drain is not affected by consumption modules. Beacon power is not counted. Power generation machines (boiler, generator, burner generator, solar panel) have `energyUsageKw` 0 and `drainKw` 0, so they add no draw; the electricity they make is an ordinary LP item (`power:electricity`, 1 unit = 1 MJ), balanced like any other fluid. For a mining drill or offshore pump, `craftingSpeed` is its mining or pumping speed (an offshore pump recipe yields 60 units per craft, so one pump of speed 20 makes 1200 per second).
 
 ---
 

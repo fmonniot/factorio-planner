@@ -1,7 +1,8 @@
 import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE } from '../../solver/index'
-import { fmtRate } from './ItemTile'
+import { fmtPower } from './ItemTile'
+import { isElectricity } from '../../data/electricity'
 import { possessive } from './productChangeText'
 import type { ByproductRow, IngredientRow } from './summaryRows'
 
@@ -115,13 +116,24 @@ export interface OverviewRow {
   limited: boolean
 }
 
-// A shortfall only counts when it survives the display rounding, so "short by 0.00/m" never shows.
-export function isShortfall(target: number, actual: number, unit: RateUnit): boolean {
-  return actual < target - FLOW_TOLERANCE && parseFloat(fmtRate((target - actual) / 60, unit)) > 0
+/**
+ * Whether a gap (items/min) survives the display rounding, so "short by 0.00/m" never shows.
+ * Electricity is shown in W/kW/MW whatever the rate unit, so it is rounded the same way
+ * and the answer does not depend on the toggle.
+ */
+function visibleGap(gapPerMin: number, unit: RateUnit, itemId?: string): boolean {
+  if (isElectricity(itemId)) return parseFloat(fmtPower(gapPerMin / 60 * 1000).value) > 0
+  const v = unit === 'min' ? gapPerMin : gapPerMin / 60
+  return parseFloat(v.toFixed(2)) > 0
 }
 
-export function differsFromTarget(target: number, actual: number, unit: RateUnit): boolean {
-  return Math.abs(actual - target) > FLOW_TOLERANCE && parseFloat(fmtRate(Math.abs(target - actual) / 60, unit)) > 0
+// A shortfall only counts when it survives the display rounding.
+export function isShortfall(target: number, actual: number, unit: RateUnit, itemId?: string): boolean {
+  return actual < target - FLOW_TOLERANCE && visibleGap(target - actual, unit, itemId)
+}
+
+export function differsFromTarget(target: number, actual: number, unit: RateUnit, itemId?: string): boolean {
+  return Math.abs(actual - target) > FLOW_TOLERANCE && visibleGap(Math.abs(target - actual), unit, itemId)
 }
 
 function exportSegments(exports: ConnectionFlow[]): Segment[] {
@@ -202,7 +214,7 @@ export function productSlot(
   const segments = exportSegments(exports)
   const kept = Math.max(0, actualPerMin - sum(segments))
   if (kept > FLOW_TOLERANCE) segments.push({ key: 'kept', kind: 'kept', amount: kept })
-  const short = asked && isShortfall(required, actualPerMin, unit)
+  const short = asked && isShortfall(required, actualPerMin, unit, product.itemId)
   if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
   const scale = Math.max(required, sum(segments))
   // The extra gives way first; the rest falls on the requests served last (see `connectionOffer`).
@@ -233,7 +245,7 @@ export function productSlot(
     product: info(
       actualPerMin,
       short,
-      asked && differsFromTarget(required, actualPerMin, unit) ? required / scale : null,
+      asked && differsFromTarget(required, actualPerMin, unit, product.itemId) ? required / scale : null,
       shortFrom,
     ),
   }

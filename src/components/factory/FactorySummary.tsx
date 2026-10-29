@@ -3,7 +3,8 @@ import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/bl
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import { fmtRate } from './ItemTile'
+import { fmtRate, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
+import { isElectricity } from '../../data/electricity'
 import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ConnectionFlow, Product } from '../../data/types'
@@ -41,11 +42,17 @@ interface ProductRatesProps {
 
 function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop, onUpdateExtra }: ProductRatesProps) {
   // product.extraRate is stored in items/min internally
-  const unitLabel = rateUnit === 'min' ? '/m' : '/s'
+  // Electricity is shown in power units (value and unit together); its inputs are typed in MW.
+  const power = isElectricity(product.itemId)
+  const unitLabel = power ? '' : fmtItemRate(product.itemId, 0, rateUnit).unit
+  const text = (perMin: number) => power
+    ? fmtItemRateText(product.itemId, perMin / 60, rateUnit)
+    : fmtRate(perMin / 60, rateUnit)
   const hasExtra = product.extraRate !== undefined
-  const extraDisplay = hasExtra ? fmtRate(product.extraRate! / 60, rateUnit) : ''
-  const actualDisplay = info.actual !== undefined ? fmtRate(info.actual / 60, rateUnit) : null
-  const shortfallDisplay = info.actual !== undefined ? fmtRate((info.required - info.actual) / 60, rateUnit) : null
+  const extraInput = hasExtra ? fmtRate(product.extraRate! / 60, inputRateUnit(product.itemId, rateUnit)) : ''
+  const extraDisplay = hasExtra ? text(product.extraRate!) : ''
+  const actualDisplay = info.actual !== undefined ? text(info.actual) : null
+  const shortfallDisplay = info.actual !== undefined ? text(info.required - info.actual) : null
   const { short } = info
   const showExtra = editing || hasExtra
   const showRequested = info.requested > FLOW_TOLERANCE
@@ -54,14 +61,18 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
     <span className="flex items-center gap-1 text-xs whitespace-nowrap">
       {/* Extra output — editable; clearing the field removes it */}
       {editing ? (
-        <RateInput
-          initial={extraDisplay}
-          rateUnit={rateUnit}
-          ariaLabel="Extra output rate"
-          allowClear
-          onCommit={onUpdateExtra}
-          onStop={onStop}
-        />
+        <>
+          <RateInput
+            initial={extraInput}
+            rateUnit={inputRateUnit(product.itemId, rateUnit)}
+            ariaLabel="Extra output rate"
+            allowClear
+            onCommit={onUpdateExtra}
+            onStop={onStop}
+          />
+          {/* Electricity has no unitLabel, but its field is typed in MW whatever the rate unit. */}
+          {power && <span data-testid="extra-input-unit" className="text-gray-400 text-[10px]">MW</span>}
+        </>
       ) : hasExtra && (
         <button
           type="button"
@@ -75,7 +86,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
 
       {showRequested && (
         <span className="text-gray-300 tabular-nums font-mono text-[11px] leading-none">
-          {showExtra ? '+ ' : ''}requested {fmtRate(info.requested / 60, rateUnit)}
+          {showExtra ? '+ ' : ''}requested {text(info.requested)}
         </span>
       )}
 
@@ -99,7 +110,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
             </>
           )}
 
-          <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+          {unitLabel && <span className="text-gray-600 text-[10px]">{unitLabel}</span>}
         </>
       )}
     </span>
@@ -213,8 +224,8 @@ export function FactorySummary() {
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
   // A product shortfall can neither receive supply nor be forbidden imports (products have no slack).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
-  const unitLabel = rateUnit === 'min' ? '/m' : '/s'
-  const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
+  // Number and unit of a rate of `itemId` (power units for electricity).
+  const fmtFor = (itemId: string, perMin: number) => fmtItemRate(itemId, perMin / 60, rateUnit)
 
   function requestAddProduct(itemId: string, extraRate?: number) {
     if (!activeBlock) return
@@ -337,8 +348,8 @@ export function FactorySummary() {
           }}
           renderRates={slot => (
             <span className="text-xs text-gray-300">
-              made <span className="font-mono tabular-nums">{fmt(slot.scale)}</span>
-              <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+              made <span className="font-mono tabular-nums">{fmtFor(slot.itemId, slot.scale).value}</span>
+              <span className="text-gray-600 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
             </span>
           )}
           actionsFor={slot => [
@@ -367,8 +378,8 @@ export function FactorySummary() {
           }}
           renderRates={slot => (
             <span className="text-xs text-gray-300">
-              need <span className="font-mono tabular-nums">{fmt(slot.scale)}</span>
-              <span className="text-gray-600 text-[10px]">{unitLabel}</span>
+              need <span className="font-mono tabular-nums">{fmtFor(slot.itemId, slot.scale).value}</span>
+              <span className="text-gray-600 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
             </span>
           )}
           actionsFor={slot => {
@@ -455,8 +466,11 @@ export function FactorySummary() {
           key={`${limitEditor.connectionId}-${rateUnit}`}
           x={limitEditor.x}
           y={limitEditor.y}
-          initial={limitConnection.maxRate !== undefined ? fmt(limitConnection.maxRate) : ''}
-          rateUnit={rateUnit}
+          initial={limitConnection.maxRate !== undefined
+            ? fmtRate(limitConnection.maxRate / 60, inputRateUnit(limitConnection.itemId, rateUnit))
+            : ''}
+          itemId={limitConnection.itemId}
+          rateUnit={inputRateUnit(limitConnection.itemId, rateUnit)}
           onCommit={perMin => setConnectionMaxRate(limitEditor.connectionId, perMin, limitEditor.toBlockId)}
           onClose={() => setLimitEditor(null)}
         />
@@ -497,6 +511,7 @@ export function FactorySummary() {
       {pendingChange && activeBlock && (
         <ProductChangeDialog
           change={pendingChange.change}
+          itemId={pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId}
           itemName={gameData.items[pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId]?.name
             ?? (pendingChange.change === 'add' ? pendingChange.product.itemId : pendingChange.itemId)}
           blockName={activeBlock.name}

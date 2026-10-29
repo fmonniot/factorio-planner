@@ -21,7 +21,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
-| Plan power generation       | Future   | [power-generation/](power-generation/plan.md)          |
+| Plan power generation       | Shipped  | [archive/power-generation/](archive/power-generation/plan.md) |
 | Block granularity           | Shipped  | [archive/block-granularity/](archive/block-granularity/problem.md) |
 | Requests between blocks     | Shipped  | [archive/block-requests/](archive/block-requests/)     |
 | Top bar workspace menu      | Shipped  | [archive/top-bar-workspace/](archive/top-bar-workspace/) |

@@ -1,6 +1,7 @@
 import type { Item, ItemSourcingMode } from '../../data/types'
+import { isElectricity } from '../../data/electricity'
 import { Icon } from '../Icon'
-import { useUiStore } from '../../store/uiStore'
+import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { itemSourcingLabel } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
@@ -12,6 +13,8 @@ export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   const v = unit === 'min' ? ratePerSec * 60 : ratePerSec
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)
+  // Tiny non-zero rates (nuclear fuel per second) would read 0.00: keep two significant digits.
+  if (v >= 1e-6 && v < 0.005) return v.toPrecision(2)
   return v.toFixed(2)
 }
 
@@ -21,6 +24,29 @@ export function fmtPower(kw: number): { value: string; unit: string } {
   if (kw < 1000) return { value: kw.toFixed(1), unit: 'kW' }
   if (kw < 1_000_000) return { value: (kw / 1000).toFixed(1), unit: 'MW' }
   return { value: (kw / 1_000_000).toFixed(1), unit: 'GW' }
+}
+
+/**
+ * A rate of `itemId` as a value and a unit. Electricity (1 unit/s = 1 MW) is always
+ * shown in power units, whatever the rate unit; everything else follows `unit`.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function fmtItemRate(itemId: string | undefined, ratePerSec: number, unit: RateUnit): { value: string; unit: string } {
+  if (isElectricity(itemId)) return fmtPower(ratePerSec * 1000)
+  return { value: fmtRate(ratePerSec, unit), unit: unit === 'min' ? '/m' : '/s' }
+}
+
+/** `fmtItemRate` as one string, e.g. "10.0MW" or "60.0/m". */
+// eslint-disable-next-line react-refresh/only-export-components
+export function fmtItemRateText(itemId: string | undefined, ratePerSec: number, unit: RateUnit): string {
+  const r = fmtItemRate(itemId, ratePerSec, unit)
+  return r.value + r.unit
+}
+
+/** The unit a rate input for `itemId` is typed in: MW (rate unit 'sec') for electricity. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function inputRateUnit(itemId: string | undefined, unit: RateUnit): RateUnit {
+  return isElectricity(itemId) ? 'sec' : unit
 }
 
 // ---------------------------------------------------------------------------
@@ -57,15 +83,17 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
 
   const isPower = variant === 'electricity'
   const power = isPower ? fmtPower(ratePerSec) : null
-  const label = isPower ? power!.value : fmtRate(ratePerSec, unit)
-  const unitLabel = isPower ? power!.unit : unit === 'min' ? '/m' : '/s'
+  const rate = fmtItemRate(item?.id, ratePerSec, unit)
+  const label = isPower ? power!.value : rate.value
+  const unitLabel = isPower ? power!.unit : rate.unit
+  const electricityItem = !isPower && isElectricity(item?.id)
 
   const baseTitle = title ?? item?.name
   const tileTitle = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle
 
   const inner = (
     <>
-      {isPower ? (
+      {isPower || (electricityItem && !item?.iconPath) ? (
         <span className="text-base leading-none">⚡</span>
       ) : item?.iconPath ? (
         <Icon
@@ -112,6 +140,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         onClick={onClick}
         onContextMenu={onContextMenu}
         title={tileTitle}
+        data-variant={variant}
         className={`${baseClass} hover:brightness-125 cursor-pointer`}
       >
         {inner}
@@ -120,7 +149,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   }
 
   return (
-    <span title={tileTitle} onContextMenu={onContextMenu} className={baseClass}>
+    <span title={tileTitle} data-variant={variant} onContextMenu={onContextMenu} className={baseClass}>
       {inner}
     </span>
   )

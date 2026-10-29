@@ -52,6 +52,15 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Power patch mode: add the power generation recipes (boilers, generators,
+ * burner generators, solar panels), the machines that run them, the
+ * `power:electricity` item and the Power item group to an existing bundle (same
+ * mod-set check). Safe to re-run. It also refreshes `placeResult` on the items
+ * and the default machines of the generated `power:` categories:
+ *   node scripts/build-game-data.js --patch-power \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -69,6 +78,10 @@ import { attachPlaceResults } from './place-results.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
+import {
+  exportPower, isPowerCategory, parsePowerRecipeId, powerRecipeName,
+  ELECTRICITY_ITEM_ID, POWER_PREFIX, POWER_MACHINE_TYPES,
+} from './power.js'
 import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -102,6 +115,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-technologies') args.patchTechnologies = true
     else if (argv[i] === '--patch-names') args.patchNames = true
     else if (argv[i] === '--patch-extraction') args.patchExtraction = true
+    else if (argv[i] === '--patch-power') args.patchPower = true
   }
   return args
 }
@@ -740,9 +754,9 @@ const locale = { map: localeMap, game }
 const { modSet, factorioVersion } = computeModSet()
 
 /** Warn about ids of `added` that already exist in `target` (Object.assign would overwrite them). */
-function warnCollisions(target, added) {
+function warnCollisions(target, added, label = 'extraction') {
   for (const id of Object.keys(added)) {
-    if (id in target) process.stderr.write(`[warn] extraction id collides with an existing entry and replaces it: ${id}\n`)
+    if (id in target) process.stderr.write(`[warn] ${label} id collides with an existing entry and replaces it: ${id}\n`)
   }
 }
 
@@ -777,7 +791,8 @@ function patchNames(existing, raw, locale) {
     for (const [id, entry] of Object.entries(existing[section] ?? {})) {
       const name = lookup(id, entry)
       if (name === undefined) {
-        missing++
+        // Generated entries (the electricity item, the power group) are not in the dump.
+        if (section === 'recipes' || !id.startsWith(POWER_PREFIX)) missing++
         out[id] = entry
         continue
       }
@@ -811,6 +826,13 @@ function patchNames(existing, raw, locale) {
     return proto && entityName(proto, locale)
   })
   bundle.recipes = patchSection('recipes', (id, entry) => {
+    if (entry.power) {
+      // Generated names: "<machine> (<input>)" and "<machine>", from the (already patched) bundle names.
+      const { machineId, inputId } = parsePowerRecipeId(id)
+      const machine = bundle.machines[machineId]
+      if (!machine) return undefined
+      return powerRecipeName(machine.name, inputId ? bundle.items[inputId]?.name ?? inputId : undefined)
+    }
     if (entry.extraction) {
       // Generated names: "<resource> (mining)" and "<fluid> (offshore pump)".
       if (id.startsWith('mining:')) {
@@ -851,8 +873,8 @@ function patchNames(existing, raw, locale) {
 if (args.patchNames) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
-  // Extraction recipes are generated, so they are never in the dump's recipe table.
-  const recipeIds = Object.entries(existing.recipes).filter(([, r]) => !r.extraction).map(([id]) => id)
+  // Extraction and power recipes are generated, so they are never in the dump's recipe table.
+  const recipeIds = Object.entries(existing.recipes).filter(([, r]) => !r.extraction && !r.power).map(([id]) => id)
   const missingRecipes = recipeIds.filter(id => !raw.recipe?.[id]).length
   if (missingRecipes > recipeIds.length * 0.01) {
     process.stderr.write(
@@ -904,11 +926,62 @@ if (args.patchExtraction) {
   process.exit(0)
 }
 
+if (args.patchPower) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const power = await exportPower(raw, {
+    entityName: p => entityName(p, locale),
+    itemName: p => itemName(p, locale),
+    fluidName: p => fluidName(p, locale),
+    resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons'), Infinity, { keepExisting: true }),
+    itemSubtypes: ITEM_SUBTYPES,
+  })
+  // Drop what an earlier run generated, so re-running is safe.
+  const recipes = Object.fromEntries(Object.entries(existing.recipes).filter(([, r]) => r.power !== true))
+  const machines = Object.fromEntries(
+    Object.entries(existing.machines).filter(([, m]) => !POWER_MACHINE_TYPES.includes(m.type)),
+  )
+  const items = Object.fromEntries(Object.entries(existing.items).filter(([id]) => id !== ELECTRICITY_ITEM_ID))
+  const itemGroups = Object.fromEntries(Object.entries(existing.itemGroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
+  const itemSubgroups = Object.fromEntries(Object.entries(existing.itemSubgroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
+  const defaultMachines = Object.fromEntries(
+    Object.entries(existing.defaultMachines).filter(([category]) => !isPowerCategory(category)),
+  )
+  warnCollisions(machines, power.machines, 'power')
+  warnCollisions(recipes, power.recipes, 'power')
+  warnCollisions(items, power.items, 'power')
+  Object.assign(machines, power.machines)
+  Object.assign(recipes, power.recipes)
+  Object.assign(items, power.items)
+  Object.assign(itemGroups, power.itemGroups)
+  Object.assign(itemSubgroups, power.itemSubgroups)
+  Object.assign(defaultMachines, computeDefaultMachines(machines, buildCategoryMap(power.machines)))
+  for (const recipe of Object.values(power.recipes)) {
+    for (const entry of [...recipe.ingredients, ...recipe.products]) {
+      if (!(entry.itemId in items)) process.stderr.write(`[warn] power recipe ${recipe.id} uses ${entry.itemId}, which is not in the bundle items\n`)
+    }
+  }
+  const { items: placedItems, count: placeResultCount } = attachPlaceResults(
+    items, raw, ITEM_SUBTYPES,
+    new Set([...Object.keys(machines), ...Object.keys(existing.beacons ?? {})]),
+  )
+  writeFileSync(outputPath, JSON.stringify({
+    ...existing, items: placedItems, recipes, machines, defaultMachines, itemGroups, itemSubgroups,
+  }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: powerRecipes=${Object.keys(power.recipes).length} ` +
+    `powerMachines=${Object.keys(power.machines).length} placeResults=${placeResultCount}\n`
+  )
+  process.exit(0)
+}
+
 if (args.patchTechnologies) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
   const recipeIds = new Set(Object.keys(existing.recipes))
-  const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
+  // Extraction and power recipes are generated, so they are never in the dump's recipe table.
+  const missing = Object.entries(existing.recipes)
+    .filter(([id, r]) => !r.extraction && !r.power && !raw.recipe?.[id]).length
   if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)
   const exported = exportTechnologies(
     raw, recipeIds, p => resolveTechnologyName(p, locale.map, locale.game),
@@ -948,15 +1021,30 @@ const extraction = await exportExtraction(raw, {
 warnCollisions(machines, extraction.machines)
 Object.assign(machines, extraction.machines)
 
+process.stderr.write(`[build-game-data] Exporting power generation recipes and machines...\n`)
+const power = await exportPower(raw, {
+  entityName: p => entityName(p, locale),
+  itemName: p => itemName(p, locale),
+  fluidName: p => fluidName(p, locale),
+  resolveIcon,
+  itemSubtypes: ITEM_SUBTYPES,
+})
+warnCollisions(machines, power.machines, 'power')
+Object.assign(machines, power.machines)
+
 const categoryMap = buildCategoryMap(machines)
 
 process.stderr.write(`[build-game-data] Exporting items...\n`)
 const items = await exportItems(raw, locale, resolveIcon)
+warnCollisions(items, power.items, 'power')
+Object.assign(items, power.items)
 
 process.stderr.write(`[build-game-data] Exporting recipes...\n`)
 const recipes = exportRecipes(raw, locale, categoryMap)
 warnCollisions(recipes, extraction.recipes)
 Object.assign(recipes, extraction.recipes)
+warnCollisions(recipes, power.recipes, 'power')
+Object.assign(recipes, power.recipes)
 
 process.stderr.write(`[build-game-data] Exporting modules...\n`)
 const modules = await exportModules(raw, locale, resolveIcon)
@@ -970,6 +1058,8 @@ const { items: placedItems, count: placeResultCount } = attachPlaceResults(items
 process.stderr.write(`[build-game-data] Exporting item groups...\n`)
 const itemGroups    = await exportItemGroups(raw, locale, resolveIcon)
 const itemSubgroups = exportItemSubgroups(raw)
+Object.assign(itemGroups, power.itemGroups)
+Object.assign(itemSubgroups, power.itemSubgroups)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
 
@@ -1008,6 +1098,6 @@ process.stderr.write(
   `itemGroups=${count(itemGroups)} itemSubgroups=${count(itemSubgroups)} ` +
   `technologies=${count(technologies)} startingRecipes=${startingRecipes.length} ` +
   `placeResults=${placeResultCount} ` +
-  `extractionRecipes=${count(extraction.recipes)}\n` +
+  `extractionRecipes=${count(extraction.recipes)} powerRecipes=${count(power.recipes)}\n` +
   `[build-game-data] Output: ${outputPath}\n`
 )

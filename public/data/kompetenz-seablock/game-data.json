@@ -388,7 +388,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-boiler",
-      "order": "b[steam-power]-a[boiler-1]"
+      "order": "b[steam-power]-a[boiler-1]",
+      "placeResult": "boiler"
     },
     "steam-engine": {
       "id": "steam-engine",
@@ -398,7 +399,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-b[steam-engine-1]"
+      "order": "b[steam-power]-b[steam-engine-1]",
+      "placeResult": "steam-engine"
     },
     "small-electric-pole": {
       "id": "small-electric-pole",
@@ -642,7 +644,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-1-b]"
+      "order": "d[solar-panel]-a[solar-panel-1-b]",
+      "placeResult": "solar-panel"
     },
     "train-stop": {
       "id": "train-stop",
@@ -1309,7 +1312,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-c[steam-turbine-1]"
+      "order": "b[steam-power]-c[steam-turbine-1]",
+      "placeResult": "steam-turbine"
     },
     "heat-pipe": {
       "id": "heat-pipe",
@@ -19502,7 +19506,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-boiler",
-      "order": "b[steam-power]-a[boiler-2]"
+      "order": "b[steam-power]-a[boiler-2]",
+      "placeResult": "bob-boiler-2"
     },
     "bob-boiler-3": {
       "id": "bob-boiler-3",
@@ -19512,7 +19517,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-boiler",
-      "order": "b[steam-power]-a[boiler-3]"
+      "order": "b[steam-power]-a[boiler-3]",
+      "placeResult": "bob-boiler-3"
     },
     "bob-boiler-4": {
       "id": "bob-boiler-4",
@@ -19522,7 +19528,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-boiler",
-      "order": "b[steam-power]-a[boiler-4]"
+      "order": "b[steam-power]-a[boiler-4]",
+      "placeResult": "bob-boiler-4"
     },
     "bob-boiler-5": {
       "id": "bob-boiler-5",
@@ -19532,7 +19539,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-boiler",
-      "order": "b[steam-power]-a[boiler-5]"
+      "order": "b[steam-power]-a[boiler-5]",
+      "placeResult": "bob-boiler-5"
     },
     "bob-oil-boiler": {
       "id": "bob-oil-boiler",
@@ -19542,7 +19550,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-oil-boiler",
-      "order": "b[steam-power]-b[oil-boiler-1]"
+      "order": "b[steam-power]-b[oil-boiler-1]",
+      "placeResult": "bob-oil-boiler"
     },
     "bob-oil-boiler-2": {
       "id": "bob-oil-boiler-2",
@@ -19552,7 +19561,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-oil-boiler",
-      "order": "b[steam-power]-b[oil-boiler-2]"
+      "order": "b[steam-power]-b[oil-boiler-2]",
+      "placeResult": "bob-oil-boiler-2"
     },
     "bob-oil-boiler-3": {
       "id": "bob-oil-boiler-3",
@@ -19562,7 +19572,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-oil-boiler",
-      "order": "b[steam-power]-b[oil-boiler-3]"
+      "order": "b[steam-power]-b[oil-boiler-3]",
+      "placeResult": "bob-oil-boiler-3"
     },
     "bob-oil-boiler-4": {
       "id": "bob-oil-boiler-4",
@@ -19572,7 +19583,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-oil-boiler",
-      "order": "b[steam-power]-b[oil-boiler-4]"
+      "order": "b[steam-power]-b[oil-boiler-4]",
+      "placeResult": "bob-oil-boiler-4"
     },
     "bob-medium-electric-pole-2": {
       "id": "bob-medium-electric-pole-2",
@@ -19672,7 +19684,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-1-a]"
+      "order": "d[solar-panel]-a[solar-panel-1-a]",
+      "placeResult": "bob-solar-panel-small"
     },
     "bob-solar-panel-large": {
       "id": "bob-solar-panel-large",
@@ -19682,7 +19695,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-1-c]"
+      "order": "d[solar-panel]-a[solar-panel-1-c]",
+      "placeResult": "bob-solar-panel-large"
     },
     "bob-solar-panel-small-2": {
       "id": "bob-solar-panel-small-2",
@@ -19692,7 +19706,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-2-a]"
+      "order": "d[solar-panel]-a[solar-panel-2-a]",
+      "placeResult": "bob-solar-panel-small-2"
     },
     "bob-solar-panel-2": {
       "id": "bob-solar-panel-2",
@@ -19702,7 +19717,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-2-b]"
+      "order": "d[solar-panel]-a[solar-panel-2-b]",
+      "placeResult": "bob-solar-panel-2"
     },
     "bob-solar-panel-large-2": {
       "id": "bob-solar-panel-large-2",
@@ -19712,7 +19728,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-2-c]"
+      "order": "d[solar-panel]-a[solar-panel-2-c]",
+      "placeResult": "bob-solar-panel-large-2"
     },
     "bob-solar-panel-small-3": {
       "id": "bob-solar-panel-small-3",
@@ -19722,7 +19739,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-3-a]"
+      "order": "d[solar-panel]-a[solar-panel-3-a]",
+      "placeResult": "bob-solar-panel-small-3"
     },
     "bob-solar-panel-3": {
       "id": "bob-solar-panel-3",
@@ -19732,7 +19750,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-3-b]"
+      "order": "d[solar-panel]-a[solar-panel-3-b]",
+      "placeResult": "bob-solar-panel-3"
     },
     "bob-solar-panel-large-3": {
       "id": "bob-solar-panel-large-3",
@@ -19742,7 +19761,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "bob-energy-solar-panel",
-      "order": "d[solar-panel]-a[solar-panel-3-c]"
+      "order": "d[solar-panel]-a[solar-panel-3-c]",
+      "placeResult": "bob-solar-panel-large-3"
     },
     "bob-steam-engine-2": {
       "id": "bob-steam-engine-2",
@@ -19752,7 +19772,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-b[steam-engine-2]"
+      "order": "b[steam-power]-b[steam-engine-2]",
+      "placeResult": "bob-steam-engine-2"
     },
     "bob-steam-engine-3": {
       "id": "bob-steam-engine-3",
@@ -19762,7 +19783,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-b[steam-engine-3]"
+      "order": "b[steam-power]-b[steam-engine-3]",
+      "placeResult": "bob-steam-engine-3"
     },
     "bob-steam-engine-4": {
       "id": "bob-steam-engine-4",
@@ -19772,7 +19794,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-b[steam-engine-4]"
+      "order": "b[steam-power]-b[steam-engine-4]",
+      "placeResult": "bob-steam-engine-4"
     },
     "bob-steam-engine-5": {
       "id": "bob-steam-engine-5",
@@ -19782,7 +19805,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-b[steam-engine-5]"
+      "order": "b[steam-power]-b[steam-engine-5]",
+      "placeResult": "bob-steam-engine-5"
     },
     "bob-heat-exchanger-2": {
       "id": "bob-heat-exchanger-2",
@@ -19822,7 +19846,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-c[steam-turbine-2]"
+      "order": "b[steam-power]-c[steam-turbine-2]",
+      "placeResult": "bob-steam-turbine-2"
     },
     "bob-steam-turbine-3": {
       "id": "bob-steam-turbine-3",
@@ -19832,7 +19857,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "bob-energy-steam-engine",
-      "order": "b[steam-power]-c[steam-turbine-3]"
+      "order": "b[steam-power]-c[steam-turbine-3]",
+      "placeResult": "bob-steam-turbine-3"
     },
     "bob-nuclear-reactor-2": {
       "id": "bob-nuclear-reactor-2",
@@ -33915,6 +33941,15 @@
       "hidden": false,
       "subgroup": "angels-bio-puffer-1",
       "order": "b"
+    },
+    "power:electricity": {
+      "id": "power:electricity",
+      "name": "Electricity",
+      "type": "fluid",
+      "iconPath": "/data/kompetenz-seablock/icons/power-electricity.png",
+      "hidden": false,
+      "subgroup": "power:electricity",
+      "order": "a"
     }
   },
   "recipes": {
@@ -136187,6 +136222,3377 @@
       "order": "",
       "extraction": true,
       "mainProduct": "angels-water-viscous-mud"
+    },
+    "power:boiler:angels-cellulose-fiber": {
+      "id": "power:boiler:angels-cellulose-fiber",
+      "name": "Boiler (Cellulose fiber)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 1.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-nuclear-fuel": {
+      "id": "power:boiler:angels-nuclear-fuel",
+      "name": "Boiler (Plutonium nuclear fuel)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.0012294242196571274
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-nuclear-fuel-2": {
+      "id": "power:boiler:angels-nuclear-fuel-2",
+      "name": "Boiler (Fusion nuclear fuel)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.0008195974865677078
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-pellet-charcoal": {
+      "id": "power:boiler:angels-pellet-charcoal",
+      "name": "Boiler (Charcoal pellet)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.075
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-rocket-booster": {
+      "id": "power:boiler:angels-rocket-booster",
+      "name": "Boiler (Rocket booster)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.18
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-solid-carbon": {
+      "id": "power:boiler:angels-solid-carbon",
+      "name": "Boiler (Carbon)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 0.72
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-wood-bricks": {
+      "id": "power:boiler:angels-wood-bricks",
+      "name": "Boiler (Wood bricks)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-wood-charcoal": {
+      "id": "power:boiler:angels-wood-charcoal",
+      "name": "Boiler (Charcoal)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 0.45
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:angels-wood-pellets": {
+      "id": "power:boiler:angels-wood-pellets",
+      "name": "Boiler (Wood pellets)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.225
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:bob-enriched-fuel": {
+      "id": "power:boiler:bob-enriched-fuel",
+      "name": "Boiler (Enriched fuel block)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.036
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:nuclear-fuel": {
+      "id": "power:boiler:nuclear-fuel",
+      "name": "Boiler (Nuclear fuel)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.0014876033057851239
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:rocket-fuel": {
+      "id": "power:boiler:rocket-fuel",
+      "name": "Boiler (Rocket fuel)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.018
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:solid-fuel": {
+      "id": "power:boiler:solid-fuel",
+      "name": "Boiler (Solid fuel)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.15
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:boiler:wood": {
+      "id": "power:boiler:wood",
+      "name": "Boiler (Wood)",
+      "category": "power:boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 0.9
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-cellulose-fiber": {
+      "id": "power:bob-boiler-2:angels-cellulose-fiber",
+      "name": "Boiler 2 (Cellulose fiber)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 3.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-nuclear-fuel": {
+      "id": "power:bob-boiler-2:angels-nuclear-fuel",
+      "name": "Boiler 2 (Plutonium nuclear fuel)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.0024588484393142547
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-nuclear-fuel-2": {
+      "id": "power:bob-boiler-2:angels-nuclear-fuel-2",
+      "name": "Boiler 2 (Fusion nuclear fuel)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.0016391949731354156
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-pellet-charcoal": {
+      "id": "power:bob-boiler-2:angels-pellet-charcoal",
+      "name": "Boiler 2 (Charcoal pellet)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.15
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-rocket-booster": {
+      "id": "power:bob-boiler-2:angels-rocket-booster",
+      "name": "Boiler 2 (Rocket booster)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.36
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-solid-carbon": {
+      "id": "power:bob-boiler-2:angels-solid-carbon",
+      "name": "Boiler 2 (Carbon)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 1.44
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-wood-bricks": {
+      "id": "power:bob-boiler-2:angels-wood-bricks",
+      "name": "Boiler 2 (Wood bricks)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-wood-charcoal": {
+      "id": "power:bob-boiler-2:angels-wood-charcoal",
+      "name": "Boiler 2 (Charcoal)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 0.9
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:angels-wood-pellets": {
+      "id": "power:bob-boiler-2:angels-wood-pellets",
+      "name": "Boiler 2 (Wood pellets)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.45
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:bob-enriched-fuel": {
+      "id": "power:bob-boiler-2:bob-enriched-fuel",
+      "name": "Boiler 2 (Enriched fuel block)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.072
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:nuclear-fuel": {
+      "id": "power:bob-boiler-2:nuclear-fuel",
+      "name": "Boiler 2 (Nuclear fuel)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.0029752066115702478
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:rocket-fuel": {
+      "id": "power:bob-boiler-2:rocket-fuel",
+      "name": "Boiler 2 (Rocket fuel)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.036
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:solid-fuel": {
+      "id": "power:bob-boiler-2:solid-fuel",
+      "name": "Boiler 2 (Solid fuel)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.3
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-2:wood": {
+      "id": "power:bob-boiler-2:wood",
+      "name": "Boiler 2 (Wood)",
+      "category": "power:bob-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 1.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-cellulose-fiber": {
+      "id": "power:bob-boiler-3:angels-cellulose-fiber",
+      "name": "Boiler 3 (Cellulose fiber)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 5.4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-nuclear-fuel": {
+      "id": "power:bob-boiler-3:angels-nuclear-fuel",
+      "name": "Boiler 3 (Plutonium nuclear fuel)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.0036882726589713816
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-nuclear-fuel-2": {
+      "id": "power:bob-boiler-3:angels-nuclear-fuel-2",
+      "name": "Boiler 3 (Fusion nuclear fuel)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.0024587924597031237
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-pellet-charcoal": {
+      "id": "power:bob-boiler-3:angels-pellet-charcoal",
+      "name": "Boiler 3 (Charcoal pellet)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.225
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-rocket-booster": {
+      "id": "power:bob-boiler-3:angels-rocket-booster",
+      "name": "Boiler 3 (Rocket booster)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.54
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-solid-carbon": {
+      "id": "power:bob-boiler-3:angels-solid-carbon",
+      "name": "Boiler 3 (Carbon)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 2.16
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-wood-bricks": {
+      "id": "power:bob-boiler-3:angels-wood-bricks",
+      "name": "Boiler 3 (Wood bricks)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.3
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-wood-charcoal": {
+      "id": "power:bob-boiler-3:angels-wood-charcoal",
+      "name": "Boiler 3 (Charcoal)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 1.35
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:angels-wood-pellets": {
+      "id": "power:bob-boiler-3:angels-wood-pellets",
+      "name": "Boiler 3 (Wood pellets)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.675
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:bob-enriched-fuel": {
+      "id": "power:bob-boiler-3:bob-enriched-fuel",
+      "name": "Boiler 3 (Enriched fuel block)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.108
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:nuclear-fuel": {
+      "id": "power:bob-boiler-3:nuclear-fuel",
+      "name": "Boiler 3 (Nuclear fuel)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.004462809917355372
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:rocket-fuel": {
+      "id": "power:bob-boiler-3:rocket-fuel",
+      "name": "Boiler 3 (Rocket fuel)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.054
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:solid-fuel": {
+      "id": "power:bob-boiler-3:solid-fuel",
+      "name": "Boiler 3 (Solid fuel)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.45
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-3:wood": {
+      "id": "power:bob-boiler-3:wood",
+      "name": "Boiler 3 (Wood)",
+      "category": "power:bob-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 2.7
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-cellulose-fiber": {
+      "id": "power:bob-boiler-4:angels-cellulose-fiber",
+      "name": "Boiler 4 (Cellulose fiber)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 7.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-nuclear-fuel": {
+      "id": "power:bob-boiler-4:angels-nuclear-fuel",
+      "name": "Boiler 4 (Plutonium nuclear fuel)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.004917696878628509
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-nuclear-fuel-2": {
+      "id": "power:bob-boiler-4:angels-nuclear-fuel-2",
+      "name": "Boiler 4 (Fusion nuclear fuel)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.0032783899462708313
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-pellet-charcoal": {
+      "id": "power:bob-boiler-4:angels-pellet-charcoal",
+      "name": "Boiler 4 (Charcoal pellet)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.3
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-rocket-booster": {
+      "id": "power:bob-boiler-4:angels-rocket-booster",
+      "name": "Boiler 4 (Rocket booster)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.72
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-solid-carbon": {
+      "id": "power:bob-boiler-4:angels-solid-carbon",
+      "name": "Boiler 4 (Carbon)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 2.88
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-wood-bricks": {
+      "id": "power:bob-boiler-4:angels-wood-bricks",
+      "name": "Boiler 4 (Wood bricks)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-wood-charcoal": {
+      "id": "power:bob-boiler-4:angels-wood-charcoal",
+      "name": "Boiler 4 (Charcoal)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 1.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:angels-wood-pellets": {
+      "id": "power:bob-boiler-4:angels-wood-pellets",
+      "name": "Boiler 4 (Wood pellets)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.9
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:bob-enriched-fuel": {
+      "id": "power:bob-boiler-4:bob-enriched-fuel",
+      "name": "Boiler 4 (Enriched fuel block)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.144
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:nuclear-fuel": {
+      "id": "power:bob-boiler-4:nuclear-fuel",
+      "name": "Boiler 4 (Nuclear fuel)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.0059504132231404955
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:rocket-fuel": {
+      "id": "power:bob-boiler-4:rocket-fuel",
+      "name": "Boiler 4 (Rocket fuel)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.072
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:solid-fuel": {
+      "id": "power:bob-boiler-4:solid-fuel",
+      "name": "Boiler 4 (Solid fuel)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-4:wood": {
+      "id": "power:bob-boiler-4:wood",
+      "name": "Boiler 4 (Wood)",
+      "category": "power:bob-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 3.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-cellulose-fiber": {
+      "id": "power:bob-boiler-5:angels-cellulose-fiber",
+      "name": "Boiler 5 (Cellulose fiber)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 9
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-nuclear-fuel": {
+      "id": "power:bob-boiler-5:angels-nuclear-fuel",
+      "name": "Boiler 5 (Plutonium nuclear fuel)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.006147121098285636
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-nuclear-fuel-2": {
+      "id": "power:bob-boiler-5:angels-nuclear-fuel-2",
+      "name": "Boiler 5 (Fusion nuclear fuel)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.004097987432838539
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-pellet-charcoal": {
+      "id": "power:bob-boiler-5:angels-pellet-charcoal",
+      "name": "Boiler 5 (Charcoal pellet)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.375
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-rocket-booster": {
+      "id": "power:bob-boiler-5:angels-rocket-booster",
+      "name": "Boiler 5 (Rocket booster)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.9
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-solid-carbon": {
+      "id": "power:bob-boiler-5:angels-solid-carbon",
+      "name": "Boiler 5 (Carbon)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 3.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-wood-bricks": {
+      "id": "power:bob-boiler-5:angels-wood-bricks",
+      "name": "Boiler 5 (Wood bricks)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.5
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-wood-charcoal": {
+      "id": "power:bob-boiler-5:angels-wood-charcoal",
+      "name": "Boiler 5 (Charcoal)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 2.25
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:angels-wood-pellets": {
+      "id": "power:bob-boiler-5:angels-wood-pellets",
+      "name": "Boiler 5 (Wood pellets)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 1.125
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:bob-enriched-fuel": {
+      "id": "power:bob-boiler-5:bob-enriched-fuel",
+      "name": "Boiler 5 (Enriched fuel block)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.18
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:nuclear-fuel": {
+      "id": "power:bob-boiler-5:nuclear-fuel",
+      "name": "Boiler 5 (Nuclear fuel)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.00743801652892562
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:rocket-fuel": {
+      "id": "power:bob-boiler-5:rocket-fuel",
+      "name": "Boiler 5 (Rocket fuel)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.09
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:solid-fuel": {
+      "id": "power:bob-boiler-5:solid-fuel",
+      "name": "Boiler 5 (Solid fuel)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.75
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-boiler-5:wood": {
+      "id": "power:bob-boiler-5:wood",
+      "name": "Boiler 5 (Wood)",
+      "category": "power:bob-boiler-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 60
+        },
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 4.5
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60
+        }
+      ],
+      "madeIn": [
+        "bob-boiler-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler:angels-gas-methane": {
+      "id": "power:bob-oil-boiler:angels-gas-methane",
+      "name": "Fluid burning boiler (Methane gas)",
+      "category": "power:bob-oil-boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 10.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler:angels-liquid-fuel-oil": {
+      "id": "power:bob-oil-boiler:angels-liquid-fuel-oil",
+      "name": "Fluid burning boiler (Fuel oil)",
+      "category": "power:bob-oil-boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 5.4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler:angels-liquid-naphtha": {
+      "id": "power:bob-oil-boiler:angels-liquid-naphtha",
+      "name": "Fluid burning boiler (Naphtha)",
+      "category": "power:bob-oil-boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 10.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler:crude-oil": {
+      "id": "power:bob-oil-boiler:crude-oil",
+      "name": "Fluid burning boiler (Crude oil)",
+      "category": "power:bob-oil-boiler",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 10.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-2:angels-gas-methane": {
+      "id": "power:bob-oil-boiler-2:angels-gas-methane",
+      "name": "Fluid burning boiler 2 (Methane gas)",
+      "category": "power:bob-oil-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 16.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-2:angels-liquid-fuel-oil": {
+      "id": "power:bob-oil-boiler-2:angels-liquid-fuel-oil",
+      "name": "Fluid burning boiler 2 (Fuel oil)",
+      "category": "power:bob-oil-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 8.1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-2:angels-liquid-naphtha": {
+      "id": "power:bob-oil-boiler-2:angels-liquid-naphtha",
+      "name": "Fluid burning boiler 2 (Naphtha)",
+      "category": "power:bob-oil-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 16.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-2:crude-oil": {
+      "id": "power:bob-oil-boiler-2:crude-oil",
+      "name": "Fluid burning boiler 2 (Crude oil)",
+      "category": "power:bob-oil-boiler-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 16.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-3:angels-gas-methane": {
+      "id": "power:bob-oil-boiler-3:angels-gas-methane",
+      "name": "Fluid burning boiler 3 (Methane gas)",
+      "category": "power:bob-oil-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 21.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-3:angels-liquid-fuel-oil": {
+      "id": "power:bob-oil-boiler-3:angels-liquid-fuel-oil",
+      "name": "Fluid burning boiler 3 (Fuel oil)",
+      "category": "power:bob-oil-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 10.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-3:angels-liquid-naphtha": {
+      "id": "power:bob-oil-boiler-3:angels-liquid-naphtha",
+      "name": "Fluid burning boiler 3 (Naphtha)",
+      "category": "power:bob-oil-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 21.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-3:crude-oil": {
+      "id": "power:bob-oil-boiler-3:crude-oil",
+      "name": "Fluid burning boiler 3 (Crude oil)",
+      "category": "power:bob-oil-boiler-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 21.6
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-4:angels-gas-methane": {
+      "id": "power:bob-oil-boiler-4:angels-gas-methane",
+      "name": "Fluid burning boiler 4 (Methane gas)",
+      "category": "power:bob-oil-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 27
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-4:angels-liquid-fuel-oil": {
+      "id": "power:bob-oil-boiler-4:angels-liquid-fuel-oil",
+      "name": "Fluid burning boiler 4 (Fuel oil)",
+      "category": "power:bob-oil-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 13.5
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-4:angels-liquid-naphtha": {
+      "id": "power:bob-oil-boiler-4:angels-liquid-naphtha",
+      "name": "Fluid burning boiler 4 (Naphtha)",
+      "category": "power:bob-oil-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 27
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-oil-boiler-4:crude-oil": {
+      "id": "power:bob-oil-boiler-4:crude-oil",
+      "name": "Fluid burning boiler 4 (Crude oil)",
+      "category": "power:bob-oil-boiler-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 27
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 90
+        }
+      ],
+      "madeIn": [
+        "bob-oil-boiler-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:steam-engine:steam": {
+      "id": "power:steam-engine:steam",
+      "name": "Steam engine (Steam)",
+      "category": "power:steam-engine",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 30,
+          "minimumTemperature": 165
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.9
+        }
+      ],
+      "madeIn": [
+        "steam-engine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:steam-turbine:steam": {
+      "id": "power:steam-turbine:steam",
+      "name": "Steam turbine (Steam)",
+      "category": "power:steam-turbine",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60,
+          "minimumTemperature": 465
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 5.4
+        }
+      ],
+      "madeIn": [
+        "steam-turbine"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-engine-2:steam": {
+      "id": "power:bob-steam-engine-2:steam",
+      "name": "Steam engine 2 (Steam)",
+      "category": "power:bob-steam-engine-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 30,
+          "minimumTemperature": 315
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 1.8
+        }
+      ],
+      "madeIn": [
+        "bob-steam-engine-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-engine-3:steam": {
+      "id": "power:bob-steam-engine-3:steam",
+      "name": "Steam engine 3 (Steam)",
+      "category": "power:bob-steam-engine-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 30,
+          "minimumTemperature": 465
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 2.7
+        }
+      ],
+      "madeIn": [
+        "bob-steam-engine-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-engine-4:steam": {
+      "id": "power:bob-steam-engine-4:steam",
+      "name": "Steam engine 4 (Steam)",
+      "category": "power:bob-steam-engine-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 30,
+          "minimumTemperature": 615
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 3.6
+        }
+      ],
+      "madeIn": [
+        "bob-steam-engine-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-engine-5:steam": {
+      "id": "power:bob-steam-engine-5:steam",
+      "name": "Steam engine 5 (Steam)",
+      "category": "power:bob-steam-engine-5",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 30,
+          "minimumTemperature": 765
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 4.5
+        }
+      ],
+      "madeIn": [
+        "bob-steam-engine-5"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-turbine-2:steam": {
+      "id": "power:bob-steam-turbine-2:steam",
+      "name": "Steam turbine 2 (Steam)",
+      "category": "power:bob-steam-turbine-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60,
+          "minimumTemperature": 615
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 7.2
+        }
+      ],
+      "madeIn": [
+        "bob-steam-turbine-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-steam-turbine-3:steam": {
+      "id": "power:bob-steam-turbine-3:steam",
+      "name": "Steam turbine 3 (Steam)",
+      "category": "power:bob-steam-turbine-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 60,
+          "minimumTemperature": 765
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 9
+        }
+      ],
+      "madeIn": [
+        "bob-steam-turbine-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:generators",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:solar-panel": {
+      "id": "power:solar-panel",
+      "name": "Solar panel (electricity)",
+      "category": "power:solar-panel",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.042
+        }
+      ],
+      "madeIn": [
+        "solar-panel"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-small": {
+      "id": "power:bob-solar-panel-small",
+      "name": "Small Solar Panel (electricity)",
+      "category": "power:bob-solar-panel-small",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.018669
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-small"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-large": {
+      "id": "power:bob-solar-panel-large",
+      "name": "Large Solar Panel (electricity)",
+      "category": "power:bob-solar-panel-large",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.074669
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-large"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-small-2": {
+      "id": "power:bob-solar-panel-small-2",
+      "name": "Small Solar Panel 2 (electricity)",
+      "category": "power:bob-solar-panel-small-2",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.028
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-small-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-2": {
+      "id": "power:bob-solar-panel-2",
+      "name": "Solar Panel 2 (electricity)",
+      "category": "power:bob-solar-panel-2",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.06299999999999999
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-large-2": {
+      "id": "power:bob-solar-panel-large-2",
+      "name": "Large Solar Panel 2 (electricity)",
+      "category": "power:bob-solar-panel-large-2",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.112
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-large-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-small-3": {
+      "id": "power:bob-solar-panel-small-3",
+      "name": "Small Solar Panel 3 (electricity)",
+      "category": "power:bob-solar-panel-small-3",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.042
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-small-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-3": {
+      "id": "power:bob-solar-panel-3",
+      "name": "Solar Panel 3 (electricity)",
+      "category": "power:bob-solar-panel-3",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.0945
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
+    },
+    "power:bob-solar-panel-large-3": {
+      "id": "power:bob-solar-panel-large-3",
+      "name": "Large Solar Panel 3 (electricity)",
+      "category": "power:bob-solar-panel-large-3",
+      "craftingTime": 1,
+      "ingredients": [],
+      "products": [
+        {
+          "itemId": "power:electricity",
+          "type": "fluid",
+          "amount": 0.168
+        }
+      ],
+      "madeIn": [
+        "bob-solar-panel-large-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:solar-panels",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:electricity"
     }
   },
   "machines": {
@@ -140168,6 +143574,422 @@
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-sea-pump-placeable.png",
       "hidden": false
+    },
+    "boiler": {
+      "id": "boiler",
+      "name": "Boiler",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:boiler"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/boiler.png",
+      "hidden": false
+    },
+    "bob-boiler-2": {
+      "id": "bob-boiler-2",
+      "name": "Boiler 2",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-boiler-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-boiler-2.png",
+      "hidden": false
+    },
+    "bob-boiler-3": {
+      "id": "bob-boiler-3",
+      "name": "Boiler 3",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-boiler-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-boiler-3.png",
+      "hidden": false
+    },
+    "bob-boiler-4": {
+      "id": "bob-boiler-4",
+      "name": "Boiler 4",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-boiler-4"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-boiler-4.png",
+      "hidden": false
+    },
+    "bob-boiler-5": {
+      "id": "bob-boiler-5",
+      "name": "Boiler 5",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-boiler-5"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-boiler-5.png",
+      "hidden": false
+    },
+    "bob-oil-boiler": {
+      "id": "bob-oil-boiler",
+      "name": "Fluid burning boiler",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-oil-boiler"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-oil-boiler.png",
+      "hidden": false
+    },
+    "bob-oil-boiler-2": {
+      "id": "bob-oil-boiler-2",
+      "name": "Fluid burning boiler 2",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-oil-boiler-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-oil-boiler-2.png",
+      "hidden": false
+    },
+    "bob-oil-boiler-3": {
+      "id": "bob-oil-boiler-3",
+      "name": "Fluid burning boiler 3",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-oil-boiler-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-oil-boiler-3.png",
+      "hidden": false
+    },
+    "bob-oil-boiler-4": {
+      "id": "bob-oil-boiler-4",
+      "name": "Fluid burning boiler 4",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-oil-boiler-4"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-oil-boiler-4.png",
+      "hidden": false
+    },
+    "steam-engine": {
+      "id": "steam-engine",
+      "name": "Steam engine",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:steam-engine"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/steam-engine.png",
+      "hidden": false
+    },
+    "steam-turbine": {
+      "id": "steam-turbine",
+      "name": "Steam turbine",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:steam-turbine"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/steam-turbine.png",
+      "hidden": false
+    },
+    "bob-steam-engine-2": {
+      "id": "bob-steam-engine-2",
+      "name": "Steam engine 2",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-engine-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-engine-2.png",
+      "hidden": false
+    },
+    "bob-steam-engine-3": {
+      "id": "bob-steam-engine-3",
+      "name": "Steam engine 3",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-engine-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-engine-3.png",
+      "hidden": false
+    },
+    "bob-steam-engine-4": {
+      "id": "bob-steam-engine-4",
+      "name": "Steam engine 4",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-engine-4"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-engine-4.png",
+      "hidden": false
+    },
+    "bob-steam-engine-5": {
+      "id": "bob-steam-engine-5",
+      "name": "Steam engine 5",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-engine-5"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-engine-5.png",
+      "hidden": false
+    },
+    "bob-steam-turbine-2": {
+      "id": "bob-steam-turbine-2",
+      "name": "Steam turbine 2",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-turbine-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-turbine-2.png",
+      "hidden": false
+    },
+    "bob-steam-turbine-3": {
+      "id": "bob-steam-turbine-3",
+      "name": "Steam turbine 3",
+      "type": "generator",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-steam-turbine-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-steam-turbine-3.png",
+      "hidden": false
+    },
+    "solar-panel": {
+      "id": "solar-panel",
+      "name": "Solar panel",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:solar-panel"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/solar-panel.png",
+      "hidden": false
+    },
+    "bob-solar-panel-small": {
+      "id": "bob-solar-panel-small",
+      "name": "Small Solar Panel",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-small"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-small.png",
+      "hidden": false
+    },
+    "bob-solar-panel-large": {
+      "id": "bob-solar-panel-large",
+      "name": "Large Solar Panel",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-large"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-large.png",
+      "hidden": false
+    },
+    "bob-solar-panel-small-2": {
+      "id": "bob-solar-panel-small-2",
+      "name": "Small Solar Panel 2",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-small-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-small-2.png",
+      "hidden": false
+    },
+    "bob-solar-panel-2": {
+      "id": "bob-solar-panel-2",
+      "name": "Solar Panel 2",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-2.png",
+      "hidden": false
+    },
+    "bob-solar-panel-large-2": {
+      "id": "bob-solar-panel-large-2",
+      "name": "Large Solar Panel 2",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-large-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-large-2.png",
+      "hidden": false
+    },
+    "bob-solar-panel-small-3": {
+      "id": "bob-solar-panel-small-3",
+      "name": "Small Solar Panel 3",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-small-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-small-3.png",
+      "hidden": false
+    },
+    "bob-solar-panel-3": {
+      "id": "bob-solar-panel-3",
+      "name": "Solar Panel 3",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-3.png",
+      "hidden": false
+    },
+    "bob-solar-panel-large-3": {
+      "id": "bob-solar-panel-large-3",
+      "name": "Large Solar Panel 3",
+      "type": "solar-panel",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-solar-panel-large-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-solar-panel-large-3.png",
+      "hidden": false
     }
   },
   "modules": {
@@ -140819,7 +144641,33 @@
     "mining:water": "pumpjack",
     "mining:angels-sea-pump": "angels-sea-pump",
     "offshore:water": "angels-sea-pump-placeable",
-    "offshore:angels-water-viscous-mud": "angels-seafloor-pump"
+    "offshore:angels-water-viscous-mud": "angels-seafloor-pump",
+    "power:boiler": "boiler",
+    "power:bob-boiler-2": "bob-boiler-2",
+    "power:bob-boiler-3": "bob-boiler-3",
+    "power:bob-boiler-4": "bob-boiler-4",
+    "power:bob-boiler-5": "bob-boiler-5",
+    "power:bob-oil-boiler": "bob-oil-boiler",
+    "power:bob-oil-boiler-2": "bob-oil-boiler-2",
+    "power:bob-oil-boiler-3": "bob-oil-boiler-3",
+    "power:bob-oil-boiler-4": "bob-oil-boiler-4",
+    "power:steam-engine": "steam-engine",
+    "power:steam-turbine": "steam-turbine",
+    "power:bob-steam-engine-2": "bob-steam-engine-2",
+    "power:bob-steam-engine-3": "bob-steam-engine-3",
+    "power:bob-steam-engine-4": "bob-steam-engine-4",
+    "power:bob-steam-engine-5": "bob-steam-engine-5",
+    "power:bob-steam-turbine-2": "bob-steam-turbine-2",
+    "power:bob-steam-turbine-3": "bob-steam-turbine-3",
+    "power:solar-panel": "solar-panel",
+    "power:bob-solar-panel-small": "bob-solar-panel-small",
+    "power:bob-solar-panel-large": "bob-solar-panel-large",
+    "power:bob-solar-panel-small-2": "bob-solar-panel-small-2",
+    "power:bob-solar-panel-2": "bob-solar-panel-2",
+    "power:bob-solar-panel-large-2": "bob-solar-panel-large-2",
+    "power:bob-solar-panel-small-3": "bob-solar-panel-small-3",
+    "power:bob-solar-panel-3": "bob-solar-panel-3",
+    "power:bob-solar-panel-large-3": "bob-solar-panel-large-3"
   },
   "itemGroups": {
     "logistics": {
@@ -140989,6 +144837,12 @@
       "name": "bob-gems",
       "order": "d-g",
       "iconPath": "/data/kompetenz-seablock/icons/group-bob-gems.png"
+    },
+    "power:power": {
+      "id": "power:power",
+      "name": "Power",
+      "order": "zz",
+      "iconPath": "/data/kompetenz-seablock/icons/power-electricity.png"
     }
   },
   "itemSubgroups": {
@@ -143356,6 +147210,26 @@
       "id": "angels-fluid-control-angels-bio-puffer-1",
       "group": "angels-fluid-control",
       "order": "z-la[angels]-d[bio-processing]-c[alien]-b[puffer]-a[producing]-a[dedicated]"
+    },
+    "power:electricity": {
+      "id": "power:electricity",
+      "group": "power:power",
+      "order": "a"
+    },
+    "power:boilers": {
+      "id": "power:boilers",
+      "group": "power:power",
+      "order": "b"
+    },
+    "power:generators": {
+      "id": "power:generators",
+      "group": "power:power",
+      "order": "c"
+    },
+    "power:solar-panels": {
+      "id": "power:solar-panels",
+      "group": "power:power",
+      "order": "e"
     }
   },
   "technologies": {
