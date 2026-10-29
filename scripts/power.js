@@ -49,9 +49,12 @@ export function isScriptPlacedGenerator(proto) {
   return Boolean(proto.hidden) && !proto.minable?.result && !proto.minable?.results
 }
 
-/** "<machine> (<input>)", or just "<machine>" for a recipe without an input (solar). */
+/** Label of a recipe without an input (solar), so it never shares a name with the crafting recipe of the same item. */
+export const NO_INPUT_LABEL = 'electricity'
+
+/** "<machine> (<input>)"; a recipe without an input (solar) is "<machine> (electricity)". */
 export function powerRecipeName(machineName, inputName) {
-  return inputName ? `${machineName} (${inputName})` : machineName
+  return `${machineName} (${inputName || NO_INPUT_LABEL})`
 }
 
 /** Split `power:<machine>[:<input>]`; `inputId` is undefined for solar panels. */
@@ -91,8 +94,10 @@ export async function exportPower(raw, opts) {
   for (const subtype of itemSubtypes) {
     for (const proto of Object.values(raw[subtype] ?? {})) itemProtos[proto.name] = proto
   }
-  const fuelItemsOf = (categories) => Object.values(itemProtos)
-    .filter(p => !p.hidden && categories.includes(p.fuel_category ?? '') && parseEnergyKj(p.fuel_value) > 0)
+  // A fuel with a burnt result is refused by a burner that has no burnt inventory.
+  const fuelItemsOf = (categories, burntSlots) => Object.values(itemProtos)
+    .filter(p => !p.hidden && categories.includes(p.fuel_category ?? '') && parseEnergyKj(p.fuel_value) > 0
+      && (burntSlots > 0 || !p.burnt_result))
     .map(p => ({
       id: p.name, type: 'item', kj: parseEnergyKj(p.fuel_value),
       burnt: typeof p.burnt_result === 'string' && p.burnt_result ? p.burnt_result : undefined,
@@ -157,10 +162,10 @@ export async function exportPower(raw, opts) {
     const source = proto.energy_source ?? {}
     let fuels
     if (source.type === 'burner') {
-      fuels = fuelItemsOf(fuelCategories(source))
+      fuels = fuelItemsOf(fuelCategories(source), source.burnt_inventory_size ?? 0)
     } else if (source.type === 'fluid' && source.burns_fluid) {
       const filter = source.fluid_box?.filter
-      fuels = filter ? (raw.fluid?.[filter] ? [fluidFuel(raw.fluid[filter])] : []) : allFluidFuels()
+      fuels = filter ? (raw.fluid?.[filter] && !raw.fluid[filter].hidden ? [fluidFuel(raw.fluid[filter])] : []) : allFluidFuels()
       fuels = fuels.filter(f => f.kj > 0)
     } else {
       skip('boiler', proto, `${source.type ?? 'unknown'} energy source is not a burning one`)
@@ -267,7 +272,7 @@ export async function exportPower(raw, opts) {
       continue
     }
     const eff = proto.burner?.effectivity ?? 1
-    const entries = fuelItemsOf(fuelCategories(proto.burner)).map(fuel => {
+    const entries = fuelItemsOf(fuelCategories(proto.burner), proto.burner?.burnt_inventory_size ?? 0).map(fuel => {
       const fuelPerSec = outKw / (fuel.kj * eff)
       return {
         input: fuel,

@@ -139389,7 +139389,7 @@
     },
     "power:solar-panel": {
       "id": "power:solar-panel",
-      "name": "Solar panel",
+      "name": "Solar panel (electricity)",
       "category": "power:solar-panel",
       "craftingTime": 1,
       "ingredients": [],
@@ -139412,7 +139412,7 @@
     },
     "power:bob-solar-panel-small": {
       "id": "power:bob-solar-panel-small",
-      "name": "Small Solar Panel",
+      "name": "Small Solar Panel (electricity)",
       "category": "power:bob-solar-panel-small",
       "craftingTime": 1,
       "ingredients": [],
@@ -139435,7 +139435,7 @@
     },
     "power:bob-solar-panel-large": {
       "id": "power:bob-solar-panel-large",
-      "name": "Large Solar Panel",
+      "name": "Large Solar Panel (electricity)",
       "category": "power:bob-solar-panel-large",
       "craftingTime": 1,
       "ingredients": [],
@@ -139458,7 +139458,7 @@
     },
     "power:bob-solar-panel-small-2": {
       "id": "power:bob-solar-panel-small-2",
-      "name": "Small Solar Panel 2",
+      "name": "Small Solar Panel 2 (electricity)",
       "category": "power:bob-solar-panel-small-2",
       "craftingTime": 1,
       "ingredients": [],
@@ -139481,7 +139481,7 @@
     },
     "power:bob-solar-panel-2": {
       "id": "power:bob-solar-panel-2",
-      "name": "Solar Panel 2",
+      "name": "Solar Panel 2 (electricity)",
       "category": "power:bob-solar-panel-2",
       "craftingTime": 1,
       "ingredients": [],
@@ -139504,7 +139504,7 @@
     },
     "power:bob-solar-panel-large-2": {
       "id": "power:bob-solar-panel-large-2",
-      "name": "Large Solar Panel 2",
+      "name": "Large Solar Panel 2 (electricity)",
       "category": "power:bob-solar-panel-large-2",
       "craftingTime": 1,
       "ingredients": [],
@@ -139527,7 +139527,7 @@
     },
     "power:bob-solar-panel-small-3": {
       "id": "power:bob-solar-panel-small-3",
-      "name": "Small Solar Panel 3",
+      "name": "Small Solar Panel 3 (electricity)",
       "category": "power:bob-solar-panel-small-3",
       "craftingTime": 1,
       "ingredients": [],
@@ -139550,7 +139550,7 @@
     },
     "power:bob-solar-panel-3": {
       "id": "power:bob-solar-panel-3",
-      "name": "Solar Panel 3",
+      "name": "Solar Panel 3 (electricity)",
       "category": "power:bob-solar-panel-3",
       "craftingTime": 1,
       "ingredients": [],
@@ -139573,7 +139573,7 @@
     },
     "power:bob-solar-panel-large-3": {
       "id": "power:bob-solar-panel-large-3",
-      "name": "Large Solar Panel 3",
+      "name": "Large Solar Panel 3 (electricity)",
       "category": "power:bob-solar-panel-large-3",
       "craftingTime": 1,
       "ingredients": [],

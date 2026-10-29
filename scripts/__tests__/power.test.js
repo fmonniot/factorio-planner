@@ -31,7 +31,7 @@ function makeRaw() {
       boiler: {
         name: 'boiler', target_temperature: 165, mode: 'output-to-separate-pipe',
         fluid_box: { filter: 'water' }, output_fluid_box: { filter: 'steam' },
-        energy_consumption: '1.8MW', energy_source: { type: 'burner', fuel_categories: ['chemical'] },
+        energy_consumption: '1.8MW', energy_source: { type: 'burner', fuel_categories: ['chemical'], burnt_inventory_size: 1 },
       },
       'half-boiler': {
         name: 'half-boiler', target_temperature: 165,
@@ -83,7 +83,7 @@ function makeRaw() {
     },
     'burner-generator': {
       'burner-gen': {
-        name: 'burner-gen', max_power_output: '1MW', burner: { type: 'burner', fuel_categories: ['chemical'], effectivity: 0.5 },
+        name: 'burner-gen', max_power_output: '1MW', burner: { type: 'burner', fuel_categories: ['chemical'], effectivity: 0.5, burnt_inventory_size: 1 },
       },
     },
     'solar-panel': { 'solar-panel': { name: 'solar-panel', production: '60kW' } },
@@ -228,8 +228,30 @@ describe('burner generators and solar panels', () => {
     const r = recipes['power:solar-panel']
     expect(r.ingredients).toEqual([])
     expect(amountOf(r.products, ELECTRICITY_ITEM_ID)).toBeCloseTo(0.042, 9)
-    expect(r.name).toBe('solar-panel')
+    expect(r.name).toBe('solar-panel (electricity)')
     expect(r.subgroup).toBe('power:solar-panels')
+  })
+})
+
+describe('burnt results and hidden fluid fuels', () => {
+  it('skips fuels with a burnt result in a burner without a burnt inventory', async () => {
+    quiet()
+    const raw = makeRaw()
+    raw.boiler.boiler.energy_source.burnt_inventory_size = 0
+    delete raw['burner-generator']['burner-gen'].burner.burnt_inventory_size
+    const { recipes } = await exportPower(raw, makeOpts())
+    expect(recipes['power:boiler:wood-chip']).toBeUndefined()
+    expect(recipes['power:boiler:coal']).toBeDefined()
+    expect(recipes['power:burner-gen:wood-chip']).toBeUndefined()
+    expect(recipes['power:burner-gen:coal']).toBeDefined()
+  })
+
+  it('skips a hidden fluid fuel named by a boiler filter', async () => {
+    quiet()
+    const raw = makeRaw()
+    raw.boiler['oil-boiler'].energy_source.fluid_box = { filter: 'hidden-oil' }
+    const { recipes } = await exportPower(raw, makeOpts())
+    expect(Object.keys(recipes).some(id => id.startsWith('power:oil-boiler'))).toBe(false)
   })
 })
 
@@ -273,7 +295,7 @@ describe('helpers', () => {
     expect(parsePowerRecipeId('power:boiler:coal')).toEqual({ machineId: 'boiler', inputId: 'coal' })
     expect(parsePowerRecipeId('power:solar-panel')).toEqual({ machineId: 'solar-panel', inputId: undefined })
     expect(powerRecipeName('Boiler', 'Coal')).toBe('Boiler (Coal)')
-    expect(powerRecipeName('Solar panel')).toBe('Solar panel')
+    expect(powerRecipeName('Solar panel')).toBe('Solar panel (electricity)')
     expect(isPowerCategory('power:boiler')).toBe(true)
     expect(isPowerCategory('mining:basic-solid')).toBe(false)
   })

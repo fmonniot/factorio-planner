@@ -13,6 +13,8 @@ export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   const v = unit === 'min' ? ratePerSec * 60 : ratePerSec
   if (v >= 100) return v.toFixed(0)
   if (v >= 10) return v.toFixed(1)
+  // Tiny non-zero rates (nuclear fuel per second) would read 0.00: keep two significant digits.
+  if (v >= 1e-6 && v < 0.005) return v.toPrecision(2)
   return v.toFixed(2)
 }
 

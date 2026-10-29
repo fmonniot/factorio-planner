@@ -791,7 +791,8 @@ function patchNames(existing, raw, locale) {
     for (const [id, entry] of Object.entries(existing[section] ?? {})) {
       const name = lookup(id, entry)
       if (name === undefined) {
-        missing++
+        // Generated entries (the electricity item, the power group) are not in the dump.
+        if (section === 'recipes' || !id.startsWith(POWER_PREFIX)) missing++
         out[id] = entry
         continue
       }
@@ -941,8 +942,8 @@ if (args.patchPower) {
     Object.entries(existing.machines).filter(([, m]) => !POWER_MACHINE_TYPES.includes(m.type)),
   )
   const items = Object.fromEntries(Object.entries(existing.items).filter(([id]) => id !== ELECTRICITY_ITEM_ID))
-  const itemGroups = Object.fromEntries(Object.entries(existing.itemGroups).filter(([id]) => !id.startsWith(POWER_PREFIX)))
-  const itemSubgroups = Object.fromEntries(Object.entries(existing.itemSubgroups).filter(([id]) => !id.startsWith(POWER_PREFIX)))
+  const itemGroups = Object.fromEntries(Object.entries(existing.itemGroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
+  const itemSubgroups = Object.fromEntries(Object.entries(existing.itemSubgroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
   const defaultMachines = Object.fromEntries(
     Object.entries(existing.defaultMachines).filter(([category]) => !isPowerCategory(category)),
   )
@@ -978,7 +979,9 @@ if (args.patchTechnologies) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
   const recipeIds = new Set(Object.keys(existing.recipes))
-  const missing = [...recipeIds].filter(id => !raw.recipe?.[id]).length
+  // Extraction and power recipes are generated, so they are never in the dump's recipe table.
+  const missing = Object.entries(existing.recipes)
+    .filter(([id, r]) => !r.extraction && !r.power && !raw.recipe?.[id]).length
   if (missing > 0) process.stderr.write(`[warn] ${missing} bundle recipes are missing from the dump\n`)
   const exported = exportTechnologies(
     raw, recipeIds, p => resolveTechnologyName(p, locale.map, locale.game),

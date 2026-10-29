@@ -30,6 +30,13 @@ describe('fmtPower', () => {
 })
 
 describe('fmtRate', () => {
+  it('keeps two significant digits for tiny non-zero rates', () => {
+    expect(fmtRate(0.00082, 'sec')).toBe('0.00082')
+    expect(fmtRate(0.0049, 'sec')).toBe('0.0049')
+    expect(fmtRate(0.005, 'sec')).toBe('0.01')
+    expect(fmtRate(0, 'sec')).toBe('0.00')
+  })
+
   it('formats per-sec rates in /sec mode', () => {
     expect(fmtRate(1, 'sec')).toBe('1.00')
     expect(fmtRate(10, 'sec')).toBe('10.0')

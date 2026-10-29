@@ -1,6 +1,5 @@
 import type { BlockConnection } from '../../data/types'
 import { surplusTolerance } from '../../solver/index'
-import { fmtRate } from './ItemTile'
 
 // Pure grouping for the summary panes: one row per item, so an item's tile and
 // its connection chips sit together.
@@ -11,7 +10,7 @@ import { fmtRate } from './ItemTile'
  * set of tiles does not change with the rate-unit toggle.
  */
 export function isLeftover(ratePerMin: number, grossPerMin: number): boolean {
-  return ratePerMin > surplusTolerance(grossPerMin) && parseFloat(fmtRate(ratePerMin / 60, 'min')) > 0
+  return ratePerMin > surplusTolerance(grossPerMin) && parseFloat(ratePerMin.toFixed(2)) > 0
 }
 
 export interface IngredientRow {

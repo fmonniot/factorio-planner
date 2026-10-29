@@ -259,6 +259,15 @@ describe('FactorySummary — electricity', () => {
     expect(screen.getByTitle(/^Extra output:/).textContent).toContain('10.0MW')
     expect(screen.getByTitle(/Actual:/).textContent).toContain('10.0MW')
   })
+
+  it.each(['min', 'sec'] as const)('labels the extra output field in MW in /%s', unit => {
+    useUiStore.setState({ rateUnit: unit })
+    render(<FactorySummary />)
+    select('Products', 'Electricity')
+    fireEvent.click(screen.getByTitle(/^Extra output:/))
+    expect(screen.getByLabelText('Extra output rate')).toBeInTheDocument()
+    expect(screen.getByTestId('extra-input-unit').textContent).toBe('MW')
+  })
 })
 
 describe('FactorySummary — extra output and actual', () => {

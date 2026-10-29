@@ -9,6 +9,7 @@ import {
   segmentTitle,
   keyEntryText,
   isShortfall,
+  differsFromTarget,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
 import type { BlockConnection, ConnectionFlow, Product } from '../../data/types'
@@ -89,6 +90,19 @@ describe('productSlot', () => {
     expect(isShortfall(60, 59.5, 'min')).toBe(true)
     expect(isShortfall(60, 59.99, 'sec')).toBe(false)
     expect(isShortfall(60, 59.99, 'min')).toBe(true)
+  })
+
+  it('rounds electricity in power units, whatever the rate unit', () => {
+    const el = 'power:electricity'
+    // 10 MW = 600/min. A 0.003 MW (3 kW) gap is 0.18/min: visible as power, so short on both units.
+    expect(isShortfall(600, 599.82, 'sec', el)).toBe(true)
+    expect(isShortfall(600, 599.82, 'min', el)).toBe(true)
+    expect(differsFromTarget(600, 599.82, 'sec', el)).toBe(true)
+    // Under 1 W it rounds away on both.
+    expect(isShortfall(600, 600 - 1e-6, 'sec', el)).toBe(false)
+    expect(isShortfall(600, 600 - 1e-6, 'min', el)).toBe(false)
+    // The same gap of an ordinary item rounds away on /s.
+    expect(isShortfall(600, 599.82, 'sec')).toBe(false)
   })
 })
 

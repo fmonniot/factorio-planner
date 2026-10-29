@@ -61,14 +61,18 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
     <span className="flex items-center gap-1 text-xs whitespace-nowrap">
       {/* Extra output — editable; clearing the field removes it */}
       {editing ? (
-        <RateInput
-          initial={extraInput}
-          rateUnit={inputRateUnit(product.itemId, rateUnit)}
-          ariaLabel="Extra output rate"
-          allowClear
-          onCommit={onUpdateExtra}
-          onStop={onStop}
-        />
+        <>
+          <RateInput
+            initial={extraInput}
+            rateUnit={inputRateUnit(product.itemId, rateUnit)}
+            ariaLabel="Extra output rate"
+            allowClear
+            onCommit={onUpdateExtra}
+            onStop={onStop}
+          />
+          {/* Electricity has no unitLabel, but its field is typed in MW whatever the rate unit. */}
+          {power && <span data-testid="extra-input-unit" className="text-gray-400 text-[10px]">MW</span>}
+        </>
       ) : hasExtra && (
         <button
           type="button"
