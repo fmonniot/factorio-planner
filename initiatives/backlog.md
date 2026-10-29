@@ -67,6 +67,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Recipe picker: collapse per-fuel power recipes.** Each boiler and burner generator has one recipe per fuel (Seablock: ~86 steam recipes), also in the Edit machine modal's Alternate recipe list. Show one entry per machine with a fuel choice.
 - [ ] **Areas matrix and overview totals in power units.** The areas matrices and the summary overview totals show electricity in MJ per minute or second, not W / kW / MW / GW.
 - [ ] **Power recipes whose fuel is beyond the horizon.** Generation recipes are always inside the research horizon (their machines are gated), so a boiler on rocket fuel is offered before rocket fuel. Gate them on their fuel too.
+- [ ] **Production table: block power total in the header.** Add a total to the header row's Power column showing the sum of every machine's power draw in the block.
 
 ## Data sets
 
