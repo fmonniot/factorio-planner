@@ -295,6 +295,29 @@ describe('parseGameData — extraction', () => {
   })
 })
 
+describe('parseGameData — power generation', () => {
+  it('keeps a generator machine and the power flag of a recipe', () => {
+    const gd = minimalGameData() as unknown as Record<string, Record<string, unknown>>
+    gd.machines['steam-engine'] = {
+      ...minimalMachine, id: 'steam-engine', type: 'generator', energyType: 'void', energyUsageKw: 0,
+      craftingCategories: ['power:steam-engine'],
+    }
+    gd.recipes['power:steam-engine:steam'] = {
+      ...minimalRecipe, id: 'power:steam-engine:steam', category: 'power:steam-engine',
+      ingredients: [{ itemId: 'steam', type: 'fluid', amount: 30, minimumTemperature: 165 }],
+      products: [{ itemId: 'power:electricity', type: 'fluid', amount: 0.9 }], madeIn: ['steam-engine'], power: true,
+    }
+    const data = parseGameData(gd)
+    expect(data.machines['steam-engine'].type).toBe('generator')
+    expect(data.recipes['power:steam-engine:steam'].power).toBe(true)
+  })
+
+  it('leaves power undefined on a recipe without the flag', () => {
+    const data = parseGameData(minimalGameData())
+    expect(data.recipes['iron-plate-recipe'].power).toBeUndefined()
+  })
+})
+
 describe('parseGameData — validation errors', () => {
   it('throws GameDataLoadError for non-object input', () => {
     expect(() => parseGameData('not an object')).toThrow(GameDataLoadError)

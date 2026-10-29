@@ -67,6 +67,8 @@ interface Item {
 research horizon uses it to gate machines and beacons (see
 [Technology](#technology)). Several items can place the same entity.
 
+A bundle with power generation recipes also holds the pseudo-item `power:electricity` (`type: 'fluid'`, name "Electricity", subgroup `power:electricity`). One unit is 1 MJ, so 1 unit/s is 1 MW and 10 MW is 600 units/min. It is a fluid only because it is a continuous fractional quantity with no stack size; `src/` never branches on `type`. See [Power generation recipes](#power-generation-recipes).
+
 The build script exports every item-like prototype type (`item`, `tool`, `armor`,
 `ammo`, `capsule`, `module`, …) as `type: 'item'`, plus every `fluid`.
 
@@ -87,6 +89,7 @@ interface Recipe {
   subgroup: string           // default ''
   order: string              // default ''
   extraction?: boolean        // set on mining and offshore-pump recipes; always inside the research horizon
+  power?: boolean             // set on boiler, generator, burner-generator and solar-panel recipes; always inside the research horizon
 }
 
 interface Ingredient {
@@ -162,7 +165,8 @@ interface Machine {
   id: string
   name: string              // English display name; the game's resolved name (`entity-locale.json`) first, else the locale map
   type: 'assembling-machine' | 'furnace' | 'rocket-silo' | 'mining-drill' | 'offshore-pump'
-  craftingSpeed: number          // > 0; default 1 when absent; the mining or pumping speed for a drill or pump
+      | 'boiler' | 'generator' | 'burner-generator' | 'solar-panel'
+  craftingSpeed: number          // > 0; default 1 when absent; the mining or pumping speed for a drill or pump; 1 for a generation machine
   energyUsageKw: number          // kW at full load
   energyType: 'electric' | 'burner' | 'heat' | 'void'
   drainKw: number                // idle drain in kW; 0 when absent
@@ -180,6 +184,8 @@ Crafting machines (assembling machines, furnaces, rocket silos) are exported fro
 from `energy_source.type`; anything other than electric, burner or heat becomes
 `'void'`. Energy strings in the dump (`"75kW"`, `"9.75MW"`) are parsed to kW; the
 parser accepts W, kW, MW, GW and TW suffixes, and a bare number is read as watts.
+
+Generation machines (`boiler`, `generator`, `burner-generator`, `solar-panel`, from the power export) draw no power: `energyUsageKw` 0, `drainKw` 0, `energyType: 'void'`, no module slots and no allowed effects. Their energy is the recipe.
 
 ### Module
 
@@ -233,6 +239,8 @@ interface ItemSubgroup {
 }
 ```
 
+The power export adds the group `power:power` ("Power", order `zz`, the electricity icon) and the subgroups `power:electricity`, `power:boilers`, `power:generators`, `power:burner-generators` and `power:solar-panels` (orders `a` to `e`); a subgroup is present only when it has recipes (`power:electricity` always, with the item).
+
 ### Technology
 
 Research data, used to limit the recipes the pickers offer and to draw the
@@ -270,7 +278,7 @@ by a targeted technology or any of its prerequisites (followed transitively).
 Recipes that are neither starting recipes nor unlocked by any exported technology
 (for example ones only a script unlocks) are outside every horizon. The horizon
 applies only to non-hidden recipes: hidden recipes are not part of research
-progression and are shown whenever "Hidden recipes" is ticked. The recipe picker can also temporarily lift the horizon (its "Beyond research horizon" checkbox, picker-local and not persisted). Extraction recipes (`Recipe.extraction`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. No targets,
+progression and are shown whenever "Hidden recipes" is ticked. The recipe picker can also temporarily lift the horizon (its "Beyond research horizon" checkbox, picker-local and not persisted). Extraction and power recipes (`Recipe.extraction`, `Recipe.power`) need no research and are always inside the horizon; their drills, pumps and generators are gated like any other machine, through the item that places them. No targets,
 or no technology data in the bundle, means no limit.
 
 An item is offered as a goal under a horizon if no recipe produces it or at least one non-hidden recipe producing it is inside the horizon.
@@ -319,6 +327,20 @@ The build script turns resources and offshore pumps into ordinary recipes so the
 
 `defaultMachines` for these categories is the fastest machine, as for any other category, except that hidden machines are skipped unless every machine of the category is hidden.
 
+### Power generation recipes
+
+The build script (`scripts/power.js`) turns boilers, generators, burner generators and solar panels into ordinary recipes that produce the `power:electricity` item, so the solver needs no special case. They carry `power: true` and a per-machine category `power:<machine>`.
+
+- **One recipe per machine and input.** `craftingTime` is 1, `madeIn` is that one machine and its `craftingSpeed` is 1, so amounts are per second per building and the machine count is the building count. Effectivity, temperature and output caps change the input/output ratio per machine, which a crafting speed cannot express; switching tier means picking another recipe (Edit machine modal, Alternate recipe). `allowProductivity` is false, `hidden` false, `order` ''; `mainProduct` is the output fluid for a boiler and electricity otherwise.
+- **Ids and names.** `power:<machine>:<input>` for boilers, burner generators and fluid generators, `power:<panel>` for solar panels. Names are `<machine> (<input>)` and `<machine>`. Ingredients put the fuel (or the steam of a generator) last.
+- **Machines** are emitted only when they got a recipe. Hidden machines and hidden fuels are skipped, except a hidden `generator` with no `minable` result, which is placed by a script as part of a compound entity (Nullius' turbines) and is exported not hidden. A generator's own `fluid_box.filter` fluid is used even if hidden (`nullius-energy`). Other cases are skipped with a `[power] skipping …` warning: heat, electric or non-burning fluid boilers, a `mode` other than `output-to-separate-pipe`, a missing filter or temperature, and non-positive amounts.
+- **Boilers.** Per fuel: steam per second = `energy_consumption` / (output fluid `heat_capacity` x (`target_temperature` - input fluid `default_temperature`)); fuel per second = power / (fuel value x burner `effectivity`). Ingredients are the input fluid and the fuel; products are the output fluid (no temperature) and the fuel's `burnt_result`, if any, at the fuel rate. Fuels are the non-hidden items whose `fuel_category` is in the boiler's `fuel_categories` (default `chemical`) with a positive `fuel_value`, or the non-hidden fluids with a `fuel_value` for a fluid-burning boiler.
+- **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the solver ignores it). A missing `heat_capacity` counts as 1 kJ.
+- **Burner generators.** Per fuel: fuel per second = `max_power_output` / (fuel value x burner `effectivity`), product electricity at `max_power_output`, plus any burnt result.
+- **Solar panels.** No ingredients; electricity = `production` x 0.7 (the Nauvis day/night average, no storage).
+- **Electricity units.** `max_power_output` given in joules is energy per tick (x 60). Electricity amounts are in MJ per recipe second, so a recipe's electricity product equals the building's MW.
+- `defaultMachines` gets the one machine of each `power:` category.
+
 ### Icon paths
 
 Every `iconPath` is the URL of the extracted PNG (composited, for layered
@@ -347,8 +369,9 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - `fluidbox_index` (physical fluid port routing) and `ignored_by_stats`
   (production-statistics display flag) are dropped; neither affects flow rates.
 - `allow_decomposition` (recycling) is not exported.
-- Burner fuel data (`fuel_categories`, `effectivity`) is not exported; burner
+- Fuel data (`fuel_value`, `fuel_category`, burner `effectivity`, fluid `heat_capacity`) is read only to build power recipes; it is not exported as fields, and burner
   machines only report `energyUsageKw`.
+- Heat sources (reactors, heat exchangers, heat pipes), `electric-energy-interface` entities (wind turbines, Stirling engines), accumulators and fusion equipment are not exported.
 - `place_result` is kept only as `Item.placeResult`, and only when it names an
   exported machine (drills and pumps included) or beacon; other entities are not recorded.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
@@ -372,6 +395,7 @@ Things to keep in mind when reading a bundle:
   gated. `--patch-technologies` also writes `placeResult`. Nullius has no technology
   data, so its horizon never applies.
 - A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories.
+- A bundle may lack power data: it then has no `power:electricity` item and no generation recipes. `node scripts/build-game-data.js --patch-power` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the `power:` categories. Seablock has it; Nullius does not yet.
 - Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node

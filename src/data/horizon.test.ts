@@ -486,6 +486,27 @@ describe('extraction recipes', () => {
   })
 })
 
+describe('power recipes', () => {
+  function makePowerData(): GameData {
+    const d = makeGameData()
+    d.items['power:electricity'] = { id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '' }
+    d.recipes['power:steam-engine:steam'] = {
+      ...makeRecipe('power:steam-engine:steam', 'power:electricity'), category: 'power:steam-engine', power: true,
+    }
+    return d
+  }
+
+  it('availableRecipeIds includes a power recipe no technology unlocks', () => {
+    expect(availableRecipeIds(makePowerData(), ['a'])!.has('power:steam-engine:steam')).toBe(true)
+  })
+  it('availableItemIds keeps the electricity item', () => {
+    expect(computeHorizon(makePowerData(), ['a']).itemIds!.has('power:electricity')).toBe(true)
+  })
+  it('recipeUnlock reports a power recipe as start', () => {
+    expect(recipeUnlock(makePowerData(), 'power:steam-engine:steam')).toEqual({ kind: 'start' })
+  })
+})
+
 describe('recipeUnlock', () => {
   const ids = (u: ReturnType<typeof recipeUnlock>) =>
     u && u.kind === 'technologies' ? u.technologies.map(t => t.id) : null

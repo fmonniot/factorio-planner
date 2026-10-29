@@ -21,8 +21,8 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
 /**
  * Recipes offered under a research horizon: those available at game start plus
  * those unlocked by a targeted technology or one of its prerequisites, plus
- * extraction recipes, which need no research (their machines are gated like any
- * other). Returns null (= no limit) when the data set has no technology data or
+ * extraction and power generation recipes, which need no research (their machines
+ * are gated like any other). Returns null (= no limit) when the data set has no technology data or
  * no target is a known technology.
  */
 export function availableRecipeIds(gameData: GameData, targetIds: readonly string[]): Set<string> | null {
@@ -33,23 +33,23 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   for (const id of closure) {
     for (const recipeId of gameData.technologies[id].unlockedRecipes) available.add(recipeId)
   }
-  for (const r of Object.values(gameData.recipes)) if (r.extraction) available.add(r.id)
+  for (const r of Object.values(gameData.recipes)) if (r.extraction || r.power) available.add(r.id)
   return available
 }
 
 export type RecipeUnlock =
-  | { kind: 'start' }                                    // starting or extraction recipe
+  | { kind: 'start' }                                    // starting, extraction or power recipe
   | { kind: 'technologies'; technologies: Technology[] } // non-empty, sorted
   | { kind: 'none' }                                     // no exported technology unlocks it
 
 /**
- * How a recipe becomes available: at game start (starting or extraction recipe),
+ * How a recipe becomes available: at game start (starting, extraction or power recipe),
  * through the listed technologies (fewest science-pack types first, then by name),
  * or never. Returns null when the data set has no technology data.
  */
 export function recipeUnlock(gameData: GameData, recipeId: string): RecipeUnlock | null {
   if (!hasTechnologies(gameData)) return null
-  if (gameData.startingRecipes.includes(recipeId) || gameData.recipes[recipeId]?.extraction) {
+  if (gameData.startingRecipes.includes(recipeId) || gameData.recipes[recipeId]?.extraction || gameData.recipes[recipeId]?.power) {
     return { kind: 'start' }
   }
   const packCount = (t: Technology) => (t.cost ? t.cost.ingredients.length : Infinity)
