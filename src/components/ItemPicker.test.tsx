@@ -392,6 +392,56 @@ describe('ItemPicker — items mode with a research horizon', () => {
 // Items mode
 // ---------------------------------------------------------------------------
 
+/** The fixture plus the electricity item and one power recipe (a boiler burning coal). */
+function fixtureWithPower(): GameData {
+  const data = structuredClone(fixture)
+  data.items['power:electricity'] = {
+    id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false, subgroup: 'power:electricity', order: 'a',
+  }
+  data.items['coal'] = { id: 'coal', name: 'Coal', type: 'item', iconPath: '/icons/coal.png', hidden: false, subgroup: 'raw-material', order: 'd' }
+  data.itemGroups['power:power'] = { id: 'power:power', name: 'Power', order: 'zz', iconPath: '' }
+  data.itemSubgroups['power:electricity'] = { id: 'power:electricity', group: 'power:power', order: 'a' }
+  data.itemSubgroups['power:boilers'] = { id: 'power:boilers', group: 'power:power', order: 'b' }
+  data.machines['boiler'] = {
+    id: 'boiler', name: 'Boiler', type: 'boiler', craftingSpeed: 1, energyUsageKw: 0, energyType: 'void', drainKw: 0,
+    moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:boiler'], iconPath: '/icons/boiler.png', hidden: false,
+  }
+  data.recipes['power:boiler:nuclear'] = {
+    id: 'power:boiler:nuclear', name: 'Boiler (Coal)', category: 'power:boiler', craftingTime: 1,
+    ingredients: [{ itemId: 'water', type: 'fluid', amount: 60 }, { itemId: 'coal', type: 'item', amount: 0.0015 }],
+    products: [{ itemId: 'water', type: 'fluid', amount: 60 }],
+    madeIn: ['boiler'], allowProductivity: false, hidden: false, mainProduct: 'water',
+    subgroup: 'power:boilers', order: '', power: true,
+  }
+  return data
+}
+
+describe('ItemPicker — power generation', () => {
+  beforeEach(() => {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithPower(), sourceId: 'test' } })
+  })
+
+  it('takes the amount of electricity in MW and passes it per minute', () => {
+    const onSelect = vi.fn()
+    render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
+    expect(screen.getByText('/min (MW for Electricity)')).toBeInTheDocument()
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '10' } })
+    fireEvent.click(screen.getAllByTestId('item-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    fireEvent.click(screen.getByTestId('item-slot'))
+    expect(onSelect).toHaveBeenCalledWith('power:electricity', 600)
+  })
+
+  it('shows a power recipe as its machine with the fuel as a badge, and small amounts with two digits', () => {
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    fireEvent.click(screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    const slot = screen.getByTestId('recipe-slot')
+    expect(slot.querySelector('img')).toHaveAttribute('alt', 'Boiler')
+    expect(within(slot).getByTestId('recipe-slot-badge')).toHaveAttribute('src', expect.stringContaining('coal.png'))
+    fireEvent.mouseEnter(slot)
+    expect(screen.getByTestId('recipe-detail-panel')).toHaveTextContent('0.0015 ×')
+  })
+})
+
 describe('ItemPicker — items mode', () => {
   it('renders one tab per item group, sorted by group order', () => {
     render(<ItemPicker source="items" onSelect={() => {}} onClose={() => {}} />)

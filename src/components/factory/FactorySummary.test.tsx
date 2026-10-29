@@ -225,6 +225,42 @@ describe('FactorySummary — detail strip states', () => {
   })
 })
 
+describe('FactorySummary — electricity', () => {
+  const electricity = { id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false }
+  const generated: SolverResult = {
+    nodes: [{
+      recipeNodeId: 'n1', inputRates: { 'iron-ore': 120 }, outputRates: { 'power:electricity': 600 },
+      throughput: 666.667, machineCountExact: 11.111, machineCountCeil: 12, powerKw: 0,
+    }],
+    unsatisfied: [{ itemId: 'iron-ore', rate: 120 }],
+    warnings: [],
+  }
+
+  beforeEach(() => {
+    setupStore([{ id: 'g1', itemId: 'power:electricity', extraRate: 600 }])
+    useGameDataStore.setState({
+      status: {
+        type: 'loaded', sourceId: 'test',
+        gameData: { ...mockGameData, items: { ...mockGameData.items, 'power:electricity': electricity } } as unknown as GameData,
+      },
+    })
+    useSolverStore.setState({ lastResult: generated })
+  })
+
+  it.each(['min', 'sec'] as const)('names the slot in power units in /%s', unit => {
+    useUiStore.setState({ rateUnit: unit })
+    render(<FactorySummary />)
+    expect(screen.getByRole('button', { name: 'Electricity, 10.0 MW' })).toBeInTheDocument()
+  })
+
+  it('shows the extra output and the actual rate in MW', () => {
+    render(<FactorySummary />)
+    select('Products', 'Electricity')
+    expect(screen.getByTitle(/^Extra output:/).textContent).toContain('10.0MW')
+    expect(screen.getByTitle(/Actual:/).textContent).toContain('10.0MW')
+  })
+})
+
 describe('FactorySummary — extra output and actual', () => {
   it('shows the extra output with title "Extra output" once the slot is selected', () => {
     render(<FactorySummary />)

@@ -7,6 +7,7 @@ import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
+import { ELECTRICITY_ITEM_ID, isElectricity } from '../data/electricity'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -31,6 +32,8 @@ function matchesRecipe(query: string, recipe: Recipe): boolean {
 
 function fmtAmount(amount: number): string {
   if (Number.isInteger(amount)) return String(amount)
+  // Tiny amounts (nuclear fuel per second) would round to 0.00.
+  if (amount > 0 && amount < 0.01) return amount.toPrecision(2)
   return amount.toFixed(2)
 }
 
@@ -391,6 +394,10 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           >
             {recipes.map(r => {
               const product = recipeIconItem(gameData, r)
+              // A power recipe shows its machine; its last ingredient (the fuel, or the steam) is the badge.
+              const machine = r.power ? gameData.machines[r.madeIn[0]] : undefined
+              const mainIcon = machine?.iconPath ? machine : product
+              const badgeItem = r.power ? gameData.items[r.ingredients.at(-1)?.itemId ?? ''] : undefined
               // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
               const beyond = !!available && !r.hidden && !available.has(r.id)
               const present = presentRecipes?.ids.has(r.id) === true
@@ -409,7 +416,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
                   onMouseLeave={() => setHoveredRecipeId(null)}
                   onFocus={() => setHoveredRecipeId(r.id)}
                   onBlur={() => setHoveredRecipeId(null)}
-                  className={`aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
+                  className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
                     present
                       ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
                       : beyond
@@ -417,10 +424,18 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
                       : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
                   }`}
                 >
-                  {product
-                    ? <Icon iconPath={product.iconPath} alt={product.name} className="w-7 h-7 object-contain" />
+                  {mainIcon?.iconPath
+                    ? <Icon iconPath={mainIcon.iconPath} alt={mainIcon.name} className="w-7 h-7 object-contain" />
                     : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
                   }
+                  {badgeItem?.iconPath && (
+                    <Icon
+                      iconPath={badgeItem.iconPath}
+                      alt=""
+                      data-testid="recipe-slot-badge"
+                      className="absolute right-0 bottom-0 w-3.5 h-3.5 object-contain"
+                    />
+                  )}
                 </button>
               )
             })}
@@ -521,11 +536,16 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
     return Number.isFinite(v) && v > 0 ? v : null
   }
 
+  /** The amount is typed per minute, except for electricity, which is typed in MW (1 MW = 60 units/min). */
+  function toRate(itemId: string, amount: number | undefined): number | undefined {
+    return amount !== undefined && isElectricity(itemId) ? amount * 60 : amount
+  }
+
   function pick(itemId: string) {
     setSelectedId(itemId)
     const amount = parseAmount()
     if (amount === null) return
-    onSelect(itemId, amount)
+    onSelect(itemId, toRate(itemId, amount))
     onClose()
   }
 
@@ -533,7 +553,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
     if (!selectedId) return
     const amount = parseAmount()
     if (amount === null) return
-    onSelect(selectedId, amount)
+    onSelect(selectedId, toRate(selectedId, amount))
     onClose()
   }
 
@@ -573,7 +593,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
             className="ml-2 w-24 bg-gray-800 text-gray-100 px-2 py-1 rounded outline-none focus:ring-1 focus:ring-blue-500"
           />
         </label>
-        <span className="text-gray-500">/min</span>
+        <span className="text-gray-500">{ELECTRICITY_ITEM_ID in gameData.items ? '/min (MW for Electricity)' : '/min'}</span>
       </div>
 
       {/* Group tabs (hidden when bundle has no group metadata) */}

@@ -12,12 +12,14 @@ The UI is a flat production table: the user sets goals for a block, adds recipes
 
 **Factorio 2.0, Nullius first.** The app is data-driven and not hardcoded to any mod. Two datasets are bundled and selectable: **Nullius** (the primary, tested dataset — e2e tests use it) and **Seablock** (bundled, best-effort). Any other mod set can be loaded by uploading a `game-data.json` produced by `scripts/build-game-data.js`.
 
+Power generation is planned as production: an Electricity goal (in MW) is solved into generators, boilers, solar panels, fuel and water like any other item, from recipes the exporter generates. Where the power grid runs and how it is wired stay out of scope.
+
 ## Non-Goals
 
 - Factorio 1.1 support — target is 2.0 only
 - Belt/logistics network layout and spatial planning (maps, coordinates, distances). Areas are bookkeeping: the planner tracks which rows are built in which area and what flows between them, not where they are.
 - Multiplayer or shared editing sessions
-- Map-level infrastructure (power grids, train networks)
+- Map-level infrastructure (power grid layout, train networks)
 - Mining productivity research, resource yield and depletion, and asteroid collection are not modelled (mining and pumping rows assume the base rate and, for fluid resources, a 100 % yield)
 
 ## Design Principles

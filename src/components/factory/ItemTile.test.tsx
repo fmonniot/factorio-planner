@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ItemTile, fmtRate, fmtPower } from './ItemTile'
+import { ItemTile, fmtRate, fmtPower, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
 import { useUiStore } from '../../store/uiStore'
 import type { Item } from '../../data/types'
 
@@ -140,5 +140,35 @@ describe('ItemTile', () => {
     const name = screen.getByText('Iron Plate')
     expect(name.getAttribute('title'), 'name span must not override the tile title').toBeNull()
     expect(name.closest('[title]')?.getAttribute('title')).toBe('Iron Plate (≥95°C)')
+  })
+})
+
+describe('electricity rates', () => {
+  const electricity: Item = {
+    id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '',
+  }
+
+  it('formats electricity in power units, 1 unit/s being 1 MW', () => {
+    expect(fmtItemRate('power:electricity', 10, 'min')).toEqual({ value: '10.0', unit: 'MW' })
+    expect(fmtItemRate('power:electricity', 0.042, 'sec')).toEqual({ value: '42.0', unit: 'kW' })
+    expect(fmtItemRateText('power:electricity', 10, 'sec')).toBe('10.0MW')
+  })
+
+  it('formats other items by the rate unit', () => {
+    expect(fmtItemRate('iron-plate', 1, 'min')).toEqual({ value: '60.0', unit: '/m' })
+    expect(fmtItemRate('iron-plate', 1, 'sec')).toEqual({ value: '1.00', unit: '/s' })
+  })
+
+  it('types electricity in MW (rate unit sec) and everything else in the current unit', () => {
+    expect(inputRateUnit('power:electricity', 'min')).toBe('sec')
+    expect(inputRateUnit('iron-plate', 'min')).toBe('min')
+  })
+
+  it.each(['min', 'sec'] as const)('shows an electricity item tile with no icon as ⚡ and MW in %s', unit => {
+    useUiStore.setState({ rateUnit: unit })
+    const { container } = render(<ItemTile item={electricity} ratePerSec={10} variant="product" />)
+    expect(screen.getByText('⚡')).toBeInTheDocument()
+    expect(container.textContent).toContain('10.0MW')
+    expect(container.querySelector('[data-variant="product"]')).not.toBeNull()
   })
 })

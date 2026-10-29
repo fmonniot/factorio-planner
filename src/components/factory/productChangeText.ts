@@ -1,6 +1,6 @@
 import type { ProductChangeEffect } from '../../store/connections'
 import type { RateUnit } from '../../store/uiStore'
-import { fmtRate } from './ItemTile'
+import { fmtItemRateText } from './ItemTile'
 
 export type ProductChange = 'add' | 'remove'
 
@@ -15,9 +15,9 @@ export function productChangeTitle(change: ProductChange, itemName: string, bloc
 }
 
 /** A delivered rate for the dialog, e.g. `30.0/m`; `—` without a flow. */
-export function productChangeRateText(rate: number | undefined, unit: RateUnit): string {
+export function productChangeRateText(itemId: string, rate: number | undefined, unit: RateUnit): string {
   if (rate === undefined) return '—'
-  return `${fmtRate(rate / 60, unit)}${unit === 'min' ? '/m' : '/s'}`
+  return fmtItemRateText(itemId, rate / 60, unit)
 }
 
 /** What one affected connection will do once the change is confirmed. */

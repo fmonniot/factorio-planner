@@ -5,7 +5,8 @@ import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
-import { ItemTile, fmtRate } from './ItemTile'
+import { ItemTile, fmtRate, fmtItemRateText, inputRateUnit } from './ItemTile'
+import { isElectricity } from '../../data/electricity'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
 import { BeaconCell } from './BeaconPopover'
@@ -442,7 +443,6 @@ export function RecipeRow({
   const gotoOptions = menuOpen && index && areaView
     ? goToRowOptions(index, rootPlan, planNode.id, areaView.solvedMap)
     : []
-  const rateSuffix = rateUnit === 'min' ? '/m' : '/s'
 
   const outputEntries = solvedNode ? Object.entries(solvedNode.outputRates) : []
   const productEntries = outputEntries.filter(([id]) => id === primaryItemId)
@@ -505,7 +505,7 @@ export function RecipeRow({
   function handlePinnedRateChange(raw: string) {
     const v = parseFloat(raw)
     if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, (rateUnit === 'min' ? v : v * 60) / primaryPerRun)
+      updateNodePinnedRate(planNode.id, (inputRateUnit(primaryItemId, rateUnit) === 'min' ? v : v * 60) / primaryPerRun)
     }
   }
 
@@ -597,7 +597,7 @@ export function RecipeRow({
               areaMenu.kind === 'build'
                 ? buildOptions.map(o => ({
                     id: o.areaId,
-                    label: `${o.name} · uses ${fmtRate(o.rate / 60, rateUnit)}${rateSuffix}`,
+                    label: `${o.name} · uses ${fmtItemRateText(primaryItemId, o.rate / 60, rateUnit)}`,
                     onSelect: () => {
                       const id = buildRowAlsoIn(planNode.id, o.areaId)
                       if (id) requestRevealRow(id)
@@ -674,12 +674,12 @@ export function RecipeRow({
                     step="any"
                     aria-label="Pinned rate"
                     // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, rateUnit)}
-                    key={`${planNode.id}-pin-${rateUnit}-${primaryPerRun.toFixed(6)}`}
+                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, inputRateUnit(primaryItemId, rateUnit))}
+                    key={`${planNode.id}-pin-${inputRateUnit(primaryItemId, rateUnit)}-${primaryPerRun.toFixed(6)}`}
                     onChange={e => handlePinnedRateChange(e.target.value)}
                     className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
                   />
-                  <span className="text-gray-600 text-[10px]">{rateUnit === 'min' ? '/m' : '/s'}</span>
+                  <span className="text-gray-600 text-[10px]">{isElectricity(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
                 </div>
               )
             }

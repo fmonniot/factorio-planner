@@ -699,6 +699,7 @@ A product with no extra output and nothing requested, exported or made is an **e
 - Colour key: an `export` that is a request reads `<block> requests N` when served in full and `<block>: N of M requested` when it got less; a take reads `→ <block> N`. `kept` reads `Extra: N of E` (E is the extra output) or `Extra N` without an extra. `short` reads `Short N` with a note on where the shortfall comes from: `— comes out of the extra`, `— comes out of the extra and <block>'s request`, or `— comes out of <block>'s request` (`<block>'s and <block>'s requests` for several; a block name ending in `s` takes a bare apostrophe). A requester that got nothing has no segment or entry; the Short note names it. Without an extra the key ends with **+ Extra output** (a dashed button) that starts editing the extra.
 - The actual rate is the item's net balance across all solved nodes; it appears once the solver has a result. When it is below the target (by more than the solver's flow tolerance, and by an amount that does not round to zero in the displayed precision) the slot gets an amber border and a `▼` badge, and the actual turns amber with a leading `▼` and its tooltip reads "Actual: X/m — short by Y/m"; a met or exceeded product stays teal. Once the solver has a result, a product that no node produces counts as an actual of 0, so it is fully short when something is requested. "Short" compares the product's net balance with `required` (extra plus requested) and does not subtract what the block exports, so a product whose output is partly delivered to other blocks is not marked short for that reason.
 - Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Remove extra** (only when the product has an extra output); **Remove product**. Right-clicking a slot opens a `RowActionsMenu` with **Remove extra** (when present) and **Remove product**. Removing a product asks first when it changes other blocks (see below).
+- Electricity is shown in power units: the slot rate, the strip's header rates, the extra output and the colour key read "10.0MW" (the unit is part of the text, whatever the rate-unit toggle) and the slot's accessible name is "Electricity, 10.0 MW". The extra output input is typed in MW. The same holds for the Byproducts and Ingredients panes, the connection menu and limit editor (MW), the block graph's chips and the warnings texts. The areas matrices and the strip's overview totals still show electricity in MJ per minute or second.
 - `+`, pinned in the pane header so it never scrolls away, opens the [item picker](#item-picker) to add a product (an empty amount adds one without extra output). Adding one asks first when it changes other blocks (see below).
 
 #### Product change confirmation
@@ -822,7 +823,7 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   byproduct from other recipes" (sets `byproductConsumer`).
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
-  becomes a number input for the pinned rate: the primary product's rate in the
+  becomes a number input for the pinned rate (MW for an electricity row): the primary product's rate in the
   current rate unit. It is stored as executions per minute (typed rate divided by
   the primary product's items per run, productivity included). When the node is
   unsolved or solved at zero throughput, the last positive solved factor is
@@ -897,7 +898,7 @@ time.
 
 **Ingredients cell.** Every input with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
-same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. This is informational only: the solver and the other views (summary, goals, pickers, block graph) do not use it. A ⚡ tile at the end shows the row's power draw
+same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. This is informational only: the solver and the other views (summary, goals, pickers, block graph) do not use it. A ⚡ tile at the end shows the row's power draw (a power generation row draws nothing, so it has none: its output is the electricity product tile, in power units)
 (auto-scaled W / kW / MW / GW) when it is above zero. Right-clicking an ingredient tile opens the [sourcing menu](#item-chip-sourcing-menu); the power tile has none.
 
 #### Item chip sourcing menu
@@ -979,9 +980,12 @@ backdrop and close on Escape or a click on the backdrop.
 
 - Search box (case-insensitive substring match on display name or id).
 - **Amount** field in items per minute, default 60 (always /min, regardless of the
-  rate-unit toggle). Empty adds a product without extra output (the field shows `—`); anything else must be a positive number, or the item cannot be picked and Submit is disabled.
+  rate-unit toggle), except for Electricity, which is typed in MW (the unit label then
+  reads "/min (MW for Electricity)"; 10 is stored as 600 units/min). Empty adds a product without extra output (the field shows `—`); anything else must be a positive number, or the item cannot be picked and Submit is disabled.
 - Item-group tabs, then items of the selected group in rows by subgroup, sorted by
-  Factorio `order`. Hidden items are never shown.
+  Factorio `order`. Hidden items are never shown. A bundle with power generation has a
+  **Power** tab holding Electricity (always inside the research horizon, because its
+  recipes are).
 - With a research horizon, items produced only by non-hidden recipes outside it are
   not offered; items no non-hidden recipe produces (raw resources without an extraction
   recipe, or items only hidden recipes make) are always offered. An ore with a
@@ -1016,6 +1020,7 @@ The same component in recipes mode (`source="recipes"`).
   ingredient, fluid temperature ignored) are listed and the subtitle reads
   "Choose a recipe that consumes '…'".
 - Extraction recipes ("Iron ore (mining)", "Water (offshore pump)") are listed like any other recipe, under the group of what they produce; they are always inside the research horizon.
+- Power generation recipes (`Recipe.power`; "Boiler (Coal)", "Steam engine (Steam)", "Solar panel") are listed in the **Power** group, by subgroup (boilers, generators, burner generators, solar panels). A power slot shows its machine's icon, with its last ingredient (the fuel, or the steam of a generator) as a small badge at the bottom-right (`data-testid="recipe-slot-badge"`); there is one slot per fuel. They are always inside the research horizon (their detail panel reads "Available from the start"; the machine is gated through its placing item). Amounts below 0.01 in the detail panel show two significant digits ("0.0015 ×").
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
@@ -1055,7 +1060,8 @@ The same component in recipes mode (`source="recipes"`).
   non-hidden recipes inside the research horizon that produce the current recipe's
   main product. Choosing one
   swaps the row's recipe and resets its machine, modules, beacon, pin and other
-  settings.
+  settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel
+  change goes through **Alternate recipe**.
 - **Modules** (when the machine has slots or modules are configured) — each configured
   module with −/+ counts, and an "add module" dropdown. Only modules inside the
   research horizon whose effects the machine allows (and whose recipe limitations
@@ -1097,8 +1103,12 @@ The same component in recipes mode (`source="recipes"`).
 ## Shared pieces
 
 - `ItemTile.tsx` — the coloured rate tile used in the production table (variants product,
-  byproduct, ingredient, electricity), plus `fmtRate` and `fmtPower`. Rates show
-  0–2 decimals depending on magnitude. An optional `temperature` prop adds the
+  byproduct, ingredient, electricity; the tile carries `data-variant`), plus `fmtRate` and `fmtPower`. Rates show
+  0–2 decimals depending on magnitude. `fmtItemRate(itemId, ratePerSec, unit)` / `fmtItemRateText` format a
+  rate of an item as value + unit, and show the electricity item (1 unit/s = 1 MW) in W / kW / MW / GW whatever the
+  rate unit; `inputRateUnit(itemId, unit)` is the unit a rate input is typed in (`'sec'`, i.e. MW, for electricity).
+  Every rate text of an item goes through them (slots, strips, chips, menus, warnings, the product-change dialog).
+  An electricity item tile without an icon shows ⚡. An optional `temperature` prop adds the
   orange temperature badge after the rate.
 - `temperature.ts` — formats an ingredient's temperature bounds (`fmtTemperatureRange`)
   and builds the per-item labels for a recipe (`ingredientTemperatureLabels`).
