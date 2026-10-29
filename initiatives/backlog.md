@@ -37,6 +37,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Mining productivity research and fluid-resource yield.** Extraction rows use the drill's base mining speed and a 100 % yield for fluid resources (crude oil and similar), as the game's resource entity yield and depletion are not modelled. Mining productivity research and a drill's base `effect_receiver` are ignored too.
 - [ ] **Multi-tab safety for the plan list.** Each tab keeps the plan index in memory and writes it whole, and nothing listens for `storage` events, so with two tabs open one tab's write can drop plans the other created (the plan keys stay but no index lists them). Listen for `storage` events (or re-read the index before each write) and merge.
 - [ ] **Area-to-area routes from the solver.** The areas matrix splits an item between senders and receivers pro rata, because the LP only has per-item pools (`din`/`dout`/`oin`/`oout`) and no routes between areas (spec/solver.md#areas). Let the solver report which area supplies which, so the matrix and the focus view can show exact figures instead of an allocation.
+- [ ] **Plan power generation.** Set a goal such as 10 MW and get the generators, boilers, fuel and water. Needs generator and fuel data in the export, an `electricity` pseudo-item and generation recipes. Design and phases are in [power-generation/](power-generation/plan.md).
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
 - [ ] **Quality tiers.**
 
