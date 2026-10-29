@@ -116,6 +116,8 @@ test.describe('Power generation', () => {
     await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
     await expect(engine.locator('[data-variant="product"]')).toContainText('10.0MW')
     await expect(engine.locator('[data-variant="electricity"]')).toHaveCount(0)
+    // Generators draw nothing, so the header shows no power total.
+    await expect(page.getByTestId('block-power-total')).toHaveCount(0)
 
     await engine.locator('button[title^="Steam ("]').first().click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:boiler:coal"]').click()

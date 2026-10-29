@@ -18,7 +18,7 @@ In the **Products** pane of the summary panel, use the **+** button in the pane 
 
 ### 3. Read and shape the production table
 
-Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out. A few things you can do from there (the row's pin, absorb, wrap, area and remove actions are in a menu you get by right-clicking the recipe icon):
+Each row in the table is one recipe, with its machines, modules, beacons, power and the item flows going in and out; the Ingredients header shows the block's total power draw. A few things you can do from there (the row's pin, absorb, wrap, area and remove actions are in a menu you get by right-clicking the recipe icon):
 
 - **Add recipes** with the **+** button in the table header's left (reorder) column (or **+ Add recipe** in an empty block). To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons). The recipe picker greys out recipes the area (or, in a block without areas, the block) already has.
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
