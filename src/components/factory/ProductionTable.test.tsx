@@ -246,6 +246,49 @@ describe('ProductionTable', () => {
   })
 })
 
+describe('ProductionTable — block power total', () => {
+  function solveWithPower(...powers: number[]) {
+    const block = useBlockStore.getState().blocks[0]
+    const nodes = powers.map((_, i) => ({ ...structuredClone(existingNode), id: `node-${i + 1}` }))
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useSolverStore.setState({
+      status: { type: 'success' },
+      lastResult: {
+        nodes: powers.map((powerKw, i) => ({
+          recipeNodeId: `node-${i + 1}`,
+          inputRates: { 'iron-ore': 60 },
+          outputRates: { 'iron-plate': 60 },
+          throughput: 30,
+          machineCountExact: 1,
+          machineCountCeil: 1,
+          powerKw,
+        })),
+      },
+      _setStatus: () => {},
+    } as never)
+  }
+
+  it('sums the power of every solved node in the Ingredients header', () => {
+    solveWithPower(1500, 500)
+    render(<ProductionTable />)
+    const total = screen.getByTestId('block-power-total')
+    expect(total).toHaveTextContent('2.0')
+    expect(total).toHaveTextContent('MW')
+    expect(total).toHaveAccessibleName('Total power draw, 2.0 MW')
+    expect(screen.getByRole('img', { name: 'Total power draw, 2.0 MW' })).toBe(total)
+  })
+
+  it('shows no total when nothing draws power', () => {
+    solveWithPower(0, 0)
+    render(<ProductionTable />)
+    expect(screen.queryByTestId('block-power-total')).toBeNull()
+  })
+})
+
 describe('ProductionTable — revealing a row', () => {
   const original = Element.prototype.scrollIntoView
   const scrollIntoView = vi.fn()

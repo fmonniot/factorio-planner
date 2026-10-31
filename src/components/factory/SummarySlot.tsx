@@ -1,7 +1,8 @@
 import type { Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { fmtRate } from './ItemTile'
+import { fmtItemRate, fmtItemRateText } from './ItemTile'
+import { isElectricity } from '../../data/electricity'
 import { segmentLabel, segmentTitle, slotHasKey } from './summarySegments'
 import type { Overlay, Segment, SlotModel } from './summarySegments'
 import { lookStyle, segmentLook } from './segmentLooks'
@@ -159,6 +160,9 @@ export function SummarySlot({
     : `${warn ? 'border-amber-700' : 'border-gray-700'} bg-gray-800 hover:bg-gray-700`
   const opacity = (slot.dimmed ? 0.55 : 1) * (traced === 'out' ? 0.3 : 1)
   const badge = slot.status ? BADGES[slot.status] : null
+  const ariaRate = isElectricity(slot.itemId)
+    ? (() => { const r = fmtItemRate(slot.itemId, slot.rate / 60, rateUnit); return `${r.value} ${r.unit}` })()
+    : `${fmtItemRate(slot.itemId, slot.rate / 60, rateUnit).value} per ${rateUnit === 'min' ? 'minute' : 'second'}`
   const countColor = slot.status === 'short' ? 'text-amber-400' : slot.rate > 0 ? 'text-gray-100' : 'text-gray-400'
 
   return (
@@ -173,7 +177,7 @@ export function SummarySlot({
       aria-label={
         slot.empty
           ? `${name}, nothing requested yet`
-          : `${name}, ${fmtRate(slot.rate / 60, rateUnit)} per ${rateUnit === 'min' ? 'minute' : 'second'}${slot.status ? `, ${slot.status}` : ''}`
+          : `${name}, ${ariaRate}${slot.status ? `, ${slot.status}` : ''}`
       }
       title={slot.empty ? `${name} — nothing requested yet` : name}
       onClick={onClick}
@@ -195,7 +199,7 @@ export function SummarySlot({
         className={`absolute right-1 bottom-[9px] font-mono font-semibold text-[10px] leading-none ${countColor}`}
         style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}
       >
-        {slot.empty ? '—' : fmtRate(slot.rate / 60, rateUnit)}
+        {slot.empty ? '—' : isElectricity(slot.itemId) ? fmtItemRateText(slot.itemId, slot.rate / 60, rateUnit) : fmtItemRate(slot.itemId, slot.rate / 60, rateUnit).value}
       </span>
       {badge && (
         <span aria-hidden="true" className={`absolute right-[3px] top-px text-[9px] font-bold leading-none ${badge.className}`}>

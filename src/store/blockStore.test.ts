@@ -115,6 +115,66 @@ describe('renameSubPlan', () => {
     useBlockStore.getState().renameSubPlan('missing', 'X')
     expect(useBlockStore.getState().blocks[0].rootPlan).toEqual(before)
   })
+
+  it('undo restores the old name and redo reapplies the new one', () => {
+    const { inner } = setupNested()
+    useBlockStore.getState().renameSubPlan(inner.id, 'Renamed')
+    useBlockStore.getState().undo()
+    expect(findSubPlan(useBlockStore.getState().blocks[0].rootPlan, inner.id)!.name).toBe('Inner')
+    useBlockStore.getState().redo()
+    expect(findSubPlan(useBlockStore.getState().blocks[0].rootPlan, inner.id)!.name).toBe('Renamed')
+  })
+
+  it('pushes no history entry when the name is unchanged', () => {
+    const { inner } = setupNested()
+    useBlockStore.getState().renameSubPlan(inner.id, 'Inner')
+    expect(useBlockStore.getState().history).toEqual({})
+  })
+})
+
+describe('addSubPlan', () => {
+  const root = () => useBlockStore.getState().blocks[0].rootPlan
+  const blockId = () => useBlockStore.getState().blocks[0].id
+
+  function setupRoot() {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [], subPlans: [] } }], activeBlockId: block.id, history: {} })
+  }
+
+  it('ignores an unknown parent without touching history', () => {
+    setupRoot()
+    useBlockStore.getState().addSubPlan('missing', 'Added')
+    expect(root().subPlans).toHaveLength(0)
+    expect(useBlockStore.getState().history[blockId()]).toBeUndefined()
+  })
+
+  it('undo removes the sub-plan and its handle, redo restores both with the same ids', () => {
+    setupRoot()
+    useBlockStore.getState().addSubPlan(root().id, 'Added')
+    const added = root().subPlans[0]
+    const handle = root().nodes[0]
+    expect(useBlockStore.getState().history[blockId()].undoStack).toHaveLength(1)
+    useBlockStore.getState().undo()
+    expect(root().subPlans).toEqual([])
+    expect(root().nodes).toEqual([])
+    useBlockStore.getState().redo()
+    expect(root().subPlans.map(sp => sp.id)).toEqual([added.id])
+    expect(root().nodes).toEqual([handle])
+  })
+
+  it('redo keeps a rename made after the add', () => {
+    setupRoot()
+    useBlockStore.getState().addSubPlan(root().id, 'Added')
+    const id = root().subPlans[0].id
+    useBlockStore.getState().renameSubPlan(id, 'Renamed')
+    useBlockStore.getState().undo()
+    expect(findSubPlan(root(), id)!.name).toBe('Added')
+    useBlockStore.getState().undo()
+    expect(findSubPlan(root(), id)).toBeUndefined()
+    useBlockStore.getState().redo()
+    useBlockStore.getState().redo()
+    expect(findSubPlan(root(), id)!.name).toBe('Renamed')
+  })
 })
 
 describe('removeSubPlan', () => {
@@ -209,8 +269,12 @@ describe('removeSubPlan', () => {
     const { target } = setup()
     useBlockStore.getState().removeSubPlan(target.id)
     useBlockStore.getState().undo()
-    useBlockStore.getState().renameSubPlan(target.id, 'Renamed')
-    useBlockStore.getState().addSubPlan(target.id, 'Added')
+    // Edits that bypass history (like an import or a future non-undoable action), so the redo stack survives.
+    const edited = { ...target, name: 'Renamed', subPlans: [...target.subPlans, makeEmptySubPlan('Added')], nodes: [...target.nodes, recipe('t-added')] }
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...root(), subPlans: root().subPlans.map(sp => (sp.id === target.id ? edited : sp)) } }],
+    })
     useBlockStore.getState().redo()
     expect(root().subPlans.map(sp => sp.id)).not.toContain(target.id)
     useBlockStore.getState().undo()
@@ -410,6 +474,40 @@ describe('wrapNodeInSubPlan', () => {
     }
   })
 
+  it('undo restores the original node at its index and drops the sub-plan; redo wraps again', () => {
+    const block = makeEmptyBlock('B')
+    const before: RecipeNode = { ...ironNode, id: 'node-before' }
+    const rootPlan = { ...block.rootPlan, nodes: [before, ironNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
+    useBlockStore.getState().wrapNodeInSubPlan('node-iron', 'Iron Smelting')
+    const wrapped = useBlockStore.getState().blocks[0].rootPlan
+    const subPlanId = wrapped.subPlans[0].id
+    const handle = wrapped.nodes[1]
+    useBlockStore.getState().undo()
+    const restored = useBlockStore.getState().blocks[0].rootPlan
+    expect(restored.nodes.map(n => n.id)).toEqual(['node-before', 'node-iron'])
+    expect(restored.subPlans).toEqual([])
+    useBlockStore.getState().redo()
+    const again = useBlockStore.getState().blocks[0].rootPlan
+    expect(again.nodes[1]).toEqual(handle)
+    expect(again.subPlans.map(sp => sp.id)).toEqual([subPlanId])
+    expect(again.subPlans[0].nodes.map(n => n.id)).toEqual(['node-iron'])
+  })
+
+  it('drops the undo when a node was added into the wrapper', () => {
+    setupWithNode()
+    useBlockStore.getState().wrapNodeInSubPlan('node-iron', 'Iron Smelting')
+    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
+    const wrapper = rootPlan.subPlans[0]
+    const extended = { ...wrapper, nodes: [...wrapper.nodes, { ...ironNode, id: 'node-extra' }] }
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...rootPlan, subPlans: [extended] } }] })
+    const beforeUndo = structuredClone(useBlockStore.getState().blocks[0].rootPlan)
+    useBlockStore.getState().undo()
+    expect(useBlockStore.getState().blocks[0].rootPlan).toEqual(beforeUndo)
+    expect(useBlockStore.getState().history[block.id].undoStack).toHaveLength(0)
+  })
+
   it('is a no-op for a non-existent nodeId', () => {
     setupWithNode()
     const before = useBlockStore.getState().blocks[0].rootPlan
@@ -588,7 +686,14 @@ describe('moveNode', () => {
       const { group, top, bottom, rootPlan } = setup()
       useBlockStore.getState().moveNode('h-group', bottom.id, 0)
       // An edit made to the sub-plan while it sits in its new place survives undo and redo.
-      useBlockStore.getState().renameSubPlan(group.id, 'Renamed')
+      // Written straight to the state, so the move stays the last history entry.
+      const renameInTree = (p: SubPlan): SubPlan => ({
+        ...p,
+        name: p.id === group.id ? 'Renamed' : p.name,
+        subPlans: p.subPlans.map(renameInTree),
+      })
+      const current = useBlockStore.getState().blocks[0]
+      useBlockStore.setState({ blocks: [{ ...current, rootPlan: renameInTree(current.rootPlan) }] })
 
       useBlockStore.getState().undo()
       expect(idsOf(findSubPlan(rootOf(), top.id)!)).toEqual([group.id])
@@ -1747,9 +1852,11 @@ describe('duplicateSubPlanTo', () => {
     const copyId = treePlan('B').subPlans[0].id
     expect(useBlockStore.getState().history[blockId].undoStack).toHaveLength(1)
     useBlockStore.getState().renameSubPlan(copyId, 'Second')
-    useBlockStore.getState().undo()
+    useBlockStore.getState().undo() // the rename
+    useBlockStore.getState().undo() // the duplication
     expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1'])
     expect(treePlan('B').subPlans).toEqual([])
+    useBlockStore.getState().redo()
     useBlockStore.getState().redo()
     expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1', id])
     expect(treePlan(copyId).name).toBe('Second')

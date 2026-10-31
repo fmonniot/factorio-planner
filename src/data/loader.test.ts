@@ -224,8 +224,48 @@ describe('parseGameData', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GameData — validation errors
+// Temperatures
 // ---------------------------------------------------------------------------
+
+describe('parseGameData — temperatures', () => {
+  it('parses a bundle without temperature data, leaving the fields undefined', () => {
+    const data = parseGameData(minimalGameData())
+    expect(data.items.water.defaultTemperature).toBeUndefined()
+    expect(data.items.water.maxTemperature).toBeUndefined()
+    expect(data.recipes['iron-plate-recipe'].products[0].temperature).toBeUndefined()
+  })
+
+  it('keeps fluid temperatures and a product temperature', () => {
+    const gd = minimalGameData()
+    gd.items.steam = { ...minimalFluid, id: 'steam', name: 'Steam', defaultTemperature: 15, maxTemperature: 5000 } as unknown as GameData['items'][string]
+    gd.recipes['iron-plate-recipe'].products = [
+      { itemId: 'steam', type: 'fluid', amount: 1, temperature: 165 },
+    ] as unknown as GameData['recipes'][string]['products']
+    const data = parseGameData(gd)
+    expect(data.items.steam.defaultTemperature).toBe(15)
+    expect(data.items.steam.maxTemperature).toBe(5000)
+    expect(data.recipes['iron-plate-recipe'].products[0].temperature).toBe(165)
+  })
+
+  it('accepts negative and zero temperatures', () => {
+    const gd = minimalGameData()
+    gd.items.water = { ...minimalFluid, defaultTemperature: -30, maxTemperature: 100 } as unknown as GameData['items'][string]
+    gd.recipes['iron-plate-recipe'].products = [
+      { itemId: 'water', type: 'fluid', amount: 1, temperature: 0 },
+    ] as unknown as GameData['recipes'][string]['products']
+    const data = parseGameData(gd)
+    expect(data.items.water.defaultTemperature).toBe(-30)
+    expect(data.recipes['iron-plate-recipe'].products[0].temperature).toBe(0)
+  })
+
+  it('rejects a non-numeric product temperature', () => {
+    const gd = minimalGameData()
+    gd.recipes['iron-plate-recipe'].products = [
+      { itemId: 'water', type: 'fluid', amount: 1, temperature: '165' },
+    ] as unknown as GameData['recipes'][string]['products']
+    expect(() => parseGameData(gd)).toThrow(GameDataLoadError)
+  })
+})
 
 describe('parseGameData — technologies', () => {
   it('defaults a bundle without technology data to empty collections', () => {
@@ -294,6 +334,33 @@ describe('parseGameData — extraction', () => {
     expect(data.recipes['iron-plate-recipe'].extraction).toBeUndefined()
   })
 })
+
+describe('parseGameData — power generation', () => {
+  it('keeps a generator machine and the power flag of a recipe', () => {
+    const gd = minimalGameData() as unknown as Record<string, Record<string, unknown>>
+    gd.machines['steam-engine'] = {
+      ...minimalMachine, id: 'steam-engine', type: 'generator', energyType: 'void', energyUsageKw: 0,
+      craftingCategories: ['power:steam-engine'],
+    }
+    gd.recipes['power:steam-engine:steam'] = {
+      ...minimalRecipe, id: 'power:steam-engine:steam', category: 'power:steam-engine',
+      ingredients: [{ itemId: 'steam', type: 'fluid', amount: 30, minimumTemperature: 165 }],
+      products: [{ itemId: 'power:electricity', type: 'fluid', amount: 0.9 }], madeIn: ['steam-engine'], power: true,
+    }
+    const data = parseGameData(gd)
+    expect(data.machines['steam-engine'].type).toBe('generator')
+    expect(data.recipes['power:steam-engine:steam'].power).toBe(true)
+  })
+
+  it('leaves power undefined on a recipe without the flag', () => {
+    const data = parseGameData(minimalGameData())
+    expect(data.recipes['iron-plate-recipe'].power).toBeUndefined()
+  })
+})
+
+// ---------------------------------------------------------------------------
+// GameData — validation errors
+// ---------------------------------------------------------------------------
 
 describe('parseGameData — validation errors', () => {
   it('throws GameDataLoadError for non-object input', () => {

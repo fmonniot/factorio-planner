@@ -1,7 +1,7 @@
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { fmtRate } from './ItemTile'
+import { fmtItemRate } from './ItemTile'
 
 interface ChipProps {
   itemId: string
@@ -15,8 +15,7 @@ interface ChipProps {
 export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit }: ChipProps) {
   const item = items[itemId]
   const name = item?.name ?? itemId
-  const unitLabel = rateUnit === 'min' ? '/m' : '/s'
-  const amount = fmtRate(rate / 60, rateUnit)
+  const { value: amount, unit: unitLabel } = fmtItemRate(itemId, rate / 60, rateUnit)
   const outside = direction === 'receives' ? ' — from outside the block' : ' — leaves the block'
   const title = `${name}: ${amount}${unitLabel}${boundary ? outside : ''}`
   const content = (

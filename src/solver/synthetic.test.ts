@@ -42,16 +42,18 @@ function recipe(
 }
 
 function speedOneMachine(category: string): Machine {
+  // Generation machines (power:* categories) draw nothing: their energy is the recipe.
+  const generation = category.startsWith('power:')
   return {
     id: `machine-${category}`,
     name: `machine-${category}`,
     type: 'assembling-machine',
     craftingSpeed: 1,
-    energyUsageKw: 100,
-    energyType: 'electric',
+    energyUsageKw: generation ? 0 : 100,
+    energyType: generation ? 'void' : 'electric',
     drainKw: 0,
-    moduleSlots: 4,
-    allowedEffects: ['speed', 'productivity', 'consumption', 'pollution', 'quality'],
+    moduleSlots: generation ? 0 : 4,
+    allowedEffects: generation ? [] : ['speed', 'productivity', 'consumption', 'pollution', 'quality'],
     craftingCategories: [category],
     iconPath: '',
     hidden: false,
@@ -96,6 +98,13 @@ function recipes(): GameRecipe[] {
         { ...item('uranium-235', 1), probability: 0.007 },
         { ...item('uranium-238', 1), probability: 0.993 },
       ]),
+    // Exporter-generated vanilla power recipes (see scripts/power.js): per second per building.
+    recipe('power:boiler:coal', 'power:boiler', 1,
+      [fluid('water', 60), item('coal', 0.45)],
+      [fluid('steam', 60)]),
+    recipe('power:steam-engine:steam', 'power:steam-engine', 1,
+      [fluid('steam', 30)],
+      [fluid('power:electricity', 0.9)]),
   ]
 }
 
@@ -323,6 +332,33 @@ describe('solver synthetic cases', () => {
       expect(rate(area('rod-line').receives, 'nullius-iron-ingot')).toMatchObject({ boundary: false })
       expect(rate(area('rod-line').receives, 'nullius-iron-ingot')!.rate).toBeCloseTo(24, 3)
       expect(rate(area('rod-line').sends, 'nullius-iron-rod')!.rate).toBeCloseTo(30, 3)
+    })
+  })
+
+  describe('case 9: power generation', () => {
+    // 10 MW = 600 electricity/min. An engine makes 0.9 per craft at one craft per second per building.
+    const r = run([['power:electricity', 600]], ['power:steam-engine:steam', 'power:boiler:coal'])
+
+    it('sizes the engines and the boilers', () => {
+      const engine = nodeOf(r, 'power:steam-engine:steam')
+      const boiler = nodeOf(r, 'power:boiler:coal')
+      expect(engine.throughput).toBeCloseTo(666.667, 3)
+      expect(engine.machineCountExact).toBeCloseTo(11.111, 3)
+      expect(engine.machineCountCeil).toBe(12)
+      expect(engine.powerKw).toBe(0)
+      expect(boiler.throughput).toBeCloseTo(333.333, 3)
+      expect(boiler.machineCountExact).toBeCloseTo(5.556, 3)
+      expect(boiler.machineCountCeil).toBe(6)
+      expect(boiler.powerKw).toBe(0)
+    })
+
+    it('balances the steam and leaves only coal and water to import', () => {
+      expect(nodeOf(r, 'power:steam-engine:steam').inputRates['steam']).toBeCloseTo(20000, 3)
+      expect(nodeOf(r, 'power:boiler:coal').outputRates['steam']).toBeCloseTo(20000, 3)
+      expect(unsatisfiedRate(r, 'coal')).toBeCloseTo(150, 3)
+      expect(unsatisfiedRate(r, 'water')).toBeCloseTo(20000, 3)
+      expect(unsatisfiedRate(r, 'steam') ?? 0).toBe(0)
+      expect(r.warnings).toEqual([])
     })
   })
 

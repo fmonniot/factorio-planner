@@ -23,9 +23,14 @@ describe('productChangeTitle', () => {
 
 describe('productChangeRateText', () => {
   it('formats per minute and per second, with a dash for no flow', () => {
-    expect(productChangeRateText(30, 'min')).toBe('30.0/m')
-    expect(productChangeRateText(30, 'sec')).toBe('0.50/s')
-    expect(productChangeRateText(undefined, 'min')).toBe('—')
+    expect(productChangeRateText('iron-plate', 30, 'min')).toBe('30.0/m')
+    expect(productChangeRateText('iron-plate', 30, 'sec')).toBe('0.50/s')
+    expect(productChangeRateText('iron-plate', undefined, 'min')).toBe('—')
+  })
+
+  it('formats electricity in power units, whatever the rate unit', () => {
+    expect(productChangeRateText('power:electricity', 600, 'min')).toBe('10.0MW')
+    expect(productChangeRateText('power:electricity', 600, 'sec')).toBe('10.0MW')
   })
 })
 

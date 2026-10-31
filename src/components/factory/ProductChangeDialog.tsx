@@ -10,6 +10,7 @@ import {
 
 interface ProductChangeDialogProps {
   change: ProductChange
+  itemId: string
   itemName: string
   blockName: string
   effects: ProductChangeEffect[]
@@ -23,6 +24,7 @@ const SECONDARY_BUTTON = 'text-xs bg-gray-800 text-gray-300 hover:text-gray-100 
 /** Confirmation shown when adding or removing a product changes how other blocks' connections behave. */
 export function ProductChangeDialog({
   change,
+  itemId,
   itemName,
   blockName,
   effects,
@@ -38,7 +40,7 @@ export function ProductChangeDialog({
         <ul className="list-disc pl-5 space-y-1 text-gray-300 mb-3">
           {effects.map(effect => (
             <li key={effect.connectionId} data-testid="product-change-effect">
-              {productChangeLine(change, effect, itemName, productChangeRateText(effect.rate, rateUnit))}
+              {productChangeLine(change, effect, itemName, productChangeRateText(itemId, effect.rate, rateUnit))}
             </li>
           ))}
         </ul>

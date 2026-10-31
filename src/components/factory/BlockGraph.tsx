@@ -14,7 +14,7 @@ import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { IconButton } from '../IconButton'
 import { GraphIcon } from '../icons'
-import { fmtRate } from './ItemTile'
+import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
 import { Popover } from './Popover'
 import { RateInput } from './RateInput'
 import { cappedTitle, cappingLimit } from './summarySegments'
@@ -163,8 +163,7 @@ interface ConnectItemMenuProps {
 
 function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates, items, onPick }: ConnectItemMenuProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
-  const unit = rateUnit === 'min' ? '/m' : '/s'
-  const fmt = (perMin: number) => `${fmtRate(perMin / 60, rateUnit)}${unit}`
+  const fmt = (itemId: string, perMin: number) => fmtItemRateText(itemId, perMin / 60, rateUnit)
 
   return (
     <div
@@ -198,7 +197,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
             {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
             <span>{item?.name ?? itemId}</span>
             <span className="ml-auto font-mono tabular-nums text-[10px] text-gray-500">
-              {request ? `needs ${fmt(needed)}` : `offers ${fmt(offered)} · needs ${fmt(needed)}`}
+              {request ? `needs ${fmt(itemId, needed)}` : `offers ${fmt(itemId, offered)} · needs ${fmt(itemId, needed)}`}
             </span>
           </button>
         )
@@ -245,12 +244,12 @@ function ConnectionChip({
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
-  const unit = rateUnit === 'min' ? '/m' : '/s'
-  const fmt = (perMin: number) => fmtRate(perMin / 60, rateUnit)
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
   const connection = target?.inputConnections.find(c => c.id === id)
   if (!connection) return null
+  const unitOf = inputRateUnit(connection.itemId, rateUnit)
+  const fmt = (perMin: number) => fmtItemRateText(connection.itemId, perMin / 60, rateUnit)
   const status = connectionStatus(flow)
   const item: Item | undefined = items[connection.itemId]
   const itemName = item?.name ?? connection.itemId
@@ -258,12 +257,12 @@ function ConnectionChip({
   let title = `${itemName}: ${sourceName} → ${targetName}`
   const cap = cappingLimit(status === 'limited', flow?.capped, connection.maxRate)
   if (cap !== undefined) {
-    title = cappedTitle(`${fmt(cap)}${unit}`)
-  } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}${unit}`
+    title = cappedTitle(fmt(cap))
+  } else if (status === 'limited') title = `Limited: ${sourceName} only offers ${fmt(flow?.available ?? 0)}`
   else if (status === 'unused') title = `Not used: ${targetName} makes or needs none from outside`
   if (flow?.loop) title += ' — part of a loop'
   if (flow?.kind === 'request') {
-    title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)}${unit} for ${targetName}`
+    title += ` — requested: ${sourceName} makes ${fmt(flow.requested ?? 0)} for ${targetName}`
   } else if (flow?.requestIgnored) {
     title += ` — taken as existing: ${REQUEST_IGNORED_TITLE[flow.requestIgnored]}`
   }
@@ -294,13 +293,12 @@ function ConnectionChip({
       )}
       <span className="text-[10px] font-mono tabular-nums leading-none">
         {flow ? fmt(flow.rate) : '—'}
-        {flow && <span className="opacity-60">{unit}</span>}
       </span>
       {editing ? (
         <RateInput
-          key={`${id}-${rateUnit}`}
-          initial={connection.maxRate !== undefined ? fmt(connection.maxRate) : ''}
-          rateUnit={rateUnit}
+          key={`${id}-${unitOf}`}
+          initial={connection.maxRate !== undefined ? fmtRate(connection.maxRate / 60, unitOf) : ''}
+          rateUnit={unitOf}
           ariaLabel="Connection limit"
           allowClear
           onCommit={perMin => onSetLimit(id, edge.to, perMin)}

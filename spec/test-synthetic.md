@@ -1,8 +1,9 @@
 # Solver Synthetic Test Cases
 
-Eight recipe chains of increasing complexity, all using recipes from the committed
+Nine recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
-"Exporting game data" for how to regenerate it).
+"Exporting game data" for how to regenerate it); case 9 uses the vanilla power
+recipes the exporter generates (`scripts/power.js`).
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -24,7 +25,7 @@ cases.
 Formula: `machineCount = throughput_exec_per_min × craftingTime_s / 60`
 
 Raw resources confirmed: `iron-ore` has no non-packaging non-hidden producer;
-`nullius-air` has no recipe at all (pump-only). The synthetic plans contain no extraction rows (mining or offshore pump recipes), so ores and pumped fluids stay raw in every case.
+`nullius-air` has no recipe at all (pump-only). The synthetic plans contain no extraction rows (mining or offshore pump recipes), so ores and pumped fluids stay raw in every case. In case 9 coal and water stay raw too.
 
 ---
 
@@ -366,4 +367,34 @@ Default: decompression at 0.2 runs/min (cost 0.2) makes the 100 oxygen from 25 c
 cheaper than 0.25 extra electrolysis runs (hydrogen would be left over), so it runs.
 Byproducts first on oxygen: importing 100 oxygen costs 100 × 1e-5 = 1e-3, below the 0.2 of a decompression run,
 so the decompression stays idle and the 100 oxygen is an import.
+```
+
+---
+
+## Case 9 — Power generation
+
+**Exercises:** the electricity pseudo-item and the exporter-generated power recipes (`power: true`, category `power:<machine>`, `craftingTime` 1). The machines are speed-1 generation machines with `energyUsageKw` 0 and `energyType: 'void'`, so a machine count is a building count and no power is drawn.
+
+**Goal:** 600 `power:electricity` / min (10 MW)
+
+Recipes (vanilla figures, per second per building; the item ids and coefficients are those the exporter produces, on synthetic fixtures):
+- `power:boiler:coal` (`power:boiler`): 60 water + 0.45 coal → 60 steam (1.8 MW / (0.2 kJ × 150 °C) = 60 steam, 1.8 MW / 4 MJ = 0.45 coal)
+- `power:steam-engine:steam` (`power:steam-engine`): 30 steam → 0.9 electricity (30 × 0.2 kJ × 150 °C = 900 kW)
+
+### Expected solver output
+
+| Row | Throughput | Machines (exact / ceil) | Power |
+|---|---|---|---|
+| Steam engine | 666.667 | 11.111 / 12 | `powerKw` 0 |
+| Boiler | 333.333 | 5.556 / 6 | `powerKw` 0 |
+
+Steam is balanced at 20000 / min. The unsatisfied inputs are coal 150 / min and water 20000 / min. No warnings.
+
+### Derivation
+
+```
+Electricity 600/min ÷ 0.9 per run = 666.667 engine runs/min; × 30 = 20000 steam/min.
+Steam 20000/min ÷ 60 per run = 333.333 boiler runs/min.
+Coal = 333.333 × 0.45 = 150/min; water = 333.333 × 60 = 20000/min.
+Machines = runs/min × 1 s / 60: 11.111 engines (12 buildings), 5.556 boilers (6 buildings).
 ```

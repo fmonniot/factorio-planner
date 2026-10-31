@@ -40,6 +40,10 @@ export const ItemSchema = z.object({
   order: z.string().default(''),
   /** Id of the machine or beacon this item places (prototype `place_result`); only set when it names a machine or beacon in the bundle. */
   placeResult: z.string().optional(),
+  /** Fluids: prototype `default_temperature`, the temperature of a unit when a recipe product states none. */
+  defaultTemperature: z.number().optional(),
+  /** Fluids: prototype `max_temperature` (equal to `defaultTemperature` when the prototype omits it). */
+  maxTemperature: z.number().optional(),
 })
 
 export const IngredientSchema = z.object({
@@ -58,6 +62,8 @@ export const RecipeProductSchema = z.object({
   amountMin: z.number().nonnegative().optional(),
   amountMax: z.number().nonnegative().optional(),
   ignoredByProductivity: z.number().nonnegative().optional(),
+  /** Fluid products: explicit output `temperature`; absent means the fluid's `defaultTemperature`. */
+  temperature: z.number().optional(),
 })
 
 export const RecipeSchema = z.object({
@@ -80,6 +86,8 @@ export const RecipeSchema = z.object({
   order: z.string().default(''),
   /** True for a recipe the exporter makes from a resource (mining drill) or an offshore pump. Always inside the research horizon. */
   extraction: z.boolean().optional(),
+  /** True for a recipe the exporter makes from a boiler, generator, burner generator or solar panel. Always inside the research horizon (its machine is gated). */
+  power: z.boolean().optional(),
 })
 
 export const ItemGroupSchema = z.object({
@@ -107,7 +115,12 @@ export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
   // For 'mining-drill' and 'offshore-pump', craftingSpeed is the mining or pumping speed.
-  type: z.enum(['assembling-machine', 'furnace', 'rocket-silo', 'mining-drill', 'offshore-pump']),
+  // Generation machines ('boiler', 'generator', 'burner-generator', 'solar-panel') have speed 1 and no power draw:
+  // their energy is the recipe.
+  type: z.enum([
+    'assembling-machine', 'furnace', 'rocket-silo', 'mining-drill', 'offshore-pump',
+    'boiler', 'generator', 'burner-generator', 'solar-panel',
+  ]),
   // Some older exports omit this field. Default to 1 so they still load;
   // re-export to get real values.
   craftingSpeed: z.number().positive().default(1),

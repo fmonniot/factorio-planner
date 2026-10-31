@@ -7,7 +7,7 @@ import { useUiStore } from '../../store/uiStore'
 import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../store/connections'
 import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
-import { fmtRate } from './ItemTile'
+import { fmtItemRateText } from './ItemTile'
 import { itemSourcingActions } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
@@ -71,7 +71,6 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   }, [])
 
   const itemName = gameData?.items[itemId]?.name ?? itemId
-  const unit = rateUnit === 'min' ? '/m' : '/s'
 
   const activeBlock = blocks.find(b => b.id === activeBlockId)
   const locked = activeBlock?.noImportItems.includes(itemId) ?? false
@@ -163,7 +162,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
             {closesLoop && <span aria-hidden> ↻</span>}
           </span>
           <span className="font-mono tabular-nums text-gray-500">
-            {fmtRate(offered / 60, rateUnit)}{unit}
+            {fmtItemRateText(itemId, offered / 60, rateUnit)}
           </span>
         </button>
       ))}

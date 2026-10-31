@@ -3,6 +3,7 @@ import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/bl
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
+import { fmtPower } from './ItemTile'
 import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
@@ -40,6 +41,8 @@ export function ProductionTable() {
   const rootPlan = activeBlock?.rootPlan
   const nodes = rootPlan?.nodes ?? []
   const solvedMap = new Map(solverResult?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
+  const totalPowerKw = solverResult?.nodes.reduce((sum, n) => sum + n.powerKw, 0) ?? 0
+  const totalPower = totalPowerKw > 0 ? fmtPower(totalPowerKw) : null
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const areaIndex = useMemo(() => (rootPlan ? indexRecipeAreas(rootPlan) : undefined), [rootPlan])
@@ -170,7 +173,22 @@ export function ProductionTable() {
                   <th className="px-2 py-1 min-w-[6rem]">Beacon</th>
                   <th className="px-2 py-1">Products</th>
                   <th className="px-2 py-1">Byproducts</th>
-                  <th className="px-2 py-1">Ingredients</th>
+                  <th className="px-2 py-1">
+                    <span className="flex items-center justify-between gap-2">
+                      Ingredients
+                      {totalPower && (
+                        <span
+                          data-testid="block-power-total"
+                          role="img"
+                          title="Total power draw of the block"
+                          aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
+                          className="font-mono tabular-nums text-cyan-300 whitespace-nowrap"
+                        >
+                          ⚡ {totalPower.value}<span className="opacity-60">{totalPower.unit}</span>
+                        </span>
+                      )}
+                    </span>
+                  </th>
                 </tr>
               </thead>
               <tbody>

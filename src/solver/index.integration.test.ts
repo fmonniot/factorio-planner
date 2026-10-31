@@ -487,3 +487,40 @@ describe('byproducts first on the real Seablock data', () => {
       .toBeCloseTo(nodeOf(solveAgri({}), 'angels-yellow-waste-water-purification').throughput, 6)
   })
 })
+
+describe('power generation on the real Seablock data', () => {
+  const powerRecipes = Object.values(seablock.recipes).filter(r => r.power)
+
+  it('exports the power recipes with one zero-draw machine each', () => {
+    // Changes on re-export: 70 burner-boiler + 16 oil-boiler + 8 generator + 9 solar-panel recipes.
+    expect(powerRecipes).toHaveLength(103)
+    for (const r of powerRecipes) {
+      expect(r.madeIn, `${r.id} madeIn`).toHaveLength(1)
+      const machine = seablock.machines[r.madeIn[0]]
+      expect(machine, `${r.id} machine`).toBeDefined()
+      expect(machine.craftingCategories, `${r.id} category`).toContain(r.category)
+      expect(machine.energyUsageKw, `${r.id} draw`).toBe(0)
+      for (const e of [...r.ingredients, ...r.products]) {
+        expect(seablock.items[e.itemId], `${r.id} uses ${e.itemId}`).toBeDefined()
+      }
+    }
+  })
+
+  it('puts the electricity item in the Power group', () => {
+    const electricity = seablock.items['power:electricity']
+    expect(electricity.name).toBe('Electricity')
+    expect(seablock.itemSubgroups[electricity.subgroup].group).toBe('power:power')
+    expect(seablock.itemGroups['power:power'].name).toBe('Power')
+  })
+
+  it('plans 10 MW with steam engines on boilers burning solid fuel', () => {
+    const recipeIds = ['power:steam-engine:steam', 'power:boiler:solid-fuel']
+    const plan = makePlan([['power:electricity', 600]], recipeIds)
+    const r = solve(plan, seablock)
+    expect(nodeOf(r, 'power:steam-engine:steam').machineCountExact).toBeCloseTo(11.111, 3)
+    expect(nodeOf(r, 'power:boiler:solid-fuel').machineCountExact).toBeCloseTo(5.556, 3)
+    expect(unsatisfiedRate(r, 'solid-fuel')).toBeCloseTo(50, 3)
+    expect(unsatisfiedRate(r, 'water')).toBeCloseTo(20000, 3)
+    expectSane(r, plan, 'power')
+  })
+})
