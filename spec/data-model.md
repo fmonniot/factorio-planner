@@ -60,12 +60,16 @@ interface Item {
   subgroup: string      // item-subgroup id; default ''
   order: string         // Factorio sort key; default ''
   placeResult?: string  // id of the machine or beacon this item places (prototype `place_result`)
+  defaultTemperature?: number  // fluids: prototype `default_temperature`
+  maxTemperature?: number      // fluids: prototype `max_temperature`; equals defaultTemperature when the prototype omits it
 }
 ```
 
 `placeResult` is set only when it names a machine or beacon in the bundle; the
 research horizon uses it to gate machines and beacons (see
 [Technology](#technology)). Several items can place the same entity.
+
+Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` has none. The solver does not use them.
 
 A bundle with power generation recipes also holds the pseudo-item `power:electricity` (`type: 'fluid'`, name "Electricity", subgroup `power:electricity`). One unit is 1 MJ, so 1 unit/s is 1 MW and 10 MW is 600 units/min. It is a fluid only because it is a continuous fractional quantity with no stack size; `src/` never branches on `type`. See [Power generation recipes](#power-generation-recipes).
 
@@ -108,11 +112,15 @@ interface RecipeProduct {
   amountMin?: number            // informational, see below
   amountMax?: number
   ignoredByProductivity?: number
+  temperature?: number          // fluid products only: explicit output temperature; absent means the fluid's defaultTemperature
 }
 ```
 
-Only recipe ingredients carry temperature bounds: fluid prototypes' default and maximum
-temperatures and recipe products' temperatures are not exported.
+Recipe ingredients carry optional temperature bounds. Fluid items carry
+`defaultTemperature` / `maxTemperature`. A fluid product carries `temperature` only when
+the recipe sets one; otherwise the fluid is at its `defaultTemperature`. All of these are
+informational and the solver ignores them. The generated extraction and power recipes set
+no product `temperature` (boiler steam included).
 
 `ingredients`, `products` and `madeIn` (and `Module.limitation` /
 `limitationBlacklist`) accept an empty object `{}` as an empty array. This is a
@@ -396,6 +404,7 @@ Things to keep in mind when reading a bundle:
   data, so its horizon never applies.
 - A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories.
 - A bundle may lack power data: it then has no `power:electricity` item and no generation recipes. `node scripts/build-game-data.js --patch-power` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the `power:` categories. Seablock has it; Nullius does not yet.
+- A bundle may lack temperature data: fluid items then have no `defaultTemperature` / `maxTemperature` and products no `temperature`, and consumers treat the temperature as unknown. `node scripts/build-game-data.js --patch-temperatures` adds it (same mod-set check; safe to re-run). Seablock has it; Nullius does not yet.
 - Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node

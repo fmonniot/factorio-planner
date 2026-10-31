@@ -40,6 +40,10 @@ export const ItemSchema = z.object({
   order: z.string().default(''),
   /** Id of the machine or beacon this item places (prototype `place_result`); only set when it names a machine or beacon in the bundle. */
   placeResult: z.string().optional(),
+  /** Fluids: prototype `default_temperature`, the temperature of a unit when a recipe product states none. */
+  defaultTemperature: z.number().optional(),
+  /** Fluids: prototype `max_temperature` (equal to `defaultTemperature` when the prototype omits it). */
+  maxTemperature: z.number().optional(),
 })
 
 export const IngredientSchema = z.object({
@@ -58,6 +62,8 @@ export const RecipeProductSchema = z.object({
   amountMin: z.number().nonnegative().optional(),
   amountMax: z.number().nonnegative().optional(),
   ignoredByProductivity: z.number().nonnegative().optional(),
+  /** Fluid products: explicit output `temperature`; absent means the fluid's `defaultTemperature`. */
+  temperature: z.number().optional(),
 })
 
 export const RecipeSchema = z.object({

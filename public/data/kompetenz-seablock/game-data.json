@@ -75,7 +75,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-0.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-1": {
       "id": "parameter-1",
@@ -84,7 +86,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-1.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-2": {
       "id": "parameter-2",
@@ -93,7 +97,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-2.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-3": {
       "id": "parameter-3",
@@ -102,7 +108,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-3.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-4": {
       "id": "parameter-4",
@@ -111,7 +119,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-4.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-5": {
       "id": "parameter-5",
@@ -120,7 +130,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-5.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-6": {
       "id": "parameter-6",
@@ -129,7 +141,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-6.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-7": {
       "id": "parameter-7",
@@ -138,7 +152,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-7.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-8": {
       "id": "parameter-8",
@@ -147,7 +163,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-8.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "parameter-9": {
       "id": "parameter-9",
@@ -156,7 +174,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/parameter-9.png",
       "hidden": false,
       "subgroup": "parameters",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "stone-brick": {
       "id": "stone-brick",
@@ -32140,7 +32160,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/fluid-unknown.png",
       "hidden": true,
       "subgroup": "",
-      "order": ""
+      "order": "",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "water": {
       "id": "water",
@@ -32149,7 +32171,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/water.png",
       "hidden": false,
       "subgroup": "angels-water-treatment-fluid",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "steam": {
       "id": "steam",
@@ -32158,7 +32182,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/steam.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 15,
+      "maxTemperature": 5000
     },
     "sulfuric-acid": {
       "id": "sulfuric-acid",
@@ -32167,7 +32193,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/sulfuric-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "ca"
+      "order": "ca",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "crude-oil": {
       "id": "crude-oil",
@@ -32176,7 +32204,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/crude-oil.png",
       "hidden": false,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "bb"
+      "order": "bb",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "heavy-oil": {
       "id": "heavy-oil",
@@ -32185,7 +32215,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/heavy-oil.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-b[oil]-d[heavy-oil]"
+      "order": "a[fluid]-b[oil]-d[heavy-oil]",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "light-oil": {
       "id": "light-oil",
@@ -32194,7 +32226,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/light-oil.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-b[oil]-c[light-oil]"
+      "order": "a[fluid]-b[oil]-c[light-oil]",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "petroleum-gas": {
       "id": "petroleum-gas",
@@ -32203,7 +32237,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/petroleum-gas.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-b[oil]-b[petroleum-gas]"
+      "order": "a[fluid]-b[oil]-b[petroleum-gas]",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "lubricant": {
       "id": "lubricant",
@@ -32212,7 +32248,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/lubricant.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "dcd"
+      "order": "dcd",
+      "defaultTemperature": 25,
+      "maxTemperature": 25
     },
     "diesel-fuel": {
       "id": "diesel-fuel",
@@ -32221,7 +32259,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/diesel-fuel.png",
       "hidden": true,
       "subgroup": "",
-      "order": "a[fluid]-i[diesel-fuel]"
+      "order": "a[fluid]-i[diesel-fuel]",
+      "defaultTemperature": 0,
+      "maxTemperature": 25
     },
     "bob-lithia-water": {
       "id": "bob-lithia-water",
@@ -32230,7 +32270,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-lithia-water.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-a[water-lithia]"
+      "order": "a[fluid]-a[water-lithia]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "cybersyn-missing-train": {
       "id": "cybersyn-missing-train",
@@ -32239,7 +32281,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/cybersyn-missing-train.png",
       "hidden": true,
       "subgroup": "cybersyn-signal",
-      "order": "a[fluid]-a[water]-a[water]"
+      "order": "a[fluid]-a[water]-a[water]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "cybersyn-lost-train": {
       "id": "cybersyn-lost-train",
@@ -32248,7 +32292,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/cybersyn-lost-train.png",
       "hidden": true,
       "subgroup": "cybersyn-signal",
-      "order": "a[fluid]-a[water]-a[water]"
+      "order": "a[fluid]-a[water]-a[water]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "cybersyn-nonempty-train": {
       "id": "cybersyn-nonempty-train",
@@ -32257,7 +32303,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/cybersyn-nonempty-train.png",
       "hidden": true,
       "subgroup": "cybersyn-signal",
-      "order": "a[fluid]-a[water]-a[water]"
+      "order": "a[fluid]-a[water]-a[water]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-pure-water": {
       "id": "bob-pure-water",
@@ -32266,7 +32314,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-pure-water.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-a[bob-pure-water]"
+      "order": "a[fluid]-a[bob-pure-water]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-liquid-air": {
       "id": "bob-liquid-air",
@@ -32275,7 +32325,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-liquid-air.png",
       "hidden": true,
       "subgroup": "bob-fluid-pump",
-      "order": "a[fluid]-g[bob-liquid-air]"
+      "order": "a[fluid]-g[bob-liquid-air]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-hydrogen": {
       "id": "bob-hydrogen",
@@ -32284,7 +32336,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-hydrogen.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[hydrogen]"
+      "order": "a[fluid]-g[hydrogen]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-oxygen": {
       "id": "bob-oxygen",
@@ -32293,7 +32347,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-oxygen.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[oxygen]"
+      "order": "a[fluid]-g[oxygen]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-nitrogen": {
       "id": "bob-nitrogen",
@@ -32302,7 +32358,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-nitrogen.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[nitrogen]"
+      "order": "a[fluid]-g[nitrogen]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-chlorine": {
       "id": "bob-chlorine",
@@ -32311,7 +32369,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-chlorine.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[chlorine]"
+      "order": "a[fluid]-g[chlorine]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-hydrogen-chloride": {
       "id": "bob-hydrogen-chloride",
@@ -32320,7 +32380,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-hydrogen-chloride.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[hydrogen-chloride]"
+      "order": "a[fluid]-g[hydrogen-chloride]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-nitrogen-dioxide": {
       "id": "bob-nitrogen-dioxide",
@@ -32329,7 +32391,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-nitrogen-dioxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[nitrogen-dioxide]"
+      "order": "a[fluid]-g[nitrogen-dioxide]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-sulfur-dioxide": {
       "id": "bob-sulfur-dioxide",
@@ -32338,7 +32402,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-sulfur-dioxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[sulfur-dioxide]"
+      "order": "a[fluid]-g[sulfur-dioxide]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-nitric-acid": {
       "id": "bob-nitric-acid",
@@ -32347,7 +32413,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-nitric-acid.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[nitric-acid]"
+      "order": "a[fluid]-g[nitric-acid]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-ferric-chloride-solution": {
       "id": "bob-ferric-chloride-solution",
@@ -32356,7 +32424,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-ferric-chloride-solution.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[bob-ferric-chloride-solution]"
+      "order": "a[fluid]-g[bob-ferric-chloride-solution]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-liquid-fuel": {
       "id": "bob-liquid-fuel",
@@ -32365,7 +32435,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-liquid-fuel.png",
       "hidden": true,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "dac"
+      "order": "dac",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-heavy-water": {
       "id": "bob-heavy-water",
@@ -32374,7 +32446,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-heavy-water.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-a[water-heavy]"
+      "order": "a[fluid]-a[water-heavy]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-deuterium": {
       "id": "bob-deuterium",
@@ -32383,7 +32457,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-deuterium.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[deuterium]"
+      "order": "a[fluid]-g[deuterium]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-hydrogen-sulfide": {
       "id": "bob-hydrogen-sulfide",
@@ -32392,7 +32468,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-hydrogen-sulfide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[hydrogen-sulfide]"
+      "order": "a[fluid]-g[hydrogen-sulfide]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-tungstic-acid": {
       "id": "bob-tungstic-acid",
@@ -32401,7 +32479,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-tungstic-acid.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[bob-tungstic-acid]"
+      "order": "a[fluid]-g[bob-tungstic-acid]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-alien-acid": {
       "id": "bob-alien-acid",
@@ -32410,7 +32490,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-alien-acid.png",
       "hidden": true,
       "subgroup": "bob-alien-resource",
-      "order": "f[alien]-c"
+      "order": "f[alien]-c",
+      "defaultTemperature": 20,
+      "maxTemperature": 100
     },
     "bob-alien-explosive": {
       "id": "bob-alien-explosive",
@@ -32419,7 +32501,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-alien-explosive.png",
       "hidden": true,
       "subgroup": "bob-alien-resource",
-      "order": "f[alien]-d"
+      "order": "f[alien]-d",
+      "defaultTemperature": 20,
+      "maxTemperature": 100
     },
     "bob-alien-poison": {
       "id": "bob-alien-poison",
@@ -32428,7 +32512,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-alien-poison.png",
       "hidden": true,
       "subgroup": "bob-alien-resource",
-      "order": "f[alien]-e"
+      "order": "f[alien]-e",
+      "defaultTemperature": 20,
+      "maxTemperature": 100
     },
     "bob-alien-fire": {
       "id": "bob-alien-fire",
@@ -32437,7 +32523,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-alien-fire.png",
       "hidden": true,
       "subgroup": "bob-alien-resource",
-      "order": "f[alien]-f"
+      "order": "f[alien]-f",
+      "defaultTemperature": 20,
+      "maxTemperature": 100
     },
     "ee-super-pump-speed-fluid": {
       "id": "ee-super-pump-speed-fluid",
@@ -32446,7 +32534,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/ee-super-pump-speed-fluid.png",
       "hidden": true,
       "subgroup": "",
-      "order": ""
+      "order": "",
+      "defaultTemperature": 0,
+      "maxTemperature": 600001
     },
     "ammonia": {
       "id": "ammonia",
@@ -32455,7 +32545,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/ammonia.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[ammonia]"
+      "order": "a[fluid]-g[ammonia]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-dinitrogen-tetroxide": {
       "id": "bob-dinitrogen-tetroxide",
@@ -32464,7 +32556,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-dinitrogen-tetroxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[dinitrogen-tetroxide]"
+      "order": "a[fluid]-g[dinitrogen-tetroxide]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-hydrazine": {
       "id": "bob-hydrazine",
@@ -32473,7 +32567,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-hydrazine.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[hydrazine]"
+      "order": "a[fluid]-g[hydrazine]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-hydrogen-peroxide": {
       "id": "bob-hydrogen-peroxide",
@@ -32482,7 +32578,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-hydrogen-peroxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[hydrogen-peroxide]"
+      "order": "a[fluid]-g[hydrogen-peroxide]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-nitric-oxide": {
       "id": "bob-nitric-oxide",
@@ -32491,7 +32589,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-nitric-oxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[nitric-oxide]"
+      "order": "a[fluid]-g[nitric-oxide]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-carbon-dioxide": {
       "id": "bob-carbon-dioxide",
@@ -32500,7 +32600,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-carbon-dioxide.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[carbon-dioxide]"
+      "order": "a[fluid]-g[carbon-dioxide]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-brine": {
       "id": "bob-brine",
@@ -32509,7 +32611,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-brine.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-a[brine]"
+      "order": "a[fluid]-a[brine]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-ammoniated-brine": {
       "id": "bob-ammoniated-brine",
@@ -32518,7 +32622,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-ammoniated-brine.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-a[brine]"
+      "order": "a[fluid]-a[brine]",
+      "defaultTemperature": 15,
+      "maxTemperature": 100
     },
     "bob-sour-gas": {
       "id": "bob-sour-gas",
@@ -32527,7 +32633,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-sour-gas.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-f[sour-gas]"
+      "order": "a[fluid]-f[sour-gas]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-sulfuric-nitric-acid": {
       "id": "bob-sulfuric-nitric-acid",
@@ -32536,7 +32644,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-sulfuric-nitric-acid.png",
       "hidden": true,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "oa"
+      "order": "oa",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-nitroglycerin": {
       "id": "bob-nitroglycerin",
@@ -32545,7 +32655,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-nitroglycerin.png",
       "hidden": true,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "ob"
+      "order": "ob",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "bob-glycerol": {
       "id": "bob-glycerol",
@@ -32554,7 +32666,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-glycerol.png",
       "hidden": true,
       "subgroup": "fluid",
-      "order": "a[fluid]-g[glycerol]"
+      "order": "a[fluid]-g[glycerol]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "angels-thermal-water": {
       "id": "angels-thermal-water",
@@ -32563,7 +32677,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-thermal-water.png",
       "hidden": false,
       "subgroup": "angels-ore-sorting-fluid",
-      "order": "a[slag]-a[thermal]"
+      "order": "a[slag]-a[thermal]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore8-sludge": {
       "id": "angels-ore8-sludge",
@@ -32572,7 +32688,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore8-sludge.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "a[ferrous]-a"
+      "order": "a[ferrous]-a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore9-sludge": {
       "id": "angels-ore9-sludge",
@@ -32581,7 +32699,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore9-sludge.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "b[cupric]-a"
+      "order": "b[cupric]-a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore8-solution": {
       "id": "angels-ore8-solution",
@@ -32590,7 +32710,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore8-solution.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "a[ferrous]-b"
+      "order": "a[ferrous]-b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore8-anode-sludge": {
       "id": "angels-ore8-anode-sludge",
@@ -32599,7 +32721,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore8-anode-sludge.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "a[ferrous]-c"
+      "order": "a[ferrous]-c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore8-slime": {
       "id": "angels-ore8-slime",
@@ -32608,7 +32732,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore8-slime.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "a[ferrous]-d"
+      "order": "a[ferrous]-d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore9-solution": {
       "id": "angels-ore9-solution",
@@ -32617,7 +32743,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore9-solution.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "b[cupric]-b"
+      "order": "b[cupric]-b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore9-anode-sludge": {
       "id": "angels-ore9-anode-sludge",
@@ -32626,7 +32754,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore9-anode-sludge.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "b[cupric]-c"
+      "order": "b[cupric]-c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-ore9-slime": {
       "id": "angels-ore9-slime",
@@ -32635,7 +32765,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-ore9-slime.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "b[cupric]-d"
+      "order": "b[cupric]-d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-slag-slurry": {
       "id": "angels-slag-slurry",
@@ -32644,7 +32776,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-slag-slurry.png",
       "hidden": false,
       "subgroup": "angels-ore-sorting-fluid",
-      "order": "a[slag]-b[stone]"
+      "order": "a[slag]-b[stone]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-mineral-sludge": {
       "id": "angels-mineral-sludge",
@@ -32653,7 +32787,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-mineral-sludge.png",
       "hidden": false,
       "subgroup": "angels-ore-sorting-fluid",
-      "order": "b[mineral]"
+      "order": "b[mineral]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-crystal-slurry": {
       "id": "angels-crystal-slurry",
@@ -32662,7 +32798,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-crystal-slurry.png",
       "hidden": false,
       "subgroup": "angels-ore-sorting-fluid",
-      "order": "c[crystal]-a"
+      "order": "c[crystal]-a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-crystal-seedling": {
       "id": "angels-crystal-seedling",
@@ -32671,7 +32809,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-crystal-seedling.png",
       "hidden": false,
       "subgroup": "angels-ore-sorting-fluid",
-      "order": "c[crystal]-b"
+      "order": "c[crystal]-b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-saline": {
       "id": "angels-water-saline",
@@ -32680,7 +32820,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-saline.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-purified": {
       "id": "angels-water-purified",
@@ -32689,7 +32831,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-purified.png",
       "hidden": false,
       "subgroup": "angels-water-treatment-fluid",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-yellow-waste": {
       "id": "angels-water-yellow-waste",
@@ -32698,7 +32842,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-yellow-waste.png",
       "hidden": false,
       "subgroup": "angels-water-cleaning-fluid",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-red-waste": {
       "id": "angels-water-red-waste",
@@ -32707,7 +32853,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-red-waste.png",
       "hidden": false,
       "subgroup": "angels-water-cleaning-fluid",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-green-waste": {
       "id": "angels-water-green-waste",
@@ -32716,7 +32864,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-green-waste.png",
       "hidden": false,
       "subgroup": "angels-water-cleaning-fluid",
-      "order": "c"
+      "order": "c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-greenyellow-waste": {
       "id": "angels-water-greenyellow-waste",
@@ -32725,7 +32875,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-greenyellow-waste.png",
       "hidden": false,
       "subgroup": "angels-water-cleaning-fluid",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-mineralized": {
       "id": "angels-water-mineralized",
@@ -32734,7 +32886,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-mineralized.png",
       "hidden": false,
       "subgroup": "angels-water-treatment-fluid",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-viscous-mud": {
       "id": "angels-water-viscous-mud",
@@ -32743,7 +32897,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-viscous-mud.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-heavy-mud": {
       "id": "angels-water-heavy-mud",
@@ -32752,7 +32908,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-heavy-mud.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-concentrated-mud": {
       "id": "angels-water-concentrated-mud",
@@ -32761,7 +32919,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-concentrated-mud.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "c"
+      "order": "c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-light-mud": {
       "id": "angels-water-light-mud",
@@ -32770,7 +32930,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-light-mud.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-water-thin-mud": {
       "id": "angels-water-thin-mud",
@@ -32779,7 +32941,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-water-thin-mud.png",
       "hidden": false,
       "subgroup": "angels-water-washing-fluid",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-compressed-air": {
       "id": "angels-gas-compressed-air",
@@ -32788,7 +32952,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-compressed-air.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-hydrogen": {
       "id": "angels-gas-hydrogen",
@@ -32797,7 +32963,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-hydrogen.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-oxygen": {
       "id": "angels-gas-oxygen",
@@ -32806,7 +32974,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-oxygen.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-carbon-monoxide": {
       "id": "angels-gas-carbon-monoxide",
@@ -32815,7 +32985,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-carbon-monoxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-carbon-dioxide": {
       "id": "angels-gas-carbon-dioxide",
@@ -32824,7 +32996,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-carbon-dioxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-hydrogen-fluoride": {
       "id": "angels-gas-hydrogen-fluoride",
@@ -32833,7 +33007,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-hydrogen-fluoride.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-hydrofluoric-acid": {
       "id": "angels-liquid-hydrofluoric-acid",
@@ -32842,7 +33018,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-hydrofluoric-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-water-semiheavy-1": {
       "id": "angels-liquid-water-semiheavy-1",
@@ -32851,7 +33029,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-water-semiheavy-1.png",
       "hidden": false,
       "subgroup": "angels-water-enrichment",
-      "order": "h[water-enriched]-a[semiheavy]-a[mk1]"
+      "order": "h[water-enriched]-a[semiheavy]-a[mk1]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "angels-liquid-water-semiheavy-2": {
       "id": "angels-liquid-water-semiheavy-2",
@@ -32860,7 +33040,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-water-semiheavy-2.png",
       "hidden": false,
       "subgroup": "angels-water-enrichment",
-      "order": "h[water-enriched]-a[semiheavy]-b[mk2]"
+      "order": "h[water-enriched]-a[semiheavy]-b[mk2]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "angels-liquid-water-semiheavy-3": {
       "id": "angels-liquid-water-semiheavy-3",
@@ -32869,7 +33051,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-water-semiheavy-3.png",
       "hidden": false,
       "subgroup": "angels-water-enrichment",
-      "order": "h[water-enriched]-a[semiheavy]-c[mk3]"
+      "order": "h[water-enriched]-a[semiheavy]-c[mk3]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "angels-liquid-water-heavy": {
       "id": "angels-liquid-water-heavy",
@@ -32878,7 +33062,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-water-heavy.png",
       "hidden": false,
       "subgroup": "angels-water-enrichment",
-      "order": "h[water-enriched]-b[heavy]"
+      "order": "h[water-enriched]-b[heavy]",
+      "defaultTemperature": 25,
+      "maxTemperature": 101
     },
     "angels-gas-deuterium": {
       "id": "angels-gas-deuterium",
@@ -32887,7 +33073,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-deuterium.png",
       "hidden": false,
       "subgroup": "angels-petrochem-basic-fluids",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-methane": {
       "id": "angels-gas-methane",
@@ -32896,7 +33084,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-methane.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ba"
+      "order": "ba",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ethane": {
       "id": "angels-gas-ethane",
@@ -32905,7 +33095,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ethane.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "bb"
+      "order": "bb",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-butane": {
       "id": "angels-gas-butane",
@@ -32914,7 +33106,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-butane.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "bc"
+      "order": "bc",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-propene": {
       "id": "angels-gas-propene",
@@ -32923,7 +33117,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-propene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "bd"
+      "order": "bd",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-naphtha": {
       "id": "angels-liquid-naphtha",
@@ -32932,7 +33128,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-naphtha.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "dba"
+      "order": "dba",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-mineral-oil": {
       "id": "angels-liquid-mineral-oil",
@@ -32941,7 +33139,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-mineral-oil.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "dca"
+      "order": "dca",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-fuel-oil": {
       "id": "angels-liquid-fuel-oil",
@@ -32950,7 +33150,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-fuel-oil.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "daa"
+      "order": "daa",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-methanol": {
       "id": "angels-gas-methanol",
@@ -32959,7 +33161,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-methanol.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ca"
+      "order": "ca",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ethylene": {
       "id": "angels-gas-ethylene",
@@ -32968,7 +33172,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ethylene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "cb"
+      "order": "cb",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-benzene": {
       "id": "angels-gas-benzene",
@@ -32977,7 +33183,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-benzene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "cc"
+      "order": "cc",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-synthesis": {
       "id": "angels-gas-synthesis",
@@ -32986,7 +33194,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-synthesis.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "dd"
+      "order": "dd",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-toluene": {
       "id": "angels-liquid-toluene",
@@ -32995,7 +33205,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-toluene.png",
       "hidden": true,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ea"
+      "order": "ea",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-butadiene": {
       "id": "angels-gas-butadiene",
@@ -33004,7 +33216,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-butadiene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "eb"
+      "order": "eb",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-phenol": {
       "id": "angels-liquid-phenol",
@@ -33013,7 +33227,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-phenol.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ec"
+      "order": "ec",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-ethylbenzene": {
       "id": "angels-liquid-ethylbenzene",
@@ -33022,7 +33238,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-ethylbenzene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ed"
+      "order": "ed",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-styrene": {
       "id": "angels-liquid-styrene",
@@ -33031,7 +33249,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-styrene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ee"
+      "order": "ee",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-formaldehyde": {
       "id": "angels-gas-formaldehyde",
@@ -33040,7 +33260,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-formaldehyde.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ef"
+      "order": "ef",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-polyethylene": {
       "id": "angels-liquid-polyethylene",
@@ -33049,7 +33271,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-polyethylene.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ef"
+      "order": "ef",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-glycerol": {
       "id": "angels-liquid-glycerol",
@@ -33058,7 +33282,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-glycerol.png",
       "hidden": true,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "eh"
+      "order": "eh",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-bisphenol-a": {
       "id": "angels-liquid-bisphenol-a",
@@ -33067,7 +33293,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-bisphenol-a.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ei"
+      "order": "ei",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-acetone": {
       "id": "angels-gas-acetone",
@@ -33076,7 +33304,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-acetone.png",
       "hidden": false,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ej"
+      "order": "ej",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ethylene-oxide": {
       "id": "angels-gas-ethylene-oxide",
@@ -33085,7 +33315,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ethylene-oxide.png",
       "hidden": true,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "ek"
+      "order": "ek",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-ethylene-carbonate": {
       "id": "angels-liquid-ethylene-carbonate",
@@ -33094,7 +33326,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-ethylene-carbonate.png",
       "hidden": true,
       "subgroup": "angels-petrochem-carbon-fluids",
-      "order": "el"
+      "order": "el",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-chlorine": {
       "id": "angels-gas-chlorine",
@@ -33103,7 +33337,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-chlorine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-hydrogen-chloride": {
       "id": "angels-gas-hydrogen-chloride",
@@ -33112,7 +33348,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-hydrogen-chloride.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-hydrochloric-acid": {
       "id": "angels-liquid-hydrochloric-acid",
@@ -33121,7 +33359,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-hydrochloric-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "c"
+      "order": "c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-allylchlorid": {
       "id": "angels-gas-allylchlorid",
@@ -33130,7 +33370,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-allylchlorid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-epichlorohydrin": {
       "id": "angels-gas-epichlorohydrin",
@@ -33139,7 +33381,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-epichlorohydrin.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-chlor-methane": {
       "id": "angels-gas-chlor-methane",
@@ -33148,7 +33392,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-chlor-methane.png",
       "hidden": true,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-perchloric-acid": {
       "id": "angels-liquid-perchloric-acid",
@@ -33157,7 +33403,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-perchloric-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-ferric-chloride-solution": {
       "id": "angels-liquid-ferric-chloride-solution",
@@ -33166,7 +33414,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-ferric-chloride-solution.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "a[ferrous]-e"
+      "order": "a[ferrous]-e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-cupric-chloride-solution": {
       "id": "angels-liquid-cupric-chloride-solution",
@@ -33175,7 +33425,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-cupric-chloride-solution.png",
       "hidden": false,
       "subgroup": "angels-ore-processing-fluid",
-      "order": "b[cupric]-e"
+      "order": "b[cupric]-e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-nitrogen": {
       "id": "angels-gas-nitrogen",
@@ -33184,7 +33436,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-nitrogen.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ammonia": {
       "id": "angels-gas-ammonia",
@@ -33193,7 +33447,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ammonia.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-nitrogen-monoxide": {
       "id": "angels-gas-nitrogen-monoxide",
@@ -33202,7 +33458,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-nitrogen-monoxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "c"
+      "order": "c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-nitrogen-dioxide": {
       "id": "angels-gas-nitrogen-dioxide",
@@ -33211,7 +33469,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-nitrogen-dioxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-dinitrogen-tetroxide": {
       "id": "angels-gas-dinitrogen-tetroxide",
@@ -33220,7 +33480,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-dinitrogen-tetroxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ammonium-chloride": {
       "id": "angels-gas-ammonium-chloride",
@@ -33229,7 +33491,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ammonium-chloride.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-urea": {
       "id": "angels-gas-urea",
@@ -33238,7 +33502,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-urea.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-melamine": {
       "id": "angels-gas-melamine",
@@ -33247,7 +33513,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-melamine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-nitric-acid": {
       "id": "angels-liquid-nitric-acid",
@@ -33256,7 +33524,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-nitric-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-monochloramine": {
       "id": "angels-gas-monochloramine",
@@ -33265,7 +33535,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-monochloramine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "j"
+      "order": "j",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-hydrazine": {
       "id": "angels-gas-hydrazine",
@@ -33274,7 +33546,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-hydrazine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "k"
+      "order": "k",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-methylamine": {
       "id": "angels-gas-methylamine",
@@ -33283,7 +33557,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-methylamine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "l"
+      "order": "l",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-dimethylamine": {
       "id": "angels-gas-dimethylamine",
@@ -33292,7 +33568,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-dimethylamine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "m"
+      "order": "m",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-dimethylhydrazine": {
       "id": "angels-gas-dimethylhydrazine",
@@ -33301,7 +33579,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-dimethylhydrazine.png",
       "hidden": false,
       "subgroup": "angels-petrochem-nitrogen-fluids",
-      "order": "n"
+      "order": "n",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-natural-1": {
       "id": "angels-gas-natural-1",
@@ -33310,7 +33590,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-natural-1.png",
       "hidden": true,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "aa"
+      "order": "aa",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-multi-phase-oil": {
       "id": "angels-liquid-multi-phase-oil",
@@ -33319,7 +33601,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-multi-phase-oil.png",
       "hidden": true,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "ba"
+      "order": "ba",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-raw-1": {
       "id": "angels-gas-raw-1",
@@ -33328,7 +33612,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-raw-1.png",
       "hidden": false,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "ab"
+      "order": "ab",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-condensates": {
       "id": "angels-liquid-condensates",
@@ -33337,7 +33623,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-condensates.png",
       "hidden": true,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "ca"
+      "order": "ca",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-acid": {
       "id": "angels-gas-acid",
@@ -33346,7 +33634,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-acid.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-ngl": {
       "id": "angels-liquid-ngl",
@@ -33355,7 +33645,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-ngl.png",
       "hidden": false,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "ac"
+      "order": "ac",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-residual": {
       "id": "angels-gas-residual",
@@ -33364,7 +33656,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-residual.png",
       "hidden": false,
       "subgroup": "angels-petrochem-raw-fluids",
-      "order": "cb"
+      "order": "cb",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-plastic": {
       "id": "angels-liquid-plastic",
@@ -33373,7 +33667,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-plastic.png",
       "hidden": false,
       "subgroup": "angels-petrochem-solids-fluids",
-      "order": "a[plastic]"
+      "order": "a[plastic]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-resin": {
       "id": "angels-liquid-resin",
@@ -33382,7 +33678,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-resin.png",
       "hidden": false,
       "subgroup": "angels-petrochem-solids-fluids",
-      "order": "b[resin]"
+      "order": "b[resin]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-rubber": {
       "id": "angels-liquid-rubber",
@@ -33391,7 +33689,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-rubber.png",
       "hidden": false,
       "subgroup": "angels-petrochem-solids-fluids",
-      "order": "c[rubber]"
+      "order": "c[rubber]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-aqueous-sodium-hydroxide": {
       "id": "angels-liquid-aqueous-sodium-hydroxide",
@@ -33400,7 +33700,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-aqueous-sodium-hydroxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-chlorine-fluids",
-      "order": "j"
+      "order": "j",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-hydrogen-sulfide": {
       "id": "angels-gas-hydrogen-sulfide",
@@ -33409,7 +33711,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-hydrogen-sulfide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "a[hydrogen-sulfide]-a[normal]"
+      "order": "a[hydrogen-sulfide]-a[normal]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-enriched-hydrogen-sulfide": {
       "id": "angels-gas-enriched-hydrogen-sulfide",
@@ -33418,7 +33722,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-enriched-hydrogen-sulfide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "a[hydrogen-sulfide]-b[enriched]-b[normal]"
+      "order": "a[hydrogen-sulfide]-b[enriched]-b[normal]",
+      "defaultTemperature": 25,
+      "maxTemperature": 100
     },
     "angels-gas-sulfur-dioxide": {
       "id": "angels-gas-sulfur-dioxide",
@@ -33427,7 +33733,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-sulfur-dioxide.png",
       "hidden": false,
       "subgroup": "angels-petrochem-sulfur-fluids",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-brass": {
       "id": "angels-liquid-molten-brass",
@@ -33436,7 +33744,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-brass.png",
       "hidden": false,
       "subgroup": "angels-alloys-casting",
-      "order": "b[brass]-a[liquid-molten-brass]"
+      "order": "b[brass]-a[liquid-molten-brass]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-bronze": {
       "id": "angels-liquid-molten-bronze",
@@ -33445,7 +33755,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-bronze.png",
       "hidden": false,
       "subgroup": "angels-alloys-casting",
-      "order": "a[bronze]-a[liquid-molten-bronze]"
+      "order": "a[bronze]-a[liquid-molten-bronze]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-cobalt-steel": {
       "id": "angels-liquid-molten-cobalt-steel",
@@ -33454,7 +33766,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-cobalt-steel.png",
       "hidden": false,
       "subgroup": "angels-alloys-casting",
-      "order": "e[cobalt-steel]-a[liquid-molten-cobalt-steel]"
+      "order": "e[cobalt-steel]-a[liquid-molten-cobalt-steel]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-gunmetal": {
       "id": "angels-liquid-molten-gunmetal",
@@ -33463,7 +33777,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-gunmetal.png",
       "hidden": true,
       "subgroup": "angels-alloys-casting",
-      "order": "c[gunmetal]-a[liquid-molten-gunmetal]"
+      "order": "c[gunmetal]-a[liquid-molten-gunmetal]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-invar": {
       "id": "angels-liquid-molten-invar",
@@ -33472,7 +33788,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-invar.png",
       "hidden": false,
       "subgroup": "angels-alloys-casting",
-      "order": "d[invar]-a[liquid-molten-invar]"
+      "order": "d[invar]-a[liquid-molten-invar]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-nitinol": {
       "id": "angels-liquid-molten-nitinol",
@@ -33481,7 +33799,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-nitinol.png",
       "hidden": false,
       "subgroup": "angels-alloys-casting",
-      "order": "f[nitinol]-a[liquid-molten-nitinol]"
+      "order": "f[nitinol]-a[liquid-molten-nitinol]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-solder": {
       "id": "angels-liquid-molten-solder",
@@ -33490,7 +33810,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-solder.png",
       "hidden": false,
       "subgroup": "angels-solder-casting",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 200,
+      "maxTemperature": 200
     },
     "angels-liquid-molten-steel": {
       "id": "angels-liquid-molten-steel",
@@ -33499,7 +33821,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-steel.png",
       "hidden": false,
       "subgroup": "angels-steel-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 1370,
+      "maxTemperature": 1370
     },
     "angels-liquid-molten-aluminium": {
       "id": "angels-liquid-molten-aluminium",
@@ -33508,7 +33832,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-aluminium.png",
       "hidden": false,
       "subgroup": "angels-aluminium-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 660.3,
+      "maxTemperature": 660.3
     },
     "angels-liquid-molten-chrome": {
       "id": "angels-liquid-molten-chrome",
@@ -33517,7 +33843,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-chrome.png",
       "hidden": false,
       "subgroup": "angels-chrome-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 1907,
+      "maxTemperature": 1907
     },
     "angels-liquid-molten-cobalt": {
       "id": "angels-liquid-molten-cobalt",
@@ -33526,7 +33854,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-cobalt.png",
       "hidden": true,
       "subgroup": "angels-cobalt-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 1495,
+      "maxTemperature": 1495
     },
     "angels-liquid-molten-copper": {
       "id": "angels-liquid-molten-copper",
@@ -33535,7 +33865,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-copper.png",
       "hidden": false,
       "subgroup": "angels-copper-casting",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 1085,
+      "maxTemperature": 1085
     },
     "angels-liquid-molten-glass": {
       "id": "angels-liquid-molten-glass",
@@ -33544,7 +33876,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-glass.png",
       "hidden": false,
       "subgroup": "angels-glass-casting",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 1500,
+      "maxTemperature": 1500
     },
     "angels-liquid-chlorauric-acid": {
       "id": "angels-liquid-chlorauric-acid",
@@ -33553,7 +33887,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-chlorauric-acid.png",
       "hidden": false,
       "subgroup": "angels-gold",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-gold": {
       "id": "angels-liquid-molten-gold",
@@ -33562,7 +33898,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-gold.png",
       "hidden": false,
       "subgroup": "angels-gold-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 1064,
+      "maxTemperature": 1064
     },
     "angels-liquid-molten-iron": {
       "id": "angels-liquid-molten-iron",
@@ -33571,7 +33909,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-iron.png",
       "hidden": false,
       "subgroup": "angels-iron-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 1538,
+      "maxTemperature": 1538
     },
     "angels-liquid-hexafluorosilicic-acid": {
       "id": "angels-liquid-hexafluorosilicic-acid",
@@ -33580,7 +33920,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-hexafluorosilicic-acid.png",
       "hidden": false,
       "subgroup": "angels-lead",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-lead": {
       "id": "angels-liquid-molten-lead",
@@ -33589,7 +33931,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-lead.png",
       "hidden": false,
       "subgroup": "angels-lead-casting",
-      "order": "i"
+      "order": "i",
+      "defaultTemperature": 327.5,
+      "maxTemperature": 327.5
     },
     "angels-liquid-molten-manganese": {
       "id": "angels-liquid-molten-manganese",
@@ -33598,7 +33942,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-manganese.png",
       "hidden": true,
       "subgroup": "angels-manganese-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 1246,
+      "maxTemperature": 1246
     },
     "angels-liquid-molten-nickel": {
       "id": "angels-liquid-molten-nickel",
@@ -33607,7 +33953,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-nickel.png",
       "hidden": true,
       "subgroup": "angels-nickel-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 1455,
+      "maxTemperature": 1455
     },
     "angels-liquid-hexachloroplatinic-acid": {
       "id": "angels-liquid-hexachloroplatinic-acid",
@@ -33616,7 +33964,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-hexachloroplatinic-acid.png",
       "hidden": false,
       "subgroup": "angels-platinum",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-platinum": {
       "id": "angels-liquid-molten-platinum",
@@ -33625,7 +33975,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-platinum.png",
       "hidden": false,
       "subgroup": "angels-platinum-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 1768,
+      "maxTemperature": 1768
     },
     "angels-liquid-trichlorosilane": {
       "id": "angels-liquid-trichlorosilane",
@@ -33634,7 +33986,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-trichlorosilane.png",
       "hidden": false,
       "subgroup": "angels-silicon",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-silane": {
       "id": "angels-gas-silane",
@@ -33643,7 +33997,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-silane.png",
       "hidden": false,
       "subgroup": "angels-silicon",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-silicon": {
       "id": "angels-liquid-molten-silicon",
@@ -33652,7 +34008,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-silicon.png",
       "hidden": false,
       "subgroup": "angels-silicon-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 1414,
+      "maxTemperature": 1414
     },
     "angels-liquid-molten-silver": {
       "id": "angels-liquid-molten-silver",
@@ -33661,7 +34019,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-silver.png",
       "hidden": false,
       "subgroup": "angels-silver-casting",
-      "order": "j"
+      "order": "j",
+      "defaultTemperature": 961.8,
+      "maxTemperature": 961.8
     },
     "angels-liquid-concrete": {
       "id": "angels-liquid-concrete",
@@ -33670,7 +34030,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-concrete.png",
       "hidden": false,
       "subgroup": "angels-stone-casting",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-coolant": {
       "id": "angels-liquid-coolant",
@@ -33679,7 +34041,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-coolant.png",
       "hidden": false,
       "subgroup": "angels-water-treatment-fluid",
-      "order": "fa"
+      "order": "fa",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-coolant-used": {
       "id": "angels-liquid-coolant-used",
@@ -33688,7 +34052,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-coolant-used.png",
       "hidden": false,
       "subgroup": "angels-water-treatment-fluid",
-      "order": "fb"
+      "order": "fb",
+      "defaultTemperature": 25,
+      "maxTemperature": 300
     },
     "angels-liquid-molten-tin": {
       "id": "angels-liquid-molten-tin",
@@ -33697,7 +34063,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-tin.png",
       "hidden": false,
       "subgroup": "angels-tin-casting",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 231.9,
+      "maxTemperature": 231.9
     },
     "angels-liquid-titanium-tetrachloride": {
       "id": "angels-liquid-titanium-tetrachloride",
@@ -33706,7 +34074,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-titanium-tetrachloride.png",
       "hidden": false,
       "subgroup": "angels-titanium",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 1668,
+      "maxTemperature": 1668
     },
     "angels-liquid-molten-titanium": {
       "id": "angels-liquid-molten-titanium",
@@ -33715,7 +34085,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-titanium.png",
       "hidden": false,
       "subgroup": "angels-titanium-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-tungstic-acid": {
       "id": "angels-liquid-tungstic-acid",
@@ -33724,7 +34096,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-tungstic-acid.png",
       "hidden": false,
       "subgroup": "angels-tungsten",
-      "order": "f"
+      "order": "f",
+      "defaultTemperature": 3422,
+      "maxTemperature": 3422
     },
     "angels-gas-tungsten-hexafluoride": {
       "id": "angels-gas-tungsten-hexafluoride",
@@ -33733,7 +34107,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-tungsten-hexafluoride.png",
       "hidden": false,
       "subgroup": "angels-tungsten",
-      "order": "g"
+      "order": "g",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-molten-zinc": {
       "id": "angels-liquid-molten-zinc",
@@ -33742,7 +34118,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-molten-zinc.png",
       "hidden": true,
       "subgroup": "angels-zinc-casting",
-      "order": "h"
+      "order": "h",
+      "defaultTemperature": 419.5,
+      "maxTemperature": 419.5
     },
     "angels-liquid-pulping-liquor": {
       "id": "angels-liquid-pulping-liquor",
@@ -33751,7 +34129,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-pulping-liquor.png",
       "hidden": false,
       "subgroup": "angels-bio-liquor",
-      "order": "a"
+      "order": "a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-brown-liquor": {
       "id": "angels-liquid-brown-liquor",
@@ -33760,7 +34140,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-brown-liquor.png",
       "hidden": false,
       "subgroup": "angels-bio-liquor",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-white-liquor": {
       "id": "angels-liquid-white-liquor",
@@ -33769,7 +34151,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-white-liquor.png",
       "hidden": false,
       "subgroup": "angels-bio-liquor",
-      "order": "c"
+      "order": "c",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-black-liquor": {
       "id": "angels-liquid-black-liquor",
@@ -33778,7 +34162,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-black-liquor.png",
       "hidden": false,
       "subgroup": "angels-bio-liquor",
-      "order": "d"
+      "order": "d",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-green-liquor": {
       "id": "angels-liquid-green-liquor",
@@ -33787,7 +34173,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-green-liquor.png",
       "hidden": false,
       "subgroup": "angels-bio-liquor",
-      "order": "e"
+      "order": "e",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-alien-spores": {
       "id": "angels-alien-spores",
@@ -33796,7 +34184,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-alien-spores.png",
       "hidden": false,
       "subgroup": "angels-bio-processing-alien-intermediate",
-      "order": "a[alien]-a[spores]"
+      "order": "a[alien]-a[spores]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-alien-goo": {
       "id": "angels-alien-goo",
@@ -33805,7 +34195,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-alien-goo.png",
       "hidden": false,
       "subgroup": "angels-bio-processing-alien-intermediate",
-      "order": "a[alien]-c[goo]"
+      "order": "a[alien]-c[goo]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-nutrient-pulp": {
       "id": "angels-liquid-nutrient-pulp",
@@ -33814,7 +34206,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-nutrient-pulp.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-nutrient",
-      "order": "b[processing]-a[vegetables]-a[pulp]"
+      "order": "b[processing]-a[vegetables]-a[pulp]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-raw-vegetable-oil": {
       "id": "angels-liquid-raw-vegetable-oil",
@@ -33823,7 +34217,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-raw-vegetable-oil.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-press-vegetables",
-      "order": "b[processing]-b[results]-a[oil]-a"
+      "order": "b[processing]-b[results]-a[oil]-a",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-vegetable-oil": {
       "id": "angels-liquid-vegetable-oil",
@@ -33832,7 +34228,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-vegetable-oil.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-press-vegetables",
-      "order": "b[processing]-b[results]-a[oil]-b"
+      "order": "b[processing]-b[results]-a[oil]-b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-ethanol": {
       "id": "angels-gas-ethanol",
@@ -33841,7 +34239,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-ethanol.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-fermentation",
-      "order": "b[processing]-d[ethanol]"
+      "order": "b[processing]-d[ethanol]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-fermentation-raw": {
       "id": "angels-liquid-fermentation-raw",
@@ -33850,7 +34250,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-fermentation-raw.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-fermentation",
-      "order": "b[processing]-a[raw]"
+      "order": "b[processing]-a[raw]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-acetic-acid": {
       "id": "angels-liquid-acetic-acid",
@@ -33859,7 +34261,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-acetic-acid.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-fermentation",
-      "order": "b[processing]-b[acetic-acid]"
+      "order": "b[processing]-b[acetic-acid]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-acetic-anhydride": {
       "id": "angels-liquid-acetic-anhydride",
@@ -33868,7 +34272,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-acetic-anhydride.png",
       "hidden": false,
       "subgroup": "angels-bio-processor-fermentation",
-      "order": "b[processing]-c[acetic-anhydride]"
+      "order": "b[processing]-c[acetic-anhydride]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-cellulose-acetate-mixture": {
       "id": "angels-liquid-cellulose-acetate-mixture",
@@ -33877,7 +34283,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-cellulose-acetate-mixture.png",
       "hidden": false,
       "subgroup": "angels-bio-plastic",
-      "order": "b[processing]-a[cellulose-acetate]-a[mixture]"
+      "order": "b[processing]-a[cellulose-acetate]-a[mixture]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-cellulose-acetate": {
       "id": "angels-liquid-cellulose-acetate",
@@ -33886,7 +34294,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-cellulose-acetate.png",
       "hidden": false,
       "subgroup": "angels-bio-plastic",
-      "order": "b[processing]-a[cellulose-acetate]-b[full]"
+      "order": "b[processing]-a[cellulose-acetate]-b[full]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-propionic-acid": {
       "id": "angels-liquid-propionic-acid",
@@ -33895,7 +34305,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-propionic-acid.png",
       "hidden": false,
       "subgroup": "angels-bio-plastic",
-      "order": "b[processing]-b[propionic-acid]"
+      "order": "b[processing]-b[propionic-acid]",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-fish-atmosphere": {
       "id": "angels-liquid-fish-atmosphere",
@@ -33904,7 +34316,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-fish-atmosphere.png",
       "hidden": false,
       "subgroup": "angels-bio-fish",
-      "order": "ba"
+      "order": "ba",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-polluted-fish-atmosphere": {
       "id": "angels-liquid-polluted-fish-atmosphere",
@@ -33913,7 +34327,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-polluted-fish-atmosphere.png",
       "hidden": false,
       "subgroup": "angels-bio-fish",
-      "order": "bb"
+      "order": "bb",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-raw-fish-oil": {
       "id": "angels-liquid-raw-fish-oil",
@@ -33922,7 +34338,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-raw-fish-oil.png",
       "hidden": false,
       "subgroup": "angels-bio-fish",
-      "order": "da"
+      "order": "da",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-liquid-fish-oil": {
       "id": "angels-liquid-fish-oil",
@@ -33931,7 +34349,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-liquid-fish-oil.png",
       "hidden": false,
       "subgroup": "angels-bio-fish",
-      "order": "db"
+      "order": "db",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "angels-gas-puffer-atmosphere": {
       "id": "angels-gas-puffer-atmosphere",
@@ -33940,7 +34360,9 @@
       "iconPath": "/data/kompetenz-seablock/icons/angels-gas-puffer-atmosphere.png",
       "hidden": false,
       "subgroup": "angels-bio-puffer-1",
-      "order": "b"
+      "order": "b",
+      "defaultTemperature": 0,
+      "maxTemperature": 0
     },
     "power:electricity": {
       "id": "power:electricity",
@@ -42469,7 +42891,8 @@
         {
           "itemId": "diesel-fuel",
           "type": "fluid",
-          "amount": 30
+          "amount": 30,
+          "temperature": 25
         }
       ],
       "madeIn": [
@@ -44059,7 +44482,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 20
+          "amount": 20,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -80501,7 +80925,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -80531,7 +80956,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -81297,7 +81723,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-1",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 100
         },
         {
           "itemId": "angels-water-green-waste",
@@ -81348,7 +81775,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-2",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 100
         },
         {
           "itemId": "angels-water-green-waste",
@@ -81399,7 +81827,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-3",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 100
         },
         {
           "itemId": "angels-water-green-waste",
@@ -81439,12 +81868,14 @@
         {
           "itemId": "angels-liquid-water-semiheavy-1",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 25
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -81478,12 +81909,14 @@
         {
           "itemId": "angels-liquid-water-semiheavy-2",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 25
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -81517,12 +81950,14 @@
         {
           "itemId": "angels-liquid-water-semiheavy-3",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 25
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -81551,12 +81986,14 @@
         {
           "itemId": "angels-liquid-water-heavy",
           "type": "fluid",
-          "amount": 5
+          "amount": 5,
+          "temperature": 100
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 95
+          "amount": 95,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -81592,12 +82029,14 @@
         {
           "itemId": "angels-liquid-water-heavy",
           "type": "fluid",
-          "amount": 100
+          "amount": 100,
+          "temperature": 25
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 25
+          "amount": 25,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -86365,7 +86804,8 @@
         {
           "itemId": "angels-gas-enriched-hydrogen-sulfide",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 100
         }
       ],
       "madeIn": [
@@ -91320,7 +91760,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -91704,7 +92145,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -91780,7 +92222,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -92395,7 +92838,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -92886,7 +93330,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -93339,7 +93784,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -93733,7 +94179,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -93809,7 +94256,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -94161,7 +94609,8 @@
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
           "amount": 40,
-          "ignoredByProductivity": 40
+          "ignoredByProductivity": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -94713,7 +95162,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -94795,7 +95245,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -95419,7 +95870,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -95495,7 +95947,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -96065,7 +96518,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -96545,7 +96999,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -96974,7 +97429,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -97384,7 +97840,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -97465,7 +97922,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -98556,7 +99014,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -98640,7 +99099,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -99347,12 +99807,14 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 200
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 175
         }
       ],
       "madeIn": [
@@ -99386,12 +99848,14 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 100
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 150
         }
       ],
       "madeIn": [
@@ -99425,12 +99889,14 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 200
+          "amount": 200,
+          "temperature": 25
         },
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 125
         }
       ],
       "madeIn": [
@@ -99883,7 +100349,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -99969,7 +100436,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -100616,7 +101084,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -101507,7 +101976,8 @@
         {
           "itemId": "angels-liquid-coolant-used",
           "type": "fluid",
-          "amount": 40
+          "amount": 40,
+          "temperature": 300
         }
       ],
       "madeIn": [
@@ -125238,7 +125708,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-1",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 25
         },
         {
           "itemId": "barrel",
@@ -125303,7 +125774,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-2",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 25
         },
         {
           "itemId": "barrel",
@@ -125368,7 +125840,8 @@
         {
           "itemId": "angels-liquid-water-semiheavy-3",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 25
         },
         {
           "itemId": "barrel",
@@ -125433,7 +125906,8 @@
         {
           "itemId": "angels-liquid-water-heavy",
           "type": "fluid",
-          "amount": 50
+          "amount": 50,
+          "temperature": 25
         },
         {
           "itemId": "barrel",
