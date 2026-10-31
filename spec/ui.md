@@ -916,7 +916,9 @@ A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe co
 and a right-click menu with **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
 **Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
 Rename opens a browser prompt prefilled with the current name; cancelling or a
-blank answer is ignored, and renaming is not undoable. Remove deletes it **with all
+blank answer is ignored. Adding, renaming, wrapping a row in and removing a sub-factory are
+undoable (undoing a wrap is dropped once the new sub-factory holds more than the wrapped row).
+Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.
 

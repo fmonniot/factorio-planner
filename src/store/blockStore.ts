@@ -604,23 +604,36 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   addSubPlan: (parentSubPlanId, name) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      if (!block) return state
+      if (!block || !findSubPlan(block.rootPlan, parentSubPlanId)) return state
       const newSubPlan = makeEmptySubPlan(name)
       const newSubPlanNode: SubPlanNode = {
         kind: 'subplan',
         id: crypto.randomUUID(),
         subPlanId: newSubPlan.id,
       }
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, parentSubPlanId, p => ({
-        ...p,
-        subPlans: [...p.subPlans, newSubPlan],
-        nodes: [...p.nodes, newSubPlanNode],
-      }))
-      return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+      // Re-read from the tree on every undo, so a rename made in between survives the redo.
+      let snapshot = newSubPlan
+      const cmd: Command = {
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, parentSubPlanId, p => ({
+            ...p,
+            subPlans: [...p.subPlans, snapshot],
+            nodes: [...p.nodes, newSubPlanNode],
+          })),
+        }, parentSubPlanId),
+        undo: b => {
+          snapshot = findSubPlan(b.rootPlan, newSubPlan.id) ?? snapshot
+          return touchSubPlan({
+            ...b,
+            rootPlan: removeSubPlanNodeReferences(removeSubPlanFromTree(b.rootPlan, newSubPlan.id), newSubPlan.id),
+          }, parentSubPlanId)
+        },
+        canApply: (_blocks, b) =>
+          findSubPlan(b.rootPlan, parentSubPlanId) !== undefined && findSubPlan(b.rootPlan, newSubPlan.id) === undefined,
+        canUndo: (_blocks, b) => findSubPlan(b.rootPlan, newSubPlan.id) !== undefined,
       }
+      return applyCommand(state, cmd)
     }),
 
   removeSubPlan: (subPlanId) =>
@@ -630,9 +643,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const parent = findParentSubPlan(block.rootPlan, subPlanId)
       if (!parent) return state
       const parentId = parent.id
-      // Snapshot taken each time the removal is applied (creation and every redo), so a
-      // non-undoable edit made to the subtree while the command sat on the redo stack
-      // (rename, nested add, wrap) is not lost when the removal is undone again.
+      // Snapshot taken each time the removal is applied (creation and every redo), so an
+      // edit made to the subtree while the command sat on the redo stack (for example one
+      // that is not undoable) is not lost when the removal is undone again.
       let snapshot:
         | { removed: SubPlan; subPlanIndex: number; handle: SubPlan['nodes'][number] | undefined; handleIndex: number }
         | undefined
@@ -752,15 +765,17 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, subPlanId, p => ({
-        ...p,
-        name,
-      }))
-      return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+      const target = findSubPlan(block.rootPlan, subPlanId)
+      if (!target || target.name === name) return state
+      const previous = target.name
+      const setName = (value: string) => (p: SubPlan): SubPlan => ({ ...p, name: value })
+      const cmd: Command = {
+        apply: b => touchSubPlan({ ...b, rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setName(name)) }, subPlanId),
+        undo: b => touchSubPlan({ ...b, rootPlan: updateSubPlanInTree(b.rootPlan, subPlanId, setName(previous)) }, subPlanId),
+        canApply: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
+        canUndo: (_blocks, b) => findSubPlan(b.rootPlan, subPlanId) !== undefined,
       }
+      return applyCommand(state, cmd)
     }),
 
   // ── Products (block-level) ────────────────────────────────────────────────
@@ -1266,14 +1281,15 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       if (!block) return state
       const containing = findSubPlanContainingNode(block.rootPlan, nodeId)
       if (!containing) return state
-      const node = containing.nodes.find(n => n.id === nodeId)
-      if (!node || node.kind !== 'game-recipe') return state
+      const original = containing.nodes.find(n => n.id === nodeId)
+      if (!original || original.kind !== 'game-recipe') return state
+      const containingId = containing.id
 
       const now = new Date().toISOString()
       const newSubPlan: SubPlan = {
         id: crypto.randomUUID(),
         name,
-        nodes: [node],
+        nodes: [original],
         subPlans: [],
         createdAt: now,
         updatedAt: now,
@@ -1283,17 +1299,50 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         id: crypto.randomUUID(),
         subPlanId: newSubPlan.id,
       }
-      const newRootPlan = updateSubPlanInTree(block.rootPlan, containing.id, p => ({
-        ...p,
-        nodes: p.nodes.map(n => (n.id === nodeId ? newSubPlanNode : n)),
-        subPlans: [...p.subPlans, newSubPlan],
-        updatedAt: now,
-      }))
-      return {
-        blocks: state.blocks.map(b =>
-          b.id === block.id ? { ...block, rootPlan: newRootPlan } : b,
-        ),
+      // Re-read from the tree on every undo, so a rename or an edit of the wrapped row made
+      // in between survives the redo.
+      let snapshot = newSubPlan
+      const cmd: Command = {
+        apply: b => touchSubPlan({
+          ...b,
+          rootPlan: updateSubPlanInTree(b.rootPlan, containingId, p => ({
+            ...p,
+            nodes: p.nodes.map(n => (n.id === nodeId ? newSubPlanNode : n)),
+            subPlans: [...p.subPlans, snapshot],
+          })),
+        }, containingId),
+        undo: b => {
+          snapshot = findSubPlan(b.rootPlan, newSubPlan.id) ?? snapshot
+          const wrapped = snapshot.nodes[0]
+          return touchSubPlan({
+            ...b,
+            rootPlan: updateSubPlanInTree(b.rootPlan, containingId, p => ({
+              ...p,
+              nodes: p.nodes.map(n => (n.id === newSubPlanNode.id ? wrapped : n)),
+              subPlans: p.subPlans.filter(sp => sp.id !== newSubPlan.id),
+            })),
+          }, containingId)
+        },
+        canApply: (_blocks, b) => {
+          const p = findSubPlan(b.rootPlan, containingId)
+          return p !== undefined && p.nodes.some(n => n.id === nodeId) && findSubPlan(b.rootPlan, newSubPlan.id) === undefined
+        },
+        // Drop the command rather than lose rows added to the wrapper since.
+        canUndo: (_blocks, b) => {
+          const p = findSubPlan(b.rootPlan, containingId)
+          const wrapper = findSubPlan(b.rootPlan, newSubPlan.id)
+          return (
+            p !== undefined &&
+            p.nodes.some(n => n.id === newSubPlanNode.id) &&
+            p.subPlans.some(sp => sp.id === newSubPlan.id) &&
+            wrapper !== undefined &&
+            wrapper.nodes.length === 1 &&
+            wrapper.nodes[0].id === nodeId &&
+            wrapper.subPlans.length === 0
+          )
+        },
       }
+      return applyCommand(state, cmd)
     }),
 
   // ── Undo / Redo ──────────────────────────────────────────────────────────
