@@ -148,6 +148,51 @@ Deflate takes the 1× snapshot to 3,838 B (brotli 3,214 B), so a 10× snapshot w
 - A single block is at most about 8 KB, and no datagram limit below that is documented, so sending one block per datagram is a candidate design to compare with generic chunking. The full-size delivery row should use the 229 KB payload.
 - The decode-cost row should use 229 KB of JSON.
 
+#### Step 1 results (2026-10-31)
+
+```
+Browser → localhost WebSocket probe
+Run node ws-listener.mjs, then press Run. Page origin: https://francois.monniot.eu
+
+Port 
+8787
+ Run
+URL	Result	Detail
+ws://127.0.0.1:8787	ALLOWED	received "hello from listener" (2196 ms)
+ws://localhost:8787	ALLOWED	received "hello from listener" (2206 ms)
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36
+```
+
+Note: had to disable uBlock for this to work. Otherwise the call simply show as blocked.
+
+```
+Browser → localhost WebSocket probe
+
+Run node ws-listener.mjs, then press Run. Page origin: https://francois.monniot.eu
+
+Port  Run
+URL	Result	Detail
+ws://127.0.0.1:8787	TIMEOUT (permission prompt?)	no event in 15 s (15001 ms)
+ws://localhost:8787	TIMEOUT (permission prompt?)	no event in 15 s (15001 ms)
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Safari/605.1.15
+```
+
+Note: no permission was prompted, mixed content warning in the console
+
+```
+Browser → localhost WebSocket probe
+
+Run node ws-listener.mjs, then press Run. Page origin: https://francois.monniot.eu
+Port Run
+URL	Result	Detail
+ws://127.0.0.1:8787	ALLOWED	received "hello from listener" (2251 ms)
+ws://localhost:8787	ALLOWED	received "hello from listener" (2255 ms)
+
+Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0
+```
+
+Note: Browser prompted me for permission, which I granted
+
 
 ### Phase 1 — snapshot contract
 
