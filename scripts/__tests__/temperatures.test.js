@@ -63,6 +63,13 @@ describe('attachFluidTemperatures', () => {
     expect(out.steam).toEqual({ id: 'steam', type: 'fluid' })
     expect(count).toBe(0)
   })
+  it('ignores inherited Object.prototype members as prototypes', () => {
+    const input = { constructor: { id: 'constructor', type: 'fluid' }, toString: { id: 'toString', type: 'fluid' } }
+    const { items: out, count } = attachFluidTemperatures(input, {})
+    expect(out.constructor).toBe(input.constructor)
+    expect(out.toString).toBe(input.toString)
+    expect(count).toBe(0)
+  })
   it('is idempotent', () => {
     const once = attachFluidTemperatures(items(), raw()).items
     expect(attachFluidTemperatures(once, raw()).items).toEqual(once)
@@ -106,17 +113,19 @@ describe('attachProductTemperatures', () => {
     const input = recipes()
     const raw = rawRecipes()
     raw.boil.results.pop()
+    raw.boil.results[0].temperature = 77
     const r = attachProductTemperatures(input, raw)
     expect(r.mismatched).toEqual(['boil'])
-    expect(r.recipes.boil).toEqual(input.boil)
+    expect(r.recipes.boil).toBe(input.boil)
   })
   it('leaves recipes with a different product name unchanged', () => {
     const input = recipes()
     const raw = rawRecipes()
     raw.boil.results[1].name = 'other'
+    raw.boil.results[0].temperature = 77
     const r = attachProductTemperatures(input, raw)
     expect(r.mismatched).toEqual(['boil'])
-    expect(r.recipes.boil).toEqual(input.boil)
+    expect(r.recipes.boil).toBe(input.boil)
   })
   it('reports recipes absent from the dump', () => {
     const raw = rawRecipes()
@@ -130,6 +139,12 @@ describe('attachProductTemperatures', () => {
     expect(r.recipes.gen).toBe(input.gen)
     expect(r.recipes.pow).toBe(input.pow)
     expect(r.checked).toBe(2)
+  })
+  it('reports a recipe id that only exists on Object.prototype as missing', () => {
+    const input = { constructor: { id: 'constructor', products: [{ itemId: 'x', type: 'item', amount: 1 }] } }
+    const r = attachProductTemperatures(input, {})
+    expect(r.missing).toEqual(['constructor'])
+    expect(r.recipes.constructor).toBe(input.constructor)
   })
   it('removes a stale temperature the dump does not state', () => {
     const input = recipes()

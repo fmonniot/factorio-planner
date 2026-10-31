@@ -39,7 +39,7 @@ export function attachFluidTemperatures(items, rawFluids) {
   const out = {}
   let count = 0
   for (const [id, item] of Object.entries(items)) {
-    const proto = rawFluids[id]
+    const proto = Object.hasOwn(rawFluids, id) ? rawFluids[id] : undefined
     if (item.type !== 'fluid' || !proto) {
       out[id] = item
       continue
@@ -73,7 +73,7 @@ export function attachProductTemperatures(recipes, rawRecipes) {
       continue
     }
     checked++
-    const proto = rawRecipes[id]
+    const proto = Object.hasOwn(rawRecipes, id) ? rawRecipes[id] : undefined
     if (!proto) {
       missing.push(id)
       out[id] = recipe

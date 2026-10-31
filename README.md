@@ -115,15 +115,15 @@ node scripts/build-game-data.js --patch-technologies \
 
 `--patch-power` adds the power generation recipes (boilers, generators, burner generators and solar panels), the machines that run them, the `power:electricity` item and the Power item group to an existing bundle the same way (same mod-set check, safe to re-run); it also refreshes `placeResult`. The Seablock bundle has them; the Nullius bundle does not yet.
 
-`--patch-temperatures` adds the fluids' `defaultTemperature` / `maxTemperature` and the recipe products' `temperature` to an existing bundle without touching icons or names (same mod-set check, safe to re-run). It refuses a dump whose recipes do not match the bundle (more than 1 % mismatch) and leaves the generated extraction and power recipes alone. The Seablock bundle has the data; the Nullius bundle does not yet.
+Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
+
+`--patch-temperatures` adds the fluids' `defaultTemperature` / `maxTemperature` and the recipe products' `temperature` to an existing bundle without touching icons or names (same mod-set check, safe to re-run). It refuses a dump whose recipes do not match the bundle (more than 1 % of the recipes missing or different; up to 1 % are tolerated and left unchanged) or one without fluid temperatures, and leaves the generated extraction and power recipes alone. The Seablock bundle has the data; the Nullius bundle does not yet.
 
 ```sh
 node scripts/build-game-data.js --patch-temperatures \
   --dump ... --factorio-dir ... --mods-dir ... \
   --output public/data/kompetenz-seablock/game-data.json
 ```
-
-Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
 
 `--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`), power recipes (`<machine> (<fuel>)`) and of drills, pumps and generation machines.
 

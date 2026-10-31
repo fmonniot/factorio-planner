@@ -224,7 +224,7 @@ describe('parseGameData', () => {
 })
 
 // ---------------------------------------------------------------------------
-// GameData — validation errors
+// Temperatures
 // ---------------------------------------------------------------------------
 
 describe('parseGameData — temperatures', () => {
@@ -357,6 +357,10 @@ describe('parseGameData — power generation', () => {
     expect(data.recipes['iron-plate-recipe'].power).toBeUndefined()
   })
 })
+
+// ---------------------------------------------------------------------------
+// GameData — validation errors
+// ---------------------------------------------------------------------------
 
 describe('parseGameData — validation errors', () => {
   it('throws GameDataLoadError for non-object input', () => {

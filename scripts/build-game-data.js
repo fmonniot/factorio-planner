@@ -65,7 +65,8 @@
  * `maxTemperature` and the recipe products' `temperature` into an existing
  * bundle (same mod-set check). Icons, names and the generated extraction and
  * power recipes are not touched. Safe to re-run. Exits without writing when
- * more than 1 % of the bundle's recipes do not match the dump:
+ * more than 1 % of the bundle's recipes do not match the dump (up to 1 % are
+ * tolerated and left unchanged) or when the dump yields no fluid temperatures:
  *   node scripts/build-game-data.js --patch-temperatures \
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
@@ -995,6 +996,11 @@ if (args.patchTemperatures) {
   const prods = attachProductTemperatures(existing.recipes, raw.recipe ?? {})
   for (const id of prods.missing) process.stderr.write(`[warn] recipe ${id} is missing from the dump\n`)
   for (const id of prods.mismatched) process.stderr.write(`[warn] recipe ${id}: products differ from the dump; left unchanged\n`)
+  const bundleHasFluids = Object.values(existing.items).some(i => i.type === 'fluid')
+  if (bundleHasFluids && fluids.count === 0) {
+    process.stderr.write('[build-game-data] the dump has no fluid temperatures although the bundle has fluids; wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
   const bad = prods.missing.length + prods.mismatched.length
   if (bad > prods.checked * 0.01) {
     process.stderr.write(`[build-game-data] ${bad}/${prods.checked} bundle recipes do not match the dump; wrong dump? Nothing written.\n`)

@@ -46,6 +46,12 @@ describe('bundled temperatures', () => {
     const bundle = load('kompetenz-seablock')
     expect(bundle.items.steam).toMatchObject({ defaultTemperature: 15, maxTemperature: 5000 })
     expect(bundle.items.water.defaultTemperature).toBeDefined()
+    const fluids = Object.values(bundle.items).filter(i => i.type === 'fluid' && i.id !== 'power:electricity')
+    expect(fluids.length).toBe(211)
+    for (const f of fluids) {
+      expect(f.defaultTemperature, `${f.id} default`).toEqual(expect.any(Number))
+      expect(f.maxTemperature, `${f.id} max`).toEqual(expect.any(Number))
+    }
     expect(bundle.items['power:electricity']).not.toHaveProperty('defaultTemperature')
     expect(bundle.items['power:electricity']).not.toHaveProperty('maxTemperature')
 
