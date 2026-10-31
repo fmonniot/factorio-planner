@@ -109,7 +109,7 @@ Throwaway code, kept under `initiatives/in-game-viewer/spike/` while the phase r
 
 **Step 1 — browser to localhost (no Factorio).** A small page served from the GitHub Pages deployment opens `ws://127.0.0.1:<port>` against a throwaway WebSocket listener. Try current Chrome, Firefox and Safari, and record whether the connection is allowed, blocked, or behind a permission prompt ([U3](#sources-and-verification)). If it is blocked somewhere, decide between `wss` with a local certificate, a supported-browser list, or moving the [Tauri host](#later) up.
 
-**Step 2 — UDP in Factorio 2.0.77.** A spike mod and a few-line Rust UDP echo, run by hand on a minimal save with only the spike mod enabled (Nullius adds startup time and noise). The bridge→mod direction matters most, because that is where plan data flows; the mod→bridge direction only has to carry short messages. Fill in the table:
+**Step 2 — UDP in Factorio 2.0.77.** A spike mod and a few-line Rust UDP echo, run by hand on a minimal save with only the spike mod enabled (Seablock adds startup time and noise). The bridge→mod direction matters most, because that is where plan data flows; the mod→bridge direction only has to carry short messages. Fill in the table:
 
 | Measurement | Method | Feeds |
 |---|---|---|
@@ -127,7 +127,7 @@ Throwaway code, kept under `initiatives/in-game-viewer/spike/` while the phase r
 | Multiplayer (optional) | Host a game, receive a snapshot, check `storage` stays in sync | Whether multiplayer can ever be supported |
 | Achievements (optional) | Play with the spike mod and `--enable-lua-udp`, check whether achievements stay enabled | A README note if affected |
 
-**Step 3 — coexistence.** Load the spike mod in the maintainer's Nullius save and repeat the round trip once.
+**Step 3 — coexistence.** Load the spike mod in the maintainer's Seablock save and repeat the round trip once.
 
 Exit criteria: every non-optional row is filled in this document, the transport decision is recorded (chunked UDP, single datagram, or a [fallback](#if-the-udp-transport-does-not-work)), the browser-to-localhost outcome is recorded, and the U entries read in Step 0 are converted to S entries.
 
@@ -196,7 +196,7 @@ Note: Browser prompted me for permission, which I granted
 
 ### Phase 1 — snapshot contract
 
-Transport-independent, so it can start before Phase 0 closes. Snapshot schema in the planner, projection function and tests, generated JSON Schema, shared fixtures (small, a Seablock block with areas, a Nullius plan with connections and a loop). The wire protocol (chunk header, datagram size, pacing) belongs to Phase 3 and is designed from the Phase 0 measurements.
+Transport-independent, so it can start before Phase 0 closes. Snapshot schema in the planner, projection function and tests, generated JSON Schema, shared fixtures (small, a Seablock block with areas, a Seablock plan with connections and a loop). The wire protocol (chunk header, datagram size, pacing) belongs to Phase 3 and is designed from the Phase 0 measurements.
 
 ### Phase 2 — mod
 
