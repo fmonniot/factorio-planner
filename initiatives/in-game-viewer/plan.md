@@ -163,7 +163,7 @@ ws://localhost:8787	ALLOWED	received "hello from listener" (2206 ms)
 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/153.0.0.0 Safari/537.36
 ```
 
-Note: had to disable uBlock for this to work. Otherwise the call simply show as blocked.
+Note: had to disable uBlock for this to work. Otherwise the call simply show as blocked. Behind permission prompt.
 
 ```
 Browser → localhost WebSocket probe
@@ -191,7 +191,7 @@ ws://localhost:8787	ALLOWED	received "hello from listener" (2255 ms)
 Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:159.0) Gecko/20100101 Firefox/159.0
 ```
 
-Note: Browser prompted me for permission, which I granted
+Note: Behind permission prompt.
 
 
 ### Phase 1 — snapshot contract
