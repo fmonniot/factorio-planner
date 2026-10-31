@@ -1,0 +1,37 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>ws localhost probe</title>
+<style>body{font:14px system-ui;margin:2rem;max-width:42rem}td,th{padding:.25rem .75rem;text-align:left}</style>
+<h1>Browser → localhost WebSocket probe</h1>
+<p>Run <code>node ws-listener.mjs</code>, then press Run. Page origin: <b id="origin"></b></p>
+<label>Port <input id="port" type="number" value="8787"></label>
+<button id="run">Run</button>
+<table><thead><tr><th>URL</th><th>Result</th><th>Detail</th></tr></thead><tbody id="rows"></tbody></table>
+<p id="ua"></p>
+<script>
+document.getElementById('origin').textContent = location.origin
+document.getElementById('ua').textContent = navigator.userAgent
+const rows = document.getElementById('rows')
+
+function probe(url) {
+  const tr = rows.insertRow()
+  tr.insertCell().textContent = url
+  const result = tr.insertCell()
+  const detail = tr.insertCell()
+  result.textContent = 'pending…'
+  const t0 = performance.now()
+  const done = (r, d) => { result.textContent = r; detail.textContent = d + ` (${Math.round(performance.now() - t0)} ms)` }
+  let opened = false, ws
+  try { ws = new WebSocket(url) } catch (e) { return done('THROWN', `${e.name}: ${e.message}`) }
+  ws.onopen = () => { opened = true }
+  ws.onmessage = (e) => { done('ALLOWED', `received "${e.data}"`); ws.close() }
+  ws.onclose = (e) => { if (result.textContent === 'pending…') done(opened ? 'OPENED, no message' : 'BLOCKED/FAILED', `code ${e.code}`) }
+  setTimeout(() => { if (result.textContent === 'pending…') done('TIMEOUT (permission prompt?)', 'no event in 15 s') }, 15000)
+}
+
+document.getElementById('run').onclick = () => {
+  const p = document.getElementById('port').value
+  probe(`ws://127.0.0.1:${p}`)
+  probe(`ws://localhost:${p}`)
+}
+</script>
