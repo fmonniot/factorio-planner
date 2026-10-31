@@ -61,6 +61,16 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Temperatures patch mode: write the fluids' `defaultTemperature` /
+ * `maxTemperature` and the recipe products' `temperature` into an existing
+ * bundle (same mod-set check). Icons, names and the generated extraction and
+ * power recipes are not touched. Safe to re-run. Exits without writing when
+ * more than 1 % of the bundle's recipes do not match the dump (up to 1 % are
+ * tolerated and left unchanged) or when the dump yields no fluid temperatures:
+ *   node scripts/build-game-data.js --patch-temperatures \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -75,6 +85,7 @@ import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
+import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -116,6 +127,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-names') args.patchNames = true
     else if (argv[i] === '--patch-extraction') args.patchExtraction = true
     else if (argv[i] === '--patch-power') args.patchPower = true
+    else if (argv[i] === '--patch-temperatures') args.patchTemperatures = true
   }
   return args
 }
@@ -350,6 +362,7 @@ function normaliseProduct(prod) {
     amountMin:             prod.amount_min,
     amountMax:             prod.amount_max,
     ignoredByProductivity: prod.ignored_by_productivity,
+    temperature:           productTemperature(prod),
   }
 }
 
@@ -437,6 +450,7 @@ async function exportItems(raw, locale, resolveIcon) {
       hidden:   proto.hidden ?? false,
       subgroup: proto.subgroup ?? '',
       order:    proto.order ?? '',
+      ...fluidTemperatures(proto),
     }
   }
 
@@ -971,6 +985,31 @@ if (args.patchPower) {
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: powerRecipes=${Object.keys(power.recipes).length} ` +
     `powerMachines=${Object.keys(power.machines).length} placeResults=${placeResultCount}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchTemperatures) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const fluids = attachFluidTemperatures(existing.items, raw.fluid ?? {})
+  const prods = attachProductTemperatures(existing.recipes, raw.recipe ?? {})
+  for (const id of prods.missing) process.stderr.write(`[warn] recipe ${id} is missing from the dump\n`)
+  for (const id of prods.mismatched) process.stderr.write(`[warn] recipe ${id}: products differ from the dump; left unchanged\n`)
+  const bundleHasFluids = Object.values(existing.items).some(i => i.type === 'fluid')
+  if (bundleHasFluids && fluids.count === 0) {
+    process.stderr.write('[build-game-data] the dump has no fluid temperatures although the bundle has fluids; wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
+  const bad = prods.missing.length + prods.mismatched.length
+  if (bad > prods.checked * 0.01) {
+    process.stderr.write(`[build-game-data] ${bad}/${prods.checked} bundle recipes do not match the dump; wrong dump? Nothing written.\n`)
+    process.exit(1)
+  }
+  writeFileSync(outputPath, JSON.stringify({ ...existing, items: fluids.items, recipes: prods.recipes }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: fluidTemperatures=${fluids.count} productTemperatures=${prods.count} ` +
+    `mismatched=${prods.mismatched.length} missing=${prods.missing.length}\n`
   )
   process.exit(0)
 }
