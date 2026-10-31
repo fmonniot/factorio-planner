@@ -141,6 +141,13 @@ describe('addSubPlan', () => {
     useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [], subPlans: [] } }], activeBlockId: block.id, history: {} })
   }
 
+  it('ignores an unknown parent without touching history', () => {
+    setupRoot()
+    useBlockStore.getState().addSubPlan('missing', 'Added')
+    expect(root().subPlans).toHaveLength(0)
+    expect(useBlockStore.getState().history[blockId()]).toBeUndefined()
+  })
+
   it('undo removes the sub-plan and its handle, redo restores both with the same ids', () => {
     setupRoot()
     useBlockStore.getState().addSubPlan(root().id, 'Added')

@@ -604,7 +604,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
   addSubPlan: (parentSubPlanId, name) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
-      if (!block) return state
+      if (!block || !findSubPlan(block.rootPlan, parentSubPlanId)) return state
       const newSubPlan = makeEmptySubPlan(name)
       const newSubPlanNode: SubPlanNode = {
         kind: 'subplan',
