@@ -23,7 +23,21 @@
           "machines": 0.143,
           "machinesCeil": 1,
           "throughput": 60,
-          "powerKw": 68.571
+          "powerKw": 68.571,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 120
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 60
+            }
+          ]
         },
         {
           "recipe": "sb-iron-plate-from-ore",
@@ -31,7 +45,21 @@
           "machines": 1.75,
           "machinesCeil": 2,
           "throughput": 40,
-          "powerKw": 525
+          "powerKw": 525,
+          "inputs": [
+            {
+              "id": "iron-ore",
+              "type": "item",
+              "rate": 160
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 120
+            }
+          ]
         }
       ],
       "imports": [

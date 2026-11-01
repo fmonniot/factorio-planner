@@ -7,6 +7,7 @@ import type {
   AppState,
   Block,
   GameData,
+  GameRecipeNode,
   MultiBlockSolve,
   PlanDataSetStamp,
   SolvedNode,
@@ -18,10 +19,13 @@ import {
   SNAPSHOT_ELECTRICITY_ID,
   SNAPSHOT_VERSION,
   type Snapshot,
+  type SnapshotBeacon,
   type SnapshotBlock,
+  type SnapshotGroup,
   type SnapshotItemRate,
   type SnapshotItemRef,
   type SnapshotGameRow,
+  type SnapshotModule,
   type SnapshotRow,
   type SnapshotWarning,
 } from './schema'
@@ -48,6 +52,32 @@ function solvedValues(s: SolvedNode): Pick<SnapshotGameRow, 'machines' | 'machin
   return out
 }
 
+/** A row's solved item rates, three decimals, without the electricity item and without zero or unusable rates. */
+function itemRates(rates: Record<string, number>, ref: (id: string) => SnapshotItemRef): SnapshotItemRate[] {
+  return Object.entries(rates).flatMap(([id, r]) => {
+    const rounded = id === ELECTRICITY_ITEM_ID ? undefined : round3(r)
+    return rounded ? [{ ...ref(id), rate: rounded }] : []
+  })
+}
+
+/** The keys of a row that come from the plan's node: its machine modules and its beacons, each left out when there is nothing to place. */
+function nodeValues(node: GameRecipeNode): { modules?: SnapshotModule[]; beacon?: SnapshotBeacon } {
+  const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
+  const cfg = node.beaconConfig
+  const beacon = cfg?.beaconId && cfg.moduleId && cfg.beaconCount > 0
+    ? { id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }
+    : undefined
+  return {
+    ...(modules.length > 0 ? { modules } : {}),
+    ...(beacon ? { beacon } : {}),
+  }
+}
+
+/** Whether a sub-plan holds a recipe row at any depth. */
+function hasRows(plan: SubPlan): boolean {
+  return plan.nodes.some(n => n.kind !== 'subplan') || plan.subPlans.some(hasRows)
+}
+
 const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
 
 /**
@@ -71,6 +101,10 @@ const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
  * in its place, with its name, colour, products, connections, the result's imports and warnings
  * (the solver gives such a block an empty result, or only warnings that name it) and the solver's
  * message as `error`.
+ *
+ * A row also carries what the in-game table needs: its solved item rates (`inputs`, `outputs`, without
+ * electricity), the machine's modules and its beacon, and the sub-factory it sits in (`group`, an index
+ * into the block's `groups`, which lists every sub-plan holding rows at any depth, parents first).
  */
 export function projectSnapshot(
   state: AppState,
@@ -125,16 +159,23 @@ export function projectSnapshot(
 
     const solved = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
     const rows: SnapshotRow[] = []
+    const groups: SnapshotGroup[] = []
     const visited = new Set<string>()
+    // A sub-plan with rows at any depth becomes the next group on being entered, so a parent comes before its children.
+    const enter = (sp: SubPlan, parent: number | undefined): void => {
+      if (visited.has(sp.id) || !hasRows(sp)) return
+      groups.push({ name: sp.name, ...(parent !== undefined ? { parent } : {}), ...(sp.area ? { area: true as const } : {}) })
+      visit(sp, groups.length - 1)
+    }
     // Table order: a plan's nodes in order, a sub-factory's rows where its handle is, then sub-factories without a handle.
-    const visit = (plan: SubPlan): void => {
+    const visit = (plan: SubPlan, group: number | undefined): void => {
       if (visited.has(plan.id)) return
       visited.add(plan.id)
       const byId = new Map(plan.subPlans.map(sp => [sp.id, sp]))
       for (const node of plan.nodes) {
         if (node.kind === 'subplan') {
           const sp = byId.get(node.subPlanId)
-          if (sp) visit(sp)
+          if (sp) enter(sp, group)
           continue
         }
         const areaId = areas ? areaOf.get(plan.id) : undefined
@@ -144,10 +185,16 @@ export function projectSnapshot(
           ? node.machineId
           : resolveRowMachine(gameData, { ...horizon, defaultMachines }, category, node.machineId).machineId
         const s = solved.get(node.id)
+        const inputs = s ? itemRates(s.inputRates, ref) : []
+        const outputs = s ? itemRates(s.outputRates, ref) : []
         const common = {
           ...(machine !== undefined ? { machine } : {}),
           ...(area !== undefined ? { area } : {}),
+          ...(group !== undefined ? { group } : {}),
           ...(s ? solvedValues(s) : {}),
+          ...(inputs.length > 0 ? { inputs } : {}),
+          ...(outputs.length > 0 ? { outputs } : {}),
+          ...nodeValues(node),
         }
         const kind = syntheticRecipeKind(node.recipeId)
         if (kind === undefined) {
@@ -158,9 +205,9 @@ export function projectSnapshot(
         const main = recipe ? (recipe.mainProduct ?? recipe.products[0]?.itemId) : undefined
         rows.push({ kind, ...(main ? { product: ref(main) } : {}), ...common })
       }
-      for (const sp of plan.subPlans) visit(sp)
+      for (const sp of plan.subPlans) enter(sp, group)
     }
-    visit(block.rootPlan)
+    visit(block.rootPlan, undefined)
 
     const connections = solve.flows
       .filter(f => f.toBlockId === block.id && f.status !== 'missing-source' && f.status !== 'self')
@@ -176,6 +223,7 @@ export function projectSnapshot(
       color: block.color,
       products,
       ...(areas ? { areas: areaNames } : {}),
+      ...(groups.length > 0 ? { groups } : {}),
       rows,
       imports: result.unsatisfied.map(u => withRate(u.itemId, u.rate)),
       warnings: result.warnings.map(w => projectWarning(w, ref, blockIndex, areaIndex)),

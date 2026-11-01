@@ -25,6 +25,12 @@
         "Top level",
         "Pumps"
       ],
+      "groups": [
+        {
+          "name": "Pumps",
+          "area": true
+        }
+      ],
       "rows": [
         {
           "kind": "power",
@@ -47,10 +53,18 @@
           },
           "machine": "angels-sea-pump-placeable",
           "area": 1,
+          "group": 0,
           "machines": 0.001,
           "machinesCeil": 1,
           "throughput": 2,
-          "powerKw": 0
+          "powerKw": 0,
+          "outputs": [
+            {
+              "id": "water",
+              "type": "fluid",
+              "rate": 120
+            }
+          ]
         },
         {
           "kind": "mining",
@@ -60,6 +74,7 @@
           },
           "machine": "pumpjack",
           "area": 1,
+          "group": 0,
           "machines": 0,
           "machinesCeil": 0,
           "throughput": 0,
@@ -100,7 +115,21 @@
           "machines": 0.071,
           "machinesCeil": 1,
           "throughput": 30,
-          "powerKw": 34.286
+          "powerKw": 34.286,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 60
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 30
+            }
+          ]
         }
       ],
       "imports": [

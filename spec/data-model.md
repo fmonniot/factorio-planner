@@ -794,11 +794,18 @@ interface SnapshotBlock {
   color: string                       // '#rrggbb'
   products: SnapshotItemRate[]        // extraRate plus what other blocks request (the first product of an item gets the request)
   areas?: string[]                    // area names as the planner shows them ('Top level' for the root), table order; present only when the block has separate areas
+  groups?: SnapshotGroup[]            // the sub-factories that hold rows at any depth, pre-order (a parent before its children); present only when there is one
   rows: SnapshotRow[]                 // the plan's rows in table order, solved or not
   imports: SnapshotItemRate[]         // SolverResult.unsatisfied, same order
   warnings: SnapshotWarning[]         // the result's warnings
   connections: SnapshotConnection[]   // flows into this block, in inputConnections order, except missing-source and self
   error?: string                      // the solver's message when the block's solve failed
+}
+
+interface SnapshotGroup {
+  name: string
+  parent?: number                     // index into the block's groups, always lower than this group's own; absent for a top-level sub-factory
+  area?: true                         // the sub-factory is a separate area
 }
 
 type SnapshotItemType = 'item' | 'fluid' | 'virtual'   // virtual: the electricity pseudo-item, id 'electricity'
@@ -809,10 +816,15 @@ interface SnapshotItemRate extends SnapshotItemRef { rate: number }   // items/m
 interface SnapshotRowBase {
   machine?: string                    // the machine the solver used: the row's own, else the default under the plan's horizon and overrides; absent when there is none
   area?: number                       // index into the block's areas; present only with areas
+  group?: number                      // index into the block's groups: the innermost sub-factory the row sits in; absent for a row of the root plan
   machines?: number                   // machineCountExact
   machinesCeil?: number               // machineCountCeil, an integer
   throughput?: number                 // executions/min
   powerKw?: number
+  inputs?: SnapshotItemRate[]         // SolvedNode.inputRates: items/min consumed; omitted when empty or unsolved
+  outputs?: SnapshotItemRate[]        // SolvedNode.outputRates: items/min produced (gross); same rules
+  modules?: { id: string; count: number }[]   // the machine's own modules, in order; omitted when none
+  beacon?: { id: string; count: number; module: string; modules: number }   // beacon entity, beacons per machine, the module each holds and how many of it
 }
 interface SnapshotGameRow extends SnapshotRowBase { recipe: string }   // the id as in the plan, even when the data set lacks it
 interface SnapshotSyntheticRow extends SnapshotRowBase {               // a mining:, offshore: or power: recipe
@@ -835,6 +847,9 @@ Rules:
 - **No `null`.** The Lua JSON decoder's handling of `null` is undocumented, so an absent value is an omitted key. Every object is closed (unknown keys are rejected).
 - **Rates** (rates, machine counts, throughput, power) are rounded to three decimals. A solved value that is not a finite non-negative number (or, for `machinesCeil`, not an integer) is omitted from its row; a required rate (product, import, connection) with such a value is sent as 0, so one bad value never invalidates the snapshot.
 - **No exporter-invented ids.** The `mining:*`, `offshore:*` and `power:*` recipes (`src/data/syntheticRecipes.ts`) and the `power:electricity` item (`src/data/electricity.ts`) are not game prototypes, so no game-id field contains `:`. A row of such a recipe has `kind` and `product` instead of `recipe`; the electricity item is sent as `{ id: 'electricity', type: 'virtual' }` everywhere an item appears, and the reader exempts `virtual` from its id check and draws it itself; such recipe ids are left out of a warning's `recipes`.
+- **Item rates per row.** `inputs` and `outputs` come from the solver's `inputRates` and `outputRates`, in the solver's order, rounded to three decimals. Rates that are zero (also after rounding) or not a finite non-negative number are dropped, and so is the electricity item (its rate is MJ per minute, not an item count). A solar panel or other electricity-only power row therefore has neither list, while a boiler or steam-engine row of the Seablock data set keeps its water, fuel and steam. A list with nothing left, and a row with no solved node, omit the key.
+- **Modules and beacon.** `modules` is the node's own modules (`moduleId` as `id`). `beacon` is the node's `beaconConfig` as `{ id: beaconId, count: beaconCount, module: moduleId, modules: modulesPerBeacon }`; a config with no `beaconId` (made without beacon data), no `moduleId` or a `beaconCount` of 0 is not sent, since there is nothing to place. A module entry with an empty `moduleId` (an empty slot) is skipped. Both keys are sent for solved and unsolved rows alike, since they come from the plan.
+- **Sub-factory groups.** A sub-plan that holds a recipe row at any depth becomes a group, numbered on entering it while walking in table order, so a parent has a lower index than its children. `parent` is the enclosing sub-plan's group (absent at the top level, where the root plan is not a group) and `area: true` marks a separate area. A sub-plan with no rows at any depth is not sent, and a block without any sends no `groups`. Rows stay in table order, which is not contiguous per group: a sub-factory's rows sit where its handle is, so the plan `P[a, S, b]` gives the rows' groups `P, S, P`. A group's rows are only ever interrupted by its own descendants. `group` on a row is the innermost group it sits in.
 - **Item types** come from the loaded game data; an item id it does not know is sent as `item`.
 - **The machine** of a row is resolved as the solver wiring does (`resolveRowMachine`, over the plan's `horizonTechnologyIds` and `defaultMachineOverrides`), so it is the machine the solve used.
 - **Rows mirror the plan.** A row with no solved node (every row of a failed block, or a row whose recipe the data set lacks) keeps its ids and omits the solved values; an unknown recipe id is kept so the mod can list it.

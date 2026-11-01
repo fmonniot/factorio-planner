@@ -3,7 +3,7 @@ import { projectSnapshot, round3 } from './project'
 import { SnapshotSchema, SNAPSHOT_VERSION } from './schema'
 import { GameDataSchema } from '../data/schema'
 import type {
-  AppState, Block, ConnectionFlow, GameData, MultiBlockSolve, PlanDataSetStamp, SolvedNode, SolverResult, SubPlan,
+  AppState, Block, ConnectionFlow, GameData, GameRecipeNode, MultiBlockSolve, PlanDataSetStamp, SolvedNode, SolverResult, SubPlan,
 } from '../data/types'
 
 // Small synthetic data set: plates are items, `steam` a fluid; `smelting` has a default machine, `crafting` none.
@@ -58,6 +58,11 @@ function plan(id: string, name: string, nodes: SubPlan['nodes'], subPlans: SubPl
 
 function rowNode(id: string, recipeId: string, machineId?: string): SubPlan['nodes'][number] {
   return { kind: 'game-recipe', id, recipeId, ...(machineId ? { machineId } : {}), modules: [], byproductPolicy: {} }
+}
+
+/** A game row with extra node keys (modules, beacon config). */
+function richNode(id: string, recipeId: string, over: Partial<GameRecipeNode>): GameRecipeNode {
+  return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...over }
 }
 
 function makeBlock(id: string, over: Partial<Block> = {}): Block {
@@ -157,7 +162,7 @@ describe('projectSnapshot', () => {
     }))
     expect(s.blocks[0].rows).toEqual([
       { recipe: 'smelt', machine: 'furnace2', machines: 1.235, machinesCeil: 2, throughput: 0, powerKw: 12.346 },
-      { recipe: 'smelt', machine: 'furnace', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      { recipe: 'smelt', machine: 'furnace', group: 0, machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
       { recipe: 'craft', machine: 'asm', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
       // `crafting` has no default machine, so the key is omitted rather than null.
       { recipe: 'craft', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
@@ -357,6 +362,164 @@ describe('projectSnapshot', () => {
     ])
     expect(s.blocks[1].connections).toEqual([{ from: 0, ...virtual, available: 10 }])
     expect(JSON.stringify(s)).not.toMatch(/"(mining|offshore|power):/)
+  })
+
+  describe('item rates', () => {
+    const rowsOf = (node: SolvedNode | undefined) => {
+      const root = plan('root', 'Main', [rowNode('n1', 'smelt')])
+      const nodes = node ? [node] : []
+      return project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result({ nodes }) } })).blocks[0].rows[0]
+    }
+
+    it('sends inputs and outputs from the solve, typed and rounded to three decimals, in the solver\'s order', () => {
+      const row = rowsOf(solved('n1', { inputRates: { steam: 12.34567, ore: 3 }, outputRates: { plate: 60.0004 } }))
+      expect(row.inputs).toEqual([{ id: 'steam', type: 'fluid', rate: 12.346 }, { id: 'ore', type: 'item', rate: 3 }])
+      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 60 }])
+    })
+
+    it('omits the keys when there is no rate, when the row is unsolved, and drops zero or unusable rates', () => {
+      expect('inputs' in rowsOf(solved('n1'))).toBe(false)
+      expect('outputs' in rowsOf(solved('n1'))).toBe(false)
+      const unsolved = rowsOf(undefined)
+      expect('inputs' in unsolved || 'outputs' in unsolved).toBe(false)
+      const row = rowsOf(solved('n1', {
+        inputRates: { a: 0, b: NaN, c: -2, d: Infinity, e: 0.0004 },
+        outputRates: { plate: 1, zero: 0 },
+      }))
+      expect('inputs' in row, 'every input rate is unusable or rounds to 0').toBe(false)
+      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 1 }])
+    })
+
+    it('leaves electricity out, and omits the key when nothing else is left', () => {
+      const root = plan('root', 'Main', [rowNode('n1', 'power:solar'), rowNode('n2', 'craft')])
+      const s = project([makeBlock('a', { rootPlan: root })], solveOf({
+        results: {
+          a: result({
+            nodes: [
+              solved('n1', { outputRates: { 'power:electricity': 3600 } }),
+              solved('n2', { inputRates: { 'power:electricity': 60, plate: 2 }, outputRates: { steam: 1 } }),
+            ],
+          }),
+        },
+      }))
+      expect('outputs' in s.blocks[0].rows[0]).toBe(false)
+      expect(s.blocks[0].rows[1]).toMatchObject({ inputs: [{ id: 'plate', type: 'item', rate: 2 }], outputs: [{ id: 'steam', type: 'fluid', rate: 1 }] })
+      // The power row's own `product` is the virtual electricity item; no rate list names it.
+      expect(JSON.stringify(s.blocks[0].rows.flatMap(r => [...(r.inputs ?? []), ...(r.outputs ?? [])]))).not.toContain('electricity')
+    })
+  })
+
+  describe('modules and beacon', () => {
+    const rowOf = (node: SubPlan['nodes'][number]) =>
+      project([makeBlock('a', { rootPlan: plan('root', 'Main', [node]) })], solveOf()).blocks[0].rows[0]
+    const beacon = () => ({ beaconId: 'beacon', moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 })
+
+    it('sends the machine\'s modules in order, and nothing when there are none', () => {
+      const row = rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: 'speed-module', count: 2 }, { moduleId: 'productivity-module', count: 1 }] }))
+      expect(row).toMatchObject({ modules: [{ id: 'speed-module', count: 2 }, { id: 'productivity-module', count: 1 }] })
+      expect('modules' in rowOf(rowNode('n1', 'smelt'))).toBe(false)
+    })
+
+    it('sends the beacon entity, how many per machine, and the module and how many of it each holds', () => {
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfig: beacon() }))).toMatchObject({
+        beacon: { id: 'beacon', count: 8, module: 'speed-module', modules: 2 },
+      })
+    })
+
+    it('sends no beacon for a config without a beacon id (made without beacon data)', () => {
+      const noId = { moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: noId }))).toBe(false)
+    })
+
+    it('sends no beacon for a config without a module (nothing to place in it)', () => {
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), moduleId: '' } }))).toBe(false)
+    })
+
+    it('skips a machine module slot with an empty module id', () => {
+      const row = rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }, { moduleId: 'speed-module', count: 1 }] }))
+      expect(row.modules).toEqual([{ id: 'speed-module', count: 1 }])
+      expect('modules' in rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }] }))).toBe(false)
+    })
+
+    it('sends no beacon for a count of 0', () => {
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), beaconCount: 0 } }))).toBe(false)
+    })
+  })
+
+  describe('groups', () => {
+    const project1 = (root: SubPlan, ids: string[] = []) =>
+      project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result({ nodes: ids.map(id => solved(id)) }) } })).blocks[0]
+    const handle = (id: string, subPlanId: string) => ({ kind: 'subplan' as const, id, subPlanId })
+
+    it('has no groups and no row group for a plan without sub-factories', () => {
+      const b = project1(plan('root', 'Main', [rowNode('n1', 'smelt'), rowNode('n2', 'craft')]))
+      expect('groups' in b).toBe(false)
+      expect(b.rows.every(r => !('group' in r))).toBe(true)
+    })
+
+    it('leaves a row of the root plan without a group, and numbers a sub-factory in table order', () => {
+      const root = plan('root', 'Main', [rowNode('n1', 'smelt'), handle('h', 'sp')], [plan('sp', 'Sub', [rowNode('n2', 'smelt')])])
+      const b = project1(root)
+      expect(b.groups).toEqual([{ name: 'Sub' }])
+      expect(b.rows.map(r => r.group)).toEqual([undefined, 0])
+    })
+
+    it('orders nested sub-factories parents first, with parent set from the enclosing sub-factory', () => {
+      const inner = plan('in', 'Inner', [rowNode('n3', 'smelt')])
+      const mid = plan('mid', 'Middle', [rowNode('n2', 'smelt'), handle('h2', 'in')], [inner])
+      const other = plan('other', 'Other', [rowNode('n4', 'smelt')])
+      const root = plan('root', 'Main', [handle('h1', 'mid'), handle('h3', 'other')], [mid, other])
+      const b = project1(root)
+      expect(b.groups).toEqual([{ name: 'Middle' }, { name: 'Inner', parent: 0 }, { name: 'Other' }])
+      expect(b.rows.map(r => r.group)).toEqual([0, 1, 2])
+    })
+
+    it('puts a row after a nested sub-factory back in the enclosing group (P[a, S, b] gives P, S, P)', () => {
+      const s = plan('s', 'S', [rowNode('n2', 'smelt')])
+      const p = plan('p', 'P', [rowNode('n1', 'smelt'), handle('h2', 's'), rowNode('n3', 'smelt')], [s])
+      const b = project1(plan('root', 'Main', [handle('h1', 'p')], [p]))
+      expect(b.groups).toEqual([{ name: 'P' }, { name: 'S', parent: 0 }])
+      expect(b.rows.map(r => r.group)).toEqual([0, 1, 0])
+    })
+
+    it('gives a group to a sub-factory that holds only nested ones', () => {
+      const inner = plan('in', 'Inner', [rowNode('n1', 'smelt')])
+      const outer = plan('out', 'Outer', [handle('h2', 'in')], [inner])
+      const b = project1(plan('root', 'Main', [handle('h1', 'out')], [outer]))
+      expect(b.groups).toEqual([{ name: 'Outer' }, { name: 'Inner', parent: 0 }])
+      expect(b.rows.map(r => r.group)).toEqual([1])
+    })
+
+    it('does not send a sub-factory with no rows at any depth', () => {
+      const empty = plan('e', 'Empty', [], [plan('e2', 'Emptier', [])])
+      const full = plan('f', 'Full', [rowNode('n1', 'smelt')])
+      const b = project1(plan('root', 'Main', [handle('h1', 'e'), handle('h2', 'f')], [empty, full]))
+      expect(b.groups).toEqual([{ name: 'Full' }])
+      expect(b.rows.map(r => r.group)).toEqual([0])
+      expect('groups' in project1(plan('root', 'Main', [rowNode('n1', 'smelt')], [empty]))).toBe(false)
+    })
+
+    it('marks a separate area with area: true, and a plain sub-factory has no area key', () => {
+      const plain = plan('plain', 'Plain', [rowNode('n2', 'smelt')])
+      const area = plan('ar', 'Furnaces', [rowNode('n1', 'smelt'), handle('h2', 'plain')], [plain], true)
+      const b = project1(plan('root', 'Main', [handle('h1', 'ar')], [area]))
+      expect(b.groups).toEqual([{ name: 'Furnaces', area: true }, { name: 'Plain', parent: 0 }])
+      expect(b.groups?.[1]).not.toHaveProperty('area')
+    })
+
+    it('visits a sub-factory without a handle after the plan\'s own rows', () => {
+      const loose = plan('loose', 'Loose', [rowNode('n2', 'smelt')])
+      const b = project1(plan('root', 'Main', [rowNode('n1', 'smelt')], [loose]))
+      expect(b.groups).toEqual([{ name: 'Loose' }])
+      expect(b.rows.map(r => r.group)).toEqual([undefined, 0])
+    })
+
+    it('keeps the groups of a block whose solve failed', () => {
+      const root = plan('root', 'Main', [handle('h', 'sp')], [plan('sp', 'Sub', [rowNode('n1', 'smelt')])])
+      const s = project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result() }, errors: { a: 'boom' } }))
+      expect(s.blocks[0].groups).toEqual([{ name: 'Sub' }])
+      expect(s.blocks[0].rows).toEqual([{ recipe: 'smelt', machine: 'furnace2', group: 0 }])
+    })
   })
 
   it('is pure: it does not change its inputs', () => {

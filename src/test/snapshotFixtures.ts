@@ -5,7 +5,7 @@ import { loadGameDataFromJson } from '../data/loader'
 import { solveAll } from '../solver'
 import { projectSnapshot } from '../snapshot/project'
 import { SnapshotSchema, type Snapshot } from '../snapshot/schema'
-import type { AppState, Block, GameData, MultiBlockSolve, PlanDataSetStamp, RecipeNode, SubPlan } from '../data/types'
+import type { AppState, Block, GameData, GameRecipeNode, MultiBlockSolve, PlanDataSetStamp, RecipeNode, SubPlan } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Builds the shared snapshot fixtures (contract/fixtures/*.json) and the JSON Schema
@@ -24,6 +24,11 @@ const NOW = '2026-01-01T00:00:00.000Z'
 
 function row(id: string, recipeId: string, machineId?: string): RecipeNode {
   return { kind: 'game-recipe', id, recipeId, ...(machineId ? { machineId } : {}), modules: [], byproductPolicy: {} }
+}
+
+/** A game row with extra node keys (modules, beacon config, pinned rate). */
+function richRow(id: string, recipeId: string, over: Partial<GameRecipeNode>): GameRecipeNode {
+  return { kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {}, ...over }
 }
 
 function plan(id: string, name: string, nodes: RecipeNode[], subPlans: SubPlan[] = [], area?: true): SubPlan {
@@ -107,6 +112,43 @@ function areasPlan(gameData: GameData): Snapshot {
       name: 'Cables and gears',
       color: '#10b981',
       products: [['copper-cable', 240], ['iron-gear-wheel', 30], ['water']],
+      rootPlan: root,
+    }),
+  ])
+}
+
+/**
+ * What the in-game table reads beyond rows: nested sub-factories (none of them an area) with a row
+ * after the nested one, a row with modules, a row with a beacon, two power rows that make
+ * electricity, and a row of the root plan after a sub-factory. Groups, per-row item rates, modules
+ * and beacon all come out of this plan.
+ */
+function groupsPlan(gameData: GameData): Snapshot {
+  const power = plan('g-power', 'Power', [row('g-r3', 'power:solar-panel'), richRow('g-r4', 'power:bob-solar-panel-large', { pinnedRate: 10 })])
+  const plates = plan(
+    'g-plates',
+    'Plates and cables',
+    [
+      richRow('g-r1', 'sb-iron-plate-from-ore', { modules: [{ moduleId: 'speed-module', count: 2 }] }),
+      { kind: 'subplan', id: 'g-h1', subPlanId: 'g-power' },
+      richRow('g-r2', 'copper-cable', {
+        beaconConfig: { beaconId: 'beacon', moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 },
+      }),
+    ],
+    [power],
+  )
+  const root = plan(
+    'g-root',
+    'Main',
+    [row('g-r0', 'iron-gear-wheel'), { kind: 'subplan', id: 'g-h0', subPlanId: 'g-plates' }, row('g-r5', 'pipe')],
+    [plates],
+  )
+  return snapshotOf(gameData, [
+    block({
+      id: 'b-groups',
+      name: 'Nested sub-factories',
+      color: '#f43f5e',
+      products: [['iron-gear-wheel', 60], ['copper-cable', 120], ['pipe', 30], ['power:electricity', 600]],
       rootPlan: root,
     }),
   ])
@@ -220,6 +262,7 @@ export function buildSnapshotFixtures(gameData: GameData = loadSeablock()): Reco
   return {
     small: smallPlan(gameData),
     'seablock-areas': areasPlan(gameData),
+    'seablock-groups': groupsPlan(gameData),
     'seablock-loop': snapshotOf(gameData, loopBlocks()),
     unicode: unicodePlan(gameData),
     'seablock-edge-cases': edgeCasesPlan(gameData),

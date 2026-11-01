@@ -1,0 +1,189 @@
+{
+  "v": 1,
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Kompetenz Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "blocks": [
+    {
+      "name": "Nested sub-factories",
+      "color": "#f43f5e",
+      "products": [
+        {
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "rate": 60
+        },
+        {
+          "id": "copper-cable",
+          "type": "item",
+          "rate": 120
+        },
+        {
+          "id": "pipe",
+          "type": "item",
+          "rate": 30
+        },
+        {
+          "id": "electricity",
+          "type": "virtual",
+          "rate": 600
+        }
+      ],
+      "groups": [
+        {
+          "name": "Plates and cables"
+        },
+        {
+          "name": "Power",
+          "parent": 0
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "iron-gear-wheel",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.143,
+          "machinesCeil": 1,
+          "throughput": 60,
+          "powerKw": 68.571,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 120
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 60
+            }
+          ]
+        },
+        {
+          "recipe": "sb-iron-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "group": 0,
+          "machines": 1.563,
+          "machinesCeil": 2,
+          "throughput": 50,
+          "powerKw": 937.5,
+          "inputs": [
+            {
+              "id": "iron-ore",
+              "type": "item",
+              "rate": 200
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 150
+            }
+          ],
+          "modules": [
+            {
+              "id": "speed-module",
+              "count": 2
+            }
+          ]
+        },
+        {
+          "kind": "power",
+          "product": {
+            "id": "electricity",
+            "type": "virtual"
+          },
+          "machine": "solar-panel",
+          "group": 1,
+          "machines": 237.799,
+          "machinesCeil": 238,
+          "throughput": 14267.936,
+          "powerKw": 0
+        },
+        {
+          "kind": "power",
+          "product": {
+            "id": "electricity",
+            "type": "virtual"
+          },
+          "machine": "bob-solar-panel-large",
+          "group": 1,
+          "machines": 0.167,
+          "machinesCeil": 1,
+          "throughput": 10,
+          "powerKw": 0
+        },
+        {
+          "recipe": "copper-cable",
+          "machine": "bob-assembling-machine-6",
+          "group": 0,
+          "machines": 0.025,
+          "machinesCeil": 1,
+          "throughput": 60,
+          "powerKw": 153.695,
+          "inputs": [
+            {
+              "id": "copper-plate",
+              "type": "item",
+              "rate": 60
+            }
+          ],
+          "outputs": [
+            {
+              "id": "copper-cable",
+              "type": "item",
+              "rate": 120
+            }
+          ],
+          "beacon": {
+            "id": "beacon",
+            "count": 8,
+            "module": "speed-module",
+            "modules": 2
+          }
+        },
+        {
+          "recipe": "pipe",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.071,
+          "machinesCeil": 1,
+          "throughput": 30,
+          "powerKw": 34.286,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 30
+            }
+          ],
+          "outputs": [
+            {
+              "id": "pipe",
+              "type": "item",
+              "rate": 30
+            }
+          ]
+        }
+      ],
+      "imports": [
+        {
+          "id": "iron-ore",
+          "type": "item",
+          "rate": 200
+        },
+        {
+          "id": "copper-plate",
+          "type": "item",
+          "rate": 60
+        }
+      ],
+      "warnings": [],
+      "connections": []
+    }
+  ]
+}

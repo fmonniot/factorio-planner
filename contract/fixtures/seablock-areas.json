@@ -31,6 +31,16 @@
         "Smelting",
         "Pumps"
       ],
+      "groups": [
+        {
+          "name": "Smelting",
+          "area": true
+        },
+        {
+          "name": "Pumps",
+          "area": true
+        }
+      ],
       "rows": [
         {
           "recipe": "copper-cable",
@@ -39,25 +49,69 @@
           "machines": 0.286,
           "machinesCeil": 1,
           "throughput": 120,
-          "powerKw": 137.143
+          "powerKw": 137.143,
+          "inputs": [
+            {
+              "id": "copper-plate",
+              "type": "item",
+              "rate": 120
+            }
+          ],
+          "outputs": [
+            {
+              "id": "copper-cable",
+              "type": "item",
+              "rate": 240
+            }
+          ]
         },
         {
           "recipe": "sb-copper-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
           "area": 1,
+          "group": 0,
           "machines": 1.75,
           "machinesCeil": 2,
           "throughput": 40,
-          "powerKw": 525
+          "powerKw": 525,
+          "inputs": [
+            {
+              "id": "copper-ore",
+              "type": "item",
+              "rate": 160
+            }
+          ],
+          "outputs": [
+            {
+              "id": "copper-plate",
+              "type": "item",
+              "rate": 120
+            }
+          ]
         },
         {
           "recipe": "sb-iron-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
           "area": 1,
+          "group": 0,
           "machines": 0.875,
           "machinesCeil": 1,
           "throughput": 20,
-          "powerKw": 262.5
+          "powerKw": 262.5,
+          "inputs": [
+            {
+              "id": "iron-ore",
+              "type": "item",
+              "rate": 80
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 60
+            }
+          ]
         },
         {
           "kind": "offshore",
@@ -67,6 +121,7 @@
           },
           "machine": "angels-sea-pump-placeable",
           "area": 2,
+          "group": 1,
           "machines": 0,
           "machinesCeil": 0,
           "throughput": 0,
@@ -76,10 +131,25 @@
           "recipe": "iron-gear-wheel",
           "machine": "bob-assembling-machine-6",
           "area": 2,
+          "group": 1,
           "machines": 0.071,
           "machinesCeil": 1,
           "throughput": 30,
-          "powerKw": 34.286
+          "powerKw": 34.286,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 60
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 30
+            }
+          ]
         }
       ],
       "imports": [

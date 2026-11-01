@@ -3,7 +3,7 @@
   "summary": "The ping carries the newest id. It sets Stale when it differs from the stored id, and clears it when it matches or names nothing.",
   "start": {
     "stored": {
-      "id": "9b3b078dbd018b94",
+      "id": "721d0a38833f2efa",
       "unknownIds": 0
     }
   },
@@ -15,13 +15,13 @@
       "arrive": [
         {
           "type": "ping",
-          "text": "FP01 P 9b3b078dbd018b94",
-          "hex": "4650303120502039623362303738646264303138623934"
+          "text": "FP01 P 721d0a38833f2efa",
+          "hex": "4650303120502037323164306133383833336632656661"
         }
       ],
-      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "answer": "FP01 H 721d0a38833f2efa 0 ----------------",
       "after": {
-        "stored": "9b3b078dbd018b94",
+        "stored": "721d0a38833f2efa",
         "unknownIds": 0,
         "assembling": null,
         "have": [],
@@ -33,13 +33,13 @@
       "arrive": [
         {
           "type": "ping",
-          "text": "FP01 P 1570f001d9c7e79b",
-          "hex": "4650303120502031353730663030316439633765373962"
+          "text": "FP01 P c39efc8c0c93af10",
+          "hex": "4650303120502063333965666338633063393361663130"
         }
       ],
-      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "answer": "FP01 H 721d0a38833f2efa 0 ----------------",
       "after": {
-        "stored": "9b3b078dbd018b94",
+        "stored": "721d0a38833f2efa",
         "unknownIds": 0,
         "assembling": null,
         "have": [],
@@ -55,9 +55,9 @@
           "hex": "465030312050202d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d"
         }
       ],
-      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "answer": "FP01 H 721d0a38833f2efa 0 ----------------",
       "after": {
-        "stored": "9b3b078dbd018b94",
+        "stored": "721d0a38833f2efa",
         "unknownIds": 0,
         "assembling": null,
         "have": [],
