@@ -278,6 +278,71 @@
     },
     {
       "reader": "bridge-udp",
+      "why": "ack count padded with zeros",
+      "hex": "46503031204120303132333435363738396162636465662030303032"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "ack count over MAX_UNKNOWN_IDS",
+      "hex": "4650303120412030313233343536373839616263646566203130303030"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "hello count padded with zeros",
+      "hex": "4650303120482030313233343536373839616263646566203032202d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "hello count of four digits padded",
+      "hex": "46503031204820303132333435363738396162636465662030303030202d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "report index padded with zeros",
+      "hex": "46503031204d203031323334353637383961626364656620303030302030312c303033"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "report range padded with zeros",
+      "hex": "46503031204d2030313233343536373839616263646566203030303020312d3034"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "report index over MAX_CHUNKS",
+      "hex": "46503031204d203031323334353637383961626364656620303030302031303030"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "report range ending over MAX_CHUNKS",
+      "hex": "46503031204d2030313233343536373839616263646566203030303020352d31303030"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "report of another version: only a hello is read",
+      "hex": "4650303220522030313233343536373839616263646566"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "ping of another version: only a hello is read",
+      "hex": "4650303220502030313233343536373839616263646566"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "another version without a type",
+      "hex": "4650303220"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "version not two digits",
+      "hex": "465031782048"
+    },
+    {
+      "reader": "bridge-udp",
+      "why": "version of one digit",
+      "hex": "4650322048"
+    },
+    {
+      "reader": "bridge-udp",
       "why": "nack with no reason",
       "hex": "46503031204e2030313233343536373839616263646566"
     },
@@ -340,6 +405,13 @@
       "frame": "binary",
       "why": "byte length over MAX_SNAPSHOT_BYTES",
       "hex": "46503031205320303132333435363738396162636465662038303030303031207b7d",
+      "error": "too-large"
+    },
+    {
+      "reader": "bridge-ws",
+      "frame": "binary",
+      "why": "byte length at the largest the field can state",
+      "hex": "46503031205320303132333435363738396162636465662039393939393939207b7d",
       "error": "too-large"
     },
     {

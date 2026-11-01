@@ -26,6 +26,7 @@ export const WIRE = {
   PACE_INTERVAL: 20,
   MAX_CHUNKS: 1000,
   MAX_SNAPSHOT_BYTES: 8_000_000,
+  MAX_FRAME_BYTES: 10_000_031,
   MAX_REPORT_RANGES: 12,
   MAX_REPORT_BYTES: 124,
   MAX_UNKNOWN_IDS: 9999,
@@ -37,8 +38,8 @@ export const WIRE = {
   PING_INTERVAL: 5,
   PING_INTERVAL_MAX: 300,
   PING_BACKOFF_DIVISOR: 16,
-  PING_NUDGE_GAP: 2,
   QUIET_AFTER: 15,
+  GAME_UPS: 60,
   DISCONNECT_TICKS: 1080,
   NO_PROGRESS_LIMIT: 8,
   PLANNER_RETRY: 5,
@@ -78,7 +79,7 @@ function transferOf(data: Buffer, chunkSize: number): Transfer {
   return { id: snapshotId(data), bytes: data.length, count: chunks.length, data, chunks }
 }
 
-interface Datagram {
+export interface Datagram {
   type: string
   /** The readable part: everything but a chunk's payload or a probe's padding. `hex` is the datagram. */
   text: string
@@ -113,7 +114,7 @@ const missing = (id: string, round: number, ranges: string): string => `${PREFIX
 const ack = (id: string, unknownIds: number): string => `${PREFIX} A ${id} ${unknownIds}`
 const nack = (id: string, reason: string): string => `${PREFIX} N ${id} ${reason}`
 
-interface ModState {
+export interface ModState {
   stored: string | null
   unknownIds: number
   assembling: string | null
@@ -122,19 +123,21 @@ interface ModState {
   mismatch: boolean
 }
 
-interface Poll {
+export interface Poll {
   arrive: Datagram[]
   answer: string | null
   after: ModState
 }
 
-interface BridgeStep {
+export interface BridgeStep {
   hears: string
   /** What the bridge sends next: a window, the same end-of-window again, a new probe, or nothing. */
   sends: { round: number; indices: number[]; upto: number } | { endOfWindow: { round: number; upto: number } } | { probe: true } | null
+  /** When present: the bridge's phase after hearing this, for the steps that end or leave a terminal phase. */
+  state?: 'delivered' | 'rejected' | 'failed'
 }
 
-interface Case {
+export interface Case {
   case: string
   summary: string
   /** The snapshot the transfer carries, when the case has one. `hex` is what the chunks must join to. */
@@ -341,7 +344,6 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     const round2 = [...first12, ...range(36, 40)]
     const twelve = first12.join(',')
     const lateEven = even(24, 34)
-    const round3 = lateEven
     cases.push({
       case: 'report-worst-case',
       summary: 'Alternating loss across 41 chunks. The report stops at MAX_REPORT_RANGES ranges, lowest first, and stays under MAX_REPORT_BYTES; later rounds report the rest.',
@@ -366,7 +368,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
           after: state({ assembling: t.id, have: [...odd(0, 35), ...first12, ...range(36, 40)].sort((a, b) => a - b) }),
         },
         {
-          arrive: [...round3.map(i => chunk(t, i)), endOfWindow(t.id, 3, t.count)],
+          arrive: [...lateEven.map(i => chunk(t, i)), endOfWindow(t.id, 3, t.count)],
           answer: ack(t.id, 0),
           after: state({ stored: t.id }),
         },
@@ -375,7 +377,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
         { hears: ready(t.id), sends: { round: 0, indices: range(0, 23), upto: 24 } },
         { hears: missing(t.id, 0, twelve), sends: { round: 1, indices: round1, upto: 36 } },
         { hears: missing(t.id, 1, twelve), sends: { round: 2, indices: round2, upto: t.count } },
-        { hears: missing(t.id, 2, lateEven.join(',')), sends: { round: 3, indices: round3, upto: t.count } },
+        { hears: missing(t.id, 2, lateEven.join(',')), sends: { round: 3, indices: lateEven, upto: t.count } },
         { hears: ack(t.id, 0), sends: null },
       ],
     })
@@ -642,6 +644,98 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
       ],
     })
   }
+  {
+    // 226 chunks make ten windows. Every report names nothing missing, nine times in a row: more
+    // than NO_PROGRESS_LIMIT, yet healthy, because `upto` advances every time.
+    const t = transferOf(bytesOf('seablock-loop'), 9)
+    const windows = Math.ceil(t.count / WIRE.WINDOW_CHUNKS)
+    const window = (k: number): number[] => range(k * WIRE.WINDOW_CHUNKS, Math.min((k + 1) * WIRE.WINDOW_CHUNKS, t.count) - 1)
+    const upto = (k: number): number => Math.min((k + 1) * WIRE.WINDOW_CHUNKS, t.count)
+    const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]
+    const steps: BridgeStep[] = [{ hears: ready(t.id), sends: { round: 0, indices: window(0), upto: upto(0) } }]
+    for (let k = 0; k < windows - 1; k++) {
+      polls.push({
+        arrive: [...window(k).map(i => chunk(t, i)), endOfWindow(t.id, k, upto(k))],
+        answer: missing(t.id, k, '-'),
+        after: state({ assembling: t.id, have: range(0, upto(k) - 1) }),
+      })
+      steps.push({ hears: missing(t.id, k, '-'), sends: { round: k + 1, indices: window(k + 1), upto: upto(k + 1) } })
+    }
+    polls.push({
+      arrive: [...window(windows - 1).map(i => chunk(t, i)), endOfWindow(t.id, windows - 1, t.count)],
+      answer: ack(t.id, 0),
+      after: state({ stored: t.id }),
+    })
+    steps.push({ hears: ack(t.id, 0), sends: null })
+    cases.push({
+      case: 'many-windows',
+      summary: 'Ten windows, nine reports in a row that name nothing missing. The ranges repeat but `upto` advances every time, so this is progress: more reports than NO_PROGRESS_LIMIT, and the bridge keeps sending.',
+      snapshot: snapshotRef('seablock-loop', t, 9),
+      start: none,
+      idCheck: noUnknown,
+      polls,
+      bridge: steps,
+    })
+  }
+  {
+    // Every chunk of every window is lost; only the end-of-window arrives. The report is the same
+    // eight times and `upto` stays at 24: the run reaches NO_PROGRESS_LIMIT and the bridge gives up.
+    // The window then turns up late, the mod stores the snapshot, and the next hello moves the
+    // bridge out of Failed.
+    const t = transferOf(bytesOf('seablock-loop'), 64)
+    const first = range(0, 23)
+    const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]
+    const steps: BridgeStep[] = [{ hears: ready(t.id), sends: { round: 0, indices: first, upto: 24 } }]
+    for (let r = 0; r < WIRE.NO_PROGRESS_LIMIT; r++) {
+      polls.push({ arrive: [endOfWindow(t.id, r, 24)], answer: missing(t.id, r, '0-23'), after: state({ assembling: t.id }) })
+      steps.push(
+        r < WIRE.NO_PROGRESS_LIMIT - 1
+          ? { hears: missing(t.id, r, '0-23'), sends: { round: r + 1, indices: first, upto: 24 } }
+          : { hears: missing(t.id, r, '0-23'), sends: null, state: 'failed' },
+      )
+    }
+    polls.push({
+      arrive: [...range(0, t.count - 1).map(i => chunk(t, i)), endOfWindow(t.id, WIRE.NO_PROGRESS_LIMIT, t.count)],
+      answer: ack(t.id, 0),
+      after: state({ stored: t.id }),
+    })
+    steps.push({ hears: ack(t.id, 0), sends: null, state: 'failed' })
+    polls.push({ arrive: [ping(t.id)], answer: hello(t.id, 0, NO_ID), after: state({ stored: t.id }) })
+    steps.push({ hears: hello(t.id, 0, NO_ID), sends: null, state: 'delivered' })
+    cases.push({
+      case: 'no-progress',
+      summary: 'Eight reports in a row with the same ranges and the same `upto` stop the transfer in Failed, with nothing more sent. An ack is ignored there, but a hello showing the mod stores the snapshot moves the bridge to Delivered.',
+      snapshot: snapshotRef('seablock-loop', t, 64),
+      start: none,
+      idCheck: noUnknown,
+      polls,
+      bridge: steps,
+    })
+  }
+  {
+    // The declared length is one byte too many, so the mod refuses with `length`. Later the same
+    // snapshot is in the mod's storage (a save that holds it was loaded): the hello moves the bridge on.
+    const real = transferOf(bytesOf('small'), 128)
+    const t = { ...real, bytes: real.bytes + 1 }
+    const all = range(0, t.count - 1)
+    cases.push({
+      case: 'rejected-then-stored',
+      summary: 'A refused transfer leaves the bridge in Rejected. A hello that shows the mod stores the snapshot after all moves it to Delivered; a hello that does not leaves it alone.',
+      snapshot: snapshotRef('small', real, 128),
+      start: none,
+      idCheck: noUnknown,
+      polls: [
+        { arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) },
+        { arrive: [...all.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)], answer: nack(t.id, 'length'), after: state({}) },
+      ],
+      bridge: [
+        { hears: ready(t.id), sends: { round: 0, indices: all, upto: t.count } },
+        { hears: nack(t.id, 'length'), sends: null, state: 'rejected' },
+        { hears: hello(OLD_ID, 0, NO_ID), sends: null, state: 'rejected' },
+        { hears: hello(t.id, 0, NO_ID), sends: null, state: 'delivered' },
+      ],
+    })
+  }
   return cases
 }
 
@@ -698,6 +792,8 @@ function buildMessages(snapshots: Record<string, Snapshot>): { protocol: number;
   modMessage('hello', 'hello', hello(id, 2, NO_ID), { protocol: 1, stored: id, unknownIds: 2, assembling: null })
   modMessage('hello-empty', 'hello', hello(NO_ID, 0, NO_ID), { protocol: 1, stored: null, unknownIds: 0, assembling: null })
   modMessage('hello-assembling', 'hello', hello(id, 2, newer), { protocol: 1, stored: id, unknownIds: 2, assembling: newer })
+  modMessage('hello-other-version', 'hello', 'FP02 H 5 any other layout, never read', { protocol: 2 })
+  modMessage('hello-other-version-short', 'hello', 'FP02 H', { protocol: 2 })
   modMessage('ready', 'ready', ready(id), { protocol: 1, id })
   modMessage('missing-none', 'missing', missing(id, 0, '-'), { protocol: 1, id, round: 0, missing: [] })
   modMessage('missing', 'missing', missing(id, 1, '1,3-5,9'), {
@@ -842,6 +938,19 @@ function buildMalformed(): { protocol: number; inputs: Malformed[] } {
   bridge('report with thirteen ranges', `FP01 M ${id} 0000 0,2,4,6,8,10,12,14,16,18,20,22,24`)
   bridge('ack with no count', `FP01 A ${id}`)
   bridge('ack count not a number', `FP01 A ${id} x`)
+  bridge('ack count padded with zeros', `FP01 A ${id} 0002`)
+  bridge('ack count over MAX_UNKNOWN_IDS', `FP01 A ${id} 10000`)
+  bridge('hello count padded with zeros', `FP01 H ${id} 02 ${NO_ID}`)
+  bridge('hello count of four digits padded', `FP01 H ${id} 0000 ${NO_ID}`)
+  bridge('report index padded with zeros', `FP01 M ${id} 0000 01,003`)
+  bridge('report range padded with zeros', `FP01 M ${id} 0000 1-04`)
+  bridge('report index over MAX_CHUNKS', `FP01 M ${id} 0000 1000`)
+  bridge('report range ending over MAX_CHUNKS', `FP01 M ${id} 0000 5-1000`)
+  bridge('report of another version: only a hello is read', `FP02 R ${id}`)
+  bridge('ping of another version: only a hello is read', `FP02 P ${id}`)
+  bridge('another version without a type', 'FP02 ')
+  bridge('version not two digits', 'FP1x H')
+  bridge('version of one digit', 'FP2 H')
   bridge('nack with no reason', `FP01 N ${id}`)
   bridge('nack reason not a word', `FP01 N ${id} Bad-Reason`)
 
@@ -854,6 +963,7 @@ function buildMalformed(): { protocol: number; inputs: Malformed[] } {
   ws('frame shorter than the byte length', 'binary', envelope({ bytes: '0000003' }) + '{}', 'bad-envelope')
   ws('frame longer than the byte length', 'binary', envelope({ bytes: '0000001' }) + '{}', 'bad-envelope')
   ws('byte length over MAX_SNAPSHOT_BYTES', 'binary', envelope({ bytes: '8000001' }) + '{}', 'too-large')
+  ws('byte length at the largest the field can state', 'binary', envelope({ bytes: '9999999' }) + '{}', 'too-large')
   ws('other protocol version', 'binary', envelope().replace('FP01', 'FP02') + '{}', 'protocol-mismatch')
   ws('text frame that is not JSON', 'text', 'not json', 'bad-message')
   ws('text frame of an unknown type', 'text', '{"type":"reset","protocol":1}', 'bad-message')

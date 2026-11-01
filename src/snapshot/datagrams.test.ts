@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 import { join, resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { SnapshotSchema, SNAPSHOT_VERSION } from './schema'
-import { WIRE } from '../test/datagramFixtures'
+import { WIRE, NO_ID, type Case, type BridgeStep, type ModState } from '../test/datagramFixtures'
 
 // Holds contract/datagrams/ to initiatives/in-game-viewer/protocol.md. The reader and the window
 // builder below are written from the document, separately from the fixtures' encoder, and the
@@ -15,26 +15,13 @@ const DATAGRAMS = join(ROOT, 'contract/datagrams')
 const DOC = readFileSync(join(ROOT, 'initiatives/in-game-viewer/protocol.md'), 'utf-8')
 const readJson = (file: string): unknown => JSON.parse(readFileSync(join(DATAGRAMS, file), 'utf-8'))
 
-const NO_ID = '-'.repeat(16)
 const ID = /^[0-9a-f]{16}$/
 const hexBytes = (hex: string): Buffer => Buffer.from(hex, 'hex')
 
-interface Arrival { type: string; text: string; hex: string }
-interface ModState { stored: string | null; unknownIds: number; assembling: string | null; have: number[]; stale: boolean; mismatch: boolean }
-interface Poll { arrive: Arrival[]; answer: string | null; after: ModState }
-interface BridgeWindow { round: number; indices: number[]; upto: number }
-interface BridgeStep { hears: string; sends: BridgeWindow | { endOfWindow: { round: number; upto: number } } | { probe: true } | null }
-interface Case {
-  case: string
-  summary: string
-  snapshot?: { fixture: string; id: string; bytes: number; chunkSize: number; hex: string }
-  start: { stored: { id: string; unknownIds: number } | null }
-  idCheck: { unknownIds: number }
-  polls: Poll[]
-  bridge?: BridgeStep[]
-}
 interface Message { name: string; link: string; from: string; to: string; frame?: string; type: string; doc: string; hex: string; fields: Record<string, unknown> }
 interface Malformed { reader: string; frame?: string; why: string; hex: string; error?: string }
+
+interface BridgeWindow { round: number; indices: number[]; upto: number }
 
 // --- The bytes, as the document lays them out ----------------------------------------------------
 
@@ -81,12 +68,17 @@ function parseModInput(d: Buffer): Parsed | null {
   return null
 }
 
+// Numbers from the mod are unpadded: no leading zero, and within their bound.
+const INDEX = '(?:0|[1-9]\\d{0,2})' // 0 to 999, MAX_CHUNKS - 1
+const COUNT = /^(?:0|[1-9]\d{0,3})$/ // 0 to 9999, MAX_UNKNOWN_IDS
+
 /** The ranges of a report, or null when they break the rules. `-` is an empty list. */
 function parseRanges(text: string): [number, number][] | null {
   if (text === '-') return []
   const out: [number, number][] = []
+  const entryPattern = new RegExp(`^(${INDEX})(?:-(${INDEX}))?$`)
   for (const entry of text.split(',')) {
-    const m = /^(\d+)(?:-(\d+))?$/.exec(entry)
+    const m = entryPattern.exec(entry)
     if (!m) return null
     const first = +m[1]
     const last = m[2] === undefined ? first : +m[2]
@@ -100,28 +92,29 @@ function parseRanges(text: string): [number, number][] | null {
 /** What the bridge reads from a mod message; null is "drop". */
 function parseBridgeInput(d: Buffer): Record<string, unknown> | null {
   const text = d.toString('latin1')
+  const prefix = /^FP(\d\d) ([A-Z])/.exec(text)
+  if (!prefix) return null
+  const protocol = +prefix[1]
+  // Another version: only its hello is read, from the first 6 bytes. Nothing after them is looked at.
+  if (protocol !== 1) return prefix[2] === 'H' ? { protocol } : null
   const parts = text.split(' ')
-  if (!/^FP\d\d$/.test(parts[0]) || parts.length < 2) return null
-  const protocol = +parts[0].slice(2)
-  const id = /^[0-9a-f]{16}$/
   const idOrNone = /^([0-9a-f]{16}|-{16})$/
-  const count = /^\d{1,4}$/
   const orNull = (s: string): string | null => (s === NO_ID ? null : s)
   switch (parts[1]) {
     case 'H':
-      if (parts.length !== 5 || !idOrNone.test(parts[2]) || !count.test(parts[3]) || !idOrNone.test(parts[4])) return null
+      if (parts.length !== 5 || !idOrNone.test(parts[2]) || !COUNT.test(parts[3]) || !idOrNone.test(parts[4])) return null
       return { protocol, stored: orNull(parts[2]), unknownIds: +parts[3], assembling: orNull(parts[4]) }
     case 'R':
-      return parts.length === 3 && id.test(parts[2]) ? { protocol, id: parts[2] } : null
+      return parts.length === 3 && ID.test(parts[2]) ? { protocol, id: parts[2] } : null
     case 'M': {
-      if (parts.length !== 5 || !id.test(parts[2]) || !/^\d{4}$/.test(parts[3])) return null
+      if (parts.length !== 5 || !ID.test(parts[2]) || !/^\d{4}$/.test(parts[3])) return null
       const ranges = parseRanges(parts[4])
       return ranges ? { protocol, id: parts[2], round: +parts[3], missing: ranges } : null
     }
     case 'A':
-      return parts.length === 4 && id.test(parts[2]) && count.test(parts[3]) ? { protocol, id: parts[2], unknownIds: +parts[3] } : null
+      return parts.length === 4 && ID.test(parts[2]) && COUNT.test(parts[3]) ? { protocol, id: parts[2], unknownIds: +parts[3] } : null
     case 'N':
-      return parts.length === 4 && id.test(parts[2]) && /^[a-z]+$/.test(parts[3]) ? { protocol, id: parts[2], reason: parts[3] } : null
+      return parts.length === 4 && ID.test(parts[2]) && /^[a-z]+$/.test(parts[3]) ? { protocol, id: parts[2], reason: parts[3] } : null
     default:
       return null
   }
@@ -303,7 +296,16 @@ describe('the document and the fixtures agree', () => {
     expect(WIRE.MAX_DATAGRAM).toBeLessThan(9216)
     expect(WIRE.MAX_SNAPSHOT_BYTES).toBe(WIRE.MAX_CHUNKS * WIRE.CHUNK_PAYLOAD)
     expect(WIRE.QUIET_AFTER).toBe(3 * WIRE.PING_INTERVAL)
-    expect(WIRE.DISCONNECT_TICKS).toBe((3 * WIRE.PING_INTERVAL + 3) * 60)
+    expect(WIRE.DISCONNECT_TICKS).toBe((3 * WIRE.PING_INTERVAL + 3) * WIRE.GAME_UPS)
+    // The mod compares ticks with DISCONNECT_TICKS * game.speed. Ticks run at GAME_UPS * game.speed
+    // per second, so the wall-clock threshold is the same at every speed.
+    for (const speed of [0.5, 1, 2, 8]) {
+      expect((WIRE.DISCONNECT_TICKS * speed) / (WIRE.GAME_UPS * speed), `speed ${speed}`).toBe(3 * WIRE.PING_INTERVAL + 3)
+    }
+    // The frame limit holds any envelope the 7-digit field can state, and so the guard too.
+    expect(WIRE.MAX_FRAME_BYTES).toBe(WIRE.WS_ENVELOPE + 9_999_999)
+    expect(WIRE.MAX_FRAME_BYTES).toBeGreaterThan(WIRE.WS_ENVELOPE + WIRE.MAX_SNAPSHOT_BYTES)
+    expect(String(WIRE.MAX_SNAPSHOT_BYTES).length).toBeLessThanOrEqual(7)
     expect(WIRE.MAX_REPORT_RANGES).toBe(WIRE.WINDOW_CHUNKS / 2)
     expect(WIRE.MAX_REPORT_BYTES).toBe(29 + WIRE.MAX_REPORT_RANGES * 7 + (WIRE.MAX_REPORT_RANGES - 1))
     // The window takes at most PACE_CHUNKS every PACE_INTERVAL, the spike's rate.
@@ -325,6 +327,12 @@ describe('the document and the fixtures agree', () => {
     for (const line of examples) {
       expect(messages.some(m => line.startsWith(m.doc.replace(/ $/, ''))), line).toBe(true)
     }
+  })
+
+  it('shows a hello of another version, which the bridge reads by its first 6 bytes alone', () => {
+    const m = messages.find(x => x.name === 'hello-other-version') as Message
+    expect(DOC).toContain(m.doc)
+    expect(m.fields).toEqual({ protocol: 2 })
   })
 
   it('does not link to spec/, which it may only do once the code ships', () => {
@@ -400,6 +408,20 @@ describe('the buffer budget', () => {
     expect((hoursUntil(Math.floor(BUFFER / NOMINAL)) / 24).toFixed(1)).toBe('7.7')
   })
 
+  it('states the worst case of the nudges the document states', () => {
+    const room = BUFFER - ((WIRE.WINDOW_CHUNKS + WIRE.PROBE_BURST) * LARGE + END)
+    const perHour = 3600 / WIRE.PING_INTERVAL
+    expect(perHour).toBe(720)
+    expect(Math.round((perHour * NOMINAL) / 1000)).toBe(83)
+    expect(Math.round((perHour * PESSIMISTIC) / 1000)).toBe(138)
+    expect(Math.round((100 * NOMINAL) / 1000)).toBe(12)
+    expect(Math.round((100 * PESSIMISTIC) / 1000)).toBe(19)
+    expect(100 * WIRE.PING_INTERVAL / 60).toBeGreaterThan(8)
+    expect(Math.round((Math.floor(room / PESSIMISTIC) * WIRE.PING_INTERVAL) / 60)).toBe(18)
+    expect(Math.round((Math.floor(room / NOMINAL) * WIRE.PING_INTERVAL) / 60)).toBe(31)
+    expect(DOC).toContain('after 18 minutes at 192 B, or 31 minutes at 115 B')
+  })
+
   it('shows why the back-off exists: a fixed ping fills the room in under an hour', () => {
     const windowRoom = BUFFER - (WIRE.WINDOW_CHUNKS * LARGE + END)
     expect(Math.floor(windowRoom / NOMINAL) * WIRE.PING_INTERVAL).toBeLessThan(3600)
@@ -415,6 +437,13 @@ describe('contract/datagrams/messages.json', () => {
     for (const t of ['hello', 'ready', 'missing', 'ack', 'nack']) expect(types.has(`udp mod ${t}`), t).toBe(true)
     for (const t of ['snapshot', 'announce']) expect(types.has(`ws planner ${t}`), t).toBe(true)
     for (const t of ['status', 'error']) expect(types.has(`ws bridge ${t}`), t).toBe(true)
+  })
+
+  it('has a hello of another version, laid out differently from this one', () => {
+    for (const name of ['hello-other-version', 'hello-other-version-short']) {
+      const m = messages.find(x => x.name === name) as Message
+      expect(parseBridgeInput(hexBytes(m.hex))).toEqual({ protocol: 2 })
+    }
   })
 
   it('has a status for every link and every transfer state, and every error and refusal', () => {
@@ -493,6 +522,7 @@ describe('contract/datagrams/case-*.json', () => {
       'report-worst-case', 'lost-end-of-window', 'multibyte-straddle', 'wrong-byte-length', 'invalid-json', 'snapshot-version', 'snapshot-invalid',
       'superseded', 'already-stored', 'lost-on-load', 'resume-after-pause', 'one-answer-per-poll', 'stale-signal',
       'no-snapshot-not-stale', 'protocol-mismatch', 'conflicting-header',
+      'many-windows', 'no-progress', 'rejected-then-stored',
     ]) {
       expect(names, name).toContain(name)
     }
@@ -547,31 +577,56 @@ describe('contract/datagrams/case-*.json', () => {
     const count = Math.ceil(s.bytes / s.chunkSize)
     let upto = 0
     let round = -1
+    let phase: 'active' | 'delivered' | 'rejected' | 'failed' = 'active'
+    // "No progress" in the document: a report is fruitless when its ranges equal the previous
+    // report's and the window it answers has the same `upto`; the run counts consecutive ones.
+    let previous: { ranges: string; upto: number } | null = null
+    let run = 0
     for (const step of c.bridge as BridgeStep[]) {
       const heard = parseBridgeInput(Buffer.from(step.hears, 'latin1')) as Record<string, unknown>
       expect(heard, step.hears).not.toBeNull()
-      if (step.hears.startsWith('FP01 A')) {
+      const letter = step.hears[5]
+      if (phase === 'rejected' || phase === 'failed') {
+        // Only a hello that shows the mod stores the target moves the bridge on.
+        expect(step.sends, step.hears).toBeNull()
+        if (letter === 'H' && heard.stored === s.id) phase = 'delivered'
+      } else if (letter === 'A') {
         expect(step.sends).toBeNull()
-        continue
-      }
-      if (step.hears.startsWith('FP01 H')) {
+        phase = 'delivered'
+      } else if (letter === 'N') {
+        expect(step.sends).toBeNull()
+        phase = 'rejected'
+      } else if (letter === 'H') {
         // Awaiting: the hello either shows the transfer still assembling, or shows the mod lost it.
-        if (heard.assembling === s.id) {
+        if (heard.stored === s.id) {
+          expect(step.sends).toBeNull()
+          phase = 'delivered'
+        } else if (heard.assembling === s.id) {
           expect(step.sends).toEqual({ endOfWindow: { round, upto } })
         } else {
-          expect(heard.stored).not.toBe(s.id)
           expect(step.sends).toEqual({ probe: true })
           round = -1
           upto = 0
+          previous = null
+          run = 0
         }
-        continue
+      } else {
+        const missing = (heard.missing as [number, number][] | undefined) ?? []
+        const ranges = JSON.stringify(missing)
+        run = previous && previous.ranges === ranges && previous.upto === upto ? run + 1 : 1
+        previous = { ranges, upto }
+        if (run >= WIRE.NO_PROGRESS_LIMIT) {
+          expect(step.sends, step.hears).toBeNull()
+          phase = 'failed'
+        } else {
+          round++
+          const window = nextWindow(missing, upto, count, round)
+          expect(step.sends, step.hears).toEqual(window)
+          expect(window.indices.length).toBeLessThanOrEqual(WIRE.WINDOW_CHUNKS)
+          upto = window.upto
+        }
       }
-      const missing = (heard.missing as [number, number][] | undefined) ?? []
-      round++
-      const window = nextWindow(missing, upto, count, round)
-      expect(step.sends, step.hears).toEqual(window)
-      expect(window.indices.length).toBeLessThanOrEqual(WIRE.WINDOW_CHUNKS)
-      upto = window.upto
+      if (step.state) expect(phase, step.hears).toBe(step.state)
     }
   })
 

@@ -24,9 +24,10 @@ function containsNull(value: unknown): boolean {
   return false
 }
 
-describe('contract fixtures', () => {
-  const generated = buildSnapshotFixtures()
+// Solved once and shared by the snapshot fixtures and the datagram fixtures.
+const generated = buildSnapshotFixtures()
 
+describe('contract fixtures', () => {
   it('has every fixture the generator builds, and no other', () => {
     expect(fixtureFiles).toEqual(Object.keys(generated).map(n => `${n}.json`).sort())
   })
@@ -100,17 +101,17 @@ export function ruleIds(snapshot: Snapshot): string[] {
 }
 
 describe('contract/datagrams', () => {
-  const generated = buildDatagramFixtures()
+  const datagrams = buildDatagramFixtures(generated)
   const files = readdirSync(DATAGRAMS_DIR).filter(f => f.endsWith('.json')).sort()
 
   it('has every file the generator builds, and no other', () => {
-    expect(files).toEqual(Object.keys(generated).map(n => `${n}.json`).sort())
+    expect(files).toEqual(Object.keys(datagrams).map(n => `${n}.json`).sort())
   })
 
   it.each(files)('%s matches a fresh generation', file => {
     const name = file.replace(/\.json$/, '')
     const checkedIn = readFileSync(join(DATAGRAMS_DIR, file), 'utf-8')
-    expect(checkedIn === toFileText(generated[name]), `run npm run contract; ${file} is out of date`).toBe(true)
+    expect(checkedIn === toFileText(datagrams[name]), `run npm run contract; ${file} is out of date`).toBe(true)
   })
 })
 

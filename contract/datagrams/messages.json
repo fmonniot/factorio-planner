@@ -137,6 +137,30 @@
       }
     },
     {
+      "name": "hello-other-version",
+      "link": "udp",
+      "from": "mod",
+      "to": "bridge",
+      "type": "hello",
+      "doc": "FP02 H 5 any other layout, never read",
+      "hex": "465030322048203520616e79206f74686572206c61796f75742c206e657665722072656164",
+      "fields": {
+        "protocol": 2
+      }
+    },
+    {
+      "name": "hello-other-version-short",
+      "link": "udp",
+      "from": "mod",
+      "to": "bridge",
+      "type": "hello",
+      "doc": "FP02 H",
+      "hex": "465030322048",
+      "fields": {
+        "protocol": 2
+      }
+    },
+    {
       "name": "ready",
       "link": "udp",
       "from": "mod",

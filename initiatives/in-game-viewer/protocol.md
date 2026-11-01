@@ -12,7 +12,7 @@ This document defines how a snapshot gets from the planner to the mod: the WebSo
 2. **The planner computes the snapshot id, as a content hash.** An id says *which* snapshot, never *which is newer*. "Older than the planner's newest" therefore means "different from the planner's newest", and the planner's newest travels in every ping.
 3. **A probe starts every transfer and names the snapshot.** The mod only takes chunks of the snapshot named by the last probe. This gives supersession one simple rule, and it also carries the warm-up.
 4. **Probes repeat in bursts of three, not without limit.** Repeating a chunk-sized probe every 250 ms until the mod answers would fill the buffer of a paused game in about 8 s. A burst of three covers the measured losses, and the next `hello` starts another burst, so against a running game probes still repeat until the mod answers.
-5. **Pings back off while the mod is silent.** A fixed 5 s ping would overflow the buffer after 48 minutes of pause with a window in it. With the back-off that takes 12.7 hours on the most pessimistic numbers ([Buffer budget](#buffer-budget)).
+5. **Pings back off while the mod is silent, and snap back when it speaks.** A fixed 5 s ping would overflow the buffer after 48 minutes of pause with a window in it. With the back-off that takes 12.7 hours on the most pessimistic numbers ([Buffer budget](#buffer-budget)). Hearing the mod pulls the next ping back to 5 s, and sending a snapshot pings at once (the nudge), so a game started long after the bridge is found as soon as the player presses Send.
 6. **The planner can announce an id without sending the snapshot.** Otherwise `Stale` could only appear during the second or so a transfer takes, and a plan edited but not sent would never show as stale.
 7. **Bridge-to-mod headers are fixed-width ASCII.** The mod cuts fields at fixed offsets, checks the header with one anchored pattern on the header bytes only, and never scans a payload.
 
@@ -69,7 +69,8 @@ The bridge sends and receives on one UDP socket bound to `127.0.0.1` and the bri
 | `PACE_CHUNKS` | 4 chunks | Plan: the only pacing the spike tried |
 | `PACE_INTERVAL` | 20 ms | Plan: the same |
 | `MAX_CHUNKS` | 1,000 chunks | Chosen: about 35 times a full Seablock snapshot |
-| `MAX_SNAPSHOT_BYTES` | 8,000,000 B | `MAX_CHUNKS` × `CHUNK_PAYLOAD`. A guard, not a target |
+| `MAX_SNAPSHOT_BYTES` | 8,000,000 B | `MAX_CHUNKS` × `CHUNK_PAYLOAD`. A guard, not a target. The planner enforces it before sending |
+| `MAX_FRAME_BYTES` | 10,000,031 B | `WS_ENVELOPE` plus 9,999,999, the largest length the 7-digit envelope field can state. The bridge's frame limit, above the guard so that `too-large` can always be sent |
 | `MAX_REPORT_RANGES` | 12 ranges | A window has at most 12 separate gaps |
 | `MAX_REPORT_BYTES` | 124 B | 29 B prefix plus 12 ranges of up to 7 characters and 11 commas |
 | `MAX_UNKNOWN_IDS` | 9,999 ids | Chosen: the count saturates here |
@@ -81,10 +82,10 @@ The bridge sends and receives on one UDP socket bound to `127.0.0.1` and the bri
 | `PING_INTERVAL` | 5 s | Chosen. Plan says "every few seconds"; each `hello` stalls the game about 20 ms, so 0.4 % |
 | `PING_INTERVAL_MAX` | 300 s | Chosen from the [Buffer budget](#buffer-budget) |
 | `PING_BACKOFF_DIVISOR` | 16 | Chosen from the [Buffer budget](#buffer-budget) |
-| `PING_NUDGE_GAP` | 2 s | Chosen: limits extra pings when the planner is busy |
 | `QUIET_AFTER` | 15 s | 3 × `PING_INTERVAL` |
-| `DISCONNECT_TICKS` | 1,080 ticks | 18 s at 60 UPS: 3 × `PING_INTERVAL` plus 3 s, so one late ping does not flicker the indicator |
-| `NO_PROGRESS_LIMIT` | 8 attempts | Chosen. Paced traffic lost nothing, so eight fruitless attempts is a bug, not bad luck |
+| `GAME_UPS` | 60 ticks per s | The game's speed at `game.speed` 1 |
+| `DISCONNECT_TICKS` | 1,080 ticks | 18 s at `GAME_UPS`: 3 × `PING_INTERVAL` plus 3 s, so one late ping does not flicker the indicator. The mod multiplies it by `game.speed` |
+| `NO_PROGRESS_LIMIT` | 8 reports | Chosen. Paced traffic lost nothing, so eight fruitless reports in a row is a bug, not bad luck |
 | `PLANNER_RETRY` | 5 s | Chosen |
 
 Sizes in the [Buffer budget](#buffer-budget) use 92 B of overhead per datagram, from the plan.
@@ -130,7 +131,9 @@ The `small` fixture, 586 B, in a frame of 618 B:
 FP01 S 9b3b078dbd018b94 0000586 {"v":1,"dataSet":{"id":"kompetenz-seablock",...
 ```
 
-The frame length must equal 32 plus the length field. The length must be between 1 and `MAX_SNAPSHOT_BYTES`. A frame that breaks these is answered with `error` and changes nothing. The bridge's WebSocket library must allow a frame of 32 B plus `MAX_SNAPSHOT_BYTES`.
+The frame length must equal 32 plus the length field. The length must be between 1 and `MAX_SNAPSHOT_BYTES`. A frame that breaks these is answered with `error` and changes nothing. The bridge decides from the envelope alone, in this order: another protocol version (`protocol-mismatch`); an envelope that is not as laid out above, or a length of 0 (`bad-envelope`); a length above `MAX_SNAPSHOT_BYTES` (`too-large`); a frame length other than 32 plus the field (`bad-envelope`). `too-large` therefore never depends on the body.
+
+**The limits agree.** The 7-digit field can state up to 9,999,999 B, above `MAX_SNAPSHOT_BYTES`, so every snapshot the planner could build has an envelope that can be written. The bridge's WebSocket library must accept frames up to `MAX_FRAME_BYTES`, which is above 32 B plus `MAX_SNAPSHOT_BYTES`; otherwise the library would close the connection on an oversized frame before the bridge could answer. A frame above `MAX_FRAME_BYTES` is closed by the library (code 1009). A planner never sends one, because it refuses a snapshot above `MAX_SNAPSHOT_BYTES` before sending ([What the planner does](#what-the-planner-does)).
 
 ### `announce`
 
@@ -204,15 +207,16 @@ Examples: no game yet; a delivered snapshot with two unknown ids; a transfer sta
 | `protocol-mismatch` | A binary frame or an `announce` of another protocol version |
 | `bad-message` | A text frame that is not JSON, has an unknown `type`, or has a bad id |
 
-The bridge keeps the connection open after an `error` and its state does not change.
+An `error` goes only to the connection that sent the offending frame. The bridge keeps the connection open after it and its state does not change.
 
 ### What the planner does
 
 1. On open, it waits for the first `status` and compares `protocol` with its own. If they differ it shows that the bridge and the planner must be updated together, sends nothing, and keeps the socket open.
-2. If it has sent a snapshot since the page loaded, it sends those same bytes again. It keeps the last bytes it sent for this purpose. This restores a restarted bridge; on a bridge that already has them it is a no-op.
+2. **Restore, but only onto an empty bridge.** If it has sent a snapshot since the page loaded and the first `status` shows that the bridge holds nothing (no `transfer` and no `newest`), it sends those same bytes again. It keeps the last bytes it sent for this purpose. This restores a restarted bridge. If the first `status` shows anything held, it sends nothing: with two planners connected, the bridge may hold a newer snapshot sent from the other one, and an older one must not replace it unasked. Only the first `status` after a connection decides this; later ones never trigger a restore.
 3. If the current plan's id differs from those bytes, or nothing was sent yet, it sends `announce` with the current id.
-4. After each solve it computes the id of the new snapshot and sends either `snapshot` (auto-send, or the Send action) or `announce`.
-5. If the socket closes while the connection is switched on, it retries every `PLANNER_RETRY`, and repeats from step 1.
+4. After each solve it computes the id of the new snapshot and sends either `snapshot` (auto-send, or the Send action) or `announce`. **Before sending a `snapshot` it checks the size.** Above `MAX_SNAPSHOT_BYTES` it sends no `snapshot`, tells the player that the plan is too large for the in-game viewer, and sends `announce` instead, so the mod still shows `Stale`.
+5. **On `error`,** it shows the code in plain words and resends nothing automatically. An `error` answers the planner's most recent frame; if that was a `snapshot`, the planner forgets those bytes, so step 2 can never send a refused snapshot again. Only the player's Send, after the plan has changed or the cause is fixed, tries again.
+6. If the socket closes while the connection is switched on, it retries every `PLANNER_RETRY`, and repeats from step 1. Because of steps 2 and 5, a reconnect loop never resends bytes the bridge refused.
 
 The planner always sends the bytes for a Send, even when `mod.stored` already equals the id, so that the bridge can repair a later load of an older save.
 
@@ -224,7 +228,7 @@ The planner always sends the bytes for a Send, even when `mod.stored` already eq
 
 - Every datagram begins with the same 6 bytes: `FP`, two decimal digits of protocol version, a space, and a type letter. **These 6 bytes never change between versions.** The letters are unique across both directions.
 - Bridge-to-mod datagrams are fixed-width. Numbers are decimal and zero-padded.
-- Mod-to-bridge datagrams are short ASCII strings, split on single spaces, each with an exact number of fields. Numbers are decimal and not padded, except `round`, which is echoed as it came.
+- Mod-to-bridge datagrams are short ASCII strings, split on single spaces, each with an exact number of fields. Numbers are decimal and not padded, except `round`, which is echoed as it came. A number with a leading zero (`0002`, `01`) is dropped, and so is one above its bound (`unknownIds` above `MAX_UNKNOWN_IDS`, a chunk index above `MAX_CHUNKS` - 1).
 - Ids are exactly 16 characters of `0-9a-f`, or the no-id value where a field allows it.
 - A reader drops silently anything that breaks these rules. A dropped datagram changes no state, gets no answer and does not count as hearing from the other side.
 
@@ -364,7 +368,7 @@ FP01 R 9b3b078dbd018b94
 The answer to an end-of-window for a snapshot still incomplete. `round` is the four digits of the end-of-window, echoed. `ranges` lists the chunks not yet held with an index below `upto`, lowest first, and is `-` when there are none, which means "send the next window".
 
 - `ranges` is entries joined by commas. An entry is an index, or `first-last` for two or more in a row. Indices are not padded.
-- Entries are strictly ascending and do not touch or overlap.
+- Entries are strictly ascending and do not touch or overlap. An index is 0 to 999 (`MAX_CHUNKS` - 1), unpadded.
 - There are at most `MAX_REPORT_RANGES` entries. If there are more gaps, the mod stops at twelve. The rest are reported in a later round.
 
 ```
@@ -408,7 +412,11 @@ There is no separate handshake message. The ping and the `hello` carry the versi
 
 - The mod reads bytes 2 and 3 of any datagram that begins `FP`, two digits, a space and a letter. If they are not its version, it reads nothing further, whatever the type. It sets its mismatch flag, shows a `Protocol mismatch` indicator telling the player to update the mod or the bridge, keeps the stored snapshot on screen, and answers with a `hello` in its own version.
 - A datagram of the mod's own version clears the flag.
-- The bridge reads bytes 2 and 3 of any datagram it hears. A `hello` of another version sets `mod.link` to `mismatch` and `mod.protocol` to that version, without reading its other fields. It sends no probe and no chunk, and any transfer goes back to `Waiting`. It keeps pinging on the usual schedule, so a mod updated later is picked up. Other messages of another version are dropped.
+- The bridge reads bytes 2 and 3 of any datagram it hears. A datagram whose first 6 bytes are `FP`, two digits other than its own version, a space and `H` is a `hello` of another version. It sets `mod.link` to `mismatch` and `mod.protocol` to that version, and **reads nothing after those 6 bytes**, because another version may lay out its hello differently. It counts as hearing the mod. It sends no probe and no chunk, and any transfer goes back to `Waiting`. It keeps pinging on the usual schedule, so a mod updated later is picked up. Every other message of another version is dropped.
+
+```
+FP02 H 5 any other layout, never read
+```
 - This is why the 6-byte prefix can never change: it is what two different versions still have in common.
 
 **Planner and bridge.** The first `status` gives the bridge's version, and the planner stops there on a mismatch ([What the planner does](#what-the-planner-does)). The bridge also answers a `snapshot` or an `announce` of another version with `protocol-mismatch`, in case the planner sends one anyway.
@@ -423,7 +431,7 @@ Bump `PROTOCOL_VERSION` for any change an old reader would misread. The bridge a
 
 ### Disconnected
 
-The mod counts ticks since it last received a valid datagram of any protocol version. Above `DISCONNECT_TICKS`, or before the first datagram after a load, it shows `Disconnected`. Ticks stop during a pause, so a pause does not trip it. The `Disconnected` text points at the launch option and `factorio-current.log`, because the mod cannot tell a missing bridge from a game whose socket failed.
+The mod counts ticks since it last received a valid datagram of any protocol version. Above `DISCONNECT_TICKS` × `game.speed`, or before the first datagram after a load, it shows `Disconnected`. The bridge's pings follow wall-clock time, and a faster game runs more ticks in the same time (`GAME_UPS` × `game.speed` per second), so the threshold scales with the speed: at speed 8 it is 8,640 ticks, still 18 s of wall-clock time, and the indicator does not flicker between healthy pings. The mod reads `game.speed` each time it checks. Ticks stop during a pause, so a pause does not trip it. The `Disconnected` text points at the launch option and `factorio-current.log`, because the mod cannot tell a missing bridge from a game whose socket failed.
 
 The indicator shows one thing at a time: `Disconnected`, else `Protocol mismatch`, else `Stale`.
 
@@ -435,7 +443,7 @@ The mod keeps the `newest` of the last ping it received. `Stale` shows when all 
 - `newest` is not the no-id value,
 - `newest` differs from the stored id.
 
-The check runs when a ping arrives and again when a snapshot is accepted. The bridge sets its `newest` from each `snapshot` and `announce`, and a ping goes out within `PING_INTERVAL`, or at once by the nudge rule ([Pings](#pings)). So:
+The check runs when a ping arrives and again when a snapshot is accepted. The bridge sets its `newest` from each `snapshot` and `announce`. The next ping carries it: within `PING_INTERVAL` while the mod answers, and at once for a `snapshot`, by the nudge ([Pings](#pings)). So:
 
 - The plan is edited and not sent: `announce` changes `newest`, and the mod shows `Stale` until the player sends it. This is the case the signal exists for.
 - The plan is sent: `Stale` may show for the moment the transfer takes, which is accurate.
@@ -452,9 +460,11 @@ After validating a snapshot, the mod counts the distinct item, fluid, recipe and
 
 ### Pings
 
-The bridge sends the first ping when it starts. Each following one is due `clamp(silence / PING_BACKOFF_DIVISOR, PING_INTERVAL, PING_INTERVAL_MAX)` after the previous one. `silence` is measured when the previous ping leaves: the time since the last valid datagram from a mod of any version, or since the bridge started. So while the mod answers, a ping goes out every 5 s; the back-off begins at 80 s of silence; and it reaches one ping every 5 minutes at 80 minutes.
+The bridge sends the first ping when it starts. Each following one is due `clamp(silence / PING_BACKOFF_DIVISOR, PING_INTERVAL, PING_INTERVAL_MAX)` after the previous one. `silence` is measured when the previous ping leaves: the time since the last valid datagram from a mod, or since the bridge started. A datagram counts when it is of this version, or is a `hello` of another version. So while the mod answers, a ping goes out every 5 s; the back-off begins at 80 s of silence; and it reaches one ping every 5 minutes at 80 minutes.
 
-**Nudge.** When a planner connects, or sends `snapshot` or `announce`, the bridge sends one ping at once, if the last ping left more than `PING_NUDGE_GAP` ago. It does not change the schedule. This gets a new `newest` to the mod quickly, and it means a player can wake up a slow schedule by pressing Send.
+**Hearing the mod.** The due time is fixed when a ping leaves, from the silence at that moment, so after a long pause it can lie minutes ahead although the mod is back. Therefore, on every valid datagram from a mod, the bridge sets the next ping's due time to `min(due, now + PING_INTERVAL)`. A mod coming back from a pause answers the pings it finds buffered, and the first answer brings the schedule down to 5 s. Without this, the planner would show `quiet` and the mod `Disconnected` for up to 5 minutes after the game returned, and everything that moves only on a `hello` would wait just as long: a `Waiting` transfer, a lost end-of-window, a refilled probe budget. The rule never makes a ping later, so it adds nothing to the [Buffer budget](#buffer-budget) while the mod is silent.
+
+**Nudge.** When the bridge receives a `snapshot` message, it sends one ping at once, carrying the new `newest`, unless it has already nudged within the last `PING_INTERVAL`. This holds in every phase and even for the same snapshot sent again, so that pressing Send always wakes a slow schedule: a game started long after the bridge was found answers within a poll, instead of up to 5 minutes later. The nudge does not change the schedule, but its answer pulls the schedule down by the rule above. When a probe follows, the ping goes first, so if both arrive in one poll the probe's answer replaces the hello. `announce` does not nudge, and neither does a planner connecting: the next scheduled ping carries the news, and a Send nudges anyway.
 
 Pings continue during a transfer. The bridge's only timers are the pacing, the probe interval and this schedule. **No timer resends a chunk or an end-of-window.**
 
@@ -473,7 +483,8 @@ Waiting ─ hello ─▶ Probing ─ ready ─▶ Sending ─ end of window ─�
                     └───────── ack ─▶ Delivered ◀───────── ack ──────────────┘
 
 Delivered goes back to Probing when a hello shows another snapshot.
-A refusal leads to Rejected, and no progress to Failed. Both wait for a new snapshot.
+A refusal leads to Rejected, and no progress to Failed. Both wait for a new snapshot,
+or for a hello that shows the mod stores the target, which leads to Delivered.
 ```
 
 `Idle` is the phase before the first snapshot. The table is the definition and the diagram is a map. `target` in the table means the id of the target. An event not listed for a phase is ignored.
@@ -481,7 +492,7 @@ A refusal leads to Rejected, and no progress to Failed. Both wait for a new snap
 | Phase | Event | Action | Next phase |
 |---|---|---|---|
 | any | `snapshot`, see [Receiving a snapshot](#receiving-a-snapshot) | | |
-| any | valid datagram from the mod | Record it for the ping schedule. A datagram of this version sets the link to `connected`. Update `stored` and `unknownIds` from `H`, or from `A` on the target | |
+| any | valid datagram from the mod | Record it for the ping schedule, and set the next ping's due time to `min(due, now + PING_INTERVAL)`. A datagram of this version sets the link to `connected`. Update `stored` and `unknownIds` from `H`, or from `A` on the target | |
 | `Waiting`, `Probing`, `Sending`, `Awaiting` | `hello` of another version | Link becomes `mismatch` | `Waiting` |
 | `Idle`, `Delivered`, `Rejected`, `Failed` | `hello` of another version | Link becomes `mismatch` | Unchanged |
 | `Waiting` | `H`, `stored` = target | | `Delivered` |
@@ -497,15 +508,17 @@ A refusal leads to Rejected, and no progress to Failed. Both wait for a new snap
 | `Sending`, `Awaiting` | `H`, `stored` = target | | `Delivered` |
 | `Sending`, `Awaiting` | `H`, `stored` ≠ target, `assembling` ≠ target | The mod lost the transfer (a load or a restart). Drop the window | `Probing` |
 | `Awaiting` | `H`, `assembling` = target | Send the same end-of-window again. This is how a lost end-of-window or a lost report is repaired | `Awaiting` |
-| `Awaiting` | `M` on target, this `round` | Compare, then build the next window | `Sending` |
+| `Awaiting` | `M` on target, this `round`, the run reaches `NO_PROGRESS_LIMIT` | Stop, with reason `no-progress`. Send nothing | `Failed` |
+| `Awaiting` | `M` on target, this `round`, otherwise | Update the run, then build the next window | `Sending` |
 | `Delivered` | `H`, `stored` ≠ target | A save with another snapshot was loaded | `Probing` |
-| `Rejected`, `Failed` | `H` or any answer | No change of phase. Only a new `snapshot` message tries again | |
+| `Rejected`, `Failed` | `H`, `stored` = target | The mod holds it after all (a save that stores it was loaded, or a late window completed). Clear the reason | `Delivered` |
+| `Rejected`, `Failed` | `H`, `stored` ≠ target, or any other answer | Nothing is sent. Only a new `snapshot` message tries again | Unchanged |
 
 A report with another `round`, or any answer naming another id, is stale and ignored.
 
 **Building a window.** Take the indices from the report's ranges, lowest first, at most `WINDOW_CHUNKS`. A report naming an index at or above `upto` is dropped. Then, while the window is below `WINDOW_CHUNKS`, add unsent chunks from `upto` upward. `upto` becomes the highest index ever sent, plus one. `round` goes up by one, except on the first window, which is round 0. The window is sent in the order built. If it comes out empty, which a correct mod never causes, the bridge stays in `Awaiting`.
 
-**No progress.** The bridge compares each report with the previous one. On the `NO_PROGRESS_LIMIT`-th identical report in a row it stops and moves to `Failed` with reason `no-progress`. The same reason applies after `NO_PROGRESS_LIMIT` probe bursts in a row with no `R`. Warm-up losses are not counted against a transfer in any other way: they are lost probes and nothing else, and the status shows no error for them.
+**No progress.** A report is *fruitless* when its ranges are the same as the previous report's **and** its `upto` did not advance: `upto` here is that of the window the report answers, compared with the previous window's. The bridge counts the run of consecutive fruitless reports, counting the first report of the run, and the run starts again at 1 on any report that is not fruitless. When the run reaches `NO_PROGRESS_LIMIT` it stops and moves to `Failed` with reason `no-progress`. The run also starts again when the bridge enters `Probing`. Two things matter here. First, comparing only the ranges would fail a healthy transfer of more than 8 windows, since every report is `-` while `upto` climbs. Second, the comparison cannot be of the whole message, because `round` differs every time and nothing would ever repeat. The reason `no-progress` is also given after `NO_PROGRESS_LIMIT` probe bursts in a row with no `R`. Warm-up losses are not counted against a transfer in any other way: they are lost probes and nothing else, and the status shows no error for them.
 
 ### Probes
 
@@ -522,7 +535,7 @@ The rule "the bridge never resends on a timeout alone" holds. A repeated probe i
 
 For a `snapshot` message with id `X`:
 
-1. `newest` becomes `X`.
+1. `newest` becomes `X`. The [nudge](#pings) goes out, if it is due.
 2. If `X` is the target and the phase is `Waiting`, `Probing`, `Sending`, `Awaiting` or `Delivered`, stop. This is the no-op.
 3. The target becomes these bytes. Any window in progress is dropped at once, with no end-of-window. The bytes of the old target are released.
 4. If the link is not `mismatch` and the mod's last known `stored` is `X`, go to `Delivered`. No datagram is sent.
@@ -648,11 +661,11 @@ The game's buffer is 262,144 B, and each datagram costs about 92 B more than its
 
 Without back-off, a fixed 5 s ping would fill the room after a window in 48 minutes, and an empty buffer in 3.2 hours, which is why the back-off exists.
 
-These tables count scheduled pings. Each nudge adds one, at most one per `PING_NUDGE_GAP`, so auto-send during a pause spends this budget at the rate the player edits: a hundred edits in one pause cost about 19 KB at 192 B.
+These tables count scheduled pings. **Nudges** come on top: one per `snapshot` message, at most one per `PING_INTERVAL`, so at most 720 an hour: 83 KB at 115 B, or 138 KB at 192 B. A hundred sends in one pause, which at that rate takes at least 8 minutes, cost 12 KB nominal or 19 KB pessimistic. The limit is reached only by sending a snapshot every 5 s into a paused game, as auto-send during continuous editing would. Nudges alone then fill the 42,401 B left by a window, its end-of-window and a probe burst after 18 minutes at 192 B, or 31 minutes at 115 B (the scheduled pings of the tables above add to that). The hearing rule of [Pings](#pings) adds nothing here: it only moves a due time earlier once the mod is answering.
 
 Past those limits the buffer overflows, in principle only by the pings themselves: by then nothing else is being sent, the datagrams already held arrived earlier, and the dropped ones carry no information a later ping does not repeat. That the kernel drops the newest arrivals rather than the oldest is standard behaviour, but the spike did not record which ones arrived.
 
-The cost of the back-off is rediscovery. If the game was closed, pings are not buffering at all, but the bridge cannot know that, so a game started after a long absence waits for the next ping: up to `silence` / 16, and never more than 5 minutes. A planner connecting or pressing Send nudges a ping at once.
+The cost of the back-off is rediscovery. If the game was closed, pings are not buffering at all, but the bridge cannot know that, so a game started after a long absence waits for the next ping: up to `silence` / 16, and never more than 5 minutes. A Send nudges a ping at once, so a player who starts the game and presses Send is found within a poll; nothing else needs the mod yet, so an `announce` or a connecting planner leaves the wait as it is.
 
 ---
 
@@ -729,9 +742,10 @@ mod                drains in one poll: chunks, end-of-window, every ping
 mod     → bridge   M X 0000 -                 (one answer, whatever arrived)
 bridge  → planner  status: link connected, transfer sending
 bridge  → mod      next window
+                   the bridge heard the mod: the next ping is due in 5 s, not at the old back-off time
 ```
 
-The transfer simply continues. No timeout fired, and nothing was resent. A pause begun during `Probing` is the same, except that at most three probes are buffered.
+The transfer simply continues. No timeout fired, and nothing was resent. If the pause was long, the next scheduled ping may have been minutes away; hearing the mod pulls it back to `PING_INTERVAL`, so `quiet` clears and the `hello`-driven repairs resume within seconds. A pause begun during `Probing` is the same, except that at most three probes are buffered.
 
 ### A newer snapshot arrives mid-transfer
 
@@ -763,14 +777,42 @@ mod                shows Disconnected
 bridge  → mod      P ----------------
 mod     → bridge   H X 0 -
 planner            WebSocket closed, retrying every 5 s; reconnects
-bridge  → planner  status: link connected, mod.stored X
+bridge  → planner  status: link connected, mod.stored X, no transfer, no newest
+                   the bridge holds nothing, so the planner restores
 planner → bridge   snapshot X                 (the bytes it last sent)
-bridge  → planner  status: delivered          (no datagram: X is already stored)
+bridge  → mod      P X                        (the nudge, if one is due)
+bridge  → planner  status: delivered          (no datagram for the snapshot: X is already stored)
 planner → bridge   announce Y                 (only if the plan changed since)
 bridge  → mod      P Y                        (Stale, if Y differs from X)
 ```
 
 With a reassembly in progress, `H` shows `assembling`. If the planner's snapshot is that same id, the bridge goes to `Probing`, the mod answers `R` and keeps what it has, and the chunks it already holds are dropped as duplicates.
+
+### Two planners
+
+Two tabs are open on one bridge. The first sent `B`, which the second has never seen. The bridge restarts, and both reconnect.
+
+```
+tab 1   → bridge   (connects first)  first status: nothing held
+tab 1   → bridge   snapshot B                 (restore: the bridge held nothing)
+tab 2   → bridge   (connects)        first status: transfer B, newest B
+                   tab 2 holds older bytes A and sends nothing: restoring would overwrite B
+tab 2   → bridge   announce Y                 (only if its plan differs from the bytes it holds)
+```
+
+A bridge that is not restarted shows a transfer in the first `status` of any tab, so a tab that reloads never overwrites what is held. A tab that wants A delivered uses Send, which is the player's explicit decision.
+
+### A snapshot above the limit
+
+The plan has grown past `MAX_SNAPSHOT_BYTES`.
+
+```
+planner            computes 8,400,000 B; above the guard: no snapshot is sent
+planner → bridge   announce Z                 (the mod shows Stale)
+planner            tells the player the plan is too large for the in-game viewer
+```
+
+A client without the guard that sends the frame anyway gets `error too-large` from the envelope alone, because the frame limit is `MAX_FRAME_BYTES`. The planner shows it, forgets the bytes and resends nothing. A reconnect after that has nothing to restore.
 
 ### A game restart
 
@@ -783,6 +825,8 @@ bridge  → planner  status: link quiet (transfer stalled, if one was running)
 bridge  → mod      P Y                        (within silence / 16, at most 5 minutes)
 mod     → bridge   H X 0 -
 ```
+
+If the player presses Send in the planner once the game is up, the bridge does not wait for that ping: the nudge sends `P Y` at once, and the `hello` that answers it brings the schedule back to 5 s.
 
 From here it is the [warm-up walkthrough](#warm-up-a-fresh-socket-after-a-save-load) if `X` differs from the target, and nothing at all if it matches. A transfer that was in flight restarts from a probe, because `H` shows nothing assembling. Nothing else needs doing: to the protocol, a game restart is a long silence followed by a load.
 
@@ -814,7 +858,7 @@ The mod polls every 10 ticks inside `pcall`, hears nothing, shows the stored sna
 
 **`messages.json`** is every message in both directions and on both links. `hex` is the message; `fields` is what a parser must return; `frame` is `text` or `binary` for WebSocket; `from` and `to` name the sides. A parser must decode `hex` into `fields`, and an encoder must turn `fields` into `hex`. In `fields`, `null` stands for the no-id value. In a `missing` field, each range is `[first, last]`.
 
-**`malformed.json`** lists inputs that a reader must drop: `reader` says which (`mod`, `bridge-udp`, or `bridge-ws`, which also gives the `error` code to answer with).
+**`malformed.json`** lists inputs that a reader must drop: `reader` says which (`mod`, `bridge-udp`, or `bridge-ws`, which also gives the `error` code to answer with). A `hello` of another version is not in this file: it is a valid message, in `messages.json`, and the reader takes only its first 6 bytes.
 
 **`case-*.json`** is one scenario for the mod's reassembly, and for many of them, the bridge's windows too.
 
@@ -826,9 +870,9 @@ The mod polls every 10 ticks inside `pcall`, hears nothing, shows the stored sna
 | `idCheck.unknownIds` | What the test's stand-in for the game's id check returns on an accepted snapshot |
 | `polls[]` | One poll each, in order |
 | `polls[].arrive[]` | The datagrams in order of arrival: `type`, `text`, `hex` |
-| `polls[].answer` | What the flush sends after this poll, or `null` for nothing |
+| `polls[].answer` | What the flush sends after this poll, or `null` for nothing. `state`, when present, is the bridge's phase after hearing it: `delivered`, `rejected` or `failed` |
 | `polls[].after` | The mod's state after the poll: `stored`, `unknownIds`, `assembling`, `have` (sorted chunk indices held), `stale`, `mismatch` |
-| `bridge[]` | When present: `hears` is a mod answer, and `sends` is what must follow: a window (`round`, `indices` in send order, `upto`), `{endOfWindow: {round, upto}}` for the same end-of-window again, `{probe: true}` for a new probe, or `null` for nothing |
+| `bridge[]` | When present: `hears` is a mod answer, and `sends` is what must follow: a window (`round`, `indices` in send order, `upto`), `{endOfWindow: {round, upto}}` for the same end-of-window again, `{probe: true}` for a new probe, or `null` for nothing. `state`, when present, is the bridge's phase after hearing it: `delivered`, `rejected` or `failed` |
 
 To run a case on the mod: set up `start`, hand each datagram of a poll to the packet handler in order, run the flush once, then compare the answer and the state. The Lua tests need a stand-in for `json_to_table` that returns `nil` on invalid JSON.
 
