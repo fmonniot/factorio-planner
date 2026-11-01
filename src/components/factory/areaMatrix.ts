@@ -2,7 +2,7 @@ import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
 import { placingItemIds } from '../../data/horizon'
 import { surplusTolerance } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
-import { areaName } from './areaRows'
+import { areaName } from '../../data/subPlanTree'
 
 // ---------------------------------------------------------------------------
 // The balance matrix of a block's areas: items as rows, areas as columns, an outside column at each

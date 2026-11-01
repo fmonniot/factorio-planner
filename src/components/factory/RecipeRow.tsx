@@ -16,7 +16,7 @@ import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
-import { areaName } from './areaRows'
+import { areaName } from '../../data/subPlanTree'
 import {
   buildAlsoInOptions,
   duplicateToOptions,

@@ -30,8 +30,6 @@ interface BlockHistory {
 // SubPlan tree helpers
 // ---------------------------------------------------------------------------
 
-export { findSubPlan }
-
 /** Find the SubPlan whose `subPlans` directly contains the given child id. */
 function findParentSubPlan(plan: SubPlan, childId: string): SubPlan | undefined {
   if (plan.subPlans.some(sp => sp.id === childId)) return plan
