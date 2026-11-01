@@ -1,0 +1,53 @@
+name: Bridge
+
+# The in-game viewer's bridge (bridge/): a Cargo workspace, checked apart from the planner's jobs in test.yml.
+# The toolchains are pinned, so that a new stable release with a new lint cannot break unrelated pull requests;
+# bump TOOLCHAIN deliberately, together with whatever clippy then asks for.
+on:
+  pull_request:
+  # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.
+  push:
+    branches: [main]
+
+env:
+  TOOLCHAIN: 1.98.1
+  # Must equal rust-version in bridge/Cargo.toml.
+  MSRV: 1.90.0
+
+jobs:
+  rust:
+    name: fmt + clippy + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bridge
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.TOOLCHAIN }}
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bridge
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # The tests read the shared fixtures in contract/datagrams/ and use UDP on loopback.
+      - run: cargo test --locked
+
+  # The declared minimum Rust version really builds and passes the tests.
+  msrv:
+    name: tests on the minimum Rust version
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bridge
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ env.MSRV }}
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bridge
+      - run: cargo test --locked

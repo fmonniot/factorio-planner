@@ -7,6 +7,9 @@ dist/
 .vite/
 test-results/
 
+# Rust build output (the bridge workspace)
+bridge/target/
+
 # TypeScript build info
 *.tsbuildinfo
 

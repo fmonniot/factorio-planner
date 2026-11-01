@@ -34,6 +34,15 @@ npm run test:watch # Vitest in watch mode
 npm run test:e2e   # Playwright; starts the dev server itself
 ```
 
+The in-game viewer's bridge is a separate Rust workspace in `bridge/` (CI: `.github/workflows/bridge.yml`):
+
+```sh
+cd bridge
+cargo fmt --check
+cargo clippy --all-targets -- -D warnings
+cargo test         # reads the shared fixtures in contract/datagrams/; loopback UDP, no Factorio
+```
+
 On a fresh checkout, run `npx playwright install chromium` before the e2e tests.
 
 CI (`.github/workflows/test.yml`) runs lint, doc-link check, unit, e2e and build on every pull request.
