@@ -1,6 +1,7 @@
 -- Helpers shared by the specs. Not a spec itself (the file name has no _spec).
 -- The specs run from mod/ (see the README), so the shared contract is at ../contract.
 local json = require("dkjson")
+local lfs = require("lfs")
 
 local M = {}
 
@@ -41,32 +42,27 @@ function M.json_to_table(text)
   return value
 end
 
-function M.list_cases()
+-- Names of the files in a contract directory that match `pattern` (one capture:
+-- the name to return), sorted. A missing directory or no match is an error.
+local function list(dir, pattern)
   local names = {}
-  local p = assert(io.popen('ls "' .. M.CONTRACT .. '/datagrams"'))
-  for name in p:lines() do
-    local case = string.match(name, "^case%-(.+)%.json$")
-    if case then
-      names[#names + 1] = case
+  for name in lfs.dir(M.CONTRACT .. "/" .. dir) do
+    local found = string.match(name, pattern)
+    if found then
+      names[#names + 1] = found
     end
   end
-  p:close()
+  assert(#names > 0, "no files matching " .. pattern .. " in " .. M.CONTRACT .. "/" .. dir)
   table.sort(names)
   return names
 end
 
+function M.list_cases()
+  return list("datagrams", "^case%-(.+)%.json$")
+end
+
 function M.list_snapshot_fixtures()
-  local names = {}
-  local p = assert(io.popen('ls "' .. M.CONTRACT .. '/fixtures"'))
-  for name in p:lines() do
-    local fixture = string.match(name, "^(.+)%.json$")
-    if fixture then
-      names[#names + 1] = fixture
-    end
-  end
-  p:close()
-  table.sort(names)
-  return names
+  return list("fixtures", "^(.+)%.json$")
 end
 
 -- A fixed id check for tests: an id exists unless it is in `lacking`.

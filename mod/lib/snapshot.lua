@@ -3,7 +3,7 @@
 --
 -- The shape is the one in contract/snapshot.schema.json (generated from
 -- src/snapshot/schema.ts). Differences from the JSON Schema, on purpose:
---   * Unknown keys are ignored, not refused. `v` is what covers a change a
+--   * Unknown keys and unknown warning codes are ignored, not refused. `v` is what covers a change a
 --     reader would misread; a key added within version 1 must not make an
 --     older mod refuse the whole snapshot.
 --   * `json_to_table` turns both `[]` and `{}` into an empty table, so an
@@ -14,15 +14,6 @@ local M = {}
 
 local ITEM_TYPES = { item = true, fluid = true, virtual = true }
 local SYNTHETIC_KINDS = { mining = true, offshore = true, power = true }
-local WARNING_CODES = {
-  ["no-recipe"] = true,
-  ["duplicate-recipe"] = true,
-  ["infeasible-pins"] = true,
-  ["overconstrained"] = true,
-  ["area-shortfall"] = true,
-  ["loop-not-converged"] = true,
-  ["request-loop-not-converged"] = true,
-}
 
 local function is_number(x)
   -- NaN is the only value not equal to itself; infinity is not a rate either.
@@ -126,8 +117,8 @@ local function check_warning(w, path)
   if type(w) ~= "table" then
     return path .. " is not an object"
   end
-  if not WARNING_CODES[w.code] then
-    return path .. ".code is not a known warning code"
+  if not is_text(w.code) then
+    return path .. ".code is not a non-empty string"
   end
   if w.items ~= nil then
     local problem = check_list(w.items, path .. ".items", function(x, p)

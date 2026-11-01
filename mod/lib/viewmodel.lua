@@ -97,7 +97,6 @@ function M.build(snapshot, opts)
   local function connection(c)
     local out = ref(c)
     out.available = c.available
-    out.rate = nil
     out.from_index = c.from + 1
     out.from_name = block_name(c.from)
     return out

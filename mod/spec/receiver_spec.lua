@@ -287,6 +287,32 @@ describe("finishing", function()
   end)
 end)
 
+describe("a failure while storing", function()
+  it("refuses with N, keeps the previous snapshot and clears the reassembly when on_store throws", function()
+    local old = { id = "aaaaaaaaaaaaaaaa", unknown_ids = 1, snapshot = { marker = true } }
+    local r = receiver.new({
+      decode_json = support.json_to_table,
+      count_unknown = function() return 0 end,
+      stored = old,
+      on_store = function() error("storage write failed") end,
+    })
+    deliver(r, X, SMALL, 5000)
+    assert.are.equal("FP01 N " .. X .. " invalid", r:take_answer())
+    assert.are.equal(old, r.stored)
+    assert.is_nil(r:state().assembling)
+  end)
+
+  it("refuses with N when count_unknown throws", function()
+    local r = receiver.new({
+      decode_json = support.json_to_table,
+      count_unknown = function() error("no prototypes") end,
+    })
+    deliver(r, X, SMALL, 5000)
+    assert.are.equal("FP01 N " .. X .. " invalid", r:take_answer())
+    assert.is_nil(r:state().stored)
+  end)
+end)
+
 describe("the Stale signal", function()
   local stored = function()
     return { id = X, unknown_ids = 0, snapshot = {} }

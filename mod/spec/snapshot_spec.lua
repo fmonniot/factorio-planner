@@ -106,6 +106,14 @@ describe("snapshot.validate", function()
     assert.is_true(snapshot.validate(s))
   end)
 
+  it("ignores a warning code it does not know, so a code added within v 1 is not refused", function()
+    local s = fixture("small")
+    s.blocks[1].warnings[1] = { code = "something-new", recipes = { "r" } }
+    assert.is_true(snapshot.validate(s))
+    s.blocks[1].warnings[1] = { code = "" }
+    assert.is_nil(snapshot.validate(s))
+  end)
+
   it("ignores keys it does not know, so a later addition within v 1 is not refused", function()
     local s = fixture("small")
     s.somethingNew = { 1, 2 }

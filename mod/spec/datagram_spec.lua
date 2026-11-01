@@ -78,6 +78,14 @@ describe("datagram.decode", function()
     assert.is_nil(datagram.decode("FP01 C 0123456789abcdef 0000 1000 8000001 x"))
   end)
 
+  it("drops a ping whose tail is not an id or sixteen dashes", function()
+    for _, tail in ipairs({ "---", "-", "----------------x", "---------------", "-----------------" }) do
+      assert.is_nil(datagram.decode("FP01 P " .. tail), tail)
+    end
+    assert.is_nil(datagram.decode("FP01 P ---"))
+    assert.are.same({ type = "ping" }, datagram.decode("FP01 P ----------------"))
+  end)
+
   it("drops non-string input", function()
     assert.is_nil(datagram.decode(nil))
     assert.is_nil(datagram.decode(42))

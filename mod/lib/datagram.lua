@@ -14,7 +14,7 @@ local M = {}
 local ID = string.rep("[0-9a-f]", 16)
 
 local PING_ID = "^" .. C.PREFIX .. "P (" .. ID .. ")$"
-local PING_NO_ID = "^" .. C.PREFIX .. "P (" .. C.NO_ID .. ")$"
+local PING_HEAD = "^" .. C.PREFIX .. "P (.+)$"
 local PROBE = "^" .. C.PREFIX .. "W (" .. ID .. ") (%d%d%d%d) (%d%d%d%d%d%d%d) $"
 local CHUNK = "^" .. C.PREFIX .. "C (" .. ID .. ") (%d%d%d%d) (%d%d%d%d) (%d%d%d%d%d%d%d) $"
 local EOW = "^" .. C.PREFIX .. "E (" .. ID .. ") (%d%d%d%d) (%d%d%d%d)$"
@@ -60,7 +60,8 @@ function M.decode(data)
     if id then
       return { type = "ping", newest = id }
     end
-    if string.match(data, PING_NO_ID) then
+    -- The tail is compared as plain text: the dashes of NO_ID are a quantifier in a pattern.
+    if string.match(data, PING_HEAD) == C.NO_ID then
       return { type = "ping" }
     end
     return nil

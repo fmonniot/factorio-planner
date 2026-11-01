@@ -100,12 +100,21 @@ local function finish(self)
     return refuse(reason)
   end
 
-  local unknown = self.count_unknown(decoded)
-  if unknown > C.MAX_UNKNOWN_IDS then
-    unknown = C.MAX_UNKNOWN_IDS
+  -- The callbacks reach into the game (prototype lookups, `storage`). If one
+  -- throws, the transfer is refused so an N is queued, the previous snapshot
+  -- stays, and the bridge does not resend the snapshot until it gives up.
+  local counted, unknown = pcall(self.count_unknown, decoded)
+  if not counted then
+    return refuse("invalid")
   end
+  unknown = math.min(unknown, C.MAX_UNKNOWN_IDS)
+  local previous = self.stored
   self.stored = { id = a.id, unknown_ids = unknown, snapshot = decoded }
-  self.on_store(self.stored)
+  local written = pcall(self.on_store, self.stored)
+  if not written then
+    self.stored = previous
+    return refuse("invalid")
+  end
   ack(self)
 end
 
