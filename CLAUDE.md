@@ -40,7 +40,8 @@ The in-game viewer's bridge is a separate Rust workspace in `bridge/` (CI: `.git
 cd bridge
 cargo fmt --check
 cargo clippy --all-targets -- -D warnings
-cargo test         # reads the shared fixtures in contract/datagrams/; loopback UDP, no Factorio
+cargo test         # reads the shared fixtures in contract/datagrams/; loopback UDP and WebSocket, no Factorio
+cargo run -p factorio-planner-bridge -- --help   # the binary: --game-port, --bridge-port, --origin
 ```
 
 On a fresh checkout, run `npx playwright install chromium` before the e2e tests.

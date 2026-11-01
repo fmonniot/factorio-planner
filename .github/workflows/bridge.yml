@@ -32,7 +32,7 @@ jobs:
           workspaces: bridge
       - run: cargo fmt --check
       - run: cargo clippy --all-targets --locked -- -D warnings
-      # The tests read the shared fixtures in contract/datagrams/ and use UDP on loopback.
+      # The tests read the shared fixtures in contract/datagrams/ and use UDP and TCP (WebSocket) on loopback; the binary's tests run it.
       - run: cargo test --locked
 
   # The declared minimum Rust version really builds and passes the tests.

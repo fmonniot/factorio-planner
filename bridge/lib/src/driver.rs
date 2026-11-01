@@ -205,7 +205,7 @@ impl Drop for NonBlocking<'_> {
 
 /// What one receive call came to.
 #[derive(Debug, PartialEq, Eq)]
-enum Outcome {
+pub(crate) enum Outcome {
     /// A datagram of this many bytes is in the buffer.
     Datagram(usize),
     /// Nothing to read (or the wait ran out).
@@ -215,7 +215,7 @@ enum Outcome {
     Ignored,
 }
 
-fn classify(result: io::Result<usize>) -> io::Result<Outcome> {
+pub(crate) fn classify(result: io::Result<usize>) -> io::Result<Outcome> {
     use io::ErrorKind::{ConnectionRefused, ConnectionReset, Interrupted, TimedOut, WouldBlock};
     match result {
         Ok(n) => Ok(Outcome::Datagram(n)),

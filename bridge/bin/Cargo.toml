@@ -1,0 +1,13 @@
+[package]
+name = "factorio-planner-bridge"
+description = "Carries the Factorio planner's snapshots from the browser to the in-game viewer mod"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[dependencies]
+bridge-lib = { path = "../lib" }
+
+[lints.rust]
+unsafe_code = "forbid"
