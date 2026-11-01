@@ -94,7 +94,7 @@ Sizes in the [Buffer budget](#buffer-budget) use 92 B of overhead per datagram, 
 
 ### Connection
 
-The planner opens `ws://127.0.0.1:34199/` when the user turns the connection on. The bridge checks `Origin` during the handshake and answers HTTP 403 to an origin it does not allow. No WebSocket subprotocol is used, because a browser reports a failed one with no detail, and the planner must be able to say what is wrong.
+The planner opens `ws://127.0.0.1:34199/` when the user turns the connection on. The bridge checks `Origin` during the handshake and answers HTTP 403 to an origin it does not allow. A handshake with no `Origin` header is accepted, on purpose: the bridge only listens on the loopback interface, and a browser always sends `Origin`, so a request without one comes from a non-browser process on the same machine. Such a process can send any `Origin` it likes, so rejecting the missing header would add no security. The check exists to stop other web pages from reaching the bridge. No WebSocket subprotocol is used, because a browser reports a failed one with no detail, and the planner must be able to say what is wrong.
 
 Any number of planners may connect at once. All receive every `status`, and the last snapshot received wins, whoever sent it.
 
