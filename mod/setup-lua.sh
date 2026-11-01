@@ -23,7 +23,7 @@ fi
 rm -rf .lua .hererocks-venv
 python3 -m venv .hererocks-venv
 .hererocks-venv/bin/pip install --quiet "hererocks==${HERERO_VERSION}"
-.hererocks-venv/bin/hererocks .lua -l "${LUA_VERSION}" -r "${LUAROCKS_VERSION}"
+.hererocks-venv/bin/hererocks .lua -l "${LUA_VERSION}" -r "${LUAROCKS_VERSION}" --no-readline
 .lua/bin/luarocks install busted "${BUSTED_VERSION}"
 .lua/bin/luarocks install luacheck "${LUACHECK_VERSION}"
 rm -rf .hererocks-venv
