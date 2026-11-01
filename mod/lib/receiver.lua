@@ -1,5 +1,5 @@
 -- The mod's receive side: reassembly of chunked snapshots and the answer the
--- mod sends, as defined in initiatives/in-game-viewer/protocol.md ("The mod",
+-- mod sends, as defined in spec/in-game-viewer-protocol.md ("The mod",
 -- "Signals"). Plain Lua: the game is reached only through the functions given
 -- to M.new, and time only through the ticks the caller passes in.
 --

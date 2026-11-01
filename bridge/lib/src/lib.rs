@@ -9,7 +9,7 @@
 //! - [`driver`]: a small synchronous glue between a [`Bridge`] and a [`driver::Transport`], with a UDP transport.
 //!
 //! The snapshot itself stays opaque: the bridge reads a 32-byte envelope and cuts the rest into chunks.
-//! The authoritative description of the protocol is `initiatives/in-game-viewer/protocol.md`.
+//! The authoritative description of the protocol is `spec/in-game-viewer-protocol.md`.
 
 pub mod bridge;
 pub mod cli;

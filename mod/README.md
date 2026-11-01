@@ -1,10 +1,10 @@
 # In-game viewer mod
 
-The Factorio mod of the [in-game viewer](../initiatives/in-game-viewer/plan.md), for **Factorio 2.0.77** (`info.json` pins the 2.0 series). It is two layers. The **pure Lua modules** in `lib/` are plain Lua 5.2 with no `game`, `script` or `storage` access, so they run under busted. The **glue** (`control.lua`, `scripts/` (`gui.lua`), `settings.lua`, `locale/`) touches the game API and stays thin on top of them; CI cannot run it in Factorio, so [CHECKLIST.md](CHECKLIST.md) covers it by hand, and `glue_spec.lua` runs it against a fake runtime to catch plain Lua mistakes.
+The Factorio mod of the [in-game viewer](../initiatives/archive/in-game-viewer/plan.md), for **Factorio 2.0.77** (`info.json` pins the 2.0 series). It is two layers. The **pure Lua modules** in `lib/` are plain Lua 5.2 with no `game`, `script` or `storage` access, so they run under busted. The **glue** (`control.lua`, `scripts/` (`gui.lua`), `settings.lua`, `locale/`) touches the game API and stays thin on top of them; CI cannot run it in Factorio, so [CHECKLIST.md](CHECKLIST.md) covers it by hand, and `glue_spec.lua` runs it against a fake runtime to catch plain Lua mistakes.
 
 | Path | What it does |
 |---|---|
-| `lib/constants.lua` | Protocol constants (`CHUNK_PAYLOAD`, `MAX_CHUNKS`, `DISCONNECT_TICKS`, ...), named as in [protocol.md](../initiatives/in-game-viewer/protocol.md#constants) |
+| `lib/constants.lua` | Protocol constants (`CHUNK_PAYLOAD`, `MAX_CHUNKS`, `DISCONNECT_TICKS`, ...), named as in [the protocol](../spec/in-game-viewer-protocol.md#constants) |
 | `lib/datagram.lua` | Decodes the bridge's datagrams (ping, probe, chunk, end of window; anything else is dropped) and encodes the mod's answers (`hello`, `ready`, missing report, ack, refusal) |
 | `lib/snapshot.lua` | Validates a decoded snapshot (`version` or `invalid` reasons) and counts the ids the running game lacks, through functions the caller passes in |
 | `lib/receiver.lua` | The receive-side state machine: answer slot, reassembly, finishing, the Stale, Disconnected and protocol-mismatch signals. The caller feeds it packets and ticks and sends what `take_answer` returns |

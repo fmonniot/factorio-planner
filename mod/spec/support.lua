@@ -87,7 +87,7 @@ end
 
 -- ---------------------------------------------------------------------------
 -- Datagram builders for the specs that write their own scenarios, in the
--- bridge-to-mod layout of protocol.md.
+-- bridge-to-mod layout of spec/in-game-viewer-protocol.md.
 
 M.NO_ID = string.rep("-", 16)
 

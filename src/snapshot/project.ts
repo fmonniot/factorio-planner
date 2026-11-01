@@ -52,7 +52,7 @@ const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
 
 /**
  * The snapshot of a plan: a pure projection of `state` and its multi-block solve (see
- * initiatives/in-game-viewer/plan.md, "What is sent"). It reads no store.
+ * initiatives/archive/in-game-viewer/plan.md, "What is sent"). It reads no store.
  *
  * `gameData` is needed for what the plan and the solve do not hold: whether an id is an item or
  * a fluid, the main product of an exporter-invented recipe, and the default machine of a row that

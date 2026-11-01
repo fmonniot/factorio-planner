@@ -5,14 +5,14 @@ import { describe, it, expect } from 'vitest'
 import { SnapshotSchema, SNAPSHOT_VERSION } from './schema'
 import { WIRE, NO_ID, type Case, type BridgeStep, type ModState } from '../test/datagramFixtures'
 
-// Holds contract/datagrams/ to initiatives/in-game-viewer/protocol.md. The reader and the window
+// Holds contract/datagrams/ to spec/in-game-viewer-protocol.md. The reader and the window
 // builder below are written from the document, separately from the fixtures' encoder, and the
 // constants table is read from the document itself. If a rule changes, the document, the fixtures
 // and this file change together.
 
 const ROOT = resolve(import.meta.dirname, '../..')
 const DATAGRAMS = join(ROOT, 'contract/datagrams')
-const DOC = readFileSync(join(ROOT, 'initiatives/in-game-viewer/protocol.md'), 'utf-8')
+const DOC = readFileSync(join(ROOT, 'spec/in-game-viewer-protocol.md'), 'utf-8')
 const readJson = (file: string): unknown => JSON.parse(readFileSync(join(DATAGRAMS, file), 'utf-8'))
 
 const ID = /^[0-9a-f]{16}$/

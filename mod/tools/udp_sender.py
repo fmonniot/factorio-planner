@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """A stand-in for the bridge, for the manual checklist (mod/CHECKLIST.md).
 
-It sends the bridge-to-mod datagrams of initiatives/in-game-viewer/protocol.md to
+It sends the bridge-to-mod datagrams of spec/in-game-viewer-protocol.md to
 the game's UDP port, then prints whatever the mod answers on the bridge port for a
 few seconds. It implements no recovery: it sends what it is told once.
 

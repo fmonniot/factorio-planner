@@ -87,6 +87,7 @@ Read these before making decisions that affect core behaviour:
 | [spec/data-model.md](spec/data-model.md) | Field-level game-data and plan-state model |
 | [spec/test-synthetic.md](spec/test-synthetic.md) | 9 synthetic cases with full derivations — ground truth for the solver |
 | [spec/ui.md](spec/ui.md) | The production-table UI as it is today |
+| [spec/in-game-viewer-protocol.md](spec/in-game-viewer-protocol.md) | In-game viewer wire protocol: planner to bridge (WebSocket), bridge to mod (UDP) |
 | [initiatives/README.md](initiatives/README.md) | Index of active and archived initiatives |
 | [initiatives/backlog.md](initiatives/backlog.md) | Planned and possible work, known bugs |
 
