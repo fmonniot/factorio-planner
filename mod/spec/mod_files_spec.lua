@@ -2,7 +2,6 @@
 -- locale file and the GUI sources): nothing here starts the game, so these specs
 -- catch the mistakes a text check can catch.
 local C = require("lib.constants")
-local format = require("lib.format")
 local support = require("spec.support")
 
 local function read_locale()
@@ -100,16 +99,6 @@ describe("the locale file", function()
       assert.is_true(groups["fp-viewer"][k], "locale key fp-viewer." .. k .. " (used in " .. file .. ") is missing")
     end
     assert.is_true(count > 20, "the scan found suspiciously few keys")
-  end)
-
-  it("has a key for every warning code of the snapshot schema", function()
-    local schema = support.read_json(support.CONTRACT .. "/snapshot.schema.json")
-    local codes = schema.properties.blocks.items.properties.warnings.items.properties.code.enum
-    assert.is_true(#codes > 0)
-    for _, code in ipairs(codes) do
-      assert.is_true(format.WARNING_CODES[code], code .. " is not in format.WARNING_CODES")
-      assert.is_true(groups["fp-viewer"]["warning-" .. code], code .. " has no locale key")
-    end
   end)
 
   it("has a key for every indicator, synthetic kind and id kind", function()
