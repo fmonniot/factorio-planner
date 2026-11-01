@@ -20,6 +20,12 @@ M.MAX_SNAPSHOT_BYTES = 8000000
 M.MAX_REPORT_RANGES = 12
 M.MAX_UNKNOWN_IDS = 9999
 
+-- The ports of protocol.md "Ports": the bridge's default (the setting's default
+-- is a literal in settings.lua, checked against this) and the game's own, which
+-- `--enable-lua-udp` sets and the Disconnected text names.
+M.DEFAULT_BRIDGE_PORT = 34199
+M.GAME_PORT = 34198
+
 M.POLL_TICKS = 10
 M.FLUSH_OFFSET = 2
 M.GAME_UPS = 60
