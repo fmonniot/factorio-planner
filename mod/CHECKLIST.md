@@ -2,7 +2,7 @@
 
 CI never starts the game, so everything that touches the Factorio API (`control.lua`, `gui.lua`, `cursor.lua`, `data.lua`, `settings.lua`, the locale file) is checked here, once per release and after any change to those files. The pure Lua modules are covered by the busted specs, and `glue_spec.lua` runs the glue against a fake runtime, which catches plain Lua mistakes and nothing about the real API.
 
-Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the received snapshot into the save). Tick each item, and write down what was seen in the PR or release notes. A failure of an item marked **(unverified API)** is expected to be a one-line fix in the file named; the list of such calls is in #193 (the production table) and in the PRs of the first viewer.
+Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the received snapshot into the save). Tick each item, and write down what was seen in the PR or release notes. A failure of an item marked **(unverified API)** is expected to be a one-line fix in the file named; the production table's calls are listed in [#193](https://github.com/fmonniot/factorio-planner/pull/193).
 
 ## Setup
 
