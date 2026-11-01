@@ -1,6 +1,6 @@
 {
   "case": "conflicting-header",
-  "summary": "A chunk with the right id but a count or byte length other than the probe's is dropped.",
+  "summary": "A chunk with the right id but a count other than the probe's is dropped; so is one with the right count and another byte length.",
   "start": {
     "stored": null
   },
@@ -45,6 +45,31 @@
         }
       ],
       "answer": "FP01 M 9b3b078dbd018b94 0000 1",
+      "after": {
+        "stored": null,
+        "unknownIds": 0,
+        "assembling": "9b3b078dbd018b94",
+        "have": [
+          0
+        ],
+        "stale": false,
+        "mismatch": false
+      }
+    },
+    {
+      "arrive": [
+        {
+          "type": "chunk",
+          "text": "FP01 C 9b3b078dbd018b94 0001 0005 0000587 ",
+          "hex": "4650303120432039623362303738646264303138623934203030303120303030352030303030353837206f6c6f72223a2223336238326636222c2270726f6475637473223a5b7b226964223a2269726f6e2d676561722d776865656c222c2274797065223a226974656d222c2272617465223a36307d5d2c22726f7773223a5b7b22726563697065223a2269726f6e2d676561722d776865656c222c226d616368696e65223a22626f62"
+        },
+        {
+          "type": "end-of-window",
+          "text": "FP01 E 9b3b078dbd018b94 0001 0002",
+          "hex": "465030312045203962336230373864626430313862393420303030312030303032"
+        }
+      ],
+      "answer": "FP01 M 9b3b078dbd018b94 0001 1",
       "after": {
         "stored": null,
         "unknownIds": 0,

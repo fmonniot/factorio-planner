@@ -79,6 +79,18 @@ function transferOf(data: Buffer, chunkSize: number): Transfer {
   return { id: snapshotId(data), bytes: data.length, count: chunks.length, data, chunks }
 }
 
+/** A transfer cut at the given sizes, the last chunk taking whatever is left. */
+function transferFromSizes(data: Buffer, sizes: number[]): Transfer {
+  const chunks: Buffer[] = []
+  let at = 0
+  for (const size of sizes) {
+    chunks.push(data.subarray(at, at + size))
+    at += size
+  }
+  chunks.push(data.subarray(at))
+  return { id: snapshotId(data), bytes: data.length, count: chunks.length, data, chunks }
+}
+
 export interface Datagram {
   type: string
   /** The readable part: everything but a chunk's payload or a probe's padding. `hex` is the datagram. */
@@ -334,6 +346,40 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     })
   }
   {
+    // 146 chunks. Thirteen pairs of chunks (100-101, 103-104, ... 136-137) are lost, each pair with
+    // one held chunk between it and the next, so thirteen separate gaps lie below `upto` and every
+    // gap is written as `abc-def`. The report stops at twelve: 29 + 12 * 7 + 11 = MAX_REPORT_BYTES.
+    // The bridge never sends this much in one window, so the case has no bridge steps.
+    const t = transferOf(bytesOf('seablock-loop'), 14)
+    const pair = (k: number): number[] => [100 + 3 * k, 101 + 3 * k]
+    const lostFirst = range(0, 12).flatMap(pair)
+    const firstTwelve = range(0, 11).flatMap(pair)
+    const ranges = range(0, 11).map(k => `${100 + 3 * k}-${101 + 3 * k}`).join(',')
+    const everything = range(0, t.count - 1)
+    const arrived = everything.filter(i => !lostFirst.includes(i))
+    cases.push({
+      case: 'report-worst-case',
+      summary: 'Thirteen gaps of two chunks with three-digit indices below `upto`. The report holds twelve ranges, lowest first, and is exactly MAX_REPORT_BYTES long; the next round reports the thirteenth.',
+      snapshot: snapshotRef('seablock-loop', t, 14),
+      start: none,
+      idCheck: noUnknown,
+      polls: [
+        { arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) },
+        {
+          arrive: [...arrived.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)],
+          answer: missing(t.id, 0, ranges),
+          after: state({ assembling: t.id, have: arrived }),
+        },
+        {
+          arrive: [...firstTwelve.map(i => chunk(t, i)), endOfWindow(t.id, 1, t.count)],
+          answer: missing(t.id, 1, '136-137'),
+          after: state({ assembling: t.id, have: everything.filter(i => !pair(12).includes(i)) }),
+        },
+        { arrive: [...pair(12).map(i => chunk(t, i)), endOfWindow(t.id, 2, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
+      ],
+    })
+  }
+  {
     // 41 chunks. Every even chunk is lost in round 0, and again in round 1, so 18 separate gaps
     // lie below `upto` and the report must stop at 12 ranges.
     const t = transferOf(bytesOf('seablock-loop'), 50)
@@ -345,7 +391,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     const twelve = first12.join(',')
     const lateEven = even(24, 34)
     cases.push({
-      case: 'report-worst-case',
+      case: 'report-capped',
       summary: 'Alternating loss across 41 chunks. The report stops at MAX_REPORT_RANGES ranges, lowest first, and stays under MAX_REPORT_BYTES; later rounds report the rest.',
       snapshot: snapshotRef('seablock-loop', t, 50),
       start: none,
@@ -632,15 +678,17 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
   }
   {
     const t = transferOf(bytesOf('small'), 128)
-    const conflict = datagram('chunk', chunkHeader(t.id, 1, t.count + 1, t.bytes), t.chunks[1])
+    const wrongCount = datagram('chunk', chunkHeader(t.id, 1, t.count + 1, t.bytes), t.chunks[1])
+    const wrongBytes = datagram('chunk', chunkHeader(t.id, 1, t.count, t.bytes + 1), t.chunks[1])
     cases.push({
       case: 'conflicting-header',
-      summary: 'A chunk with the right id but a count or byte length other than the probe\'s is dropped.',
+      summary: 'A chunk with the right id but a count other than the probe\'s is dropped; so is one with the right count and another byte length.',
       start: none,
       idCheck: noUnknown,
       polls: [
         { arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) },
-        { arrive: [chunk(t, 0), conflict, endOfWindow(t.id, 0, 2)], answer: missing(t.id, 0, '1'), after: state({ assembling: t.id, have: [0] }) },
+        { arrive: [chunk(t, 0), wrongCount, endOfWindow(t.id, 0, 2)], answer: missing(t.id, 0, '1'), after: state({ assembling: t.id, have: [0] }) },
+        { arrive: [wrongBytes, endOfWindow(t.id, 1, 2)], answer: missing(t.id, 1, '1'), after: state({ assembling: t.id, have: [0] }) },
       ],
     })
   }
@@ -713,20 +761,90 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     })
   }
   {
-    // The declared length is one byte too many, so the mod refuses with `length`. Later the same
-    // snapshot is in the mod's storage (a save that holds it was loaded): the hello moves the bridge on.
+    // Chunks of six different sizes, arriving in the order 3, 0, 5, 2, 1, 4. Joining at
+    // `index * CHUNK_PAYLOAD` or at the first chunk's size breaks it; only the real payloads, in
+    // index order, give the bytes.
+    const t = transferFromSizes(bytesOf('seablock-loop'), [100, 37, 1, 700, 250])
+    const order = [3, 0, 5, 2, 1, 4]
+    cases.push({
+      case: 'mixed-chunk-sizes',
+      summary: 'The chunks are 100, 37, 1, 700, 250 and 946 bytes. The format only needs the payloads to add up to `bytes`, so the snapshot joins from what arrived, not from a fixed size. `chunkSize` is the largest.',
+      snapshot: snapshotRef('seablock-loop', t, 946),
+      start: none,
+      idCheck: noUnknown,
+      polls: plainDelivery(t, [...order.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)]),
+    })
+  }
+  {
+    // Seven reports with the same ranges and the same `upto`, then one that differs, then another
+    // that differs, then identical ones until the run reaches NO_PROGRESS_LIMIT again. The run
+    // counts consecutive reports: a count of all reports would stop at the 8th, and a counter that
+    // restarts on `round` would never stop.
+    const t = transferOf(bytesOf('seablock-loop'), 64)
+    const first = range(0, 23)
+    const stuck = [...range(0, 4), ...range(6, 24)]
+    const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]
+    const steps: BridgeStep[] = [{ hears: ready(t.id), sends: { round: 0, indices: first, upto: 24 } }]
+    // Reports 1 to 7: nothing arrives but the end-of-window.
+    for (let r = 0; r < 7; r++) {
+      polls.push({ arrive: [endOfWindow(t.id, r, 24)], answer: missing(t.id, r, '0-23'), after: state({ assembling: t.id }) })
+      steps.push({ hears: missing(t.id, r, '0-23'), sends: { round: r + 1, indices: first, upto: 24 } })
+    }
+    // Report 8: chunk 5 got through, so the ranges differ. The next window grows by chunk 24.
+    polls.push({ arrive: [chunk(t, 5), endOfWindow(t.id, 7, 24)], answer: missing(t.id, 7, '0-4,6-23'), after: state({ assembling: t.id, have: [5] }) })
+    steps.push({ hears: missing(t.id, 7, '0-4,6-23'), sends: { round: 8, indices: stuck, upto: 25 } })
+    // Report 9: nothing got through, chunk 24 included. The ranges differ again, so the run is 1.
+    polls.push({ arrive: [endOfWindow(t.id, 8, 25)], answer: missing(t.id, 8, '0-4,6-24'), after: state({ assembling: t.id, have: [5] }) })
+    steps.push({ hears: missing(t.id, 8, '0-4,6-24'), sends: { round: 9, indices: stuck, upto: 25 } })
+    // Reports 10 to 16: the same ranges and the same `upto`, runs 2 to 8. The 16th stops the bridge.
+    for (let r = 9; r <= 15; r++) {
+      polls.push({ arrive: [endOfWindow(t.id, r, 25)], answer: missing(t.id, r, '0-4,6-24'), after: state({ assembling: t.id, have: [5] }) })
+      steps.push(
+        r < 15
+          ? { hears: missing(t.id, r, '0-4,6-24'), sends: { round: r + 1, indices: stuck, upto: 25 } }
+          : { hears: missing(t.id, r, '0-4,6-24'), sends: null, state: 'failed' },
+      )
+    }
+    // The window turns up late, the mod stores the snapshot, and the next hello moves the bridge on.
+    polls.push({
+      arrive: [...range(0, t.count - 1).map(i => chunk(t, i)), endOfWindow(t.id, 16, t.count)],
+      answer: ack(t.id, 0),
+      after: state({ stored: t.id }),
+    })
+    steps.push({ hears: ack(t.id, 0), sends: null, state: 'failed' })
+    polls.push({ arrive: [ping(t.id)], answer: hello(t.id, 0, NO_ID), after: state({ stored: t.id }) })
+    steps.push({ hears: hello(t.id, 0, NO_ID), sends: null, state: 'delivered' })
+    cases.push({
+      case: 'no-progress-reset',
+      summary: 'Seven identical fruitless reports, then two reports with other ranges, then identical ones again. The run starts again at 1 on a report that differs, so the bridge keeps sending through the 8th and 15th reports and fails on the 16th, the 8th of the new run.',
+      snapshot: snapshotRef('seablock-loop', t, 64),
+      start: none,
+      idCheck: noUnknown,
+      polls,
+      bridge: steps,
+    })
+  }
+  {
+    // The declared length is one byte too many, so the mod refuses with `length` and keeps the old
+    // snapshot. Later the mod holds the real snapshot (here a transfer with the right length): the
+    // hello that shows it moves the bridge on.
     const real = transferOf(bytesOf('small'), 128)
     const t = { ...real, bytes: real.bytes + 1 }
     const all = range(0, t.count - 1)
+    const held = { stored: OLD_ID, unknownIds: 0 }
     cases.push({
       case: 'rejected-then-stored',
-      summary: 'A refused transfer leaves the bridge in Rejected. A hello that shows the mod stores the snapshot after all moves it to Delivered; a hello that does not leaves it alone.',
+      summary: 'A refused transfer leaves the bridge in Rejected. A hello that does not show the snapshot stored leaves it alone; once the mod holds it after all (here through a later transfer with the right length), its hello moves the bridge to Delivered.',
       snapshot: snapshotRef('small', real, 128),
-      start: none,
+      start: { stored: { id: OLD_ID, unknownIds: 0 } },
       idCheck: noUnknown,
       polls: [
-        { arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) },
-        { arrive: [...all.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)], answer: nack(t.id, 'length'), after: state({}) },
+        { arrive: [probe(t)], answer: ready(t.id), after: state({ ...held, assembling: t.id }) },
+        { arrive: [...all.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)], answer: nack(t.id, 'length'), after: state(held) },
+        { arrive: [ping(t.id)], answer: hello(OLD_ID, 0, NO_ID), after: state({ ...held, stale: true }) },
+        { arrive: [probe(real)], answer: ready(t.id), after: state({ ...held, stale: true, assembling: t.id }) },
+        { arrive: [...all.map(i => chunk(real, i)), endOfWindow(t.id, 0, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
+        { arrive: [ping(t.id)], answer: hello(t.id, 0, NO_ID), after: state({ stored: t.id }) },
       ],
       bridge: [
         { hears: ready(t.id), sends: { round: 0, indices: all, upto: t.count } },

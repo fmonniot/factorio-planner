@@ -519,10 +519,10 @@ describe('contract/datagrams/case-*.json', () => {
     const names = cases.map(c => c.case)
     for (const name of [
       'in-order', 'two-windows', 'max-size-chunks', 'reordered', 'duplicate-chunk', 'missing-chunk', 'window-lost',
-      'report-worst-case', 'lost-end-of-window', 'multibyte-straddle', 'wrong-byte-length', 'invalid-json', 'snapshot-version', 'snapshot-invalid',
+      'report-worst-case', 'report-capped', 'mixed-chunk-sizes', 'lost-end-of-window', 'multibyte-straddle', 'wrong-byte-length', 'invalid-json', 'snapshot-version', 'snapshot-invalid',
       'superseded', 'already-stored', 'lost-on-load', 'resume-after-pause', 'one-answer-per-poll', 'stale-signal',
       'no-snapshot-not-stale', 'protocol-mismatch', 'conflicting-header',
-      'many-windows', 'no-progress', 'rejected-then-stored',
+      'many-windows', 'no-progress', 'no-progress-reset', 'rejected-then-stored',
     ]) {
       expect(names, name).toContain(name)
     }
@@ -568,8 +568,10 @@ describe('contract/datagrams/case-*.json', () => {
     const s = c.snapshot as NonNullable<Case['snapshot']>
     const payloads = chunkPayloads(c)
     expect(Buffer.concat(payloads).toString('hex')).toBe(s.hex)
-    for (const p of payloads.slice(0, -1)) expect(p.length).toBe(s.chunkSize)
-    expect(payloads[payloads.length - 1].length).toBeLessThanOrEqual(s.chunkSize)
+    if (c.case !== 'mixed-chunk-sizes') {
+      for (const p of payloads.slice(0, -1)) expect(p.length).toBe(s.chunkSize)
+    }
+    expect(Math.max(...payloads.map(p => p.length))).toBe(s.chunkSize)
   })
 
   it.each(cases.filter(c => c.bridge).map(c => [c.case, c] as const))('%s: the bridge sends what the document says', (_, c) => {
@@ -633,8 +635,15 @@ describe('contract/datagrams/case-*.json', () => {
   it('has transcripts that agree with the mod: each window sent is the one the mod answers', () => {
     const c = caseNamed('missing-chunk')
     expect((c.bridge as BridgeStep[]).map(b => b.hears)).toEqual(c.polls.map(p => p.answer))
-    const lost = caseNamed('report-worst-case')
+    const lost = caseNamed('report-capped')
     expect((lost.bridge as BridgeStep[]).map(b => b.hears)).toEqual(lost.polls.map(p => p.answer))
+    const reset = caseNamed('no-progress-reset')
+    expect((reset.bridge as BridgeStep[]).map(b => b.hears)).toEqual(reset.polls.map(p => p.answer))
+    // The hellos the bridge hears after a refusal are the ones the mod sends, in order.
+    const rejected = caseNamed('rejected-then-stored')
+    const hellos = (answers: (string | null)[]): string[] => answers.filter((a): a is string => a !== null && a.startsWith('FP01 H '))
+    expect(hellos((rejected.bridge as BridgeStep[]).map(b => b.hears))).toEqual(hellos(rejected.polls.map(p => p.answer)))
+    expect((rejected.bridge as BridgeStep[]).map(b => b.hears)[1]).toBe(rejected.polls[1].answer)
   })
 
   it('straddles a 2-byte, a 3-byte and a 4-byte character, leaving a chunk that is not UTF-8 alone', () => {
@@ -658,10 +667,72 @@ describe('contract/datagrams/case-*.json', () => {
     expect(payloads.some(p => { try { decoder.decode(p); return false } catch { return true } }), 'a chunk that is not UTF-8 alone').toBe(true)
   })
 
-  it('stops a report at the cap, under the byte limit, in the worst case', () => {
-    const reports = caseNamed('report-worst-case').polls.flatMap(p => p.answer ?? []).filter(a => a.startsWith('FP01 M'))
+  const reportsOf = (name: string): string[] => caseNamed(name).polls.flatMap(p => p.answer ?? []).filter(a => a.startsWith('FP01 M'))
+
+  it('stops a report at the cap, under the byte limit, when the loss is spread out', () => {
+    const reports = reportsOf('report-capped')
     expect(reports[1].split(' ')[4].split(',').length).toBe(WIRE.MAX_REPORT_RANGES)
-    for (const r of reports) expect(r.length).toBeLessThan(100)
+    for (const r of reports) expect(r.length).toBeLessThanOrEqual(WIRE.MAX_REPORT_BYTES)
+  })
+
+  it('reaches MAX_REPORT_BYTES exactly: twelve ranges, every index three digits', () => {
+    const reports = reportsOf('report-worst-case')
+    const ranges = reports[0].split(' ')[4].split(',')
+    expect(ranges.length).toBe(WIRE.MAX_REPORT_RANGES)
+    for (const r of ranges) expect(r, 'a range of two three-digit indices').toMatch(/^\d{3}-\d{3}$/)
+    expect(reports[0].length).toBe(WIRE.MAX_REPORT_BYTES)
+    for (const r of reports) expect(r.length).toBeLessThanOrEqual(WIRE.MAX_REPORT_BYTES)
+    // There was a thirteenth gap, and the next round names it.
+    expect(reports[1].split(' ')[4]).toBe('136-137')
+  })
+
+  it('drops a chunk whose byte length differs from the probe, when the count matches', () => {
+    const c = caseNamed('conflicting-header')
+    const probe = parseModInput(hexBytes(c.polls[0].arrive[0].hex)) as Parsed & { count: number; bytes: number }
+    const seen = c.polls.flatMap(p => p.arrive).map(d => parseModInput(hexBytes(d.hex))).filter(p => p?.kind === 'chunk') as Extract<Parsed, { kind: 'chunk' }>[]
+    expect(seen.some(p => p.count === probe.count && p.bytes !== probe.bytes), 'a chunk with only the byte length wrong').toBe(true)
+    expect(seen.some(p => p.count !== probe.count && p.bytes === probe.bytes), 'a chunk with only the count wrong').toBe(true)
+    // Each is dropped alone: the chunk it carries is still missing afterwards.
+    expect(c.polls[1].after.have).toEqual([0])
+    expect(c.polls[2].after.have).toEqual([0])
+  })
+
+  it('has chunks of different sizes, none over CHUNK_PAYLOAD, adding up to the declared bytes', () => {
+    const c = caseNamed('mixed-chunk-sizes')
+    const s = c.snapshot as NonNullable<Case['snapshot']>
+    const sizes = chunkPayloads(c).map(p => p.length)
+    expect(sizes.reduce((a, b) => a + b, 0)).toBe(s.bytes)
+    for (const size of sizes) {
+      expect(size).toBeGreaterThanOrEqual(1)
+      expect(size).toBeLessThanOrEqual(WIRE.CHUNK_PAYLOAD)
+    }
+    expect(new Set(sizes.slice(0, -1)).size, 'non-last chunks of several sizes').toBeGreaterThan(1)
+    expect(sizes.slice(1, -1).some(n => n !== sizes[0]), 'a non-last chunk unlike the first').toBe(true)
+    // Joining by a fixed stride would not give the snapshot.
+    const stride = Buffer.alloc(s.bytes)
+    chunkPayloads(c).forEach((p, i) => p.copy(stride, i * sizes[0]))
+    expect(stride.toString('hex')).not.toBe(s.hex)
+  })
+
+  it('counts consecutive fruitless reports: the run starts again when a report differs', () => {
+    const c = caseNamed('no-progress-reset')
+    const steps = c.bridge as BridgeStep[]
+    const reportSteps = steps.filter(b => b.hears.startsWith('FP01 M '))
+    const reports = reportSteps.map(b => b.hears.split(' ')[4])
+    // Seven identical reports, then two that differ, then identical ones.
+    expect(new Set(reports.slice(0, 7))).toEqual(new Set(['0-23']))
+    expect(reports[7]).not.toBe(reports[6])
+    expect(reports[8]).not.toBe(reports[7])
+    expect(reports.length).toBe(16)
+    expect(new Set(reports.slice(8))).toEqual(new Set([reports[8]]))
+    // Failed is reached at the 16th report: the 8th of the new run (reports 9 to 16), not the 8th report.
+    const failedAt = steps.findIndex(b => b.state === 'failed')
+    expect(failedAt).toBe(16)
+    expect(failedAt).toBe(8 + WIRE.NO_PROGRESS_LIMIT)
+    for (const [i, b] of steps.slice(1, failedAt).entries()) expect(b.sends, `report ${i + 1} still sends`).not.toBeNull()
+    expect(steps[failedAt].sends).toBeNull()
+    // `round` changes every time and does not count against the run.
+    expect(new Set(reportSteps.map(b => b.hears.split(' ')[3])).size).toBe(reportSteps.length)
   })
 
   it('uses a full MAX_DATAGRAM chunk at the largest size', () => {
