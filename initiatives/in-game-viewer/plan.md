@@ -199,7 +199,7 @@ Note: Behind permission prompt.
 
 #### Step 2 and 3 results (2026-10-31)
 
-Factorio 2.0.77 (build 84539, mac-arm64) on macOS 27. Step 2 ran on a minimal save with only the spike mod enabled and no Space Age; step 3 ran on the maintainer's Seablock save (5.6 MB, `script.dat` 11.8 MB). "Poll N" means `recv_udp` every N ticks. Raw output and log excerpts: [spike/udp-spike/README.md](spike/udp-spike/README.md); once the spike folder is deleted, they stay in the git history at `ad58b03`.
+Factorio 2.0.77 (build 84539, mac-arm64) on macOS 27. Step 2 ran on a minimal save with only the spike mod enabled and no Space Age; step 3 ran on the maintainer's Seablock save (5.6 MB, `script.dat` 11.8 MB). "Poll N" means `recv_udp` every N ticks. Raw output and log excerpts: [spike/udp-spike/README.md](spike/udp-spike/README.md); once the spike folder is deleted, they stay in the git history, in the parent of the commit that deletes it.
 
 **Transport decision: chunked UDP.** A full-size snapshot arrived intact on the first attempt in both steps, at poll 1 and poll 10, so no [fallback](#if-the-udp-transport-does-not-work) is needed.
 
