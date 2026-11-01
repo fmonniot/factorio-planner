@@ -26,7 +26,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Integrations
 
-- [ ] **In-game plan viewer.** A read-only Factorio mod that shows the planner's blocks and plans in the game, fed by a Rust bridge (planner to bridge over a localhost WebSocket, bridge to mod over Factorio's opt-in UDP). Design, phases and open questions are in [in-game-viewer/](in-game-viewer/plan.md); the first phase is a spike to confirm the UDP API.
+- [ ] **In-game plan viewer.** A read-only Factorio mod that shows the planner's blocks and plans in the game, fed by a Rust bridge (planner to bridge over a localhost WebSocket, bridge to mod over Factorio's opt-in UDP). Design, phases and open questions are in [in-game-viewer/](in-game-viewer/plan.md); the spike phase is closed and the rest is being implemented.
 
 ## Planning features
 
