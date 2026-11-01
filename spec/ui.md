@@ -67,7 +67,8 @@ The layout is designed for desktop widths; there is no mobile layout.
 are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
 warnings), the rate unit toggle, the icon-only tool buttons (the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
-shown only while some block has areas, and the [tech tree](#technology-tree)), a divider
+shown only while some block has areas, the [tech tree](#technology-tree) and the
+[in-game viewer](#in-game-viewer) connection), a divider
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu). The root
 carries `data-testid="top-bar"`.
@@ -344,6 +345,16 @@ area that has no row.
 
 Areas are never merged by name: each block has its own pool, so what an area receives or
 sends is relative to its block, and every block has a "Top level".
+
+### In-game viewer
+
+`ViewerButton` (`ViewerButton.tsx`) is a plug icon button, always shown, that opens a popover (`role="dialog"`, name "In-game viewer") for the connection to the in-game viewer's bridge, a program on the same computer that passes the plan to the Factorio mod. Its accessible name is "In-game viewer: <badge label>", and a coloured dot (`viewer-dot`) shows the badge tone (blue busy, green connected, amber warning, red error; none while off).
+
+The connection is **off by default and never remembered**: the planner opens no socket until the player ticks **Connect to the bridge**, and a reload starts off again. The popover holds that checkbox, the **Bridge address** field (default `ws://127.0.0.1:34199/`, disabled while connected, with a link back to the default when changed), the status badge (`viewer-badge`, with its explanation in `viewer-detail`), error notices (`viewer-notice`, `role="alert"`), the **Send to Factorio** button and the **Send after every change** checkbox. The address and the auto-send choice are persisted with the other UI settings in `uiStore`.
+
+Badge states: Off; Connecting; Waiting for the browser (the socket has been opening for 2.5 s: the browser may be asking for permission to reach the local network); No bridge (the socket closed without opening, or an open one closed; the explanation lists the browser causes: the permission prompt, content blockers such as uBlock, Safari refusing `ws://` from an https page); Blocked by the browser (creating the socket threw); Bad address; Version mismatch (the bridge's first status has another protocol version: nothing is sent); Bridge, no game; Game quiet (paused, saving or closed); Mod version mismatch; Data set mismatch (the mod reports ids the running game lacks, shown with the count); Connected (the explanation says where the delivery stands). While the connection is on and the socket is closed the planner retries every 5 s.
+
+After each solve the planner builds the snapshot (`projectSnapshot`), hashes it and either sends it (auto-send on, or **Send to Factorio**) or only announces its id, so the game can show a plan edited and not sent as stale. Nothing is built while the connection is off. A snapshot above 8,000,000 bytes is never sent: the id is announced, a notice says the plan is too large for the in-game viewer, and Send announces too. After a restart that left the bridge empty the planner sends the last bytes it sent again; it does so only when the bridge's first status shows nothing held, and never for bytes the bridge refused. A bridge `error` is shown in plain words and nothing is resent by itself. The rules live in the pure state machine `src/viewer/connection.ts`; `controller.ts` owns the WebSocket and the timers.
 
 ### Research horizon
 
