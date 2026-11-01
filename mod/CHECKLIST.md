@@ -8,7 +8,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 
 1. Put the mod in the game's `mods/` folder as `factorio-planner-viewer_0.1.0/`, holding `info.json`, `control.lua`, `data.lua`, `settings.lua`, `graphics/`, `lib/`, `scripts/` and `locale/` (a copy or a symlink of `mod/` is enough, `spec/`, `tools/` and the rest are ignored by the game).
 2. Start the game with `--enable-lua-udp 34198` (Steam launch option, or on the command line). Load the throwaway save.
-3. The bridge does not exist yet; `mod/tools/udp_sender.py` stands in for it (`python3 mod/tools/udp_sender.py --help`). It sends datagrams to the game's port and prints the mod's answers, which the mod sends to the bridge port 34199.
+3. The checklist does not use the real bridge; `mod/tools/udp_sender.py` stands in for it (`python3 mod/tools/udp_sender.py --help`). It sends datagrams to the game's port and prints the mod's answers, which the mod sends to the bridge port 34199.
 4. After loading, `factorio-current.log` must show no Lua error from `factorio-planner-viewer`.
 
 ## Checks
