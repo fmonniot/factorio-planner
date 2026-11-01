@@ -168,10 +168,12 @@ end
 
 -- The block a player has selected, kept through a new snapshot by name (the
 -- snapshot has no block ids): the same position if it still holds that name, else
--- the first block of that name, else the first block.
+-- the first block of that name, else the first block. Also returns the key of the
+-- sub-factory the player has open in it (nil: the block's top level), kept while
+-- the block of that name still has it.
 local function selected_for(player_index, model)
   if model == nil then
-    return 1
+    return 1, nil
   end
   local selections = state().selected
   local chosen = selections[player_index]
@@ -180,19 +182,27 @@ local function selected_for(player_index, model)
     names[i] = block.name
   end
   local index = format.reselect(names, chosen and chosen.index, chosen and chosen.name)
-  if chosen == nil or chosen.index ~= index or chosen.name ~= names[index] then
-    selections[player_index] = { index = index, name = names[index] }
+  local level = chosen and chosen.name == names[index] and chosen.level or nil
+  local block = model.blocks[index]
+  local entry = level and block and block.by_key[level]
+  if entry == nil or entry.type ~= "group" then
+    level = nil
   end
-  return index
+  if chosen == nil or chosen.index ~= index or chosen.name ~= names[index] or chosen.level ~= level then
+    selections[player_index] = { index = index, name = names[index], level = level }
+  end
+  return index, level
 end
 
 -- What the GUI needs to draw one player's window; `extra` adds fields.
 local function context(player, indicator, model, extra)
+  local selected, level = selected_for(player.index, model)
   local ctx = {
     model = model,
     generation = model_cache and model_cache.generation,
     indicator = indicator,
-    selected = selected_for(player.index, model),
+    selected = selected,
+    level = level,
     done = done(),
   }
   for k, v in pairs(extra or {}) do
@@ -334,6 +344,13 @@ local function event_player(event)
   return game.get_player(event.player_index), element
 end
 
+-- Shows a sub-factory of a block (nil: its top level) in the player's whole
+-- window, from the top of its table.
+local function show_level(player, block, level)
+  state().selected[player.index] = { index = block.index, name = block.name, level = level }
+  redraw(player, { only_table = true, reset_scroll = true })
+end
+
 script.on_event(defines.events.on_gui_click, function(event)
   local player, element = event_player(event)
   if player == nil then
@@ -347,9 +364,28 @@ script.on_event(defines.events.on_gui_click, function(event)
     gui.toggle(player, context(player, indicator, model))
   elseif name == gui.CLOSE then
     gui.close(player)
+  elseif name == format.LEVEL_UP then
+    -- Up from the sub-factory shown, to the one it is in or the block's top level.
+    local model = get_model()
+    if model == nil then
+      return
+    end
+    local index, level = selected_for(player.index, model)
+    local block = model.blocks[index]
+    local entry = block and level and block.by_key[level]
+    if entry ~= nil then
+      show_level(player, block, entry.parent)
+    end
   else
+    local block, entry, what = tagged(element)
+    if what == format.TAG_OPEN then
+      -- A sub-factory's icon: the whole window shows that sub-factory.
+      if entry.type == "group" then
+        show_level(player, block, entry.key)
+      end
+      return
+    end
     -- A machine or a beacon: into the cursor. The window stays open.
-    local _, entry, what = tagged(element)
     if entry == nil or entry.type ~= "row" or (what ~= format.TAG_MACHINE and what ~= format.TAG_BEACON) then
       return
     end

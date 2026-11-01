@@ -36,12 +36,20 @@ local function recipe_row(id, inp, out, group)
   return row
 end
 
--- The shape of a table as "kind:depth:name-or-key" lines, to compare in one go.
+-- The shape of a table as "kind:depth:name-or-key" lines, to compare in one go:
+-- every level in turn, a sub-factory's lines right after it, `depth` being how
+-- deep that level is.
 local function outline(block)
   local out = {}
-  for i, e in ipairs(block.entries) do
-    out[i] = e.type .. ":" .. e.depth .. ":" .. (e.type == "group" and e.name or e.row.recipe or e.row.synthetic_kind)
+  local function walk(entries, depth)
+    for _, e in ipairs(entries) do
+      out[#out + 1] = e.type .. ":" .. depth .. ":" .. (e.type == "group" and e.name or e.row.recipe or e.row.synthetic_kind)
+      if e.type == "group" then
+        walk(e.entries, depth + 1)
+      end
+    end
   end
+  walk(block.entries, 0)
   return out
 end
 
@@ -70,20 +78,25 @@ describe("viewmodel.build", function()
         local vm = viewmodel.build(fixture(name))
         for _, block in ipairs(vm.blocks) do
           local row_entries, seen = 0, {}
-          for _, e in ipairs(block.entries) do
-            assert.are.equal(e, block.by_key[e.key])
-            assert.is_nil(seen[e.key], "key repeated: " .. e.key)
-            seen[e.key] = true
-            if e.type == "row" then
-              row_entries = row_entries + 1
-              assert.are.equal(e.key, e.row.key)
-            else
-              assert.is_true(#e.keys > 0)
-              for _, k in ipairs(e.keys) do
-                assert.are.equal("row", block.by_key[k].type)
+          local function visit(entries, owner)
+            for _, e in ipairs(entries) do
+              assert.are.equal(e, block.by_key[e.key])
+              assert.is_nil(seen[e.key], "key repeated: " .. e.key)
+              seen[e.key] = true
+              if e.type == "row" then
+                row_entries = row_entries + 1
+                assert.are.equal(e.key, e.row.key)
+              else
+                assert.are.equal(owner and owner.key or nil, e.parent)
+                assert.is_true(#e.keys > 0)
+                for _, k in ipairs(e.keys) do
+                  assert.are.equal("row", block.by_key[k].type)
+                end
+                visit(e.entries, e)
               end
             end
           end
+          visit(block.entries, nil)
           assert.are.equal(#block.rows, row_entries)
         end
       end)
@@ -300,7 +313,7 @@ describe("viewmodel.build", function()
   end)
 
   describe("the table of sub-factories", function()
-    it("lays out the seablock-groups fixture: headers where a sub-factory first appears, rows indented", function()
+    it("lays out the seablock-groups fixture: a line where a sub-factory first appears, its own lines inside", function()
       local block = viewmodel.build(fixture("seablock-groups")).blocks[1]
       assert.are.same({
         "row:0:iron-gear-wheel",
@@ -312,6 +325,23 @@ describe("viewmodel.build", function()
         "row:1:copper-cable", -- after the nested sub-factory
         "row:0:pipe",
       }, outline(block))
+    end)
+
+    it("makes a sub-factory one line of its level, with the level it opens inside and its parent's key", function()
+      local block = viewmodel.build(fixture("seablock-groups")).blocks[1]
+      local plates = block.by_key[GROUP .. "Plates and cables"]
+      local power = block.by_key[GROUP .. "Plates and cables" .. SEP .. "Power"]
+      -- The top level: the gears row, the sub-factory as one line, the pipe row.
+      assert.are.same({ "row", "group", "row" }, { block.entries[1].type, block.entries[2].type, block.entries[3].type })
+      assert.are.equal(3, #block.entries)
+      assert.are.equal(plates, block.entries[2])
+      assert.is_nil(plates.parent)
+      -- Its own lines: a row, the nested sub-factory as one line, a row.
+      assert.are.same({ "row", "group", "row" }, { plates.entries[1].type, plates.entries[2].type, plates.entries[3].type })
+      assert.are.equal(3, #plates.entries)
+      assert.are.equal(power, plates.entries[2])
+      assert.are.equal(plates.key, power.parent)
+      assert.are.equal(2, #power.entries)
     end)
 
     it("gives a header the keys of every row under it, nested ones too, and its net flows", function()
@@ -387,7 +417,8 @@ describe("viewmodel.build", function()
       assert.are.same({ "ore=10" }, ids(p.ingredients))
       assert.are.same({ "gear=1" }, ids(block.by_key[GROUP .. "P" .. SEP .. "S"].products))
       assert.are.same({ "plate=2" }, ids(block.by_key[GROUP .. "P" .. SEP .. "S"].ingredients))
-      assert.are.equal(0, block.by_key["c"].depth)
+      assert.are.same({ p, block.by_key["c"] }, block.entries)
+      assert.are.same({ block.by_key["P" .. SEP .. "a"], block.by_key[GROUP .. "P" .. SEP .. "S"] }, p.entries)
     end)
 
     it("cuts a net balance under 0.01/min, and keeps one of exactly 0.01", function()

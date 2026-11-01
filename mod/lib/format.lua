@@ -5,12 +5,13 @@
 -- What the GUI needs to know of the helpers that are not obvious:
 --   * M.BLOCK_DROPDOWN is the name of the block drop-down (one per window, so a
 --     name is safe there); its `selected_index` is the 1-based block index.
---   * Checkboxes, machine buttons and beacon buttons carry tags, not names (a
---     name must be unique within its parent). `M.tags(block_key, entry_key, what)`
---     builds the table for `tags =`, and `M.parse_tags(event.element.tags)` gives
---     back `block_key, entry_key, what`, or nil for anything that is not ours.
---     `what` is "check", "machine" or "beacon". The keys are the view-model's
---     (`block.key`, `entry.key`).
+--   * M.LEVEL_UP is the name of the button that goes up a level (one per window).
+--   * Checkboxes, machine buttons, beacon buttons and a sub-factory's icon carry
+--     tags, not names (a name must be unique within its parent).
+--     `M.tags(block_key, entry_key, what)` builds the table for `tags =`, and
+--     `M.parse_tags(event.element.tags)` gives back `block_key, entry_key, what`,
+--     or nil for anything that is not ours. `what` is "check", "machine", "beacon"
+--     or "open". The keys are the view-model's (`block.key`, `entry.key`).
 --   * M.tooltip_number(x) is the text of a count or rate in a tooltip: at most two
 --     decimals, no trailing zeros, thousands separated by commas.
 local M = {}
@@ -69,16 +70,20 @@ end
 -- ---------------------------------------------------------------------------
 -- GUI element names
 
--- The block drop-down. There is one per window, so its name is unique.
+-- The block drop-down and the "up a level" button. There is one of each per
+-- window, so their names are unique.
 M.BLOCK_DROPDOWN = "fp_viewer_block_dropdown"
+M.LEVEL_UP = "fp_viewer_level_up"
 
 -- What a tagged element is.
 M.TAG_CHECK = "check"
 M.TAG_MACHINE = "machine"
 M.TAG_BEACON = "beacon"
-local TAG_KINDS = { [M.TAG_CHECK] = true, [M.TAG_MACHINE] = true, [M.TAG_BEACON] = true }
+M.TAG_OPEN = "open"
+local TAG_KINDS = { [M.TAG_CHECK] = true, [M.TAG_MACHINE] = true, [M.TAG_BEACON] = true, [M.TAG_OPEN] = true }
 
--- The tags of a checkbox, machine button or beacon button.
+-- The tags of a checkbox, a machine button, a beacon button or a sub-factory's
+-- icon (the button that opens it).
 function M.tags(block_key, entry_key, what)
   return { block = block_key, entry = entry_key, what = what }
 end

@@ -26,7 +26,8 @@ local MIN_COLUMNS = 2
 M.MAX_PRODUCT_COLUMNS = 3
 M.MAX_INGREDIENT_COLUMNS = 5
 
--- The width of a line's first cell, for its checkbox and its recipe icon.
+-- The width of a line's first cell: its checkbox and its recipe icon, or the icon
+-- of a sub-factory.
 M.CHECK_WIDTH = 22
 M.BUTTON_SIZE = 36
 
@@ -39,16 +40,17 @@ function M.window_height(height)
   return math.floor(height * M.HEIGHT_SHARE)
 end
 
--- The item buttons that fit on a line, given the window's width, the width of the
--- first column and whether the block has a beacon column. Rounded down, so nothing
--- is cut off, and never below MIN_COLUMNS, for a very small window.
-function M.item_columns(window_width, first_width, has_beacon)
+-- The item buttons that fit on a line, given the window's width and whether the
+-- block has a beacon column. Rounded down, so nothing is cut off, and never below
+-- MIN_COLUMNS, for a very small window.
+function M.item_columns(window_width, has_beacon)
   -- The gaps are between all the columns, the empty last one included.
   local gaps = has_beacon and 5 or 4
   local used = M.FRAME_BORDER * 2
     + TABLE_PADDING * 2
     + TABLE_SPACING * gaps
-    + first_width
+    + M.CHECK_WIDTH
+    + M.BUTTON_SIZE
     + M.BUTTON_SIZE * (has_beacon and 2 or 1)
   local room = window_width - used + BUTTON_SPACING
   return math.max(MIN_COLUMNS, math.floor(room / (M.BUTTON_SIZE + BUTTON_SPACING)))

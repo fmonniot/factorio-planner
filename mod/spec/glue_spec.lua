@@ -10,6 +10,10 @@ local snapshot_lib = require("lib.snapshot")
 
 local ID = "1111111111111111"
 local DROPDOWN = "fp_viewer_block_dropdown"
+local LEVEL_UP = "fp_viewer_level_up"
+-- The prefix of a sub-factory's key, and what joins the names of its path.
+local GROUP = "\30"
+local SEP = "\31"
 
 local function fixture_text(name)
   return support.read_file(support.CONTRACT .. "/fixtures/" .. name .. ".json")
@@ -27,12 +31,16 @@ local function dropdown_of(window)
   return main_of(window)["fp_viewer_nav_frame"]["fp_viewer_nav"][DROPDOWN]
 end
 
+local function level_up_of(window)
+  return main_of(window)["fp_viewer_nav_frame"]["fp_viewer_nav"][LEVEL_UP]
+end
+
 local function scroll_of(window)
   return main_of(window)["fp_viewer_table_frame"]["fp_viewer_table_scroll"]
 end
 
 -- The production table's lines, each a list of: the checkbox (which shares the
--- first cell with the recipe), then the cells of the table.
+-- first cell with the recipe or the sub-factory's icon), then the cells of the table.
 local function lines(window)
   local t = scroll_of(window).children[1]
   assert(t.type == "table", "no production table")
@@ -75,8 +83,8 @@ local function shows(e, needle)
   return false
 end
 
--- The first line of the table whose recipe cell shows `text` (a sub-factory's
--- name, or the recipe's rich-text tag in its button's tooltip).
+-- The first line of the table whose first cell shows `text` (a sub-factory's name
+-- or the recipe's rich-text tag, both in the tooltip of its button).
 local function line_named(window, text)
   for _, line in ipairs(lines(window)) do
     if shows(line[2], text) then
@@ -106,6 +114,7 @@ describe("scripts/gui.lua", function()
       model = viewmodel.build(snapshot, { missing = missing }),
       indicator = opts.indicator,
       selected = opts.selected or 1,
+      level = opts.level,
       done = opts.done,
     })
     return player, player.gui.screen[gui.WINDOW]
@@ -153,9 +162,10 @@ describe("scripts/gui.lua", function()
       for i = 1, #snapshot.blocks do
         local _, window = show(snapshot, { selected = i })
         assert.are.equal(i, dropdown_of(window).selected_index)
+        -- The machines of the top level only: a sub-factory is one line.
         local with_machine = 0
-        for _, row in ipairs(snapshot.blocks[i].rows) do
-          with_machine = with_machine + (row.machine and 1 or 0)
+        for _, entry in ipairs(viewmodel.build(snapshot, {}).blocks[i].entries) do
+          with_machine = with_machine + (entry.type == "row" and entry.row.machine and 1 or 0)
         end
         assert.are.equal(with_machine, #tagged(window, "machine"))
         reinstall()
@@ -212,7 +222,7 @@ describe("scripts/gui.lua", function()
 
   it("draws a power row with the electricity icon and its kind in the tooltip", function()
     local snapshot = support.json_to_table(fixture_text("seablock-groups"))
-    local _, window = show(snapshot)
+    local _, window = show(snapshot, { level = GROUP .. "Plates and cables" .. SEP .. "Power" })
     local power = fake_game.find(window, function(e)
       return e.type == "sprite-button" and e.sprite == "utility/electricity_icon"
     end)
@@ -251,7 +261,7 @@ describe("scripts/gui.lua", function()
 
   it("draws machines and beacons with their counts, tags and a left-click filter", function()
     local snapshot = support.json_to_table(fixture_text("seablock-groups"))
-    local _, window = show(snapshot)
+    local _, window = show(snapshot, { level = GROUP .. "Plates and cables" })
     local _, t = lines(window)
     assert.are.equal(6, t.column_count)
     local copper = line_named(window, "[recipe=copper-cable]")
@@ -304,14 +314,14 @@ describe("scripts/gui.lua", function()
     assert.are.equal(1, lines(window)[1][4].column_count)
   end)
 
-  it("leaves the name of a sub-factory room, and fewer buttons, in a narrow window", function()
+  it("fits fewer buttons to a line in a narrow window, the beacon column included", function()
     local _, window = show(support.json_to_table(fixture_text("seablock-groups")))
     local line = lines(window)[1]
     local _, t = lines(window)
     assert.are.equal(6, t.column_count)
-    -- 444 - 24 frame - 16 padding - 60 gaps - 72 machine and beacon - 142 name and
-    -- checkbox, plus 4 of spacing: three buttons of 40.
-    assert.are.equal(3, line[5].column_count + line[6].column_count)
+    -- 444 - 24 frame - 16 padding - 60 gaps - 72 machine and beacon - 58 checkbox
+    -- and icon, plus 4 of spacing: five buttons of 40.
+    assert.are.equal(5, line[5].column_count + line[6].column_count)
   end)
 
   it("works with a screen size it cannot read", function()
@@ -323,58 +333,177 @@ describe("scripts/gui.lua", function()
     assert.are.same({ 10, 63 }, window.location)
   end)
 
-  it("draws sub-factories as indented header lines, the area ones tagged", function()
+  it("draws a sub-factory as one line: a checkbox, an icon that opens it, and its net flows", function()
     local snapshot = support.json_to_table(fixture_text("seablock-groups"))
     local _, window = show(snapshot)
     local all = lines(window)
-    -- gears, [Plates and cables], plates, [Power], solar, solar, cables, pipe
-    assert.are.equal(8, #all)
+    -- The top level: gears, [Plates and cables], pipe.
+    assert.are.equal(3, #all)
     local plates = line_named(window, "Plates and cables")
-    local power = line_named(window, "Power")
-    assert.are.equal(0, plates[2].style.left_margin)
-    assert.are.equal(20, power[2].style.left_margin)
-    assert.are.equal(20, all[3][2].style.left_margin) -- a row of the top-level sub-factory
-    assert.are.equal(40, all[5][2].style.left_margin) -- a row of the nested one
-    assert.are.equal(0, all[8][2].style.left_margin) -- the root row after them
-    -- The name is capped, with the full name in its tooltip; no machine there.
-    local name = plates[2].children[2]
-    assert.are.equal("Plates and cables", name.tooltip)
-    assert.is_number(name.style.maximal_width)
+    assert.are.equal(all[2][1], plates[1])
+    assert.are.same(
+      { block = "Nested sub-factories", entry = GROUP .. "Plates and cables", what = "check" },
+      plates[1].tags
+    )
+    local icon = buttons(plates[2])[1]
+    assert.are.equal("flib_slot_button_blue", icon.style.name)
+    assert.are.equal("item/iron-plate", icon.sprite) -- its first net product
+    assert.are.same({ "left" }, icon.mouse_button_filter)
+    assert.are.same(
+      { block = "Nested sub-factories", entry = GROUP .. "Plates and cables", what = "open" },
+      icon.tags
+    )
+    -- The name has no room in the line: it is in the icon's tooltip, with the click hint.
+    local tooltip = fake_game.flatten(icon.tooltip)
+    assert.are.equal("Plates and cables", string.sub(tooltip, 1, 17))
+    assert.is_truthy(string.find(tooltip, "{fp-viewer.tt-open}", 1, true))
+    assert.is_nil(string.find(tooltip, "{fp-viewer.tt-area}", 1, true))
+    assert.is_false(fake_game.any_caption(window, "Plates and cables"))
+    -- No machine and no beacon; net flows in the same columns as a row's.
     assert.are.equal("empty-widget", plates[3].type)
-    assert.is_false(fake_game.any_caption(window, "{fp-viewer.area-tag}"))
-    -- Net flows: the plates sub-factory turns ore and copper into plates and cables.
-    assert.is_true(#buttons(plates[5]) > 0)
+    assert.are.equal("empty-widget", plates[4].type)
+    assert.are.equal(2, #buttons(plates[5])) -- iron plate and copper cable
+    assert.are.equal(2, #buttons(plates[6])) -- iron ore and copper plate
+    assert.are.equal("flib_slot_button_green", buttons(plates[6])[1].style.name)
+  end)
+
+  it("says in the tooltip of a sub-factory's icon that it is a separate area", function()
+    local _, window = show(support.json_to_table(fixture_text("seablock-areas")))
+    local smelting = line_named(window, "Smelting")
+    assert.is_truthy(smelting)
+    assert.is_truthy(string.find(fake_game.flatten(buttons(smelting[2])[1].tooltip), "{fp-viewer.tt-area}", 1, true))
+  end)
+
+  it("names a sub-factory with no name in its tooltip, and keeps its icon without a product", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    snapshot.blocks[1].groups[1].name = ""
+    local _, window = show(snapshot)
+    local icon = buttons(lines(window)[2][2])[1]
+    assert.is_truthy(string.find(fake_game.flatten(icon.tooltip), "{fp-viewer.unnamed-group}", 1, true))
+
+    -- A sub-factory whose products and ingredients all cancel out: no sprite, still a button.
+    local balanced = support.json_to_table(fixture_text("seablock-groups"))
+    for _, row in ipairs(balanced.blocks[1].rows) do
+      row.inputs, row.outputs = nil, nil
+    end
+    reinstall()
+    _, window = show(balanced)
+    icon = buttons(line_named(window, "Plates and cables")[2])[1]
+    assert.is_nil(icon.sprite)
+    assert.are.same({ "left" }, icon.mouse_button_filter)
+  end)
+
+  it("draws the lines of a sub-factory when the whole window shows it, with a button up", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    local _, window = show(snapshot)
+    assert.is_false(level_up_of(window).visible)
 
     reinstall()
-    _, window = show(support.json_to_table(fixture_text("seablock-areas")))
-    assert.is_true(fake_game.any_caption(line_named(window, "Smelting")[2], "{fp-viewer.area-tag}"))
+    _, window = show(snapshot, { level = GROUP .. "Plates and cables" })
+    -- [the plates row], [Power], [the cables row]: the nested sub-factory is a line.
+    local all = lines(window)
+    assert.are.equal(3, #all)
+    assert.is_truthy(line_named(window, "[recipe=sb-iron-plate-from-ore]"))
+    assert.are.equal(all[2][1], line_named(window, "Power")[1])
+    assert.is_truthy(line_named(window, "[recipe=copper-cable]"))
+    assert.is_nil(line_named(window, "[recipe=iron-gear-wheel]")) -- a line of the top level
+    local up = level_up_of(window)
+    assert.is_true(up.visible)
+    assert.are.equal("{fp-viewer.level-up}", fake_game.flatten(up.caption))
+    assert.are.same({ "left" }, up.mouse_button_filter)
+    -- The tooltip says what it leaves and where it goes: the block's name here.
+    assert.are.equal(
+      "{fp-viewer.tt-level-up|Plates and cables|Nested sub-factories}",
+      fake_game.flatten(up.tooltip)
+    )
+
+    reinstall()
+    _, window = show(snapshot, { level = GROUP .. "Plates and cables" .. SEP .. "Power" })
+    assert.are.equal(2, #lines(window))
+    assert.are.equal(
+      "{fp-viewer.tt-level-up|Power|Plates and cables}",
+      fake_game.flatten(level_up_of(window).tooltip)
+    )
+  end)
+
+  it("shows the top level for a level the block does not have, or a row's key", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    for _, level in ipairs({ GROUP .. "No such", "Plates and cables" .. SEP .. "copper-cable" }) do
+      local _, window = show(snapshot, { level = level })
+      assert.are.equal(3, #lines(window))
+      assert.is_false(level_up_of(window).visible)
+      reinstall()
+    end
+  end)
+
+  it("hides the button up again when the level is left, without redrawing the window", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+    local player, window = show(snapshot, { level = GROUP .. "Plates and cables" })
+    local up = level_up_of(window)
+    assert.is_true(up.visible)
+    gui.update(player, {
+      model = viewmodel.build(snapshot, {}),
+      selected = 1,
+      only_table = true,
+      generation = nil,
+    })
+    assert.are.equal(up, level_up_of(window))
+    assert.is_false(up.visible)
+    assert.are.equal(3, #lines(window))
+  end)
+
+  it("replaces a window drawn without the button up, instead of raising", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local player, window = show(snapshot)
+    local nav = main_of(window)["fp_viewer_nav_frame"]["fp_viewer_nav"]
+    level_up_of(window).destroy()
+    assert.is_nil(nav[LEVEL_UP])
+    assert.has_no.errors(function()
+      gui.update(player, { model = viewmodel.build(snapshot, {}), selected = 1, only_table = true })
+    end)
+    assert.is_truthy(level_up_of(player.gui.screen[gui.WINDOW]))
+    assert.are.equal(2, #lines(player.gui.screen[gui.WINDOW]))
   end)
 
   it("draws built rows in grayscale and derives the sub-factory's checkbox", function()
     local snapshot = support.json_to_table(fixture_text("seablock-groups"))
     local block = viewmodel.build(snapshot, {}).blocks[1]
-    local power
-    for _, entry in ipairs(block.entries) do
-      if entry.type == "group" and entry.name == "Power" then
-        power = entry
-      end
-    end
+    local power = block.by_key[GROUP .. "Plates and cables" .. SEP .. "Power"]
     local done = { [block.key] = {} }
     for _, k in ipairs(power.keys) do
       done[block.key][k] = true
     end
-    local _, window = show(snapshot, { done = done })
+
+    -- One level up, the sub-factory is a line: ticked when every row under it is
+    -- built, grey, and its icon loses the blue.
+    local _, window = show(snapshot, { done = done, level = GROUP .. "Plates and cables" })
     local all = lines(window)
-    assert.is_true(line_named(window, "Power")[1].state) -- every row under it is built
-    assert.is_false(line_named(window, "Plates and cables")[1].state) -- not every row
-    assert.is_true(all[5][1].state)
-    for _, b in ipairs(buttons(all[5][2])) do
+    assert.is_false(all[1][1].state) -- the plates row
+    assert.is_true(all[2][1].state)
+    assert.is_false(all[3][1].state) -- the cables row
+    local icon = buttons(all[2][2])[1]
+    assert.are.equal("flib_slot_button_default", icon.style.name)
+    assert.is_true(icon.style.draw_grayscale_picture)
+    assert.is_nil(buttons(all[1][2])[1].style.draw_grayscale_picture)
+    -- A sub-factory only partly built is not ticked.
+    reinstall()
+    _, window = show(snapshot, { done = done })
+    assert.is_false(line_named(window, "Plates and cables")[1].state)
+    assert.are.equal("flib_slot_button_blue", buttons(line_named(window, "Plates and cables")[2])[1].style.name)
+
+    reinstall()
+    _, window = show(snapshot, { done = done, level = GROUP .. "Plates and cables" .. SEP .. "Power" })
+    all = lines(window)
+    assert.is_true(all[1][1].state)
+    for _, b in ipairs(buttons(all[1][2])) do
       assert.is_true(b.style.draw_grayscale_picture)
     end
-    assert.is_true(all[5][3].style.draw_grayscale_picture)
+    assert.is_true(all[1][3].style.draw_grayscale_picture)
     -- A built row's machine stays a button, clickable.
-    assert.are.equal("machine", all[5][3].tags.what)
-    assert.is_nil(all[1][3].style.draw_grayscale_picture)
+    assert.are.equal("machine", all[1][3].tags.what)
+    reinstall()
+    _, window = show(snapshot, { done = done })
+    assert.is_nil(lines(window)[1][3].style.draw_grayscale_picture)
   end)
 
   it("shows the indicator in the window and the button's tooltip", function()
@@ -814,19 +943,44 @@ describe("control.lua", function()
       assert.is_false(lines(window)[1][1].state)
     end)
 
-    it("ticks a sub-factory's rows from its header, and derives the header from its rows", function()
+    it("ticks a sub-factory's rows from its line, and derives the line from its rows", function()
       deliver(fixture_text("seablock-groups"))
       local _, window = open_window()
+      -- One tick on the line of "Plates and cables" in the top level: its four rows.
+      check(line_named(window, "Plates and cables")[1], true)
+      local count = 0
+      for _ in pairs(_G.storage.fp_viewer.done["Nested sub-factories"]) do
+        count = count + 1
+      end
+      assert.are.equal(4, count) -- the rows only: a sub-factory's state is derived
+      assert.is_true(line_named(window, "Plates and cables")[1].state)
+      assert.is_false(lines(window)[1][1].state) -- the gears row, outside
+
+      click(buttons(line_named(window, "Plates and cables")[2])[1])
+      assert.is_true(line_named(window, "Power")[1].state)
+      -- Unticking one row of the sub-factory unticks its line a level up.
+      check(lines(window)[1][1], false)
+      click(level_up_of(window))
+      assert.is_false(line_named(window, "Plates and cables")[1].state)
+      check(line_named(window, "Plates and cables")[1], false)
+      assert.is_nil(_G.storage.fp_viewer.done["Nested sub-factories"])
+    end)
+
+    it("ticks the rows of a nested sub-factory from its line a level down", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      click(buttons(line_named(window, "Plates and cables")[2])[1])
       check(line_named(window, "Power")[1], true)
       local all = lines(window)
-      assert.is_true(all[5][1].state)
-      assert.is_true(all[6][1].state)
-      assert.is_false(all[3][1].state) -- the plates row, outside "Power"
-      assert.is_false(line_named(window, "Plates and cables")[1].state)
-      -- Ticking the other rows of "Plates and cables" one by one checks its header.
-      check(all[3][1], true)
-      check(lines(window)[7][1], true)
+      assert.is_false(all[1][1].state) -- the plates row, outside "Power"
+      assert.is_true(all[2][1].state)
+      assert.is_false(all[3][1].state)
+      -- The other two rows of "Plates and cables", and its line, further up, is ticked.
+      check(all[1][1], true)
+      check(lines(window)[3][1], true)
+      click(level_up_of(window))
       assert.is_true(line_named(window, "Plates and cables")[1].state)
+      assert.is_false(lines(window)[1][1].state) -- the gears row is not built
     end)
 
     it("keeps the ticks through a new snapshot of the same plan", function()
@@ -858,6 +1012,130 @@ describe("control.lua", function()
     end)
   end)
 
+  describe("the levels", function()
+    local PLATES = GROUP .. "Plates and cables"
+    local POWER = PLATES .. SEP .. "Power"
+
+    local function open_group(window, name)
+      click(buttons(line_named(window, name)[2])[1])
+    end
+
+    it("opens a sub-factory in the whole window from its icon, from the top of the table", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      local scroll = scroll_of(window)
+      open_group(window, "Plates and cables")
+      assert.are.same(
+        { index = 1, name = "Nested sub-factories", level = PLATES },
+        _G.storage.fp_viewer.selected[1]
+      )
+      -- Only the table changed: the window and its scroll pane are the same ones.
+      assert.are.equal(scroll, scroll_of(window))
+      assert.are.equal(1, scroll.scrolled_to_top)
+      assert.are.equal(3, #lines(window))
+      assert.is_nil(line_named(window, "[recipe=iron-gear-wheel]"))
+      assert.is_true(level_up_of(window).visible)
+      open_group(window, "Power")
+      assert.are.equal(POWER, _G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(2, #lines(window))
+      assert.are.equal(2, scroll.scrolled_to_top)
+    end)
+
+    it("goes up a level, one at a time, and hides the button at the top", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      open_group(window, "Plates and cables")
+      open_group(window, "Power")
+      click(level_up_of(window))
+      assert.are.equal(PLATES, _G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(3, #lines(window))
+      assert.are.equal(
+        "{fp-viewer.tt-level-up|Plates and cables|Nested sub-factories}",
+        fake_game.flatten(level_up_of(window).tooltip)
+      )
+      click(level_up_of(window))
+      assert.is_nil(_G.storage.fp_viewer.selected[1].level)
+      assert.is_false(level_up_of(window).visible)
+      assert.are.equal(3, #lines(window))
+      assert.is_truthy(line_named(window, "[recipe=iron-gear-wheel]"))
+      assert.are.equal(4, scroll_of(window).scrolled_to_top) -- every step starts from the top
+      -- A click on the hidden button changes nothing.
+      click(level_up_of(window))
+      assert.is_nil(_G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(4, scroll_of(window).scrolled_to_top)
+    end)
+
+    it("keeps the level through a new snapshot of the same plan, and a tick", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      open_group(window, "Plates and cables")
+      check(lines(window)[1][1], true)
+      assert.are.equal(PLATES, _G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(3, #lines(window))
+      deliver(fixture_text("seablock-groups"), "2222222222222222")
+      assert.are.equal(PLATES, _G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(3, #lines(window))
+      assert.is_true(level_up_of(window).visible)
+    end)
+
+    it("goes back to the top level when a new snapshot no longer has the sub-factory", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      open_group(window, "Plates and cables")
+      local renamed = support.json_to_table(fixture_text("seablock-groups"))
+      renamed.blocks[1].groups[1].name = "Smelting"
+      deliver(json.encode(renamed), "2222222222222222")
+      assert.is_nil(_G.storage.fp_viewer.selected[1].level)
+      assert.are.equal(3, #lines(window))
+      assert.is_truthy(line_named(window, "[recipe=iron-gear-wheel]"))
+      assert.is_false(level_up_of(window).visible)
+    end)
+
+    it("goes back to the top level when another block is picked", function()
+      deliver(fixture_text("seablock-loop"))
+      local snapshot = support.json_to_table(fixture_text("seablock-groups"))
+      snapshot.blocks[2] = support.copy(snapshot.blocks[1])
+      snapshot.blocks[2].name = "Second"
+      deliver(json.encode(snapshot), "2222222222222222")
+      local _, window = open_window()
+      open_group(window, "Plates and cables")
+      select_block(window, 2)
+      assert.is_nil(_G.storage.fp_viewer.selected[1].level)
+      assert.is_false(level_up_of(window).visible)
+      select_block(window, 1)
+      assert.are.same({ index = 1, name = "Nested sub-factories" }, _G.storage.fp_viewer.selected[1])
+      assert.are.equal(3, #lines(window))
+    end)
+
+    it("does nothing for an icon whose sub-factory is gone since the window was drawn", function()
+      deliver(fixture_text("seablock-groups"))
+      local _, window = open_window()
+      local icon = buttons(line_named(window, "Plates and cables")[2])[1]
+      icon.tags = { block = "Nested sub-factories", entry = GROUP .. "Gone", what = "open" }
+      click(icon)
+      icon.tags = { block = "Another block", entry = PLATES, what = "open" }
+      click(icon)
+      -- A row's key is no sub-factory either.
+      icon.tags = { block = "Nested sub-factories", entry = "iron-gear-wheel", what = "open" }
+      click(icon)
+      assert.is_nil(_G.storage.fp_viewer.selected[1].level)
+      assert.is_false(level_up_of(window).visible)
+    end)
+
+    it("opens the window at the level the player left it at", function()
+      deliver(fixture_text("seablock-groups"))
+      local player, window = open_window()
+      open_group(window, "Plates and cables")
+      click(player.gui.top["fp_viewer_button"])
+      assert.is_nil(player.gui.screen["fp_viewer_window"])
+      click(player.gui.top["fp_viewer_button"])
+      window = player.gui.screen["fp_viewer_window"]
+      assert.are.equal(3, #lines(window))
+      assert.is_true(level_up_of(window).visible)
+      assert.is_nil(line_named(window, "[recipe=iron-gear-wheel]"))
+    end)
+  end)
+
   describe("a click on a building", function()
     local window
 
@@ -872,6 +1150,11 @@ describe("control.lua", function()
 
     local function machine(text)
       return line_named(window, text)[3]
+    end
+
+    -- Opens a sub-factory of the level shown, from the icon of its line.
+    local function open_group(name)
+      click(buttons(line_named(window, name)[2])[1])
     end
 
     it("puts a crafter with its recipe into the cursor through the clipboard, and leaves the window open", function()
@@ -897,6 +1180,7 @@ describe("control.lua", function()
     end)
 
     it("puts a furnace with its modules and no recipe into the cursor", function()
+      open_group("Plates and cables")
       click(machine("[recipe=sb-iron-plate-from-ore]"))
       local entity = call("set_blueprint_entities")[2][1]
       assert.is_nil(entity.recipe)
@@ -909,6 +1193,7 @@ describe("control.lua", function()
     end)
 
     it("puts a beacon with its modules into the cursor", function()
+      open_group("Plates and cables")
       click(line_named(window, "[recipe=copper-cable]")[4])
       local entity = call("set_blueprint_entities")[2][1]
       assert.are.equal("beacon", entity.name)
@@ -923,7 +1208,9 @@ describe("control.lua", function()
     end)
 
     it("puts a plain building into the cursor as a ghost of its item", function()
-      local solar = lines(window)[5][3]
+      open_group("Plates and cables")
+      open_group("Power")
+      local solar = lines(window)[1][3]
       assert.are.equal("entity/solar-panel", solar.sprite)
       click(solar)
       assert.are.same({ "clear_cursor", "cursor_ghost" }, calls())
@@ -931,7 +1218,9 @@ describe("control.lua", function()
     end)
 
     it("shows a flying text for a building that cannot be placed, and touches nothing else", function()
-      local large = lines(window)[6][3]
+      open_group("Plates and cables")
+      open_group("Power")
+      local large = lines(window)[2][3]
       assert.are.equal("entity/bob-solar-panel-large", large.sprite)
       click(large)
       assert.are.same({ "create_local_flying_text" }, calls())
@@ -999,9 +1288,10 @@ describe("control.lua", function()
       assert.are.same({}, calls())
     end)
 
-    it("ignores a click on a checkbox or a header", function()
+    it("ignores a click on a checkbox or on a sub-factory's icon", function()
       click(lines(window)[1][1])
-      click(line_named(window, "Power")[1])
+      click(line_named(window, "Plates and cables")[1])
+      open_group("Plates and cables")
       assert.are.same({}, calls())
     end)
   end)

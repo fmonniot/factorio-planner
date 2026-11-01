@@ -23,20 +23,21 @@
 --   products  = { ref }, imports = { ref },   -- as in the snapshot (rates are items/min)
 --   rows      = { row },  -- every row, in snapshot order (no groups)
 --   has_beacon = bool,    -- any row has a beacon: the beacon column can be left out when false
---   entries   = { entry },-- the table to draw, top to bottom, in order (below)
---   by_key    = { [entry.key] = entry },  -- for the click handlers
+--   entries   = { entry },-- the lines of the top level, in order (below)
+--   by_key    = { [entry.key] = entry },  -- every entry of every level, for the click handlers
 -- }
 --
--- entry (a line of the table), `type` tells which:
---   { type = "row",   key = row.key, depth = n, row = row }
---   { type = "group", key = string, depth = n, name = string, area = bool,
+-- entry (a line of a level of the table), `type` tells which:
+--   { type = "row",   key = row.key, row = row }
+--   { type = "group", key = string, name = string, area = bool,
+--     parent = nil | key of the group it is in,   -- nil: a line of the top level
+--     entries = { entry },                -- its own lines, a nested sub-factory being one line
 --     keys = { row key, ... },            -- the keys of every row under it, at any depth
 --     products = { ref }, ingredients = { ref } }  -- net flows (see below)
--- `depth` is the number of sub-factories above the line: a root row is 0, a
--- top-level sub-factory's header is 0 and its rows 1, a nested header is 1.
--- A group entry's key differs from every row key (it starts with "\30"), so
--- `by_key` holds both. Only a group that holds a row at some depth gets a
--- header, placed before the first row (in table order) it contains.
+-- A sub-factory is one line of the level it is in, and its `entries` are the
+-- level it opens. A group entry's key differs from every row key (it starts with
+-- "\30"), so `by_key` holds both. Only a group that holds a row at some depth
+-- gets an entry, placed before the first row (in table order) it contains.
 --
 -- row = {
 --   key, kind = "recipe" | "synthetic",
@@ -56,7 +57,7 @@
 -- ref = { id, type, rate, sprite, rich, missing }; a `virtual` ref (electricity)
 -- has `virtual = true` and neither sprite, rich nor missing.
 --
--- Net flows (a group header): over the rows under it, at any depth, outputs
+-- Net flows (a group's line): over the rows under it, at any depth, outputs
 -- minus inputs per item; a positive balance is a product, a negative one an
 -- ingredient, and one under 0.01/min in size (after rounding to three decimals)
 -- is dropped. Each list is sorted by rate, largest first, ties in order of first
@@ -249,7 +250,7 @@ function M.build(snapshot, opts)
 
   -- The sub-factories of a block, by 1-based index, with what the walk needs:
   -- `parent` (1-based, nil at the top: a parent that is not a lower index counts
-  -- as absent), `depth` and the unique `path`.
+  -- as absent) and the unique `path`.
   local function resolve_groups(list)
     local groups = {}
     local siblings = {}
@@ -265,7 +266,6 @@ function M.build(snapshot, opts)
         name = g.name,
         area = g.area == true,
         parent = parent,
-        depth = parent and (groups[parent].depth + 1) or 0,
         path = parent and (groups[parent].path .. SEP .. segment) or segment,
       }
     end
@@ -293,25 +293,30 @@ function M.build(snapshot, opts)
         table.insert(chain, 1, g)
         g = groups[g].parent
       end
-      for _, c in ipairs(chain) do
+      for ci, c in ipairs(chain) do
         if not group_entries[c] then
+          local above = ci > 1 and group_entries[chain[ci - 1]] or nil
           local entry = {
             type = "group",
             key = GROUP_PREFIX .. groups[c].path,
-            depth = groups[c].depth,
             name = groups[c].name,
             area = groups[c].area,
+            parent = above and above.key or nil,
+            entries = {},
           }
           group_entries[c] = entry
           group_accs[c] = new_acc()
-          entries[#entries + 1] = entry
+          local level = above and above.entries or entries
+          level[#level + 1] = entry
           by_key[entry.key] = entry
         end
         add_row(group_accs[c], key_j, r)
       end
 
-      local entry = { type = "row", key = key_j, depth = #chain, row = rows[j] }
-      entries[#entries + 1] = entry
+      local entry = { type = "row", key = key_j, row = rows[j] }
+      local owner = group_entries[chain[#chain]]
+      local level = owner and owner.entries or entries
+      level[#level + 1] = entry
       by_key[key_j] = entry
     end
 

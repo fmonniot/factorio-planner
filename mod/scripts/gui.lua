@@ -11,8 +11,10 @@
 -- titles. Its columns: the "built" checkbox and the recipe (or a sub-factory's
 -- name) in one cell, the machine, the beacon (left out of a block where no row has
 -- one), the products, the ingredients in green, and a last empty column that
--- stretches the stripes across the frame. Each sub-factory has a header line
--- followed by its rows, indented one step per depth.
+-- stretches the stripes across the frame. A sub-factory is one line, like a
+-- floor in the reference: its checkbox, a blue icon of its first product that
+-- opens it (the window then shows that level's lines), and its net products and
+-- ingredients. A button in the navigation row goes back up a level.
 --
 -- Ids are drawn as sprites and rich text with the prototype's localised name. An
 -- id the running game lacks gets no sprite (a sprite path the game does not know
@@ -39,15 +41,6 @@ local GREY = { r = 0.6, g = 0.6, b = 0.6 }
 -- U+25A0 BLACK SQUARE in UTF-8 (Lua 5.2 has no \u escape): the block's colour swatch.
 local SWATCH = "\226\150\160"
 
--- Pixels of left margin per sub-factory depth, on the recipe cell.
-local INDENT = 20
--- A sub-factory's name is capped at this width (a table column is as wide as its
--- widest cell); the full name is in its tooltip.
-local NAME_WIDTH = 120
--- An estimate of a bold character and of the "Area" tag: the room a name takes is
--- worked out before the game lays it out.
-local CHAR_WIDTH = 8
-local AREA_TAG_WIDTH = 40
 -- The screen size to work with when the game's cannot be read.
 local DEFAULT_SCREEN = { width = 1920, height = 1080, scale = 1 }
 -- The table's scroll pane: the height the window's other parts take, and the least
@@ -61,6 +54,7 @@ local TABLE_MIN_HEIGHT = 200
 -- are used. All are 40 pixels, so slot() sets the reference's size itself.
 local SLOT = { "flib_slot_button_default", "slot_sized_button", "slot_button" }
 local SLOT_GREEN = { "flib_slot_button_green", "slot_sized_button_green", "slot_button" }
+local SLOT_BLUE = { "flib_slot_button_blue", "slot_sized_button_blue", "slot_button" }
 local SLOT_RED = { "flib_slot_button_red", "slot_sized_button_red", "slot_button" }
 
 -- The base game's table with the reference's stripes (the same graphic as its
@@ -91,13 +85,6 @@ local function grayscale(element)
   pcall(function()
     element.style.draw_grayscale_picture = true
   end)
-end
-
-local function bold(label)
-  pcall(function()
-    label.style.font = "default-bold"
-  end)
-  return label
 end
 
 local function label(parent, caption, color)
@@ -503,11 +490,9 @@ local function checkbox(cell, state, tags, tooltip)
   return cell.add({ type = "checkbox", state = state, tags = tags, tooltip = tooltip })
 end
 
--- The first cell of a line, for its checkbox and its recipe: a flow, indented by
--- depth.
-local function indented(t, depth)
+-- The first cell of a line, for its checkbox and its recipe or sub-factory icon.
+local function first_cell(t)
   local cell = t.add({ type = "flow", direction = "horizontal" })
-  cell.style.left_margin = depth * INDENT
   pcall(function()
     cell.style.vertical_align = "center"
   end)
@@ -522,22 +507,33 @@ local function add_pusher(t)
   t.add({ type = "empty-widget" }).style.horizontally_stretchable = true
 end
 
+-- A sub-factory's name for a tooltip.
+local function group_text(entry)
+  return entry.name ~= "" and entry.name or { key("unnamed-group") }
+end
+
+-- A sub-factory is one line: its icon is the first of its net products, in the
+-- blue of the reference's floors, and a click on it opens the sub-factory. Its
+-- name, which has no room in the line, is in the icon's tooltip.
 local function add_group(t, block, entry, done, columns)
   local checked = progress.all_done(done, block.key, entry.keys)
-  local cell = indented(t, entry.depth)
-  -- As tall as an icon, so the name is centred on the line's buttons.
-  cell.style.minimal_height = layout.BUTTON_SIZE
+  local cell = first_cell(t)
   checkbox(cell, checked, format.tags(block.key, entry.key, format.TAG_CHECK), { key("tt-check-group") })
-  local name = entry.name ~= "" and entry.name or { key("unnamed-group") }
-  local l = bold(label(cell, name))
-  l.tooltip = name
-  l.style.maximal_width = NAME_WIDTH
-  pcall(function()
-    l.style.horizontally_squashable = true
-  end)
+  local first = entry.products[1]
+  local parts = { group_text(entry) }
   if entry.area then
-    label(cell, { key("area-tag") }, ORANGE)
+    parts[#parts + 1] = { "", "\n", { key("tt-area") } }
   end
+  parts[#parts + 1] = { "", "\n", { key("tt-open") } }
+  slot(cell, {
+    sprite = first and sprite_of(first.sprite, first.missing),
+    tooltip = concat(parts),
+    style = SLOT_BLUE,
+    missing = first and first.missing,
+    gray = checked,
+    tags = format.tags(block.key, entry.key, format.TAG_OPEN),
+    clickable = true,
+  })
   t.add({ type = "empty-widget" })
   if block.has_beacon then
     t.add({ type = "empty-widget" })
@@ -550,7 +546,7 @@ end
 local function add_row(t, block, entry, done, columns)
   local row = entry.row
   local built = progress.is_done(done, block.key, entry.key)
-  local cell = indented(t, entry.depth)
+  local cell = first_cell(t)
   checkbox(cell, built, format.tags(block.key, entry.key, format.TAG_CHECK), { key("tt-check-row") })
   recipe_cell(cell, row, built)
   machine_cell(t, block, entry, built)
@@ -562,21 +558,6 @@ local function add_row(t, block, entry, done, columns)
   add_pusher(t)
 end
 
--- The width the first column needs: an icon line's, or a sub-factory's name.
-local function first_column_width(block)
-  local width = layout.CHECK_WIDTH + layout.BUTTON_SIZE
-  for _, entry in ipairs(block.entries) do
-    local own = layout.CHECK_WIDTH + layout.BUTTON_SIZE
-    if entry.type == "group" then
-      -- A nameless sub-factory shows the longer "(unnamed sub-factory)".
-      local name = entry.name ~= "" and CHAR_WIDTH * #entry.name or NAME_WIDTH
-      own = layout.CHECK_WIDTH + math.min(NAME_WIDTH, name) + (entry.area and AREA_TAG_WIDTH or 0)
-    end
-    width = math.max(width, own + entry.depth * INDENT)
-  end
-  return width
-end
-
 -- The item buttons a list of refs draws.
 local function drawn(refs)
   local n = 0
@@ -586,17 +567,17 @@ local function drawn(refs)
   return n
 end
 
--- How many product and ingredient columns the block gets in a window this wide.
-local function item_columns(block, window_width)
+-- How many product and ingredient columns a level gets in a window this wide.
+local function item_columns(block, entries, window_width)
   local lines = {}
-  for _, entry in ipairs(block.entries) do
+  for _, entry in ipairs(entries) do
     local row = entry.row
     lines[#lines + 1] = {
       products = drawn(row and row.outputs or entry.products),
       ingredients = drawn(row and row.inputs or entry.ingredients),
     }
   end
-  local available = layout.item_columns(window_width, first_column_width(block), block.has_beacon)
+  local available = layout.item_columns(window_width, block.has_beacon)
   local products, ingredients = layout.split(lines, available)
   return { products = products, ingredients = ingredients }
 end
@@ -617,9 +598,11 @@ local function striped(t, columns)
   end)
 end
 
-local function fill_table(scroll, block, done, window_width)
+-- `entries` are the lines of the level shown: the block's top level or a
+-- sub-factory's own lines.
+local function fill_table(scroll, block, entries, done, window_width)
   scroll.clear()
-  if #block.entries == 0 then
+  if #entries == 0 then
     label(scroll, { key("none") }, GREY)
     return
   end
@@ -632,8 +615,8 @@ local function fill_table(scroll, block, done, window_width)
   t.style.horizontal_spacing = 12
   t.style.vertical_spacing = 8
   t.style.padding = { 4, 8 }
-  local item_cols = item_columns(block, window_width)
-  for _, entry in ipairs(block.entries) do
+  local item_cols = item_columns(block, entries, window_width)
+  for _, entry in ipairs(entries) do
     if entry.type == "group" then
       add_group(t, block, entry, done, item_cols)
     else
@@ -646,9 +629,10 @@ end
 -- The window's skeleton
 
 -- content > header (indicator, missing ids) and main > inset navigation frame >
--- drop-down, the block's note (a failed solve) and the inset table frame > scroll
--- pane > table. The skeleton is built once and kept; an update refills its parts,
--- never the scroll pane, so the scroll bar survives a tick or a new snapshot.
+-- drop-down and the button that goes up a level, the block's note (a failed
+-- solve) and the inset table frame > scroll pane > table. The skeleton is built
+-- once and kept; an update refills its parts, never the scroll pane, so the scroll
+-- bar survives a tick or a new snapshot.
 local HEADER = "fp_viewer_header"
 local MAIN = "fp_viewer_main"
 local NAV_FRAME = "fp_viewer_nav_frame"
@@ -679,6 +663,14 @@ local function ensure_main(player, content)
   nav.style.vertical_align = "center"
   nav.style.margin = { 4, 4, 4, 8 }
   nav.add({ type = "drop-down", name = format.BLOCK_DROPDOWN, items = {}, selected_index = 0 })
+  nav.add({ type = "empty-widget" }).style.horizontally_stretchable = true
+  nav.add({
+    type = "button",
+    name = format.LEVEL_UP,
+    caption = { key("level-up") },
+    mouse_button_filter = { "left" },
+    visible = false,
+  })
 
   main.add({ type = "flow", name = NOTE, direction = "vertical" })
 
@@ -696,9 +688,18 @@ local function ensure_main(player, content)
   return main
 end
 
+local function find_nav(main)
+  return main and main[NAV_FRAME] and main[NAV_FRAME][NAV]
+end
+
 local function find_dropdown(main)
-  local nav = main and main[NAV_FRAME] and main[NAV_FRAME][NAV]
+  local nav = find_nav(main)
   return nav and nav[format.BLOCK_DROPDOWN]
+end
+
+local function find_level_up(main)
+  local nav = find_nav(main)
+  return nav and nav[format.LEVEL_UP]
 end
 
 local function dropdown_items(blocks)
@@ -707,6 +708,18 @@ local function dropdown_items(blocks)
     items[i] = { "", format.colored(block.color.hex, SWATCH), " ", block_text(block.name) }
   end
   return items
+end
+
+-- The button that goes up a level: there only inside a sub-factory, and its
+-- tooltip says which one it leaves and where it goes.
+local function fill_level_up(button, block, level)
+  button.visible = level ~= nil
+  if level == nil then
+    return
+  end
+  local parent = level.parent and block.by_key[level.parent]
+  local to = parent and group_text(parent) or block_text(block.name)
+  button.tooltip = { key("tt-level-up"), group_text(level), to }
 end
 
 local function fill_note(player, note, block)
@@ -725,10 +738,14 @@ end
 --                  snapshot; the drop-down remembers the one it was drawn from
 --   indicator    = "disconnected" | "mismatch" | "stale" | nil
 --   selected     = 1-based block index
+--   level        = the key of the sub-factory shown in the whole window (an entry
+--                  of the selected block), nil for the block's top level; one
+--                  that is not a sub-factory of the block counts as nil
 --   done         = the "built" ticks (lib/progress.lua); none ticked when nil
---   only_table   = true when only the selection or a tick changed: the header and
---                  the drop-down are kept, the block's note and table redrawn
---   reset_scroll = true to scroll the table back to the top (a new block)
+--   only_table   = true when only the selection, the level or a tick changed: the
+--                  header and the drop-down are kept, the block's note, the level
+--                  button and the table redrawn
+--   reset_scroll = true to scroll the table back to the top (a new block or level)
 -- }
 function M.update(player, ctx)
   local button = player.gui.top[M.BUTTON]
@@ -760,6 +777,11 @@ function M.update(player, ctx)
   local selected = math.max(1, math.min(ctx.selected or 1, math.max(#blocks, 1)))
 
   local main = content[MAIN]
+  if main ~= nil and find_level_up(main) == nil then
+    -- Drawn by a version of the mod before the level button: drawn again below.
+    main.destroy()
+    main = nil
+  end
   local dropdown = find_dropdown(main)
   -- A model the header and the drop-down were not drawn from redraws everything,
   -- even on an event that only meant the table (a new snapshot with as many
@@ -789,9 +811,20 @@ function M.update(player, ctx)
   dropdown.selected_index = selected
 
   local block = blocks[selected]
+  local level = ctx.level and block.by_key[ctx.level]
+  if level ~= nil and level.type ~= "group" then
+    level = nil
+  end
+  fill_level_up(find_level_up(main), block, level)
   fill_note(player, main[NOTE], block)
   local scroll = main[FRAME][SCROLL]
-  fill_table(scroll, block, ctx.done or {}, layout.window_width(screen_size(player).width))
+  fill_table(
+    scroll,
+    block,
+    level and level.entries or block.entries,
+    ctx.done or {},
+    layout.window_width(screen_size(player).width)
+  )
   if ctx.reset_scroll then
     scroll.scroll_to_top()
   end

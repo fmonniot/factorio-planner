@@ -56,7 +56,7 @@ end)
 
 describe("element tags", function()
   it("round-trip the keys and what the element is", function()
-    for _, what in ipairs({ "check", "machine", "beacon" }) do
+    for _, what in ipairs({ "check", "machine", "beacon", "open" }) do
       local block, entry, got = format.parse_tags(format.tags("Gears", "A" .. "\31" .. "r", what))
       assert.are.equal("Gears", block)
       assert.are.equal("A" .. "\31" .. "r", entry)
@@ -64,7 +64,7 @@ describe("element tags", function()
     end
   end)
   it("needs an entry key, whatever the element is", function()
-    for _, what in ipairs({ "check", "machine", "beacon" }) do
+    for _, what in ipairs({ "check", "machine", "beacon", "open" }) do
       assert.is_nil(format.parse_tags(format.tags("Gears", nil, what)))
     end
   end)
@@ -82,8 +82,9 @@ describe("element tags", function()
     assert.is_nil(format.parse_tags({ block = "B", entry = "r", what = "close" }))
     assert.is_nil(format.parse_tags({ block = "B", entry = "r" }))
   end)
-  it("names the block drop-down", function()
+  it("names the block drop-down and the button up a level", function()
     assert.are.equal("fp_viewer_block_dropdown", format.BLOCK_DROPDOWN)
+    assert.are.equal("fp_viewer_level_up", format.LEVEL_UP)
   end)
 end)
 

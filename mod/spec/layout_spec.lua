@@ -10,17 +10,17 @@ describe("lib/layout.lua", function()
     it("counts the buttons that fit, rounded down", function()
       -- 500 - 24 frame - 16 padding - 48 gaps - 58 first - 36 machine = 318, plus
       -- the last button's 4 of spacing, in steps of 40.
-      assert.are.equal(8, layout.item_columns(500, 58, false))
-      assert.are.equal(7, layout.item_columns(497, 58, false))
+      assert.are.equal(8, layout.item_columns(500, false))
+      assert.are.equal(7, layout.item_columns(497, false))
     end)
 
     it("gives a beacon column and a wider first column their room", function()
-      assert.is_true(layout.item_columns(500, 58, true) < layout.item_columns(500, 58, false))
-      assert.is_true(layout.item_columns(500, 200, false) < layout.item_columns(500, 58, false))
+      assert.is_true(layout.item_columns(500, true) < layout.item_columns(500, false))
+      assert.is_true(layout.item_columns(500, 200, false) < layout.item_columns(500, false))
     end)
 
     it("never goes below two, for a very small window", function()
-      assert.are.equal(2, layout.item_columns(100, 58, true))
+      assert.are.equal(2, layout.item_columns(100, true))
     end)
   end)
 
