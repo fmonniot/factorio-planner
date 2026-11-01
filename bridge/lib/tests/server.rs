@@ -21,7 +21,7 @@ use tungstenite::client::IntoClientRequest;
 use tungstenite::protocol::frame::coding::CloseCode;
 use tungstenite::{Error, HandshakeError, Message, WebSocket};
 
-const ORIGIN: &str = "http://localhost:5173";
+const ORIGIN: &str = "http://localhost:4000";
 const WAIT: Duration = Duration::from_secs(20);
 
 fn config(bridge_port: u16, game_port: u16) -> Config {
@@ -228,8 +228,8 @@ fn a_disallowed_origin_gets_http_403() {
     let rig = Rig::start();
     for origin in [
         "https://evil.example",
-        "http://localhost:5174",
-        "http://localhost:5173.evil.example",
+        "http://localhost:4001",
+        "http://localhost:4000.evil.example",
         "",
     ] {
         match rig.connect(Some(origin)) {

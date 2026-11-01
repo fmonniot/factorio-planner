@@ -10,8 +10,8 @@ pub const DEFAULT_BRIDGE_PORT: u16 = 34199;
 /// Origins allowed by default: the deployed planner (GitHub Pages) and the Vite dev server.
 pub const DEFAULT_ORIGINS: [&str; 3] = [
     "https://fmonniot.github.io",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
+    "http://localhost:4000",
+    "http://127.0.0.1:4000",
 ];
 
 /// What the server runs with.
@@ -62,7 +62,7 @@ OPTIONS:
     --game-port <PORT>     UDP port of the game (--enable-lua-udp)  [default: {game}]
     --bridge-port <PORT>   The bridge's own port, for the planner's WebSocket (TCP) and the mod's
                            UDP replies; the mod's setting must match  [default: {bridge}]
-    --origin <ORIGIN>      A web origin allowed to connect, e.g. http://localhost:5173. Repeat the
+    --origin <ORIGIN>      A web origin allowed to connect, e.g. http://localhost:4000. Repeat the
                            flag for several. Replaces the defaults:
                            {origins}
     -h, --help             Print this help
@@ -122,7 +122,7 @@ fn parse_port(flag: &str, text: String) -> Result<u16, String> {
 /// Checks that `text` is an origin and gives its canonical form.
 fn normalize_origin(text: &str) -> Result<String, String> {
     canonical_origin(text)
-        .ok_or_else(|| format!("--origin wants scheme, host and port only, like http://localhost:5173, not {text:?}"))
+        .ok_or_else(|| format!("--origin wants scheme, host and port only, like http://localhost:4000, not {text:?}"))
 }
 
 /// The canonical form of a web origin, so that `HTTPS://Me.github.io:443` and `https://me.github.io` compare equal: the scheme
@@ -165,7 +165,7 @@ mod tests {
         assert_eq!(config.game_port, 34198);
         assert_eq!(config.bridge_port, 34199);
         assert!(config.origins.contains(&"https://fmonniot.github.io".to_owned()));
-        assert!(config.origins.contains(&"http://localhost:5173".to_owned()));
+        assert!(config.origins.contains(&"http://localhost:4000".to_owned()));
     }
 
     #[test]
@@ -207,10 +207,10 @@ mod tests {
         assert_eq!(canonical("http://a.test:443"), Some("http://a.test:443".to_owned()));
         assert_eq!(canonical("https://a.test:80"), Some("https://a.test:80".to_owned()));
         assert_eq!(
-            canonical("http://localhost:5173"),
-            Some("http://localhost:5173".to_owned())
+            canonical("http://localhost:4000"),
+            Some("http://localhost:4000".to_owned())
         );
-        assert_eq!(canonical("http://[::1]:5173"), Some("http://[::1]:5173".to_owned()));
+        assert_eq!(canonical("http://[::1]:4000"), Some("http://[::1]:4000".to_owned()));
         // Not origins, or not ones that can match anything.
         for bad in [
             "null",
@@ -251,7 +251,7 @@ mod tests {
         assert!(parse(&["--game-port"]).unwrap_err().contains("needs a value"));
         assert!(parse(&["--game-port", "0"]).unwrap_err().contains("1 to 65535"));
         assert!(parse(&["--bridge-port", "70000"]).unwrap_err().contains("1 to 65535"));
-        assert!(parse(&["--origin", "localhost:5173"]).unwrap_err().contains("--origin"));
+        assert!(parse(&["--origin", "localhost:4000"]).unwrap_err().contains("--origin"));
         assert!(
             parse(&["--origin", "http://a.test/path"])
                 .unwrap_err()
