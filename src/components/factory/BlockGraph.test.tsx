@@ -707,6 +707,9 @@ describe('BlockGraph', () => {
       fireEvent.click(summary())
       escape()
       await waitFor(() => expect(list()).toBeNull())
+      // The list closes from a timeout outside act(): the DOM is updated before React runs the effect
+      // cleanup that removes the capture-phase Escape guard. Flush it, or the second Escape is swallowed.
+      await act(async () => {})
       expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
       escape()
       expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
