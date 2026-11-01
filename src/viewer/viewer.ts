@@ -6,7 +6,7 @@ import { selectGameData, useGameDataStore } from '../store/gameDataStore'
 import { makeDataSetStamp } from '../store/persistence'
 import { useSolverStore } from '../store/solverStore'
 import { useUiStore } from '../store/uiStore'
-import type { ConnectionState } from './connection'
+import { badgeFor, type ConnectionState } from './connection'
 import { createController } from './controller'
 import { MAX_SNAPSHOT_BYTES, snapshotBytes, snapshotId } from './protocol'
 
@@ -29,6 +29,12 @@ export const viewer = createController(
 /** The connection state, for React. */
 export function useViewerState(): ConnectionState {
   return useSyncExternalStore(viewer.subscribe, viewer.getState)
+}
+
+/** What the workspace menu's trigger adds to its accessible name: the connection, once it says something. */
+export function useViewerTriggerName(): string {
+  const badge = badgeFor(useViewerState())
+  return badge.tone === 'idle' ? '' : `In-game viewer: ${badge.label}`
 }
 
 /** Turns auto-send on or off, here and in the persisted setting. */

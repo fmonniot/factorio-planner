@@ -67,10 +67,10 @@ The layout is designed for desktop widths; there is no mobile layout.
 are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
 warnings), the rate unit toggle, the icon-only tool buttons (the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
-shown only while some block has areas, the [tech tree](#technology-tree) and the
-[in-game viewer](#in-game-viewer) connection), a divider
+shown only while some block has areas and the [tech tree](#technology-tree)), a divider
 (shown only
-when game data is loaded, like the tools) and the [workspace menu](#workspace-menu). The root
+when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
+[in-game viewer](#in-game-viewer) connection. The root
 carries `data-testid="top-bar"`.
 
 The rate unit toggle (`RateUnitButton.tsx`, shown only when game data is loaded) is a wide
@@ -348,9 +348,11 @@ sends is relative to its block, and every block has a "Top level".
 
 ### In-game viewer
 
-`ViewerButton` (`ViewerButton.tsx`) is a plug icon button, always shown, that opens a popover (`role="dialog"`, name "In-game viewer") for the connection to the in-game viewer's bridge, a program on the same computer that passes the plan to the Factorio mod. Its accessible name is "In-game viewer: <badge label>", and a coloured dot (`viewer-dot`) shows the badge tone (blue busy, green connected, amber warning, red error; none while off).
+`ViewerMenuItem` (`ViewerMenu.tsx`) is an **In-game viewer** item of the [workspace menu](#workspace-menu), a `SubmenuItem` (`variant="controls"`: a flyout of controls, `role="dialog"` named "In-game viewer", opened by hover, click or ArrowRight) for the connection to the in-game viewer's bridge, a program on the same computer that passes the plan to the Factorio mod. The row shows a plug icon, the label and, on the right, the badge's short status (`viewer-menu-status`: Off, Connecting, No bridge, No game, Connected, …) behind a coloured dot (blue busy, green connected, amber warning, red error; none while off). The same dot sits on the workspace menu's trigger (`viewer-dot`), so a problem shows without opening anything. Inside a controls flyout the arrow keys, Home and End are the controls' own; Escape returns to the row, and Tab moves between the controls and closes the menu once focus leaves them.
 
-The connection is **off by default and never remembered**: the planner opens no socket until the player ticks **Connect to the bridge**, and a reload starts off again. The popover holds that checkbox, the **Bridge address** field (default `ws://127.0.0.1:34199/`, disabled while connected, with a link back to the default when changed), the status badge (`viewer-badge`, with its explanation in `viewer-detail`), error notices (`viewer-notice`, `role="alert"`), the **Send to Factorio** button and the **Send after every change** checkbox. The address and the auto-send choice are persisted with the other UI settings in `uiStore`.
+The connection is **off by default and never remembered**: the planner opens no socket until the player turns on the **Connect to the bridge** switch (`role="switch"`, first row of the flyout), and a reload starts off again. While off the flyout explains what the viewer needs. While on it shows a status card (the badge's coloured dot and label in `viewer-badge`, `aria-live="polite"`), error notices (`viewer-notice`, `role="alert"`), the **Send to Factorio** button (disabled, with "Available once the game is connected", until the game is) and, always, the **Send after every change** checkbox and the **Bridge** row: the address (`viewer-address`, default `ws://127.0.0.1:34199/`) with a **Change** link that swaps it for a field with **Save** and **Cancel** (and **Use the default** when it differs); saving while connected disconnects and reconnects to the new address. The card's explanation (`viewer-detail`) shows for the states that are not a warning or an error; for those the card shows a **Troubleshoot…** link instead. The address and the auto-send choice are persisted with the other UI settings in `uiStore`.
+
+**Troubleshoot dialog.** **Troubleshoot…** closes the menu and opens `ViewerTroubleshootDialog` (a `Modal`, `role="dialog"` named "Troubleshoot the in-game viewer", owned by `WorkspaceMenu` so it outlives the menu). It lists three steps, in order, each with a numbered circle (a check when fine, `!` when it is not), a state and a sentence about what the step is: **Bridge** (running; carries the address and its Change link), **Game** (answering) and **Plan** (sent). The first step that is not fine says what to do, with a Copy button for the command (`factorio-planner-bridge` for no bridge, `--enable-lua-udp 34198` for no game: the flag takes the game's UDP port); the steps after it read Waiting. The diagnosis is the pure `troubleshootSteps` (`src/viewer/troubleshoot.ts`), computed from the badge, and updates live while the dialog is open since the planner keeps retrying. **Done**, the close button, Escape and a click outside close it.
 
 Badge states: Off; Connecting; Waiting for the browser (the socket has been opening for 2.5 s: the browser may be asking for permission to reach the local network); No bridge (the socket closed without opening, or an open one closed; the explanation lists the browser causes: the permission prompt, content blockers such as uBlock, Safari refusing `ws://` from an https page); Blocked by the browser (creating the socket threw); Bad address; Version mismatch (the bridge's first status has another protocol version: nothing is sent); Unreadable status (a status of our protocol version that does not have the shape that version defines: nothing is sent until a readable one arrives); Bridge, no game; Game quiet (paused, saving or closed); Mod version mismatch; Data set mismatch (the mod reports ids the running game lacks, shown with the count); Connected (the explanation says where the delivery stands). While the connection is on and the socket is closed the planner retries every 5 s.
 
@@ -473,6 +475,8 @@ active plan's name and a sub-line, and a chevron:
 | Error | active plan name, else "Choose game data" | Error loading data (red; the tooltip carries the error message) | `Plan: <name>, error loading data` (or `Choose game data, error loading data`) |
 | Loaded | active plan name | data set label: Nullius, Seablock or the uploaded file name | `Plan: <name>` |
 
+While the in-game viewer connection is on, a status dot (`viewer-dot`) sits on the trigger's top-right corner and `. In-game viewer: <badge label>` is appended to the accessible name (for example `Plan: Main. In-game viewer: Connected`); both are absent while the connection is off.
+
 It opens a panel named "Plan and game data", in order:
 
 - the [Plans](#plans) section (heading, plan radio items, action tiles), only when a data set is
@@ -480,7 +484,8 @@ It opens a panel named "Plan and game data", in order:
 - a separator, then a **Game data** group: **Nullius**, **Seablock**, the name of the uploaded file
   once there is one, and **Upload file…**; the current data set is the checked item (see
   [Game data set](#game-data-set)). The radio items carry their label as `aria-label`;
-- a separator, then, only once game data is loaded: a **Rate unit** group with `/sec` and `/min`
+- a separator, then the **In-game viewer** submenu item (see [In-game viewer](#in-game-viewer)) and another separator;
+- only once game data is loaded: a **Rate unit** group with `/sec` and `/min`
   radio items (a [segmented control](#segmented-control); picking one sets the unit and leaves the menu open), the
   **Default machines** submenu item (see below) and another separator;
 - **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).

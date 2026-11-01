@@ -6,7 +6,6 @@ import { TechTreeButton } from '../TechTree'
 import { WarningsPopover } from './WarningsPopover'
 import { RateUnitButton } from '../RateUnitButton'
 import { WorkspaceMenu } from '../WorkspaceMenu'
-import { ViewerButton } from '../ViewerButton'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 
 export function TopBar() {
@@ -26,7 +25,6 @@ export function TopBar() {
           <BlockGraphButton />
           <PlanAreasButton />
           <TechTreeButton />
-          <ViewerButton />
           {hasGameData && <div aria-hidden className="w-px h-5 bg-gray-700 mx-1.5" />}
           <WorkspaceMenu />
         </div>

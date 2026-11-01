@@ -113,14 +113,14 @@ describe('WorkspaceMenu', () => {
   it('lists the items in order', async () => {
     render(<WorkspaceMenu />)
     await openMenu()
-    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'Export plan', 'Import plan…'])
+    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'In-game viewerOff', 'Export plan', 'Import plan…'])
   })
 
   it('adds the rate unit and default machines entries once game data is loaded', async () => {
     loaded()
     render(<WorkspaceMenu />)
     await openMenu()
-    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', '/sec', '/min', 'Default machines', 'Export plan', 'Import plan…'])
+    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'In-game viewerOff', '/sec', '/min', 'Default machines', 'Export plan', 'Import plan…'])
   })
 
   it('focuses Nullius on first visit with nothing checked', async () => {
