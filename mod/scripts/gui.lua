@@ -557,7 +557,13 @@ end
 local function ensure_main(player, content)
   local main = content[MAIN]
   if main ~= nil then
-    return main
+    if main[format.BLOCK_DROPDOWN] ~= nil then
+      return main
+    end
+    -- Left by an older version of the mod (a list and a details pane, no
+    -- drop-down): no update fires for a mod whose version did not change, so the
+    -- old skeleton is replaced here.
+    main.destroy()
   end
   main = content.add({ type = "flow", name = MAIN, direction = "vertical" })
   main.add({ type = "drop-down", name = format.BLOCK_DROPDOWN, items = {}, selected_index = 0 })
@@ -590,6 +596,8 @@ end
 
 -- ctx = {
 --   model        = viewmodel.build(...) | nil   nil: no snapshot stored
+--   generation   = a number that changes whenever `model` is rebuilt from a new
+--                  snapshot; the drop-down remembers the one it was drawn from
 --   indicator    = "disconnected" | "mismatch" | "stale" | nil
 --   selected     = 1-based block index
 --   done         = the "built" ticks (lib/progress.lua); none ticked when nil
@@ -620,8 +628,13 @@ function M.update(player, ctx)
 
   local main = content[MAIN]
   local dropdown = main and main[format.BLOCK_DROPDOWN]
-  -- A new snapshot not drawn yet redraws everything, even on a tick.
-  local keep = ctx.only_table and dropdown ~= nil and #dropdown.items == #blocks
+  -- A model the header and the drop-down were not drawn from redraws everything,
+  -- even on an event that only meant the table (a new snapshot with as many
+  -- blocks as the old one included).
+  local keep = ctx.only_table
+    and dropdown ~= nil
+    and #dropdown.items == #blocks
+    and (dropdown.tags or {}).generation == ctx.generation
 
   if not keep then
     local header = content[HEADER]
@@ -636,6 +649,7 @@ function M.update(player, ctx)
     main = ensure_main(player, content)
     dropdown = main[format.BLOCK_DROPDOWN]
     dropdown.items = dropdown_items(blocks)
+    dropdown.tags = { generation = ctx.generation }
   end
   dropdown.selected_index = selected
 

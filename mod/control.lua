@@ -28,7 +28,8 @@ local SETTING_DEBUG = "fp-viewer-debug"
 -- Plain Lua state. A load runs this file again, so all of it starts empty.
 
 local receiver = nil -- created on first use: `storage` is not readable in the main chunk
-local model_cache = nil -- { stored = <the stored table it was built from>, model = ... }
+local model_cache = nil -- { stored = <the stored table it was built from>, model = ..., generation = ... }
+local model_generation = 0 -- counts the models built; the GUI keeps its header only for the one it drew
 local ui_dirty = true -- the windows need a rebuild (a load leaves old content in them)
 local last_indicator = false -- false differs from every indicator, nil included
 local logged = {} -- log lines already written, so a failing call logs once
@@ -111,7 +112,12 @@ local function get_model()
   end
   if model_cache == nil or model_cache.stored ~= stored then
     local _, missing = snapshot_lib.find_missing(stored.snapshot, exists)
-    model_cache = { stored = stored, model = viewmodel.build(stored.snapshot, { missing = missing }) }
+    model_generation = model_generation + 1
+    model_cache = {
+      stored = stored,
+      model = viewmodel.build(stored.snapshot, { missing = missing }),
+      generation = model_generation,
+    }
   end
   return model_cache.model
 end
@@ -182,7 +188,13 @@ end
 
 -- What the GUI needs to draw one player's window; `extra` adds fields.
 local function context(player, indicator, model, extra)
-  local ctx = { model = model, indicator = indicator, selected = selected_for(player.index, model), done = done() }
+  local ctx = {
+    model = model,
+    generation = model_cache and model_cache.generation,
+    indicator = indicator,
+    selected = selected_for(player.index, model),
+    done = done(),
+  }
   for k, v in pairs(extra or {}) do
     ctx[k] = v
   end
