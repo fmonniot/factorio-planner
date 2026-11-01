@@ -29,11 +29,6 @@ function M.number(x)
   return s
 end
 
--- Rates in a snapshot are per minute.
-function M.rate(per_minute)
-  return M.number(per_minute) .. "/min"
-end
-
 -- A number for a tooltip: M.number with the thousands separated by commas
 -- (1,234.57). Negative numbers keep their sign.
 function M.tooltip_number(x)
@@ -65,21 +60,6 @@ function M.reselect(names, index, name)
     return index
   end
   return 1
-end
-
--- "2 (1.75)": the machines to place, rounded up, then the exact count. Either
--- may be missing (a row the solve did not value); nil when both are.
-function M.machines(ceil, exact)
-  if ceil ~= nil and exact ~= nil then
-    return M.number(ceil) .. " (" .. M.number(exact) .. ")"
-  end
-  if ceil ~= nil then
-    return M.number(ceil)
-  end
-  if exact ~= nil then
-    return "(" .. M.number(exact) .. ")"
-  end
-  return nil
 end
 
 -- Rich text that colours `text` with a snapshot colour (`#rrggbb`).
