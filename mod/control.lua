@@ -407,6 +407,24 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
   redraw(player, { only_table = true })
 end)
 
+-- The window's width and place follow the screen.
+local function on_screen_changed(event)
+  local player = game.get_player(event.player_index)
+  if player == nil then
+    return
+  end
+  local ok, err = pcall(function()
+    local indicator = get_receiver():indicator(game.tick, game.speed)
+    gui.reopen(player, context(player, indicator, get_model()))
+  end)
+  if not ok then
+    log_once("gui_update", err)
+  end
+end
+
+script.on_event(defines.events.on_player_display_resolution_changed, on_screen_changed)
+script.on_event(defines.events.on_player_display_scale_changed, on_screen_changed)
+
 script.on_event(defines.events.on_player_removed, function(event)
   state().selected[event.player_index] = nil
 end)

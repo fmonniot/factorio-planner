@@ -9,6 +9,9 @@
 -- spec sets them the same way before raising an event. The cursor calls are
 -- recorded in `fake.cursor` as { call, ... } entries, in order; a name in
 -- `fake.raise` makes that call raise.
+--
+-- Any style name is accepted, unless `fake.lacking_styles` holds it: the game
+-- raises on a style it does not know.
 local support = require("spec.support")
 
 local M = {}
@@ -47,9 +50,6 @@ local function make_element(args, parent)
     end
     e.children, e.names = {}, {}
   end
-  e.force_auto_center = function()
-    e.centred = (e.centred or 0) + 1
-  end
   e.scroll_to_top = function()
     e.scrolled_to_top = (e.scrolled_to_top or 0) + 1
   end
@@ -64,6 +64,9 @@ local function make_element(args, parent)
     -- records; the real element keeps accepting `style.x = ...` afterwards.
     __newindex = function(t, k, v)
       if k == "style" then
+        if M.current and M.current.lacking_styles and M.current.lacking_styles[v] then
+          error("unknown style " .. tostring(v))
+        end
         look.name = v
       else
         rawset(t, k, v)
@@ -153,7 +156,13 @@ end
 -- `fake` records the cursor calls (see the header); without it they are dropped.
 function M.player(index, fake)
   local gui = { top = make_element({ type = "top" }), screen = make_element({ type = "screen" }) }
-  local player = { index = index, gui = gui, opened = nil }
+  local player = {
+    index = index,
+    gui = gui,
+    opened = nil,
+    display_resolution = { width = 3420, height = 2224 },
+    display_scale = 2,
+  }
   local function record(call, ...)
     if fake == nil then
       return
@@ -242,6 +251,8 @@ function M.install(lacking)
     "on_gui_click",
     "on_gui_selection_state_changed",
     "on_gui_checked_state_changed",
+    "on_player_display_resolution_changed",
+    "on_player_display_scale_changed",
     "on_player_removed",
   }) do
     events[name] = name
@@ -308,10 +319,12 @@ function M.install(lacking)
       return inventory(fake)
     end,
   }
+  M.current = fake
   return fake
 end
 
 function M.uninstall()
+  M.current = nil
   for _, name in ipairs({ "defines", "storage", "log", "script", "settings", "prototypes", "helpers", "game" }) do
     _G[name] = nil
   end

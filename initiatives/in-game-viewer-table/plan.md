@@ -8,21 +8,21 @@ Redesign the in-game viewer window ([mod/](../../mod/README.md)) after the produ
 
 ## Target
 
-Same look as the reference, minus the pin and maximize buttons and the display toggles (items/s, belts, per building). From top to bottom:
+Same look as the reference, minus the pin and maximize buttons and the display toggles (items/s, belts, per building). The window opens at the top left at the reference's default size (decision 14). From top to bottom:
 
-- **Title bar:** title, drag space and close button.
-- **Above the table:** the indicator line, the data-set line and the list of missing ids stay as they are today, and so do the "no plan yet" and "no blocks" messages. Warnings and connections are no longer shown in game; the web planner is where they are dealt with.
-- **Navigation row:** a block drop-down with each block's colour swatch, replacing today's left-hand block list. A block whose solve failed shows the solver's message under the drop-down, as today.
-- **Production table in an inset frame:** one row per recipe, and one header row per sub-factory (see below), with no column titles, as in the reference. A block with no rows shows "None" instead. Up to six columns:
-  - a checkbox ("built");
-  - the recipe icon (for a mining, offshore or power row, the icon of its product);
+- **Title bar:** the title, centred between two drag handles, and the close button.
+- **Above the table:** only what needs attention: the indicator line, the list of missing ids and the "no plan yet" and "no blocks" messages, as today. With none of them there is nothing above the navigation frame. Warnings and connections are no longer shown in game; the web planner is where they are dealt with.
+- **Navigation row in an inset frame:** a block drop-down with each block's colour swatch, replacing today's left-hand block list. Its tooltip names the data set. A block whose solve failed shows the solver's message under the frame.
+- **Production table in an inset frame:** striped rows, one per recipe and one header row per sub-factory (see below), with no column titles, as in the reference. A block with no rows shows "None" instead. Up to six columns:
+  - a checkbox ("built") and the recipe icon in one cell (for a mining, offshore or power row, the icon of its product);
   - the machine icon, with the machine count as its number;
   - the beacon icon, with the total beacon count as its number (the column is left out of a block where no row has a beacon);
   - the products;
-  - the ingredients.
-- **Summary row at the top of the table:** the block's net products in green, its net ingredients, and a checkbox that ticks or unticks every row (decision 10).
+  - the ingredients, in green as in the reference;
+  - an empty column that takes the free width, so the stripes reach the frame.
+- **Summary row at the top of the table:** a checkbox that ticks or unticks every row (decision 10), a blue icon of the block's first net product (the colour of the reference's sub-floors, with "Whole block" in its tooltip: a caption would widen the recipe column of every row), its net products and its net ingredients.
 
-A row the solve did not value shows its icons without numbers. A built row is drawn in grayscale and stays clickable (decision 4).
+A row the solve did not value shows its icons without numbers. A built row loses its colours, background included, and stays clickable (decision 4).
 
 ### Click a building for a blueprint
 
@@ -41,7 +41,7 @@ Modules show in the machine's and beacon's tooltip, not as icons of their own in
 
 The planner's sub-plans ("sub-factories") are the counterpart of Factory Planner's floors: groups of rows that nest, with the web planner showing them inline ([spec/ui.md](../../spec/ui.md), the ProductionTable). The in-game table shows them like a floor row, but **always expanded, as a tree**:
 
-- A sub-factory is a header row followed by its rows, indented one step per nesting depth. The header has the sub-factory's name (and an "Area" tag when it is a separate area) in the recipe column, its **net** products in green and net ingredients in the other columns, and a checkbox that ticks or unticks everything under it.
+- A sub-factory is a header row followed by its rows, indented one step per nesting depth. The header has the sub-factory's name (and an "Area" tag when it is a separate area) in the recipe column, its **net** products and net ingredients in the other columns, and a checkbox that ticks or unticks everything under it.
 - No drilling, so no "Level N" label and no up buttons. No collapsing either.
 - Net flows are the sum over the sub-factory's rows (all depths) of outputs minus inputs, per item: a positive balance is a product, a negative one an ingredient, and a balance under 0.01/min in size is dropped, since per-row rounding leaves that much on an item made and used inside the sub-factory. The mod computes them from the per-row rates, so the snapshot needs no extra numbers for them.
 - A sub-factory's checkbox state is derived (checked when every row under it is built), never stored.
@@ -52,7 +52,7 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
 
 1. **Per-row item rates come from the snapshot, not from the game's recipe prototypes.** A snapshot row has only machine counts, throughput and power today. Computing item rates in the mod from `prototypes.recipe` would ignore modules, productivity and probabilities, would break when the mod set differs from the plan, and cannot cover mining, offshore and power rows. The solver already has exact `inputRates` and `outputRates` per row (`SolvedNode`), so the snapshot sends them as optional `inputs` and `outputs` per row.
 2. **No compatibility story: the snapshot changes in place, `v` stays 1.** The in-game viewer has not been released, so no installed mod or bridge reads another shape. An older reader is not a concern, which is also why the snapshot sheds what the new window does not draw (decision 7) rather than carrying it for nobody. The mod in the tree still has to work after each PR (decision 13).
-3. **No data stage.** Factory Planner uses its own `fflib_slot_button_*` styles; this mod changes no prototype. Use the vanilla `slot_sized_button` family (`slot_sized_button`, `slot_sized_button_green` for products, `slot_sized_button_red` for a missing id; all 40 pixels, all in `core/prototypes/style.lua` of 2.0.77) through the existing `try_style` guard, falling back to the plain slot button. The colours may not match the reference exactly; this is checked in game.
+3. **No data stage.** This mod changes no prototype. Factory Planner draws with the `flib_slot_button_*` styles of flib, with `_small` variants of its own, so the slots go through the `try_style` guard: flib's styles when flib is loaded (an optional dependency, which any install of the reference has), then the vanilla `slot_sized_button` family, then the plain slot button. All are 40 pixels, and `style.size` makes them the reference's 36 at runtime. The vanilla ones are lighter than the reference. The stripes need no flib: the vanilla `finished_game_table` has the graphic of the reference's `fp_table_production`, and its cell padding and column alignments are reset at runtime. This is checked in game.
 4. **A built row is drawn in grayscale, and stays clickable.** Factory Planner uses grayscale styles of its own, but `LuaStyle.draw_grayscale_picture` is writable at runtime, so setting it on a row's buttons gives the same look with no data stage. Disabling the buttons would not do: a disabled button raises no click, so a built row's machine could not be picked up. The checkbox is the source of truth.
 5. **Built state lives in the save, not per player:** it is one factory. Multiplayer is out of scope for the viewer, so only the acting player's window is redrawn. The state is `storage.fp_viewer.done[blockKey][rowKey]` and survives new snapshots.
    - A row's key is the sub-factory path (names, outermost first, joined with the control character `\31`, which a typed name cannot hold) plus the recipe id, or the kind, product and machine for a synthetic row, since every generator row makes the same electricity.
@@ -73,6 +73,8 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
     - Electricity is not an item in the product and ingredient columns. `project.ts` leaves it out of a row's `inputs` and `outputs`, and the failed-block fallback of decision 10 skips `virtual` references. So the rate of electricity (MJ per minute, not an item count) is never drawn.
 12. **The window no longer sets `player.opened`.** The reference's compact dialog leaves it unset so that paste mode and other GUIs, like the inventory, work while it is open; its main dialog sets it, and has to close on a pick. The viewer is a read-only companion to building, so it follows the compact dialog: a click leaves the window open and the player can paste straight away. The cost is that E and Esc no longer close it; the close button and the top-bar button do. `on_gui_closed` is no longer raised for it, so its handler goes.
 13. **Two PRs: the contract, then the mod GUI.** The mod requires `warnings` and `connections` to be arrays and ignores unknown keys, so the first PR only adds to the snapshot and the mod keeps working. The second PR changes the mod and removes the old fields together.
+
+14. **The window opens at the top left, at a fixed size, like the reference.** It sits at (10, 63) times the display scale, 26 % of the screen's width (the default of the reference's `compact_width_percentage`, which here is a constant) and at most 80 % of its height, so that it stays out of the way of what the player is building. The table cannot scroll sideways, so a fixed width means what goes on a line has to fit: as in the reference, `lib/layout.lua` works out how many item buttons fit, given the first column (indentation and sub-factory names included) and the beacon column, and shares them between products and ingredients so the table is as short as it can be. The window is reopened on `on_player_display_resolution_changed` and `on_player_display_scale_changed`, as the reference does. If both windows are open they overlap until one is dragged.
 
 ## Steps
 
@@ -153,4 +155,4 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
 - **Blueprint API.** `game.create_inventory`, `LuaItemStack.set_stack` and `set_blueprint_entities`, `LuaPlayer.clear_cursor`, `add_to_clipboard` and `activate_paste`, and `cursor_ghost` are all in the 2.0.77 API docs and used by the reference, but none has run in this mod. A failure should be a one-line fix in `scripts/cursor.lua`; the whole call is wrapped in `pcall` and logged once, like the other glue.
 - **Window and paste mode.** The window stays open on the strength of the reference's compact dialog, which does the same without `player.opened` (decision 12). If paste mode misbehaves in this mod anyway, that is the first thing to check in game.
 - **Modules.** Only the machine's own and the beacon's modules go into the blueprint, in slot order. A module id the game lacks refuses the whole blueprint rather than placing a building without its modules.
-- **Window size.** Seablock blocks can have dozens of rows with many ingredients each. Cap the table's height with a scroll pane and wrap ingredients at four per line, as the reference does.
+- **Window size.** Seablock blocks can have dozens of rows with many ingredients each. Cap the table's height with a scroll pane and share the item columns by what fits (decision 14), as the reference does.

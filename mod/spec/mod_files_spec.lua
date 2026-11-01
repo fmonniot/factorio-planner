@@ -68,7 +68,7 @@ describe("info.json", function()
 
   it("pins Factorio 2.0 and depends on base", function()
     assert.are.equal("2.0", info.factorio_version)
-    assert.are.same({ "base" }, info.dependencies)
+    assert.are.same({ "base", "? flib" }, info.dependencies)
   end)
 
   it("has the mandatory fields, with a three-number version", function()

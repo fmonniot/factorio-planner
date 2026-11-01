@@ -5,5 +5,5 @@
   "author": "François Monniot",
   "description": "Shows the blocks and plans of the Factorio Planner (a browser production planner) in the game. Read-only; needs the planner's bridge and the --enable-lua-udp launch option.",
   "factorio_version": "2.0",
-  "dependencies": ["base"]
+  "dependencies": ["base", "? flib"]
 }

@@ -23,18 +23,25 @@ local function main_of(window)
   return window["fp_viewer_content"]["fp_viewer_main"]
 end
 
+local function dropdown_of(window)
+  return main_of(window)["fp_viewer_nav_frame"]["fp_viewer_nav"][DROPDOWN]
+end
+
 local function scroll_of(window)
   return main_of(window)["fp_viewer_table_frame"]["fp_viewer_table_scroll"]
 end
 
--- The production table's lines, each a list of its cells.
+-- The production table's lines, each a list of: the checkbox (which shares the
+-- first cell with the recipe), then the cells of the table.
 local function lines(window)
   local t = scroll_of(window).children[1]
   assert(t.type == "table", "no production table")
   local out = {}
   for i, cell in ipairs(t.children) do
     local n = math.floor((i - 1) / t.column_count) + 1
-    out[n] = out[n] or {}
+    if out[n] == nil then
+      out[n] = { cell.children[1] }
+    end
     out[n][#out[n] + 1] = cell
   end
   return out, t
@@ -121,7 +128,7 @@ describe("scripts/gui.lua", function()
     local player = fake.players[1]
     gui.toggle(player)
     assert.is_true(gui.is_open(player))
-    assert.is_truthy(player.gui.screen[gui.WINDOW].children[1].children[3].name == gui.CLOSE)
+    assert.is_truthy(player.gui.screen[gui.WINDOW].children[1].children[4].name == gui.CLOSE)
     -- Decision 12: not player.opened, so paste mode and other windows work.
     assert.is_nil(player.opened)
     gui.toggle(player)
@@ -132,7 +139,7 @@ describe("scripts/gui.lua", function()
     it("draws the drop-down of " .. name .. " and the first block's table", function()
       local snapshot = support.json_to_table(fixture_text(name))
       local _, window = show(snapshot)
-      local dropdown = main_of(window)[DROPDOWN]
+      local dropdown = dropdown_of(window)
       assert.are.equal(#snapshot.blocks, #dropdown.items)
       assert.are.equal(1, dropdown.selected_index)
       assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), snapshot.blocks[1].name, 1, true) ~= nil)
@@ -145,7 +152,7 @@ describe("scripts/gui.lua", function()
       local snapshot = support.json_to_table(fixture_text(name))
       for i = 1, #snapshot.blocks do
         local _, window = show(snapshot, { selected = i })
-        assert.are.equal(i, main_of(window)[DROPDOWN].selected_index)
+        assert.are.equal(i, dropdown_of(window).selected_index)
         local with_machine = 0
         for _, row in ipairs(snapshot.blocks[i].rows) do
           with_machine = with_machine + (row.machine and 1 or 0)
@@ -159,7 +166,7 @@ describe("scripts/gui.lua", function()
   it("puts each block's colour swatch and name in the drop-down, non-ASCII names as they are", function()
     local snapshot = support.json_to_table(fixture_text("unicode"))
     local _, window = show(snapshot)
-    local items = main_of(window)[DROPDOWN].items
+    local items = dropdown_of(window).items
     for i, block in ipairs(snapshot.blocks) do
       local text = fake_game.flatten(items[i])
       assert.is_true(string.find(text, block.name, 1, true) ~= nil)
@@ -171,7 +178,7 @@ describe("scripts/gui.lua", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     snapshot.blocks[1].name = ""
     local _, window = show(snapshot)
-    assert.is_true(string.find(fake_game.flatten(main_of(window)[DROPDOWN].items[1]), "{fp-viewer.unnamed}", 1, true) ~= nil)
+    assert.is_true(string.find(fake_game.flatten(dropdown_of(window).items[1]), "{fp-viewer.unnamed}", 1, true) ~= nil)
   end)
 
   it("lists the ids the game lacks and draws them in red without a sprite", function()
@@ -185,7 +192,7 @@ describe("scripts/gui.lua", function()
     -- The first row's machine: a button, red, with no sprite and the missing-id text.
     local machine = tagged(window, "machine")[1]
     assert.is_nil(machine.sprite)
-    assert.are.equal("slot_sized_button_red", machine.style.name)
+    assert.are.equal("flib_slot_button_red", machine.style.name)
     local tooltip = fake_game.flatten(machine.tooltip)
     assert.are.equal(1, string.find(tooltip, "{fp-viewer.missing-id|bob-assembling-machine-6}", 1, true))
     -- No sprite path or rich-text tag names a missing id.
@@ -217,21 +224,26 @@ describe("scripts/gui.lua", function()
     end))
   end)
 
-  it("draws the summary line first: the net products in green and the net ingredients", function()
+  it("draws the summary line first: a blue icon, the net products and the net ingredients in green", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     local _, window = show(snapshot)
     local summary = lines(window)[1]
     assert.are.equal("checkbox", summary[1].type)
     assert.are.same({ block = "Gears", what = "check" }, summary[1].tags)
     assert.is_false(summary[1].state)
-    assert.is_true(fake_game.any_caption(summary[2], "{fp-viewer.summary}"))
+    -- An icon, not a caption, so the recipe column stays one icon wide.
+    local icon = buttons(summary[2])[1]
+    assert.are.equal("flib_slot_button_blue", icon.style.name)
+    assert.are.equal("item/iron-gear-wheel", icon.sprite)
+    assert.are.equal("{fp-viewer.summary}", fake_game.flatten(icon.tooltip))
+    assert.is_false(fake_game.any_caption(summary[2], "{fp-viewer.summary}"))
     -- small: ore into plates into gears, so the net is ore in, gears out.
     local products, ingredients = buttons(summary[4]), buttons(summary[5])
     assert.are.equal(1, #products)
     assert.are.equal("item/iron-gear-wheel", products[1].sprite)
-    assert.are.equal("slot_sized_button_green", products[1].style.name)
+    assert.are.equal("flib_slot_button_default", products[1].style.name)
     assert.are.equal(1, #ingredients)
-    assert.are.equal("slot_sized_button", ingredients[1].style.name)
+    assert.are.equal("flib_slot_button_green", ingredients[1].style.name)
     assert.is_number(products[1].number)
   end)
 
@@ -301,18 +313,39 @@ describe("scripts/gui.lua", function()
     assert.are.equal(0, #tagged(window, "beacon"))
   end)
 
-  it("wraps products and ingredients at four per line", function()
+  it("shares the item columns of a line by what the block needs, and fits the window", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     local row = snapshot.blocks[1].rows[1]
     row.inputs = {}
-    for i = 1, 6 do
+    for i = 1, 9 do
       row.inputs[i] = { id = "ingredient-" .. i, type = "item", rate = i }
     end
     local _, window = show(snapshot)
     local cell = lines(window)[2][5]
     assert.are.equal("table", cell.type)
-    assert.are.equal(4, cell.column_count)
-    assert.are.equal(6, #cell.children)
+    assert.are.equal(9, #cell.children)
+    -- 26 % of 1710 is 444: six buttons fit, one of them for the product.
+    assert.are.equal(5, cell.column_count)
+    assert.are.equal(1, lines(window)[2][4].column_count)
+  end)
+
+  it("leaves the name of a sub-factory room, and fewer buttons, in a narrow window", function()
+    local _, window = show(support.json_to_table(fixture_text("seablock-groups")))
+    local line = lines(window)[2]
+    local _, t = lines(window)
+    assert.are.equal(6, t.column_count)
+    -- 444 - 24 frame - 16 padding - 60 gaps - 72 machine and beacon - 142 name and
+    -- checkbox, plus 4 of spacing: three buttons of 40.
+    assert.are.equal(3, line[5].column_count + line[6].column_count)
+  end)
+
+  it("works with a screen size it cannot read", function()
+    local player = fake.players[1]
+    player.display_resolution = nil
+    gui.open(player, { model = viewmodel.build(support.json_to_table(fixture_text("small")), {}), selected = 1 })
+    local window = player.gui.screen[gui.WINDOW]
+    assert.are.equal(499, window.style.width)
+    assert.are.same({ 10, 63 }, window.location)
   end)
 
   it("draws sub-factories as indented header lines, the area ones tagged", function()
@@ -329,7 +362,7 @@ describe("scripts/gui.lua", function()
     assert.are.equal(40, all[6][2].style.left_margin) -- a row of the nested one
     assert.are.equal(0, all[9][2].style.left_margin) -- the root row after them
     -- The name is capped, with the full name in its tooltip; no machine there.
-    local name = plates[2].children[1]
+    local name = plates[2].children[2]
     assert.are.equal("Plates and cables", name.tooltip)
     assert.is_number(name.style.maximal_width)
     assert.are.equal("empty-widget", plates[3].type)
@@ -393,31 +426,91 @@ describe("scripts/gui.lua", function()
     assert.is_nil(window["fp_viewer_content"]["fp_viewer_main"])
   end)
 
-  it("replaces the window of an older version, which has no drop-down, instead of raising", function()
+  it("takes the green off a built row's ingredients, and the blue off a built block's icon", function()
     local snapshot = support.json_to_table(fixture_text("small"))
-    local player, window = show(snapshot)
-    local content = window["fp_viewer_content"]
-    -- The 0.1.0 layout: a list and a details pane, no drop-down.
-    content["fp_viewer_main"].destroy()
-    local old = content.add({ type = "flow", name = "fp_viewer_main", direction = "horizontal" })
-    old.add({ type = "scroll-pane", name = "fp_viewer_list" })
-    old.add({ type = "scroll-pane", name = "fp_viewer_details" })
+    local block = viewmodel.build(snapshot, {}).blocks[1]
+    local done = { [block.key] = {} }
+    for _, k in ipairs(block.summary.keys) do
+      done[block.key][k] = true
+    end
+    local _, window = show(snapshot, { done = done })
+    local all = lines(window)
+    assert.are.equal("flib_slot_button_default", buttons(all[1][2])[1].style.name)
+    assert.are.equal("flib_slot_button_default", buttons(all[2][5])[1].style.name)
+    assert.is_true(buttons(all[2][5])[1].style.draw_grayscale_picture)
+  end)
+
+  it("draws the slots at 36 pixels, in a striped table with its pusher, like the reference", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local _, window = show(snapshot)
+    local all, t = lines(window)
+    assert.are.equal("finished_game_table", t.style.name)
+    assert.are.equal(0, t.style.left_cell_padding)
+    assert.are.same({ 4, 8 }, t.style.padding)
+    assert.are.equal(36, all[2][3].style.size)
+    local pusher = all[2][#all[2]]
+    assert.are.equal("empty-widget", pusher.type)
+    assert.is_true(pusher.style.horizontally_stretchable)
+  end)
+
+  it("centres the title between two drag handles", function()
+    local _, window = show(support.json_to_table(fixture_text("small")))
+    local bar = window["fp_viewer_title_bar"]
+    assert.are.equal("frame_header_flow", bar.style.name)
+    assert.are.equal("empty-widget", bar.children[1].type)
+    assert.are.equal("label", bar.children[2].type)
+    assert.are.equal("empty-widget", bar.children[3].type)
+  end)
+
+  it("falls back on the base game's slots when flib is not there", function()
+    fake.lacking_styles = {
+      flib_slot_button_default = true,
+      flib_slot_button_green = true,
+      flib_slot_button_blue = true,
+      flib_slot_button_red = true,
+      flib_naked_scroll_pane_no_padding = true,
+    }
+    local _, window = show(support.json_to_table(fixture_text("small")))
+    local all = lines(window)
+    assert.are.equal("slot_sized_button_blue", buttons(all[1][2])[1].style.name)
+    assert.are.equal("slot_sized_button", buttons(all[1][4])[1].style.name)
+    assert.are.equal("slot_sized_button_green", buttons(all[1][5])[1].style.name)
+    assert.are.equal(36, buttons(all[1][4])[1].style.size)
+  end)
+
+  it("keeps the header empty and hidden when all is well, with the data set on the drop-down", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local _, window = show(snapshot)
+    local header = window["fp_viewer_content"]["fp_viewer_header"]
+    assert.are.equal(0, #header.children)
+    assert.is_false(header.visible)
+    assert.is_false(main_of(window)["fp_viewer_note"].visible)
+    local tooltip = fake_game.flatten(dropdown_of(window).tooltip)
+    assert.is_truthy(string.find(tooltip, "{fp-viewer.data-set|", 1, true))
+  end)
+
+  it("replaces the window of an older version, which has no named title bar, instead of raising", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
     local _, missing = snapshot_lib.find_missing(snapshot, everything_exists())
     local model = viewmodel.build(snapshot, { missing = missing })
     for _, only_table in ipairs({ false, true }) do
+      local player = fake.players[1]
+      gui.close(player)
+      -- The last layout before this one: the drop-down right under the main flow.
+      local old = player.gui.screen.add({ type = "frame", name = gui.WINDOW, direction = "vertical" })
+      old.add({ type = "flow", direction = "horizontal" })
+      local content = old.add({ type = "flow", name = "fp_viewer_content", direction = "vertical" })
+      content.add({ type = "flow", name = "fp_viewer_header", direction = "vertical" })
+      local main = content.add({ type = "flow", name = "fp_viewer_main", direction = "vertical" })
+      main.add({ type = "drop-down", name = DROPDOWN, items = {} })
       assert.has_no.errors(function()
         gui.update(player, { model = model, selected = 1, only_table = only_table })
       end)
-      local main = main_of(window)
-      assert.is_truthy(main[DROPDOWN])
-      assert.is_nil(main["fp_viewer_list"])
+      local window = player.gui.screen[gui.WINDOW]
+      assert.are_not.equal(old, window)
+      assert.is_truthy(window["fp_viewer_title_bar"])
+      assert.are.equal(#snapshot.blocks, #dropdown_of(window).items)
       assert.is_truthy(scroll_of(window))
-      assert.are.equal(#snapshot.blocks, #main[DROPDOWN].items)
-      -- Only the skeleton was replaced; the window is the same one.
-      assert.are.equal(window, player.gui.screen[gui.WINDOW])
-      content["fp_viewer_main"].destroy()
-      old = content.add({ type = "flow", name = "fp_viewer_main", direction = "horizontal" })
-      old.add({ type = "scroll-pane", name = "fp_viewer_list" })
     end
   end)
 
@@ -431,17 +524,17 @@ describe("scripts/gui.lua", function()
     local second = viewmodel.build(renamed, {})
     -- Same number of blocks, another snapshot.
     gui.update(player, { model = second, generation = 2, selected = 1, only_table = true })
-    local dropdown = main_of(window)[DROPDOWN]
+    local dropdown = dropdown_of(window)
     assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), "Renamed block", 1, true) ~= nil)
     -- The same snapshot again keeps the drop-down element as it is.
     gui.update(player, { model = second, generation = 2, selected = 1, only_table = true })
-    assert.are.equal(dropdown, main_of(window)[DROPDOWN])
+    assert.are.equal(dropdown, dropdown_of(window))
   end)
 
   it("clamps a selection past the end", function()
     local snapshot = support.json_to_table(fixture_text("seablock-loop"))
     local _, window = show(snapshot, { selected = 99 })
-    assert.are.equal(#snapshot.blocks, main_of(window)[DROPDOWN].selected_index)
+    assert.are.equal(#snapshot.blocks, dropdown_of(window).selected_index)
   end)
 
   it("does nothing for a player whose window is closed", function()
@@ -495,7 +588,7 @@ describe("control.lua", function()
   end
 
   local function select_block(window, index)
-    local dropdown = main_of(window)[DROPDOWN]
+    local dropdown = dropdown_of(window)
     dropdown.selected_index = index
     fake.handlers.on_gui_selection_state_changed({ element = dropdown, player_index = 1 })
   end
@@ -603,7 +696,7 @@ describe("control.lua", function()
     assert.is_nil(fake.handlers.on_gui_closed)
 
     local main = main_of(window)
-    local dropdown, scroll = main[DROPDOWN], scroll_of(window)
+    local dropdown, scroll = dropdown_of(window), scroll_of(window)
     local last = #snapshot.blocks
     assert.is_true(last > 1)
     assert.are.equal(last, #dropdown.items)
@@ -612,7 +705,7 @@ describe("control.lua", function()
     -- Only the table changed: the drop-down and the scroll pane are the same
     -- elements, and the table is scrolled back to the top.
     assert.are.equal(main, main_of(window))
-    assert.are.equal(dropdown, main[DROPDOWN])
+    assert.are.equal(dropdown, dropdown_of(window))
     assert.is_true(dropdown.valid)
     assert.are.equal(last, dropdown.selected_index)
     assert.are.equal(scroll, scroll_of(window))
@@ -636,7 +729,7 @@ describe("control.lua", function()
     hear(support.chunk("3333333333333333", 0, 1, #text, text), clock + 11)
     assert.are.equal("3333333333333333", _G.storage.fp_viewer.stored.id)
     select_block(window, 1)
-    local dropdown = main_of(window)[DROPDOWN]
+    local dropdown = dropdown_of(window)
     assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), "Renamed block", 1, true) ~= nil)
   end)
 
@@ -663,22 +756,42 @@ describe("control.lua", function()
   it("keeps the drop-down and the scroll pane when a new snapshot arrives, refilling them", function()
     deliver(fixture_text("seablock-loop"))
     local _, window = open_window()
-    local dropdown, scroll = main_of(window)[DROPDOWN], scroll_of(window)
+    local dropdown, scroll = dropdown_of(window), scroll_of(window)
     deliver(fixture_text("small"), "2222222222222222")
-    assert.are.equal(dropdown, main_of(window)[DROPDOWN])
+    assert.are.equal(dropdown, dropdown_of(window))
     assert.are.equal(scroll, scroll_of(window))
     assert.are.equal(1, #dropdown.items)
     assert.is_nil(scroll.scrolled_to_top)
   end)
 
-  it("centres the window once, after its content is built", function()
+  it("opens at the top left at the reference's width, and a tick leaves a dragged window alone", function()
     deliver(fixture_text("small"))
     local _, window = open_window()
-    assert.are.equal(1, window.centred)
+    assert.are.same({ 20, 126 }, window.location) -- 10 and 63, at a display scale of 2
+    assert.are.equal(444, window.style.width) -- 26 % of 1710
+    assert.are.equal(889, window.style.maximal_height) -- 80 % of 1112
     assert.is_truthy(main_of(window))
+    window.location = { 500, 300 }
     hear(support.ping("3333333333333333"), 1000)
     tick(1002)
-    assert.are.equal(1, window.centred)
+    assert.are.same({ 500, 300 }, window.location)
+  end)
+
+  it("lays an open window out again when the screen changes, and leaves a closed one closed", function()
+    deliver(fixture_text("small"))
+    local player, window = open_window()
+    player.display_resolution = { width = 1920, height = 1080 }
+    player.display_scale = 1
+    fake.handlers.on_player_display_resolution_changed({ player_index = 1 })
+    local reopened = player.gui.screen["fp_viewer_window"]
+    assert.are_not.equal(window, reopened)
+    assert.are.equal(499, reopened.style.width)
+    assert.are.same({ 10, 63 }, reopened.location)
+    assert.is_truthy(scroll_of(reopened).children[1])
+
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    fake.handlers.on_player_display_scale_changed({ player_index = 1 })
+    assert.is_nil(player.gui.screen["fp_viewer_window"])
   end)
 
   it("keeps the selected block by name through a reordered snapshot", function()
@@ -697,7 +810,7 @@ describe("control.lua", function()
     deliver(json.encode(reversed), "4444444444444444")
     assert.are.equal(1, _G.storage.fp_viewer.selected[1].index)
     assert.are.equal(chosen, _G.storage.fp_viewer.selected[1].name)
-    assert.are.equal(1, main_of(window)[DROPDOWN].selected_index)
+    assert.are.equal(1, dropdown_of(window).selected_index)
     assert.are.equal(chosen, tagged(window, "machine")[1].tags.block)
   end)
 
