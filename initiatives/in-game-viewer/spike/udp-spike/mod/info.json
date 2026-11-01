@@ -1,0 +1,9 @@
+{
+  "name": "udp-spike",
+  "version": "0.0.1",
+  "title": "UDP spike",
+  "author": "fmonniot",
+  "factorio_version": "2.0",
+  "dependencies": ["base"],
+  "description": "Throwaway probe for the in-game viewer initiative (Phase 0 step 2)."
+}
