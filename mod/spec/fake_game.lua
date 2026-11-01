@@ -223,6 +223,19 @@ local function inventory(fake)
   return inv
 end
 
+-- The base game's lualib/mod-gui.lua, as far as the mod uses it: the button flow
+-- is the same two frames in the top of the player's GUI.
+local function mod_gui()
+  return {
+    button_style = "mod_gui_button",
+    get_button_flow = function(player)
+      local top = player.gui.top
+      local frame = top.mod_gui_top_frame or top.add({ type = "frame", name = "mod_gui_top_frame" })
+      return frame.mod_gui_inner_frame or frame.add({ type = "frame", name = "mod_gui_inner_frame" })
+    end,
+  }
+end
+
 -- Installs the runtime globals; returns the fake with what a spec inspects.
 -- `lacking`: ids the "running game" does not have.
 function M.install(lacking)
@@ -319,6 +332,7 @@ function M.install(lacking)
       return inventory(fake)
     end,
   }
+  package.preload["mod-gui"] = mod_gui
   M.current = fake
   return fake
 end
@@ -328,6 +342,8 @@ function M.uninstall()
   for _, name in ipairs({ "defines", "storage", "log", "script", "settings", "prototypes", "helpers", "game" }) do
     _G[name] = nil
   end
+  package.preload["mod-gui"] = nil
+  package.loaded["mod-gui"] = nil
   package.loaded["scripts.gui"] = nil
   package.loaded["scripts.cursor"] = nil
 end

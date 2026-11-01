@@ -108,7 +108,6 @@ describe("scripts/gui.lua", function()
   local function show(snapshot, opts)
     opts = opts or {}
     local player = fake.players[1]
-    gui.ensure_button(player)
     local _, missing = snapshot_lib.find_missing(snapshot, opts.exists or everything_exists())
     gui.open(player, {
       model = viewmodel.build(snapshot, { missing = missing }),
@@ -126,11 +125,46 @@ describe("scripts/gui.lua", function()
     gui = require("scripts.gui")
   end
 
-  it("adds the top-bar button once", function()
+  local function button_of(player)
+    return player.gui.top.mod_gui_top_frame.mod_gui_inner_frame[gui.BUTTON]
+  end
+
+  it("puts one button in the frame mods share, and none in the top level", function()
     local player = fake.players[1]
     gui.ensure_button(player)
     gui.ensure_button(player)
+    local button = button_of(player)
+    assert.are.equal("sprite-button", button.type)
+    assert.are.equal(gui.SPRITE, button.sprite)
+    assert.are.equal("mod_gui_button", button.style)
+    assert.are.same({ "left" }, button.mouse_button_filter)
+    assert.are.equal(1, #player.gui.top.mod_gui_top_frame.mod_gui_inner_frame.children)
     assert.are.equal(1, #player.gui.top.children)
+  end)
+
+  it("removes the plain button an earlier version left in the top level, and no other", function()
+    local player = fake.players[1]
+    player.gui.top.add({ type = "button", name = "fp_viewer_button" })
+    player.gui.top.add({ type = "button", name = "another-mods-button" })
+    gui.update(player, {})
+    gui.update(player, {})
+    assert.is_nil(player.gui.top["fp_viewer_button"])
+    assert.is_not_nil(player.gui.top["another-mods-button"])
+    assert.is_not_nil(button_of(player))
+  end)
+
+  it("lights the button while the window is open", function()
+    local player = fake.players[1]
+    gui.ensure_button(player)
+    gui.toggle(player)
+    assert.is_true(button_of(player).toggled)
+    gui.toggle(player)
+    assert.is_false(button_of(player).toggled)
+    gui.open(player)
+    gui.reopen(player)
+    assert.is_true(button_of(player).toggled)
+    gui.close(player)
+    assert.is_false(button_of(player).toggled)
   end)
 
   it("opens a window with a close button, does not make it opened, and toggles it away", function()
@@ -511,7 +545,7 @@ describe("scripts/gui.lua", function()
     for _, indicator in ipairs({ "disconnected", "mismatch", "stale" }) do
       local player, window = show(snapshot, { indicator = indicator })
       assert.is_true(fake_game.any_caption(window, "{fp-viewer.indicator-" .. indicator))
-      assert.is_true(string.find(fake_game.flatten(player.gui.top[gui.BUTTON].tooltip), indicator, 1, true) ~= nil)
+      assert.is_true(string.find(fake_game.flatten(button_of(player).tooltip), indicator, 1, true) ~= nil)
       reinstall()
     end
   end)
@@ -682,9 +716,16 @@ describe("control.lua", function()
     tick(clock + 12)
   end
 
+  -- A click on the top-left button: opens the window, or closes it.
+  local function press_button()
+    local player = fake.players[1]
+    local button = player.gui.top.mod_gui_top_frame.mod_gui_inner_frame["fp_viewer_toggle"]
+    fake.handlers.on_gui_click({ element = button, player_index = 1 })
+  end
+
   local function open_window()
     local player = fake.players[1]
-    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    press_button()
     return player, player.gui.screen["fp_viewer_window"]
   end
 
@@ -720,6 +761,25 @@ describe("control.lua", function()
     end
     return nil
   end
+
+  it("opens and closes the window with the button, which is lit while it is open", function()
+    local player, window = open_window()
+    assert.is_not_nil(window)
+    local button = player.gui.top.mod_gui_top_frame.mod_gui_inner_frame["fp_viewer_toggle"]
+    assert.is_true(button.toggled)
+    press_button()
+    assert.is_nil(player.gui.screen["fp_viewer_window"])
+    assert.is_false(button.toggled)
+  end)
+
+  it("removes the old plain button on the first refresh after a load or a join", function()
+    local player = fake.players[1]
+    player.gui.top.add({ type = "button", name = "fp_viewer_button" })
+    fake.handlers.on_player_joined_game({ player_index = 1 })
+    tick(12)
+    assert.is_nil(player.gui.top["fp_viewer_button"])
+    assert.is_not_nil(player.gui.top.mod_gui_top_frame.mod_gui_inner_frame["fp_viewer_toggle"])
+  end)
 
   it("polls every 10 ticks and sends nothing while nothing was heard", function()
     for t = 1, 100 do
@@ -890,7 +950,7 @@ describe("control.lua", function()
     assert.are.same({ 10, 63 }, reopened.location)
     assert.is_truthy(scroll_of(reopened).children[1])
 
-    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    press_button()
     fake.handlers.on_player_display_scale_changed({ player_index = 1 })
     assert.is_nil(player.gui.screen["fp_viewer_window"])
   end)
@@ -1126,9 +1186,9 @@ describe("control.lua", function()
       deliver(fixture_text("seablock-groups"))
       local player, window = open_window()
       open_group(window, "Plates and cables")
-      click(player.gui.top["fp_viewer_button"])
+      press_button()
       assert.is_nil(player.gui.screen["fp_viewer_window"])
-      click(player.gui.top["fp_viewer_button"])
+      press_button()
       window = player.gui.screen["fp_viewer_window"]
       assert.are.equal(3, #lines(window))
       assert.is_true(level_up_of(window).visible)

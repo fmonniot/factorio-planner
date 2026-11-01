@@ -1,5 +1,5 @@
--- The viewer's GUI: a top-bar button and, per player, a read-only window with a
--- block drop-down and the selected block's production table. Thin on purpose:
+-- The viewer's GUI: a button in the mod-gui frame in the top left corner and, per
+-- player, a read-only window with a block drop-down and the selected block's production table. Thin on purpose:
 -- what to show comes from lib/viewmodel.lua, the "built" ticks from
 -- lib/progress.lua, text from lib/format.lua and the locale file; this file only
 -- creates and fills game GUI elements. It does not touch `storage` and holds no
@@ -23,12 +23,20 @@ local C = require("lib.constants")
 local format = require("lib.format")
 local layout = require("lib.layout")
 local progress = require("lib.progress")
+-- From the base game (lualib/mod-gui.lua); `require` only works while the file is
+-- loaded, so it cannot be asked for later.
+local mod_gui = require("mod-gui")
 
 local L = format.LOCALE
 
 local M = {}
 
-M.BUTTON = "fp_viewer_button"
+-- The button that opens the window, and its icon (data.lua). The window used to
+-- open from a plain button added to the top level of the GUI; that one is removed
+-- where a save still has it.
+M.BUTTON = "fp_viewer_toggle"
+M.SPRITE = "fp-viewer-button"
+local LEGACY_BUTTON = "fp_viewer_button"
 M.WINDOW = "fp_viewer_window"
 M.CLOSE = "fp_viewer_close"
 local BAR = "fp_viewer_title_bar"
@@ -194,14 +202,42 @@ local function drag_handle(bar)
   drag.ignored_by_interaction = true
 end
 
+-- The frame in the top left corner that mods share, for the button to sit in. The
+-- first call for a player creates it.
+local function button_flow(player)
+  return mod_gui.get_button_flow(player)
+end
+
+-- Lit while the window is open.
+local function sync_button(player)
+  local button = button_flow(player)[M.BUTTON]
+  if button ~= nil then
+    button.toggled = player.gui.screen[M.WINDOW] ~= nil
+  end
+end
+
+-- M.update does this, so every player has the button after the first refresh of
+-- a new game, a load or a join.
 function M.ensure_button(player)
-  if player.gui.top[M.BUTTON] == nil then
-    player.gui.top.add({
-      type = "button",
+  local flow = button_flow(player)
+  if flow[M.BUTTON] == nil then
+    flow.add({
+      type = "sprite-button",
       name = M.BUTTON,
-      caption = { key("button") },
+      sprite = M.SPRITE,
+      style = mod_gui.button_style,
       tooltip = { key("button-tooltip") },
+      mouse_button_filter = { "left" },
     })
+  end
+end
+
+-- Removes the free-floating button an earlier version of the mod left in a save;
+-- M.update does it.
+function M.drop_legacy_button(player)
+  local button = player.gui.top[LEGACY_BUTTON]
+  if button ~= nil then
+    button.destroy()
   end
 end
 
@@ -219,13 +255,14 @@ end
 -- The window is not made `player.opened`: like Factory Planner's compact dialog,
 -- it stays open beside the game, so the inventory, other windows and the paste
 -- mode of a picked building work while it is shown. E and Esc therefore leave it
--- alone; its close button and the top-bar button close it.
+-- alone; its close button and the top-left button close it.
 function M.open(player, ctx)
   local screen = player.gui.screen
   if screen[M.WINDOW] ~= nil then
     return
   end
   local window = screen.add({ type = "frame", name = M.WINDOW, direction = "vertical" })
+  sync_button(player)
   local size = screen_size(player)
   window.style.width = layout.window_width(size.width)
   window.style.maximal_height = layout.window_height(size.height)
@@ -269,6 +306,7 @@ function M.close(player)
   if window ~= nil then
     window.destroy()
   end
+  sync_button(player)
 end
 
 function M.toggle(player, ctx)
@@ -748,11 +786,14 @@ end
 --   reset_scroll = true to scroll the table back to the top (a new block or level)
 -- }
 function M.update(player, ctx)
-  local button = player.gui.top[M.BUTTON]
-  if button ~= nil then
-    local note = indicator_caption(ctx.indicator)
-    button.tooltip = note and { "", { key("button-tooltip") }, "\n", note } or { key("button-tooltip") }
-  end
+  -- Runs on the first refresh after a load or a join (on_player_joined_game does
+  -- not fire for a save loaded in single player).
+  M.drop_legacy_button(player)
+  M.ensure_button(player)
+  local button = button_flow(player)[M.BUTTON]
+  local note = indicator_caption(ctx.indicator)
+  button.tooltip = note and { "", { key("button-tooltip") }, "\n", note } or { key("button-tooltip") }
+  button.toggled = M.is_open(player)
 
   local window = player.gui.screen[M.WINDOW]
   if window == nil then

@@ -1,12 +1,12 @@
 # Manual checklist: the mod in Factorio 2.0.77
 
-CI never starts the game, so everything that touches the Factorio API (`control.lua`, `gui.lua`, `cursor.lua`, `settings.lua`, the locale file) is checked here, once per release and after any change to those files. The pure Lua modules are covered by the busted specs, and `glue_spec.lua` runs the glue against a fake runtime, which catches plain Lua mistakes and nothing about the real API.
+CI never starts the game, so everything that touches the Factorio API (`control.lua`, `gui.lua`, `cursor.lua`, `data.lua`, `settings.lua`, the locale file) is checked here, once per release and after any change to those files. The pure Lua modules are covered by the busted specs, and `glue_spec.lua` runs the glue against a fake runtime, which catches plain Lua mistakes and nothing about the real API.
 
 Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the received snapshot into the save). Tick each item, and write down what was seen in the PR or release notes. A failure of an item marked **(unverified API)** is expected to be a one-line fix in the file named; the list of such calls is in the PR that added them.
 
 ## Setup
 
-1. Put the mod in the game's `mods/` folder as `factorio-planner-viewer_0.1.0/`, holding `info.json`, `control.lua`, `settings.lua`, `lib/`, `scripts/` and `locale/` (a copy or a symlink of `mod/` is enough, `spec/`, `tools/` and the rest are ignored by the game).
+1. Put the mod in the game's `mods/` folder as `factorio-planner-viewer_0.1.0/`, holding `info.json`, `control.lua`, `data.lua`, `settings.lua`, `graphics/`, `lib/`, `scripts/` and `locale/` (a copy or a symlink of `mod/` is enough, `spec/`, `tools/` and the rest are ignored by the game).
 2. Start the game with `--enable-lua-udp 34198` (Steam launch option, or on the command line). Load the throwaway save.
 3. The bridge does not exist yet; `mod/tools/udp_sender.py` stands in for it (`python3 mod/tools/udp_sender.py --help`). It sends datagrams to the game's port and prints the mod's answers, which the mod sends to the bridge port 34199.
 4. After loading, `factorio-current.log` must show no Lua error from `factorio-planner-viewer`.
@@ -16,7 +16,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 ### The game launched without the flag
 
 1. Quit, start the game **without** `--enable-lua-udp`, load the save.
-2. No error, no crash, in the first minute and after opening the window. The top bar shows the **Plan** button; the window shows **Disconnected** with the text about the launch option and `factorio-current.log`.
+2. No error, no crash, in the first minute and after opening the window. The top left corner shows the button with the black **P** icon, in a framed strip (the frame other mods' buttons share); the window shows **Disconnected** with the text about the launch option and `factorio-current.log`.
 3. Run `python3 mod/tools/udp_sender.py ping`: nothing is answered, the indicator stays Disconnected, and the log has at most one `recv_udp failed` / `send_udp failed` line each if the game raises there.
 
 ### Handshake and the indicator
@@ -29,7 +29,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 ### Delivering a snapshot
 
 1. `udp_sender.py send contract/fixtures/small.json`. Expected replies: `FP01 R <id>`, then `FP01 A <id> <n>` (the sender sends probe, chunks and end of window together, and the mod answers once per poll, so the last answer is what counts). With a base-game install the ids of the Seablock fixture are missing, so `<n>` is above 0: see the unknown-id check below.
-2. Open the window from the top bar: the drop-down shows **Gears** with its colour swatch; the table below it has one line per recipe: a checkbox, the recipe icon, the machine icon with the machines to place as its number, the products and the ingredients in green, with rates per minute in the tooltips. There is no power anywhere and no column titles.
+2. Open the window from the top left button: the drop-down shows **Gears** with its colour swatch; the table below it has one line per recipe: a checkbox, the recipe icon, the machine icon with the machines to place as its number, the products and the ingredients in green, with rates per minute in the tooltips. There is no power anywhere and no column titles.
 3. Save and load the game **without** sending anything: the window, once opened, still shows the plan (it is read from the save), with **Disconnected** until the first ping.
 4. `udp_sender.py ping 0000000000000000`: the indicator shows **Stale** (the planner's newest differs from the stored id). `udp_sender.py ping <the stored id>` clears it.
 5. `udp_sender.py send contract/fixtures/seablock-areas.json --chunk 700`: a multi-chunk delivery. The table shows the sub-factories **Smelting** and **Pumps** as one line each, with a blue icon, no name, and "Separate area" in the tooltip.
@@ -101,8 +101,8 @@ Same fixture and setup as above. Each click is a plain left click on the icon; a
 
 ### Window and GUI
 
-1. The top-bar button **Plan** is visible after a new game, after loading a save, and for a player who joins later. Its tooltip names the current indicator.
-2. The window opens at the top left, under the top bar, in the same place and at the same width as Factory Planner's compact view at its default width setting (also at a small resolution, with a long plan: the table scrolls inside the window, whose height stays on screen, at most 80 % of the screen). Nothing is cut off at the right edge, also with a beacon column, sub-factories and rows with many items: the buttons wrap instead. Dragged away, it stays where it was put through ticks and new snapshots. Changing the resolution or the UI scale moves it back and resizes it (a closed window stays closed). It can be dragged by its title bar, and closes with the X button and again with the top button. E and Esc do **not** close it: it is not the player's opened GUI, so the inventory opens with E while it stays shown. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
+1. **(unverified API)** The button is a square with the black **P** icon, in the frame in the top left corner (`mod-gui`, so it sits next to the buttons of other mods and does not float on its own), after a new game, after loading a save, and for a player who joins later. Its tooltip names the current indicator. Pressing it opens the window and lights the button; pressing it again, or the window's X, closes the window and the button goes dark. A save that had the old plain **Plan** button no longer shows it once loaded, and no `Unknown key` text shows anywhere.
+2. The window opens at the top left, under the top left button, in the same place and at the same width as Factory Planner's compact view at its default width setting (also at a small resolution, with a long plan: the table scrolls inside the window, whose height stays on screen, at most 80 % of the screen). Nothing is cut off at the right edge, also with a beacon column, sub-factories and rows with many items: the buttons wrap instead. Dragged away, it stays where it was put through ticks and new snapshots. Changing the resolution or the UI scale moves it back and resizes it (a closed window stays closed). It can be dragged by its title bar, and closes with the X button and again with the top button. E and Esc do **not** close it: it is not the player's opened GUI, so the inventory opens with E while it stays shown. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
 3. A very long plan (Seablock, tens of blocks, tens of rows): opening, selecting a block and ticking a checkbox do not stall the game visibly.
 4. A block name with rich-text brackets (for example `[item=iron-plate] smelting`) shows the icon, which is accepted; a name that opens a tag without closing it does not break the window.
 5. Locale: nothing in the window shows `Unknown key`.

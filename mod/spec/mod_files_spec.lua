@@ -63,6 +63,49 @@ describe("settings.lua", function()
   end)
 end)
 
+describe("data.lua", function()
+  local prototypes = {}
+  local fake_data = {
+    extend = function(_, list)
+      for _, p in ipairs(list) do
+        prototypes[#prototypes + 1] = p
+      end
+    end,
+  }
+
+  setup(function()
+    local chunk = assert(loadfile("data.lua", "t", { data = fake_data, ipairs = ipairs }))
+    chunk()
+  end)
+
+  it("adds the one sprite the button shows, and nothing else", function()
+    assert.are.equal(1, #prototypes)
+    local sprite = prototypes[1]
+    assert.are.equal("sprite", sprite.type)
+    package.preload["mod-gui"] = function()
+      return {}
+    end
+    assert.are.equal(require("scripts.gui").SPRITE, sprite.name)
+    package.preload["mod-gui"] = nil
+    package.loaded["mod-gui"] = nil
+    assert.are.same({ "gui-icon" }, sprite.flags)
+    package.loaded["scripts.gui"] = nil
+  end)
+
+  it("has its image, at the size it says", function()
+    local sprite = prototypes[1]
+    local file = string.match(sprite.filename, "^__factorio%-planner%-viewer__/(.+)$")
+    assert.is_string(file, sprite.filename .. " is not in this mod")
+    local png = support.read_file(file)
+    assert.are.equal("\137PNG", string.sub(png, 1, 4), file .. " is not a PNG")
+    -- The IHDR chunk holds the width and the height as big-endian 32-bit numbers.
+    local a, b, c, d, e, f, g, h = string.byte(png, 17, 24)
+    local width, height = ((a * 256 + b) * 256 + c) * 256 + d, ((e * 256 + f) * 256 + g) * 256 + h
+    assert.are.equal(sprite.size, width, file)
+    assert.are.equal(sprite.size, height, file)
+  end)
+end)
+
 describe("info.json", function()
   local info = support.read_json("info.json")
 
@@ -76,6 +119,22 @@ describe("info.json", function()
     assert.is_truthy(string.match(info.version, "^%d+%.%d+%.%d+$"))
     assert.is_truthy(info.title)
     assert.is_truthy(info.author)
+  end)
+end)
+
+describe("the Lua sources", function()
+  it("call require only while the file loads: the game refuses it afterwards", function()
+    local files = { "control.lua", "scripts/gui.lua", "scripts/cursor.lua" }
+    for _, name in ipairs({ "blueprint", "constants", "datagram", "format", "layout", "progress", "receiver", "snapshot", "viewmodel" }) do
+      files[#files + 1] = "lib/" .. name .. ".lua"
+    end
+    for _, file in ipairs(files) do
+      for line in string.gmatch(support.read_file(file), "[^\r\n]+") do
+        if string.find(line, "require%(") and string.find(line, "^%s") then
+          error(file .. " calls require inside a function: " .. line)
+        end
+      end
+    end
   end)
 end)
 

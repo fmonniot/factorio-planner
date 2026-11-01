@@ -10,8 +10,8 @@
 --     live in `storage`; everything else (reassembly, slot, newest id, last-heard
 --     tick, mismatch flag) is plain Lua state that a load simply starts empty.
 --
--- The mod changes no prototype and no entity; a click on a building only fills
--- the player's cursor (scripts/cursor.lua).
+-- The mod's one prototype is the sprite of its button (data.lua) and it changes no
+-- entity; a click on a building only fills the player's cursor (scripts/cursor.lua).
 local C = require("lib.constants")
 local format = require("lib.format")
 local progress = require("lib.progress")
@@ -229,18 +229,11 @@ local function refresh_gui(tick)
   end
 end
 
-local function ensure_buttons()
-  for _, player in pairs(game.players) do
-    gui.ensure_button(player)
-  end
-end
-
 -- ---------------------------------------------------------------------------
 -- Events
 
 script.on_init(function()
   state()
-  ensure_buttons()
 end)
 
 -- Nothing to do on load: the plain state above starts empty, as the protocol
@@ -248,7 +241,6 @@ end)
 
 script.on_configuration_changed(function()
   state()
-  ensure_buttons()
   -- A changed mod set changes which ids exist, so the unknown-id count is
   -- recomputed (this calls on_store, which marks the GUI dirty).
   local ok, err = pcall(function()
