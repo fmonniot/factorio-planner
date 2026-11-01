@@ -1,0 +1,249 @@
+import { describe, it, expect } from 'vitest'
+import { projectSnapshot, round3 } from './project'
+import { SnapshotSchema, SNAPSHOT_VERSION } from './schema'
+import { GameDataSchema } from '../data/schema'
+import type {
+  AppState, Block, ConnectionFlow, GameData, MultiBlockSolve, PlanDataSetStamp, SolvedNode, SolverResult, SubPlan,
+} from '../data/types'
+
+// Small synthetic data set: plates are items, `steam` a fluid; `smelting` has a default machine, `crafting` none.
+function makeGameData(): GameData {
+  const item = (id: string, type: 'item' | 'fluid') => ({ id, name: id, type, iconPath: '' })
+  const machine = (id: string, category: string) => ({
+    id, name: id, type: 'furnace', craftingSpeed: 1, energyUsageKw: 90, energyType: 'electric', drainKw: 0,
+    moduleSlots: 0, allowedEffects: [], craftingCategories: [category], iconPath: '', hidden: false,
+  })
+  const recipe = (id: string, category: string) => ({
+    id, name: id, category, craftingTime: 1, ingredients: [],
+    products: [{ itemId: 'plate', type: 'item', amount: 1 }], madeIn: [], allowProductivity: false, hidden: false,
+    subgroup: '', order: '',
+  })
+  return GameDataSchema.parse({
+    factorioVersion: '2.0.77',
+    modSet: {},
+    items: { plate: item('plate', 'item'), steam: item('steam', 'fluid') },
+    recipes: { smelt: recipe('smelt', 'smelting'), craft: recipe('craft', 'crafting') },
+    machines: { furnace: machine('furnace', 'smelting'), asm: machine('asm', 'crafting') },
+    modules: {},
+    defaultMachines: { smelting: 'furnace' },
+  })
+}
+
+const NOW = '2026-01-01T00:00:00.000Z'
+const stamp: PlanDataSetStamp = { id: 'test', name: 'Test', factorioVersion: '2.0.77' }
+
+function plan(id: string, name: string, nodes: SubPlan['nodes'], subPlans: SubPlan[] = [], area?: true): SubPlan {
+  return { id, name, nodes, subPlans, ...(area ? { area } : {}), createdAt: NOW, updatedAt: NOW }
+}
+
+function rowNode(id: string, recipeId: string, machineId?: string): SubPlan['nodes'][number] {
+  return { kind: 'game-recipe', id, recipeId, ...(machineId ? { machineId } : {}), modules: [], byproductPolicy: {} }
+}
+
+function makeBlock(id: string, over: Partial<Block> = {}): Block {
+  return {
+    id, name: id, color: '#112233', products: [], noImportItems: [], itemSourcing: {}, inputConnections: [],
+    rootPlan: plan(`${id}-root`, 'Main', []), ...over,
+  }
+}
+
+function stateOf(blocks: Block[]): AppState {
+  return { blocks, activeBlockId: blocks[0]?.id ?? '', horizonTechnologyIds: [], defaultMachineOverrides: {} }
+}
+
+function solved(recipeNodeId: string, over: Partial<SolvedNode> = {}): SolvedNode {
+  return { recipeNodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 90, ...over }
+}
+
+function result(over: Partial<SolverResult> = {}): SolverResult {
+  return { nodes: [], unsatisfied: [], warnings: [], ...over }
+}
+
+function flow(over: Partial<ConnectionFlow> = {}): ConnectionFlow {
+  return {
+    connectionId: 'c', fromBlockId: 'a', toBlockId: 'b', itemId: 'plate', available: 10, capped: false, rate: 10,
+    status: 'ok', kind: 'take', ...over,
+  }
+}
+
+function solveOf(over: Partial<MultiBlockSolve> = {}): MultiBlockSolve {
+  return { results: {}, flows: [], loops: [], requestLoops: [], errors: {}, ...over }
+}
+
+function project(blocks: Block[], solve: MultiBlockSolve) {
+  const snapshot = projectSnapshot(stateOf(blocks), solve, makeGameData(), stamp)
+  expect(SnapshotSchema.safeParse(snapshot).success, 'projection parses with SnapshotSchema').toBe(true)
+  return snapshot
+}
+
+describe('round3', () => {
+  it('rounds to three decimals and never returns -0', () => {
+    expect(round3(1.23456)).toBe(1.235)
+    expect(round3(2)).toBe(2)
+    expect(Object.is(round3(-0.0001), 0)).toBe(true)
+  })
+})
+
+describe('projectSnapshot', () => {
+  it('carries the version, the data-set stamp and the blocks in order', () => {
+    const s = project([makeBlock('a'), makeBlock('b')], solveOf())
+    expect(s.v).toBe(SNAPSHOT_VERSION)
+    expect(s.dataSet).toEqual(stamp)
+    expect(s.blocks.map(b => b.name)).toEqual(['a', 'b'])
+    expect(s.blocks[0].color).toBe('#112233')
+  })
+
+  it('sends products with extra rate plus what other blocks request, typed item or fluid', () => {
+    const a = makeBlock('a', {
+      products: [{ id: 'p1', itemId: 'plate', extraRate: 5.12345 }, { id: 'p2', itemId: 'plate' }, { id: 'p3', itemId: 'steam' }],
+    })
+    const s = project([a, makeBlock('b')], solveOf({
+      flows: [flow({ fromBlockId: 'a', toBlockId: 'b', kind: 'request', requested: 2 })],
+    }))
+    // The first product of an item receives the request; the second keeps only its own extra (none).
+    expect(s.blocks[0].products).toEqual([
+      { id: 'plate', type: 'item', rate: 7.123 },
+      { id: 'plate', type: 'item', rate: 0 },
+      { id: 'steam', type: 'fluid', rate: 0 },
+    ])
+  })
+
+  it('sends an id the data set does not know as an item', () => {
+    const s = project([makeBlock('a', { products: [{ id: 'p', itemId: 'mystery', extraRate: 1 }] })], solveOf())
+    expect(s.blocks[0].products[0]).toEqual({ id: 'mystery', type: 'item', rate: 1 })
+  })
+
+  it('projects rows in table order with rounded numbers and the effective machine', () => {
+    // The handle comes between the root's own rows, so the sub-factory's row sits between them.
+    const root = plan('root', 'Main',
+      [rowNode('n1', 'smelt'), { kind: 'subplan', id: 'h', subPlanId: 'sp' }, rowNode('n2', 'craft', 'asm'), rowNode('n3', 'craft')],
+      [plan('sp', 'Sub', [rowNode('n4', 'smelt', 'furnace')])])
+    const a = makeBlock('a', { rootPlan: root })
+    const s = project([a], solveOf({
+      results: {
+        a: result({
+          nodes: [
+            solved('n3'), solved('n2'), solved('n4'),
+            solved('n1', { machineCountExact: 1.23456, machineCountCeil: 2, throughput: 0.0004, powerKw: 12.3456 }),
+          ],
+        }),
+      },
+    }))
+    expect(s.blocks[0].rows).toEqual([
+      { recipe: 'smelt', machine: 'furnace', machines: 1.235, machinesCeil: 2, throughput: 0, powerKw: 12.346 },
+      { recipe: 'smelt', machine: 'furnace', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      { recipe: 'craft', machine: 'asm', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      // `crafting` has no default machine, so the key is omitted rather than null.
+      { recipe: 'craft', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+    ])
+    expect(s.blocks[0].areas).toBeUndefined()
+    expect(s.blocks[0].rows.every(r => !('area' in r))).toBe(true)
+  })
+
+  it('numbers areas in table order and tags each row with its area', () => {
+    const root = plan('root', 'Main',
+      [rowNode('n1', 'smelt'), { kind: 'subplan', id: 'h1', subPlanId: 'sp1' }],
+      [plan('sp1', 'Furnaces', [rowNode('n2', 'smelt'), { kind: 'subplan', id: 'h2', subPlanId: 'sp2' }], [
+        plan('sp2', 'Plain group', [rowNode('n3', 'smelt')]),
+      ], true)])
+    const s = project([makeBlock('a', { rootPlan: root })], solveOf({
+      results: { a: result({ nodes: [solved('n1'), solved('n2'), solved('n3')] }) },
+    }))
+    expect(s.blocks[0].areas).toEqual(['Main', 'Furnaces'])
+    // A sub-factory that is not an area belongs to the area around it.
+    expect(s.blocks[0].rows.map(r => r.area)).toEqual([0, 1, 1])
+  })
+
+  it('keeps imports in the solver order', () => {
+    const s = project([makeBlock('a')], solveOf({
+      results: { a: result({ unsatisfied: [{ itemId: 'steam', rate: 1.0004 }, { itemId: 'plate', rate: 9 }, { itemId: 'ore', rate: 2 }] }) },
+    }))
+    expect(s.blocks[0].imports).toEqual([
+      { id: 'steam', type: 'fluid', rate: 1 },
+      { id: 'plate', type: 'item', rate: 9 },
+      { id: 'ore', type: 'item', rate: 2 },
+    ])
+  })
+
+  it('reduces each warning to a code and the ids it names', () => {
+    const root = plan('root', 'Main', [], [plan('sp', 'Sub', [], [], true)])
+    const a = makeBlock('a', { rootPlan: root })
+    const s = project([a, makeBlock('b')], solveOf({
+      results: {
+        a: result({
+          warnings: [
+            { type: 'no-recipe', itemId: 'steam' },
+            { type: 'duplicate-recipe', recipeId: 'smelt', count: 2, areaId: 'sp' },
+            { type: 'duplicate-recipe', recipeId: 'craft', count: 2 },
+            { type: 'infeasible-pins', recipeIds: ['smelt', 'craft'] },
+            { type: 'overconstrained', surplusItems: [{ itemId: 'plate', rate: 1 }, { itemId: 'steam', rate: 2 }] },
+            { type: 'area-shortfall', shortfalls: [{ areaId: 'sp', itemId: 'plate', rate: 1 }, { areaId: 'sp', itemId: 'steam', rate: 1 }] },
+            { type: 'loop-not-converged', blockIds: ['b', 'a', 'gone'], rounds: 8 },
+            { type: 'request-loop-not-converged', blockIds: ['a'], rounds: 30 },
+          ],
+        }),
+      },
+    }))
+    expect(s.blocks[0].warnings).toEqual([
+      { code: 'no-recipe', items: [{ id: 'steam', type: 'fluid' }] },
+      { code: 'duplicate-recipe', recipes: ['smelt'], areas: [1] },
+      { code: 'duplicate-recipe', recipes: ['craft'] },
+      { code: 'infeasible-pins', recipes: ['smelt', 'craft'] },
+      { code: 'overconstrained', items: [{ id: 'plate', type: 'item' }, { id: 'steam', type: 'fluid' }] },
+      { code: 'area-shortfall', items: [{ id: 'plate', type: 'item' }, { id: 'steam', type: 'fluid' }], areas: [1] },
+      { code: 'loop-not-converged', blocks: [1, 0] },
+      { code: 'request-loop-not-converged', blocks: [0] },
+    ])
+  })
+
+  it('lists a block\'s connections by source block index, without unusable flows', () => {
+    const s = project([makeBlock('a'), makeBlock('b'), makeBlock('c')], solveOf({
+      flows: [
+        flow({ connectionId: '1', fromBlockId: 'a', toBlockId: 'c', available: 3.14159 }),
+        flow({ connectionId: '2', fromBlockId: 'b', toBlockId: 'c', itemId: 'steam', available: 0, status: 'unused' }),
+        flow({ connectionId: '3', fromBlockId: 'ghost', toBlockId: 'c', available: 0, status: 'missing-source' }),
+        flow({ connectionId: '4', fromBlockId: 'c', toBlockId: 'c', available: 0, status: 'self' }),
+        flow({ connectionId: '5', fromBlockId: 'c', toBlockId: 'a' }),
+      ],
+    }))
+    expect(s.blocks[2].connections).toEqual([
+      { from: 0, id: 'plate', type: 'item', available: 3.142 },
+      { from: 1, id: 'steam', type: 'fluid', available: 0 },
+    ])
+    expect(s.blocks[0].connections).toEqual([{ from: 2, id: 'plate', type: 'item', available: 10 }])
+  })
+
+  it('keeps a block whose solve failed, with its message and no rows, imports or warnings', () => {
+    const a = makeBlock('a', {
+      name: 'Broken', products: [{ id: 'p', itemId: 'plate', extraRate: 4 }],
+      rootPlan: plan('root', 'Main', [rowNode('n1', 'smelt')]),
+    })
+    const s = project([a, makeBlock('b')], solveOf({
+      // The solver gives a failing block an empty result; even a stale non-empty one must not leak through.
+      results: { a: result({ nodes: [solved('n1')], unsatisfied: [{ itemId: 'plate', rate: 1 }] }), b: result() },
+      errors: { a: 'LP exploded' },
+      flows: [flow({ fromBlockId: 'b', toBlockId: 'a' })],
+    }))
+    expect(s.blocks).toHaveLength(2)
+    expect(s.blocks[0]).toEqual({
+      name: 'Broken',
+      color: '#112233',
+      products: [{ id: 'plate', type: 'item', rate: 4 }],
+      rows: [],
+      imports: [],
+      warnings: [],
+      connections: [{ from: 1, id: 'plate', type: 'item', available: 10 }],
+      error: 'LP exploded',
+    })
+    expect('error' in s.blocks[1]).toBe(false)
+  })
+
+  it('is pure: it does not change its inputs', () => {
+    const blocks = [makeBlock('a', { products: [{ id: 'p', itemId: 'plate', extraRate: 1 }] })]
+    const state = stateOf(blocks)
+    const solve = solveOf({ results: { a: result({ unsatisfied: [{ itemId: 'plate', rate: 1.23456 }] }) } })
+    const before = JSON.stringify([state, solve])
+    projectSnapshot(state, solve, makeGameData(), stamp)
+    expect(JSON.stringify([state, solve])).toBe(before)
+  })
+})
