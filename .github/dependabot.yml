@@ -26,6 +26,11 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+  - package-ecosystem: "cargo"
+    directory: "/bridge" # The in-game viewer's bridge workspace
+    schedule:
+      interval: "weekly"
+      day: friday
   - package-ecosystem: "github-actions"
     directory: "/" # Workflows live in .github/workflows
     schedule:

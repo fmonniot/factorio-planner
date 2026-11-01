@@ -83,6 +83,14 @@ Game data is bundled with the app under `public/data/<dataset>/` (Nullius and Se
 
 ---
 
+## In-game viewer bridge: Rust
+
+The bridge that carries snapshots from the planner to the Factorio mod is a Rust Cargo workspace in `bridge/`, kept apart from the Node toolchain (its own CI workflow, `bridge.yml`, and its own Dependabot entry). It builds to one binary a player can download; the wire protocol and session logic are a library crate with no async runtime and no I/O of its own: `Bridge` takes the time and the datagrams as arguments and returns the datagrams to send, so tests run hours of protocol time without sleeping and a thin binary (or a Tauri host) can drive it with any socket layer. The only dependencies are `serde` and `serde_json`, for the planner-facing JSON messages; the snapshot stays opaque bytes. The design is in [initiatives/in-game-viewer/protocol.md](../initiatives/in-game-viewer/protocol.md).
+
+Tests are `cargo test`: the shared fixtures in `contract/datagrams/` (the same files the Lua tests read), a manual-clock suite for the state table, and a fake mod on loopback UDP that loses datagrams the way the game does. `cargo fmt --check` (`bridge/rustfmt.toml`) and `cargo clippy --all-targets -- -D warnings` gate every pull request.
+
+---
+
 ## Hosting
 
 Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (several per game data set) and can be exported, and imported as new plans, as JSON.
@@ -96,4 +104,5 @@ GitHub Actions, Node 22 (`.github/workflows/`):
 - **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (two Playwright shards, `--shard=N/2`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
 - **Caches.** The `e2e` jobs cache `~/.cache/ms-playwright`, keyed on the Playwright version and the runner image version; apt system libraries are installed (`--with-deps`) only on a cache miss, because apt is slow and occasionally takes minutes. The `build` jobs cache `.cache/icons` (see above). Pull requests can only read caches created on `main`, which is why `test.yml` also runs on pushes to `main`.
 - **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): `test.yml` and a `build` job (which uploads `dist/` as the Pages artifact) run in parallel, then `deploy` publishes to GitHub Pages once both pass.
-- **Dependabot** (`.github/dependabot.yml`) opens weekly npm update PRs, grouping React and Vitest packages.
+- **`bridge.yml`** runs on every pull request and on pushes to `main`, as one job on its own: `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings` and `cargo test` in `bridge/`, with the Rust toolchain from `dtolnay/rust-toolchain` (stable, with `clippy` and `rustfmt`) and `Swatinem/rust-cache`. `bridge/Cargo.toml` pins the minimum Rust version.
+- **Dependabot** (`.github/dependabot.yml`) opens weekly npm update PRs, grouping React and Vitest packages, and weekly Cargo update PRs for `bridge/`.
