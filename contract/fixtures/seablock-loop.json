@@ -33,7 +33,21 @@
           "machines": 3.806,
           "machinesCeil": 4,
           "throughput": 87,
-          "powerKw": 1141.875
+          "powerKw": 1141.875,
+          "inputs": [
+            {
+              "id": "iron-ore",
+              "type": "item",
+              "rate": 348
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 261
+            }
+          ]
         },
         {
           "recipe": "sb-copper-plate-from-ore",
@@ -41,7 +55,21 @@
           "machines": 1.167,
           "machinesCeil": 2,
           "throughput": 26.667,
-          "powerKw": 350
+          "powerKw": 350,
+          "inputs": [
+            {
+              "id": "copper-ore",
+              "type": "item",
+              "rate": 106.667
+            }
+          ],
+          "outputs": [
+            {
+              "id": "copper-plate",
+              "type": "item",
+              "rate": 80
+            }
+          ]
         },
         {
           "recipe": "gun-turret",
@@ -49,7 +77,31 @@
           "machines": 0.076,
           "machinesCeil": 1,
           "throughput": 2,
-          "powerKw": 36.571
+          "powerKw": 36.571,
+          "inputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 20
+            },
+            {
+              "id": "copper-plate",
+              "type": "item",
+              "rate": 20
+            },
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 40
+            }
+          ],
+          "outputs": [
+            {
+              "id": "gun-turret",
+              "type": "item",
+              "rate": 2
+            }
+          ]
         }
       ],
       "imports": [
@@ -96,7 +148,21 @@
           "machines": 0.067,
           "machinesCeil": 1,
           "throughput": 28,
-          "powerKw": 32
+          "powerKw": 32,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 56
+            }
+          ],
+          "outputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 28
+            }
+          ]
         },
         {
           "recipe": "pipe",
@@ -104,7 +170,21 @@
           "machines": 0.083,
           "machinesCeil": 1,
           "throughput": 35,
-          "powerKw": 40
+          "powerKw": 40,
+          "inputs": [
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 35
+            }
+          ],
+          "outputs": [
+            {
+              "id": "pipe",
+              "type": "item",
+              "rate": 35
+            }
+          ]
         }
       ],
       "imports": [],
@@ -140,7 +220,31 @@
           "machines": 0.002,
           "machinesCeil": 1,
           "throughput": 1,
-          "powerKw": 1.143
+          "powerKw": 1.143,
+          "inputs": [
+            {
+              "id": "iron-gear-wheel",
+              "type": "item",
+              "rate": 8
+            },
+            {
+              "id": "pipe",
+              "type": "item",
+              "rate": 5
+            },
+            {
+              "id": "iron-plate",
+              "type": "item",
+              "rate": 10
+            }
+          ],
+          "outputs": [
+            {
+              "id": "steam-engine",
+              "type": "item",
+              "rate": 1
+            }
+          ]
         }
       ],
       "imports": [

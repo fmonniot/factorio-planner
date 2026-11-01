@@ -381,8 +381,12 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
   }
   {
     // 41 chunks. Every even chunk is lost in round 0, and again in round 1, so 18 separate gaps
-    // lie below `upto` and the report must stop at 12 ranges.
-    const t = transferOf(bytesOf('seablock-loop'), 50)
+    // lie below `upto` and the report must stop at 12 ranges. The chunk size follows the snapshot's
+    // length, so that a change to the snapshot keeps the chunk count the indices below rely on.
+    const loop = bytesOf('seablock-loop')
+    const chunkSize = Math.ceil(loop.length / 41)
+    const t = transferOf(loop, chunkSize)
+    if (t.count !== 41) throw new Error(`report-capped needs 41 chunks, got ${t.count} at ${chunkSize} bytes`)
     const odd = (from: number, to: number): number[] => range(from, to).filter(i => i % 2 === 1)
     const even = (from: number, to: number): number[] => range(from, to).filter(i => i % 2 === 0)
     const first12 = even(0, 22)
@@ -393,7 +397,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     cases.push({
       case: 'report-capped',
       summary: 'Alternating loss across 41 chunks. The report stops at MAX_REPORT_RANGES ranges, lowest first, and stays under MAX_REPORT_BYTES; later rounds report the rest.',
-      snapshot: snapshotRef('seablock-loop', t, 50),
+      snapshot: snapshotRef('seablock-loop', t, chunkSize),
       start: none,
       idCheck: noUnknown,
       polls: [
@@ -764,12 +768,15 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     // Chunks of six different sizes, arriving in the order 3, 0, 5, 2, 1, 4. Joining at
     // `index * CHUNK_PAYLOAD` or at the first chunk's size breaks it; only the real payloads, in
     // index order, give the bytes.
-    const t = transferFromSizes(bytesOf('seablock-loop'), [100, 37, 1, 700, 250])
+    const sizes = [100, 37, 1, 700, 250]
+    const t = transferFromSizes(bytesOf('seablock-loop'), sizes)
+    const last = t.bytes - sizes.reduce((a, b) => a + b, 0)
+    if (last <= Math.max(...sizes)) throw new Error(`mixed-chunk-sizes needs the last chunk to be the largest, got ${last} bytes`)
     const order = [3, 0, 5, 2, 1, 4]
     cases.push({
       case: 'mixed-chunk-sizes',
-      summary: 'The chunks are 100, 37, 1, 700, 250 and 946 bytes. The format only needs the payloads to add up to `bytes`, so the snapshot joins from what arrived, not from a fixed size. `chunkSize` is the largest.',
-      snapshot: snapshotRef('seablock-loop', t, 946),
+      summary: `The chunks are 100, 37, 1, 700, 250 and ${last} bytes. The format only needs the payloads to add up to \`bytes\`, so the snapshot joins from what arrives, not from a fixed size. \`chunkSize\` is the largest.`,
+      snapshot: snapshotRef('seablock-loop', t, last),
       start: none,
       idCheck: noUnknown,
       polls: plainDelivery(t, [...order.map(i => chunk(t, i)), endOfWindow(t.id, 0, t.count)]),
