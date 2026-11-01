@@ -5,7 +5,7 @@ import { PlanDataSetStampSchema } from '../data/schema'
 // The in-game viewer snapshot: a projection of the planner's state (plan + solver
 // result), not the stored plan. Defined once here; `contract/snapshot.schema.json`
 // is generated from it and the Lua and Rust sides test against that and the fixtures
-// in `contract/fixtures/`. See initiatives/in-game-viewer/plan.md ("What is sent").
+// in `contract/fixtures/`. See initiatives/archive/in-game-viewer/plan.md ("What is sent").
 //
 // Rules of the shape:
 // - Ids are the ones the game knows. No icons, no display names of game objects.

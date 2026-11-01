@@ -56,11 +56,56 @@ The **Tech tree** icon button opens the technology tree: cards with icons and re
 
 ### In-game viewer
 
-The **In-game viewer** entry of the workspace menu connects the planner to the in-game viewer's bridge, which passes the plan to the Factorio mod. It is off until you turn on **Connect to the bridge**; the address defaults to `ws://127.0.0.1:34199/` (**Change** edits it). The status shows on the entry and as a dot on the workspace menu button: whether the bridge is running, whether a game has answered and whether the game knows every item and recipe of the plan. When something is wrong, **Troubleshoot…** walks through the bridge, the game and the plan. **Send to Factorio** sends the plan; **Send after every change** sends it after each solve. A plan too large for the viewer is not sent. If the badge stays on "No bridge" while the bridge runs, the browser or an extension is blocking the connection: allow the permission prompt Chrome and Firefox show, disable content blockers such as uBlock for this site, or use the planner from `http://localhost` in Safari.
+The **In-game viewer** entry of the workspace menu connects the planner to the in-game viewer's bridge, which passes the plan to the Factorio mod. It is off until you turn on **Connect to the bridge**; the address defaults to `ws://127.0.0.1:34199/` (**Change** edits it). The status shows on the entry and as a dot on the workspace menu button: whether the bridge is running, whether a game has answered and whether the game knows every item and recipe of the plan. When something is wrong, **Troubleshoot…** walks through the bridge, the game and the plan. **Send to Factorio** sends the plan; **Send after every change** sends it after each solve. A plan too large for the viewer is not sent. Setup (the bridge, the mod and the launch option) is in [Setting up the in-game viewer](#setting-up-the-in-game-viewer).
 
 ### Saving and sharing
 
 Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the workspace menu at the right of the top bar lists them and switches between them, with tiles to create, rename, duplicate and delete, and switching data sets brings back that data set's active plan. **Export plan**, in the same menu, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears if it was exported for another data set or uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
+
+## Setting up the in-game viewer
+
+The in-game viewer shows your plan's blocks in Factorio itself: a **Plan** button in the game's top bar opens a read-only window with each block's products, recipes, machine counts, power, imports and warnings. It needs three pieces: the planner in your browser, a small program called the bridge that runs on your computer, and a mod in the game. The planner talks to the bridge over a WebSocket on `127.0.0.1`; the bridge talks to the game over the UDP socket that Factorio opens when it is launched with `--enable-lua-udp`. Nothing leaves your computer. Using it from the planner is described in [In-game viewer](#in-game-viewer) above; this section covers the setup. [spec/in-game-viewer-protocol.md](spec/in-game-viewer-protocol.md) describes the wire formats.
+
+**What is supported.** Factorio **2.0.77** only (the mod pins the 2.0 series and its manual test ran on 2.0.77), single player. The planner connects from Chrome or Firefox. Safari is not supported: it blocks `ws://127.0.0.1` from an HTTPS page, and the hosted planner is one. The viewer has no prebuilt downloads yet, so you build the bridge and install the mod from a checkout of this repository.
+
+**1. Build and start the bridge.** You need a [Rust toolchain](https://rustup.rs/).
+
+```sh
+cd bridge
+cargo build --release
+./target/release/factorio-planner-bridge        # factorio-planner-bridge.exe on Windows
+```
+
+It listens on `127.0.0.1` only and writes nothing to disk. Its flags (`--help` lists them):
+
+| Flag | Default | Meaning |
+|---|---|---|
+| `--game-port <PORT>` | `34198` | The UDP port the game listens on; it must match the launch option below |
+| `--bridge-port <PORT>` | `34199` | The bridge's own port: the planner's WebSocket (TCP) and the mod's UDP replies. The mod's setting must match; it must differ from the game port |
+| `--origin <ORIGIN>` | `https://fmonniot.github.io`, `http://localhost:4000`, `http://127.0.0.1:4000` | A web origin allowed to open the WebSocket, as the browser writes it (scheme, host, port, no path). Repeat the flag for several; giving any replaces the defaults, so list the hosted planner again if you still use it |
+
+If you serve the planner from another address, add that origin, for example `--origin http://localhost:5173`.
+
+**2. Install the mod.** Copy or symlink the repository's `mod/` folder into Factorio's mods folder, named `factorio-planner-viewer` (Factorio also accepts `factorio-planner-viewer_0.1.0`, the version from `mod/info.json`). The mods folder is `~/Library/Application Support/factorio/mods` on macOS, `~/.factorio/mods` on Linux and `%APPDATA%\Factorio\mods` on Windows. For example, on macOS or Linux:
+
+```sh
+ln -s "$PWD/mod" "$HOME/.factorio/mods/factorio-planner-viewer"
+```
+
+Enable **Factorio Planner Viewer** in the game's Mods menu. Its `spec/` and `tools/` folders are ignored by the game. The mod changes no prototypes and no entities.
+
+**3. Launch Factorio with the UDP option.** Add `--enable-lua-udp 34198` to the launch options. In Steam: right-click Factorio, Properties, General, Launch Options. Without Steam, add it to the command line or the shortcut. The number is the port the game listens on and must equal the bridge's `--game-port`. The game only opens that socket when the option is present; without it the viewer window shows **Disconnected**.
+
+**4. Connect the planner.** In the workspace menu, open **In-game viewer**, turn on **Connect to the bridge** and load a save. When the browser asks for permission to reach devices on your local network, allow it. **Troubleshoot…** in the same menu names the first step that is not working.
+
+**The mod's bridge-port setting.** The mod must know the bridge's port to answer it. The runtime-global setting **Planner bridge port** (`fp-viewer-bridge-port`, in the game's Settings, Mod settings, Map tab) defaults to `34199`, the bridge's default. Change it only if you start the bridge with another `--bridge-port`. The setting **Planner viewer: debug log** writes how long each `send_udp` call takes to `factorio-current.log`.
+
+**If it does not connect.**
+
+- **The badge stays on "No bridge" while the bridge runs.** The browser or an extension is blocking the connection. Allow the local network permission prompt that Chrome and Firefox show, and disable content blockers such as uBlock for the planner's site.
+- **The game says Disconnected.** Check the bridge is running and the game was launched with `--enable-lua-udp`. Then search `factorio-current.log` (in the game's user data folder, for example `~/Library/Application Support/factorio/` on macOS) for `Opening Lua UDP Socket failed: ... Address already in use`. It means another program already holds the game's UDP port (a second Factorio, or an old test listener). The game keeps running, but `send_udp` and `recv_udp` do nothing. Close the other program, or pick another port with `--enable-lua-udp <PORT>` and the bridge's `--game-port <PORT>`.
+- **A paused game, a save being written and the title screen** all show as "Game quiet" in the planner: the game does not answer, which is expected.
+
 
 ## How it works
 
@@ -166,7 +211,7 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `scripts/__tests__/` | Tests for the icon compositor (synthetic pixel checks and golden images), the technology, extraction, power, place-result and temperature exports, the energy parsers, locale resolution, icon path derivation and bundled-name, bundled-temperature and icon-path checks |
 | `public/data/` | Bundled datasets: `nullius/` and `kompetenz-seablock/`, each with `game-data.json` and `icons/` |
 | `e2e/` | Playwright specs and fixtures (`block-connection.spec.ts` covers block connections, `block-requests.spec.ts` requests, take existing connections, Make in a new block and Connections first, `item-sourcing.spec.ts` the sourcing menus and Byproducts first with `fixtures/item-sourcing.json`, `request-loop.spec.ts` cycles of requests (with `fixtures/request-loop-seablock.json`), `block-graph.spec.ts` the block graph, `summary-panes-many-items.spec.ts` the summary panes with many items using `fixtures/summary-many-items.json`, `block-color.spec.ts` block colours, `separate-area.spec.ts` the Separate area toggle with `fixtures/separate-area.json`, `area-matrix.spec.ts` the areas matrix with `fixtures/area-matrix.json`, `plan-areas.spec.ts` the By recipe view with `fixtures/plan-areas.json`, `area-chips-overflow.spec.ts` the collapsed area's +N popup with `fixtures/area-chips-overflow.json`, `stranded-subplan.spec.ts` a plan saved with a sub-factory stored under another plan than its handle's with `fixtures/stranded-subplan.json`, and dragging a sub-factory into an area, `support/summary.ts` the slot and detail-strip helpers, `support/appMenu.ts` the workspace menu helpers, `power-generation.spec.ts` the Electricity goal with generator, boiler and solar rows, `plans.spec.ts` the saved plans with `support/planMenu.ts` as its plan helpers, `support/horizon.ts` the helpers that open and close the tech tree from the horizon flag, `in-game-viewer.spec.ts` the bridge connection against `support/fakeBridge.ts`, a WebSocket server speaking the wire format) |
-| `spec/` | How the system works today |
+| `spec/` | How the system works today (`in-game-viewer-protocol.md` is the in-game viewer's wire protocol) |
 | `initiatives/` | Backlog, in-flight initiatives and the archive of finished ones |
 | `.github/workflows/` | CI (`test.yml`: lint, doc links, unit, e2e, build; `mod.yml`: busted and luacheck for the mod; `bridge.yml`: fmt, clippy and test for `bridge/`; all on PRs and pushes to `main`) and GitHub Pages deploy on release |
 | `CLAUDE.md` | Project conventions for AI coding agents |

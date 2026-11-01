@@ -1,6 +1,6 @@
 -- Runtime entry point of the in-game viewer. Thin glue between the game API and
 -- the pure modules in lib/ (see mod/README.md and
--- initiatives/in-game-viewer/protocol.md, "The mod"):
+-- spec/in-game-viewer-protocol.md, "The mod"):
 --
 --   * every POLL_TICKS ticks, recv_udp (inside pcall) raises the packet events;
 --   * the packet handler feeds the receiver, which only fills its answer slot;

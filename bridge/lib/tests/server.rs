@@ -427,7 +427,7 @@ fn a_planner_that_reconnects_sees_what_the_bridge_holds() {
     rig.delivered(&mut planner, A);
     drop(planner);
 
-    // Not a restart: the first status shows a transfer, so a planner would send nothing (protocol.md, "Two planners").
+    // Not a restart: the first status shows a transfer, so a planner would send nothing (spec/in-game-viewer-protocol.md, "Two planners").
     let mut planner = rig.planner();
     let status = rig.next(&mut planner);
     assert_eq!(status["transfer"]["id"], A);

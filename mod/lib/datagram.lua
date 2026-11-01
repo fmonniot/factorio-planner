@@ -1,5 +1,5 @@
 -- Datagram decoding (bridge to mod) and encoding (mod to bridge), as defined in
--- initiatives/in-game-viewer/protocol.md ("Bridge and mod: UDP"). Plain Lua:
+-- spec/in-game-viewer-protocol.md ("Bridge and mod: UDP"). Plain Lua:
 -- every function takes and returns strings and tables.
 --
 -- The decoder follows the protocol's reading rules. It cuts the header at a

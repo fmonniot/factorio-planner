@@ -1,5 +1,5 @@
 -- Replays every shared delivery case (contract/datagrams/case-*.json) through the
--- receiver, as protocol.md ("Fixtures") describes: set up `start`, hand each
+-- receiver, as spec/in-game-viewer-protocol.md ("Fixtures") describes: set up `start`, hand each
 -- datagram of a poll to the handler in order, flush once, compare the answer and
 -- the state.
 local receiver = require("lib.receiver")

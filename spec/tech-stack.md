@@ -93,6 +93,20 @@ Tests are `cargo test`: the shared fixtures in `contract/datagrams/` (the same f
 
 ---
 
+## In-game viewer mod: Lua
+
+The Factorio mod (`mod/`, Factorio 2.0.77, Lua 5.2) is split into pure modules in `mod/lib/` (no `game`, `script` or `storage`) and thin glue that touches the game API (`control.lua`, `scripts/`, `settings.lua`, `locale/`). The pure modules are tested with busted and linted with luacheck, both from a private Lua 5.2 tree that `mod/setup-lua.sh` builds into the gitignored `mod/.lua/` from pinned versions (nothing is installed system-wide); the specs read the shared fixtures in `contract/`. CI cannot run the game, so the glue is covered by a spec against a fake runtime and by the manual `mod/CHECKLIST.md`. See [mod/README.md](../mod/README.md).
+
+---
+
+## Shared contract: `contract/`
+
+The three sides of the viewer (planner, bridge, mod) agree through checked-in, generated files. `npm run contract` (`scripts/build-snapshot-contract.mjs`) writes `contract/snapshot.schema.json` (JSON Schema from the Zod schema in `src/snapshot/schema.ts`), `contract/fixtures/` (snapshots solved from the bundled Seablock export) and `contract/datagrams/` (wire-protocol messages, malformed inputs and delivery cases cut from those fixtures). Vitest fails while any of them differs from a fresh generation, and `ajv` validates the fixtures against the schema independently of Zod. The Lua and Rust tests read the same files. The wire protocol is in [in-game-viewer-protocol.md](in-game-viewer-protocol.md).
+
+The Playwright specs for the viewer run against `e2e/support/fakeBridge.ts`, a WebSocket server built on the `ws` dev dependency that speaks the planner-facing wire format.
+
+---
+
 ## Hosting
 
 Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-planner/`. Plans are stored in localStorage (several per game data set) and can be exported, and imported as new plans, as JSON.

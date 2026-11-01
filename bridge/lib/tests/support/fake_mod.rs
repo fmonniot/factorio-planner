@@ -1,4 +1,4 @@
-//! A fake Factorio mod: a UDP socket on loopback that plays the mod's part of `protocol.md`, and the game around it.
+//! A fake Factorio mod: a UDP socket on loopback that plays the mod's part of `spec/in-game-viewer-protocol.md`, and the game around it.
 //!
 //! The mod side follows the Reassembly tables and the answer slot. The game side models what the spike measured:
 //!
@@ -258,7 +258,7 @@ impl FakeMod {
     }
 
     // -----------------------------------------------------------------------------------------
-    // The packet handler: the Reassembly tables of protocol.md
+    // The packet handler: the Reassembly tables of spec/in-game-viewer-protocol.md
     // -----------------------------------------------------------------------------------------
 
     fn answer(&mut self, message: &ModMessage) {

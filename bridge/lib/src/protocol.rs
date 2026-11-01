@@ -1,6 +1,6 @@
 //! The UDP wire formats between the bridge and the mod, and the constants shared by every layer.
 //!
-//! The authoritative description is `initiatives/in-game-viewer/protocol.md` and the shared fixtures in `contract/datagrams/`.
+//! The authoritative description is `spec/in-game-viewer-protocol.md` and the shared fixtures in `contract/datagrams/`.
 //! Bridge-to-mod datagrams are fixed-width ASCII headers (see [`BridgeMessage`]); mod-to-bridge datagrams are short space-separated
 //! ASCII strings (see [`ModMessage`]). Both directions have an encoder and a strict parser: a parser returns `None` for anything
 //! that breaks the rules, and the caller drops it without changing state.

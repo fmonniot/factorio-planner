@@ -2,7 +2,7 @@
 //!
 //! Hand-written on purpose: four flags do not justify an argument-parsing dependency.
 
-/// The game's UDP port by default (protocol.md, Ports).
+/// The game's UDP port by default (spec/in-game-viewer-protocol.md, Ports).
 pub const DEFAULT_GAME_PORT: u16 = 34198;
 /// The bridge's port by default, for both its WebSocket (TCP) and its UDP socket.
 pub const DEFAULT_BRIDGE_PORT: u16 = 34199;

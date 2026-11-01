@@ -4,7 +4,7 @@ import { buildSnapshotFixtures } from './snapshotFixtures'
 
 // ---------------------------------------------------------------------------
 // Builds the shared wire-protocol fixtures (contract/datagrams/*.json), which the Lua and Rust
-// tests read. The rules are in initiatives/in-game-viewer/protocol.md.
+// tests read. The rules are in spec/in-game-viewer-protocol.md.
 //
 // TEST TOOLING ONLY. This encoder is the minimum needed to write the fixtures: it is not the
 // bridge, it has no state machine, and production code must not import it. Expected answers below

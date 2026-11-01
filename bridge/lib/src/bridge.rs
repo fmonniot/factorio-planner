@@ -7,7 +7,7 @@
 //! 2. call [`Bridge::handle_timeout`] when [`Bridge::poll_timeout`] has passed;
 //! 3. drain [`Bridge::poll_transmit`] and send every datagram, and send [`Bridge::poll_status`] to the planners.
 //!
-//! The state table in `protocol.md` ("Transfer state") is the definition; comments here quote its rows.
+//! The state table in `spec/in-game-viewer-protocol.md` ("Transfer state") is the definition; comments here quote its rows.
 //! Nothing resends on a timer except the probes, and those only within their budget.
 
 use std::collections::VecDeque;
