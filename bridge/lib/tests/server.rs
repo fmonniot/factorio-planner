@@ -554,20 +554,26 @@ fn a_planner_that_stops_reading_is_dropped_and_the_others_are_not_held_up() {
 
     // Every announce with a new id changes the status, and every status goes to both planners. `frozen` reads none of them.
     let last = 30_000_u64;
+    let wanted = format!("{last:016x}");
+    let mut arrived = false;
     for batch in 0..(last / 50) {
         for i in 1..=50 {
             active.send_text(&encode_announce(&id(&format!("{:016x}", batch * 50 + i))));
         }
+        // The last status may be read here already, and nothing follows it: keep what is seen instead of waiting for it again.
         while let Some(message) = active.read() {
-            drop(message);
+            if let Message::Text(text) = message {
+                arrived |= text.as_str().contains(wanted.as_str());
+            }
         }
         rig.pump();
     }
     // The bridge was never held up by `frozen`: `active` sees the last status.
-    let wanted = format!("{last:016x}");
-    rig.status_where(&mut active, "the last announce arrived", |s| {
-        s["newest"] == wanted.as_str()
-    });
+    if !arrived {
+        rig.status_where(&mut active, "the last announce arrived", |s| {
+            s["newest"] == wanted.as_str()
+        });
+    }
 
     // `frozen` was dropped: after the messages already in its socket, its connection ends instead of staying open for ever.
     let deadline = Instant::now() + WAIT;
