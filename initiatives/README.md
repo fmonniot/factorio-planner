@@ -21,6 +21,8 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
+| In-game viewer as a table   | Shipped  | [archive/in-game-viewer-table/](archive/in-game-viewer-table/plan.md) |
+| In-game plan viewer (mod and bridge) | Shipped | [archive/in-game-viewer/](archive/in-game-viewer/plan.md) |
 | Plan power generation       | Shipped  | [archive/power-generation/](archive/power-generation/plan.md) |
 | Block granularity           | Shipped  | [archive/block-granularity/](archive/block-granularity/problem.md) |
 | Requests between blocks     | Shipped  | [archive/block-requests/](archive/block-requests/)     |
@@ -34,8 +36,6 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Edit Beacon modal           | Shipped  | [archive/edit-beacon-modal/](archive/edit-beacon-modal/) |
 | Flatten subplans            | Shipped  | [archive/flatten-subplans/](archive/flatten-subplans/) |
 | Documentation cleanup       | Shipped  | [archive/docs-cleanup/](archive/docs-cleanup/)         |
-| In-game plan viewer (mod and bridge) | Shipped | [archive/in-game-viewer/](archive/in-game-viewer/plan.md) |
-| In-game viewer as a table   | Shipped  | [archive/in-game-viewer-table/](archive/in-game-viewer-table/plan.md) |
 
 Phases 0–5 (ground-truth data and test corpus, scaffold, first solver, state
 and persistence, first UI) predate initiative folders and are recorded only in

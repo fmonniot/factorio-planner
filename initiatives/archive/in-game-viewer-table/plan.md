@@ -2,7 +2,7 @@
 
 Status: Shipped
 
-Redesign the in-game viewer window ([mod/](../../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. The snapshot side (PR 1, the contract) is in; the in-game window is not. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
+Redesign the in-game viewer window ([mod/](../../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. Shipped in two PRs: the snapshot contract (PR 1) and the in-game window (PR 2). The manual in-game pass of step 12 (Verification) had not been run when it was archived; the **(unverified API)** items of [mod/CHECKLIST.md](../../../mod/CHECKLIST.md) track it. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
 
 ---
 
