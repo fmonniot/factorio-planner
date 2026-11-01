@@ -7,7 +7,7 @@ import { Modal } from '../Modal'
 import { Icon } from '../Icon'
 import { EffectsPanel, applyRecipeConstraints } from './EditMachineModal'
 import { countRecipeRows } from './recipeAreas'
-import { isModuleAllowedByProductivity } from './moduleRules'
+import { isModuleAllowedForBeaconRow } from './moduleRules'
 import type { EffectTotals } from './EditMachineModal'
 
 // ---------------------------------------------------------------------------
@@ -80,12 +80,13 @@ export function BeaconModal({
     .filter(b => !b.hidden && withinHorizon(horizon.beaconIds, b.id))
     .sort((a, b) => a.name.localeCompare(b.name))
 
+  const moduleFitsBeacon = (m: GameData['modules'][string]) =>
+    isModuleAllowedForBeaconRow(m, beaconEntity, recipeId, recipe?.allowProductivity ?? false)
+
   const availableModules = Object.values(gameData.modules)
-    .filter(m =>
-      withinHorizon(horizon.moduleIds, m.id) &&
-      isModuleAllowedByProductivity(m, recipe?.allowProductivity ?? false),
-    )
+    .filter(m => withinHorizon(horizon.moduleIds, m.id) && moduleFitsBeacon(m))
     .sort((a, b) => a.name.localeCompare(b.name))
+  const selectedModuleNotAllowed = !!selectedModule && !moduleFitsBeacon(selectedModule)
 
   function update(patch: Partial<BeaconConfig>) {
     updateNodeBeacon(nodeId, { ...beacon, ...patch })
@@ -283,6 +284,12 @@ export function BeaconModal({
                 )}
               </span>
             </div>
+
+            {selectedModuleNotAllowed && (
+              <div data-testid="module-not-allowed" className="text-xs text-amber-400">
+                {selectedModule?.name} cannot be inserted in {beaconEntity?.name ?? 'this beacon'}; pick another module.
+              </div>
+            )}
 
             {/* Module picker */}
             {showModulePicker && (

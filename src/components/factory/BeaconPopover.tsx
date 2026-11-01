@@ -5,6 +5,7 @@ import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { Icon } from '../Icon'
 import { BeaconModal } from './BeaconModal'
+import { isModuleAllowedForBeaconRow } from './moduleRules'
 
 // ---------------------------------------------------------------------------
 // BeaconCell — icon+badge trigger (or + placeholder), opens BeaconModal
@@ -34,8 +35,12 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
       .filter(b => withinHorizon(horizon.beaconIds, b.id))
       .sort((a, b) => a.name.localeCompare(b.name))[0]
 
+    const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false
     const firstModule = Object.values(gameData.modules)
-      .filter(m => withinHorizon(horizon.moduleIds, m.id))
+      .filter(m =>
+        withinHorizon(horizon.moduleIds, m.id) &&
+        isModuleAllowedForBeaconRow(m, firstBeacon, recipeId, allowProductivity),
+      )
       .sort((a, b) => a.name.localeCompare(b.name))[0]
 
     if (!firstModule) return

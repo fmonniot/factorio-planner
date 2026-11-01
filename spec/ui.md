@@ -1110,8 +1110,13 @@ The same component in recipes mode (`source="recipes"`).
 - **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
   the row has no machine within the horizon, a note says the row's machine count and
   power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
-- **Module** — the module placed in every beacon slot (modules inside the research
-  horizon are offered; productivity modules only when the recipe allows productivity).
+- **Module** — the module placed in every beacon slot. Offered: modules inside the
+  research horizon, whose effects are all in the selected beacon's `allowedEffects`
+  (so no productivity module in a speed-only beacon; skipped when the data has no beacon
+  entity), not excluded by the module's recipe limitation lists, and productivity modules only when the
+  recipe allows productivity. A selected module that no longer fits (for example after
+  picking another beacon type) stays in the config and shows an amber note; the Beacon
+  cell's `+` picks the first module that fits.
 - **Apply to every row of this recipe (N)** (footer; only when N > 1, as in the machine
   modal) — copies this row's beacon to every other row of the recipe, so rows without one
   get one; the rows keep their own machine. Removing a beacon is not propagated. One
