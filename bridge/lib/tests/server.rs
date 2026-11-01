@@ -228,7 +228,7 @@ fn a_disallowed_origin_gets_http_403() {
     let rig = Rig::start();
     for origin in [
         "https://evil.example",
-        "http://localhost:5174",
+        "http://localhost:4001",
         "http://localhost:4000.evil.example",
         "",
     ] {
