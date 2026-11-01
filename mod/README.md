@@ -19,7 +19,7 @@ The Factorio mod of the [in-game viewer](../initiatives/archive/in-game-viewer/p
 | `settings.lua` | Runtime-global settings: the bridge's UDP port (default 34199) and a debug switch that logs how long each `send_udp` takes |
 | `locale/en/` | English texts. Ids are shown as rich text and the prototype's own localised name, so game data is never translated here |
 | `info.json` | Mod name `factorio-planner-viewer`, `factorio_version` `2.0`, `base` dependency and an optional one on `flib`, for its slot styles. The version is the release version |
-| `CHECKLIST.md` | The manual test checklist, to run on Factorio 2.0.77 |
+| `CHECKLIST.md` | The manual test checklist, run on Factorio 2.0.77 |
 | `tools/udp_sender.py` | A stand-in for the bridge for the checklist: sends pings, probes and chunks to the game and prints the mod's answers |
 | `spec/` | busted specs; `*_fixtures_spec.lua` and parts of the others read the shared fixtures in [contract/](../contract/) |
 | `.busted`, `.luacheckrc` | Test and lint configuration; the Factorio globals are declared per file in `.luacheckrc` |

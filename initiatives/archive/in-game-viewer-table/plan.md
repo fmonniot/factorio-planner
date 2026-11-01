@@ -2,7 +2,7 @@
 
 Status: Shipped
 
-Redesign the in-game viewer window ([mod/](../../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. Shipped in two PRs: the snapshot contract (PR 1) and the in-game window (PR 2). The manual in-game pass of step 12 (Verification) had not been run when it was archived; the **(unverified API)** items of [mod/CHECKLIST.md](../../../mod/CHECKLIST.md) track it. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
+Redesign the in-game viewer window ([mod/](../../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. Shipped in two PRs: the snapshot contract (PR 1) and the in-game window (PR 2). The manual in-game pass of step 12 (Verification) ran on Factorio 2.0.77 after PR 2 and the window, the ticks and the click on a building all worked (the checklist is [mod/CHECKLIST.md](../../../mod/CHECKLIST.md)). The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
 
 ---
 
@@ -150,12 +150,12 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
     - `npm run contract`, `npm test`, `npm run lint`, `npm run lint:docs`.
     - `cargo test` in `bridge/`.
     - In `mod/`: `.lua/bin/busted` and `.lua/bin/luacheck .` (toolchain from `mod/setup-lua.sh`).
-    - PR 2: the manual in-game pass from the checklist on Factorio 2.0.77, with `mod/tools/udp_sender.py`.
+    - PR 2: the manual in-game pass from the checklist on Factorio 2.0.77, with `mod/tools/udp_sender.py`. Done: it worked.
 
 ## Risks and open questions
 
-- **Styles and rendering.** The style names are in 2.0.77's `style.lua` and `draw_grayscale_picture` in its API docs, but how they look together, and the rendering of `number`, are unverified until someone runs the game. The plain slot-button fallback should keep the window working, only less polished.
-- **Blueprint API.** `game.create_inventory`, `LuaItemStack.set_stack` and `set_blueprint_entities`, `LuaPlayer.clear_cursor`, `add_to_clipboard` and `activate_paste`, and `cursor_ghost` are all in the 2.0.77 API docs and used by the reference, but none has run in this mod. A failure should be a one-line fix in `scripts/cursor.lua`; the whole call is wrapped in `pcall` and logged once, like the other glue.
+- **Styles and rendering.** The style names are in 2.0.77's `style.lua` and `draw_grayscale_picture` in its API docs, but how they look together, and the rendering of `number`, were unverified until the in-game pass, which showed them working. The plain slot-button fallback is there for installs without flib.
+- **Blueprint API.** `game.create_inventory`, `LuaItemStack.set_stack` and `set_blueprint_entities`, `LuaPlayer.clear_cursor`, `add_to_clipboard` and `activate_paste`, and `cursor_ghost` are all in the 2.0.77 API docs and used by the reference, and they work in this mod (in-game pass). The whole call is wrapped in `pcall` and logged once, like the other glue.
 - **Window and paste mode.** The window stays open on the strength of the reference's compact dialog, which does the same without `player.opened` (decision 12). If paste mode misbehaves in this mod anyway, that is the first thing to check in game.
 - **Modules.** Only the machine's own and the beacon's modules go into the blueprint, in slot order. A module id the game lacks refuses the whole blueprint rather than placing a building without its modules.
 - **Window size.** Seablock blocks can have dozens of rows with many ingredients each. Cap the table's height with a scroll pane and share the item columns by what fits (decision 14), as the reference does.
