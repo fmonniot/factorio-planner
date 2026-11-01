@@ -1,6 +1,6 @@
 -- Checks on the files that only the game loads (info.json, settings.lua, the
--- locale file and the GUI sources): nothing here starts the game, so these specs
--- catch the mistakes a text check can catch.
+-- locale file and the GUI and cursor sources): nothing here starts the game, so
+-- these specs catch the mistakes a text check can catch.
 local C = require("lib.constants")
 local support = require("spec.support")
 
@@ -84,7 +84,7 @@ describe("the locale file", function()
 
   it("has every key the Lua sources ask for", function()
     local used = {}
-    for _, file in ipairs({ "control.lua", "scripts/gui.lua", "lib/format.lua" }) do
+    for _, file in ipairs({ "control.lua", "scripts/gui.lua", "scripts/cursor.lua", "lib/format.lua" }) do
       local text = support.read_file(file)
       for k in string.gmatch(text, 'key%("([%w%-_]+)"%)') do
         used[k] = file
@@ -99,6 +99,18 @@ describe("the locale file", function()
       assert.is_true(groups["fp-viewer"][k], "locale key fp-viewer." .. k .. " (used in " .. file .. ") is missing")
     end
     assert.is_true(count > 20, "the scan found suspiciously few keys")
+  end)
+
+  it("has a flying text for every reason lib/blueprint.lua refuses with", function()
+    local reasons = require("scripts.cursor").REASONS
+    local count = 0
+    for reason in string.gmatch(support.read_file("lib/blueprint.lua"), 'refused%("([%w%-_]+)"%)') do
+      count = count + 1
+      assert.is_string(reasons[reason], "no flying text for the refusal " .. reason)
+      assert.is_true(groups["fp-viewer"][string.match(reasons[reason], "^fp%-viewer%.(.+)$")])
+    end
+    assert.is_true(count >= 8, "the scan found suspiciously few refusals")
+    package.loaded["scripts.cursor"] = nil
   end)
 
   it("has a key for every indicator, synthetic kind and id kind", function()

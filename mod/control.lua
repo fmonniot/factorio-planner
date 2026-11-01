@@ -6,16 +6,19 @@
 --   * the packet handler feeds the receiver, which only fills its answer slot;
 --   * FLUSH_OFFSET ticks into the cycle, the slot is sent (inside pcall), so the
 --     mod sends at most once per poll;
---   * the accepted snapshot lives in `storage`; everything else (reassembly,
---     slot, newest id, last-heard tick, mismatch flag) is plain Lua state that a
---     load simply starts empty.
+--   * the accepted snapshot, the players' selected blocks and the "built" ticks
+--     live in `storage`; everything else (reassembly, slot, newest id, last-heard
+--     tick, mismatch flag) is plain Lua state that a load simply starts empty.
 --
--- The mod changes no prototype and no entity.
+-- The mod changes no prototype and no entity; a click on a building only fills
+-- the player's cursor (scripts/cursor.lua).
 local C = require("lib.constants")
 local format = require("lib.format")
+local progress = require("lib.progress")
 local Receiver = require("lib.receiver")
 local snapshot_lib = require("lib.snapshot")
 local viewmodel = require("lib.viewmodel")
+local cursor = require("scripts.cursor")
 local gui = require("scripts.gui")
 
 local SETTING_PORT = "fp-viewer-bridge-port"
@@ -43,9 +46,20 @@ end
 -- Never called from on_load, where `storage` may be read but not written.
 local function state()
   if storage.fp_viewer == nil then
-    storage.fp_viewer = { stored = nil, selected = {} }
+    storage.fp_viewer = { stored = nil, selected = {}, done = {} }
   end
   return storage.fp_viewer
+end
+
+-- The "built" ticks, done[block_key][row_key] (lib/progress.lua): one set for the
+-- save, not per player, kept through new snapshots. Created on first use, so a
+-- save made before it existed gets it then (never from on_load).
+local function done()
+  local s = state()
+  if s.done == nil then
+    s.done = {}
+  end
+  return s.done
 end
 
 -- ---------------------------------------------------------------------------
@@ -168,7 +182,7 @@ end
 
 -- What the GUI needs to draw one player's window; `extra` adds fields.
 local function context(player, indicator, model, extra)
-  local ctx = { model = model, indicator = indicator, selected = selected_for(player.index, model) }
+  local ctx = { model = model, indicator = indicator, selected = selected_for(player.index, model), done = done() }
   for k, v in pairs(extra or {}) do
     ctx[k] = v
   end
@@ -264,12 +278,55 @@ end
 script.on_event(defines.events.on_player_created, on_player_added)
 script.on_event(defines.events.on_player_joined_game, on_player_added)
 
-script.on_event(defines.events.on_gui_click, function(event)
+-- Redraws one player's window after a GUI event; `extra` as in context(). A
+-- failure is logged once and leaves the game running.
+local function redraw(player, extra)
+  local ok, err = pcall(function()
+    local indicator = get_receiver():indicator(game.tick, game.speed)
+    gui.update(player, context(player, indicator, get_model(), extra))
+  end)
+  if not ok then
+    log_once("gui_update", err)
+  end
+end
+
+-- The block and the entry an element's tags point at in the current view-model;
+-- nil when they are gone (a new snapshot since the window was drawn) or are not
+-- ours. `entry` is nil for the summary row's checkbox.
+local function tagged(element)
+  local block_key, entry_key, what = format.parse_tags(element.tags)
+  if block_key == nil then
+    return nil
+  end
+  local model = get_model()
+  if model == nil then
+    return nil
+  end
+  for _, block in ipairs(model.blocks) do
+    if block.key == block_key then
+      if entry_key == nil then
+        return block, nil, what
+      end
+      local entry = block.by_key[entry_key]
+      if entry == nil then
+        return nil
+      end
+      return block, entry, what
+    end
+  end
+  return nil
+end
+
+local function event_player(event)
   local element = event.element
   if element == nil or not element.valid then
-    return
+    return nil
   end
-  local player = game.get_player(event.player_index)
+  return game.get_player(event.player_index), element
+end
+
+script.on_event(defines.events.on_gui_click, function(event)
+  local player, element = event_player(event)
   if player == nil then
     return
   end
@@ -282,24 +339,62 @@ script.on_event(defines.events.on_gui_click, function(event)
   elseif name == gui.CLOSE then
     gui.close(player)
   else
-    local index = format.parse_block_button(name)
-    local model = get_model()
-    if index ~= nil and model ~= nil and model.blocks[index] ~= nil then
-      state().selected[player.index] = { index = index, name = model.blocks[index].name }
-      local indicator = get_receiver():indicator(game.tick, game.speed)
-      -- Only the selection changed: keep the list and its scroll position.
-      gui.update(player, context(player, indicator, model, { only_selection = true, reset_scroll = true }))
+    -- A machine or a beacon: into the cursor. The window stays open.
+    local _, entry, what = tagged(element)
+    if entry == nil or entry.type ~= "row" or (what ~= format.TAG_MACHINE and what ~= format.TAG_BEACON) then
+      return
+    end
+    local ok, err = pcall(cursor.place, player, entry.row, what)
+    if not ok then
+      log_once("cursor", err)
+      pcall(cursor.refuse, player, "failed")
     end
   end
 end)
 
-script.on_event(defines.events.on_player_removed, function(event)
-  state().selected[event.player_index] = nil
+-- The block drop-down: draw the chosen block's table, scrolled to the top.
+script.on_event(defines.events.on_gui_selection_state_changed, function(event)
+  local player, element = event_player(event)
+  if player == nil or element.name ~= format.BLOCK_DROPDOWN then
+    return
+  end
+  local model = get_model()
+  local index = element.selected_index
+  if model == nil or model.blocks[index] == nil then
+    return
+  end
+  state().selected[player.index] = { index = index, name = model.blocks[index].name }
+  redraw(player, { only_table = true, reset_scroll = true })
 end)
 
-script.on_event(defines.events.on_gui_closed, function(event)
-  local element = event.element
-  if element ~= nil and element.valid and element.name == gui.WINDOW then
-    element.destroy()
+-- A "built" checkbox: a row's, a sub-factory's (every row under it) or the
+-- summary's (every row of the block). The table is redrawn so the derived
+-- checkboxes and the grayscale follow; its scroll position stays.
+script.on_event(defines.events.on_gui_checked_state_changed, function(event)
+  local player, element = event_player(event)
+  if player == nil then
+    return
   end
+  local block, entry, what = tagged(element)
+  if what ~= format.TAG_CHECK then
+    -- Not ours, or its block or row is gone: the redraw puts the box back.
+    if format.parse_tags(element.tags) ~= nil then
+      redraw(player, { only_table = true })
+    end
+    return
+  end
+  local keys
+  if entry == nil then
+    keys = block.summary.keys
+  elseif entry.type == "group" then
+    keys = entry.keys
+  else
+    keys = { entry.key }
+  end
+  progress.set_all(done(), block.key, keys, element.state == true)
+  redraw(player, { only_table = true })
+end)
+
+script.on_event(defines.events.on_player_removed, function(event)
+  state().selected[event.player_index] = nil
 end)
