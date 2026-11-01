@@ -393,6 +393,51 @@ describe("scripts/gui.lua", function()
     assert.is_nil(window["fp_viewer_content"]["fp_viewer_main"])
   end)
 
+  it("replaces the window of an older version, which has no drop-down, instead of raising", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local player, window = show(snapshot)
+    local content = window["fp_viewer_content"]
+    -- The 0.1.0 layout: a list and a details pane, no drop-down.
+    content["fp_viewer_main"].destroy()
+    local old = content.add({ type = "flow", name = "fp_viewer_main", direction = "horizontal" })
+    old.add({ type = "scroll-pane", name = "fp_viewer_list" })
+    old.add({ type = "scroll-pane", name = "fp_viewer_details" })
+    local _, missing = snapshot_lib.find_missing(snapshot, everything_exists())
+    local model = viewmodel.build(snapshot, { missing = missing })
+    for _, only_table in ipairs({ false, true }) do
+      assert.has_no.errors(function()
+        gui.update(player, { model = model, selected = 1, only_table = only_table })
+      end)
+      local main = main_of(window)
+      assert.is_truthy(main[DROPDOWN])
+      assert.is_nil(main["fp_viewer_list"])
+      assert.is_truthy(scroll_of(window))
+      assert.are.equal(#snapshot.blocks, #main[DROPDOWN].items)
+      -- Only the skeleton was replaced; the window is the same one.
+      assert.are.equal(window, player.gui.screen[gui.WINDOW])
+      content["fp_viewer_main"].destroy()
+      old = content.add({ type = "flow", name = "fp_viewer_main", direction = "horizontal" })
+      old.add({ type = "scroll-pane", name = "fp_viewer_list" })
+    end
+  end)
+
+  it("redraws the drop-down for a model it was not drawn from, even on a table-only update", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local player, window = show(snapshot)
+    local first = viewmodel.build(snapshot, {})
+    gui.update(player, { model = first, generation = 1, selected = 1 })
+    local renamed = support.json_to_table(fixture_text("small"))
+    renamed.blocks[1].name = "Renamed block"
+    local second = viewmodel.build(renamed, {})
+    -- Same number of blocks, another snapshot.
+    gui.update(player, { model = second, generation = 2, selected = 1, only_table = true })
+    local dropdown = main_of(window)[DROPDOWN]
+    assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), "Renamed block", 1, true) ~= nil)
+    -- The same snapshot again keeps the drop-down element as it is.
+    gui.update(player, { model = second, generation = 2, selected = 1, only_table = true })
+    assert.are.equal(dropdown, main_of(window)[DROPDOWN])
+  end)
+
   it("clamps a selection past the end", function()
     local snapshot = support.json_to_table(fixture_text("seablock-loop"))
     local _, window = show(snapshot, { selected = 99 })
@@ -575,6 +620,24 @@ describe("control.lua", function()
     local machines = tagged(window, "machine")
     assert.are.equal(#snapshot.blocks[last].rows, #machines)
     assert.are.equal(snapshot.blocks[last].name, machines[1].tags.block)
+  end)
+
+  it("does not keep the old header and drop-down for a new snapshot with as many blocks", function()
+    deliver(fixture_text("small"))
+    local _, window = open_window()
+    local renamed = support.json_to_table(fixture_text("small"))
+    renamed.blocks[1].name = "Renamed block"
+    local text = json.encode(renamed)
+    -- The snapshot is stored when its last chunk arrives; the window is only
+    -- refreshed on the next tick, and a drop-down change can come in between.
+    clock = clock + 20
+    hear(support.probe("3333333333333333", 1, #text), clock + 1)
+    tick(clock + 2)
+    hear(support.chunk("3333333333333333", 0, 1, #text, text), clock + 11)
+    assert.are.equal("3333333333333333", _G.storage.fp_viewer.stored.id)
+    select_block(window, 1)
+    local dropdown = main_of(window)[DROPDOWN]
+    assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), "Renamed block", 1, true) ~= nil)
   end)
 
   it("ignores a drop-down index that leads nowhere", function()
