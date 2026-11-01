@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DEFAULT_BRIDGE_URL } from '../viewer/protocol'
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -20,6 +21,12 @@ export interface UiStoreState {
   setRateUnit: (unit: RateUnit) => void
   tableView: TableView
   setTableView: (view: TableView) => void
+  /** Address of the in-game viewer's bridge (a WebSocket URL). The connection itself is never persisted: it starts off. */
+  bridgeUrl: string
+  setBridgeUrl: (url: string) => void
+  /** Send the plan to the in-game viewer after every solve, not only on request. */
+  viewerAutoSend: boolean
+  setViewerAutoSend: (value: boolean) => void
   /**
    * Transient (not persisted) ask to open the workspace menu on its "Default machines"
    * flyout, optionally focused on one crafting category. `seq` changes on every request.
@@ -41,6 +48,10 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   setRateUnit: (unit) => set({ rateUnit: unit }),
   tableView: 'tree',
   setTableView: (view) => set({ tableView: view }),
+  bridgeUrl: DEFAULT_BRIDGE_URL,
+  setBridgeUrl: (url) => set({ bridgeUrl: url }),
+  viewerAutoSend: false,
+  setViewerAutoSend: (value) => set({ viewerAutoSend: value }),
   defaultMachinesRequest: null,
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
@@ -57,12 +68,14 @@ export const useUiStore = create<UiStoreState>()((set) => ({
 interface PersistedUiState {
   rateUnit: RateUnit
   tableView: TableView
+  bridgeUrl: string
+  viewerAutoSend: boolean
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, tableView } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, tableView }
+    const { rateUnit, tableView, bridgeUrl, viewerAutoSend } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, tableView, bridgeUrl, viewerAutoSend }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -80,6 +93,12 @@ export function loadPersistedUiState(): void {
     if (parsed.tableView === 'tree' || parsed.tableView === 'recipe') {
       useUiStore.setState({ tableView: parsed.tableView })
     }
+    if (typeof parsed.bridgeUrl === 'string' && parsed.bridgeUrl !== '') {
+      useUiStore.setState({ bridgeUrl: parsed.bridgeUrl })
+    }
+    if (typeof parsed.viewerAutoSend === 'boolean') {
+      useUiStore.setState({ viewerAutoSend: parsed.viewerAutoSend })
+    }
   } catch {
     // Malformed or unavailable — start with defaults.
   }
@@ -87,7 +106,10 @@ export function loadPersistedUiState(): void {
 
 export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
-    if (state.rateUnit !== prevState.rateUnit || state.tableView !== prevState.tableView) {
+    if (
+      state.rateUnit !== prevState.rateUnit || state.tableView !== prevState.tableView ||
+      state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend
+    ) {
       saveUiState()
     }
   })

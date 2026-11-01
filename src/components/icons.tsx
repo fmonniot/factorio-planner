@@ -57,6 +57,8 @@ export const LayersIcon = (p: IconProps) => (
 
 export const ChevronDownIcon = (p: IconProps) => <SvgIcon {...p}><path d="m6 9 6 6 6-6" /></SvgIcon>
 
+export const PlugIcon = (p: IconProps) => <SvgIcon {...p}><path d="M9 3v5M15 3v5M6 8h12v3a6 6 0 0 1-12 0V8zM12 17v4" /></SvgIcon>
+
 export const SwapIcon = (p: IconProps) => <SvgIcon {...p}><path d="M7 7h11l-3-3M17 17H6l3 3" /></SvgIcon>
 
 export const PlusIcon = (p: IconProps) => <SvgIcon {...p}><path d="M12 5v14M5 12h14" /></SvgIcon>

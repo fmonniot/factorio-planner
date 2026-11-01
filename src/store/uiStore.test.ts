@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', tableView: 'tree', defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', tableView: 'tree', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -72,7 +72,7 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView', 'bridgeUrl', 'viewerAutoSend'])
   })
 })
 
@@ -97,7 +97,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView', 'bridgeUrl', 'viewerAutoSend'])
   })
 })
 
@@ -132,6 +132,14 @@ describe('loadPersistedUiState', () => {
     localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'min', tableView: 'recipe' }))
     loadPersistedUiState()
     expect(useUiStore.getState().tableView).toBe('recipe')
+  })
+
+  it('restores the in-game viewer settings, and defaults without them', () => {
+    expect(useUiStore.getState().bridgeUrl).toBe('ws://127.0.0.1:34199/')
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ bridgeUrl: 'ws://127.0.0.1:40000/', viewerAutoSend: true }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().bridgeUrl).toBe('ws://127.0.0.1:40000/')
+    expect(useUiStore.getState().viewerAutoSend).toBe(true)
   })
 
   it('ignores unknown tableView values', () => {
