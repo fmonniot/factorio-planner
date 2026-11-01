@@ -24,6 +24,10 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 - [ ] **Share a plan by URL.** Encode a plan in a link so it can be shared without exchanging a file; import would open it as a new plan, with the same data-set check as a file import. Size measurements and a proposed design are in [share-by-url/](share-by-url/plan.md).
 
+## Integrations
+
+- [ ] **In-game plan viewer.** A read-only Factorio mod that shows the planner's blocks and plans in the game, fed by a Rust bridge (planner to bridge over a localhost WebSocket, bridge to mod over Factorio's opt-in UDP). Design, phases and open questions are in [in-game-viewer/](in-game-viewer/plan.md); the first phase is a spike to confirm the UDP API.
+
 ## Planning features
 
 - [ ] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority.
