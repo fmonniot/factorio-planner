@@ -95,7 +95,7 @@ function smallPlan(gameData: GameData): Snapshot {
   ])
 }
 
-/** A block whose root and a nested sub-factory are separate areas, one of them with a fluid. */
+/** A block whose two sub-factories are separate areas (groups marked `area`), one of them with a fluid. */
 function areasPlan(gameData: GameData): Snapshot {
   const root = plan(
     'b-areas-root',
@@ -186,10 +186,9 @@ export function loopBlocks(): Block[] {
 
 /**
  * What the Lua reader must handle beyond the plain cases: exporter-invented recipes (power, offshore
- * pump, mining), the virtual electricity item in a product and a connection, a block whose solve
- * failed (set by hand, as the solver does when it throws: an empty result and a message) with a row of
- * a recipe the data set lacks, which carries no machine and no solved values, and warnings that name
- * recipes, blocks and areas (also set by hand, since a small plan does not produce them).
+ * pump, mining), the virtual electricity item in a product, a block whose solve failed (set by hand,
+ * as the solver does when it throws: an empty result and a message) with a row of a recipe the data
+ * set lacks, which carries no machine and no solved values.
  */
 export function edgeCaseBlocks(): Block[] {
   const root = plan(
@@ -216,15 +215,6 @@ function edgeCasesPlan(gameData: GameData): Snapshot {
   return snapshotOf(gameData, edgeCaseBlocks(), solve => {
     solve.results['e-broken'] = { nodes: [], unsatisfied: [], warnings: [] }
     solve.errors['e-broken'] = 'LP solver failed: the model is unbounded'
-    solve.results['e-power'].warnings.push({
-      type: 'area-shortfall',
-      shortfalls: [{ areaId: 'e-sp0', itemId: 'water', rate: 5 }],
-    })
-    solve.results['e-parts'].warnings.push(
-      { type: 'duplicate-recipe', recipeId: 'iron-gear-wheel', count: 2 },
-      { type: 'infeasible-pins', recipeIds: ['iron-gear-wheel', 'power:solar-panel'] },
-      { type: 'loop-not-converged', blockIds: ['e-parts', 'e-power'], rounds: 8 },
-    )
   })
 }
 
@@ -234,7 +224,9 @@ function unicodePlan(gameData: GameData): Snapshot {
     'u-root',
     'Principal',
     [row('u-r0', 'sb-iron-plate-from-ore'), { kind: 'subplan', id: 'u-h0', subPlanId: 'u-sp0' }],
-    [plan('u-sp0', '銅の精錬 🔥', [row('u-r1', 'sb-copper-plate-from-ore')], [], true)],
+    [plan('u-sp0', '銅の精錬 🔥', [row('u-r1', 'sb-copper-plate-from-ore'), { kind: 'subplan', id: 'u-h1', subPlanId: 'u-sp1' }], [
+      plan('u-sp1', 'Fonderie à gaz – 蒸気蒸気蒸気蒸気 🌊🌊🌊🌊 éèêëéèêë', [row('u-r2', 'sb-iron-plate-from-ore')]),
+    ], true)],
   )
   return snapshotOf(gameData, [
     block({ id: 'u-1', name: 'Fonderie à fer – été', color: '#ef4444', products: [['iron-plate', 90], ['copper-plate', 30]], rootPlan: root }),

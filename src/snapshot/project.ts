@@ -1,7 +1,5 @@
-import { blockAreas, subPlanAreaIds } from '../solver/areas'
 import { ELECTRICITY_ITEM_ID } from '../data/electricity'
 import { applyDefaultMachineOverrides, computeHorizon, resolveRowMachine } from '../data/horizon'
-import { areaName } from '../data/subPlanTree'
 import { syntheticRecipeKind } from '../data/syntheticRecipes'
 import type {
   AppState,
@@ -12,7 +10,6 @@ import type {
   PlanDataSetStamp,
   SolvedNode,
   SolverResult,
-  SolverWarning,
   SubPlan,
 } from '../data/types'
 import {
@@ -27,7 +24,6 @@ import {
   type SnapshotGameRow,
   type SnapshotModule,
   type SnapshotRow,
-  type SnapshotWarning,
 } from './schema'
 
 /** Rounds to three decimals; undefined for a value that is not a finite non-negative number (-0 counts as 0). */
@@ -40,15 +36,13 @@ export function round3(x: number): number | undefined {
 const rate3 = (x: number): number => round3(x) ?? 0
 
 /** The optional keys of a row's solved values, each left out when its value is unusable. */
-function solvedValues(s: SolvedNode): Pick<SnapshotGameRow, 'machines' | 'machinesCeil' | 'throughput' | 'powerKw'> {
-  const out: Pick<SnapshotGameRow, 'machines' | 'machinesCeil' | 'throughput' | 'powerKw'> = {}
+function solvedValues(s: SolvedNode): Pick<SnapshotGameRow, 'machines' | 'machinesCeil' | 'throughput'> {
+  const out: Pick<SnapshotGameRow, 'machines' | 'machinesCeil' | 'throughput'> = {}
   const machines = round3(s.machineCountExact)
   const throughput = round3(s.throughput)
-  const powerKw = round3(s.powerKw)
   if (machines !== undefined) out.machines = machines
   if (Number.isInteger(s.machineCountCeil) && s.machineCountCeil >= 0) out.machinesCeil = s.machineCountCeil
   if (throughput !== undefined) out.throughput = throughput
-  if (powerKw !== undefined) out.powerKw = powerKw
   return out
 }
 
@@ -92,15 +86,16 @@ const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
  *
  * Ids the exporter invented never reach the snapshot: a row of a `mining:`, `offshore:` or
  * `power:` recipe carries its `kind` and `product` instead of a recipe id, the electricity
- * pseudo-item is the `virtual` item `electricity`, and such recipe ids are left out of a warning's
- * `recipes`.
+ * pseudo-item is the `virtual` item `electricity`.
  *
  * Rows mirror the plan. A row without a solved node (every row of a block whose solve failed, or a
  * row the solve skipped) keeps its ids and omits the solved values, as does a value that is not a
  * finite non-negative number. A block whose solve failed (`solve.errors`) stays in the snapshot,
- * in its place, with its name, colour, products, connections, the result's imports and warnings
- * (the solver gives such a block an empty result, or only warnings that name it) and the solver's
- * message as `error`.
+ * in its place, with its name, colour, products, the result's imports (the solver gives such a block
+ * an empty result) and the solver's message as `error`.
+ *
+ * Warnings, connections between blocks, areas and power are not projected: the in-game table does not
+ * draw them.
  *
  * A row also carries what the in-game table needs: its solved item rates (`inputs`, `outputs`, without
  * electricity), the machine's modules and its beacon, and the sub-factory it sits in (`group`, an index
@@ -112,7 +107,6 @@ export function projectSnapshot(
   gameData: GameData,
   dataSet: PlanDataSetStamp,
 ): Snapshot {
-  const blockIndex = new Map(state.blocks.map((b, i) => [b.id, i]))
   const horizon = computeHorizon(gameData, state.horizonTechnologyIds)
   const defaultMachines = applyDefaultMachineOverrides(gameData, horizon.machineIds, horizon.defaultMachines, state.defaultMachineOverrides)
   const ref = (id: string): SnapshotItemRef =>
@@ -146,17 +140,6 @@ export function projectSnapshot(
       return withRate(p.itemId, r)
     })
 
-    const areas = blockAreas(block.rootPlan)
-    const areaOf = subPlanAreaIds(block.rootPlan)
-    const areaNames: string[] = []
-    const areaIndex = new Map<string, number>()
-    if (areas) {
-      for (const a of areas) {
-        areaIndex.set(a.id, areaNames.length)
-        areaNames.push(areaName(block.rootPlan, a.id))
-      }
-    }
-
     const solved = new Map(result.nodes.map(n => [n.recipeNodeId, n]))
     const rows: SnapshotRow[] = []
     const groups: SnapshotGroup[] = []
@@ -178,8 +161,6 @@ export function projectSnapshot(
           if (sp) enter(sp, group)
           continue
         }
-        const areaId = areas ? areaOf.get(plan.id) : undefined
-        const area = areaId === undefined ? undefined : areaIndex.get(areaId)
         const category = gameData.recipes[node.recipeId]?.category
         const machine = category === undefined
           ? node.machineId
@@ -189,7 +170,6 @@ export function projectSnapshot(
         const outputs = s ? itemRates(s.outputRates, ref) : []
         const common = {
           ...(machine !== undefined ? { machine } : {}),
-          ...(area !== undefined ? { area } : {}),
           ...(group !== undefined ? { group } : {}),
           ...(s ? solvedValues(s) : {}),
           ...(inputs.length > 0 ? { inputs } : {}),
@@ -209,25 +189,13 @@ export function projectSnapshot(
     }
     visit(block.rootPlan, undefined)
 
-    const connections = solve.flows
-      .filter(f => f.toBlockId === block.id && f.status !== 'missing-source' && f.status !== 'self')
-      .flatMap(f => {
-        const from = blockIndex.get(f.fromBlockId)
-        return from === undefined
-          ? []
-          : [{ from, ...ref(f.itemId), available: rate3(f.available) }]
-      })
-
     return {
       name: block.name,
       color: block.color,
       products,
-      ...(areas ? { areas: areaNames } : {}),
       ...(groups.length > 0 ? { groups } : {}),
       rows,
       imports: result.unsatisfied.map(u => withRate(u.itemId, u.rate)),
-      warnings: result.warnings.map(w => projectWarning(w, ref, blockIndex, areaIndex)),
-      connections,
       ...(error !== undefined ? { error } : {}),
     }
   }
@@ -236,40 +204,5 @@ export function projectSnapshot(
     v: SNAPSHOT_VERSION,
     dataSet,
     blocks: state.blocks.map(projectBlock),
-  }
-}
-
-/** A warning reduced to its code and the ids it names. */
-function projectWarning(
-  w: SolverWarning,
-  ref: (id: string) => SnapshotItemRef,
-  blockIndex: Map<string, number>,
-  areaIndex: Map<string, number>,
-): SnapshotWarning {
-  const blocks = (ids: string[]): number[] => ids.flatMap(id => blockIndex.get(id) ?? [])
-  const areas = (ids: string[]): number[] => ids.flatMap(id => areaIndex.get(id) ?? [])
-  const unique = <T>(xs: T[]): T[] => [...new Set(xs)]
-  const itemRefs = (ids: string[]): SnapshotItemRef[] => unique(ids).map(ref)
-  const gameRecipes = (ids: string[]): string[] => ids.filter(id => syntheticRecipeKind(id) === undefined)
-  const nonEmpty = <T>(key: string, xs: T[]): Record<string, T[]> => (xs.length > 0 ? { [key]: xs } : {})
-
-  switch (w.type) {
-    case 'no-recipe':
-      return { code: w.type, items: itemRefs([w.itemId]) }
-    case 'duplicate-recipe':
-      return { code: w.type, ...nonEmpty('recipes', gameRecipes([w.recipeId])), ...nonEmpty('areas', areas(w.areaId === undefined ? [] : [w.areaId])) }
-    case 'infeasible-pins':
-      return { code: w.type, ...nonEmpty('recipes', unique(gameRecipes(w.recipeIds))) }
-    case 'overconstrained':
-      return { code: w.type, ...nonEmpty('items', itemRefs(w.surplusItems.map(s => s.itemId))) }
-    case 'area-shortfall':
-      return {
-        code: w.type,
-        ...nonEmpty('items', itemRefs(w.shortfalls.map(s => s.itemId))),
-        ...nonEmpty('areas', unique(areas(w.shortfalls.map(s => s.areaId)))),
-      }
-    case 'loop-not-converged':
-    case 'request-loop-not-converged':
-      return { code: w.type, ...nonEmpty('blocks', blocks(w.blockIds)) }
   }
 }

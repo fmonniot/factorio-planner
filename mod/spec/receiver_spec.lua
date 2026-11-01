@@ -274,7 +274,7 @@ describe("finishing", function()
   it("counts unknown ids through the snapshot module, exempting the virtual item", function()
     local text = [[{"v":1,"dataSet":{"id":"x"},"blocks":[{"name":"b","color":"#112233",
       "products":[{"id":"electricity","type":"virtual","rate":1},{"id":"gone","type":"item","rate":1}],
-      "rows":[{"recipe":"gone","machine":"m"}],"imports":[],"warnings":[],"connections":[]}]}]]
+      "rows":[{"recipe":"gone","machine":"m"}],"imports":[]}]}]]
     local r = new({
       count_unknown = function(snap)
         local n = snapshot_lib.find_missing(snap, support.exists_except({ gone = true, m = true }))

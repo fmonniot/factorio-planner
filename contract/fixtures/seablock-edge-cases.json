@@ -21,10 +21,6 @@
           "rate": 120
         }
       ],
-      "areas": [
-        "Top level",
-        "Pumps"
-      ],
       "groups": [
         {
           "name": "Pumps",
@@ -39,11 +35,9 @@
             "type": "virtual"
           },
           "machine": "solar-panel",
-          "area": 0,
           "machines": 238.095,
           "machinesCeil": 239,
-          "throughput": 14285.714,
-          "powerKw": 0
+          "throughput": 14285.714
         },
         {
           "kind": "offshore",
@@ -52,12 +46,10 @@
             "type": "fluid"
           },
           "machine": "angels-sea-pump-placeable",
-          "area": 1,
           "group": 0,
           "machines": 0.001,
           "machinesCeil": 1,
           "throughput": 2,
-          "powerKw": 0,
           "outputs": [
             {
               "id": "water",
@@ -73,30 +65,13 @@
             "type": "fluid"
           },
           "machine": "pumpjack",
-          "area": 1,
           "group": 0,
           "machines": 0,
           "machinesCeil": 0,
-          "throughput": 0,
-          "powerKw": 0
+          "throughput": 0
         }
       ],
-      "imports": [],
-      "warnings": [
-        {
-          "code": "area-shortfall",
-          "items": [
-            {
-              "id": "water",
-              "type": "fluid"
-            }
-          ],
-          "areas": [
-            1
-          ]
-        }
-      ],
-      "connections": []
+      "imports": []
     },
     {
       "name": "Parts",
@@ -115,7 +90,6 @@
           "machines": 0.071,
           "machinesCeil": 1,
           "throughput": 30,
-          "powerKw": 34.286,
           "inputs": [
             {
               "id": "iron-plate",
@@ -137,41 +111,6 @@
           "id": "iron-plate",
           "type": "item",
           "rate": 60
-        }
-      ],
-      "warnings": [
-        {
-          "code": "duplicate-recipe",
-          "recipes": [
-            "iron-gear-wheel"
-          ]
-        },
-        {
-          "code": "infeasible-pins",
-          "recipes": [
-            "iron-gear-wheel"
-          ]
-        },
-        {
-          "code": "loop-not-converged",
-          "blocks": [
-            1,
-            0
-          ]
-        }
-      ],
-      "connections": [
-        {
-          "from": 0,
-          "id": "electricity",
-          "type": "virtual",
-          "available": 600
-        },
-        {
-          "from": 0,
-          "id": "water",
-          "type": "fluid",
-          "available": 120
         }
       ]
     },
@@ -195,8 +134,6 @@
         }
       ],
       "imports": [],
-      "warnings": [],
-      "connections": [],
       "error": "LP solver failed: the model is unbounded"
     }
   ]

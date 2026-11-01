@@ -26,11 +26,6 @@
           "rate": 0
         }
       ],
-      "areas": [
-        "Top level",
-        "Smelting",
-        "Pumps"
-      ],
       "groups": [
         {
           "name": "Smelting",
@@ -45,11 +40,9 @@
         {
           "recipe": "copper-cable",
           "machine": "bob-assembling-machine-6",
-          "area": 0,
           "machines": 0.286,
           "machinesCeil": 1,
           "throughput": 120,
-          "powerKw": 137.143,
           "inputs": [
             {
               "id": "copper-plate",
@@ -68,12 +61,10 @@
         {
           "recipe": "sb-copper-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
-          "area": 1,
           "group": 0,
           "machines": 1.75,
           "machinesCeil": 2,
           "throughput": 40,
-          "powerKw": 525,
           "inputs": [
             {
               "id": "copper-ore",
@@ -92,12 +83,10 @@
         {
           "recipe": "sb-iron-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
-          "area": 1,
           "group": 0,
           "machines": 0.875,
           "machinesCeil": 1,
           "throughput": 20,
-          "powerKw": 262.5,
           "inputs": [
             {
               "id": "iron-ore",
@@ -120,22 +109,18 @@
             "type": "fluid"
           },
           "machine": "angels-sea-pump-placeable",
-          "area": 2,
           "group": 1,
           "machines": 0,
           "machinesCeil": 0,
-          "throughput": 0,
-          "powerKw": 0
+          "throughput": 0
         },
         {
           "recipe": "iron-gear-wheel",
           "machine": "bob-assembling-machine-6",
-          "area": 2,
           "group": 1,
           "machines": 0.071,
           "machinesCeil": 1,
           "throughput": 30,
-          "powerKw": 34.286,
           "inputs": [
             {
               "id": "iron-plate",
@@ -163,9 +148,7 @@
           "type": "item",
           "rate": 80
         }
-      ],
-      "warnings": [],
-      "connections": []
+      ]
     }
   ]
 }

@@ -1,6 +1,19 @@
--- Small pure helpers for the GUI: number and power text, rich-text colour, GUI
--- element names, and the locale keys that depend on the data. No game API, so
+-- Small pure helpers for the GUI: number text, rich-text colour, GUI element
+-- names and tags, and the locale keys that depend on the data. No game API, so
 -- they run under busted; the GUI code (scripts/gui.lua) only calls them.
+--
+-- What the GUI needs to know of the helpers that are not obvious:
+--   * M.BLOCK_DROPDOWN is the name of the block drop-down (one per window, so a
+--     name is safe there); its `selected_index` is the 1-based block index.
+--   * M.LEVEL_UP is the name of the button that goes up a level (one per window).
+--   * Checkboxes, machine buttons, beacon buttons and a sub-factory's icon carry
+--     tags, not names (a name must be unique within its parent).
+--     `M.tags(block_key, entry_key, what)` builds the table for `tags =`, and
+--     `M.parse_tags(event.element.tags)` gives back `block_key, entry_key, what`,
+--     or nil for anything that is not ours. `what` is "check", "machine", "beacon"
+--     or "open". The keys are the view-model's (`block.key`, `entry.key`).
+--   * M.tooltip_number(x) is the text of a count or rate in a tooltip: at most two
+--     decimals, no trailing zeros, thousands separated by commas.
 local M = {}
 
 -- The group of the mod's locale file (locale/en/factorio-planner-viewer.cfg).
@@ -16,31 +29,16 @@ function M.number(x)
   return s
 end
 
--- Rates in a snapshot are per minute.
-function M.rate(per_minute)
-  return M.number(per_minute) .. "/min"
-end
-
--- Power in kW, as the snapshot carries it, written in W, kW, MW or GW.
-local POWER_UNITS = { { "W", 0.001 }, { "kW", 1 }, { "MW", 1000 }, { "GW", 1000000 } }
-
-function M.power(kw)
-  -- The unit comes from the raw value, then the figure is rounded; a figure that
-  -- rounds up to 1000 moves to the next unit, so 999.999 kW reads "1 MW" and never
-  -- "1000 kW", and 0.999999 kW reads "1 kW" and never "1000 W".
-  local i = 1
-  for j = #POWER_UNITS, 1, -1 do
-    if kw >= POWER_UNITS[j][2] then
-      i = j
-      break
-    end
+-- A number for a tooltip: M.number with the thousands separated by commas
+-- (1,234.57). Negative numbers keep their sign.
+function M.tooltip_number(x)
+  local sign, int, frac = string.match(M.number(x), "^(%-?)(%d+)(.*)$")
+  if not int then
+    return M.number(x)
   end
-  local value = kw / POWER_UNITS[i][2]
-  if tonumber(string.format("%.2f", value)) >= 1000 and POWER_UNITS[i + 1] then
-    i = i + 1
-    value = kw / POWER_UNITS[i][2]
-  end
-  return M.number(value) .. " " .. POWER_UNITS[i][1]
+  local reversed = string.gsub(string.reverse(int), "(%d%d%d)", "%1,")
+  local grouped = string.gsub(string.reverse(reversed), "^,", "")
+  return sign .. grouped .. frac
 end
 
 -- Keeps a player's selected block through a new snapshot: the same position if
@@ -64,21 +62,6 @@ function M.reselect(names, index, name)
   return 1
 end
 
--- "2 (1.75)": the machines to place, rounded up, then the exact count. Either
--- may be missing (a row the solve did not value); nil when both are.
-function M.machines(ceil, exact)
-  if ceil ~= nil and exact ~= nil then
-    return M.number(ceil) .. " (" .. M.number(exact) .. ")"
-  end
-  if ceil ~= nil then
-    return M.number(ceil)
-  end
-  if exact ~= nil then
-    return "(" .. M.number(exact) .. ")"
-  end
-  return nil
-end
-
 -- Rich text that colours `text` with a snapshot colour (`#rrggbb`).
 function M.colored(hex, text)
   return "[color=" .. hex .. "]" .. text .. "[/color]"
@@ -87,41 +70,43 @@ end
 -- ---------------------------------------------------------------------------
 -- GUI element names
 
-M.BLOCK_BUTTON_PREFIX = "fp_viewer_block_"
+-- The block drop-down and the "up a level" button. There is one of each per
+-- window, so their names are unique.
+M.BLOCK_DROPDOWN = "fp_viewer_block_dropdown"
+M.LEVEL_UP = "fp_viewer_level_up"
 
-function M.block_button_name(index)
-  return M.BLOCK_BUTTON_PREFIX .. index
+-- What a tagged element is.
+M.TAG_CHECK = "check"
+M.TAG_MACHINE = "machine"
+M.TAG_BEACON = "beacon"
+M.TAG_OPEN = "open"
+local TAG_KINDS = { [M.TAG_CHECK] = true, [M.TAG_MACHINE] = true, [M.TAG_BEACON] = true, [M.TAG_OPEN] = true }
+
+-- The tags of a checkbox, a machine button, a beacon button or a sub-factory's
+-- icon (the button that opens it).
+function M.tags(block_key, entry_key, what)
+  return { block = block_key, entry = entry_key, what = what }
 end
 
--- The 1-based block index a block button's name carries, or nil.
-function M.parse_block_button(name)
-  local digits = string.match(name or "", "^" .. M.BLOCK_BUTTON_PREFIX .. "(%d+)$")
-  return digits and tonumber(digits) or nil
+-- block_key, entry_key, what of an element's tags, or nil when they are not ours
+-- (no tags, wrong types, an unknown `what`, or a missing entry key).
+function M.parse_tags(tags)
+  if
+    type(tags) ~= "table"
+    or type(tags.block) ~= "string"
+    or type(tags.entry) ~= "string"
+    or not TAG_KINDS[tags.what]
+  then
+    return nil
+  end
+  return tags.block, tags.entry, tags.what
 end
 
 -- ---------------------------------------------------------------------------
 -- Locale keys. A key the locale file lacks would show as "Unknown key", so the
 -- data-dependent ones are looked up in a known set and fall back to raw text.
 
-M.WARNING_CODES = {
-  ["no-recipe"] = true,
-  ["duplicate-recipe"] = true,
-  ["infeasible-pins"] = true,
-  ["overconstrained"] = true,
-  ["area-shortfall"] = true,
-  ["loop-not-converged"] = true,
-  ["request-loop-not-converged"] = true,
-}
-
 M.SYNTHETIC_KINDS = { mining = true, offshore = true, power = true }
-
--- A LocalisedString for a warning code, or the code itself when it is new.
-function M.warning_text(code)
-  if M.WARNING_CODES[code] then
-    return { M.LOCALE .. ".warning-" .. code }
-  end
-  return code
-end
 
 function M.synthetic_kind_text(kind)
   if M.SYNTHETIC_KINDS[kind] then

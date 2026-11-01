@@ -3,9 +3,12 @@
 --
 -- The shape is the one in contract/snapshot.schema.json (generated from
 -- src/snapshot/schema.ts). Differences from the JSON Schema, on purpose:
---   * Unknown keys and unknown warning codes are ignored, not refused. `v` is what covers a change a
+--   * Unknown keys are ignored, not refused. `v` is what covers a change a
 --     reader would misread; a key added within version 1 must not make an
---     older mod refuse the whole snapshot.
+--     older mod refuse the whole snapshot (a snapshot that still carries the
+--     retired `warnings`, `connections`, `areas`, `area` or `powerKw` is read).
+--   * A `group` or `parent` index that leads nowhere is accepted: the view-model
+--     puts such a row at the root rather than raising.
 --   * `json_to_table` turns both `[]` and `{}` into an empty table, so an
 --     array is any table whose keys are 1..n.
 local C = require("lib.constants")
@@ -86,6 +89,44 @@ local function check_optional(x, path, name, test, what)
   return nil
 end
 
+local function check_item_rates(list, path)
+  return check_list(list, path, function(x, p)
+    return check_item_ref(x, p, true)
+  end)
+end
+
+local function check_module(x, path)
+  if type(x) ~= "table" then
+    return path .. " is not an object"
+  end
+  if not is_text(x.id) then
+    return path .. ".id is not a non-empty string"
+  end
+  if not is_index(x.count) then
+    return path .. ".count is not a non-negative integer"
+  end
+  return nil
+end
+
+local function check_beacon(x, path)
+  if type(x) ~= "table" then
+    return path .. " is not an object"
+  end
+  if not is_text(x.id) then
+    return path .. ".id is not a non-empty string"
+  end
+  if not is_index(x.count) then
+    return path .. ".count is not a non-negative integer"
+  end
+  if not is_text(x.module) then
+    return path .. ".module is not a non-empty string"
+  end
+  if not is_index(x.modules) then
+    return path .. ".modules is not a non-negative integer"
+  end
+  return nil
+end
+
 local function check_row(row, path)
   if type(row) ~= "table" then
     return path .. " is not an object"
@@ -105,67 +146,48 @@ local function check_row(row, path)
       end
     end
   end
+  if row.inputs ~= nil then
+    local problem = check_item_rates(row.inputs, path .. ".inputs")
+    if problem then
+      return problem
+    end
+  end
+  if row.outputs ~= nil then
+    local problem = check_item_rates(row.outputs, path .. ".outputs")
+    if problem then
+      return problem
+    end
+  end
+  if row.modules ~= nil then
+    local problem = check_list(row.modules, path .. ".modules", check_module)
+    if problem then
+      return problem
+    end
+  end
+  if row.beacon ~= nil then
+    local problem = check_beacon(row.beacon, path .. ".beacon")
+    if problem then
+      return problem
+    end
+  end
   return check_optional(row.machine, path, "machine", is_text, "a non-empty string")
-    or check_optional(row.area, path, "area", is_index, "a non-negative integer")
+    or check_optional(row.group, path, "group", is_index, "a non-negative integer")
     or check_optional(row.machines, path, "machines", is_rate, "a non-negative number")
     or check_optional(row.machinesCeil, path, "machinesCeil", is_index, "a non-negative integer")
     or check_optional(row.throughput, path, "throughput", is_rate, "a non-negative number")
-    or check_optional(row.powerKw, path, "powerKw", is_rate, "a non-negative number")
 end
 
-local function check_warning(w, path)
-  if type(w) ~= "table" then
+local function check_group(g, path)
+  if type(g) ~= "table" then
     return path .. " is not an object"
   end
-  if not is_text(w.code) then
-    return path .. ".code is not a non-empty string"
+  if type(g.name) ~= "string" then
+    return path .. ".name is not a string"
   end
-  if w.items ~= nil then
-    local problem = check_list(w.items, path .. ".items", function(x, p)
-      return check_item_ref(x, p, false)
-    end)
-    if problem then
-      return problem
-    end
-  end
-  if w.recipes ~= nil then
-    local problem = check_list(w.recipes, path .. ".recipes", function(x, p)
-      return not is_text(x) and (p .. " is not a non-empty string") or nil
-    end)
-    if problem then
-      return problem
-    end
-  end
-  for _, name in ipairs({ "blocks", "areas" }) do
-    if w[name] ~= nil then
-      local problem = check_list(w[name], path .. "." .. name, function(x, p)
-        return not is_index(x) and (p .. " is not a non-negative integer") or nil
-      end)
-      if problem then
-        return problem
-      end
-    end
-  end
-  return nil
-end
-
-local function check_connection(c, path)
-  if type(c) ~= "table" then
-    return path .. " is not an object"
-  end
-  if not is_index(c.from) then
-    return path .. ".from is not a non-negative integer"
-  end
-  if not is_text(c.id) then
-    return path .. ".id is not a non-empty string"
-  end
-  if not ITEM_TYPES[c.type] then
-    return path .. ".type is not item, fluid or virtual"
-  end
-  if not is_rate(c.available) then
-    return path .. ".available is not a non-negative number"
-  end
-  return nil
+  return check_optional(g.parent, path, "parent", is_index, "a non-negative integer")
+    or check_optional(g.area, path, "area", function(x)
+      return type(x) == "boolean"
+    end, "a boolean")
 end
 
 local function check_block(b, path)
@@ -178,10 +200,8 @@ local function check_block(b, path)
   if type(b.color) ~= "string" or not string.match(b.color, "^#[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]$") then
     return path .. ".color is not #rrggbb"
   end
-  if b.areas ~= nil then
-    local problem = check_list(b.areas, path .. ".areas", function(x, p)
-      return type(x) ~= "string" and (p .. " is not a string") or nil
-    end)
+  if b.groups ~= nil then
+    local problem = check_list(b.groups, path .. ".groups", check_group)
     if problem then
       return problem
     end
@@ -189,15 +209,9 @@ local function check_block(b, path)
   if b.error ~= nil and type(b.error) ~= "string" then
     return path .. ".error is not a string"
   end
-  return check_list(b.products, path .. ".products", function(x, p)
-    return check_item_ref(x, p, true)
-  end)
+  return check_item_rates(b.products, path .. ".products")
     or check_list(b.rows, path .. ".rows", check_row)
-    or check_list(b.imports, path .. ".imports", function(x, p)
-      return check_item_ref(x, p, true)
-    end)
-    or check_list(b.warnings, path .. ".warnings", check_warning)
-    or check_list(b.connections, path .. ".connections", check_connection)
+    or check_item_rates(b.imports, path .. ".imports")
 end
 
 -- Validates a decoded snapshot. Returns true, or nil plus a reason and a
@@ -250,9 +264,11 @@ local function add_ref(seen, list, ref)
   end
 end
 
--- The distinct item, fluid, recipe and machine ids of a validated snapshot, as
--- a list of { kind = "item" | "fluid" | "recipe" | "machine", id = string } in
--- order of first appearance. `virtual` ids are left out.
+-- The distinct item, fluid, recipe and machine ids of a validated snapshot
+-- (products, imports, and each row's recipe or product, machine, item rates,
+-- module ids as items and beacon id as a machine), as a list of
+-- { kind = "item" | "fluid" | "recipe" | "machine", id = string } in order of
+-- first appearance. `virtual` ids are left out.
 function M.collect_ids(snapshot)
   local seen, list = {}, {}
   for _, block in ipairs(snapshot.blocks) do
@@ -271,17 +287,19 @@ function M.collect_ids(snapshot)
       if row.machine then
         add(seen, list, "machine", row.machine)
       end
-    end
-    for _, w in ipairs(block.warnings) do
-      for _, ref in ipairs(w.items or {}) do
+      for _, ref in ipairs(row.inputs or {}) do
         add_ref(seen, list, ref)
       end
-      for _, recipe in ipairs(w.recipes or {}) do
-        add(seen, list, "recipe", recipe)
+      for _, ref in ipairs(row.outputs or {}) do
+        add_ref(seen, list, ref)
       end
-    end
-    for _, c in ipairs(block.connections) do
-      add_ref(seen, list, c)
+      for _, module in ipairs(row.modules or {}) do
+        add(seen, list, "item", module.id)
+      end
+      if row.beacon then
+        add(seen, list, "machine", row.beacon.id)
+        add(seen, list, "item", row.beacon.module)
+      end
     end
   end
   return list

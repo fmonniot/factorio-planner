@@ -33,7 +33,6 @@
           "machines": 3.806,
           "machinesCeil": 4,
           "throughput": 87,
-          "powerKw": 1141.875,
           "inputs": [
             {
               "id": "iron-ore",
@@ -55,7 +54,6 @@
           "machines": 1.167,
           "machinesCeil": 2,
           "throughput": 26.667,
-          "powerKw": 350,
           "inputs": [
             {
               "id": "copper-ore",
@@ -77,7 +75,6 @@
           "machines": 0.076,
           "machinesCeil": 1,
           "throughput": 2,
-          "powerKw": 36.571,
           "inputs": [
             {
               "id": "iron-gear-wheel",
@@ -115,15 +112,6 @@
           "type": "item",
           "rate": 106.667
         }
-      ],
-      "warnings": [],
-      "connections": [
-        {
-          "from": 1,
-          "id": "iron-gear-wheel",
-          "type": "item",
-          "available": 20
-        }
       ]
     },
     {
@@ -148,7 +136,6 @@
           "machines": 0.067,
           "machinesCeil": 1,
           "throughput": 28,
-          "powerKw": 32,
           "inputs": [
             {
               "id": "iron-plate",
@@ -170,7 +157,6 @@
           "machines": 0.083,
           "machinesCeil": 1,
           "throughput": 35,
-          "powerKw": 40,
           "inputs": [
             {
               "id": "iron-plate",
@@ -187,16 +173,7 @@
           ]
         }
       ],
-      "imports": [],
-      "warnings": [],
-      "connections": [
-        {
-          "from": 0,
-          "id": "iron-plate",
-          "type": "item",
-          "available": 211
-        }
-      ]
+      "imports": []
     },
     {
       "name": "Engines",
@@ -220,7 +197,6 @@
           "machines": 0.002,
           "machinesCeil": 1,
           "throughput": 1,
-          "powerKw": 1.143,
           "inputs": [
             {
               "id": "iron-gear-wheel",
@@ -252,37 +228,6 @@
           "id": "uranium-ore",
           "type": "item",
           "rate": 5
-        }
-      ],
-      "warnings": [
-        {
-          "code": "no-recipe",
-          "items": [
-            {
-              "id": "uranium-ore",
-              "type": "item"
-            }
-          ]
-        }
-      ],
-      "connections": [
-        {
-          "from": 1,
-          "id": "pipe",
-          "type": "item",
-          "available": 35
-        },
-        {
-          "from": 1,
-          "id": "iron-gear-wheel",
-          "type": "item",
-          "available": 8
-        },
-        {
-          "from": 0,
-          "id": "iron-plate",
-          "type": "item",
-          "available": 130
         }
       ]
     }
