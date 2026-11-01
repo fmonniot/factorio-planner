@@ -3,26 +3,16 @@ import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useUiStore } from '../store/uiStore'
 import { useBlockStore, selectAppState } from '../store/blockStore'
 import { usePlansStore, selectActivePlanEntry } from '../store/plansStore'
-import { customSourceId, customFilename, customDisplayName, normalizeDatasetId } from '../store/sourceId'
+import { customSourceId, customFilename, normalizeDatasetId } from '../store/sourceId'
 import { removeCustomPlans, checkPlanImport, importPlanAsNew, exportFileName, exportPlanJson, makeDataSetStamp, dataSetMismatchMessage } from '../store/persistence'
 import type { AppState, GameData, PlanDataSetStamp } from '../data/types'
+import { SERVER_DATASETS, DATASET_LABELS, dataSetName, type ServerDatasetId } from '../store/dataSets'
 import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
 import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
 import { Segment, Segmented } from './SegmentedControl'
 import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
-
-// ---------------------------------------------------------------------------
-// Server-bundled game datasets
-// ---------------------------------------------------------------------------
-
-const SERVER_DATASETS = [
-  { id: 'nullius', label: 'Nullius', url: `${import.meta.env.BASE_URL}data/nullius/game-data.json` },
-  { id: 'kompetenz-seablock', label: 'Seablock', url: `${import.meta.env.BASE_URL}data/kompetenz-seablock/game-data.json` },
-] as const
-
-export type ServerDatasetId = typeof SERVER_DATASETS[number]['id']
 
 const STORAGE_KEY = 'factorio-planner:game-data-source'
 
@@ -200,13 +190,6 @@ function useGameDataSource(): GameDataSource {
 // ---------------------------------------------------------------------------
 // Plan export and import
 // ---------------------------------------------------------------------------
-
-const DATASET_LABELS: Record<string, string> = Object.fromEntries(SERVER_DATASETS.map(d => [d.id, d.label]))
-
-/** Display name of a data set id: the bundled label, the uploaded file name, else the id itself. */
-function dataSetName(sourceId: string): string {
-  return DATASET_LABELS[normalizeDatasetId(sourceId)] ?? customDisplayName(sourceId) ?? sourceId
-}
 
 function exportPlan() {
   const appState = selectAppState(useBlockStore.getState())
