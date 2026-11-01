@@ -21,11 +21,31 @@ function makeGameData(): GameData {
   return GameDataSchema.parse({
     factorioVersion: '2.0.77',
     modSet: {},
-    items: { plate: item('plate', 'item'), steam: item('steam', 'fluid') },
-    recipes: { smelt: recipe('smelt', 'smelting'), craft: recipe('craft', 'crafting') },
-    machines: { furnace: machine('furnace', 'smelting'), asm: machine('asm', 'crafting') },
+    items: {
+      plate: item('plate', 'item'),
+      steam: item('steam', 'fluid'),
+      'power:electricity': item('power:electricity', 'fluid'),
+      'furnace-item': { ...item('furnace-item', 'item'), placeResult: 'furnace' },
+      'furnace2-item': { ...item('furnace2-item', 'item'), placeResult: 'furnace2' },
+    },
+    recipes: {
+      smelt: recipe('smelt', 'smelting'),
+      craft: recipe('craft', 'crafting'),
+      'make-furnace': { ...recipe('make-furnace', 'crafting'), products: [{ itemId: 'furnace-item', type: 'item', amount: 1 }] },
+      'make-furnace2': { ...recipe('make-furnace2', 'crafting'), products: [{ itemId: 'furnace2-item', type: 'item', amount: 1 }] },
+      'offshore:steam': { ...recipe('offshore:steam', 'offshore:steam'), products: [{ itemId: 'steam', type: 'fluid', amount: 60 }] },
+      'power:solar': { ...recipe('power:solar', 'power:solar'), products: [{ itemId: 'power:electricity', type: 'fluid', amount: 0.06 }] },
+      'mining:ore': { ...recipe('mining:ore', 'mining:basic'), products: [{ itemId: 'plate', type: 'item', amount: 1 }] },
+    },
+    machines: { furnace: machine('furnace', 'smelting'), furnace2: machine('furnace2', 'smelting'), asm: machine('asm', 'crafting') },
     modules: {},
-    defaultMachines: { smelting: 'furnace' },
+    // The static default is the faster furnace, which a limited horizon does not offer.
+    defaultMachines: { smelting: 'furnace2' },
+    technologies: {
+      early: { id: 'early', name: 'early', prerequisites: [], unlockedRecipes: ['make-furnace'], iconPath: '' },
+      late: { id: 'late', name: 'late', prerequisites: ['early'], unlockedRecipes: ['make-furnace2'], iconPath: '' },
+    },
+    startingRecipes: ['smelt', 'craft'],
   })
 }
 
@@ -82,6 +102,12 @@ describe('round3', () => {
     expect(round3(2)).toBe(2)
     expect(Object.is(round3(-0.0001), 0)).toBe(true)
   })
+
+  it('is undefined for a value that is not a finite non-negative number', () => {
+    for (const x of [Infinity, -Infinity, NaN, -1, -0.002]) expect(round3(x), String(x)).toBeUndefined()
+    // Too large to scale without overflowing.
+    expect(round3(Number.MAX_VALUE)).toBeUndefined()
+  })
 })
 
 describe('projectSnapshot', () => {
@@ -130,7 +156,7 @@ describe('projectSnapshot', () => {
       },
     }))
     expect(s.blocks[0].rows).toEqual([
-      { recipe: 'smelt', machine: 'furnace', machines: 1.235, machinesCeil: 2, throughput: 0, powerKw: 12.346 },
+      { recipe: 'smelt', machine: 'furnace2', machines: 1.235, machinesCeil: 2, throughput: 0, powerKw: 12.346 },
       { recipe: 'smelt', machine: 'furnace', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
       { recipe: 'craft', machine: 'asm', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
       // `crafting` has no default machine, so the key is omitted rather than null.
@@ -149,7 +175,7 @@ describe('projectSnapshot', () => {
     const s = project([makeBlock('a', { rootPlan: root })], solveOf({
       results: { a: result({ nodes: [solved('n1'), solved('n2'), solved('n3')] }) },
     }))
-    expect(s.blocks[0].areas).toEqual(['Main', 'Furnaces'])
+    expect(s.blocks[0].areas).toEqual(['Top level', 'Furnaces'])
     // A sub-factory that is not an area belongs to the area around it.
     expect(s.blocks[0].rows.map(r => r.area)).toEqual([0, 1, 1])
   })
@@ -213,14 +239,15 @@ describe('projectSnapshot', () => {
     expect(s.blocks[0].connections).toEqual([{ from: 2, id: 'plate', type: 'item', available: 10 }])
   })
 
-  it('keeps a block whose solve failed, with its message and no rows, imports or warnings', () => {
+  it('keeps a block whose solve failed, with its message, its rows without solved values, and the result\'s warnings', () => {
     const a = makeBlock('a', {
       name: 'Broken', products: [{ id: 'p', itemId: 'plate', extraRate: 4 }],
-      rootPlan: plan('root', 'Main', [rowNode('n1', 'smelt')]),
+      rootPlan: plan('root', 'Main', [rowNode('n1', 'smelt'), rowNode('n2', 'recipe-the-data-set-lacks')]),
     })
     const s = project([a, makeBlock('b')], solveOf({
-      // The solver gives a failing block an empty result; even a stale non-empty one must not leak through.
-      results: { a: result({ nodes: [solved('n1')], unsatisfied: [{ itemId: 'plate', rate: 1 }] }), b: result() },
+      // A loop member whose solve threw: the solver gives it an empty result plus, here, the
+      // loop's non-convergence, which names it.
+      results: { a: result({ warnings: [{ type: 'loop-not-converged', blockIds: ['a', 'b'], rounds: 8 }] }), b: result() },
       errors: { a: 'LP exploded' },
       flows: [flow({ fromBlockId: 'b', toBlockId: 'a' })],
     }))
@@ -229,13 +256,107 @@ describe('projectSnapshot', () => {
       name: 'Broken',
       color: '#112233',
       products: [{ id: 'plate', type: 'item', rate: 4 }],
-      rows: [],
+      rows: [{ recipe: 'smelt', machine: 'furnace2' }, { recipe: 'recipe-the-data-set-lacks' }],
       imports: [],
-      warnings: [],
+      warnings: [{ code: 'loop-not-converged', blocks: [0, 1] }],
       connections: [{ from: 1, id: 'plate', type: 'item', available: 10 }],
       error: 'LP exploded',
     })
     expect('error' in s.blocks[1]).toBe(false)
+  })
+
+  it('keeps a row without a solved node, omitting its values and a machine it cannot know', () => {
+    const root = plan('root', 'Main', [rowNode('n1', 'smelt'), rowNode('n2', 'craft'), rowNode('n3', 'unknown', 'asm')])
+    const s = project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result({ nodes: [solved('n1')] }) } }))
+    expect(s.blocks[0].rows).toEqual([
+      { recipe: 'smelt', machine: 'furnace2', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      // `crafting` has no default machine
+      { recipe: 'craft' },
+      // an unknown recipe keeps its id and its explicit machine
+      { recipe: 'unknown', machine: 'asm' },
+    ])
+  })
+
+  it('omits a solved value that is not a finite non-negative number, and keeps the others', () => {
+    const root = plan('root', 'Main', [rowNode('n1', 'smelt'), rowNode('n2', 'smelt')])
+    const s = project([makeBlock('a', { rootPlan: root })], solveOf({
+      results: {
+        a: result({
+          nodes: [
+            solved('n1', { machineCountExact: Infinity, machineCountCeil: Infinity, throughput: NaN, powerKw: -5 }),
+            solved('n2', { machineCountCeil: 1.5 }),
+          ],
+          unsatisfied: [{ itemId: 'plate', rate: NaN }, { itemId: 'steam', rate: -3 }],
+        }),
+      },
+      flows: [flow({ fromBlockId: 'a', toBlockId: 'a', status: 'ok', available: Infinity })],
+    }))
+    expect(s.blocks[0].rows).toEqual([
+      { recipe: 'smelt', machine: 'furnace2' },
+      { recipe: 'smelt', machine: 'furnace2', machines: 1, throughput: 1, powerKw: 90 },
+    ])
+    // A required rate falls back to 0 rather than breaking the snapshot.
+    expect(s.blocks[0].imports.map(i => i.rate)).toEqual([0, 0])
+    expect(s.blocks[0].connections[0].available).toBe(0)
+  })
+
+  it('sends the machine the solver uses: the horizon default, then the plan\'s override', () => {
+    const rows = (horizonTechnologyIds: string[], defaultMachineOverrides: Record<string, string>) => {
+      const root = plan('root', 'Main', [rowNode('n1', 'smelt'), rowNode('n2', 'smelt', 'furnace2')])
+      const a = makeBlock('a', { rootPlan: root })
+      const state: AppState = { ...stateOf([a]), horizonTechnologyIds, defaultMachineOverrides }
+      const solve = solveOf({ results: { a: result({ nodes: [solved('n1'), solved('n2')] }) } })
+      return projectSnapshot(state, solve, makeGameData(), stamp).blocks[0].rows.map(r => r.machine)
+    }
+    expect(rows([], {})).toEqual(['furnace2', 'furnace2'])
+    // `late` unlocks the faster furnace; `early` does not, so the default falls back (an explicit machine stays).
+    expect(rows(['late'], {})).toEqual(['furnace2', 'furnace2'])
+    expect(rows(['early'], {})).toEqual(['furnace', 'furnace2'])
+    expect(rows([], { smelting: 'furnace' })).toEqual(['furnace', 'furnace2'])
+    // An override outside the horizon is ignored, as the solver does.
+    expect(rows(['early'], { smelting: 'furnace2' })).toEqual(['furnace', 'furnace2'])
+  })
+
+  it('never sends an exporter-invented id: synthetic rows carry a kind and product, electricity is virtual', () => {
+    const root = plan('root', 'Main', [
+      rowNode('n1', 'offshore:steam', 'pump'), rowNode('n2', 'power:solar', 'solar-panel'),
+      rowNode('n3', 'mining:ore', 'drill'), rowNode('n4', 'power:removed'),
+    ])
+    const a = makeBlock('a', {
+      rootPlan: root,
+      products: [{ id: 'p', itemId: 'power:electricity', extraRate: 600 }],
+    })
+    const s = project([a, makeBlock('b')], solveOf({
+      results: {
+        a: result({
+          nodes: [solved('n1'), solved('n2')],
+          unsatisfied: [{ itemId: 'power:electricity', rate: 1 }],
+          warnings: [
+            { type: 'no-recipe', itemId: 'power:electricity' },
+            { type: 'infeasible-pins', recipeIds: ['power:solar', 'smelt', 'mining:ore'] },
+            { type: 'duplicate-recipe', recipeId: 'offshore:steam', count: 2 },
+          ],
+        }),
+      },
+      flows: [flow({ fromBlockId: 'a', toBlockId: 'b', itemId: 'power:electricity' })],
+    }))
+    const virtual = { id: 'electricity', type: 'virtual' }
+    expect(s.blocks[0].rows).toEqual([
+      { kind: 'offshore', product: { id: 'steam', type: 'fluid' }, machine: 'pump', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      { kind: 'power', product: virtual, machine: 'solar-panel', machines: 1, machinesCeil: 1, throughput: 1, powerKw: 90 },
+      { kind: 'mining', product: { id: 'plate', type: 'item' }, machine: 'drill' },
+      // the data set lacks this recipe: its kind is known from the id, its product is not
+      { kind: 'power' },
+    ])
+    expect(s.blocks[0].products).toEqual([{ ...virtual, rate: 600 }])
+    expect(s.blocks[0].imports).toEqual([{ ...virtual, rate: 1 }])
+    expect(s.blocks[0].warnings).toEqual([
+      { code: 'no-recipe', items: [virtual] },
+      { code: 'infeasible-pins', recipes: ['smelt'] },
+      { code: 'duplicate-recipe' },
+    ])
+    expect(s.blocks[1].connections).toEqual([{ from: 0, ...virtual, available: 10 }])
+    expect(JSON.stringify(s)).not.toMatch(/"(mining|offshore|power):/)
   })
 
   it('is pure: it does not change its inputs', () => {

@@ -9,7 +9,10 @@ import { PlanDataSetStampSchema } from '../data/schema'
 //
 // Rules of the shape:
 // - Ids are the ones the game knows. No icons, no display names of game objects.
-//   (Block and area names are the player's own text, not game objects.)
+//   (Block and area names are the player's own text, not game objects.) Ids the data
+//   exporter invented (`mining:*`, `offshore:*`, `power:*` recipes, the `power:electricity`
+//   item) never appear: such a row carries a `kind` and its `product` instead of a recipe,
+//   and the electricity item is a `virtual` reference that the reader draws itself.
 // - JSON `null` never appears: an absent value is an omitted key.
 // - Rates are items per minute, rounded to three decimals.
 // - Blocks, and the areas inside a block, are referred to by their index in the
@@ -23,34 +26,62 @@ const rate = z.number().nonnegative()
 const count = z.number().int().nonnegative()
 const index = z.number().int().nonnegative()
 
-/** A reference to an item or a fluid; `type` picks the sprite prefix (`item/<id>` or `fluid/<id>`). */
+/** The id of the one `virtual` item, the electricity pseudo-item (`ELECTRICITY_ITEM_ID` in the plan). */
+export const SNAPSHOT_ELECTRICITY_ID = 'electricity'
+
+/**
+ * `item` and `fluid` pick the sprite prefix (`item/<id>`, `fluid/<id>`). `virtual` is not a game
+ * prototype: the reader exempts it from the id check and draws it itself.
+ */
+const itemType = z.enum(['item', 'fluid', 'virtual'])
+
+/** A reference to an item, a fluid or the virtual electricity item. */
 export const SnapshotItemRefSchema = z.strictObject({
   id: z.string().min(1),
-  type: z.enum(['item', 'fluid']),
+  type: itemType,
 })
 
 /** An item reference with a rate, items/min. */
 export const SnapshotItemRateSchema = z.strictObject({
   id: z.string().min(1),
-  type: z.enum(['item', 'fluid']),
+  type: itemType,
   rate,
 })
 
-/** One recipe row of a block. */
-export const SnapshotRowSchema = z.strictObject({
-  recipe: z.string().min(1),
-  /** The machine the row uses, explicit or the plan's default for the recipe's category; absent when there is none. */
+/**
+ * What every row carries. The row mirrors the plan, so the solved values are optional: they are
+ * omitted for a row the solve did not value (a failed block, a recipe the data set lacks) and for
+ * a value that is not a finite non-negative number.
+ */
+const rowShape = {
+  /** The machine the row uses: its own, else the default the solver used; absent when there is none. */
   machine: z.string().min(1).optional(),
   /** Index into the block's `areas`; present only when the block has areas. */
   area: index.optional(),
   /** Machines needed, exact. */
-  machines: rate,
+  machines: rate.optional(),
   /** Machines needed, rounded up. */
-  machinesCeil: count,
+  machinesCeil: count.optional(),
   /** Recipe executions per minute. */
-  throughput: rate,
-  powerKw: rate,
+  throughput: rate.optional(),
+  powerKw: rate.optional(),
+}
+
+/** A row of a game recipe. The id is sent as it is in the plan, even when the data set lacks it. */
+export const SnapshotGameRowSchema = z.strictObject({
+  recipe: z.string().min(1),
+  ...rowShape,
 })
+
+/** A row of a recipe the exporter invented: no recipe id, its kind and main product instead. */
+export const SnapshotSyntheticRowSchema = z.strictObject({
+  kind: z.enum(['mining', 'offshore', 'power']),
+  /** The recipe's main product; absent when the data set lacks the recipe. */
+  product: SnapshotItemRefSchema.optional(),
+  ...rowShape,
+})
+
+export const SnapshotRowSchema = z.union([SnapshotGameRowSchema, SnapshotSyntheticRowSchema])
 
 /**
  * What a warning names. `code` is the solver's warning type; each list holds the ids the warning
@@ -80,7 +111,7 @@ export const SnapshotConnectionSchema = z.strictObject({
   /** Index into the snapshot's `blocks` of the supplying block. */
   from: index,
   id: z.string().min(1),
-  type: z.enum(['item', 'fluid']),
+  type: itemType,
   /** items/min this block could take over the connection. */
   available: rate,
 })
@@ -93,26 +124,28 @@ export const SnapshotBlockSchema = z.strictObject({
   products: z.array(SnapshotItemRateSchema),
   /** Area names in table order (the root first). Present only when the block has separate areas. */
   areas: z.array(z.string()).optional(),
-  /** Recipe rows in table order. Empty for a block whose solve failed. */
+  /** The plan's recipe rows in table order, whether or not the block solved. */
   rows: z.array(SnapshotRowSchema),
   /** What must come from outside the block, in the solver's `unsatisfied` order. */
   imports: z.array(SnapshotItemRateSchema),
   warnings: z.array(SnapshotWarningSchema),
   connections: z.array(SnapshotConnectionSchema),
-  /** The solver's message when this block's solve failed; then `rows`, `imports` and `warnings` are empty. */
+  /** The solver's message when this block's solve failed; then its rows carry no solved values. `imports` and `warnings` are the result's, which the solver leaves empty or holding only warnings that name the block, such as a loop that did not converge. */
   error: z.string().optional(),
 })
 
 export const SnapshotSchema = z.strictObject({
   v: z.literal(SNAPSHOT_VERSION),
   /** The data set the plan was made for, as in an exported plan. */
-  dataSet: PlanDataSetStampSchema,
+  dataSet: z.strictObject(PlanDataSetStampSchema.shape),
   blocks: z.array(SnapshotBlockSchema),
 })
 
 export type SnapshotItemRef = z.output<typeof SnapshotItemRefSchema>
 export type SnapshotItemRate = z.output<typeof SnapshotItemRateSchema>
 export type SnapshotRow = z.output<typeof SnapshotRowSchema>
+export type SnapshotGameRow = z.output<typeof SnapshotGameRowSchema>
+export type SnapshotSyntheticRow = z.output<typeof SnapshotSyntheticRowSchema>
 export type SnapshotWarning = z.output<typeof SnapshotWarningSchema>
 export type SnapshotConnection = z.output<typeof SnapshotConnectionSchema>
 export type SnapshotBlock = z.output<typeof SnapshotBlockSchema>

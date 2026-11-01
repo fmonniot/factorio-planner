@@ -23,15 +23,18 @@ const server = await createServer({
 try {
   const mod = await server.ssrLoadModule('/src/test/snapshotFixtures.ts')
 
+  // Build everything before touching contract/, so a failure leaves the checked-in files intact.
+  const files = [
+    ['snapshot.schema.json', mod.toFileText(mod.buildSnapshotJsonSchema())],
+    ...Object.entries(mod.buildSnapshotFixtures()).map(([name, snapshot]) => [`fixtures/${name}.json`, mod.toFileText(snapshot)]),
+  ]
+
   mkdirSync(fixturesDir, { recursive: true })
   for (const f of readdirSync(fixturesDir)) if (f.endsWith('.json')) rmSync(join(fixturesDir, f))
-
-  writeFileSync(join(contractDir, 'snapshot.schema.json'), mod.toFileText(mod.buildSnapshotJsonSchema()))
-  for (const [name, snapshot] of Object.entries(mod.buildSnapshotFixtures())) {
-    writeFileSync(join(fixturesDir, `${name}.json`), mod.toFileText(snapshot))
-    console.log(`contract/fixtures/${name}.json`)
+  for (const [path, text] of files) {
+    writeFileSync(join(contractDir, path), text)
+    console.log(`contract/${path}`)
   }
-  console.log('contract/snapshot.schema.json')
 } finally {
   await server.close()
 }

@@ -42,8 +42,8 @@ A **snapshot** is a projection of the planner's state, not the stored plan: only
 
 Per block, taken from the plan and its `SolverResult` ([spec/data-model.md](../../spec/data-model.md#solver-state-transient)):
 
-- Name, colour, products with their rates. Every item id carries its `type` (`item` or `fluid`), which picks the sprite prefix.
-- Recipe rows: recipe id, machine id, exact and rounded-up machine count, throughput, power; the area each row belongs to when the block has areas.
+- Name, colour, products with their rates. Every item id carries its `type` (`item` or `fluid`), which picks the sprite prefix, or `virtual` for the electricity pseudo-item (id `electricity`), which is not a game prototype: the mod exempts it from its id check and draws it itself.
+- Recipe rows, mirroring the plan whether or not the block solved: recipe id, machine id (the one the solver used), exact and rounded-up machine count, throughput, power; the area each row belongs to when the block has areas. Solved values are omitted for a row the solve did not value. A row of an exporter-invented recipe (`mining:*`, `offshore:*`, `power:*`) has no recipe id; it carries its `kind` and its main `product` instead, because those ids are not game prototypes and would show up as false missing ids.
 - Imports (the `unsatisfied` list, in its order) and the block's warnings, reduced to a code and the ids it names.
 - Connections: source block, item, available rate.
 

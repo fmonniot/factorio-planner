@@ -1,7 +1,7 @@
 import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
 import { placingItemIds } from '../../data/horizon'
 import { surplusTolerance } from '../../solver/index'
-import { findSubPlan } from '../../store/blockStore'
+import { findSubPlan } from '../../data/subPlanTree'
 import { areaName } from './areaRows'
 
 // ---------------------------------------------------------------------------

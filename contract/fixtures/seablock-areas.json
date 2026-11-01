@@ -27,7 +27,7 @@
         }
       ],
       "areas": [
-        "Main",
+        "Top level",
         "Smelting",
         "Pumps"
       ],
@@ -60,7 +60,11 @@
           "powerKw": 262.5
         },
         {
-          "recipe": "offshore:water",
+          "kind": "offshore",
+          "product": {
+            "id": "water",
+            "type": "fluid"
+          },
           "machine": "angels-sea-pump-placeable",
           "area": 2,
           "machines": 0,

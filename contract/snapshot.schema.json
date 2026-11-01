@@ -50,7 +50,8 @@
                   "type": "string",
                   "enum": [
                     "item",
-                    "fluid"
+                    "fluid",
+                    "virtual"
                   ]
                 },
                 "rate": {
@@ -75,47 +76,112 @@
           "rows": {
             "type": "array",
             "items": {
-              "type": "object",
-              "properties": {
-                "recipe": {
-                  "type": "string",
-                  "minLength": 1
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "recipe": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "machine": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "area": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "machines": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "machinesCeil": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "throughput": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "powerKw": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "recipe"
+                  ],
+                  "additionalProperties": false
                 },
-                "machine": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "area": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "machines": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "machinesCeil": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "throughput": {
-                  "type": "number",
-                  "minimum": 0
-                },
-                "powerKw": {
-                  "type": "number",
-                  "minimum": 0
+                {
+                  "type": "object",
+                  "properties": {
+                    "kind": {
+                      "type": "string",
+                      "enum": [
+                        "mining",
+                        "offshore",
+                        "power"
+                      ]
+                    },
+                    "product": {
+                      "type": "object",
+                      "properties": {
+                        "id": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "type": {
+                          "type": "string",
+                          "enum": [
+                            "item",
+                            "fluid",
+                            "virtual"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "id",
+                        "type"
+                      ],
+                      "additionalProperties": false
+                    },
+                    "machine": {
+                      "type": "string",
+                      "minLength": 1
+                    },
+                    "area": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "machines": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "machinesCeil": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 9007199254740991
+                    },
+                    "throughput": {
+                      "type": "number",
+                      "minimum": 0
+                    },
+                    "powerKw": {
+                      "type": "number",
+                      "minimum": 0
+                    }
+                  },
+                  "required": [
+                    "kind"
+                  ],
+                  "additionalProperties": false
                 }
-              },
-              "required": [
-                "recipe",
-                "machines",
-                "machinesCeil",
-                "throughput",
-                "powerKw"
-              ],
-              "additionalProperties": false
+              ]
             }
           },
           "imports": {
@@ -131,7 +197,8 @@
                   "type": "string",
                   "enum": [
                     "item",
-                    "fluid"
+                    "fluid",
+                    "virtual"
                   ]
                 },
                 "rate": {
@@ -177,7 +244,8 @@
                         "type": "string",
                         "enum": [
                           "item",
-                          "fluid"
+                          "fluid",
+                          "virtual"
                         ]
                       }
                     },
@@ -236,7 +304,8 @@
                   "type": "string",
                   "enum": [
                     "item",
-                    "fluid"
+                    "fluid",
+                    "virtual"
                   ]
                 },
                 "available": {

@@ -27,6 +27,7 @@ npm run build      # type-check + bundle; postbuild runs scripts/build-icons.mjs
 npm run preview    # serve the production build
 npm run lint       # ESLint
 npm run lint:docs  # broken relative links / repo paths in Markdown
+npm run contract   # regenerate contract/ (snapshot JSON Schema + fixtures) after changing src/snapshot/, the solver or the Seablock export
 npm test           # unit + e2e (test:unit then test:e2e)
 npm run test:unit  # Vitest, all projects, once
 npm run test:watch # Vitest in watch mode

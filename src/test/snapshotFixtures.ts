@@ -5,7 +5,7 @@ import { loadGameDataFromJson } from '../data/loader'
 import { solveAll } from '../solver'
 import { projectSnapshot } from '../snapshot/project'
 import { SnapshotSchema, type Snapshot } from '../snapshot/schema'
-import type { AppState, Block, GameData, PlanDataSetStamp, RecipeNode, SubPlan } from '../data/types'
+import type { AppState, Block, GameData, MultiBlockSolve, PlanDataSetStamp, RecipeNode, SubPlan } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Builds the shared snapshot fixtures (contract/fixtures/*.json) and the JSON Schema
@@ -70,9 +70,11 @@ function stampOf(gameData: GameData): PlanDataSetStamp {
   return { id: 'kompetenz-seablock', name: 'Kompetenz Seablock', factorioVersion: gameData.factorioVersion }
 }
 
-function snapshotOf(gameData: GameData, blocks: Block[]): Snapshot {
+function snapshotOf(gameData: GameData, blocks: Block[], patch?: (solve: MultiBlockSolve) => void): Snapshot {
   const state = stateOf(blocks)
-  return projectSnapshot(state, solveAll(state.blocks, gameData), gameData, stampOf(gameData))
+  const solve = solveAll(state.blocks, gameData)
+  patch?.(solve)
+  return projectSnapshot(state, solve, gameData, stampOf(gameData))
 }
 
 /** One block with a handful of rows and no connections. */
@@ -140,6 +142,50 @@ export function loopBlocks(): Block[] {
   ]
 }
 
+/**
+ * What the Lua reader must handle beyond the plain cases: exporter-invented recipes (power, offshore
+ * pump, mining), the virtual electricity item in a product and a connection, a block whose solve
+ * failed (set by hand, as the solver does when it throws: an empty result and a message) with a row of
+ * a recipe the data set lacks, which carries no machine and no solved values, and warnings that name
+ * recipes, blocks and areas (also set by hand, since a small plan does not produce them).
+ */
+export function edgeCaseBlocks(): Block[] {
+  const root = plan(
+    'e-root',
+    'Main',
+    [row('e-r0', 'power:solar-panel'), { kind: 'subplan', id: 'e-h0', subPlanId: 'e-sp0' }],
+    [plan('e-sp0', 'Pumps', [row('e-r1', 'offshore:water'), row('e-r2', 'mining:crude-oil')], [], true)],
+  )
+  return [
+    block({ id: 'e-power', name: 'Power and fluids', color: '#eab308', products: [['power:electricity', 600], ['water', 120]], rootPlan: root }),
+    block({
+      id: 'e-parts',
+      name: 'Parts',
+      color: '#06b6d4',
+      products: [['iron-gear-wheel', 30]],
+      recipes: ['iron-gear-wheel'],
+      connections: [['power:electricity', 'e-power'], ['water', 'e-power']],
+    }),
+    block({ id: 'e-broken', name: 'After a mod update', color: '#64748b', products: [['pipe', 10]], recipes: ['pipe', 'recipe-removed-by-a-mod-update'] }),
+  ]
+}
+
+function edgeCasesPlan(gameData: GameData): Snapshot {
+  return snapshotOf(gameData, edgeCaseBlocks(), solve => {
+    solve.results['e-broken'] = { nodes: [], unsatisfied: [], warnings: [] }
+    solve.errors['e-broken'] = 'LP solver failed: the model is unbounded'
+    solve.results['e-power'].warnings.push({
+      type: 'area-shortfall',
+      shortfalls: [{ areaId: 'e-sp0', itemId: 'water', rate: 5 }],
+    })
+    solve.results['e-parts'].warnings.push(
+      { type: 'duplicate-recipe', recipeId: 'iron-gear-wheel', count: 2 },
+      { type: 'infeasible-pins', recipeIds: ['iron-gear-wheel', 'power:solar-panel'] },
+      { type: 'loop-not-converged', blockIds: ['e-parts', 'e-power'], rounds: 8 },
+    )
+  })
+}
+
 /** Block and sub-factory names with accents, CJK and emoji (multi-byte UTF-8, and a surrogate pair), so a chunk boundary can fall inside a character. */
 function unicodePlan(gameData: GameData): Snapshot {
   const root = plan(
@@ -176,6 +222,7 @@ export function buildSnapshotFixtures(gameData: GameData = loadSeablock()): Reco
     'seablock-areas': areasPlan(gameData),
     'seablock-loop': snapshotOf(gameData, loopBlocks()),
     unicode: unicodePlan(gameData),
+    'seablock-edge-cases': edgeCasesPlan(gameData),
   }
 }
 

@@ -3,6 +3,24 @@
 
 import type { SubPlan } from './schema'
 
+export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
+  if (plan.id === id) return plan
+  for (const sp of plan.subPlans) {
+    const found = findSubPlan(sp, id)
+    if (found) return found
+  }
+  return undefined
+}
+
+/** What the block's root area is called in the Areas pane. */
+export const ROOT_AREA_LABEL = 'Top level'
+
+/** The display name of an area: the root is "Top level", a sub-factory has its own name (the id when it is gone). */
+export function areaName(rootPlan: SubPlan, areaId: string): string {
+  if (areaId === rootPlan.id) return ROOT_AREA_LABEL
+  return findSubPlan(rootPlan, areaId)?.name ?? areaId
+}
+
 /**
  * Plans saved before the invariant was kept (dragging a sub-factory's handle into another plan
  * moved only the handle) show a sub-factory under one plan while its `SubPlan` object is stored

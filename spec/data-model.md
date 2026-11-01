@@ -785,7 +785,7 @@ A snapshot is a projection of the plan and its `MultiBlockSolve` for the in-game
 ```ts
 interface Snapshot {
   v: 1                                // SNAPSHOT_VERSION
-  dataSet: PlanDataSetStamp           // as in an exported plan
+  dataSet: PlanDataSetStamp           // as in an exported plan; unknown keys rejected
   blocks: SnapshotBlock[]             // tab order; blocks are referred to by index in this array
 }
 
@@ -793,39 +793,51 @@ interface SnapshotBlock {
   name: string
   color: string                       // '#rrggbb'
   products: SnapshotItemRate[]        // extraRate plus what other blocks request (the first product of an item gets the request)
-  areas?: string[]                    // area names, table order, root first; present only when the block has separate areas
-  rows: SnapshotRow[]                 // table order; [] for a block whose solve failed
+  areas?: string[]                    // area names as the planner shows them ('Top level' for the root), table order; present only when the block has separate areas
+  rows: SnapshotRow[]                 // the plan's rows in table order, solved or not
   imports: SnapshotItemRate[]         // SolverResult.unsatisfied, same order
-  warnings: SnapshotWarning[]
+  warnings: SnapshotWarning[]         // the result's warnings
   connections: SnapshotConnection[]   // flows into this block, in inputConnections order, except missing-source and self
   error?: string                      // the solver's message when the block's solve failed
 }
 
-interface SnapshotItemRate { id: string; type: 'item' | 'fluid'; rate: number }   // items/min
-interface SnapshotRow {
-  recipe: string
-  machine?: string                    // explicit machine, else the data set's default for the category; absent when none
+type SnapshotItemType = 'item' | 'fluid' | 'virtual'   // virtual: the electricity pseudo-item, id 'electricity'
+interface SnapshotItemRef { id: string; type: SnapshotItemType }
+interface SnapshotItemRate extends SnapshotItemRef { rate: number }   // items/min
+
+// A row is a game row or a synthetic row.
+interface SnapshotRowBase {
+  machine?: string                    // the machine the solver used: the row's own, else the default under the plan's horizon and overrides; absent when there is none
   area?: number                       // index into the block's areas; present only with areas
-  machines: number                    // machineCountExact
-  machinesCeil: number                // machineCountCeil
-  throughput: number                  // executions/min
-  powerKw: number
+  machines?: number                   // machineCountExact
+  machinesCeil?: number               // machineCountCeil, an integer
+  throughput?: number                 // executions/min
+  powerKw?: number
 }
+interface SnapshotGameRow extends SnapshotRowBase { recipe: string }   // the id as in the plan, even when the data set lacks it
+interface SnapshotSyntheticRow extends SnapshotRowBase {               // a mining:, offshore: or power: recipe
+  kind: 'mining' | 'offshore' | 'power'
+  product?: SnapshotItemRef           // the recipe's main product; absent when the data set lacks the recipe
+}
+
 interface SnapshotWarning {
   code: SolverWarning['type']
-  items?: { id: string; type: 'item' | 'fluid' }[]   // the ids the warning names; each list is omitted when empty
-  recipes?: string[]
+  items?: SnapshotItemRef[]           // the ids the warning names; each list is omitted when empty
+  recipes?: string[]                  // game recipes only
   blocks?: number[]                   // indices into Snapshot.blocks
   areas?: number[]                    // indices into the block's areas
 }
-interface SnapshotConnection { from: number; id: string; type: 'item' | 'fluid'; available: number }   // from: index into Snapshot.blocks
+interface SnapshotConnection extends SnapshotItemRef { from: number; available: number }   // from: index into Snapshot.blocks
 ```
 
 Rules:
 
 - **No `null`.** The Lua JSON decoder's handling of `null` is undocumented, so an absent value is an omitted key. Every object is closed (unknown keys are rejected).
-- **Rates** (rates, machine counts, throughput, power) are rounded to three decimals. `machinesCeil` is an integer.
-- **Item types** come from the loaded game data; an id it does not know is sent as `item`. The default machine is read from `GameData.defaultMachines`, as the solver does.
+- **Rates** (rates, machine counts, throughput, power) are rounded to three decimals. A solved value that is not a finite non-negative number (or, for `machinesCeil`, not an integer) is omitted from its row; a required rate (product, import, connection) with such a value is sent as 0, so one bad value never invalidates the snapshot.
+- **No exporter-invented ids.** The `mining:*`, `offshore:*` and `power:*` recipes (`src/data/syntheticRecipes.ts`) and the `power:electricity` item (`src/data/electricity.ts`) are not game prototypes, so no game-id field contains `:`. A row of such a recipe has `kind` and `product` instead of `recipe`; the electricity item is sent as `{ id: 'electricity', type: 'virtual' }` everywhere an item appears, and the reader exempts `virtual` from its id check and draws it itself; such recipe ids are left out of a warning's `recipes`.
+- **Item types** come from the loaded game data; an item id it does not know is sent as `item`.
+- **The machine** of a row is resolved as the solver wiring does (`resolveRowMachine`, over the plan's `horizonTechnologyIds` and `defaultMachineOverrides`), so it is the machine the solve used.
+- **Rows mirror the plan.** A row with no solved node (every row of a failed block, or a row whose recipe the data set lacks) keeps its ids and omits the solved values; an unknown recipe id is kept so the mod can list it.
 - **Warnings** keep the solver's type as `code` and drop its numbers (rates, counts, rounds); area and block ids become indices.
-- **A block whose solve failed** (`MultiBlockSolve.errors`) stays in the snapshot, in its place, with name, colour, products and connections, the solver's message in `error`, and empty `rows`, `imports` and `warnings`, so the viewer can show that the block exists but could not be solved.
+- **A block whose solve failed** (`MultiBlockSolve.errors`) stays in the snapshot, in its place, with name, colour, products, connections, the solver's message in `error`, its rows without solved values, and the `imports` and `warnings` of its result (the solver leaves them empty, or holding only warnings that name the block, such as a loop that did not converge).
 - **Not part of the snapshot:** a snapshot id and any chunking or transport field; those belong to the wire protocol.

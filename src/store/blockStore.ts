@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
+import { findSubPlan } from '../data/subPlanTree'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
@@ -29,14 +30,7 @@ interface BlockHistory {
 // SubPlan tree helpers
 // ---------------------------------------------------------------------------
 
-export function findSubPlan(plan: SubPlan, id: string): SubPlan | undefined {
-  if (plan.id === id) return plan
-  for (const sp of plan.subPlans) {
-    const found = findSubPlan(sp, id)
-    if (found) return found
-  }
-  return undefined
-}
+export { findSubPlan }
 
 /** Find the SubPlan whose `subPlans` directly contains the given child id. */
 function findParentSubPlan(plan: SubPlan, childId: string): SubPlan | undefined {
