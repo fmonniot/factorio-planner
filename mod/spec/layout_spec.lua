@@ -31,7 +31,17 @@ describe("lib/layout.lua", function()
 
     it("gives the columns to the side that needs them", function()
       assert.are.same({ 1, 5 }, { layout.split({ line(1, 5) }, 6) })
-      assert.are.same({ 5, 1 }, { layout.split({ line(5, 1) }, 6) })
+      assert.are.same({ 3, 3 }, { layout.split({ line(3, 1) }, 6) })
+    end)
+
+    it("gives the products at most three columns and the ingredients five", function()
+      assert.are.same({ 3, 5 }, { layout.split({ line(5, 1) }, 8) })
+      assert.are.same({ 3, 5 }, { layout.split({ line(6, 9) }, 8) })
+    end)
+
+    it("leaves a wide window's spare columns empty", function()
+      assert.are.same({ 3, 5 }, { layout.split({ line(6, 9) }, 20) })
+      assert.are.same({ 1, 5 }, { layout.split({ line(1, 1) }, 20) })
     end)
 
     it("keeps the table as short as it can over all the lines", function()
@@ -39,8 +49,8 @@ describe("lib/layout.lua", function()
       assert.are.same({ 2, 4 }, { layout.split({ line(4, 1), line(1, 4), line(1, 1) }, 6) })
     end)
 
-    it("leaves the spare columns to the ingredients when any share will do", function()
-      assert.are.same({ 1, 7 }, { layout.split({ line(1, 1) }, 8) })
+    it("prefers the fewest product columns when any share will do", function()
+      assert.are.same({ 1, 5 }, { layout.split({ line(1, 1) }, 8) })
     end)
 
     it("copes with no lines and with too few columns", function()

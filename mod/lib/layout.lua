@@ -2,7 +2,8 @@
 -- (ui/base/compact_dialog.lua). Plain Lua, so they run under busted. The window has
 -- a fixed width and its table does not scroll sideways, so what goes on a line has
 -- to fit: the room left for item buttons is shared between the product and the
--- ingredient columns of a block.
+-- ingredient columns of a block, with at most MAX_PRODUCT_COLUMNS of the first and
+-- MAX_INGREDIENT_COLUMNS of the second, so a wide screen does not stretch the lines.
 local M = {}
 
 -- The window: a share of the screen, and where it opens. Both are the reference's
@@ -20,6 +21,10 @@ local TABLE_SPACING = 12
 local BUTTON_SPACING = 4
 -- Always at least one column each for the products and the ingredients.
 local MIN_COLUMNS = 2
+-- At most this many columns of item buttons, however wide the window is. A recipe
+-- has few products and more ingredients, hence the unequal caps.
+M.MAX_PRODUCT_COLUMNS = 3
+M.MAX_INGREDIENT_COLUMNS = 5
 
 -- The width of a line's first cell, for its checkbox and its recipe icon.
 M.CHECK_WIDTH = 22
@@ -55,23 +60,24 @@ local function rows_of(count, columns)
 end
 
 -- Shares `columns` item columns between products and ingredients so that the table
--- is as short as it can be. `lines` is a list of { products = n, ingredients = n },
--- the buttons of each line. Returns the column counts: products, ingredients. Of
--- the shares that are equally short, the one with the fewest product columns.
+-- is as short as it can be, within the caps above: columns beyond them stay empty.
+-- `lines` is a list of { products = n, ingredients = n }, the buttons of each line.
+-- Returns the column counts: products, ingredients. Of the shares that are equally
+-- short, the one with the fewest product columns.
 function M.split(lines, columns)
   columns = math.max(columns, MIN_COLUMNS)
-  local best_height, best_products = math.huge, 1
-  for products = 1, columns - 1 do
-    local ingredients = columns - products
+  local best_height, best_products, best_ingredients = math.huge, 1, 1
+  for products = 1, math.min(M.MAX_PRODUCT_COLUMNS, columns - 1) do
+    local ingredients = math.min(M.MAX_INGREDIENT_COLUMNS, columns - products)
     local height = 0
     for _, line in ipairs(lines) do
       height = height + math.max(rows_of(line.products, products), rows_of(line.ingredients, ingredients))
     end
     if height < best_height then
-      best_height, best_products = height, products
+      best_height, best_products, best_ingredients = height, products, ingredients
     end
   end
-  return best_products, columns - best_products
+  return best_products, best_ingredients
 end
 
 return M
