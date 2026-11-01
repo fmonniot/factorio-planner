@@ -23,12 +23,18 @@ fn a_taken_tcp_port_fails_with_a_clear_message_and_a_non_zero_exit() {
 
 #[test]
 fn a_taken_udp_port_fails_with_a_clear_message_and_a_non_zero_exit() {
-    let taken = UdpSocket::bind("127.0.0.1:0").unwrap();
-    let port = taken.local_addr().unwrap().port().to_string();
+    // The TCP port of the same number must be free, or the error would be about TCP.
+    let (_taken, port) = loop {
+        let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let port = udp.local_addr().unwrap().port();
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            break (udp, port.to_string());
+        }
+    };
     let output = bridge(&["--bridge-port", &port]);
     assert_eq!(output.status.code(), Some(1));
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("UDP") && stderr.contains("--bridge-port"), "{stderr}");
+    assert!(stderr.contains("(UDP,") && stderr.contains("--bridge-port"), "{stderr}");
 }
 
 #[test]

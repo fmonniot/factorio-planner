@@ -12,7 +12,7 @@ use std::time::{Duration, Instant};
 
 use bridge_lib::cli::Config;
 use bridge_lib::protocol::{MAX_FRAME_BYTES, MAX_SNAPSHOT_BYTES};
-use bridge_lib::server::{Server, ShutdownHandle};
+use bridge_lib::server::{Limits, Server, ShutdownHandle};
 use bridge_lib::ws::{encode_announce, encode_snapshot_frame};
 use serde_json::Value;
 use support::fake_mod::{FakeMod, snapshot_bytes};
@@ -42,7 +42,12 @@ struct Rig {
 
 impl Rig {
     fn start() -> Self {
+        Self::start_with(Limits::default())
+    }
+
+    fn start_with(limits: Limits) -> Self {
         let mut server = Server::bind(&config(0, 1)).expect("bind");
+        server.set_limits(limits);
         let port = server.port();
         let fake = FakeMod::new(SocketAddr::from(([127, 0, 0, 1], port)), Instant::now());
         server.set_game_port(fake.game_addr().port());
@@ -319,28 +324,31 @@ fn a_frame_above_the_frame_limit_closes_the_connection_with_1009() {
     let mut planner = rig.planner();
     rig.next(&mut planner);
 
+    // The client writes the whole 10 MB while the server has already decided: the server must keep reading what it will not
+    // use, or closing would reset the connection and the close frame would never be seen (a browser reports 1006).
     let mut frame = format!("FP01 S {A} 0000001 ").into_bytes();
     frame.resize(MAX_FRAME_BYTES + 1, b'x');
-    // The server may close while this is still being written.
-    let _ = planner.socket.send(Message::binary(frame));
+    planner
+        .socket
+        .send(Message::binary(frame))
+        .expect("the whole frame is taken");
+
     let deadline = Instant::now() + WAIT;
     let mut closed_with = None;
     while Instant::now() < deadline {
         rig.pump();
         match planner.socket.read() {
             Ok(Message::Close(frame)) => {
-                closed_with = frame.map(|f| f.code);
+                closed_with = Some(frame.map(|f| f.code));
                 break;
             }
             Ok(_) => {}
             Err(Error::Io(e)) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
-            // The server may drop the socket right after its close frame, so the close can be lost to a reset.
-            Err(_) => break,
+            Err(e) => panic!("the connection ended without the close frame: {e}"),
         }
     }
-    if let Some(code) = closed_with {
-        assert_eq!(code, CloseCode::Size);
-    }
+    assert_eq!(closed_with, Some(Some(CloseCode::Size)), "a close frame with code 1009");
+
     // Another planner is served as before, and the bridge holds nothing.
     let mut again = rig.planner();
     let status = rig.next(&mut again);
@@ -463,13 +471,118 @@ fn a_restarted_bridge_holds_nothing_and_a_restored_snapshot_costs_no_datagram() 
 
 #[test]
 fn the_status_follows_the_mod_when_the_game_goes_quiet() {
-    let mut rig = Rig::start();
+    // QUIET_AFTER is 15 s in the protocol; one second shows the same flip. Pings are 5 s apart, so the pause is what matters.
+    let mut rig = Rig::start_with(Limits {
+        quiet_after: Duration::from_secs(1),
+        ..Limits::default()
+    });
     let mut planner = rig.planner();
     rig.next(&mut planner);
     rig.status_where(&mut planner, "the mod is heard", |s| s["mod"]["link"] == "connected");
-    // A paused game neither polls nor answers. The link turns quiet after QUIET_AFTER (15 s).
     rig.fake.pause();
     rig.status_where(&mut planner, "the link is quiet", |s| s["mod"]["link"] == "quiet");
+}
+
+// -------------------------------------------------------------------------------------------------
+// Limits
+// -------------------------------------------------------------------------------------------------
+
+#[test]
+fn origins_match_in_canonical_form_only() {
+    let rig = Rig::start();
+    // Case and the default port do not matter ...
+    drop(rig.connect(Some("HTTPS://Planner.TEST:443")).expect("the same origin"));
+    // ... another port, a subdomain or a suffix is another origin.
+    for origin in [
+        "https://planner.test:444",
+        "https://x.planner.test",
+        "https://planner.test.evil",
+        "null",
+    ] {
+        assert!(
+            matches!(rig.connect(Some(origin)), Err(Error::Http(r)) if r.status().as_u16() == 403),
+            "{origin}"
+        );
+    }
+}
+
+#[test]
+fn connections_beyond_the_cap_are_closed_and_slots_come_back() {
+    let rig = Rig::start_with(Limits {
+        max_connections: 2,
+        ..Limits::default()
+    });
+    let planner = rig.planner();
+    // A client that connects and never speaks holds a slot too, before any handshake.
+    let idle = TcpStream::connect(("127.0.0.1", rig.port)).unwrap();
+    // Wait until the server has counted both.
+    let mut refused = false;
+    for _ in 0..200 {
+        if rig.connect(Some(ORIGIN)).is_err() {
+            refused = true;
+            break;
+        }
+        thread::sleep(Duration::from_millis(10));
+    }
+    assert!(refused, "a third connection must be refused");
+
+    drop(idle);
+    let deadline = Instant::now() + WAIT;
+    loop {
+        if rig.connect(Some(ORIGIN)).is_ok() {
+            break;
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the slot of the closed connection never came back"
+        );
+        thread::sleep(Duration::from_millis(20));
+    }
+    drop(planner);
+}
+
+#[test]
+fn a_planner_that_stops_reading_is_dropped_and_the_others_are_not_held_up() {
+    let mut rig = Rig::start_with(Limits {
+        outbox_capacity: 1000,
+        write_timeout: Duration::from_secs(1),
+        ..Limits::default()
+    });
+    let (mut frozen, mut active) = (rig.planner(), rig.planner());
+    rig.next(&mut frozen);
+    rig.next(&mut active);
+
+    // Every announce with a new id changes the status, and every status goes to both planners. `frozen` reads none of them.
+    let last = 30_000_u64;
+    for batch in 0..(last / 50) {
+        for i in 1..=50 {
+            active.send_text(&encode_announce(&id(&format!("{:016x}", batch * 50 + i))));
+        }
+        while let Some(message) = active.read() {
+            drop(message);
+        }
+        rig.pump();
+    }
+    // The bridge was never held up by `frozen`: `active` sees the last status.
+    let wanted = format!("{last:016x}");
+    rig.status_where(&mut active, "the last announce arrived", |s| {
+        s["newest"] == wanted.as_str()
+    });
+
+    // `frozen` was dropped: after the messages already in its socket, its connection ends instead of staying open for ever.
+    let deadline = Instant::now() + WAIT;
+    loop {
+        match frozen.socket.read() {
+            Ok(Message::Close(_)) => break,
+            Ok(_) => {}
+            Err(Error::Io(e)) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
+            Err(_) => break,
+        }
+        assert!(
+            Instant::now() < deadline,
+            "the connection of a planner that stopped reading stayed open"
+        );
+    }
 }
 
 // -------------------------------------------------------------------------------------------------
@@ -490,14 +603,21 @@ fn a_taken_tcp_port_is_an_actionable_error() {
 
 #[test]
 fn a_taken_udp_port_is_an_actionable_error() {
-    let taken = UdpSocket::bind("127.0.0.1:0").unwrap();
-    let port = taken.local_addr().unwrap().port();
+    // The TCP port of the same number must be free, or the error would be about TCP.
+    let (taken, port) = loop {
+        let udp = UdpSocket::bind("127.0.0.1:0").unwrap();
+        let port = udp.local_addr().unwrap().port();
+        if TcpListener::bind(("127.0.0.1", port)).is_ok() {
+            break (udp, port);
+        }
+    };
     let error = Server::bind(&config(port, 1))
         .err()
         .expect("the port is taken")
         .to_string();
     assert!(error.contains(&port.to_string()) && error.contains("UDP"), "{error}");
     assert!(error.contains("--bridge-port"), "{error}");
+    drop(taken);
 }
 
 #[test]

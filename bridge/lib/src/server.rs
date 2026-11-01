@@ -14,10 +14,11 @@
 use std::collections::{HashMap, VecDeque};
 use std::fmt;
 use std::io;
-use std::net::{Ipv4Addr, SocketAddr, TcpListener, TcpStream, UdpSocket};
+use std::io::Read;
+use std::net::{Ipv4Addr, Shutdown, SocketAddr, TcpListener, TcpStream, UdpSocket};
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{self, Receiver, Sender};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::sync::mpsc::{self, Receiver, Sender, SyncSender, TrySendError};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
@@ -29,19 +30,48 @@ use tungstenite::protocol::{CloseFrame, WebSocketConfig};
 use tungstenite::{Message, WebSocket};
 
 use crate::bridge::{Bridge, SnapshotError};
-use crate::cli::Config;
-use crate::driver::{Driver, Step, Transport};
-use crate::protocol::{MAX_FRAME_BYTES, WS_ENVELOPE};
+use crate::cli::{Config, canonical_origin};
+use crate::driver::{Driver, Outcome, Step, Transport, classify};
+use crate::protocol::{MAX_FRAME_BYTES, QUIET_AFTER, WS_ENVELOPE};
 use crate::ws::{ErrorCode, PlannerText, parse_snapshot_frame, parse_text_frame};
 
 /// How long a connection thread waits for a frame before it looks at what the session queued for it.
 const POLL: Duration = Duration::from_millis(25);
 /// A client that has not finished the opening handshake by then is dropped.
 const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(5);
-/// A planner that does not take a frame in this time is dropped.
-const WRITE_TIMEOUT: Duration = Duration::from_secs(10);
+/// After refusing an oversized frame, how long and how many bytes of the rest of it are read and discarded, so that closing the
+/// socket does not reset the connection and take the close frame with it.
+const LINGER: Duration = Duration::from_secs(5);
+const LINGER_BYTES: usize = 32 * 1024 * 1024;
+/// Pause after a failed `accept` (typically out of file descriptors), so that the failure does not spin a core.
+const ACCEPT_BACKOFF: Duration = Duration::from_millis(50);
 /// Tries at finding a port that is free for both TCP and UDP when the port asked for is 0.
 const PORT_ATTEMPTS: usize = 50;
+
+/// Bounds on what the server holds. The defaults suit a player's machine; tests shrink them.
+#[derive(Debug, Clone, Copy)]
+pub struct Limits {
+    /// Concurrent TCP connections, counting those still in the opening handshake. The excess is closed at once.
+    pub max_connections: usize,
+    /// Messages queued for one planner. A planner whose queue is full (its tab is frozen, or its thread is stuck in a write) is
+    /// dropped instead of holding memory for ever.
+    pub outbox_capacity: usize,
+    /// A planner that does not take a frame in this time is dropped.
+    pub write_timeout: Duration,
+    /// How long the mod may be silent before the link is `quiet` ([`QUIET_AFTER`], 15 s, in the protocol).
+    pub quiet_after: Duration,
+}
+
+impl Default for Limits {
+    fn default() -> Self {
+        Self {
+            max_connections: 32,
+            outbox_capacity: 64,
+            write_timeout: Duration::from_secs(10),
+            quiet_after: QUIET_AFTER,
+        }
+    }
+}
 
 /// Why the server could not start.
 #[derive(Debug)]
@@ -81,7 +111,7 @@ enum Event {
     /// A datagram from the mod.
     Datagram(Vec<u8>),
     /// A planner finished its handshake. `outbox` is how the session talks to it.
-    Opened { conn: u64, outbox: Sender<Out> },
+    Opened { conn: u64, outbox: SyncSender<String> },
     /// A planner sent a frame.
     Frame { conn: u64, frame: Frame },
     /// A planner's connection ended.
@@ -95,11 +125,6 @@ enum Event {
 /// A frame from a planner.
 enum Frame {
     Binary(Vec<u8>),
-    Text(String),
-}
-
-/// What the session asks a connection thread to send.
-enum Out {
     Text(String),
 }
 
@@ -125,6 +150,7 @@ pub struct Server {
     udp: UdpSocket,
     game: SocketAddr,
     origins: Vec<String>,
+    limits: Limits,
     stop: Arc<AtomicBool>,
     events: Sender<Event>,
     inbox: Receiver<Event>,
@@ -146,7 +172,8 @@ impl Server {
             listener,
             udp,
             game: SocketAddr::from((Ipv4Addr::LOCALHOST, config.game_port)),
-            origins: config.origins.clone(),
+            origins: config.origins.iter().filter_map(|o| canonical_origin(o)).collect(),
+            limits: Limits::default(),
             stop: Arc::new(AtomicBool::new(false)),
             events,
             inbox,
@@ -162,6 +189,11 @@ impl Server {
     /// Changes the port datagrams are sent to. For tests, where the game's port is not known before the bridge's.
     pub fn set_game_port(&mut self, game_port: u16) {
         self.game = SocketAddr::from((Ipv4Addr::LOCALHOST, game_port));
+    }
+
+    /// Replaces the [`Limits`]. For tests.
+    pub fn set_limits(&mut self, limits: Limits) {
+        self.limits = limits;
     }
 
     /// A handle that stops [`Server::run`].
@@ -195,6 +227,7 @@ impl Server {
             udp,
             game,
             origins,
+            limits,
             stop,
             events,
             inbox,
@@ -206,7 +239,7 @@ impl Server {
             let (events, stop, origins) = (events.clone(), Arc::clone(&stop), Arc::new(origins));
             thread::Builder::new()
                 .name("accept".into())
-                .spawn(move || accept_loop(&listener, &origins, &stop, &events))?
+                .spawn(move || accept_loop(&listener, &origins, limits, &stop, &events))?
         };
         let reader = {
             let (socket, events, stop) = (udp.try_clone()?, events.clone(), Arc::clone(&stop));
@@ -216,7 +249,7 @@ impl Server {
         };
         drop(events);
 
-        let result = Session::new(Queue::new(udp, game)).run(&inbox);
+        let result = Session::new(Queue::new(udp, game), limits.quiet_after).run(&inbox);
 
         // Wake the two threads that sleep in a system call, and wait for them, so that the ports are free when this returns.
         stop.store(true, Ordering::SeqCst);
@@ -274,6 +307,11 @@ fn bind_any_port() -> Result<(TcpListener, UdpSocket), BindError> {
 // ---------------------------------------------------------------------------------------------
 
 /// The mod's datagrams, handed over by the UDP reader thread, and the socket to send on.
+///
+/// The server cannot use [`UdpTransport`](crate::driver::UdpTransport) as it is: the session thread has to sleep until the
+/// bridge's next timer *or* a planner's frame, which one thread cannot do on a blocking UDP read and a channel at once, and
+/// polling both would wake it many times a second. So a thread blocks on the socket and wakes the session through the same
+/// channel as the planners; only the error classification ([`classify`]) is shared with the library's transport.
 struct Queue {
     socket: UdpSocket,
     game: SocketAddr,
@@ -302,13 +340,15 @@ impl Transport for Queue {
 
 struct Session {
     driver: Driver<Queue>,
-    planners: HashMap<u64, Sender<Out>>,
+    planners: HashMap<u64, SyncSender<String>>,
 }
 
 impl Session {
-    fn new(queue: Queue) -> Self {
+    fn new(queue: Queue, quiet_after: Duration) -> Self {
+        let mut bridge = Bridge::new(Instant::now());
+        bridge.set_quiet_after(quiet_after);
         Self {
-            driver: Driver::new(Bridge::new(Instant::now()), queue),
+            driver: Driver::new(bridge, queue),
             planners: HashMap::new(),
         }
     }
@@ -333,7 +373,12 @@ impl Session {
                 match event {
                     Event::Shutdown => return Ok(()),
                     Event::UdpFailed(e) => return Err(e),
-                    event => self.handle(event),
+                    Event::Datagram(datagram) => self.driver.transport_mut().inbox.push_back(datagram),
+                    Event::Opened { conn, outbox } => self.on_opened(conn, outbox),
+                    Event::Closed { conn } => {
+                        self.planners.remove(&conn);
+                    }
+                    Event::Frame { conn, frame } => self.on_frame(conn, frame),
                 }
             }
             self.step()?;
@@ -347,35 +392,25 @@ impl Session {
         Ok(())
     }
 
-    fn handle(&mut self, event: Event) {
+    fn on_opened(&mut self, conn: u64, outbox: SyncSender<String>) {
+        // The first message of a connection is the status, before anything else.
+        let status = self.driver.bridge().status(Instant::now()).to_json();
+        if outbox.try_send(status).is_ok() {
+            self.planners.insert(conn, outbox);
+        }
+    }
+
+    fn on_frame(&mut self, conn: u64, frame: Frame) {
         let now = Instant::now();
-        match event {
-            Event::Datagram(datagram) => self.driver.transport_mut().inbox.push_back(datagram),
-            Event::Opened { conn, outbox } => {
-                // The first message of a connection is the status, before anything else.
-                let status = self.driver.bridge().status(now).to_json();
-                if outbox.send(Out::Text(status)).is_ok() {
-                    self.planners.insert(conn, outbox);
-                }
-            }
-            Event::Closed { conn } => {
-                self.planners.remove(&conn);
-            }
-            Event::Frame {
-                conn,
-                frame: Frame::Binary(frame),
-            } => self.on_snapshot(now, conn, frame),
-            Event::Frame {
-                conn,
-                frame: Frame::Text(text),
-            } => match parse_text_frame(&text) {
+        match frame {
+            Frame::Binary(frame) => self.on_snapshot(now, conn, frame),
+            Frame::Text(text) => match parse_text_frame(&text) {
                 Ok(PlannerText::Announce { id }) => {
                     let step = self.driver.announce(now, id);
                     self.publish(step);
                 }
                 Err(code) => self.reply_error(conn, code),
             },
-            Event::UdpFailed(_) | Event::Shutdown => {}
         }
     }
 
@@ -396,7 +431,7 @@ impl Session {
     /// An `error` goes only to the connection that sent the offending frame.
     fn reply_error(&mut self, conn: u64, code: ErrorCode) {
         if let Some(outbox) = self.planners.get(&conn)
-            && outbox.send(Out::Text(code.to_json())).is_err()
+            && !queue(conn, outbox, code.to_json())
         {
             self.planners.remove(&conn);
         }
@@ -406,8 +441,20 @@ impl Session {
     fn publish(&mut self, step: Step) {
         if let Some(status) = step.status {
             let json = status.to_json();
-            self.planners
-                .retain(|_, outbox| outbox.send(Out::Text(json.clone())).is_ok());
+            self.planners.retain(|&conn, outbox| queue(conn, outbox, json.clone()));
+        }
+    }
+}
+
+/// Queues a message for a planner without ever waiting. False if the planner is gone or too far behind, and must be dropped:
+/// dropping its sender makes its thread close the connection once it has written what is queued.
+fn queue(conn: u64, outbox: &SyncSender<String>, message: String) -> bool {
+    match outbox.try_send(message) {
+        Ok(()) => true,
+        Err(TrySendError::Disconnected(_)) => false,
+        Err(TrySendError::Full(_)) => {
+            eprintln!("dropped planner {conn}: it stopped reading its messages");
+            false
         }
     }
 }
@@ -417,21 +464,20 @@ impl Session {
 // ---------------------------------------------------------------------------------------------
 
 fn udp_loop(socket: &UdpSocket, stop: &AtomicBool, events: &Sender<Event>) {
-    use io::ErrorKind::{ConnectionRefused, ConnectionReset, Interrupted};
     let mut buffer = vec![0_u8; 65_536];
     loop {
-        let received = socket.recv_from(&mut buffer);
+        let received = classify(socket.recv_from(&mut buffer).map(|(n, _)| n));
         if stop.load(Ordering::SeqCst) {
             return;
         }
         match received {
-            Ok((n, _)) => {
+            Ok(Outcome::Datagram(n)) => {
                 if events.send(Event::Datagram(buffer[..n].to_vec())).is_err() {
                     return;
                 }
             }
-            // The game's port was closed (Windows reports it on the next receive) or a signal came in: it means nothing.
-            Err(e) if matches!(e.kind(), ConnectionReset | ConnectionRefused | Interrupted) => {}
+            // Nothing to read, or an error that means nothing (the game's port was closed, a signal came in).
+            Ok(Outcome::Empty | Outcome::Ignored) => {}
             Err(e) => {
                 let _ = events.send(Event::UdpFailed(e));
                 return;
@@ -440,19 +486,48 @@ fn udp_loop(socket: &UdpSocket, stop: &AtomicBool, events: &Sender<Event>) {
     }
 }
 
-fn accept_loop(listener: &TcpListener, origins: &Arc<Vec<String>>, stop: &AtomicBool, events: &Sender<Event>) {
-    let mut next = 0_u64;
+/// Counts a connection while it lives, from `accept` to the end of its thread.
+struct Slot(Arc<AtomicUsize>);
+
+impl Drop for Slot {
+    fn drop(&mut self) {
+        self.0.fetch_sub(1, Ordering::SeqCst);
+    }
+}
+
+fn accept_loop(
+    listener: &TcpListener,
+    origins: &Arc<Vec<String>>,
+    limits: Limits,
+    stop: &AtomicBool,
+    events: &Sender<Event>,
+) {
+    let (mut next, active) = (0_u64, Arc::new(AtomicUsize::new(0)));
     for stream in listener.incoming() {
         if stop.load(Ordering::SeqCst) {
             return;
         }
-        let Ok(stream) = stream else { continue };
+        let stream = match stream {
+            Ok(stream) => stream,
+            Err(e) => {
+                eprintln!("accept failed: {e}");
+                thread::sleep(ACCEPT_BACKOFF);
+                continue;
+            }
+        };
+        if active.fetch_add(1, Ordering::SeqCst) >= limits.max_connections {
+            active.fetch_sub(1, Ordering::SeqCst);
+            eprintln!("refused a connection: {} are open already", limits.max_connections);
+            continue;
+        }
+        let slot = Slot(Arc::clone(&active));
         next += 1;
         let (conn, origins, events) = (next, Arc::clone(origins), events.clone());
-        // A failure to start a thread drops this one connection; the next one may do better.
-        let _ = thread::Builder::new()
-            .name(format!("planner-{conn}"))
-            .spawn(move || serve_connection(conn, stream, &origins, &events));
+        // If the thread cannot start, the closure is dropped with its slot and its stream, and the next connection may do better.
+        let _ = thread::Builder::new().name(format!("planner-{conn}")).spawn(move || {
+            let _slot = slot;
+            serve_connection(conn, stream, &origins, limits, &events);
+        });
     }
 }
 
@@ -471,7 +546,7 @@ fn websocket_config() -> WebSocketConfig {
 fn check_origin(request: &Request, response: Response, origins: &[String]) -> Result<Response, ErrorResponse> {
     let origin = request.headers().get("origin").map(|v| v.to_str().unwrap_or(""));
     match origin {
-        Some(origin) if !origins.iter().any(|allowed| allowed == origin) => {
+        Some(origin) if !canonical_origin(origin).is_some_and(|o| origins.contains(&o)) => {
             eprintln!("refused a connection from the origin {origin:?}; allow it with --origin if it is yours");
             let mut refusal = ErrorResponse::new(Some("origin not allowed\n".to_owned()));
             *refusal.status_mut() = StatusCode::FORBIDDEN;
@@ -481,10 +556,10 @@ fn check_origin(request: &Request, response: Response, origins: &[String]) -> Re
     }
 }
 
-fn serve_connection(conn: u64, stream: TcpStream, origins: &[String], events: &Sender<Event>) {
+fn serve_connection(conn: u64, stream: TcpStream, origins: &[String], limits: Limits, events: &Sender<Event>) {
     let _ = stream.set_nodelay(true);
     if stream.set_read_timeout(Some(HANDSHAKE_TIMEOUT)).is_err()
-        || stream.set_write_timeout(Some(WRITE_TIMEOUT)).is_err()
+        || stream.set_write_timeout(Some(limits.write_timeout)).is_err()
     {
         return;
     }
@@ -496,7 +571,7 @@ fn serve_connection(conn: u64, stream: TcpStream, origins: &[String], events: &S
     if socket.get_ref().set_read_timeout(Some(POLL)).is_err() {
         return;
     }
-    let (outbox, queued) = mpsc::channel();
+    let (outbox, queued) = mpsc::sync_channel(limits.outbox_capacity.max(1));
     if events.send(Event::Opened { conn, outbox }).is_err() {
         return;
     }
@@ -505,11 +580,11 @@ fn serve_connection(conn: u64, stream: TcpStream, origins: &[String], events: &S
 }
 
 /// Reads frames for the session and writes what it queued, until either side ends.
-fn converse(conn: u64, socket: &mut WebSocket<TcpStream>, queued: &Receiver<Out>, events: &Sender<Event>) {
+fn converse(conn: u64, socket: &mut WebSocket<TcpStream>, queued: &Receiver<String>, events: &Sender<Event>) {
     loop {
         loop {
             match queued.try_recv() {
-                Ok(Out::Text(text)) => {
+                Ok(text) => {
                     if socket.send(Message::text(text)).is_err() {
                         return;
                     }
@@ -546,12 +621,31 @@ fn converse(conn: u64, socket: &mut WebSocket<TcpStream>, queued: &Receiver<Out>
                     reason: "frame too large".into(),
                 }));
                 let _ = socket.flush();
+                linger(socket.get_ref());
                 return;
             }
             Err(_) => return,
         };
         if events.send(Event::Frame { conn, frame }).is_err() {
             return;
+        }
+    }
+}
+
+/// Ends a connection whose peer may still be sending: closes our side after the close frame, then reads and discards what
+/// arrives, for a bounded time and a bounded number of bytes. Closing a socket with unread data resets the connection, and the
+/// reset can destroy the close frame before the peer reads it (a browser then reports 1006 instead of 1009).
+fn linger(stream: &TcpStream) {
+    let _ = stream.shutdown(Shutdown::Write);
+    let (deadline, mut left, mut buffer) = (Instant::now() + LINGER, LINGER_BYTES, vec![0_u8; 64 * 1024]);
+    let mut reader = stream;
+    while left > 0 && Instant::now() < deadline {
+        match reader.read(&mut buffer) {
+            Ok(0) => return,
+            Ok(n) => left = left.saturating_sub(n),
+            // The stream's read timeout is POLL: keep waiting until the deadline.
+            Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}
+            Err(_) => return,
         }
     }
 }

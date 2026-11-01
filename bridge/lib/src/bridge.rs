@@ -148,6 +148,7 @@ pub struct Bridge {
     transfer: Option<Transfer>,
     out: VecDeque<Vec<u8>>,
     last_status: Option<Status>,
+    quiet_after: Duration,
 }
 
 impl Bridge {
@@ -182,9 +183,16 @@ impl Bridge {
             transfer: None,
             out: VecDeque::new(),
             last_status: None,
+            quiet_after: QUIET_AFTER,
         };
         bridge.send_scheduled_ping(now);
         bridge
+    }
+
+    /// Changes how long the mod may stay silent before the link is `quiet` (`QUIET_AFTER`, 15 s). For tests, which cannot wait
+    /// that long; the release bridge keeps the protocol's value.
+    pub fn set_quiet_after(&mut self, quiet_after: Duration) {
+        self.quiet_after = quiet_after;
     }
 
     // -----------------------------------------------------------------------------------------
@@ -569,9 +577,9 @@ impl Bridge {
         // The link turns `quiet` at this moment, which changes the status.
         if self.mismatch.is_none()
             && let Some(heard) = self.last_heard
-            && heard + QUIET_AFTER > now
+            && heard + self.quiet_after > now
         {
-            due = due.min(heard + QUIET_AFTER);
+            due = due.min(heard + self.quiet_after);
         }
         due
     }
@@ -613,7 +621,7 @@ impl Bridge {
         }
         match self.last_heard {
             None => Link::None,
-            Some(heard) if now.saturating_duration_since(heard) < QUIET_AFTER => Link::Connected,
+            Some(heard) if now.saturating_duration_since(heard) < self.quiet_after => Link::Connected,
             Some(_) => Link::Quiet,
         }
     }

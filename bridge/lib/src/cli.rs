@@ -119,19 +119,34 @@ fn parse_port(flag: &str, text: String) -> Result<u16, String> {
     }
 }
 
-/// Checks that `text` looks like an origin and drops a trailing slash, so that it compares equal to what browsers send.
+/// Checks that `text` is an origin and gives its canonical form.
 fn normalize_origin(text: &str) -> Result<String, String> {
-    let trimmed = text.trim_end_matches('/');
-    let host = trimmed
-        .strip_prefix("http://")
-        .or_else(|| trimmed.strip_prefix("https://"))
-        .ok_or_else(|| format!("--origin wants an origin like http://localhost:5173, not {text:?}"))?;
-    if host.is_empty() || host.contains(['/', '?', '#', ' ']) {
-        return Err(format!(
-            "--origin wants scheme, host and port only (like http://localhost:5173), not {text:?}"
-        ));
+    canonical_origin(text)
+        .ok_or_else(|| format!("--origin wants scheme, host and port only, like http://localhost:5173, not {text:?}"))
+}
+
+/// The canonical form of a web origin, so that `HTTPS://Me.github.io:443` and `https://me.github.io` compare equal: the scheme
+/// and host in lower case, the scheme's default port (80, 443) dropped, a trailing slash dropped. `None` if `text` is not
+/// `http://` or `https://` followed by a host and an optional port (a path, a query, credentials or the literal `null` that
+/// browsers send for opaque origins are not). This is the only normalization: there is no wildcard and no suffix match.
+#[must_use]
+pub fn canonical_origin(text: &str) -> Option<String> {
+    let (scheme, rest) = text.trim_end_matches('/').split_once("://")?;
+    let scheme = scheme.to_ascii_lowercase();
+    let default_port = match scheme.as_str() {
+        "http" => ":80",
+        "https" => ":443",
+        _ => return None,
+    };
+    if rest.is_empty() || rest.contains(['/', '?', '#', '@']) || rest.chars().any(char::is_whitespace) {
+        return None;
     }
-    Ok(trimmed.to_owned())
+    let rest = rest.to_ascii_lowercase();
+    let host = rest.strip_suffix(default_port).unwrap_or(&rest);
+    if host.is_empty() || host.starts_with(':') {
+        return None;
+    }
+    Some(format!("{scheme}://{host}"))
 }
 
 #[cfg(test)]
@@ -174,6 +189,58 @@ mod tests {
             panic!("expected Run")
         };
         assert_eq!(config.origins, ["http://a.test", "https://b.test:8443"]);
+    }
+
+    #[test]
+    fn origins_are_compared_in_a_canonical_form() {
+        let canonical = |t: &str| canonical_origin(t);
+        assert_eq!(
+            canonical("HTTPS://Me.GitHub.io:443"),
+            Some("https://me.github.io".to_owned())
+        );
+        assert_eq!(
+            canonical("https://me.github.io/"),
+            Some("https://me.github.io".to_owned())
+        );
+        assert_eq!(canonical("http://LOCALHOST:80"), Some("http://localhost".to_owned()));
+        // Another scheme's default port is a different origin.
+        assert_eq!(canonical("http://a.test:443"), Some("http://a.test:443".to_owned()));
+        assert_eq!(canonical("https://a.test:80"), Some("https://a.test:80".to_owned()));
+        assert_eq!(
+            canonical("http://localhost:5173"),
+            Some("http://localhost:5173".to_owned())
+        );
+        assert_eq!(canonical("http://[::1]:5173"), Some("http://[::1]:5173".to_owned()));
+        // Not origins, or not ones that can match anything.
+        for bad in [
+            "null",
+            "",
+            "ftp://a.test",
+            "http://",
+            "http://:80",
+            "http://a.test/x",
+            "http://u@a.test",
+            "http://a b",
+        ] {
+            assert_eq!(canonical(bad), None, "{bad:?}");
+        }
+        // Exact match otherwise: no subdomain or suffix is folded in.
+        assert_ne!(
+            canonical("https://evil.me.github.io"),
+            canonical("https://me.github.io")
+        );
+        assert_ne!(
+            canonical("https://me.github.io.evil.test"),
+            canonical("https://me.github.io")
+        );
+    }
+
+    #[test]
+    fn an_origin_flag_is_stored_canonical() {
+        let Ok(Command::Run(config)) = parse(&["--origin", "HTTPS://Me.github.io:443"]) else {
+            panic!("expected Run")
+        };
+        assert_eq!(config.origins, ["https://me.github.io"]);
     }
 
     #[test]
