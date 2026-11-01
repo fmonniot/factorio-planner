@@ -33,6 +33,19 @@ impl ErrorCode {
         }
     }
 
+    /// The code named by `code`, as written in an `error` message.
+    #[must_use]
+    pub fn from_code(code: &str) -> Option<Self> {
+        [
+            Self::BadEnvelope,
+            Self::TooLarge,
+            Self::ProtocolMismatch,
+            Self::BadMessage,
+        ]
+        .into_iter()
+        .find(|c| c.as_str() == code)
+    }
+
     /// The JSON text frame that carries the code.
     #[must_use]
     pub fn to_json(self) -> String {
@@ -51,7 +64,7 @@ pub struct SnapshotFrame<'a> {
 
 fn envelope_layout_ok(frame: &[u8]) -> bool {
     frame.len() >= WS_ENVELOPE
-        && &frame[..4] == b"FP01"
+        && frame[..4] == *format!("FP{PROTOCOL_VERSION:02}").as_bytes()
         && frame[4] == b' '
         && frame[5] == b'S'
         && frame[6] == b' '
@@ -155,4 +168,22 @@ pub fn parse_text_frame(text: &str) -> Result<PlannerText, ErrorCode> {
         .and_then(|s| s.parse().ok())
         .ok_or(ErrorCode::BadMessage)?;
     Ok(PlannerText::Announce { id })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn error_codes_round_trip_through_their_names() {
+        for code in [
+            ErrorCode::BadEnvelope,
+            ErrorCode::TooLarge,
+            ErrorCode::ProtocolMismatch,
+            ErrorCode::BadMessage,
+        ] {
+            assert_eq!(ErrorCode::from_code(code.as_str()), Some(code));
+        }
+        assert_eq!(ErrorCode::from_code("nope"), None);
+    }
 }

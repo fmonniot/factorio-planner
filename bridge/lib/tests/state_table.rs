@@ -6,7 +6,7 @@ mod support;
 
 use std::time::{Duration, Instant};
 
-use bridge_lib::protocol::{NO_PROGRESS_LIMIT, SnapshotId};
+use bridge_lib::protocol::NO_PROGRESS_LIMIT;
 use bridge_lib::{Bridge, Link, Phase, SnapshotError, TransferState};
 use support::{Clock, Sent, drain, id};
 
@@ -508,8 +508,10 @@ fn a_report_an_ack_or_a_refusal_refills_the_budget_but_a_ready_does_not() {
         rig.snapshot(A, 10).unwrap();
         rig.drain();
         let hold = if name.starts_with("hello") { 600 } else { 1_000 };
-        rig.ms(hold);
-        assert!(rig.drain().probes.is_empty());
+        // The rest of the burst (probes at 250 and 500 ms) leaves during the wait: the budget is spent before the answer.
+        let burst = rig.ms(hold);
+        assert_eq!(burst.probes.len(), 2, "{name}");
+        assert!(rig.drain().is_empty(), "{name}");
         rig.hear(&answer);
         let sent = rig.drain();
         // The answer may bring a probe at once (the last was 250 ms ago or more) and more follow.
@@ -528,32 +530,19 @@ fn a_report_an_ack_or_a_refusal_refills_the_budget_but_a_ready_does_not() {
 
 #[test]
 fn a_hello_more_than_a_second_after_the_last_probe_refills_the_budget() {
-    let mut rig = Rig::new();
-    rig.connect();
-    rig.snapshot(A, 10).unwrap();
-    rig.drain();
-    // The burst ends with a probe at 500 ms. A hello 1,000 ms later (1,500 ms in all) is not "more than" 1,000 ms after it.
-    rig.ms(1_500);
-    rig.hello(B, 0, NONE);
-    assert!(rig.drain().probes.is_empty());
-    assert!(rig.secs(2).probes.is_empty());
-    // One millisecond more is.
-    rig.ms(1);
-    rig.hello(B, 0, NONE);
-    let mut probes = rig.drain().probes.len();
-    probes += rig.secs(2).probes.len();
-    assert_eq!(probes, 3);
-}
-
-#[test]
-fn a_ready_ends_probing_for_good() {
-    let mut rig = Rig::new();
-    rig.connect();
-    rig.snapshot(A, 10).unwrap();
-    rig.drain();
-    rig.hear(&format!("FP01 R {A}"));
-    assert_eq!(rig.phase(), Phase::Awaiting, "a single-chunk window is out");
-    assert!(rig.secs(10).probes.is_empty());
+    // The burst ends with a probe at 500 ms. A hello exactly 1,000 ms later is not "more than" 1,000 ms after it; one
+    // millisecond later it is.
+    for (hello_at, refills) in [(1_500, false), (1_501, true)] {
+        let mut rig = Rig::new();
+        rig.connect();
+        rig.snapshot(A, 10).unwrap();
+        rig.drain();
+        let burst = rig.ms(hello_at);
+        assert_eq!(burst.probes.len(), 2, "the rest of the burst");
+        rig.hello(B, 0, NONE);
+        let probes = rig.drain().probes.len() + rig.secs(2).probes.len();
+        assert_eq!(probes, if refills { 3 } else { 0 }, "hello at {hello_at} ms");
+    }
 }
 
 #[test]
@@ -574,7 +563,7 @@ fn eight_probe_bursts_without_a_ready_fail_the_transfer_with_no_progress() {
     rig.snapshot(A, 10).unwrap();
     rig.drain();
     let mut bursts = 1;
-    rig.secs(2);
+    assert_eq!(rig.secs(2).probes.len(), 2, "the rest of the first burst");
     while rig.phase() == Phase::Probing {
         assert!(bursts <= NO_PROGRESS_LIMIT, "gave up too late");
         // The mod is up and answers hello, but never says ready.
@@ -777,6 +766,24 @@ fn reports_for_another_round_or_id_or_phase_are_ignored() {
         Phase::Awaiting,
         "a duplicate of an answered report is stale"
     );
+    assert!(rig.drain().is_empty());
+}
+
+#[test]
+fn a_mod_that_keeps_sending_an_invalid_report_ends_in_failed() {
+    let mut rig = sending_rig();
+    rig.hear(&format!("FP01 R {A}"));
+    rig.run_window();
+    for n in 0..NO_PROGRESS_LIMIT {
+        assert_eq!(rig.phase(), Phase::Awaiting, "invalid report {n}");
+        // Chunk 24 is at `upto`: the mod cannot know it.
+        rig.hear(&format!("FP01 M {A} 0000 2,24"));
+        assert!(rig.drain().is_empty(), "an invalid report starts no window");
+    }
+    assert_eq!(rig.phase(), Phase::Failed);
+    assert_eq!(rig.bridge.reason(), Some("no-progress"));
+    // No ping interval resends the end-of-window forever: nothing is sent for a hello now.
+    rig.hello(NONE, 0, A);
     assert!(rig.drain().is_empty());
 }
 
@@ -1085,5 +1092,4 @@ fn snapshot_ids_are_just_names() {
     // The mod stores B, so A is not delivered, and the budget was refilled by the acks.
     assert_eq!(rig.phase(), Phase::Probing);
     assert_eq!(rig.drain().probes, vec![(id(A), 1, 10)]);
-    let _: SnapshotId = id(A);
 }

@@ -116,6 +116,13 @@ impl Transfer {
         self.window.clear();
         self.cursor = 0;
     }
+
+    /// Ends the current window and moves to a phase that sends nothing, with the reason the planner is shown (if any).
+    fn stop(&mut self, phase: Phase, reason: Option<String>) {
+        self.drop_window();
+        self.phase = phase;
+        self.reason = reason;
+    }
 }
 
 /// The session: one mod, one held snapshot, the ping schedule and the probe budget.
@@ -222,10 +229,8 @@ impl Bridge {
         // 5. The mod can take it now.
         } else if self.link(now) == Link::Connected {
             self.enter_probing(now);
-        // 6. Otherwise wait for a hello.
-        } else if let Some(t) = &mut self.transfer {
-            t.phase = Phase::Waiting;
         }
+        // 6. Otherwise the transfer stays `Waiting` (the phase `Transfer::new` gives) until a hello.
         Ok(())
     }
 
@@ -254,8 +259,7 @@ impl Bridge {
                 if let Some(t) = &mut self.transfer
                     && matches!(t.phase, Phase::Probing | Phase::Sending | Phase::Awaiting)
                 {
-                    t.drop_window();
-                    t.phase = Phase::Waiting;
+                    t.stop(Phase::Waiting, None);
                 }
             }
             Inbound::Mod(message) => {
@@ -306,9 +310,7 @@ impl Bridge {
                     && t.id == id
                     && matches!(t.phase, Phase::Probing | Phase::Sending | Phase::Awaiting)
                 {
-                    t.drop_window();
-                    t.phase = Phase::Rejected;
-                    t.reason = Some(reason);
+                    t.stop(Phase::Rejected, Some(reason));
                 }
             }
         }
@@ -334,7 +336,7 @@ impl Bridge {
         let holds_target = stored == Some(id);
         let assembles_target = assembling == Some(id);
         match phase {
-            Phase::Idle => {}
+            Phase::Idle => unreachable!("a held transfer is never idle"),
             Phase::Waiting => {
                 if holds_target {
                     self.set_delivered();
@@ -392,8 +394,14 @@ impl Bridge {
         if t.id != id || t.phase != Phase::Awaiting || t.round != Some(round) {
             return;
         }
-        // A report naming an index at or above `upto` is dropped: a correct mod never sends one.
+        // A report naming an index at or above `upto` is invalid: a correct mod never sends one. It starts no window and
+        // does not replace the previous report, but it counts as fruitless, so a mod that keeps sending one still ends in
+        // `Failed` instead of being asked again at every ping forever.
         if ranges.iter().any(|&(_, last)| last >= t.upto) {
+            t.run += 1;
+            if t.run >= NO_PROGRESS_LIMIT {
+                t.stop(Phase::Failed, Some(NO_PROGRESS_REASON.to_owned()));
+            }
             return;
         }
         // A report is fruitless when its ranges and the `upto` of the window it answers repeat the previous report's.
@@ -404,9 +412,7 @@ impl Bridge {
         t.run = if fruitless { t.run + 1 } else { 1 };
         t.previous_report = Some((ranges.to_vec(), t.upto));
         if t.run >= NO_PROGRESS_LIMIT {
-            t.drop_window();
-            t.phase = Phase::Failed;
-            t.reason = Some(NO_PROGRESS_REASON.to_owned());
+            t.stop(Phase::Failed, Some(NO_PROGRESS_REASON.to_owned()));
             return;
         }
         // If the window comes out empty, which a correct mod never causes, the bridge stays in `Awaiting`.
@@ -437,10 +443,8 @@ impl Bridge {
 
     fn set_delivered(&mut self) {
         if let Some(t) = &mut self.transfer {
-            t.drop_window();
-            t.phase = Phase::Delivered;
+            t.stop(Phase::Delivered, None);
             t.sent = t.count;
-            t.reason = None;
         }
     }
 
@@ -528,8 +532,7 @@ impl Bridge {
     /// silence measured now.
     fn send_scheduled_ping(&mut self, now: Instant) {
         self.out.push_back(encode_ping(self.newest.as_ref()));
-        let silence = now.saturating_duration_since(self.last_heard.unwrap_or(self.started));
-        let interval = (silence / PING_BACKOFF_DIVISOR).clamp(PING_INTERVAL, PING_INTERVAL_MAX);
+        let interval = (self.silence(now) / PING_BACKOFF_DIVISOR).clamp(PING_INTERVAL, PING_INTERVAL_MAX);
         self.next_ping = now + interval;
     }
 

@@ -22,8 +22,10 @@ use bridge_lib::protocol::{
 
 pub const POLL: Duration = Duration::from_millis(166);
 pub const FLUSH_AFTER: Duration = Duration::from_millis(33);
-/// The buffer cost of a datagram on top of its own size.
+/// The buffer cost of a datagram on top of its own size, from the two bursts of the spike.
 pub const OVERHEAD: usize = 92;
+/// What a small datagram may cost instead: the only small-datagram measurement is 192 B per 100 B datagram.
+pub const PESSIMISTIC_OVERHEAD: usize = 192;
 pub const BUFFER: usize = 262_144;
 
 struct Assembly {
@@ -42,6 +44,8 @@ pub struct FakeMod {
     buffered_bytes: usize,
     /// The buffer size in bytes; shrink it to force overflows.
     pub capacity: usize,
+    /// The buffer cost of each datagram on top of its size: [`OVERHEAD`] or [`PESSIMISTIC_OVERHEAD`].
+    pub overhead: usize,
     /// Datagrams above 4 KiB that a fresh socket still loses (one per doubling: 1 is the optimistic reading, 2 the pessimistic).
     pub growth_losses: usize,
     growth_left: usize,
@@ -82,6 +86,7 @@ impl FakeMod {
             buffered: VecDeque::new(),
             buffered_bytes: 0,
             capacity: BUFFER,
+            overhead: OVERHEAD,
             growth_losses: 1,
             growth_left: 1,
             paused: false,
@@ -221,11 +226,11 @@ impl FakeMod {
             self.lost_to_growth += 1;
             return;
         }
-        if self.buffered_bytes + datagram.len() + OVERHEAD > self.capacity {
+        if self.buffered_bytes + datagram.len() + self.overhead > self.capacity {
             self.lost_to_overflow += 1;
             return;
         }
-        self.buffered_bytes += datagram.len() + OVERHEAD;
+        self.buffered_bytes += datagram.len() + self.overhead;
         self.buffered.push_back(datagram);
     }
 

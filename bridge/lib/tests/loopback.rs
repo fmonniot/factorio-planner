@@ -11,7 +11,7 @@ use std::time::{Duration, Instant};
 
 use bridge_lib::driver::{Driver, Transport, UdpTransport};
 use bridge_lib::{Bridge, Link, Phase, SnapshotId, Status, TransferState};
-use support::fake_mod::{BUFFER, FakeMod, OVERHEAD, snapshot_bytes};
+use support::fake_mod::{BUFFER, FakeMod, OVERHEAD, PESSIMISTIC_OVERHEAD, snapshot_bytes};
 use support::id;
 
 /// A UDP transport that can be told how many datagrams the mod has sent, so that a read waits for exactly those.
@@ -306,7 +306,15 @@ fn reordered_datagrams_still_deliver_and_duplicates_are_dropped() {
 
 #[test]
 fn a_game_paused_mid_transfer_stalls_the_transfer_and_resumes_it_without_resending() {
+    // The protocol's buffer budget is given at 92 B per datagram and, pessimistically, at 192 B.
+    for overhead in [OVERHEAD, PESSIMISTIC_OVERHEAD] {
+        paused_for_an_hour(overhead);
+    }
+}
+
+fn paused_for_an_hour(overhead: usize) {
     let mut world = connected_world();
+    world.fake.overhead = overhead;
     world.fake.growth_losses = 0;
     world.fake.reload(world.now);
     world.send_snapshot(id(A), full_snapshot(8));
@@ -321,7 +329,10 @@ fn a_game_paused_mid_transfer_stalls_the_transfer_and_resumes_it_without_resendi
     let status = world.status();
     assert_eq!(status.module.link, Link::Quiet);
     assert_eq!(status.transfer.as_ref().unwrap().state, TransferState::Stalled);
-    assert_eq!(world.fake.lost_to_overflow, 0, "the buffer budget holds for an hour");
+    assert_eq!(
+        world.fake.lost_to_overflow, 0,
+        "the buffer budget holds for an hour at {overhead} B per datagram"
+    );
     assert!(world.fake.buffered_bytes() > sent_before, "pings piled up");
     assert!(world.fake.buffered_bytes() <= BUFFER);
     assert_eq!(world.fake.chunks_taken, chunks_before);
@@ -344,9 +355,16 @@ fn a_game_paused_mid_transfer_stalls_the_transfer_and_resumes_it_without_resendi
 
 #[test]
 fn the_buffer_budget_for_a_probe_burst_and_a_window_survives_twelve_hours_of_pause() {
-    // Worst case of the protocol's Buffer budget: a window, its end-of-window and a probe burst for a newer snapshot, all in
-    // the buffer of a paused game, and then only the back-off pings.
+    for overhead in [OVERHEAD, PESSIMISTIC_OVERHEAD] {
+        paused_for_twelve_hours(overhead);
+    }
+}
+
+/// Worst case of the protocol's Buffer budget: a window, its end-of-window and a probe burst for a newer snapshot, all in
+/// the buffer of a paused game, and then only the back-off pings.
+fn paused_for_twelve_hours(overhead: usize) {
     let mut world = connected_world();
+    world.fake.overhead = overhead;
     world.fake.growth_losses = 0;
     world.fake.reload(world.now);
     world.send_snapshot(id(A), full_snapshot(9));
@@ -356,7 +374,7 @@ fn the_buffer_budget_for_a_probe_burst_and_a_window_survives_twelve_hours_of_pau
     world.secs(12 * 3_600);
     assert_eq!(
         world.fake.lost_to_overflow, 0,
-        "12 hours of pings fit beside a window and a probe burst"
+        "12 hours of pings fit beside a window and a probe burst at {overhead} B per datagram"
     );
     assert!(world.fake.buffered_bytes() < BUFFER);
     // The game comes back, and the newer snapshot is what arrives.

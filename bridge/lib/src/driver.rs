@@ -157,33 +157,71 @@ impl UdpTransport {
     }
 
     /// Like [`Transport::recv`], but waits up to `timeout` for a datagram. A binary can use it to sleep until the
-    /// next wake-up.
+    /// next wake-up. The wait is a deadline: an error that means nothing (see [`Outcome::Ignored`]) does not restart it.
     ///
     /// # Errors
     /// An I/O error that ends the session.
     pub fn recv_wait(&mut self, timeout: Duration) -> io::Result<Option<Vec<u8>>> {
+        let deadline = Instant::now() + timeout;
         self.socket.set_nonblocking(false)?;
-        self.socket
-            .set_read_timeout(Some(timeout.max(Duration::from_millis(1))))?;
-        let result = self.recv_inner();
-        self.socket.set_nonblocking(true)?;
-        result
+        // Whatever happens below, the socket goes back to non-blocking.
+        let _restore = NonBlocking(&self.socket);
+        loop {
+            let remaining = deadline.saturating_duration_since(Instant::now());
+            if remaining.is_zero() {
+                return Ok(None);
+            }
+            // A zero read timeout is an error, and a sub-millisecond one is rounded up.
+            self.socket
+                .set_read_timeout(Some(remaining.max(Duration::from_millis(1))))?;
+            match classify(self.socket.recv_from(&mut self.buffer).map(|(n, _)| n))? {
+                Outcome::Datagram(n) => return Ok(Some(self.buffer[..n].to_vec())),
+                Outcome::Empty => return Ok(None),
+                Outcome::Ignored => {}
+            }
+        }
     }
 
     fn recv_inner(&mut self) -> io::Result<Option<Vec<u8>>> {
         loop {
-            match self.socket.recv_from(&mut self.buffer) {
-                Ok((n, _)) => return Ok(Some(self.buffer[..n].to_vec())),
-                Err(e) if matches!(e.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => return Ok(None),
-                // The game's port was closed (Windows reports it on the next receive): it means nothing.
-                Err(e)
-                    if matches!(
-                        e.kind(),
-                        io::ErrorKind::ConnectionReset | io::ErrorKind::ConnectionRefused
-                    ) => {}
-                Err(e) => return Err(e),
+            match classify(self.socket.recv_from(&mut self.buffer).map(|(n, _)| n))? {
+                Outcome::Datagram(n) => return Ok(Some(self.buffer[..n].to_vec())),
+                Outcome::Empty => return Ok(None),
+                Outcome::Ignored => {}
             }
         }
+    }
+}
+
+/// Puts a socket back to non-blocking mode when dropped.
+struct NonBlocking<'a>(&'a UdpSocket);
+
+impl Drop for NonBlocking<'_> {
+    fn drop(&mut self) {
+        // Nothing sensible can be done about a failure here, and `recv_wait` sets the mode it needs on every call.
+        let _ = self.0.set_nonblocking(true);
+    }
+}
+
+/// What one receive call came to.
+#[derive(Debug, PartialEq, Eq)]
+enum Outcome {
+    /// A datagram of this many bytes is in the buffer.
+    Datagram(usize),
+    /// Nothing to read (or the wait ran out).
+    Empty,
+    /// An error that means nothing here: the game's port was closed (Windows reports it on the next receive, other systems
+    /// refuse), or a signal interrupted the call. Receive again.
+    Ignored,
+}
+
+fn classify(result: io::Result<usize>) -> io::Result<Outcome> {
+    use io::ErrorKind::{ConnectionRefused, ConnectionReset, Interrupted, TimedOut, WouldBlock};
+    match result {
+        Ok(n) => Ok(Outcome::Datagram(n)),
+        Err(e) if matches!(e.kind(), WouldBlock | TimedOut) => Ok(Outcome::Empty),
+        Err(e) if matches!(e.kind(), ConnectionReset | ConnectionRefused | Interrupted) => Ok(Outcome::Ignored),
+        Err(e) => Err(e),
     }
 }
 
@@ -194,5 +232,41 @@ impl Transport for UdpTransport {
 
     fn recv(&mut self) -> io::Result<Option<Vec<u8>>> {
         self.recv_inner()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn err(kind: io::ErrorKind) -> io::Result<usize> {
+        Err(io::Error::from(kind))
+    }
+
+    #[test]
+    fn harmless_receive_errors_do_not_end_the_session() {
+        assert_eq!(classify(Ok(23)).unwrap(), Outcome::Datagram(23));
+        assert_eq!(classify(err(io::ErrorKind::WouldBlock)).unwrap(), Outcome::Empty);
+        assert_eq!(classify(err(io::ErrorKind::TimedOut)).unwrap(), Outcome::Empty);
+        for kind in [
+            io::ErrorKind::Interrupted,
+            io::ErrorKind::ConnectionReset,
+            io::ErrorKind::ConnectionRefused,
+        ] {
+            assert_eq!(classify(err(kind)).unwrap(), Outcome::Ignored, "{kind:?}");
+        }
+        assert!(classify(err(io::ErrorKind::PermissionDenied)).is_err());
+    }
+
+    #[test]
+    fn recv_wait_returns_at_its_deadline_and_leaves_the_socket_non_blocking() {
+        let mut transport = UdpTransport::bind(0, 1).unwrap();
+        let started = Instant::now();
+        assert_eq!(transport.recv_wait(Duration::from_millis(30)).unwrap(), None);
+        assert!(started.elapsed() >= Duration::from_millis(25));
+        // Non-blocking again: this returns at once instead of waiting.
+        let started = Instant::now();
+        assert_eq!(transport.recv().unwrap(), None);
+        assert!(started.elapsed() < Duration::from_millis(500));
     }
 }

@@ -140,9 +140,14 @@ fn every_udp_message_parses_to_its_fields_and_encodes_back_to_its_bytes() {
     assert!(checked >= 15, "the fixture file shrank: {checked} udp messages");
 }
 
+fn error_code(code: &str) -> ErrorCode {
+    ErrorCode::from_code(code).unwrap_or_else(|| panic!("unknown error code {code}"))
+}
+
 #[test]
 fn every_websocket_message_matches_the_codec() {
     let messages = read_json("messages.json");
+    let mut checked = 0;
     for m in messages["messages"].as_array().unwrap() {
         if m["link"] != "ws" {
             continue;
@@ -180,19 +185,15 @@ fn every_websocket_message_matches_the_codec() {
             }
             "error" => {
                 let expected: Value = serde_json::from_slice(&bytes).unwrap();
-                let code = match fields["code"].as_str().unwrap() {
-                    "bad-envelope" => ErrorCode::BadEnvelope,
-                    "too-large" => ErrorCode::TooLarge,
-                    "protocol-mismatch" => ErrorCode::ProtocolMismatch,
-                    "bad-message" => ErrorCode::BadMessage,
-                    other => panic!("unknown error code {other}"),
-                };
+                let code = error_code(fields["code"].as_str().unwrap());
                 let actual: Value = serde_json::from_str(&code.to_json()).unwrap();
                 assert_eq!(actual, expected, "{name}");
             }
             other => panic!("unknown websocket message type {other}"),
         }
+        checked += 1;
     }
+    assert!(checked >= 10, "the fixture file shrank: {checked} websocket messages");
 }
 
 #[test]
@@ -219,13 +220,7 @@ fn every_malformed_input_is_dropped_by_its_reader() {
                 counts[1] += 1;
             }
             "bridge-ws" => {
-                let expected = match input["error"].as_str().unwrap() {
-                    "bad-envelope" => ErrorCode::BadEnvelope,
-                    "too-large" => ErrorCode::TooLarge,
-                    "protocol-mismatch" => ErrorCode::ProtocolMismatch,
-                    "bad-message" => ErrorCode::BadMessage,
-                    other => panic!("unknown error code {other}"),
-                };
+                let expected = error_code(input["error"].as_str().unwrap());
                 let actual = if input["frame"] == "binary" {
                     parse_snapshot_frame(&bytes).map(|_| ()).unwrap_err()
                 } else {
