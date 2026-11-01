@@ -1,8 +1,8 @@
 # Initiative: In-game viewer as a production table
 
-Status: Active
+Status: Shipped
 
-Redesign the in-game viewer window ([mod/](../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. The snapshot side (PR 1, the contract) is in; the in-game window is not. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
+Redesign the in-game viewer window ([mod/](../../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. The snapshot side (PR 1, the contract) is in; the in-game window is not. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
 
 ---
 
@@ -38,7 +38,7 @@ Modules show in the machine's and beacon's tooltip, not as icons of their own in
 
 ### Sub-factories
 
-The planner's sub-plans ("sub-factories") are the counterpart of Factory Planner's floors: groups of rows that nest, with the web planner showing them inline ([spec/ui.md](../../spec/ui.md), the ProductionTable). The in-game table shows them like a floor row, as the reference's compact view does:
+The planner's sub-plans ("sub-factories") are the counterpart of Factory Planner's floors: groups of rows that nest, with the web planner showing them inline ([spec/ui.md](../../../spec/ui.md), the ProductionTable). The in-game table shows them like a floor row, as the reference's compact view does:
 
 - A sub-factory is **one line** of the level it is in. It has a checkbox that ticks or unticks everything under it, a blue icon of its first net product in the recipe column, no machine and no beacon, and its **net** products and net ingredients in the other columns. A click on the icon opens the sub-factory: the whole window then shows its own lines, and a nested sub-factory is again one line of it. Its name (and "Separate area" when it is one) has no room in the line, so it is in the icon's tooltip, with a left-click hint.
 - **Up a level:** a button at the right of the navigation row, next to the block drop-down, shows while a sub-factory is open (and is hidden at the top level). It goes up one level; its tooltip names the sub-factory it leaves and the one, or the block, it goes back to. Picking another block in the drop-down goes back to its top level.
@@ -94,8 +94,8 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
    - Run `npm run contract`. This regenerates about 40 files in `contract/` (every fixture and datagram case embeds snapshot bytes).
    - Check that the mod's specs still pass on the regenerated fixtures: it must ignore the new keys.
 3. **Docs**
-   - Document `groups` and `group`, `inputs` and `outputs`, `modules` and `beacon` in the snapshot section of [spec/data-model.md](../../spec/data-model.md).
-   - Update the sample datagram bytes and example lines in [spec/in-game-viewer-protocol.md](../../spec/in-game-viewer-protocol.md); its "shows an example of …" tests fail until it matches the regenerated `contract/datagrams/`.
+   - Document `groups` and `group`, `inputs` and `outputs`, `modules` and `beacon` in the snapshot section of [spec/data-model.md](../../../spec/data-model.md).
+   - Update the sample datagram bytes and example lines in [spec/in-game-viewer-protocol.md](../../../spec/in-game-viewer-protocol.md); its "shows an example of …" tests fail until it matches the regenerated `contract/datagrams/`.
    - Check the Rust bridge: it treats snapshot bytes as opaque, but its tests read `contract/datagrams/`.
 
 ### PR 2: mod GUI
@@ -142,9 +142,9 @@ Blocks are selected through the drop-down. Rates are items per minute, as in the
     - `mod/spec/mod_files_spec.lua`: add `scripts/cursor.lua` to the files of the locale scan.
 11. **Docs and checklist**
     - `mod/README.md` (the `gui.lua` and `viewmodel.lua` rows, the new files) and `mod/CHECKLIST.md`, including the items that name the block list, the Area column and E and Esc.
-    - [README.md](../../README.md): the in-game viewer's setup section says the window shows power and warnings. Add `scripts/cursor.lua`, `lib/blueprint.lua` and `lib/progress.lua` to the [repository map](../../README.md#repository-map).
+    - [README.md](../../../README.md): the in-game viewer's setup section says the window shows power and warnings. Add `scripts/cursor.lua`, `lib/blueprint.lua` and `lib/progress.lua` to the [repository map](../../../README.md#repository-map).
     - New manual checklist items for what CI cannot check, using `contract/fixtures/seablock-groups.json`: slot-button styles, grayscale on built rows, `number` formatting, the colour swatch in the drop-down (rich text in its items), long sub-factory names, scroll behaviour after a toggle, and the whole blueprint path: a crafter with modules, a furnace, a beacon, a plain building, an unplaceable one, pasting into the world with the window open.
-    - [spec/ui.md](../../spec/ui.md) if it covers the in-game window.
+    - [spec/ui.md](../../../spec/ui.md) if it covers the in-game window.
     - Remove the backlog item this supersedes (decision 10), and any other it touches.
 12. **Verification (each PR)**
     - `npm run contract`, `npm test`, `npm run lint`, `npm run lint:docs`.
