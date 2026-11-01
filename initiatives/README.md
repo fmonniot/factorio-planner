@@ -21,6 +21,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
+| In-game viewer as a table   | Future   | [in-game-viewer-table/](in-game-viewer-table/plan.md)  |
 | Plan power generation       | Shipped  | [archive/power-generation/](archive/power-generation/plan.md) |
 | Block granularity           | Shipped  | [archive/block-granularity/](archive/block-granularity/problem.md) |
 | Requests between blocks     | Shipped  | [archive/block-requests/](archive/block-requests/)     |
