@@ -334,7 +334,7 @@ export interface Badge {
 }
 
 const BLOCK_HINT =
-  'If the bridge is running, the browser or an extension may be blocking the connection: Chrome and Firefox ask for permission to connect to devices on your network, content blockers such as uBlock can block it, and Safari refuses a plain ws:// address from an https page.'
+  'If the bridge is running, the browser or an extension may be blocking the connection: Chrome and Firefox ask for permission to connect to devices on your network, content blockers such as uBlock can block it, and Safari, which is not supported, was measured timing out on the hosted https page.'
 
 /** The delivery of the newest snapshot, in a few words (empty when the bridge holds none). */
 export function transferText(status: BridgeStatus | undefined): string {

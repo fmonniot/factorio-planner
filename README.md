@@ -66,7 +66,7 @@ Your plans are saved in your browser's local storage as you work. Each game data
 
 The in-game viewer shows your plan's blocks in Factorio itself: a **Plan** button in the game's top bar opens a read-only window with each block's products, recipes, machine counts, power, imports and warnings. It needs three pieces: the planner in your browser, a small program called the bridge that runs on your computer, and a mod in the game. The planner talks to the bridge over a WebSocket on `127.0.0.1`; the bridge talks to the game over the UDP socket that Factorio opens when it is launched with `--enable-lua-udp`. Nothing leaves your computer. Using it from the planner is described in [In-game viewer](#in-game-viewer) above; this section covers the setup. [spec/in-game-viewer-protocol.md](spec/in-game-viewer-protocol.md) describes the wire formats.
 
-**What is supported.** Factorio **2.0.77** only (the mod pins the 2.0 series and its manual test ran on 2.0.77), single player. The planner connects from Chrome or Firefox. Safari is not supported: it blocks `ws://127.0.0.1` from an HTTPS page, and the hosted planner is one. The viewer has no prebuilt downloads yet, so you build the bridge and install the mod from a checkout of this repository.
+**What is supported.** Factorio **2.0.77** only (the mod pins the 2.0 series and its manual test ran on 2.0.77), single player. The planner connects from Chrome or Firefox. Safari is not supported: it timed out opening `ws://127.0.0.1` from the HTTPS-hosted planner, with a mixed-content warning. The viewer has no prebuilt downloads yet, so you build the bridge and install the mod from a checkout of this repository.
 
 **1. Build and start the bridge.** You need a [Rust toolchain](https://rustup.rs/).
 
@@ -103,6 +103,7 @@ Enable **Factorio Planner Viewer** in the game's Mods menu. Its `spec/` and `too
 **If it does not connect.**
 
 - **The badge stays on "No bridge" while the bridge runs.** The browser or an extension is blocking the connection. Allow the local network permission prompt that Chrome and Firefox show, and disable content blockers such as uBlock for the planner's site.
+- **The badge stays on "No bridge" and the browser does not complain.** The bridge refuses a web origin that is not in its list. If you serve the planner from another port, for example 5173, start the bridge with `--origin http://localhost:5173`.
 - **The game says Disconnected.** Check the bridge is running and the game was launched with `--enable-lua-udp`. Then search `factorio-current.log` (in the game's user data folder, for example `~/Library/Application Support/factorio/` on macOS) for `Opening Lua UDP Socket failed: ... Address already in use`. It means another program already holds the game's UDP port (a second Factorio, or an old test listener). The game keeps running, but `send_udp` and `recv_udp` do nothing. Close the other program, or pick another port with `--enable-lua-udp <PORT>` and the bridge's `--game-port <PORT>`.
 - **A paused game, a save being written and the title screen** all show as "Game quiet" in the planner: the game does not answer, which is expected.
 
