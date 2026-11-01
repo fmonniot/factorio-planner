@@ -65,11 +65,11 @@ describe("a multi-byte character straddling two chunks", function()
     for i, block in ipairs(r.stored.snapshot.blocks) do
       names[i] = block.name
     end
-    -- Names with 2-, 3- and 4-byte characters (accents, a dash, kanji, an emoji in an area name).
+    -- Names with 2-, 3- and 4-byte characters (accents, a dash, kanji, an emoji in a sub-factory name).
     assert.is_truthy(string.find(names[1], "\xc3\xa0", 1, true))
     assert.is_truthy(string.find(names[1], "\xe2\x80\x93", 1, true))
     assert.are.equal("\xe9\x89\x84\xe5\xb7\xa5\xe5\xa0\xb4 (\xe6\xad\xaf\xe8\xbb\x8a)", names[2])
-    assert.are.equal("\xe9\x8a\x85\xe3\x81\xae\xe7\xb2\xbe\xe9\x8c\xac \xf0\x9f\x94\xa5", r.stored.snapshot.blocks[1].areas[2])
+    assert.are.equal("\xe9\x8a\x85\xe3\x81\xae\xe7\xb2\xbe\xe9\x8c\xac \xf0\x9f\x94\xa5", r.stored.snapshot.blocks[1].groups[1].name)
   end)
 
   it("really does cut inside a character at that chunk size", function()

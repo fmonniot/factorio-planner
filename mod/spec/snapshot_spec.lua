@@ -80,8 +80,56 @@ describe("snapshot.validate", function()
   invalid("a fractional machinesCeil", function(s)
     s.blocks[1].rows[1].machinesCeil = 1.5
   end)
-  invalid("a connection without a source", function(s)
-    s.blocks[1].connections[1] = { id = "iron-plate", type = "item", available = 1 }
+  invalid("an input with a bad rate", function(s)
+    s.blocks[1].rows[1].inputs[1].rate = -1
+  end)
+  invalid("outputs that are not an array", function(s)
+    s.blocks[1].rows[1].outputs = "iron"
+  end)
+  invalid("an output of an unknown type", function(s)
+    s.blocks[1].rows[1].outputs[1].type = "recipe"
+  end)
+  invalid("a module without an id", function(s)
+    s.blocks[1].rows[1].modules = { { count = 2 } }
+  end)
+  invalid("a module with a fractional count", function(s)
+    s.blocks[1].rows[1].modules = { { id = "speed-module", count = 1.5 } }
+  end)
+  invalid("modules that are not a list", function(s)
+    s.blocks[1].rows[1].modules = "speed-module"
+  end)
+  invalid("a beacon that is not an object", function(s)
+    s.blocks[1].rows[1].beacon = "beacon"
+  end)
+  invalid("a beacon without an id", function(s)
+    s.blocks[1].rows[1].beacon = { count = 8, module = "speed-module", modules = 2 }
+  end)
+  invalid("a beacon with a negative count", function(s)
+    s.blocks[1].rows[1].beacon = { id = "beacon", count = -1, module = "speed-module", modules = 2 }
+  end)
+  invalid("a beacon without a module", function(s)
+    s.blocks[1].rows[1].beacon = { id = "beacon", count = 1, modules = 2 }
+  end)
+  invalid("a beacon with a fractional module count", function(s)
+    s.blocks[1].rows[1].beacon = { id = "beacon", count = 1, module = "speed-module", modules = 0.5 }
+  end)
+  invalid("a group index that is not an integer", function(s)
+    s.blocks[1].rows[1].group = 0.5
+  end)
+  invalid("a negative group index", function(s)
+    s.blocks[1].rows[1].group = -1
+  end)
+  invalid("groups that are not an array", function(s)
+    s.blocks[1].groups = "all"
+  end)
+  invalid("a group without a name", function(s)
+    s.blocks[1].groups = { { parent = 0 } }
+  end)
+  invalid("a group whose parent is not an index", function(s)
+    s.blocks[1].groups = { { name = "A" }, { name = "B", parent = "A" } }
+  end)
+  invalid("a group whose area is not a boolean", function(s)
+    s.blocks[1].groups = { { name = "A", area = 1 } }
   end)
   invalid("a non-string error", function(s)
     s.blocks[1].error = 5
@@ -103,12 +151,30 @@ describe("snapshot.validate", function()
     assert.is_true(snapshot.validate(s))
   end)
 
-  it("ignores a warning code it does not know, so a code added within v 1 is not refused", function()
+  it("accepts groups, modules, a beacon and a row of a group", function()
     local s = fixture("small")
-    s.blocks[1].warnings[1] = { code = "something-new", recipes = { "r" } }
+    s.blocks[1].groups = { { name = "A" }, { name = "B", parent = 0, area = true } }
+    s.blocks[1].rows[1].group = 1
+    s.blocks[1].rows[1].modules = { { id = "speed-module", count = 2 } }
+    s.blocks[1].rows[1].beacon = { id = "beacon", count = 8, module = "speed-module", modules = 2 }
     assert.is_true(snapshot.validate(s))
-    s.blocks[1].warnings[1] = { code = "" }
-    assert.is_nil(snapshot.validate(s))
+  end)
+
+  it("accepts a group or parent index that leads nowhere, which the view-model puts at the root", function()
+    local s = fixture("small")
+    s.blocks[1].groups = { { name = "A", parent = 7 } }
+    s.blocks[1].rows[1].group = 99
+    assert.is_true(snapshot.validate(s))
+  end)
+
+  it("accepts a snapshot that still carries the retired fields, and ignores them", function()
+    local s = fixture("small")
+    s.blocks[1].warnings = { { code = "" } }
+    s.blocks[1].connections = { { id = "iron-plate" } }
+    s.blocks[1].areas = { 1, 2 }
+    s.blocks[1].rows[1].area = "x"
+    s.blocks[1].rows[1].powerKw = -3
+    assert.is_true(snapshot.validate(s))
   end)
 
   it("ignores keys it does not know, so a later addition within v 1 is not refused", function()
@@ -120,8 +186,9 @@ describe("snapshot.validate", function()
 
   it("accepts empty tables as empty arrays, which is what json_to_table makes of []", function()
     local s = fixture("small")
-    s.blocks[1].warnings = {}
-    s.blocks[1].connections = {}
+    s.blocks[1].groups = {}
+    s.blocks[1].rows[1].inputs = {}
+    s.blocks[1].rows[1].modules = {}
     assert.is_true(snapshot.validate(s))
     assert.is_true(snapshot.validate({ v = 1, dataSet = { id = "x" }, blocks = {} }))
   end)
@@ -142,6 +209,7 @@ describe("snapshot ids", function()
       "item:iron-ore",
       "recipe:iron-gear-wheel",
       "machine:bob-assembling-machine-6",
+      "item:iron-plate",
       "recipe:sb-iron-plate-from-ore",
       "machine:bob-electric-chemical-mixing-furnace-2",
     }, ids(fixture("small")))
@@ -166,23 +234,53 @@ describe("snapshot ids", function()
     s.blocks[1].products[#s.blocks[1].products + 1] = electricity
     s.blocks[1].imports[#s.blocks[1].imports + 1] = electricity
     s.blocks[1].rows[#s.blocks[1].rows + 1] = { kind = "power", product = { id = "electricity", type = "virtual" } }
-    s.blocks[1].warnings[1] = { code = "no-recipe", items = { { id = "electricity", type = "virtual" } } }
-    s.blocks[1].connections[1] = { from = 0, id = "electricity", type = "virtual", available = 1 }
+    s.blocks[1].rows[1].inputs[1] = electricity
+    s.blocks[1].rows[1].outputs[1] = electricity
     for _, key in ipairs(ids(s)) do
       assert.is_nil(string.find(key, "electricity", 1, true), key)
     end
   end)
 
-  it("takes ids from synthetic rows' products, warnings and connections", function()
+  it("takes ids from synthetic rows' products", function()
     local s = fixture("small")
     s.blocks[1].rows[#s.blocks[1].rows + 1] = { kind = "mining", product = { id = "iron-ore", type = "item" } }
     s.blocks[1].rows[#s.blocks[1].rows + 1] = { kind = "offshore", product = { id = "water", type = "fluid" }, machine = "offshore-pump" }
-    s.blocks[1].warnings[1] = { code = "duplicate-recipe", recipes = { "r-x" }, items = { { id = "steam", type = "fluid" } } }
-    s.blocks[1].connections[1] = { from = 0, id = "copper-plate", type = "item", available = 3 }
     local got = table.concat(ids(s), " ")
-    for _, want in ipairs({ "fluid:water", "machine:offshore-pump", "recipe:r-x", "fluid:steam", "item:copper-plate" }) do
+    for _, want in ipairs({ "item:iron-ore", "fluid:water", "machine:offshore-pump" }) do
       assert.is_truthy(string.find(got, want, 1, true), want)
     end
+  end)
+
+  it("takes ids from a row's inputs and outputs, modules (as items) and beacon (a machine and a module)", function()
+    local s = fixture("small")
+    s.blocks[1].rows = {
+      {
+        recipe = "r",
+        inputs = { { id = "steam", type = "fluid", rate = 1 } },
+        outputs = { { id = "copper-cable", type = "item", rate = 1 } },
+        modules = { { id = "speed-module", count = 2 }, { id = "productivity-module", count = 1 } },
+        beacon = { id = "beacon", count = 8, module = "speed-module-2", modules = 2 },
+      },
+    }
+    s.blocks[1].products = {}
+    s.blocks[1].imports = {}
+    assert.are.same({
+      "recipe:r",
+      "fluid:steam",
+      "item:copper-cable",
+      "item:speed-module",
+      "item:productivity-module",
+      "machine:beacon",
+      "item:speed-module-2",
+    }, ids(s))
+  end)
+
+  it("lists a module that the game lacks as a missing item, and a beacon as a missing machine", function()
+    local s = fixture("seablock-groups")
+    local count, missing = snapshot.find_missing(s, support.exists_except({ ["speed-module"] = true, beacon = true }))
+    assert.are.equal(2, count)
+    assert.is_true(missing["item:speed-module"])
+    assert.is_true(missing["machine:beacon"])
   end)
 
   it("counts the ids the game lacks, and returns them as a set", function()
@@ -201,7 +299,7 @@ describe("snapshot ids", function()
   end)
 
   it("saturates the count at MAX_UNKNOWN_IDS", function()
-    local s = { v = 1, dataSet = { id = "x" }, blocks = { { products = {}, imports = {}, rows = {}, warnings = {}, connections = {} } } }
+    local s = { v = 1, dataSet = { id = "x" }, blocks = { { products = {}, imports = {}, rows = {} } } }
     for i = 1, 10005 do
       s.blocks[1].products[i] = { id = "item-" .. i, type = "item", rate = 1 }
     end
