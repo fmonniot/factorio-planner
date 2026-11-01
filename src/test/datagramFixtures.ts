@@ -79,6 +79,13 @@ function transferOf(data: Buffer, chunkSize: number): Transfer {
   return { id: snapshotId(data), bytes: data.length, count: chunks.length, data, chunks }
 }
 
+/** Throws unless the transfer needs a second window, and no third: more than `WINDOW_CHUNKS` chunks, at most twice that. */
+function needTwoWindows(name: string, t: Transfer): void {
+  if (t.count <= WIRE.WINDOW_CHUNKS || t.count > 2 * WIRE.WINDOW_CHUNKS) {
+    throw new Error(`${name} needs two windows, which is ${WIRE.WINDOW_CHUNKS + 1} to ${2 * WIRE.WINDOW_CHUNKS} chunks, got ${t.count}`)
+  }
+}
+
 /** A transfer cut at the given sizes, the last chunk taking whatever is left. */
 function transferFromSizes(data: Buffer, sizes: number[]): Transfer {
   const chunks: Buffer[] = []
@@ -206,6 +213,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
   }
   {
     const t = transferOf(bytesOf('seablock-loop'), 64)
+    needTwoWindows('two-windows', t)
     const first = range(0, 23)
     const rest = range(24, t.count - 1)
     cases.push({
@@ -235,10 +243,11 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     })
   }
   {
-    // Fixture blocks repeated until the snapshot needs two full chunks and a bit more.
+    // Fixture blocks repeated until the snapshot needs several full-size chunks and a shorter last one.
     const base = snapshots['seablock-loop']
     const big = { ...base, blocks: Array.from({ length: 9 }, () => base.blocks).flat() }
     const t = transferOf(snapshotBytes(big), WIRE.CHUNK_PAYLOAD)
+    if (t.count < 3) throw new Error(`max-size-chunks needs at least 3 chunks, got ${t.count}`)
     const all = range(0, t.count - 1)
     cases.push({
       case: 'max-size-chunks',
@@ -319,6 +328,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
   }
   {
     const t = transferOf(bytesOf('seablock-loop'), 64)
+    needTwoWindows('window-lost', t)
     const first = range(0, 23)
     const rest = range(24, t.count - 1)
     cases.push({
@@ -346,11 +356,12 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     })
   }
   {
-    // 146 chunks. Thirteen pairs of chunks (100-101, 103-104, ... 136-137) are lost, each pair with
+    // Chunks of 14 bytes, so the snapshot has hundreds of chunks (at least 138 are needed). Thirteen pairs of chunks (100-101, 103-104, ... 136-137) are lost, each pair with
     // one held chunk between it and the next, so thirteen separate gaps lie below `upto` and every
     // gap is written as `abc-def`. The report stops at twelve: 29 + 12 * 7 + 11 = MAX_REPORT_BYTES.
     // The bridge never sends this much in one window, so the case has no bridge steps.
     const t = transferOf(bytesOf('seablock-loop'), 14)
+    if (t.count < 139) throw new Error(`report-worst-case needs at least 139 chunks, got ${t.count}`)
     const pair = (k: number): number[] => [100 + 3 * k, 101 + 3 * k]
     const lostFirst = range(0, 12).flatMap(pair)
     const firstTwelve = range(0, 11).flatMap(pair)
@@ -435,6 +446,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
 
   {
     const t = transferOf(bytesOf('seablock-loop'), 64)
+    needTwoWindows('lost-end-of-window', t)
     const first = range(0, 23)
     const rest = range(24, t.count - 1)
     cases.push({
@@ -697,10 +709,11 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     })
   }
   {
-    // 226 chunks make ten windows. Every report names nothing missing, nine times in a row: more
-    // than NO_PROGRESS_LIMIT, yet healthy, because `upto` advances every time.
+    // Many windows, and a report that names nothing missing after each but the last: more than
+    // NO_PROGRESS_LIMIT in a row, yet healthy, because `upto` advances every time.
     const t = transferOf(bytesOf('seablock-loop'), 9)
     const windows = Math.ceil(t.count / WIRE.WINDOW_CHUNKS)
+    if (windows - 1 <= WIRE.NO_PROGRESS_LIMIT) throw new Error(`many-windows needs more than ${WIRE.NO_PROGRESS_LIMIT} reports, got ${windows - 1}`)
     const window = (k: number): number[] => range(k * WIRE.WINDOW_CHUNKS, Math.min((k + 1) * WIRE.WINDOW_CHUNKS, t.count) - 1)
     const upto = (k: number): number => Math.min((k + 1) * WIRE.WINDOW_CHUNKS, t.count)
     const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]
@@ -721,7 +734,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     steps.push({ hears: ack(t.id, 0), sends: null })
     cases.push({
       case: 'many-windows',
-      summary: 'Ten windows, nine reports in a row that name nothing missing. The ranges repeat but `upto` advances every time, so this is progress: more reports than NO_PROGRESS_LIMIT, and the bridge keeps sending.',
+      summary: `${t.count} chunks make ${windows} windows, and ${windows - 1} reports in a row name nothing missing. The ranges repeat but \`upto\` advances every time, so this is progress: more reports than NO_PROGRESS_LIMIT, and the bridge keeps sending.`,
       snapshot: snapshotRef('seablock-loop', t, 9),
       start: none,
       idCheck: noUnknown,
@@ -735,6 +748,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     // The window then turns up late, the mod stores the snapshot, and the next hello moves the
     // bridge out of Failed.
     const t = transferOf(bytesOf('seablock-loop'), 64)
+    needTwoWindows('no-progress', t)
     const first = range(0, 23)
     const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]
     const steps: BridgeStep[] = [{ hears: ready(t.id), sends: { round: 0, indices: first, upto: 24 } }]
@@ -788,6 +802,7 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
     // counts consecutive reports: a count of all reports would stop at the 8th, and a counter that
     // restarts on `round` would never stop.
     const t = transferOf(bytesOf('seablock-loop'), 64)
+    needTwoWindows('no-progress-reset', t)
     const first = range(0, 23)
     const stuck = [...range(0, 4), ...range(6, 24)]
     const polls: Poll[] = [{ arrive: [probe(t)], answer: ready(t.id), after: state({ assembling: t.id }) }]

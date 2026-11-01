@@ -1,6 +1,6 @@
 {
   "case": "many-windows",
-  "summary": "Ten windows, nine reports in a row that name nothing missing. The ranges repeat but `upto` advances every time, so this is progress: more reports than NO_PROGRESS_LIMIT, and the bridge keeps sending.",
+  "summary": "321 chunks make 14 windows, and 13 reports in a row name nothing missing. The ranges repeat but `upto` advances every time, so this is progress: more reports than NO_PROGRESS_LIMIT, and the bridge keeps sending.",
   "snapshot": {
     "fixture": "seablock-loop",
     "id": "a7991189b4b222d0",
