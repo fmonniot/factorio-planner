@@ -146,12 +146,37 @@ end
 -- ---------------------------------------------------------------------------
 -- GUI
 
-local function selected_for(player_index)
-  return state().selected[player_index] or 1
+-- The block a player has selected, kept through a new snapshot by name (the
+-- snapshot has no block ids): the same position if it still holds that name, else
+-- the first block of that name, else the first block.
+local function selected_for(player_index, model)
+  if model == nil then
+    return 1
+  end
+  local selections = state().selected
+  local chosen = selections[player_index]
+  local names = {}
+  for i, block in ipairs(model.blocks) do
+    names[i] = block.name
+  end
+  local index = format.reselect(names, chosen and chosen.index, chosen and chosen.name)
+  if chosen == nil or chosen.index ~= index or chosen.name ~= names[index] then
+    selections[player_index] = { index = index, name = names[index] }
+  end
+  return index
+end
+
+-- What the GUI needs to draw one player's window; `extra` adds fields.
+local function context(player, indicator, model, extra)
+  local ctx = { model = model, indicator = indicator, selected = selected_for(player.index, model) }
+  for k, v in pairs(extra or {}) do
+    ctx[k] = v
+  end
+  return ctx
 end
 
 local function update_player(player, indicator, model)
-  gui.update(player, { model = model, indicator = indicator, selected = selected_for(player.index) })
+  gui.update(player, context(player, indicator, model))
 end
 
 -- Rebuilds the windows when the snapshot changed or the indicator did.
@@ -204,8 +229,16 @@ script.on_event(defines.events.on_tick, function(event)
   if phase == 0 then
     poll()
   elseif phase == C.FLUSH_OFFSET then
-    flush()
-    refresh_gui(event.tick)
+    -- A failure here must not repeat every 10 ticks, or come back with every
+    -- load of a save that holds the snapshot that causes it.
+    local sent, send_err = pcall(flush)
+    if not sent then
+      log_once("flush", send_err)
+    end
+    local drawn, draw_err = pcall(refresh_gui, event.tick)
+    if not drawn then
+      log_once("refresh_gui", draw_err)
+    end
   end
 end)
 
@@ -243,17 +276,25 @@ script.on_event(defines.events.on_gui_click, function(event)
 
   local name = element.name
   if name == gui.BUTTON then
-    gui.toggle(player)
-    update_player(player, get_receiver():indicator(game.tick, game.speed), get_model())
+    local model = get_model()
+    local indicator = get_receiver():indicator(game.tick, game.speed)
+    gui.toggle(player, context(player, indicator, model))
   elseif name == gui.CLOSE then
     gui.close(player)
   else
     local index = format.parse_block_button(name)
-    if index ~= nil then
-      state().selected[player.index] = index
-      update_player(player, get_receiver():indicator(game.tick, game.speed), get_model())
+    local model = get_model()
+    if index ~= nil and model ~= nil and model.blocks[index] ~= nil then
+      state().selected[player.index] = { index = index, name = model.blocks[index].name }
+      local indicator = get_receiver():indicator(game.tick, game.speed)
+      -- Only the selection changed: keep the list and its scroll position.
+      gui.update(player, context(player, indicator, model, { only_selection = true, reset_scroll = true }))
     end
   end
+end)
+
+script.on_event(defines.events.on_player_removed, function(event)
+  state().selected[event.player_index] = nil
 end)
 
 script.on_event(defines.events.on_gui_closed, function(event)

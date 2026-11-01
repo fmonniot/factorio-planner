@@ -23,7 +23,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 
 1. With the flag, load the save, open the window: **Disconnected** (no datagram yet).
 2. `udp_sender.py ping`: the sender prints `FP01 H ---------------- 0 ----------------` within about a second, and the indicator clears within a poll (the window is rebuilt, no longer showing Disconnected). The window says no plan has arrived yet.
-3. Leave the sender silent for 18 s of game time: **Disconnected** returns. Set `/c game.speed = 8`, repeat with a ping first: it returns after about 18 s of wall-clock time (about 2.3 s game time per wall second), not after 2 s.
+3. Leave the sender silent for 18 s of game time (1,080 ticks at speed 1, which is 18 s of wall clock): **Disconnected** returns. Then set `/c game.speed = 8` and send a ping. At speed 8 the game runs 480 ticks per wall-clock second and the mod scales the threshold to 1,080 x 8 = 8,640 ticks, so **Disconnected** must return after about 18 s of wall clock again (time it). It must not come back after about 2.3 s of wall clock, which is what an unscaled 1,080-tick threshold would give. Set `/c game.speed = 1` afterwards.
 4. `udp_sender.py raw 'FP02 P ----------------'`: **Protocol mismatch** shows, and the answer is a `FP01 H` hello. A normal ping clears it.
 
 ### Delivering a snapshot
@@ -33,7 +33,8 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 3. Save and load the game **without** sending anything: the window, once opened, still shows the plan (it is read from the save), with **Disconnected** until the first ping.
 4. `udp_sender.py ping 0000000000000000`: the indicator shows **Stale** (the planner's newest differs from the stored id). `udp_sender.py ping <the stored id>` clears it.
 5. `udp_sender.py send contract/fixtures/seablock-areas.json --chunk 700`: a multi-chunk delivery. The window shows blocks with an **Area** column.
-6. Click each block in the list: the right side follows; the selected block's button is highlighted. Nothing else in the window is editable.
+6. Click each block in the list: the right side follows and scrolls back to the top; the selected block's button is highlighted. Nothing else in the window is editable. With a plan of more blocks than fit (Seablock), scroll the list down, click a block near the bottom: the list stays where it was. Scroll the details pane down, then send a new snapshot: the panes keep their scroll position (**unverified**: that the game keeps a scroll position when a pane's children are cleared and added again).
+7. Send a snapshot with the same blocks in another order: the window keeps showing the block of the same name, wherever it moved.
 
 ### A non-ASCII block name
 
@@ -72,7 +73,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 ### Window and GUI
 
 1. The top-bar button **Plan** is visible after a new game, after loading a save, and for a player who joins later. Its tooltip names the current indicator.
-2. The window opens centred, can be dragged by its title bar, closes with the X button, with E and with Esc, and again with the top button. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
+2. The window opens centred on the screen at its full size (also at a small resolution, with a long plan), can be dragged by its title bar, closes with the X button, with E and with Esc, and again with the top button. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
 3. A very long plan (Seablock, tens of blocks, tens of rows): opening and selecting a block does not stall the game visibly.
 4. A block name with rich-text brackets (for example `[item=iron-plate] smelting`) shows the icon, which is accepted; a name that opens a tag without closing it does not break the window.
 5. Locale: nothing in the window shows `Unknown key`.

@@ -22,15 +22,46 @@ function M.rate(per_minute)
 end
 
 -- Power in kW, as the snapshot carries it, written in W, kW, MW or GW.
+local POWER_UNITS = { { "W", 0.001 }, { "kW", 1 }, { "MW", 1000 }, { "GW", 1000000 } }
+
 function M.power(kw)
-  if kw >= 1000000 then
-    return M.number(kw / 1000000) .. " GW"
-  elseif kw >= 1000 then
-    return M.number(kw / 1000) .. " MW"
-  elseif kw >= 1 then
-    return M.number(kw) .. " kW"
+  -- The unit comes from the raw value, then the figure is rounded; a figure that
+  -- rounds up to 1000 moves to the next unit, so 999.999 kW reads "1 MW" and never
+  -- "1000 kW", and 0.999999 kW reads "1 kW" and never "1000 W".
+  local i = 1
+  for j = #POWER_UNITS, 1, -1 do
+    if kw >= POWER_UNITS[j][2] then
+      i = j
+      break
+    end
   end
-  return M.number(kw * 1000) .. " W"
+  local value = kw / POWER_UNITS[i][2]
+  if tonumber(string.format("%.2f", value)) >= 1000 and POWER_UNITS[i + 1] then
+    i = i + 1
+    value = kw / POWER_UNITS[i][2]
+  end
+  return M.number(value) .. " " .. POWER_UNITS[i][1]
+end
+
+-- Keeps a player's selected block through a new snapshot: the same position if
+-- it still holds a block of that name, else the first block of that name, else
+-- the first block. `names` is the list of block names, `index` and `name` what
+-- was selected (name may be nil). Returns a valid index (1 for an empty list).
+function M.reselect(names, index, name)
+  if name ~= nil then
+    if names[index] == name then
+      return index
+    end
+    for i, n in ipairs(names) do
+      if n == name then
+        return i
+      end
+    end
+  end
+  if name == nil and index ~= nil and index >= 1 and index <= #names then
+    return index
+  end
+  return 1
 end
 
 -- "2 (1.75)": the machines to place, rounded up, then the exact count. Either

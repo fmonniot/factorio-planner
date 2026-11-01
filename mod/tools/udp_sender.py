@@ -50,6 +50,17 @@ def main() -> None:
     p.add_argument("--bridge-port", type=int, default=34199)
     p.add_argument("--wait", type=float, default=8.0)
     a = p.parse_args()
+    if a.command == "send" and not a.arg:
+        p.error("send needs a snapshot file: udp_sender.py send FIXTURE.json")
+    if a.command == "raw" and not a.arg:
+        p.error("raw needs the datagram text: udp_sender.py raw 'FP01 P ----------------'")
+    snapshot = None
+    if a.command == "send":
+        try:
+            with open(a.arg, "rb") as f:
+                snapshot = f.read().strip()
+        except OSError as e:
+            p.error(f"cannot read {a.arg}: {e.strerror}")
 
     listener = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
     listener.bind(("127.0.0.1", a.bridge_port))
@@ -65,8 +76,7 @@ def main() -> None:
     elif a.command == "raw":
         out(a.arg.encode())
     else:
-        with open(a.arg, "rb") as f:
-            data = f.read().strip()
+        data = snapshot
         sid = snapshot_id(data)
         parts = [data[i : i + a.chunk] for i in range(0, len(data), a.chunk)]
         print(f"snapshot id {sid}, {len(data)} B in {len(parts)} chunks")

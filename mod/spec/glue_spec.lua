@@ -3,6 +3,7 @@
 -- API, which only the manual checklist (mod/CHECKLIST.md) can.
 local fake_game = require("spec.fake_game")
 local support = require("spec.support")
+local json = require("dkjson")
 local viewmodel = require("lib.viewmodel")
 local snapshot_lib = require("lib.snapshot")
 
@@ -31,9 +32,8 @@ describe("scripts/gui.lua", function()
     opts = opts or {}
     local player = fake.players[1]
     gui.ensure_button(player)
-    gui.open(player)
     local _, missing = snapshot_lib.find_missing(snapshot, opts.exists or everything_exists())
-    gui.update(player, {
+    gui.open(player, {
       model = viewmodel.build(snapshot, { missing = missing }),
       indicator = opts.indicator,
       selected = opts.selected or 1,
@@ -104,6 +104,31 @@ describe("scripts/gui.lua", function()
     assert.is_false(fake_game.any_caption(window, "[entity=bob-assembling-machine-6]"))
   end)
 
+  it("names areas and the nameless block the same way everywhere", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    local block = snapshot.blocks[1]
+    block.name = ""
+    block.areas = { "Smelting", "" }
+    block.rows[1].area = 0
+    block.rows[2].area = 1
+    block.warnings = { { code = "area-shortfall", areas = { 0, 1 }, blocks = { 0 } } }
+    block.connections = { { from = 0, id = "iron-plate", type = "item", available = 5 } }
+    local _, window = show(snapshot)
+
+    local unnamed = 0
+    for _, text in ipairs(fake_game.captions(window)) do
+      if string.find(text, "{fp-viewer.unnamed}", 1, true) then
+        unnamed = unnamed + 1
+      end
+    end
+    -- The list button, the title, the warning's block line and the "from" line.
+    assert.are.equal(4, unnamed)
+    -- Areas: a name where there is one, the 1-based number where there is none.
+    assert.is_true(fake_game.any_caption(window, "Smelting"))
+    assert.is_true(fake_game.any_caption(window, "warning-areas} Smelting, 2"))
+    assert.is_false(fake_game.any_caption(window, "warning-areas} 1"))
+  end)
+
   it("shows a synthetic row with no product as unknown", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     snapshot.blocks[1].rows[1] = { kind = "mining", machines = 1, machinesCeil = 1 }
@@ -165,11 +190,15 @@ describe("control.lua", function()
     fake_game.uninstall()
   end)
 
-  local function deliver(text)
-    hear(support.probe(ID, 1, #text), 11)
-    tick(12)
-    hear(support.chunk(ID, 0, 1, #text, text), 21)
-    tick(22)
+  local clock = 0
+  -- One full delivery in one chunk; each call takes the next 10-tick cycle.
+  local function deliver(text, id)
+    id = id or ID
+    clock = clock + 20
+    hear(support.probe(id, 1, #text), clock + 1)
+    tick(clock + 2)
+    hear(support.chunk(id, 0, 1, #text, text), clock + 11)
+    tick(clock + 12)
   end
 
   it("polls every 10 ticks and sends nothing while nothing was heard", function()
@@ -255,7 +284,7 @@ describe("control.lua", function()
     end)
     assert.are.equal(last, #buttons)
     fake.handlers.on_gui_click({ element = buttons[last], player_index = 1 })
-    assert.are.equal(last, _G.storage.fp_viewer.selected[1])
+    assert.are.same({ index = last, name = snapshot.blocks[last].name }, _G.storage.fp_viewer.selected[1])
     window = player.gui.screen["fp_viewer_window"]
     assert.is_true(fake_game.any_caption(window, snapshot.blocks[last].name))
   end)
@@ -277,6 +306,137 @@ describe("control.lua", function()
     fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
     fake.handlers.on_gui_closed({ element = player.gui.screen["fp_viewer_window"] })
     assert.is_nil(player.gui.screen["fp_viewer_window"])
+  end)
+
+  it("keeps the panes and the list on a click, and only scrolls the details to the top", function()
+    deliver(fixture_text("seablock-loop"))
+    local player = fake.players[1]
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    local window = player.gui.screen["fp_viewer_window"]
+    local main = window["fp_viewer_content"]["fp_viewer_main"]
+    local left, right = main["fp_viewer_list"], main["fp_viewer_details"]
+    local first = left.children[1]
+    local count = #left.children
+    assert.is_true(count > 1)
+    fake.handlers.on_gui_click({ element = left.children[count], player_index = 1 })
+    assert.are.equal(main, window["fp_viewer_content"]["fp_viewer_main"])
+    assert.are.equal(left, main["fp_viewer_list"])
+    assert.are.equal(right, main["fp_viewer_details"])
+    assert.are.equal(first, left.children[1], "the list was not rebuilt")
+    assert.is_true(first.valid)
+    assert.is_true(left.children[count].toggled)
+    assert.is_false(first.toggled)
+    assert.are.equal(1, right.scrolled_to_top)
+    assert.is_nil(left.scrolled_to_top)
+  end)
+
+  it("keeps the panes when a new snapshot arrives, refilling them", function()
+    deliver(fixture_text("seablock-loop"))
+    local player = fake.players[1]
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    local main = player.gui.screen["fp_viewer_window"]["fp_viewer_content"]["fp_viewer_main"]
+    local left = main["fp_viewer_list"]
+    deliver(fixture_text("small"), "2222222222222222")
+    assert.are.equal(main, player.gui.screen["fp_viewer_window"]["fp_viewer_content"]["fp_viewer_main"])
+    assert.are.equal(left, main["fp_viewer_list"])
+    assert.are.equal(1, #left.children)
+  end)
+
+  it("centres the window once, after its content is built", function()
+    deliver(fixture_text("small"))
+    local player = fake.players[1]
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    local window = player.gui.screen["fp_viewer_window"]
+    assert.are.equal(1, window.centred)
+    assert.is_truthy(window["fp_viewer_content"]["fp_viewer_main"])
+    hear(support.ping("3333333333333333"), 1000)
+    tick(1002)
+    assert.are.equal(1, window.centred)
+  end)
+
+  it("keeps the selected block by name through a reordered snapshot", function()
+    local snapshot = support.json_to_table(fixture_text("seablock-loop"))
+    local count = #snapshot.blocks
+    assert.is_true(count > 1)
+    local player = fake.players[1]
+    deliver(fixture_text("seablock-loop"))
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    local window = player.gui.screen["fp_viewer_window"]
+    fake.handlers.on_gui_click({ element = window["fp_viewer_content"]["fp_viewer_main"]["fp_viewer_list"].children[count], player_index = 1 })
+    local chosen = snapshot.blocks[count].name
+
+    -- The same blocks, in the opposite order, as a new snapshot.
+    local reversed = support.copy(snapshot)
+    for i = 1, count do
+      reversed.blocks[i] = snapshot.blocks[count + 1 - i]
+    end
+    deliver(json.encode(reversed), "4444444444444444")
+    assert.are.equal(1, _G.storage.fp_viewer.selected[1].index)
+    assert.are.equal(chosen, _G.storage.fp_viewer.selected[1].name)
+    local list = window["fp_viewer_content"]["fp_viewer_main"]["fp_viewer_list"]
+    assert.is_true(list.children[1].toggled)
+    assert.is_true(fake_game.any_caption(window["fp_viewer_content"]["fp_viewer_main"]["fp_viewer_details"], chosen))
+  end)
+
+  it("drops a removed player's selection", function()
+    deliver(fixture_text("small"))
+    local player = fake.players[1]
+    fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+    assert.is_truthy(_G.storage.fp_viewer.selected[1])
+    fake.handlers.on_player_removed({ player_index = 1 })
+    assert.is_nil(_G.storage.fp_viewer.selected[1])
+  end)
+
+  describe("a snapshot the GUI cannot draw", function()
+    local gui_module, original_update, original_build
+
+    before_each(function()
+      gui_module = require("scripts.gui")
+      original_update = gui_module.update
+      original_build = require("lib.viewmodel").build
+    end)
+    after_each(function()
+      gui_module.update = original_update
+      require("lib.viewmodel").build = original_build
+    end)
+
+    it("logs a throwing view-model once and keeps the game running and the answers going", function()
+      require("lib.viewmodel").build = function()
+        error("cannot build")
+      end
+      deliver(fixture_text("small"))
+      assert.has_no.errors(function()
+        for t = 23, 100 do
+          tick(t)
+        end
+      end)
+      local failures = 0
+      for _, line in ipairs(fake.logged) do
+        if string.find(line, "refresh_gui failed", 1, true) then
+          failures = failures + 1
+        end
+      end
+      assert.are.equal(1, failures)
+      -- The snapshot was still stored and acknowledged.
+      assert.are.equal(ID, _G.storage.fp_viewer.stored.id)
+      assert.is_truthy(string.find(fake.sent[#fake.sent].data, "FP01 A", 1, true))
+    end)
+
+    it("logs a throwing window update", function()
+      local player = fake.players[1]
+      fake.handlers.on_gui_click({ element = player.gui.top["fp_viewer_button"], player_index = 1 })
+      gui_module.update = function()
+        error("cannot draw")
+      end
+      deliver(fixture_text("small"))
+      hear(support.ping("5555555555555555"), 1000)
+      assert.has_no.errors(function()
+        tick(1002)
+        tick(1012)
+        tick(1022)
+      end)
+      assert.is_true(#fake.logged >= 1)
+    end)
   end)
 
   it("picks the stored snapshot up again after a load", function()

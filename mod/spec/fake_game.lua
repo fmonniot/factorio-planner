@@ -34,7 +34,18 @@ local function make_element(args, parent)
       end
     end
   end
-  e.force_auto_center = function() end
+  e.clear = function()
+    for _, c in ipairs(e.children) do
+      c.valid = false
+    end
+    e.children, e.names = {}, {}
+  end
+  e.force_auto_center = function()
+    e.centred = (e.centred or 0) + 1
+  end
+  e.scroll_to_top = function()
+    e.scrolled_to_top = (e.scrolled_to_top or 0) + 1
+  end
   return setmetatable(e, {
     __index = function(t, k)
       if k == "style" then
@@ -136,7 +147,7 @@ function M.install(lacking)
     settings = { ["fp-viewer-bridge-port"] = { value = 34199 }, ["fp-viewer-debug"] = { value = false } },
   }
   local events = {}
-  for _, name in ipairs({ "on_tick", "on_udp_packet_received", "on_player_created", "on_player_joined_game", "on_gui_click", "on_gui_closed" }) do
+  for _, name in ipairs({ "on_tick", "on_udp_packet_received", "on_player_created", "on_player_joined_game", "on_gui_click", "on_gui_closed", "on_player_removed" }) do
     events[name] = name
   end
 

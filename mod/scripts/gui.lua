@@ -113,7 +113,9 @@ function M.is_open(player)
   return player.gui.screen[M.WINDOW] ~= nil
 end
 
-function M.open(player)
+-- Opens the window. With `ctx` (see M.update) its content is built before the
+-- window is centred, so the frame is centred at its final size.
+function M.open(player, ctx)
   local screen = player.gui.screen
   if screen[M.WINDOW] ~= nil then
     return
@@ -143,6 +145,11 @@ function M.open(player)
     bar.add({ type = "button", name = M.CLOSE, caption = "X", tooltip = { key("close") } })
   end
 
+  if ctx ~= nil then
+    M.update(player, ctx)
+  end
+  -- Centred only now that the content is in (and only here: calling it on every
+  -- update would pull a dragged window back to the middle).
   window.force_auto_center()
   -- Opened, so that E and Esc close it like any other window.
   player.opened = window
@@ -155,16 +162,36 @@ function M.close(player)
   end
 end
 
-function M.toggle(player)
+function M.toggle(player, ctx)
   if M.is_open(player) then
     M.close(player)
   else
-    M.open(player)
+    M.open(player, ctx)
   end
 end
 
 -- ---------------------------------------------------------------------------
 -- Content
+
+-- A block's name as shown anywhere: a nameless block gets the "(unnamed block)"
+-- text, and a block the snapshot does not hold (a dangling index) a "?".
+local function block_text(name)
+  if name == nil then
+    return "?"
+  elseif name == "" then
+    return { key("unnamed") }
+  end
+  return name
+end
+
+-- An area's name from its 1-based index; the number when it has no name.
+local function area_text(block, index)
+  local name = block.areas[index]
+  if name ~= nil and name ~= "" then
+    return name
+  end
+  return tostring(index)
+end
 
 local function indicator_caption(indicator)
   local k = format.indicator_key(indicator)
@@ -195,7 +222,7 @@ local function rate_line(parent, ref)
   label(parent, { "", ref_caption(ref), "   ", format.rate(ref.rate) })
 end
 
-local function add_warning(parent, w)
+local function add_warning(parent, w, block)
   label(parent, { "", "- ", format.warning_text(w.code) }, ORANGE)
   local items = {}
   for i, ref in ipairs(w.items) do
@@ -209,18 +236,15 @@ local function add_warning(parent, w)
   caption_lines(parent, "    ", recipes)
   local names = {}
   for i, b in ipairs(w.blocks) do
-    names[i] = b.name or "?"
+    names[i] = block_text(b.name)
   end
-  if #names > 0 then
-    label(parent, { "", "    ", { key("warning-blocks") }, " ", table.concat(names, ", ") })
+  caption_lines(parent, { "", "    ", { key("warning-blocks") }, " " }, names)
+  -- w.areas are 0-based indices into the block's areas, as in the snapshot.
+  local areas = {}
+  for i, a in ipairs(w.areas) do
+    areas[i] = area_text(block, a + 1)
   end
-  if #w.areas > 0 then
-    local areas = {}
-    for i, a in ipairs(w.areas) do
-      areas[i] = tostring(a + 1)
-    end
-    label(parent, { "", "    ", { key("warning-areas") }, " ", table.concat(areas, ", ") })
-  end
+  caption_lines(parent, { "", "    ", { key("warning-areas") }, " " }, areas)
 end
 
 local function row_recipe_caption(row)
@@ -251,7 +275,7 @@ local function add_rows(parent, block)
     -- A row the solve did not value has no numbers: dashes, dimmed.
     local dim = (not row.solved) and GREY or nil
     if with_area then
-      label(t, row.area_name or "")
+      label(t, row.area_index and area_text(block, row.area_index) or "")
     end
     label(t, row_recipe_caption(row))
     if row.machine then
@@ -265,7 +289,7 @@ local function add_rows(parent, block)
 end
 
 local function add_block_details(parent, block)
-  bold(label(parent, { "", format.colored(block.color.hex, SWATCH), " ", block.name }))
+  bold(label(parent, { "", format.colored(block.color.hex, SWATCH), " ", block_text(block.name) }))
   if block.error then
     label(parent, { key("solve-failed"), block.error }, RED)
   end
@@ -307,7 +331,7 @@ local function add_block_details(parent, block)
         "   ",
         format.rate(c.available),
         "   ",
-        { key("from"), c.from_name or "?" },
+        { key("from"), block_text(c.from_name) },
       })
     end
   end
@@ -315,7 +339,7 @@ local function add_block_details(parent, block)
   if #block.warnings > 0 then
     heading(parent, "warnings")
     for _, w in ipairs(block.warnings) do
-      add_warning(parent, w)
+      add_warning(parent, w, block)
     end
   end
 end
@@ -330,10 +354,75 @@ local function add_missing(parent, missing)
   end
 end
 
+-- The window's skeleton is built once and kept: content > header (indicator, data
+-- set, missing ids) and main > left and right scroll-panes. An update clears and
+-- refills the panes' contents, never the panes, so the scroll bars survive.
+local HEADER = "fp_viewer_header"
+local MAIN = "fp_viewer_main"
+local LEFT = "fp_viewer_list"
+local RIGHT = "fp_viewer_details"
+
+local function ensure_main(content)
+  local main = content[MAIN]
+  if main ~= nil then
+    return main
+  end
+  main = content.add({ type = "flow", name = MAIN, direction = "horizontal" })
+  local left = main.add({ type = "scroll-pane", name = LEFT, horizontal_scroll_policy = "never" })
+  left.style.minimal_width = 200
+  left.style.maximal_width = 280
+  left.style.minimal_height = 300
+  left.style.maximal_height = 600
+  local right = main.add({ type = "scroll-pane", name = RIGHT })
+  right.style.minimal_width = 520
+  right.style.maximal_width = 900
+  right.style.minimal_height = 300
+  right.style.maximal_height = 600
+  return main
+end
+
+local function fill_header(header, ctx)
+  local note = indicator_caption(ctx.indicator)
+  if note then
+    local l = label(header, note, ctx.indicator == "stale" and ORANGE or RED)
+    l.style.single_line = false
+    l.style.maximal_width = 640
+  end
+  local model = ctx.model
+  if model == nil then
+    label(header, { key("no-plan") })
+    return
+  end
+  label(header, { key("data-set"), model.data_set.name or model.data_set.id }, GREY)
+  if #model.missing > 0 then
+    add_missing(header, model.missing)
+  end
+  if #model.blocks == 0 then
+    label(header, { key("no-blocks") })
+  end
+end
+
+local function fill_list(left, blocks, selected)
+  left.clear()
+  for i, block in ipairs(blocks) do
+    local b = left.add({
+      type = "button",
+      name = format.block_button_name(i),
+      caption = { "", format.colored(block.color.hex, SWATCH), " ", block_text(block.name) },
+    })
+    b.toggled = (i == selected)
+    b.style.horizontally_stretchable = true
+    b.style.horizontal_align = "left"
+  end
+end
+
 -- ctx = {
---   model     = viewmodel.build(...) | nil   nil: no snapshot stored
---   indicator = "disconnected" | "mismatch" | "stale" | nil
---   selected  = 1-based block index
+--   model          = viewmodel.build(...) | nil   nil: no snapshot stored
+--   indicator      = "disconnected" | "mismatch" | "stale" | nil
+--   selected       = 1-based block index
+--   only_selection = true when only the selection changed: the header and the
+--                    list are kept, the toggled button moves, the details change
+--   reset_scroll   = true to scroll the details back to the top (a new block)
 -- }
 function M.update(player, ctx)
   local button = player.gui.top[M.BUTTON]
@@ -346,59 +435,43 @@ function M.update(player, ctx)
   if window == nil then
     return
   end
-  local old = window[CONTENT]
-  if old ~= nil then
-    old.destroy()
+  local content = window[CONTENT]
+  if content == nil then
+    content = window.add({ type = "flow", name = CONTENT, direction = "vertical" })
+    -- Created first, so it stays above the main part.
+    content.add({ type = "flow", name = HEADER, direction = "vertical" })
   end
-  local content = window.add({ type = "flow", name = CONTENT, direction = "vertical" })
-
-  local note = indicator_caption(ctx.indicator)
-  if note then
-    local l = label(content, note, ctx.indicator == "stale" and ORANGE or RED)
-    l.style.single_line = false
-    l.style.maximal_width = 640
-  end
-
   local model = ctx.model
-  if model == nil then
-    label(content, { key("no-plan") })
-    return
+  local blocks = model and model.blocks or {}
+  local selected = math.max(1, math.min(ctx.selected or 1, math.max(#blocks, 1)))
+
+  local header = content[HEADER]
+  local main = content[MAIN]
+  local keep = ctx.only_selection and main ~= nil and #main[LEFT].children == #blocks
+
+  if keep then
+    for _, b in ipairs(main[LEFT].children) do
+      b.toggled = (format.parse_block_button(b.name) == selected)
+    end
+  else
+    header.clear()
+    fill_header(header, ctx)
+    if #blocks == 0 then
+      if main ~= nil then
+        main.destroy()
+      end
+      return
+    end
+    main = ensure_main(content)
+    fill_list(main[LEFT], blocks, selected)
   end
 
-  label(content, { key("data-set"), model.data_set.name or model.data_set.id }, GREY)
-  if #model.missing > 0 then
-    add_missing(content, model.missing)
+  local right = main[RIGHT]
+  right.clear()
+  add_block_details(right, blocks[selected])
+  if ctx.reset_scroll then
+    right.scroll_to_top()
   end
-  if #model.blocks == 0 then
-    label(content, { key("no-blocks") })
-    return
-  end
-
-  local main = content.add({ type = "flow", direction = "horizontal" })
-  local left = main.add({ type = "scroll-pane", horizontal_scroll_policy = "never" })
-  left.style.minimal_width = 200
-  left.style.maximal_width = 280
-  left.style.minimal_height = 300
-  left.style.maximal_height = 600
-  local right = main.add({ type = "scroll-pane" })
-  right.style.minimal_width = 520
-  right.style.maximal_width = 900
-  right.style.minimal_height = 300
-  right.style.maximal_height = 600
-
-  local selected = math.max(1, math.min(ctx.selected or 1, #model.blocks))
-  for i, block in ipairs(model.blocks) do
-    local name = block.name ~= "" and block.name or { key("unnamed") }
-    local b = left.add({
-      type = "button",
-      name = format.block_button_name(i),
-      caption = { "", format.colored(block.color.hex, SWATCH), " ", name },
-    })
-    b.toggled = (i == selected)
-    b.style.horizontally_stretchable = true
-    b.style.horizontal_align = "left"
-  end
-  add_block_details(right, model.blocks[selected])
 end
 
 return M
