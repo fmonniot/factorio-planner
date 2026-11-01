@@ -1,0 +1,101 @@
+{
+  "v": 1,
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Kompetenz Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "blocks": [
+    {
+      "name": "Cables and gears",
+      "color": "#10b981",
+      "products": [
+        {
+          "id": "copper-cable",
+          "type": "item",
+          "rate": 240
+        },
+        {
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "rate": 30
+        },
+        {
+          "id": "water",
+          "type": "fluid",
+          "rate": 0
+        }
+      ],
+      "areas": [
+        "Top level",
+        "Smelting",
+        "Pumps"
+      ],
+      "rows": [
+        {
+          "recipe": "copper-cable",
+          "machine": "bob-assembling-machine-6",
+          "area": 0,
+          "machines": 0.286,
+          "machinesCeil": 1,
+          "throughput": 120,
+          "powerKw": 137.143
+        },
+        {
+          "recipe": "sb-copper-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "area": 1,
+          "machines": 1.75,
+          "machinesCeil": 2,
+          "throughput": 40,
+          "powerKw": 525
+        },
+        {
+          "recipe": "sb-iron-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "area": 1,
+          "machines": 0.875,
+          "machinesCeil": 1,
+          "throughput": 20,
+          "powerKw": 262.5
+        },
+        {
+          "kind": "offshore",
+          "product": {
+            "id": "water",
+            "type": "fluid"
+          },
+          "machine": "angels-sea-pump-placeable",
+          "area": 2,
+          "machines": 0,
+          "machinesCeil": 0,
+          "throughput": 0,
+          "powerKw": 0
+        },
+        {
+          "recipe": "iron-gear-wheel",
+          "machine": "bob-assembling-machine-6",
+          "area": 2,
+          "machines": 0.071,
+          "machinesCeil": 1,
+          "throughput": 30,
+          "powerKw": 34.286
+        }
+      ],
+      "imports": [
+        {
+          "id": "copper-ore",
+          "type": "item",
+          "rate": 160
+        },
+        {
+          "id": "iron-ore",
+          "type": "item",
+          "rate": 80
+        }
+      ],
+      "warnings": [],
+      "connections": []
+    }
+  ]
+}

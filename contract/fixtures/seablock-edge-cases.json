@@ -1,0 +1,174 @@
+{
+  "v": 1,
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Kompetenz Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "blocks": [
+    {
+      "name": "Power and fluids",
+      "color": "#eab308",
+      "products": [
+        {
+          "id": "electricity",
+          "type": "virtual",
+          "rate": 600
+        },
+        {
+          "id": "water",
+          "type": "fluid",
+          "rate": 120
+        }
+      ],
+      "areas": [
+        "Top level",
+        "Pumps"
+      ],
+      "rows": [
+        {
+          "kind": "power",
+          "product": {
+            "id": "electricity",
+            "type": "virtual"
+          },
+          "machine": "solar-panel",
+          "area": 0,
+          "machines": 238.095,
+          "machinesCeil": 239,
+          "throughput": 14285.714,
+          "powerKw": 0
+        },
+        {
+          "kind": "offshore",
+          "product": {
+            "id": "water",
+            "type": "fluid"
+          },
+          "machine": "angels-sea-pump-placeable",
+          "area": 1,
+          "machines": 0.001,
+          "machinesCeil": 1,
+          "throughput": 2,
+          "powerKw": 0
+        },
+        {
+          "kind": "mining",
+          "product": {
+            "id": "angels-liquid-multi-phase-oil",
+            "type": "fluid"
+          },
+          "machine": "pumpjack",
+          "area": 1,
+          "machines": 0,
+          "machinesCeil": 0,
+          "throughput": 0,
+          "powerKw": 0
+        }
+      ],
+      "imports": [],
+      "warnings": [
+        {
+          "code": "area-shortfall",
+          "items": [
+            {
+              "id": "water",
+              "type": "fluid"
+            }
+          ],
+          "areas": [
+            1
+          ]
+        }
+      ],
+      "connections": []
+    },
+    {
+      "name": "Parts",
+      "color": "#06b6d4",
+      "products": [
+        {
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "rate": 30
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "iron-gear-wheel",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.071,
+          "machinesCeil": 1,
+          "throughput": 30,
+          "powerKw": 34.286
+        }
+      ],
+      "imports": [
+        {
+          "id": "iron-plate",
+          "type": "item",
+          "rate": 60
+        }
+      ],
+      "warnings": [
+        {
+          "code": "duplicate-recipe",
+          "recipes": [
+            "iron-gear-wheel"
+          ]
+        },
+        {
+          "code": "infeasible-pins",
+          "recipes": [
+            "iron-gear-wheel"
+          ]
+        },
+        {
+          "code": "loop-not-converged",
+          "blocks": [
+            1,
+            0
+          ]
+        }
+      ],
+      "connections": [
+        {
+          "from": 0,
+          "id": "electricity",
+          "type": "virtual",
+          "available": 600
+        },
+        {
+          "from": 0,
+          "id": "water",
+          "type": "fluid",
+          "available": 120
+        }
+      ]
+    },
+    {
+      "name": "After a mod update",
+      "color": "#64748b",
+      "products": [
+        {
+          "id": "pipe",
+          "type": "item",
+          "rate": 10
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "pipe",
+          "machine": "bob-assembling-machine-6"
+        },
+        {
+          "recipe": "recipe-removed-by-a-mod-update"
+        }
+      ],
+      "imports": [],
+      "warnings": [],
+      "connections": [],
+      "error": "LP solver failed: the model is unbounded"
+    }
+  ]
+}

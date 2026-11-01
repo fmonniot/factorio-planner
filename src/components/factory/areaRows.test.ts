@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { areaName, ROOT_AREA_LABEL } from './areaRows'
+import { areaName, ROOT_AREA_LABEL } from '../../data/subPlanTree'
 import type { SubPlan } from '../../data/types'
 
 function plan(id: string, name: string, subPlans: SubPlan[] = []): SubPlan {

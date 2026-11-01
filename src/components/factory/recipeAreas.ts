@@ -1,6 +1,6 @@
 import type { GameData, GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
 import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
-import { areaName } from './areaRows'
+import { areaName } from '../../data/subPlanTree'
 
 // ---------------------------------------------------------------------------
 // Which rows build which recipe in which area: what the table's area actions

@@ -1,0 +1,186 @@
+{
+  "v": 1,
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Kompetenz Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "blocks": [
+    {
+      "name": "Smelter",
+      "color": "#f97316",
+      "products": [
+        {
+          "id": "iron-plate",
+          "type": "item",
+          "rate": 221
+        },
+        {
+          "id": "copper-plate",
+          "type": "item",
+          "rate": 60
+        },
+        {
+          "id": "gun-turret",
+          "type": "item",
+          "rate": 2
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "sb-iron-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "machines": 3.806,
+          "machinesCeil": 4,
+          "throughput": 87,
+          "powerKw": 1141.875
+        },
+        {
+          "recipe": "sb-copper-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "machines": 1.167,
+          "machinesCeil": 2,
+          "throughput": 26.667,
+          "powerKw": 350
+        },
+        {
+          "recipe": "gun-turret",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.076,
+          "machinesCeil": 1,
+          "throughput": 2,
+          "powerKw": 36.571
+        }
+      ],
+      "imports": [
+        {
+          "id": "iron-ore",
+          "type": "item",
+          "rate": 348
+        },
+        {
+          "id": "copper-ore",
+          "type": "item",
+          "rate": 106.667
+        }
+      ],
+      "warnings": [],
+      "connections": [
+        {
+          "from": 1,
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "available": 20
+        }
+      ]
+    },
+    {
+      "name": "Parts",
+      "color": "#8b5cf6",
+      "products": [
+        {
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "rate": 28
+        },
+        {
+          "id": "pipe",
+          "type": "item",
+          "rate": 35
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "iron-gear-wheel",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.067,
+          "machinesCeil": 1,
+          "throughput": 28,
+          "powerKw": 32
+        },
+        {
+          "recipe": "pipe",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.083,
+          "machinesCeil": 1,
+          "throughput": 35,
+          "powerKw": 40
+        }
+      ],
+      "imports": [],
+      "warnings": [],
+      "connections": [
+        {
+          "from": 0,
+          "id": "iron-plate",
+          "type": "item",
+          "available": 211
+        }
+      ]
+    },
+    {
+      "name": "Engines",
+      "color": "#ec4899",
+      "products": [
+        {
+          "id": "steam-engine",
+          "type": "item",
+          "rate": 1
+        },
+        {
+          "id": "uranium-ore",
+          "type": "item",
+          "rate": 5
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "steam-engine",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.002,
+          "machinesCeil": 1,
+          "throughput": 1,
+          "powerKw": 1.143
+        }
+      ],
+      "imports": [
+        {
+          "id": "uranium-ore",
+          "type": "item",
+          "rate": 5
+        }
+      ],
+      "warnings": [
+        {
+          "code": "no-recipe",
+          "items": [
+            {
+              "id": "uranium-ore",
+              "type": "item"
+            }
+          ]
+        }
+      ],
+      "connections": [
+        {
+          "from": 1,
+          "id": "pipe",
+          "type": "item",
+          "available": 35
+        },
+        {
+          "from": 1,
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "available": 8
+        },
+        {
+          "from": 0,
+          "id": "iron-plate",
+          "type": "item",
+          "available": 130
+        }
+      ]
+    }
+  ]
+}

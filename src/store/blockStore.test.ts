@@ -5,10 +5,10 @@ import {
   cloneBlock,
   clonePlan,
   makeEmptySubPlan,
-  findSubPlan,
   isSubPlanDescendant,
   selectAppState,
 } from './blockStore'
+import { findSubPlan } from '../data/subPlanTree'
 import type { AppState, BeaconConfig, Block, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
 import { areaRecipeIds, blockAreas } from '../solver/areas'

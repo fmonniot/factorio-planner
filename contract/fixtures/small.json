@@ -1,0 +1,48 @@
+{
+  "v": 1,
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Kompetenz Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "blocks": [
+    {
+      "name": "Gears",
+      "color": "#3b82f6",
+      "products": [
+        {
+          "id": "iron-gear-wheel",
+          "type": "item",
+          "rate": 60
+        }
+      ],
+      "rows": [
+        {
+          "recipe": "iron-gear-wheel",
+          "machine": "bob-assembling-machine-6",
+          "machines": 0.143,
+          "machinesCeil": 1,
+          "throughput": 60,
+          "powerKw": 68.571
+        },
+        {
+          "recipe": "sb-iron-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "machines": 1.75,
+          "machinesCeil": 2,
+          "throughput": 40,
+          "powerKw": 525
+        }
+      ],
+      "imports": [
+        {
+          "id": "iron-ore",
+          "type": "item",
+          "rate": 160
+        }
+      ],
+      "warnings": [],
+      "connections": []
+    }
+  ]
+}

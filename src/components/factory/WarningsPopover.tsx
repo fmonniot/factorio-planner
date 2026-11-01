@@ -6,7 +6,7 @@ import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import type { RateUnit } from '../../store/uiStore'
 import { blockAreas } from '../../solver/areas'
-import { areaName } from './areaRows'
+import { areaName } from '../../data/subPlanTree'
 import { fmtItemRateText } from './ItemTile'
 import type { SolverWarning, GameData, SubPlan } from '../../data/types'
 
