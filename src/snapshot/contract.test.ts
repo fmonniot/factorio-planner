@@ -4,6 +4,7 @@ import Ajv2020 from 'ajv/dist/2020'
 import { describe, it, expect } from 'vitest'
 import { SnapshotSchema, SNAPSHOT_VERSION, type Snapshot } from './schema'
 import { buildSnapshotFixtures, loopBlocks, buildSnapshotJsonSchema, loadSeablock, toFileText } from '../test/snapshotFixtures'
+import { buildDatagramFixtures } from '../test/datagramFixtures'
 import { solveAll } from '../solver'
 
 // The checked-in contract (contract/) is read by the Lua and Rust tests. These tests keep it
@@ -11,6 +12,7 @@ import { solveAll } from '../solver'
 
 const CONTRACT_DIR = resolve(import.meta.dirname, '../../contract')
 const FIXTURES_DIR = join(CONTRACT_DIR, 'fixtures')
+const DATAGRAMS_DIR = join(CONTRACT_DIR, 'datagrams')
 
 const fixtureFiles = readdirSync(FIXTURES_DIR).filter(f => f.endsWith('.json')).sort()
 const readFixture = (file: string): string => readFileSync(join(FIXTURES_DIR, file), 'utf-8')
@@ -96,6 +98,21 @@ export function ruleIds(snapshot: Snapshot): string[] {
   }
   return ids
 }
+
+describe('contract/datagrams', () => {
+  const generated = buildDatagramFixtures()
+  const files = readdirSync(DATAGRAMS_DIR).filter(f => f.endsWith('.json')).sort()
+
+  it('has every file the generator builds, and no other', () => {
+    expect(files).toEqual(Object.keys(generated).map(n => `${n}.json`).sort())
+  })
+
+  it.each(files)('%s matches a fresh generation', file => {
+    const name = file.replace(/\.json$/, '')
+    const checkedIn = readFileSync(join(DATAGRAMS_DIR, file), 'utf-8')
+    expect(checkedIn === toFileText(generated[name]), `run npm run contract; ${file} is out of date`).toBe(true)
+  })
+})
 
 describe('contract/snapshot.schema.json', () => {
   const checkedIn = readFileSync(join(CONTRACT_DIR, 'snapshot.schema.json'), 'utf-8')

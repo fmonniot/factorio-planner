@@ -1,0 +1,69 @@
+{
+  "case": "stale-signal",
+  "summary": "The ping carries the newest id. It sets Stale when it differs from the stored id, and clears it when it matches or names nothing.",
+  "start": {
+    "stored": {
+      "id": "9b3b078dbd018b94",
+      "unknownIds": 0
+    }
+  },
+  "idCheck": {
+    "unknownIds": 0
+  },
+  "polls": [
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP01 P 9b3b078dbd018b94",
+          "hex": "4650303120502039623362303738646264303138623934"
+        }
+      ],
+      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "after": {
+        "stored": "9b3b078dbd018b94",
+        "unknownIds": 0,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": false
+      }
+    },
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP01 P 1570f001d9c7e79b",
+          "hex": "4650303120502031353730663030316439633765373962"
+        }
+      ],
+      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "after": {
+        "stored": "9b3b078dbd018b94",
+        "unknownIds": 0,
+        "assembling": null,
+        "have": [],
+        "stale": true,
+        "mismatch": false
+      }
+    },
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP01 P ----------------",
+          "hex": "465030312050202d2d2d2d2d2d2d2d2d2d2d2d2d2d2d2d"
+        }
+      ],
+      "answer": "FP01 H 9b3b078dbd018b94 0 ----------------",
+      "after": {
+        "stored": "9b3b078dbd018b94",
+        "unknownIds": 0,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": false
+      }
+    }
+  ]
+}
