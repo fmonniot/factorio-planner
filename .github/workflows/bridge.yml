@@ -1,0 +1,28 @@
+name: Bridge
+
+# The in-game viewer's bridge (bridge/): a Cargo workspace, checked apart from the planner's jobs in test.yml.
+on:
+  pull_request:
+  # Also run on main so its cache exists for pull requests, which can only read caches from their base branch.
+  push:
+    branches: [main]
+
+jobs:
+  rust:
+    name: fmt + clippy + test
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: bridge
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy, rustfmt
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: bridge
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets --locked -- -D warnings
+      # The tests read the shared fixtures in contract/datagrams/ and use UDP on loopback.
+      - run: cargo test --locked
