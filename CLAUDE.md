@@ -45,6 +45,8 @@ cargo test         # reads the shared fixtures in contract/datagrams/; loopback 
 
 On a fresh checkout, run `npx playwright install chromium` before the e2e tests.
 
+The in-game viewer mod's Lua tests are separate from `npm test`: run `mod/setup-lua.sh` once (private Lua 5.2 tree in the gitignored `mod/.lua/`, nothing installed system-wide), then `.lua/bin/busted` and `.lua/bin/luacheck .` from `mod/` — see [mod/README.md](mod/README.md).
+
 CI (`.github/workflows/test.yml`) runs lint, doc-link check, unit, e2e and build on every pull request.
 
 To regenerate game data, follow [README.md — Exporting game data](README.md#exporting-game-data).
