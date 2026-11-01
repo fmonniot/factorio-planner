@@ -1,0 +1,33 @@
+name: Mod (Lua)
+
+# The in-game viewer's mod logic: busted specs and luacheck under Lua 5.2,
+# Factorio's version. mod/setup-lua.sh pins the toolchain and is the same script
+# a developer runs locally. CI never runs Factorio.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  lua:
+    name: busted + luacheck (Lua 5.2)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - uses: actions/cache@v6
+        id: lua-tree
+        with:
+          path: mod/.lua
+          key: lua-tree-${{ runner.os }}-${{ hashFiles('mod/setup-lua.sh') }}
+      - name: Build the Lua toolchain
+        if: steps.lua-tree.outputs.cache-hit != 'true'
+        run: mod/setup-lua.sh
+      - name: luacheck
+        working-directory: mod
+        run: .lua/bin/luacheck .
+      - name: busted
+        working-directory: mod
+        run: .lua/bin/busted
