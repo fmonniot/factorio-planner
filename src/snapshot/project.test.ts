@@ -412,7 +412,7 @@ describe('projectSnapshot', () => {
   describe('modules and beacon', () => {
     const rowOf = (node: SubPlan['nodes'][number]) =>
       project([makeBlock('a', { rootPlan: plan('root', 'Main', [node]) })], solveOf()).blocks[0].rows[0]
-    const beacon = { beaconId: 'beacon', moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+    const beacon = () => ({ beaconId: 'beacon', moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 })
 
     it('sends the machine\'s modules in order, and nothing when there are none', () => {
       const row = rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: 'speed-module', count: 2 }, { moduleId: 'productivity-module', count: 1 }] }))
@@ -421,7 +421,7 @@ describe('projectSnapshot', () => {
     })
 
     it('sends the beacon entity, how many per machine, and the module and how many of it each holds', () => {
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfig: beacon }))).toMatchObject({
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfig: beacon() }))).toMatchObject({
         beacon: { id: 'beacon', count: 8, module: 'speed-module', modules: 2 },
       })
     })
@@ -431,8 +431,18 @@ describe('projectSnapshot', () => {
       expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: noId }))).toBe(false)
     })
 
+    it('sends no beacon for a config without a module (nothing to place in it)', () => {
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), moduleId: '' } }))).toBe(false)
+    })
+
+    it('skips a machine module slot with an empty module id', () => {
+      const row = rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }, { moduleId: 'speed-module', count: 1 }] }))
+      expect(row.modules).toEqual([{ id: 'speed-module', count: 1 }])
+      expect('modules' in rowOf(richNode('n1', 'smelt', { modules: [{ moduleId: '', count: 2 }] }))).toBe(false)
+    })
+
     it('sends no beacon for a count of 0', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon, beaconCount: 0 } }))).toBe(false)
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), beaconCount: 0 } }))).toBe(false)
     })
   })
 

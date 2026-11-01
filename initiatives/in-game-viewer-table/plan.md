@@ -2,7 +2,7 @@
 
 Status: Active
 
-Redesign the in-game viewer window ([mod/](../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. Nothing is implemented yet. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
+Redesign the in-game viewer window ([mod/](../../mod/README.md)) after the production table of the Factory Planner mod: a block drop-down, one row per recipe with icons, and a "built" checkbox per row. The snapshot side (PR 1, the contract) is in; the in-game window is not. The reference is the compact dialog of [Factory Planner](https://github.com/ClaudeMetz/FactoryPlanner/tree/master/modfiles/ui) (see `ui/base/compact_dialog.lua` and `ui/main/production_table.lua`).
 
 ---
 

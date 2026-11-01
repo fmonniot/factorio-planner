@@ -319,7 +319,7 @@ To parse it, the mod takes the first 42 B with `string.sub`, matches them with o
 | 28 | 1 | space |
 | 29 | 4 | `upto`: every chunk with an index below this has been sent at least once, 1 to `MAX_CHUNKS` |
 
-Exactly 33 B. Round 1 of a transfer whose five chunks have all been sent:
+Exactly 33 B. Round 1 of a transfer whose seven chunks have all been sent:
 
 ```
 FP01 E 721d0a38833f2efa 0001 0007
@@ -374,7 +374,7 @@ FP01 M 721d0a38833f2efa 0000 -
 FP01 M 721d0a38833f2efa 0001 1,3-5,9
 ```
 
-**The worst case stays short.** The report can never exceed 124 B, whatever the snapshot size: 12 entries of at most `999-999` with 11 commas. With two-digit indices, as in a 29-chunk snapshot, it stays under 100 B; the `report-worst-case` fixture, 41 chunks with every other one lost, comes to 59 B. Losing a whole window is one range, `0-23`. Building a report loops over at most `upto` chunks, and happens at most once per poll.
+**The worst case stays short.** The report can never exceed 124 B, whatever the snapshot size: 12 entries of at most `999-999` with 11 commas. With two-digit indices, as in a 29-chunk snapshot, it stays under 100 B; the `report-capped` fixture, 41 chunks with every other one lost, comes to 59 B. Losing a whole window is one range, `0-23`. Building a report loops over at most `upto` chunks, and happens at most once per poll.
 
 #### `A`: final ack
 

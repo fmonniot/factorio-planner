@@ -85,9 +85,9 @@ const rowShape = {
   inputs: z.array(SnapshotItemRateSchema).optional(),
   /** Items produced per minute (gross), from the solve; same rules as `inputs`. */
   outputs: z.array(SnapshotItemRateSchema).optional(),
-  /** The machine's own modules; omitted when it holds none. */
+  /** The machine's own modules (slots with an empty module id are skipped); omitted when it holds none. */
   modules: z.array(SnapshotModuleSchema).optional(),
-  /** Omitted when the row has no beacon config, no beacon entity or no beacon. */
+  /** Omitted when the row has no beacon config, no beacon entity, no beacon module or no beacon. */
   beacon: SnapshotBeaconSchema.optional(),
 }
 
