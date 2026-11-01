@@ -143,9 +143,9 @@ describe("scripts/gui.lua", function()
       assert.are.equal(#snapshot.blocks, #dropdown.items)
       assert.are.equal(1, dropdown.selected_index)
       assert.is_true(string.find(fake_game.flatten(dropdown.items[1]), snapshot.blocks[1].name, 1, true) ~= nil)
-      -- The summary line, then one line per row and per sub-factory header.
+      -- One line per row and per sub-factory header.
       local block = viewmodel.build(snapshot, {}).blocks[1]
-      assert.are.equal(1 + #block.entries, #lines(window))
+      assert.are.equal(#block.entries, #lines(window))
     end)
 
     it("draws every block of " .. name .. " as the selected one", function()
@@ -205,7 +205,7 @@ describe("scripts/gui.lua", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     snapshot.blocks[1].rows[1] = { kind = "mining", machines = 1, machinesCeil = 1 }
     local _, window = show(snapshot)
-    local recipe = buttons(lines(window)[2][2])[1]
+    local recipe = buttons(lines(window)[1][2])[1]
     assert.is_nil(recipe.sprite)
     assert.are.equal("{fp-viewer.unknown-row|{fp-viewer.kind-mining}}", fake_game.flatten(recipe.tooltip))
   end)
@@ -224,38 +224,13 @@ describe("scripts/gui.lua", function()
     end))
   end)
 
-  it("draws the summary line first: a blue icon, the net products and the net ingredients in green", function()
-    local snapshot = support.json_to_table(fixture_text("small"))
-    local _, window = show(snapshot)
-    local summary = lines(window)[1]
-    assert.are.equal("checkbox", summary[1].type)
-    assert.are.same({ block = "Gears", what = "check" }, summary[1].tags)
-    assert.is_false(summary[1].state)
-    -- An icon, not a caption, so the recipe column stays one icon wide.
-    local icon = buttons(summary[2])[1]
-    assert.are.equal("flib_slot_button_blue", icon.style.name)
-    assert.are.equal("item/iron-gear-wheel", icon.sprite)
-    assert.are.equal("{fp-viewer.summary}", fake_game.flatten(icon.tooltip))
-    assert.is_false(fake_game.any_caption(summary[2], "{fp-viewer.summary}"))
-    -- small: ore into plates into gears, so the net is ore in, gears out.
-    local products, ingredients = buttons(summary[4]), buttons(summary[5])
-    assert.are.equal(1, #products)
-    assert.are.equal("item/iron-gear-wheel", products[1].sprite)
-    assert.are.equal("flib_slot_button_default", products[1].style.name)
-    assert.are.equal(1, #ingredients)
-    assert.are.equal("flib_slot_button_green", ingredients[1].style.name)
-    assert.is_number(products[1].number)
-  end)
-
-  it("says why a failed block has no numbers, and falls back on its products", function()
+  it("says why a failed block has no numbers", function()
     local snapshot = support.json_to_table(fixture_text("seablock-edge-cases"))
     local _, window = show(snapshot, { selected = 3 })
     local note = main_of(window)["fp_viewer_note"]
     assert.is_true(fake_game.any_caption(note, "{fp-viewer.solve-failed|LP solver failed"))
-    local summary = lines(window)[1]
-    assert.are.equal(#snapshot.blocks[3].products, #buttons(summary[4]))
     -- Rows the solve did not value: icons without numbers.
-    for _, b in ipairs(buttons(lines(window)[2][3])) do
+    for _, b in ipairs(buttons(lines(window)[1][3])) do
       assert.is_nil(b.number)
     end
     -- Another block: no note.
@@ -321,17 +296,17 @@ describe("scripts/gui.lua", function()
       row.inputs[i] = { id = "ingredient-" .. i, type = "item", rate = i }
     end
     local _, window = show(snapshot)
-    local cell = lines(window)[2][5]
+    local cell = lines(window)[1][5]
     assert.are.equal("table", cell.type)
     assert.are.equal(9, #cell.children)
     -- 26 % of 1710 is 444: six buttons fit, one of them for the product.
     assert.are.equal(5, cell.column_count)
-    assert.are.equal(1, lines(window)[2][4].column_count)
+    assert.are.equal(1, lines(window)[1][4].column_count)
   end)
 
   it("leaves the name of a sub-factory room, and fewer buttons, in a narrow window", function()
     local _, window = show(support.json_to_table(fixture_text("seablock-groups")))
-    local line = lines(window)[2]
+    local line = lines(window)[1]
     local _, t = lines(window)
     assert.are.equal(6, t.column_count)
     -- 444 - 24 frame - 16 padding - 60 gaps - 72 machine and beacon - 142 name and
@@ -352,15 +327,15 @@ describe("scripts/gui.lua", function()
     local snapshot = support.json_to_table(fixture_text("seablock-groups"))
     local _, window = show(snapshot)
     local all = lines(window)
-    -- summary, gears, [Plates and cables], plates, [Power], solar, solar, cables, pipe
-    assert.are.equal(9, #all)
+    -- gears, [Plates and cables], plates, [Power], solar, solar, cables, pipe
+    assert.are.equal(8, #all)
     local plates = line_named(window, "Plates and cables")
     local power = line_named(window, "Power")
     assert.are.equal(0, plates[2].style.left_margin)
     assert.are.equal(20, power[2].style.left_margin)
-    assert.are.equal(20, all[4][2].style.left_margin) -- a row of the top-level sub-factory
-    assert.are.equal(40, all[6][2].style.left_margin) -- a row of the nested one
-    assert.are.equal(0, all[9][2].style.left_margin) -- the root row after them
+    assert.are.equal(20, all[3][2].style.left_margin) -- a row of the top-level sub-factory
+    assert.are.equal(40, all[5][2].style.left_margin) -- a row of the nested one
+    assert.are.equal(0, all[8][2].style.left_margin) -- the root row after them
     -- The name is capped, with the full name in its tooltip; no machine there.
     local name = plates[2].children[2]
     assert.are.equal("Plates and cables", name.tooltip)
@@ -392,15 +367,14 @@ describe("scripts/gui.lua", function()
     local all = lines(window)
     assert.is_true(line_named(window, "Power")[1].state) -- every row under it is built
     assert.is_false(line_named(window, "Plates and cables")[1].state) -- not every row
-    assert.is_false(all[1][1].state)
-    assert.is_true(all[6][1].state)
-    for _, b in ipairs(buttons(all[6][2])) do
+    assert.is_true(all[5][1].state)
+    for _, b in ipairs(buttons(all[5][2])) do
       assert.is_true(b.style.draw_grayscale_picture)
     end
-    assert.is_true(all[6][3].style.draw_grayscale_picture)
+    assert.is_true(all[5][3].style.draw_grayscale_picture)
     -- A built row's machine stays a button, clickable.
-    assert.are.equal("machine", all[6][3].tags.what)
-    assert.is_nil(all[2][3].style.draw_grayscale_picture)
+    assert.are.equal("machine", all[5][3].tags.what)
+    assert.is_nil(all[1][3].style.draw_grayscale_picture)
   end)
 
   it("shows the indicator in the window and the button's tooltip", function()
@@ -426,18 +400,17 @@ describe("scripts/gui.lua", function()
     assert.is_nil(window["fp_viewer_content"]["fp_viewer_main"])
   end)
 
-  it("takes the green off a built row's ingredients, and the blue off a built block's icon", function()
+  it("takes the green off a built row's ingredients", function()
     local snapshot = support.json_to_table(fixture_text("small"))
     local block = viewmodel.build(snapshot, {}).blocks[1]
     local done = { [block.key] = {} }
-    for _, k in ipairs(block.summary.keys) do
-      done[block.key][k] = true
+    for _, row in ipairs(block.rows) do
+      done[block.key][row.key] = true
     end
     local _, window = show(snapshot, { done = done })
     local all = lines(window)
-    assert.are.equal("flib_slot_button_default", buttons(all[1][2])[1].style.name)
-    assert.are.equal("flib_slot_button_default", buttons(all[2][5])[1].style.name)
-    assert.is_true(buttons(all[2][5])[1].style.draw_grayscale_picture)
+    assert.are.equal("flib_slot_button_default", buttons(all[1][5])[1].style.name)
+    assert.is_true(buttons(all[1][5])[1].style.draw_grayscale_picture)
   end)
 
   it("draws the slots at 36 pixels, in a striped table with its pusher, like the reference", function()
@@ -447,8 +420,8 @@ describe("scripts/gui.lua", function()
     assert.are.equal("finished_game_table", t.style.name)
     assert.are.equal(0, t.style.left_cell_padding)
     assert.are.same({ 4, 8 }, t.style.padding)
-    assert.are.equal(36, all[2][3].style.size)
-    local pusher = all[2][#all[2]]
+    assert.are.equal(36, all[1][3].style.size)
+    local pusher = all[1][#all[1]]
     assert.are.equal("empty-widget", pusher.type)
     assert.is_true(pusher.style.horizontally_stretchable)
   end)
@@ -472,7 +445,6 @@ describe("scripts/gui.lua", function()
     }
     local _, window = show(support.json_to_table(fixture_text("small")))
     local all = lines(window)
-    assert.are.equal("slot_sized_button_blue", buttons(all[1][2])[1].style.name)
     assert.are.equal("slot_sized_button", buttons(all[1][4])[1].style.name)
     assert.are.equal("slot_sized_button_green", buttons(all[1][5])[1].style.name)
     assert.are.equal(36, buttons(all[1][4])[1].style.size)
@@ -827,11 +799,11 @@ describe("control.lua", function()
       deliver(fixture_text("small"))
       local _, window = open_window()
       local scroll = scroll_of(window)
-      local row = lines(window)[2]
+      local row = lines(window)[1]
       check(row[1], true)
       local key = row[1].tags.entry
       assert.is_true(_G.storage.fp_viewer.done["Gears"][key])
-      row = lines(window)[2]
+      row = lines(window)[1]
       assert.is_true(row[1].state)
       assert.is_true(row[3].style.draw_grayscale_picture)
       assert.are.equal(scroll, scroll_of(window))
@@ -839,24 +811,7 @@ describe("control.lua", function()
       -- Unticked: the entry goes, and so does the block's table.
       check(row[1], false)
       assert.is_nil(_G.storage.fp_viewer.done["Gears"])
-      assert.is_false(lines(window)[2][1].state)
-    end)
-
-    it("ticks every row of the block from the summary line, and unticks them", function()
-      deliver(fixture_text("seablock-groups"))
-      local _, window = open_window()
-      check(lines(window)[1][1], true)
-      local all = lines(window)
-      for i = 2, #all do
-        assert.is_true(all[i][1].state, "line " .. i)
-      end
-      local count = 0
-      for _ in pairs(_G.storage.fp_viewer.done["Nested sub-factories"]) do
-        count = count + 1
-      end
-      assert.are.equal(6, count) -- the rows only: a header's state is derived
-      check(lines(window)[1][1], false)
-      assert.is_nil(_G.storage.fp_viewer.done["Nested sub-factories"])
+      assert.is_false(lines(window)[1][1].state)
     end)
 
     it("ticks a sub-factory's rows from its header, and derives the header from its rows", function()
@@ -864,42 +819,41 @@ describe("control.lua", function()
       local _, window = open_window()
       check(line_named(window, "Power")[1], true)
       local all = lines(window)
+      assert.is_true(all[5][1].state)
       assert.is_true(all[6][1].state)
-      assert.is_true(all[7][1].state)
-      assert.is_false(all[4][1].state) -- the plates row, outside "Power"
+      assert.is_false(all[3][1].state) -- the plates row, outside "Power"
       assert.is_false(line_named(window, "Plates and cables")[1].state)
       -- Ticking the other rows of "Plates and cables" one by one checks its header.
-      check(all[4][1], true)
-      check(lines(window)[8][1], true)
+      check(all[3][1], true)
+      check(lines(window)[7][1], true)
       assert.is_true(line_named(window, "Plates and cables")[1].state)
-      assert.is_false(lines(window)[1][1].state) -- two root rows are not built
     end)
 
     it("keeps the ticks through a new snapshot of the same plan", function()
       deliver(fixture_text("seablock-groups"))
       local _, window = open_window()
-      check(lines(window)[4][1], true)
+      check(lines(window)[3][1], true)
       deliver(fixture_text("seablock-groups"), "2222222222222222")
       assert.are.equal("2222222222222222", _G.storage.fp_viewer.stored.id)
-      assert.is_true(lines(window)[4][1].state)
-      assert.is_true(lines(window)[4][3].style.draw_grayscale_picture)
+      assert.is_true(lines(window)[3][1].state)
+      assert.is_true(lines(window)[3][3].style.draw_grayscale_picture)
     end)
 
     it("does nothing for a box whose row is gone, and puts it back", function()
       deliver(fixture_text("small"))
       local _, window = open_window()
-      local box = lines(window)[2][1]
+      local box = lines(window)[1][1]
       box.tags = { block = "Gears", entry = "no-such-row", what = "check" }
       check(box, true)
       assert.is_nil(_G.storage.fp_viewer.done["Gears"])
-      assert.is_false(lines(window)[2][1].state)
+      assert.is_false(lines(window)[1][1].state)
     end)
 
     it("creates the ticks in a save made before they existed", function()
       deliver(fixture_text("small"))
       _G.storage.fp_viewer.done = nil
       local _, window = open_window()
-      check(lines(window)[2][1], true)
+      check(lines(window)[1][1], true)
       assert.is_truthy(_G.storage.fp_viewer.done["Gears"])
     end)
   end)
@@ -969,7 +923,7 @@ describe("control.lua", function()
     end)
 
     it("puts a plain building into the cursor as a ghost of its item", function()
-      local solar = lines(window)[6][3]
+      local solar = lines(window)[5][3]
       assert.are.equal("entity/solar-panel", solar.sprite)
       click(solar)
       assert.are.same({ "clear_cursor", "cursor_ghost" }, calls())
@@ -977,7 +931,7 @@ describe("control.lua", function()
     end)
 
     it("shows a flying text for a building that cannot be placed, and touches nothing else", function()
-      local large = lines(window)[7][3]
+      local large = lines(window)[6][3]
       assert.are.equal("entity/bob-solar-panel-large", large.sprite)
       click(large)
       assert.are.same({ "create_local_flying_text" }, calls())
@@ -1057,7 +1011,7 @@ describe("control.lua", function()
     boot({ ["bob-assembling-machine-6"] = true })
     deliver(fixture_text("small"))
     local _, window = open_window()
-    click(lines(window)[2][3])
+    click(lines(window)[1][3])
     assert.are.equal(
       "{fp-viewer.cannot-place|{fp-viewer.refused-unknown-entity}}",
       fake_game.flatten(call("create_local_flying_text")[2].text)
@@ -1118,7 +1072,7 @@ describe("control.lua", function()
     it("logs a throwing redraw after a GUI event, once", function()
       deliver(fixture_text("seablock-loop"))
       local _, window = open_window()
-      local box = lines(window)[2][1]
+      local box = lines(window)[1][1]
       gui_module.update = function()
         error("cannot draw")
       end
@@ -1139,7 +1093,7 @@ describe("control.lua", function()
   it("picks the stored snapshot up again after a load, ticks included", function()
     deliver(fixture_text("small"))
     local _, window = open_window()
-    check(lines(window)[2][1], true)
+    check(lines(window)[1][1], true)
     local kept = _G.storage
     fake_game.uninstall()
     fake = fake_game.install({})
@@ -1152,6 +1106,6 @@ describe("control.lua", function()
     -- The window drawn after the load shows the tick.
     fake.handlers.on_player_joined_game({ player_index = 1 })
     _, window = open_window()
-    assert.is_true(lines(window)[2][1].state)
+    assert.is_true(lines(window)[1][1].state)
   end)
 end)

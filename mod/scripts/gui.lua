@@ -11,9 +11,8 @@
 -- titles. Its columns: the "built" checkbox and the recipe (or a sub-factory's
 -- name) in one cell, the machine, the beacon (left out of a block where no row has
 -- one), the products, the ingredients in green, and a last empty column that
--- stretches the stripes across the frame. The first line is the block's summary,
--- with a blue icon like the reference's sub-floors; each sub-factory has a header
--- line followed by its rows, indented one step per depth.
+-- stretches the stripes across the frame. Each sub-factory has a header line
+-- followed by its rows, indented one step per depth.
 --
 -- Ids are drawn as sprites and rich text with the prototype's localised name. An
 -- id the running game lacks gets no sprite (a sprite path the game does not know
@@ -62,7 +61,6 @@ local TABLE_MIN_HEIGHT = 200
 -- are used. All are 40 pixels, so slot() sets the reference's size itself.
 local SLOT = { "flib_slot_button_default", "slot_sized_button", "slot_button" }
 local SLOT_GREEN = { "flib_slot_button_green", "slot_sized_button_green", "slot_button" }
-local SLOT_BLUE = { "flib_slot_button_blue", "slot_sized_button_blue", "slot_button" }
 local SLOT_RED = { "flib_slot_button_red", "slot_sized_button_red", "slot_button" }
 
 -- The base game's table with the reference's stripes (the same graphic as its
@@ -524,30 +522,6 @@ local function add_pusher(t)
   t.add({ type = "empty-widget" }).style.horizontally_stretchable = true
 end
 
-local function add_summary(t, block, done, columns)
-  local summary = block.summary
-  local checked = progress.all_done(done, block.key, summary.keys)
-  local cell = indented(t, 0)
-  if #summary.keys > 0 then
-    checkbox(cell, checked, format.tags(block.key, nil, format.TAG_CHECK), { key("tt-check-all") })
-  end
-  -- An icon, not a caption: a caption would widen the recipe column of every row.
-  local first = summary.products[1]
-  slot(cell, {
-    sprite = first and sprite_of(first.sprite, first.missing),
-    tooltip = { key("summary") },
-    style = SLOT_BLUE,
-    gray = checked,
-  })
-  t.add({ type = "empty-widget" })
-  if block.has_beacon then
-    t.add({ type = "empty-widget" })
-  end
-  add_items(t, summary.products, SLOT, checked, columns.products)
-  add_items(t, summary.ingredients, SLOT_GREEN, checked, columns.ingredients)
-  add_pusher(t)
-end
-
 local function add_group(t, block, entry, done, columns)
   local checked = progress.all_done(done, block.key, entry.keys)
   local cell = indented(t, entry.depth)
@@ -614,7 +588,7 @@ end
 
 -- How many product and ingredient columns the block gets in a window this wide.
 local function item_columns(block, window_width)
-  local lines = { { products = drawn(block.summary.products), ingredients = drawn(block.summary.ingredients) } }
+  local lines = {}
   for _, entry in ipairs(block.entries) do
     local row = entry.row
     lines[#lines + 1] = {
@@ -659,7 +633,6 @@ local function fill_table(scroll, block, done, window_width)
   t.style.vertical_spacing = 8
   t.style.padding = { 4, 8 }
   local item_cols = item_columns(block, window_width)
-  add_summary(t, block, done, item_cols)
   for _, entry in ipairs(block.entries) do
     if entry.type == "group" then
       add_group(t, block, entry, done, item_cols)

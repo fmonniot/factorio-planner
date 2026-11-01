@@ -25,7 +25,6 @@
 --   has_beacon = bool,    -- any row has a beacon: the beacon column can be left out when false
 --   entries   = { entry },-- the table to draw, top to bottom, in order (below)
 --   by_key    = { [entry.key] = entry },  -- for the click handlers
---   summary   = { keys = { row key, ... }, products = { ref }, ingredients = { ref } },
 -- }
 --
 -- entry (a line of the table), `type` tells which:
@@ -57,13 +56,11 @@
 -- ref = { id, type, rate, sprite, rich, missing }; a `virtual` ref (electricity)
 -- has `virtual = true` and neither sprite, rich nor missing.
 --
--- Net flows (a group header and the summary): over the rows under it, at any
--- depth, outputs minus inputs per item; a positive balance is a product, a
--- negative one an ingredient, and one under 0.01/min in size (after rounding to
--- three decimals) is dropped. Each list is sorted by rate, largest first, ties
--- in order of first appearance. `virtual` refs never count. Only a block where
--- no row has any input or output (a failed solve) falls back on its `products`
--- and `imports` for the summary, minus the `virtual` ones.
+-- Net flows (a group header): over the rows under it, at any depth, outputs
+-- minus inputs per item; a positive balance is a product, a negative one an
+-- ingredient, and one under 0.01/min in size (after rounding to three decimals)
+-- is dropped. Each list is sorted by rate, largest first, ties in order of first
+-- appearance. `virtual` refs never count.
 --
 -- Keys (what `done` is stored under): a row's key is the path of its
 -- sub-factories' names, outermost first, then its recipe id (a synthetic row:
@@ -191,7 +188,7 @@ function M.build(snapshot, opts)
     return r.kind .. SEP .. (r.product and r.product.id or "") .. SEP .. (r.machine or "")
   end
 
-  -- Running sum of a group's (or the block's) flows and row keys.
+  -- Running sum of a group's flows and row keys.
   local function new_acc()
     return { keys = {}, order = {}, items = {} }
   end
@@ -279,9 +276,8 @@ function M.build(snapshot, opts)
     local groups = resolve_groups(b.groups)
     local rows, entries, by_key = {}, {}, {}
     local row_keys = {}
-    local summary = new_acc()
     local group_entries, group_accs = {}, {}
-    local has_beacon, has_rates = false, false
+    local has_beacon = false
 
     for j, r in ipairs(b.rows) do
       local gi = r.group ~= nil and groups[r.group + 1] and (r.group + 1) or nil
@@ -289,7 +285,6 @@ function M.build(snapshot, opts)
       local key_j = unique(row_keys, gi and (groups[gi].path .. SEP .. base) or base)
       rows[j] = row(r, key_j)
       has_beacon = has_beacon or r.beacon ~= nil
-      has_rates = has_rates or (r.inputs ~= nil and #r.inputs > 0) or (r.outputs ~= nil and #r.outputs > 0)
 
       -- The sub-factories above this row, outermost first.
       local chain = {}
@@ -314,7 +309,6 @@ function M.build(snapshot, opts)
         end
         add_row(group_accs[c], key_j, r)
       end
-      add_row(summary, key_j, r)
 
       local entry = { type = "row", key = key_j, depth = #chain, row = rows[j] }
       entries[#entries + 1] = entry
@@ -324,24 +318,6 @@ function M.build(snapshot, opts)
     for c, entry in pairs(group_entries) do
       entry.keys = group_accs[c].keys
       entry.products, entry.ingredients = net(group_accs[c])
-    end
-
-    local products, ingredients
-    if has_rates then
-      products, ingredients = net(summary)
-    else
-      -- A failed solve has no rates: say what the block was meant to make.
-      products, ingredients = {}, {}
-      for _, p in ipairs(refs(b.products)) do
-        if not p.virtual then
-          products[#products + 1] = p
-        end
-      end
-      for _, p in ipairs(refs(b.imports)) do
-        if not p.virtual then
-          ingredients[#ingredients + 1] = p
-        end
-      end
     end
 
     return {
@@ -356,7 +332,6 @@ function M.build(snapshot, opts)
       has_beacon = has_beacon,
       entries = entries,
       by_key = by_key,
-      summary = { keys = summary.keys, products = products, ingredients = ingredients },
     }
   end
 

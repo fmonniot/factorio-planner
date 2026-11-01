@@ -9,9 +9,8 @@
 --     name must be unique within its parent). `M.tags(block_key, entry_key, what)`
 --     builds the table for `tags =`, and `M.parse_tags(event.element.tags)` gives
 --     back `block_key, entry_key, what`, or nil for anything that is not ours.
---     `what` is "check", "machine" or "beacon". The summary row's checkbox is
---     `M.tags(block.key, nil, "check")`: it has no entry key. The keys are the
---     view-model's (`block.key`, `entry.key`).
+--     `what` is "check", "machine" or "beacon". The keys are the view-model's
+--     (`block.key`, `entry.key`).
 --   * M.tooltip_number(x) is the text of a count or rate in a tooltip: at most two
 --     decimals, no trailing zeros, thousands separated by commas.
 local M = {}
@@ -79,23 +78,20 @@ M.TAG_MACHINE = "machine"
 M.TAG_BEACON = "beacon"
 local TAG_KINDS = { [M.TAG_CHECK] = true, [M.TAG_MACHINE] = true, [M.TAG_BEACON] = true }
 
--- The tags of a checkbox, machine button or beacon button. `entry_key` is nil for
--- the summary row's checkbox.
+-- The tags of a checkbox, machine button or beacon button.
 function M.tags(block_key, entry_key, what)
   return { block = block_key, entry = entry_key, what = what }
 end
 
 -- block_key, entry_key, what of an element's tags, or nil when they are not ours
--- (no tags, wrong types, an unknown `what`, or a missing entry key where one is
--- needed: only the checkbox of the summary row has none).
+-- (no tags, wrong types, an unknown `what`, or a missing entry key).
 function M.parse_tags(tags)
-  if type(tags) ~= "table" or type(tags.block) ~= "string" or not TAG_KINDS[tags.what] then
-    return nil
-  end
-  if tags.entry ~= nil and type(tags.entry) ~= "string" then
-    return nil
-  end
-  if tags.entry == nil and tags.what ~= M.TAG_CHECK then
+  if
+    type(tags) ~= "table"
+    or type(tags.block) ~= "string"
+    or type(tags.entry) ~= "string"
+    or not TAG_KINDS[tags.what]
+  then
     return nil
   end
   return tags.block, tags.entry, tags.what

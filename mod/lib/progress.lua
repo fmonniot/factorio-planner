@@ -46,7 +46,7 @@ function M.set_all(done, block_key, keys, value)
 end
 
 -- True when `keys` is not empty and every row in it is done: what a sub-factory's
--- or the summary's checkbox shows. Derived, never stored.
+-- shows. Derived, never stored.
 function M.all_done(done, block_key, keys)
   if #keys == 0 then
     return false

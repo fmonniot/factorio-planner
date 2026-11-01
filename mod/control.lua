@@ -304,7 +304,7 @@ end
 
 -- The block and the entry an element's tags point at in the current view-model;
 -- nil when they are gone (a new snapshot since the window was drawn) or are not
--- ours. `entry` is nil for the summary row's checkbox.
+-- ours.
 local function tagged(element)
   local block_key, entry_key, what = format.parse_tags(element.tags)
   if block_key == nil then
@@ -316,9 +316,6 @@ local function tagged(element)
   end
   for _, block in ipairs(model.blocks) do
     if block.key == block_key then
-      if entry_key == nil then
-        return block, nil, what
-      end
       local entry = block.by_key[entry_key]
       if entry == nil then
         return nil
@@ -379,9 +376,9 @@ script.on_event(defines.events.on_gui_selection_state_changed, function(event)
   redraw(player, { only_table = true, reset_scroll = true })
 end)
 
--- A "built" checkbox: a row's, a sub-factory's (every row under it) or the
--- summary's (every row of the block). The table is redrawn so the derived
--- checkboxes and the grayscale follow; its scroll position stays.
+-- A "built" checkbox: a row's or a sub-factory's (every row under it). The table
+-- is redrawn so the derived checkboxes and the grayscale follow; its scroll
+-- position stays.
 script.on_event(defines.events.on_gui_checked_state_changed, function(event)
   local player, element = event_player(event)
   if player == nil then
@@ -396,9 +393,7 @@ script.on_event(defines.events.on_gui_checked_state_changed, function(event)
     return
   end
   local keys
-  if entry == nil then
-    keys = block.summary.keys
-  elseif entry.type == "group" then
+  if entry.type == "group" then
     keys = entry.keys
   else
     keys = { entry.key }

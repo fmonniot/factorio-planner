@@ -63,13 +63,10 @@ describe("element tags", function()
       assert.are.equal(what, got)
     end
   end)
-  it("lets the summary row's checkbox have no entry key, and nothing else", function()
-    local block, entry, what = format.parse_tags(format.tags("Gears", nil, "check"))
-    assert.are.equal("Gears", block)
-    assert.is_nil(entry)
-    assert.are.equal("check", what)
-    assert.is_nil(format.parse_tags(format.tags("Gears", nil, "machine")))
-    assert.is_nil(format.parse_tags(format.tags("Gears", nil, "beacon")))
+  it("needs an entry key, whatever the element is", function()
+    for _, what in ipairs({ "check", "machine", "beacon" }) do
+      assert.is_nil(format.parse_tags(format.tags("Gears", nil, what)))
+    end
   end)
   it("accepts an empty block name or entry key, which a nameless block can have", function()
     local block, entry = format.parse_tags(format.tags("", "", "machine"))

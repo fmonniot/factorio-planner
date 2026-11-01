@@ -85,7 +85,6 @@ describe("viewmodel.build", function()
             end
           end
           assert.are.equal(#block.rows, row_entries)
-          assert.are.equal(#block.rows, #block.summary.keys)
         end
       end)
     end
@@ -335,14 +334,6 @@ describe("viewmodel.build", function()
       assert.are.equal("item/iron-plate", top.products[1].sprite)
     end)
 
-    it("computes the summary from the rows: the iron plate made and used cancels out and is left out", function()
-      local block = viewmodel.build(fixture("seablock-groups")).blocks[1]
-      assert.are.same({ "copper-cable=120", "iron-gear-wheel=60", "pipe=30" }, ids(block.summary.products))
-      assert.are.same({ "iron-ore=200", "copper-plate=60" }, ids(block.summary.ingredients))
-      assert.are.equal(6, #block.summary.keys)
-      assert.are.equal(block.rows[1].key, block.summary.keys[1])
-    end)
-
     it("follows table order for P[a, S, b]: no second header for P after S", function()
       local s = one_block({
         recipe_row("a", nil, { "x", 1 }, 0),
@@ -396,20 +387,18 @@ describe("viewmodel.build", function()
       assert.are.same({ "ore=10" }, ids(p.ingredients))
       assert.are.same({ "gear=1" }, ids(block.by_key[GROUP .. "P" .. SEP .. "S"].products))
       assert.are.same({ "plate=2" }, ids(block.by_key[GROUP .. "P" .. SEP .. "S"].ingredients))
-      assert.are.same({ "plate=2", "gear=1" }, ids(block.summary.products))
-      assert.are.same({ "ore=10" }, ids(block.summary.ingredients))
       assert.are.equal(0, block.by_key["c"].depth)
     end)
 
     it("cuts a net balance under 0.01/min, and keeps one of exactly 0.01", function()
       local s = one_block({
-        recipe_row("a", { "kept", 10 }, { "kept2", 10.01 }),
-        recipe_row("b", { "kept2", 10 }, { "dropped", 10.009 }),
-        recipe_row("c", { "dropped", 10 }, nil),
-      })
-      local block = viewmodel.build(s).blocks[1]
-      assert.are.same({ "kept2=0.01" }, ids(block.summary.products))
-      assert.are.same({ "kept=10" }, ids(block.summary.ingredients))
+        recipe_row("a", { "kept", 10 }, { "kept2", 10.01 }, 0),
+        recipe_row("b", { "kept2", 10 }, { "dropped", 10.009 }, 0),
+        recipe_row("c", { "dropped", 10 }, nil, 0),
+      }, { { name = "P" } })
+      local p = viewmodel.build(s).blocks[1].by_key[GROUP .. "P"]
+      assert.are.same({ "kept2=0.01" }, ids(p.products))
+      assert.are.same({ "kept=10" }, ids(p.ingredients))
     end)
 
     it("applies the same cut-off in a sub-factory header", function()
@@ -424,40 +413,20 @@ describe("viewmodel.build", function()
 
     it("sorts net flows by rate, largest first, ties in order of appearance", function()
       local s = one_block({
-        recipe_row("a", nil, { "small", 1 }),
-        recipe_row("b", nil, { "big", 5 }),
-        recipe_row("c", nil, { "also-big", 5 }),
-      })
-      assert.are.same({ "big=5", "also-big=5", "small=1" }, ids(viewmodel.build(s).blocks[1].summary.products))
+        recipe_row("a", nil, { "small", 1 }, 0),
+        recipe_row("b", nil, { "big", 5 }, 0),
+        recipe_row("c", nil, { "also-big", 5 }, 0),
+      }, { { name = "P" } })
+      local p = viewmodel.build(s).blocks[1].by_key[GROUP .. "P"]
+      assert.are.same({ "big=5", "also-big=5", "small=1" }, ids(p.products))
     end)
 
     it("never counts the electricity item, even in a row's rates", function()
-      local s = one_block({ recipe_row("a", nil, { "x", 1 }) })
+      local s = one_block({ recipe_row("a", nil, { "x", 1 }, 0) }, { { name = "P" } })
       s.blocks[1].rows[1].inputs = { { id = "electricity", type = "virtual", rate = 50 } }
-      local block = viewmodel.build(s).blocks[1]
-      assert.are.same({ "x=1" }, ids(block.summary.products))
-      assert.are.same({}, block.summary.ingredients)
-    end)
-
-    it("falls back on products and imports for a block with no rates at all, leaving out electricity", function()
-      local s = fixture("small")
-      s.blocks[1].error = "infeasible"
-      s.blocks[1].products[#s.blocks[1].products + 1] = { id = "electricity", type = "virtual", rate = 9 }
-      s.blocks[1].imports[#s.blocks[1].imports + 1] = { id = "electricity", type = "virtual", rate = 9 }
-      s.blocks[1].rows = { { recipe = "iron-gear-wheel" }, { recipe = "r2", machine = "m" } }
-      local block = viewmodel.build(s).blocks[1]
-      assert.are.same({ "iron-gear-wheel=60" }, ids(block.summary.products))
-      assert.are.same({ "iron-ore=160" }, ids(block.summary.ingredients))
-      assert.are.equal("item/iron-ore", block.summary.ingredients[1].sprite)
-      assert.are.equal(2, #block.summary.keys)
-    end)
-
-    it("does not fall back when the rows have rates, even if they cancel out", function()
-      local s = one_block({ recipe_row("a", { "x", 1 }, { "x", 1 }) })
-      s.blocks[1].products = { rate("target", 100) }
-      local block = viewmodel.build(s).blocks[1]
-      assert.are.same({}, block.summary.products)
-      assert.are.same({}, block.summary.ingredients)
+      local p = viewmodel.build(s).blocks[1].by_key[GROUP .. "P"]
+      assert.are.same({ "x=1" }, ids(p.products))
+      assert.are.same({}, p.ingredients)
     end)
 
     it("gives a failed block's sub-factory headers no flows", function()
