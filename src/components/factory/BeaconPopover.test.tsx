@@ -195,7 +195,7 @@ function horizonData(): GameData {
       },
     },
     beacons: {
-      beacon: { id: 'beacon', name: 'Beacon', iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 1.5, allowedEffects: ['speed'] },
+      beacon: { id: 'beacon', name: 'Beacon', iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 1.5, allowedEffects: ['speed', 'consumption'] },
     },
     defaultMachines: { crafting: 'am1' },
     technologies: {
@@ -244,6 +244,59 @@ describe('BeaconModal — research horizon', () => {
     )
     const recipeEffects = screen.getByText('Recipe effects').parentElement!
     expect(recipeEffects).toHaveTextContent('No active effects')
+  })
+})
+
+describe('BeaconModal — allowed effects', () => {
+  function restrictedData(): GameData {
+    const gd = horizonData()
+    gd.modules = {
+      'speed-3': speedModule,
+      'prod-3': { ...speedModule, id: 'prod-3', name: 'Prod 3', category: 'productivity', effects: { productivity: 0.1, speed: -0.15 } },
+    }
+    gd.recipes['iron-plate'].allowProductivity = true
+    return gd
+  }
+
+  function open(gd: GameData, config: BeaconConfig = beaconWithEntity) {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    render(
+      <BeaconModal nodeId="n1" beacon={config} recipeId="iron-plate" machineId={undefined}
+        recipeCategory="crafting" gameData={gd} onClose={() => {}} />,
+    )
+  }
+
+  it('omits a module whose effects the beacon does not allow', () => {
+    open(restrictedData())
+    fireEvent.click(screen.getByTitle('Speed 3'))
+    expect(screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))).toEqual(['speed-3'])
+    expect(screen.queryByTestId('module-not-allowed')).not.toBeInTheDocument()
+  })
+
+  it('offers the module when the beacon allows its effects', () => {
+    const gd = restrictedData()
+    gd.beacons.beacon.allowedEffects = ['speed', 'consumption', 'productivity']
+    open(gd)
+    fireEvent.click(screen.getByTitle('Speed 3'))
+    expect(screen.getAllByTestId('beacon-module-option').map(e => e.getAttribute('data-module-id'))).toEqual(['prod-3', 'speed-3'])
+  })
+
+  it('notes a selected module the beacon cannot take', () => {
+    open(restrictedData(), { ...beaconWithEntity, moduleId: 'prod-3' })
+    expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Prod 3 cannot be inserted in Beacon')
+  })
+
+  it('creates the beacon with a module the beacon allows', () => {
+    useBlockStore.setState({ horizonTechnologyIds: [] })
+    const gd = restrictedData()
+    // 'Prod 3' sorts before 'Speed 3', so without the check it would be the default.
+    render(
+      <BeaconCell nodeId="n1" beacon={undefined} gameData={gd} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" />,
+    )
+    fireEvent.click(screen.getByLabelText('Add beacon'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.beaconConfig?.moduleId).toBe('speed-3')
   })
 })
 

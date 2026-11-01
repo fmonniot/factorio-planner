@@ -12,7 +12,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Bugs
 
 
-- [ ] **Beacon modal ignores `allowedEffects`.** `BeaconModal` offers modules without checking the beacon's `allowedEffects`.
 - [ ] **Two products of one item keep only the last rate.** The LP keys goals by item, so when a block has two products of the same item only the last one's rate is enforced (pre-existing). A request goes to the first product of the item, so with two products the request and the enforced rate can disagree.
 - [ ] **A block can be given a product it already receives.** `addProduct` (`src/store/blockStore.ts`) accepts a product for an item the block takes from another block, and `productChangeEffects` only looks at other blocks' connections, so there is no warning. Later requests for that item to the block are silently ignored as `source-receives`. Warn when adding the product, or ask whether to drop the incoming connection.
 - [ ] **Locking a raw item does nothing.** Raw items have no LP row, so `noImportItems` only affects intermediates; the summary still lets the user lock a raw ingredient. Add an extraction row to make an ore lockable.
@@ -68,7 +67,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [ ] **Localised crafting-category names.** The default-machines flyout and the edit-machine modal label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
 - [ ] **Beacons: several beacon types per recipe.** `RecipeNode.beaconConfig` holds a single beacon config today.
-- [ ] **Beacons: enforce module restrictions** (e.g. no productivity in Nullius beacons — verify in game first). `BeaconModal` lists every non-hidden module.
 - [ ] **Responsive layout.** Usable production table on narrow screens.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Recipe picker: explain an empty list when opened for an item.** The byproduct menu's **Add consumer recipe…**, the summary strip's **Find recipe** (Products and Ingredients) and **Make in a new block…** stay available, but they can open the picker with nothing to choose: no recipe consumes the byproduct, the item is raw, or every matching recipe is outside the research horizon. The picker only says "No recipes match" (or, when the horizon emptied the list, "No recipes match within the research horizon (N outside it)"). Make the message name the item and the reason: no recipe produces / consumes it at all, versus some exist but are outside the horizon (pointing at **Beyond research horizon**).
