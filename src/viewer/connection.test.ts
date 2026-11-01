@@ -56,10 +56,24 @@ describe('switching on and off', () => {
     expect(off.state.phase).toBe('off')
   })
 
-  it('keeps the plan and the last sent bytes across off and on', () => {
+  it('keeps the last sent bytes across off and on, but drops the plan, which goes stale', () => {
     const first = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'disable' }))
     expect(first.state.lastSent?.id).toBe(A.id)
-    expect(first.state.plan?.id).toBe(A.id)
+    expect(first.state.plan).toBeUndefined()
+  })
+
+  it('announces only the plan built after enabling, not the one from before it was switched off', () => {
+    const off = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'disable' })).state
+    // The first status arrives before the rebuild finishes.
+    const { actions } = run([{ type: 'enable' }, { type: 'opened' }, text(status()), { type: 'solved', plan: B }], off)
+    expect(kinds(actions)).toEqual(['connect', `announce:${B.id}`])
+  })
+
+  it('ignores a build that finishes after the connection was switched off', () => {
+    const { state, actions } = run(connect(text(status()), { type: 'disable' }, { type: 'solved', plan: A }, { type: 'buildFailed', message: 'late' }))
+    expect(state.plan).toBeUndefined()
+    expect(state.buildError).toBeUndefined()
+    expect(kinds(actions)).toEqual(['connect', 'cancelRetry', 'disconnect'])
   })
 })
 
@@ -132,6 +146,19 @@ describe('step 3: announce the current plan', () => {
     const sent = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B })).state
     const { actions } = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status())], sent)
     expect(kinds(actions).slice(-2)).toEqual([`sendSnapshot:${A.id}`, `announce:${B.id}`])
+  })
+
+  it('announces when another tab put a different plan on a bridge that was not restored', () => {
+    // This tab sent A; another tab sent B to the bridge; on reconnect the bridge holds B.
+    const sent = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' })).state
+    const { actions } = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(held(B.id))], sent)
+    expect(kinds(actions)).toEqual(['scheduleRetry', 'connect', `announce:${A.id}`])
+  })
+
+  it('announces nothing when the bridge restored from here holds exactly the current plan', () => {
+    const sent = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' })).state
+    const { actions } = run([{ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status())], sent)
+    expect(kinds(actions)).toEqual(['scheduleRetry', 'connect', `sendSnapshot:${A.id}`])
   })
 
   it('does nothing without a plan yet', () => {
@@ -220,6 +247,13 @@ describe('step 5: errors', () => {
     expect(state.error).toBeUndefined()
   })
 
+  it('clears the error when the socket is lost, so no alert stays beside a No bridge badge', () => {
+    const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, text(error('too-large')), { type: 'closed' }))
+    expect(state.error).toBeUndefined()
+    expect(badgeFor(state).kind).toBe('no-bridge')
+    expect(notices(state)).toEqual([])
+  })
+
   it('says something for a code it does not know', () => {
     const { state } = run(connect(text(status()), text(error('new-code'))))
     expect(notices(state)[0]).toMatch(/new-code/)
@@ -228,6 +262,24 @@ describe('step 5: errors', () => {
   it('ignores text it cannot read', () => {
     const { state } = run(connect(text('not json'), text('{"type":"nope"}')))
     expect(state.firstStatusSeen).toBe(false)
+  })
+})
+
+describe('a frame that could not be written', () => {
+  it('forgets snapshot bytes that never left, so a restore does not rely on them', () => {
+    const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'sendFailed', frame: 'snapshot', id: A.id }))
+    expect(state.lastSent).toBeUndefined()
+    expect(state.lastFrame).toBeUndefined()
+  })
+
+  it('keeps the earlier bytes when only an announce failed, and attributes no error to it', () => {
+    const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'solved', plan: B }, { type: 'sendFailed', frame: 'announce', id: B.id }, text(error('bad-message'))))
+    expect(state.lastSent?.id).toBe(A.id)
+  })
+
+  it('keeps the earlier bytes when a failed snapshot was a different one', () => {
+    const { state } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, { type: 'sendFailed', frame: 'snapshot', id: B.id }))
+    expect(state.lastSent?.id).toBe(A.id)
   })
 })
 
@@ -259,6 +311,55 @@ describe('step 6: retry', () => {
     for (let i = 0; i < 3; i++) events.push({ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status()))
     const { actions } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, text(error('bad-envelope')), ...events))
     expect(kinds(actions).filter(k => k.startsWith('sendSnapshot'))).toEqual([`sendSnapshot:${A.id}`])
+  })
+})
+
+describe('a status that cannot be read', () => {
+  const broken = JSON.stringify({ type: 'status', protocol: 1, mod: 'oops' })
+
+  it('is shown as an error, not left as Connecting, and nothing is sent', () => {
+    const { state, actions } = run(connect({ type: 'solved', plan: A }, text(broken), { type: 'send' }))
+    expect(badgeFor(state).kind).toBe('bad-status')
+    expect(badgeFor(state).tone).toBe('error')
+    expect(canSend(state)).toBe(false)
+    expect(kinds(actions)).toEqual(['connect'])
+  })
+
+  it('recovers with the next readable status, which runs the first-status steps', () => {
+    const { state, actions } = run(connect({ type: 'solved', plan: A }, text(broken), text(status())))
+    expect(badgeFor(state).kind).toBe('no-game')
+    expect(kinds(actions)).toEqual(['connect', `announce:${A.id}`])
+  })
+
+  it('is reported too when it follows a readable status, and cleared by the next', () => {
+    const bad = run(connect(text(status()), text(broken))).state
+    expect(badgeFor(bad).kind).toBe('bad-status')
+    expect(badgeFor(run([text(status())], bad).state).kind).toBe('no-game')
+  })
+
+  it('is forgotten with the socket', () => {
+    const { state } = run(connect(text(broken), { type: 'closed' }, { type: 'retry' }, { type: 'opened' }))
+    expect(state.statusUnreadable).toBe(false)
+  })
+})
+
+describe('notices', () => {
+  const huge: PlanSnapshot = { id: 'cccccccccccccccc', size: MAX_SNAPSHOT_BYTES + 1 }
+
+  it('shows the too-large plan only while the connection is on', () => {
+    const on = run(connect(text(status()), { type: 'solved', plan: huge })).state
+    expect(notices(on).join()).toMatch(/too large/)
+    const off = run([{ type: 'disable' }], on).state
+    expect(notices(off)).toEqual([])
+    // Even for a plan kept in the state by some other path.
+    expect(notices({ ...on, phase: 'off' })).toEqual([])
+  })
+
+  it('shows a build failure while on, clears it with buildCleared, and drops it when switched off', () => {
+    const failed = run(connect({ type: 'buildFailed', message: 'no crypto' })).state
+    expect(notices(failed)).toEqual(['no crypto'])
+    expect(notices(run([{ type: 'buildCleared' }], failed).state)).toEqual([])
+    expect(notices(run([{ type: 'disable' }], failed).state)).toEqual([])
   })
 })
 

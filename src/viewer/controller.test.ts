@@ -52,17 +52,18 @@ describe('createController', () => {
   it('opens no socket and starts no timer until enabled', () => {
     const { controller, sockets, timers } = setup()
     controller.dispatch({ type: 'solved', plan: { id: 'a'.repeat(16), size: 1 } })
+    expect(controller.getState().plan).toBeUndefined()
     expect(sockets).toHaveLength(0)
     expect(timers.size).toBe(0)
   })
 
   it('connects, sends an announce after the first status, and closes when disabled', () => {
     const { controller, sockets } = setup()
-    controller.dispatch({ type: 'solved', plan: { id: 'a'.repeat(16), size: 1, bytes: new Uint8Array(1) } })
     controller.dispatch({ type: 'enable' })
     expect(sockets[0].url).toBe('ws://example/')
     expect(sockets[0].binaryType).toBe('arraybuffer')
     sockets[0].open()
+    controller.dispatch({ type: 'solved', plan: { id: 'a'.repeat(16), size: 1, bytes: new Uint8Array(1) } })
     sockets[0].say(STATUS)
     expect(sockets[0].sent).toEqual([JSON.stringify({ type: 'announce', protocol: 1, id: 'a'.repeat(16) })])
     controller.dispatch({ type: 'disable' })
@@ -122,5 +123,63 @@ describe('createController', () => {
     old.open()
     old.say(STATUS)
     expect(controller.getState().phase).toBe('off')
+  })
+
+  describe('a frame that cannot be written', () => {
+    const A = 'a'.repeat(16)
+    const B = 'b'.repeat(16)
+    const plan = (id: string) => ({ id, size: 2, bytes: new Uint8Array([1, 2]) })
+
+    it('reports a send that throws, keeps the state honest and still runs the other actions', () => {
+      const { controller, sockets } = setup()
+      controller.dispatch({ type: 'enable' })
+      sockets[0].open()
+      sockets[0].say(STATUS)
+      controller.dispatch({ type: 'solved', plan: plan(A) })
+      controller.dispatch({ type: 'send' })
+      expect(controller.getState().lastSent?.id).toBe(A)
+
+      // The socket starts failing: the snapshot of the next Send never leaves.
+      sockets[0].send = () => { throw new Error('boom') }
+      const seen: unknown[] = []
+      controller.subscribe(s => seen.push(s.lastSent?.id))
+      expect(() => controller.dispatch({ type: 'solved', plan: plan(B) })).not.toThrow()
+      controller.dispatch({ type: 'send' })
+      expect(controller.getState().lastSent).toBeUndefined()
+      expect(seen.length).toBeGreaterThan(0)
+      // The controller still works afterwards: the socket closing schedules a retry.
+      sockets[0].drop()
+      expect(controller.getState().phase).toBe('waiting')
+    })
+
+    it('reports a frame dropped because the socket is not open', () => {
+      const { controller, sockets } = setup()
+      controller.dispatch({ type: 'enable' })
+      sockets[0].open()
+      sockets[0].say(STATUS)
+      controller.dispatch({ type: 'solved', plan: plan(A) })
+      sockets[0].readyState = 2 // CLOSING: the close event has not arrived yet.
+      controller.dispatch({ type: 'send' })
+      expect(sockets[0].sent.filter(f => f instanceof Uint8Array)).toHaveLength(0)
+      expect(controller.getState().lastSent).toBeUndefined()
+    })
+
+    it('a restore that fails to write does not stop its announce from being attempted', () => {
+      const { controller, sockets, fire } = setup()
+      controller.dispatch({ type: 'enable' })
+      sockets[0].open()
+      sockets[0].say(STATUS)
+      controller.dispatch({ type: 'solved', plan: plan(A) })
+      controller.dispatch({ type: 'send' })
+      controller.dispatch({ type: 'solved', plan: plan(B) })
+      sockets[0].drop()
+      fire(5000)
+      const attempts: string[] = []
+      sockets[1].send = data => { attempts.push(typeof data === 'string' ? 'text' : 'binary'); throw new Error('boom') }
+      sockets[1].open()
+      sockets[1].say(STATUS)
+      expect(attempts).toEqual(['binary', 'text'])
+      expect(controller.getState().lastSent).toBeUndefined()
+    })
   })
 })

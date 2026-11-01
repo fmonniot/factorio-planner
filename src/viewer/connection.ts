@@ -9,7 +9,7 @@ import {
 // ---------------------------------------------------------------------------
 // The planner's half of the bridge protocol as a pure state machine. `reduce` takes the state and
 // one event (a socket event, a timer, a solve result, a click) and returns the next state plus the
-// actions the adapter (bridgeClient.ts) must perform. No socket, no timer, no clock in here.
+// actions the adapter (controller.ts) must perform. No socket, no timer, no clock in here.
 //
 // The numbered steps in the comments are those of "What the planner does" in the wire protocol.
 // ---------------------------------------------------------------------------
@@ -68,6 +68,8 @@ export interface ConnectionState {
   lastFrame?: 'snapshot' | 'announce'
   /** The last two frames were a restore and its announce, so an error may be about either. */
   lastFramePaired: boolean
+  /** The bridge's latest `status` claims our protocol version but could not be read. */
+  statusUnreadable?: boolean
   /** The code of the last `error` from the bridge. */
   error?: string
   /** A problem in building the snapshot (for example no `crypto.subtle`); shown to the player. */
@@ -94,8 +96,12 @@ export type ConnectionEvent =
   | { type: 'solved'; plan: PlanSnapshot }
   /** The snapshot of the latest solve could not be built. */
   | { type: 'buildFailed'; message: string }
+  /** The latest solve produced the plan already known, so an earlier build failure is over. */
+  | { type: 'buildCleared' }
   /** The player pressed Send. */
   | { type: 'send' }
+  /** A frame could not be written to the socket (not open, or `send` threw): it did not go out. */
+  | { type: 'sendFailed'; frame: 'snapshot' | 'announce'; id: string }
 
 export type ConnectionAction =
   | { type: 'connect' }
@@ -118,7 +124,7 @@ export const isTooLarge = (plan: PlanSnapshot | undefined): boolean => !!plan &&
 
 /** True once the bridge has spoken and speaks our protocol: only then may the planner send. */
 export function canSend(state: ConnectionState): boolean {
-  return state.phase === 'open' && state.firstStatusSeen && state.protocolMismatch === undefined
+  return state.phase === 'open' && state.firstStatusSeen && state.protocolMismatch === undefined && !state.statusUnreadable
 }
 
 /** Next state after a socket that is gone, whatever the cause. */
@@ -132,8 +138,11 @@ function lose(state: ConnectionState, failure: Failure): Transition {
       status: undefined,
       firstStatusSeen: false,
       protocolMismatch: undefined,
+      statusUnreadable: false,
       lastFrame: undefined,
       lastFramePaired: false,
+      // A bridge `error` answered a frame of the socket that is gone.
+      error: undefined,
     },
     actions: [{ type: 'scheduleRetry' }],
   }
@@ -159,7 +168,7 @@ function deliver(state: ConnectionState, plan: PlanSnapshot, wantSnapshot: boole
 
 /** Steps 1 to 3, on the first `status` of a socket. */
 function firstStatus(state: ConnectionState, status: BridgeStatus): Transition {
-  const seen = { ...state, status, firstStatusSeen: true }
+  const seen = { ...state, status, firstStatusSeen: true, statusUnreadable: false }
   // Step 1: another protocol version. Send nothing and keep the socket open.
   if (status.protocol !== PROTOCOL_VERSION) return { state: { ...seen, protocolMismatch: status.protocol }, actions: [] }
 
@@ -173,8 +182,10 @@ function firstStatus(state: ConnectionState, status: BridgeStatus): Transition {
     actions.push(...t.actions)
     restored = true
   }
-  // Step 3: announce the current plan unless the bridge now holds exactly its bytes.
-  if (state.plan && state.lastSent?.id !== state.plan.id) {
+  // Step 3: announce the current plan unless the bridge now holds exactly its bytes: it just
+  // received them in the restore, or it already reports that id as its newest.
+  const holdsPlan = !!state.plan && ((restored && state.lastSent?.id === state.plan.id) || status.newest === state.plan.id)
+  if (state.plan && !holdsPlan) {
     const t = announcing(next, state.plan.id)
     next = { ...t.state, lastFramePaired: restored }
     actions.push(...t.actions)
@@ -194,9 +205,10 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
     case 'disable':
       if (state.phase === 'off') return { state, actions: [] }
       return {
+        // The plan is dropped: while off nothing is built, so it goes stale, and the one built on
+        // the next enable must be the only plan announced. The sent bytes stay, for a restore.
         state: {
           ...initialConnectionState(state.autoSend),
-          plan: state.plan,
           lastSent: state.lastSent,
         },
         actions: [{ type: 'cancelRetry' }, { type: 'disconnect' }],
@@ -217,6 +229,7 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
           status: undefined,
           firstStatusSeen: false,
           protocolMismatch: undefined,
+          statusUnreadable: false,
           lastFrame: undefined,
           lastFramePaired: false,
         },
@@ -243,10 +256,12 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
       if (state.phase !== 'open') return { state, actions: [] }
       const message = parseBridgeMessage(event.data)
       if (!message) return { state, actions: [] }
+      // A status of our version that cannot be read: say so, send nothing until a readable one comes.
+      if (message.kind === 'unreadable-status') return { state: { ...state, statusUnreadable: true }, actions: [] }
       if (message.kind === 'status') {
         // Only the first status after a connection runs steps 1 to 3; later ones never restore.
         if (!state.firstStatusSeen) return firstStatus(state, message.status)
-        return { state: { ...state, status: message.status }, actions: [] }
+        return { state: { ...state, status: message.status, statusUnreadable: false }, actions: [] }
       }
       // Step 5: show the code; an error answers the most recent frame, so forget refused snapshot bytes.
       const aboutSnapshot = state.lastFrame === 'snapshot' || state.lastFramePaired
@@ -257,6 +272,8 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
     }
 
     case 'solved': {
+      // Nothing is built while the connection is off; a build that finishes late is stale.
+      if (state.phase === 'off') return { state, actions: [] }
       const next = { ...state, plan: event.plan, buildError: undefined }
       if (!canSend(next)) return { state: next, actions: [] }
       // Step 4.
@@ -264,7 +281,20 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
     }
 
     case 'buildFailed':
+      if (state.phase === 'off') return { state, actions: [] }
       return { state: { ...state, buildError: event.message }, actions: [] }
+
+    case 'buildCleared':
+      return { state: { ...state, buildError: undefined }, actions: [] }
+
+    case 'sendFailed': {
+      // The bytes did not leave: do not keep them as sent, and do not attribute an error to the frame.
+      const forgetBytes = event.frame === 'snapshot' && state.lastSent?.id === event.id
+      return {
+        state: { ...state, lastSent: forgetBytes ? undefined : state.lastSent, lastFrame: undefined, lastFramePaired: false },
+        actions: [],
+      }
+    }
 
     case 'send': {
       if (!canSend(state) || !state.plan) return { state, actions: [] }
@@ -284,6 +314,7 @@ export type BadgeKind =
   | 'no-bridge'
   | 'blocked'
   | 'protocol-mismatch'
+  | 'bad-status'
   | 'no-game'
   | 'game-quiet'
   | 'mod-mismatch'
@@ -351,6 +382,14 @@ export function badgeFor(state: ConnectionState): Badge {
       }
     case 'open': {
       const status = state.status
+      if (state.statusUnreadable) {
+        return {
+          kind: 'bad-status',
+          tone: 'error',
+          label: 'Unreadable status',
+          detail: `The bridge sent a status this planner could not read, although it speaks the same protocol version (${PROTOCOL_VERSION}). This is a bug in the bridge or the planner; please report it. Nothing is sent until a readable status arrives.`,
+        }
+      }
       if (!status) return { kind: 'connecting', tone: 'busy', label: 'Connecting', detail: 'Waiting for the bridge to report its state.' }
       if (state.protocolMismatch !== undefined) {
         return {
@@ -388,6 +427,8 @@ export function badgeFor(state: ConnectionState): Badge {
 export function notices(state: ConnectionState): string[] {
   const out: string[] = []
   if (state.error) out.push(describeBridgeError(state.error))
+  // About the plan, so only while the connection is on: nothing is sent or built while it is off.
+  if (state.phase === 'off') return out
   if (isTooLarge(state.plan)) {
     out.push(`This plan is too large for the in-game viewer (${(state.plan!.size / 1e6).toFixed(1)} MB, the limit is ${(MAX_SNAPSHOT_BYTES / 1e6).toFixed(0)} MB). It is not sent, and the game shows it as stale.`)
   }

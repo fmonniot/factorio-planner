@@ -91,11 +91,14 @@ const ErrorSchema = z.object({ type: z.literal('error'), code: z.string() })
 
 export type BridgeMessage =
   | { kind: 'status'; status: BridgeStatus }
+  /** A `status` that claims our protocol version but does not have the shape that version defines. */
+  | { kind: 'unreadable-status' }
   | { kind: 'error'; code: string }
 
 /**
  * Reads a text frame from the bridge; null for anything else. A status of another protocol version
- * is accepted on its `protocol` alone, since another version may lay out the rest differently.
+ * is accepted on its `protocol` alone, since another version may lay out the rest differently. A
+ * status of our own version that breaks the schema is reported, not dropped, so the player is told.
  */
 export function parseBridgeMessage(text: string): BridgeMessage | null {
   let raw: unknown
@@ -109,10 +112,9 @@ export function parseBridgeMessage(text: string): BridgeMessage | null {
   const status = StatusSchema.safeParse(raw)
   if (status.success) return { kind: 'status', status: status.data }
   const other = z.object({ type: z.literal('status'), protocol: z.number() }).safeParse(raw)
-  if (other.success && other.data.protocol !== PROTOCOL_VERSION) {
-    return { kind: 'status', status: { type: 'status', protocol: other.data.protocol } }
-  }
-  return null
+  if (!other.success) return null
+  if (other.data.protocol !== PROTOCOL_VERSION) return { kind: 'status', status: { type: 'status', protocol: other.data.protocol } }
+  return { kind: 'unreadable-status' }
 }
 
 /** What an `error` code from the bridge means for the player. */

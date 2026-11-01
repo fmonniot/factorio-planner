@@ -88,4 +88,13 @@ describe('messages from the bridge', () => {
     expect(parseBridgeMessage('{"type":"status"}')).toBeNull()
     expect(parseBridgeMessage('{"type":"other"}')).toBeNull()
   })
+
+  it('reports a status of our version that breaks the schema, instead of dropping it', () => {
+    expect(parseBridgeMessage('{"type":"status","protocol":1,"mod":"oops"}')).toEqual({ kind: 'unreadable-status' })
+    expect(parseBridgeMessage('{"type":"status","protocol":1,"newest":7}')).toEqual({ kind: 'unreadable-status' })
+  })
+
+  it('still accepts a malformed status of another version on its protocol alone', () => {
+    expect(parseBridgeMessage('{"type":"status","protocol":2,"mod":"oops"}')).toEqual({ kind: 'status', status: { type: 'status', protocol: 2 } })
+  })
 })

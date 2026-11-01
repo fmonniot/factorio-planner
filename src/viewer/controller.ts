@@ -116,12 +116,25 @@ export function createController(deps: ControllerDeps, initialAutoSend = false):
         retryTimer = undefined
         break
       case 'sendSnapshot':
-        if (socket?.readyState === OPEN) socket.send(encodeSnapshotFrame(action.id, action.bytes))
+        transmit('snapshot', action.id, () => encodeSnapshotFrame(action.id, action.bytes))
         break
       case 'announce':
-        if (socket?.readyState === OPEN) socket.send(encodeAnnounce(action.id))
+        transmit('announce', action.id, () => encodeAnnounce(action.id))
         break
     }
+  }
+
+  /** Writes one frame. A socket that is not open, or whose `send` throws, reports the frame as failed. */
+  function transmit(frame: 'snapshot' | 'announce', id: string, encode: () => string | Uint8Array<ArrayBuffer>) {
+    try {
+      if (socket?.readyState === OPEN) {
+        socket.send(encode())
+        return
+      }
+    } catch {
+      // Falls through to the failure below.
+    }
+    dispatch({ type: 'sendFailed', frame, id })
   }
 
   // Events raised while performing actions (a socket that throws) are queued, so one `reduce` call

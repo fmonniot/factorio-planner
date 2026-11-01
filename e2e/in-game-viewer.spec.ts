@@ -200,7 +200,51 @@ test.describe('In-game viewer connection', () => {
   })
 })
 
+test.describe('In-game viewer connection, after switching off', () => {
+  test('announces only the plan edited while it was off, never the stale one', async ({ page }) => {
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expect.poll(() => bridge.announces().length).toBe(1)
+    const stale = bridge.announces()[0].id
+
+    await viewerDialog(page).getByLabel('Connect to the bridge').uncheck()
+    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Off')
+    await addGoal(page)
+    bridge.clear()
+
+    await (await openViewer(page)).getByLabel('Connect to the bridge').check()
+    await expect.poll(() => bridge.announces().length).toBeGreaterThan(0)
+    await page.waitForTimeout(500)
+    expect(bridge.announces().map(a => a.id)).toHaveLength(1)
+    expect(bridge.announces()[0].id).not.toBe(stale)
+  })
+})
+
 test.describe('In-game viewer errors', () => {
+  test('says so when the bridge sends a status it cannot read, and does not hang on Connecting', async ({ page }) => {
+    await bridge.stop()
+    await bridge.restart({ type: 'status', protocol: 1, mod: 'oops' })
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expect(badge(page)).toHaveText('Unreadable status')
+    await expect(viewerDialog(page).getByRole('button', { name: 'Send to Factorio' })).toBeDisabled()
+    // A readable status recovers.
+    bridge.broadcast(NO_GAME)
+    await expect(badge(page)).toHaveText('Bridge, no game')
+  })
+
+  test('the alert about a refused plan goes away when the bridge does', async ({ page }) => {
+    await openApp(page)
+    await switchOn(page, bridge)
+    await expect.poll(() => bridge.announces().length).toBe(1)
+    bridge.answerWithError = 'too-large'
+    await viewerDialog(page).getByRole('button', { name: 'Send to Factorio' }).click()
+    await expect(viewerDialog(page).getByTestId('viewer-notice')).toContainText('too large for the in-game viewer')
+    await bridge.stop()
+    await expect(badge(page)).toHaveText('No bridge', { timeout: 10_000 })
+    await expect(viewerDialog(page).getByTestId('viewer-notice')).toHaveCount(0)
+  })
+
   test('shows a bridge error in plain words and forgets the refused bytes', async ({ page }) => {
     await openApp(page)
     await switchOn(page, bridge)
@@ -340,8 +384,11 @@ test.describe('In-game viewer reconnection', () => {
     }))
 
     await expectBadge(page, 'Connected', 12_000)
-    // Same plan as the bytes it holds, so it does not even announce; and it never restores.
+    // It never restores; and since the bridge holds another plan than this one, it announces ours,
+    // so the game does not keep showing the other plan while the badge says Connected.
+    await expect.poll(() => bridge.announces().length).toBe(1)
     await page.waitForTimeout(500)
     expect(bridge.snapshots()).toHaveLength(0)
+    expect(bridge.announces()).toHaveLength(1)
   })
 })

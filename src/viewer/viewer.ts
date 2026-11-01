@@ -62,7 +62,11 @@ export async function publishLatestPlan(isCurrent: () => boolean): Promise<void>
     const bytes = snapshotBytes(snapshot)
     const id = await snapshotId(bytes)
     if (!isCurrent()) return
-    if (viewer.getState().plan?.id === id) return
+    if (viewer.getState().plan?.id === id) {
+      // Same bytes as before: nothing to send, but an earlier build failure is over.
+      viewer.dispatch({ type: 'buildCleared' })
+      return
+    }
     viewer.dispatch({
       type: 'solved',
       plan: { id, size: bytes.length, bytes: bytes.length > MAX_SNAPSHOT_BYTES ? undefined : bytes },
@@ -91,6 +95,8 @@ export function wireViewer(): () => void {
   const unsubViewer = viewer.subscribe(state => {
     const isOff = state.phase === 'off'
     if (wasOff && !isOff) rebuild()
+    // A build still running was started for a connection that is gone: its result is stale.
+    if (!wasOff && isOff) generation++
     wasOff = isOff
   })
   return () => {
