@@ -17,7 +17,7 @@ class FakeSocket implements SocketLike {
   send(data: string | Uint8Array<ArrayBuffer>) { this.sent.push(data) }
   close() { this.closed = true }
   open() { this.readyState = 1; this.onopen?.(new Event('open')) }
-  drop() { this.readyState = 3; this.onclose?.(new CloseEvent('close')) }
+  drop() { this.readyState = 3; this.onclose?.(new Event('close') as CloseEvent) }
   say(data: string) { this.onmessage?.(new MessageEvent('message', { data })) }
 }
 
