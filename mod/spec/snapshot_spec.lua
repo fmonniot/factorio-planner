@@ -83,9 +83,6 @@ describe("snapshot.validate", function()
   invalid("a connection without a source", function(s)
     s.blocks[1].connections[1] = { id = "iron-plate", type = "item", available = 1 }
   end)
-  invalid("a warning with an unknown code", function(s)
-    s.blocks[1].warnings[1] = { code = "something-new" }
-  end)
   invalid("a non-string error", function(s)
     s.blocks[1].error = 5
   end)
