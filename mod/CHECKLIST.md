@@ -1,6 +1,6 @@
 # Manual checklist: the mod in Factorio 2.0.77
 
-CI never starts the game, so everything that touches the Factorio API (`control.lua`, `gui.lua`, `settings.lua`, the locale file) is checked here, once per release and after any change to those files. The pure Lua modules are covered by the busted specs, and `glue_spec.lua` runs the glue against a fake runtime, which catches plain Lua mistakes and nothing about the real API.
+CI never starts the game, so everything that touches the Factorio API (`control.lua`, `gui.lua`, `cursor.lua`, `settings.lua`, the locale file) is checked here, once per release and after any change to those files. The pure Lua modules are covered by the busted specs, and `glue_spec.lua` runs the glue against a fake runtime, which catches plain Lua mistakes and nothing about the real API.
 
 Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the received snapshot into the save). Tick each item, and write down what was seen in the PR or release notes. A failure of an item marked **(unverified API)** is expected to be a one-line fix in the file named; the list of such calls is in the PR that added them.
 
@@ -29,18 +29,18 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 ### Delivering a snapshot
 
 1. `udp_sender.py send contract/fixtures/small.json`. Expected replies: `FP01 R <id>`, then `FP01 A <id> <n>` (the sender sends probe, chunks and end of window together, and the mod answers once per poll, so the last answer is what counts). With a base-game install the ids of the Seablock fixture are missing, so `<n>` is above 0: see the unknown-id check below.
-2. Open the window from the top bar: the block list shows **Gears** with its colour swatch; the right side lists products (with rates per minute), recipes (recipe, machine, machines to place, power), imports and totals.
+2. Open the window from the top bar: the drop-down shows **Gears** with its colour swatch; the table below it has the summary line (the block's net products in green, its net ingredients) and one line per recipe: a checkbox, the recipe icon, the machine icon with the machines to place as its number, the products in green and the ingredients, with rates per minute in the tooltips. There is no power anywhere and no column titles.
 3. Save and load the game **without** sending anything: the window, once opened, still shows the plan (it is read from the save), with **Disconnected** until the first ping.
 4. `udp_sender.py ping 0000000000000000`: the indicator shows **Stale** (the planner's newest differs from the stored id). `udp_sender.py ping <the stored id>` clears it.
-5. `udp_sender.py send contract/fixtures/seablock-areas.json --chunk 700`: a multi-chunk delivery. The window shows blocks with an **Area** column.
-6. Click each block in the list: the right side follows and scrolls back to the top; the selected block's button is highlighted. Nothing else in the window is editable. With a plan of more blocks than fit (Seablock), scroll the list down, click a block near the bottom: the list stays where it was. Scroll the details pane down, then send a new snapshot: the panes keep their scroll position (**unverified**: that the game keeps a scroll position when a pane's children are cleared and added again).
+5. `udp_sender.py send contract/fixtures/seablock-areas.json --chunk 700`: a multi-chunk delivery. The table shows the sub-factories **Smelting** and **Pumps** as header lines with an **Area** tag, their rows indented under them.
+6. Pick each block in the drop-down: the table follows and scrolls back to the top. With a plan of more blocks than fit (Seablock), the drop-down's list scrolls. Scroll the table down, then send a new snapshot: the table keeps its scroll position (**unverified**: that the game keeps a scroll position when a pane's children are cleared and added again).
 7. Send a snapshot with the same blocks in another order: the window keeps showing the block of the same name, wherever it moved.
 
 ### A non-ASCII block name
 
 1. `udp_sender.py send contract/fixtures/unicode.json --chunk 1000` (the cut falls inside multi-byte characters).
 2. The log shows no error; the reply is an ack (`FP01 A`), not `FP01 N ... json`.
-3. The block list shows `Fonderie à fer – été`, `鉄工場 (歯車)` and `Électricité ⚡🏭 « Ünï»` as written (a glyph the game's font lacks may show as a box; that is the font's doing, not the mod's).
+3. The drop-down lists `Fonderie à fer – été`, `鉄工場 (歯車)` and `Électricité ⚡🏭 « Ünï»` as written (a glyph the game's font lacks may show as a box; that is the font's doing, not the mod's).
 
 ### A save load mid-transfer
 
@@ -59,10 +59,38 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 
 1. With the base game only, send `contract/fixtures/seablock-edge-cases.json` (its ids are Seablock's). The ack carries a count above 0.
 2. The window shows a red line "N ids of this plan are not in this game" and a scrolling list `Item: <id>`, `Fluid: ...`, `Recipe: ...`, `Machine: ...`; none is hidden.
-3. In the block details, a missing recipe or machine is written as red text `<id> (not in this game)`, not as an icon; an id the game has shows its icon and localised name.
-4. Quick hook: a synthetic row (mining, offshore, power) shows its kind and product; the `electricity` product shows **Electricity** (with an icon when `utility/electricity_icon` exists) and is **not** in the missing list.
-5. Edit a fixture copy so a `kind: "mining"` row has no `product`: the row shows `Unknown (Mining)` in orange, nothing raises.
+3. In the table, a missing recipe, machine or item is a red slot button with no icon, and its tooltip says `<id> (not in this game)`; an id the game has shows its icon, and its tooltip the localised name.
+4. Quick hook: a synthetic row (mining, offshore, power) shows its product's icon, with its kind and product in the tooltip; a power row making electricity shows the `utility/electricity_icon` with **Power: Electricity** in the tooltip, and `electricity` is **not** in the missing list.
+5. Edit a fixture copy so a `kind: "mining"` row has no `product`: the row's recipe cell is a button with no icon and the tooltip `Unknown (Mining)` in orange; nothing raises.
 6. Add a mod that adds a recipe id used by a fixture, restart: the unknown-id count in the next `hello` is lower (it is recomputed on a configuration change).
+
+### The production table
+
+Send `contract/fixtures/seablock-groups.json`. Its ids are Seablock's: with the Kompetenz Seablock mod set every item below applies as written. With the base game only, edit a copy first: `bob-assembling-machine-6` to `assembling-machine-2`, `bob-electric-chemical-mixing-furnace-2` to `electric-furnace`, and keep `bob-solar-panel-large`, which then stands for a building the game lacks.
+
+1. **(unverified API)** Slot buttons: the styles `slot_sized_button`, `slot_sized_button_green` (products) and `slot_sized_button_red` (a missing id), all 40 pixels, inside the `inside_deep_frame` inset. If one is missing the plain `slot_button` is used: note what the table looks like.
+2. **(unverified API)** The drop-down's items show the block's colour swatch as a coloured square (rich text in drop-down items), and `selected_index` follows the block shown.
+3. **(unverified API)** The `number` on the machine, beacon and item buttons: the machine count (`1`, `2`, `238`), the beacon total (`8`) and the rates per minute (`120`, `14,267.94` shown in the game's short form). A row the solve did not value (the failed block of `seablock-edge-cases.json`) shows its icons with no number; that block's solver message shows under the drop-down.
+4. The summary line at the top: net products in green, net ingredients (the iron and copper plates made and used inside the block are not listed), and no electricity anywhere among the items.
+5. The tree: a root row (gears), the header **Plates and cables** with its plates row indented one step, the nested header **Power** with its two solar rows indented two steps, the cables row back at one step, then the pipe row at the root. No **Area** tag in this fixture. Headers show their net products and ingredients and no machine.
+6. A long sub-factory name (edit a copy: 80 characters): the header's name is cut at about 180 pixels, the full name is in its tooltip, and the recipe column of the other rows does not grow.
+7. Modules: the furnace row's machine tooltip lists `2 × Speed module`; the cables row's beacon tooltip lists `8 per machine`, `8 in all` and `2 × Speed module`. No module is drawn as a button of its own.
+8. **(unverified API)** Tick a row's checkbox: its buttons turn grayscale (`style.draw_grayscale_picture`) and stay clickable. Tick both solar rows: the **Power** header's checkbox becomes ticked. Untick one: it clears. Tick **Plates and cables**: every row under it, nested ones included, is ticked. Tick the summary's checkbox: every row of the block. Untick it: none.
+9. Scroll the table down (shrink the game window if the plan fits), tick a checkbox near the bottom: the table keeps its scroll position (**unverified**: that the game keeps it when the table is rebuilt in the same scroll pane).
+10. Save, load: the ticks are still there. Send a copy of the fixture with another data-set name (so it has another id; the sender's id is a hash of the bytes): the ticks are kept. Rename a sub-factory in a copy and send it: its rows' ticks are dropped, the others stay.
+
+### A building into the cursor
+
+Same fixture and setup as above. Each click is a plain left click on the icon; a right or middle click does nothing (`mouse_button_filter`). The window stays open throughout.
+
+1. **(unverified API)** A crafter: click the gears row's machine. The cursor holds a one-building blueprint in paste mode (`add_to_clipboard`, `activate_paste`), with the recipe set; place it, and the ghost has the gears recipe. Nothing is left in the inventory (no blueprint item), and `factorio-current.log` has no error.
+2. **(unverified API)** A crafter with modules: on a copy, give the gears row `"modules": [{"id": "speed-module", "count": 2}]`. The pasted ghost has the recipe and asks for two speed modules (`crafter_modules` inventory).
+3. **(unverified API)** A furnace with modules: click the plates row's machine. The pasted ghost has no recipe and two speed modules. Check that the building sits on the grid where the cursor shows it (the blueprint centres odd-sized buildings on a tile, `tile_width` and `tile_height`).
+4. **(unverified API)** A beacon: click the cables row's beacon. The pasted ghost is a beacon holding two speed modules (`beacon_modules`).
+5. **(unverified API)** A plain building: click a solar row's machine. The cursor holds a ghost of the solar panel item (`cursor_ghost`), not a blueprint.
+6. A building that cannot be placed: with the base game, click the `bob-solar-panel-large` row's machine: a short flying text at the cursor, "Cannot put this building in the cursor: this game does not have it", and the cursor is unchanged. **(unverified API)** `create_local_flying_text` with `create_at_cursor`.
+7. Hold a stack of items in the cursor with a full inventory, click a machine: the flying text says the cursor cannot be emptied, and the stack stays in the cursor.
+8. With a blueprint in paste mode from a click, paste it into the world several times with the window open, open the inventory with E and close it again: the window stays, nothing is logged.
 
 ### Settings
 
@@ -73,8 +101,8 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 ### Window and GUI
 
 1. The top-bar button **Plan** is visible after a new game, after loading a save, and for a player who joins later. Its tooltip names the current indicator.
-2. The window opens centred on the screen at its full size (also at a small resolution, with a long plan), can be dragged by its title bar, closes with the X button, with E and with Esc, and again with the top button. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
-3. A very long plan (Seablock, tens of blocks, tens of rows): opening and selecting a block does not stall the game visibly.
+2. The window opens centred on the screen at its full size (also at a small resolution, with a long plan: the table scrolls inside the window, whose height stays on screen), can be dragged by its title bar, and closes with the X button and again with the top button. E and Esc do **not** close it: it is not the player's opened GUI, so the inventory opens with E while it stays shown. **(unverified API)** the styles `frame_title`, `draggable_space_header`, `frame_action_button`: if one is missing, the mod still works but looks plain.
+3. A very long plan (Seablock, tens of blocks, tens of rows): opening, selecting a block and ticking a checkbox do not stall the game visibly.
 4. A block name with rich-text brackets (for example `[item=iron-plate] smelting`) shows the icon, which is accepted; a name that opens a tag without closing it does not break the window.
 5. Locale: nothing in the window shows `Unknown key`.
 
