@@ -1,0 +1,30 @@
+{
+  "case": "no-snapshot-not-stale",
+  "summary": "With no stored snapshot there is nothing to be stale: the ping still gets a hello, with the no-id value.",
+  "start": {
+    "stored": null
+  },
+  "idCheck": {
+    "unknownIds": 0
+  },
+  "polls": [
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP01 P 9b3b078dbd018b94",
+          "hex": "4650303120502039623362303738646264303138623934"
+        }
+      ],
+      "answer": "FP01 H ---------------- 0 ----------------",
+      "after": {
+        "stored": null,
+        "unknownIds": 0,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": false
+      }
+    }
+  ]
+}

@@ -1,0 +1,69 @@
+{
+  "case": "protocol-mismatch",
+  "summary": "Any datagram of another protocol version sets the mismatch flag and is answered with a hello, which tells the bridge this mod's version. Nothing in it is read. A datagram of this version clears the flag.",
+  "start": {
+    "stored": {
+      "id": "aaaaaaaaaaaaaaaa",
+      "unknownIds": 1
+    }
+  },
+  "idCheck": {
+    "unknownIds": 0
+  },
+  "polls": [
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP02 P 9b3b078dbd018b94",
+          "hex": "4650303220502039623362303738646264303138623934"
+        }
+      ],
+      "answer": "FP01 H aaaaaaaaaaaaaaaa 1 ----------------",
+      "after": {
+        "stored": "aaaaaaaaaaaaaaaa",
+        "unknownIds": 1,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": true
+      }
+    },
+    {
+      "arrive": [
+        {
+          "type": "chunk",
+          "text": "FP02 C 9b3b078dbd018b94 0000 0001 0000005 ",
+          "hex": "46503032204320396233623037386462643031386239342030303030203030303120303030303030352068656c6c6f"
+        }
+      ],
+      "answer": "FP01 H aaaaaaaaaaaaaaaa 1 ----------------",
+      "after": {
+        "stored": "aaaaaaaaaaaaaaaa",
+        "unknownIds": 1,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": true
+      }
+    },
+    {
+      "arrive": [
+        {
+          "type": "ping",
+          "text": "FP01 P aaaaaaaaaaaaaaaa",
+          "hex": "4650303120502061616161616161616161616161616161"
+        }
+      ],
+      "answer": "FP01 H aaaaaaaaaaaaaaaa 1 ----------------",
+      "after": {
+        "stored": "aaaaaaaaaaaaaaaa",
+        "unknownIds": 1,
+        "assembling": null,
+        "have": [],
+        "stale": false,
+        "mismatch": false
+      }
+    }
+  ]
+}
