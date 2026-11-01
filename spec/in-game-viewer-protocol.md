@@ -24,7 +24,7 @@ The snapshot is compact JSON (`JSON.stringify` of the projection) in UTF-8. The 
 
 ### Snapshot id
 
-The planner computes it: the **first 16 lowercase hexadecimal characters of the SHA-256 of the snapshot bytes**, using `crypto.subtle.digest`, which both the HTTPS site and `http://localhost` can reach. For the `small` fixture that is `721d0a38833f2efa`.
+The planner computes it: the **first 16 lowercase hexadecimal characters of the SHA-256 of the snapshot bytes**, using `crypto.subtle.digest`, which both the HTTPS site and `http://localhost` can reach. For the `small` fixture that is `b50eac1dfa0cae79`.
 
 - Equal content gets an equal id, across a bridge restart too, so sending identical content again costs no datagram.
 - An id has no order. The word "older" in this protocol always means "different from the newest". Going A, B, then back to A works with no special case, which an ordered id would get wrong.
@@ -123,10 +123,10 @@ A binary frame: a 32-byte ASCII envelope, then the snapshot bytes. This envelope
 | 31 | 1 | space |
 | 32 | rest | The snapshot bytes |
 
-The `small` fixture, 814 B, in a frame of 846 B:
+The `small` fixture, 752 B, in a frame of 784 B:
 
 ```
-FP01 S 721d0a38833f2efa 0000814 {"v":1,"dataSet":{"id":"kompetenz-seablock",...
+FP01 S b50eac1dfa0cae79 0000752 {"v":1,"dataSet":{"id":"kompetenz-seablock",...
 ```
 
 The frame length must equal 32 plus the length field. The length must be between 1 and `MAX_SNAPSHOT_BYTES`. A frame that breaks these is answered with `error` and changes nothing. The bridge decides from the envelope alone, in this order: another protocol version (`protocol-mismatch`); an envelope that is not as laid out above, or a length of 0 (`bad-envelope`); a length above `MAX_SNAPSHOT_BYTES` (`too-large`); a frame length other than 32 plus the field (`bad-envelope`). `too-large` therefore never depends on the body.
@@ -136,7 +136,7 @@ The frame length must equal 32 plus the length field. The length must be between
 ### `announce`
 
 ```
-{"type":"announce","protocol":1,"id":"8bacd4a26565db63"}
+{"type":"announce","protocol":1,"id":"8a7dc7be68ce742c"}
 ```
 
 "This is the id of the planner's current plan, which I have not sent." It sets the bridge's `newest` and nothing else: it does not start a transfer and does not touch the snapshot the bridge holds. See [The Stale signal](#the-stale-signal).
@@ -146,7 +146,7 @@ The frame length must equal 32 plus the length field. The length must be between
 The bridge's whole state, as one object. It is sent once on connection, before anything else, and again whenever a field changes. A planner only ever needs the latest one.
 
 ```
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8bacd4a26565db63","mod":{"link":"connected","protocol":1,"stored":"721d0a38833f2efa","unknownIds":0},"transfer":{"id":"8bacd4a26565db63","state":"sending","sent":24,"count":29}}
+{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"sending","sent":24,"count":29}}
 ```
 
 | Field | Presence | Meaning |
@@ -186,9 +186,9 @@ Examples: no game yet; a delivered snapshot with two unknown ids; a transfer sta
 
 ```
 {"type":"status","protocol":1,"bridge":"0.1.0","mod":{"link":"none"}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"721d0a38833f2efa","mod":{"link":"connected","protocol":1,"stored":"721d0a38833f2efa","unknownIds":2},"transfer":{"id":"721d0a38833f2efa","state":"delivered","sent":1,"count":1}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8bacd4a26565db63","mod":{"link":"quiet","protocol":1,"stored":"721d0a38833f2efa","unknownIds":0},"transfer":{"id":"8bacd4a26565db63","state":"stalled","sent":24,"count":29}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8bacd4a26565db63","mod":{"link":"connected","protocol":1,"stored":"721d0a38833f2efa","unknownIds":0},"transfer":{"id":"8bacd4a26565db63","state":"rejected","sent":29,"count":29,"reason":"json"}}
+{"type":"status","protocol":1,"bridge":"0.1.0","newest":"b50eac1dfa0cae79","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":2},"transfer":{"id":"b50eac1dfa0cae79","state":"delivered","sent":1,"count":1}}
+{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"quiet","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"stalled","sent":24,"count":29}}
+{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"rejected","sent":29,"count":29,"reason":"json"}}
 {"type":"status","protocol":1,"bridge":"0.1.0","mod":{"link":"mismatch","protocol":2}}
 ```
 
@@ -252,7 +252,7 @@ Lua's `tonumber` accepts `0x10`, ` 12` and `1e3`, so the mod checks digits with 
 Exactly 23 B. The bridge knows of a newer plan, and the mod is sitting on an older one:
 
 ```
-FP01 P 8bacd4a26565db63
+FP01 P 8a7dc7be68ce742c
 ```
 
 A fresh bridge that knows nothing:
@@ -278,7 +278,7 @@ FP01 P ----------------
 The bridge always sends exactly `MAX_DATAGRAM` bytes, even for a small snapshot, so that a probe that arrives proves a full chunk fits. The mod reads the first 37 B and ignores the rest, whatever its length. It drops a probe unless `count` ≤ `bytes` ≤ `count` × `CHUNK_PAYLOAD`.
 
 ```
-FP01 W 721d0a38833f2efa 0007 0000814 ......(8,005 dots)
+FP01 W b50eac1dfa0cae79 0006 0000752 ......(8,005 dots)
 ```
 
 #### `C`: chunk
@@ -302,7 +302,7 @@ The bridge cuts the snapshot every `CHUNK_PAYLOAD` bytes, with no regard for cha
 The third chunk of the `small` fixture cut at 128 B, 170 B in all:
 
 ```
-FP01 C 721d0a38833f2efa 0002 0007 0000814 -assembling-machine-6","machines":0.143,"machinesCeil":1,"throughput":60,"powerKw":68.571,"inputs":[{"id":"iron-plate","type":"i
+FP01 C b50eac1dfa0cae79 0002 0006 0000752 -assembling-machine-6","machines":0.143,"machinesCeil":1,"throughput":60,"inputs":[{"id":"iron-plate","type":"item","rate":120}]
 ```
 
 To parse it, the mod takes the first 42 B with `string.sub`, matches them with one anchored pattern, and takes the payload with one more `string.sub`. No bit operation is involved, and no search touches the payload, so the cost does not depend on what the payload holds. A whole window arriving in one tick is 24 such parses.
@@ -322,7 +322,7 @@ To parse it, the mod takes the first 42 B with `string.sub`, matches them with o
 Exactly 33 B. Round 1 of a transfer whose seven chunks have all been sent:
 
 ```
-FP01 E 721d0a38833f2efa 0001 0007
+FP01 E b50eac1dfa0cae79 0001 0006
 ```
 
 It asks the mod for a report. Asking again is harmless: the answer describes the current state.
@@ -348,9 +348,9 @@ The mod's whole state, in reply to a ping.
 - `assembling`: the id being reassembled, or the no-id value.
 
 ```
-FP01 H 721d0a38833f2efa 2 ----------------
+FP01 H b50eac1dfa0cae79 2 ----------------
 FP01 H ---------------- 0 ----------------
-FP01 H 721d0a38833f2efa 2 8bacd4a26565db63
+FP01 H b50eac1dfa0cae79 2 8a7dc7be68ce742c
 ```
 
 #### `R`: ready
@@ -358,7 +358,7 @@ FP01 H 721d0a38833f2efa 2 8bacd4a26565db63
 The mod has taken this snapshot as its reassembly target. The answer to a probe.
 
 ```
-FP01 R 721d0a38833f2efa
+FP01 R b50eac1dfa0cae79
 ```
 
 #### `M`: missing report
@@ -370,8 +370,8 @@ The answer to an end-of-window for a snapshot still incomplete. `round` is the f
 - There are at most `MAX_REPORT_RANGES` entries. If there are more gaps, the mod stops at twelve. The rest are reported in a later round.
 
 ```
-FP01 M 721d0a38833f2efa 0000 -
-FP01 M 721d0a38833f2efa 0001 1,3-5,9
+FP01 M b50eac1dfa0cae79 0000 -
+FP01 M b50eac1dfa0cae79 0001 1,3-5,9
 ```
 
 **The worst case stays short.** The report can never exceed 124 B, whatever the snapshot size: 12 entries of at most `999-999` with 11 commas. With two-digit indices, as in a 29-chunk snapshot, it stays under 100 B; the `report-capped` fixture, 41 chunks with every other one lost, comes to 59 B. Losing a whole window is one range, `0-23`. Building a report loops over at most `upto` chunks, and happens at most once per poll.
@@ -381,7 +381,7 @@ FP01 M 721d0a38833f2efa 0001 1,3-5,9
 The mod stores this id. `unknownIds` is as in `hello`.
 
 ```
-FP01 A 721d0a38833f2efa 2
+FP01 A b50eac1dfa0cae79 2
 ```
 
 #### `N`: refusal
@@ -396,8 +396,8 @@ The mod finished reassembling this id and refused it. The previous snapshot stay
 | `invalid` | The JSON is not a snapshot |
 
 ```
-FP01 N 721d0a38833f2efa json
-FP01 N 721d0a38833f2efa length
+FP01 N b50eac1dfa0cae79 json
+FP01 N b50eac1dfa0cae79 length
 ```
 
 ---

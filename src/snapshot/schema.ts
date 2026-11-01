@@ -9,14 +9,16 @@ import { PlanDataSetStampSchema } from '../data/schema'
 //
 // Rules of the shape:
 // - Ids are the ones the game knows. No icons, no display names of game objects.
-//   (Block and area names are the player's own text, not game objects.) Ids the data
+//   (Block and sub-factory names are the player's own text, not game objects.) Ids the data
 //   exporter invented (`mining:*`, `offshore:*`, `power:*` recipes, the `power:electricity`
 //   item) never appear: such a row carries a `kind` and its `product` instead of a recipe,
 //   and the electricity item is a `virtual` reference that the reader draws itself.
 // - JSON `null` never appears: an absent value is an omitted key.
 // - Rates are items per minute, rounded to three decimals.
-// - Blocks, and the areas and sub-factory groups inside a block, are referred to by their
-//   index in the arrays below, so a snapshot carries no planner ids.
+// - Blocks' sub-factory groups are referred to by their index in the block's `groups`, so a
+//   snapshot carries no planner ids.
+// - It holds what the in-game table draws and nothing else: no warnings, no connections between
+//   blocks and no power. The web planner is where those are dealt with.
 // ---------------------------------------------------------------------------
 
 /** Bumped when a change to the shape could break a reader of the previous version. */
@@ -70,8 +72,6 @@ export const SnapshotBeaconSchema = z.strictObject({
 const rowShape = {
   /** The machine the row uses: its own, else the default the solver used; absent when there is none. */
   machine: z.string().min(1).optional(),
-  /** Index into the block's `areas`; present only when the block has areas. */
-  area: index.optional(),
   /** Index into the block's `groups`: the innermost sub-factory the row sits in; absent for a row of the root plan. */
   group: index.optional(),
   /** Machines needed, exact. */
@@ -80,7 +80,6 @@ const rowShape = {
   machinesCeil: count.optional(),
   /** Recipe executions per minute. */
   throughput: rate.optional(),
-  powerKw: rate.optional(),
   /** Items consumed per minute, from the solve; omitted when empty or when the row is unsolved. Electricity is left out. */
   inputs: z.array(SnapshotItemRateSchema).optional(),
   /** Items produced per minute (gross), from the solve; same rules as `inputs`. */
@@ -107,39 +106,6 @@ export const SnapshotSyntheticRowSchema = z.strictObject({
 
 export const SnapshotRowSchema = z.union([SnapshotGameRowSchema, SnapshotSyntheticRowSchema])
 
-/**
- * What a warning names. `code` is the solver's warning type; each list holds the ids the warning
- * names, and is omitted when empty. The numbers in the solver's warnings (rates, counts, rounds)
- * are not sent.
- */
-export const SnapshotWarningSchema = z.strictObject({
-  code: z.enum([
-    'no-recipe',
-    'duplicate-recipe',
-    'infeasible-pins',
-    'overconstrained',
-    'area-shortfall',
-    'loop-not-converged',
-    'request-loop-not-converged',
-  ]),
-  items: z.array(SnapshotItemRefSchema).optional(),
-  recipes: z.array(z.string().min(1)).optional(),
-  /** Indices into the snapshot's `blocks`. */
-  blocks: z.array(index).optional(),
-  /** Indices into the block's `areas`. */
-  areas: z.array(index).optional(),
-})
-
-/** Items a block receives from another block's output. */
-export const SnapshotConnectionSchema = z.strictObject({
-  /** Index into the snapshot's `blocks` of the supplying block. */
-  from: index,
-  id: z.string().min(1),
-  type: itemType,
-  /** items/min this block could take over the connection. */
-  available: rate,
-})
-
 /** A sub-factory (a sub-plan with rows at any depth). */
 export const SnapshotGroupSchema = z.strictObject({
   name: z.string(),
@@ -155,8 +121,6 @@ export const SnapshotBlockSchema = z.strictObject({
   color: z.string().regex(/^#[0-9a-f]{6}$/),
   /** What the block is asked to make: its extra rate plus what other blocks request. */
   products: z.array(SnapshotItemRateSchema),
-  /** Area names in table order (the root first). Present only when the block has separate areas. */
-  areas: z.array(z.string()).optional(),
   /**
    * The sub-factories that hold rows, in pre-order (a parent comes before its children). Present only when there is one.
    * A row's `group` points here. A group's rows are only interrupted by its own descendants, so the rows of `P[a, S, b]`
@@ -167,9 +131,7 @@ export const SnapshotBlockSchema = z.strictObject({
   rows: z.array(SnapshotRowSchema),
   /** What must come from outside the block, in the solver's `unsatisfied` order. */
   imports: z.array(SnapshotItemRateSchema),
-  warnings: z.array(SnapshotWarningSchema),
-  connections: z.array(SnapshotConnectionSchema),
-  /** The solver's message when this block's solve failed; then its rows carry no solved values. `imports` and `warnings` are the result's, which the solver leaves empty or holding only warnings that name the block, such as a loop that did not converge. */
+  /** The solver's message when this block's solve failed; then its rows carry no solved values and `imports` is the result's, which the solver leaves empty. */
   error: z.string().optional(),
 })
 
@@ -188,7 +150,5 @@ export type SnapshotGroup = z.output<typeof SnapshotGroupSchema>
 export type SnapshotRow = z.output<typeof SnapshotRowSchema>
 export type SnapshotGameRow = z.output<typeof SnapshotGameRowSchema>
 export type SnapshotSyntheticRow = z.output<typeof SnapshotSyntheticRowSchema>
-export type SnapshotWarning = z.output<typeof SnapshotWarningSchema>
-export type SnapshotConnection = z.output<typeof SnapshotConnectionSchema>
 export type SnapshotBlock = z.output<typeof SnapshotBlockSchema>
 export type Snapshot = z.output<typeof SnapshotSchema>

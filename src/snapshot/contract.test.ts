@@ -51,26 +51,23 @@ describe('contract fixtures', () => {
   it('covers the shapes the other sides must read', () => {
     const blocks = Object.values(generated).flatMap(s => s.blocks)
     const rows = blocks.flatMap(b => b.rows)
-    const refs = blocks.flatMap(b => [...b.products, ...b.imports, ...b.connections])
-    expect(blocks.some(b => b.areas && b.rows.every(r => r.area !== undefined)), 'a block with areas').toBe(true)
-    expect(blocks.some(b => b.connections.length > 0), 'a connection').toBe(true)
+    const refs = blocks.flatMap(b => [...b.products, ...b.imports])
+    expect(blocks.some(b => b.groups?.some(g => g.area)), 'a group that is an area').toBe(true)
+    expect(blocks.some(b => b.groups?.some(g => !g.area)), 'a group that is not an area').toBe(true)
+    expect(blocks.some(b => b.groups?.some(g => g.parent !== undefined)), 'a nested group').toBe(true)
+    expect(rows.some(r => r.group === undefined) && rows.some(r => r.group !== undefined), 'rows in and out of a group').toBe(true)
     expect(refs.some(r => r.type === 'fluid'), 'a fluid').toBe(true)
     expect(refs.some(r => r.type === 'virtual' && r.id === 'electricity'), 'a virtual item').toBe(true)
-    expect(blocks.some(b => b.connections.some(c => c.type === 'virtual')), 'a virtual connection').toBe(true)
     expect(blocks.some(b => b.error !== undefined && b.rows.length > 0), 'a failed block with rows').toBe(true)
     expect(rows.some(r => r.machine === undefined), 'a row without machine').toBe(true)
     expect(rows.some(r => r.machines === undefined && r.throughput === undefined), 'a row without solved values').toBe(true)
     for (const kind of ['mining', 'offshore', 'power']) {
       expect(rows.some(r => 'kind' in r && r.kind === kind && r.product !== undefined), `a ${kind} row`).toBe(true)
     }
-    const warnings = blocks.flatMap(b => b.warnings)
-    for (const key of ['items', 'recipes', 'blocks', 'areas'] as const) {
-      expect(warnings.some(w => w[key] !== undefined), `a warning with ${key}`).toBe(true)
-    }
     // The loop fixture really is a loop of blocks.
     expect(solveAll(loopBlocks(), loadSeablock()).loops.length).toBeGreaterThan(0)
     // Non-ASCII names: a multi-byte character, a 3-byte CJK one and a surrogate pair.
-    const names = JSON.stringify(generated.unicode.blocks.map(b => [b.name, b.areas]))
+    const names = JSON.stringify(generated.unicode.blocks.map(b => [b.name, b.groups?.map(g => g.name)]))
     expect(names).toMatch(/é/)
     expect(names).toMatch(/鉄/)
     expect(names).toMatch(/🏭/u)
@@ -89,13 +86,12 @@ describe('contract fixtures', () => {
 export function ruleIds(snapshot: Snapshot): string[] {
   const ids: string[] = []
   for (const b of snapshot.blocks) {
-    for (const r of [...b.products, ...b.imports, ...b.connections]) ids.push(r.id)
+    for (const r of [...b.products, ...b.imports]) ids.push(r.id)
     for (const row of b.rows) {
       if ('recipe' in row) ids.push(row.recipe)
       else if (row.product) ids.push(row.product.id)
       if (row.machine) ids.push(row.machine)
     }
-    for (const w of b.warnings) ids.push(...(w.items ?? []).map(i => i.id), ...(w.recipes ?? []))
   }
   return ids
 }

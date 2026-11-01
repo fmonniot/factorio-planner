@@ -21,25 +21,23 @@
           "rate": 30
         }
       ],
-      "areas": [
-        "Top level",
-        "銅の精錬 🔥"
-      ],
       "groups": [
         {
           "name": "銅の精錬 🔥",
           "area": true
+        },
+        {
+          "name": "Fonderie à gaz – 蒸気蒸気蒸気蒸気 🌊🌊🌊🌊 éèêëéèêë",
+          "parent": 0
         }
       ],
       "rows": [
         {
           "recipe": "sb-iron-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
-          "area": 0,
           "machines": 2.844,
           "machinesCeil": 3,
           "throughput": 65,
-          "powerKw": 853.125,
           "inputs": [
             {
               "id": "iron-ore",
@@ -58,12 +56,10 @@
         {
           "recipe": "sb-copper-plate-from-ore",
           "machine": "bob-electric-chemical-mixing-furnace-2",
-          "area": 1,
           "group": 0,
           "machines": 0.438,
           "machinesCeil": 1,
           "throughput": 10,
-          "powerKw": 131.25,
           "inputs": [
             {
               "id": "copper-ore",
@@ -78,6 +74,14 @@
               "rate": 30
             }
           ]
+        },
+        {
+          "recipe": "sb-iron-plate-from-ore",
+          "machine": "bob-electric-chemical-mixing-furnace-2",
+          "group": 1,
+          "machines": 0,
+          "machinesCeil": 0,
+          "throughput": 0
         }
       ],
       "imports": [
@@ -91,9 +95,7 @@
           "type": "item",
           "rate": 40
         }
-      ],
-      "warnings": [],
-      "connections": []
+      ]
     },
     {
       "name": "鉄工場 (歯車)",
@@ -112,7 +114,6 @@
           "machines": 0.107,
           "machinesCeil": 1,
           "throughput": 45,
-          "powerKw": 51.429,
           "inputs": [
             {
               "id": "iron-plate",
@@ -129,16 +130,7 @@
           ]
         }
       ],
-      "imports": [],
-      "warnings": [],
-      "connections": [
-        {
-          "from": 0,
-          "id": "iron-plate",
-          "type": "item",
-          "available": 180
-        }
-      ]
+      "imports": []
     },
     {
       "name": "Électricité ⚡🏭 « Ünï»",
@@ -157,7 +149,6 @@
           "machines": 0.036,
           "machinesCeil": 1,
           "throughput": 15,
-          "powerKw": 17.143,
           "inputs": [
             {
               "id": "iron-plate",
@@ -174,16 +165,7 @@
           ]
         }
       ],
-      "imports": [],
-      "warnings": [],
-      "connections": [
-        {
-          "from": 0,
-          "id": "iron-plate",
-          "type": "item",
-          "available": 105
-        }
-      ]
+      "imports": []
     }
   ]
 }

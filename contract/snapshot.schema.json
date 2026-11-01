@@ -67,12 +67,6 @@
               "additionalProperties": false
             }
           },
-          "areas": {
-            "type": "array",
-            "items": {
-              "type": "string"
-            }
-          },
           "groups": {
             "type": "array",
             "items": {
@@ -112,11 +106,6 @@
                       "type": "string",
                       "minLength": 1
                     },
-                    "area": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
                     "group": {
                       "type": "integer",
                       "minimum": 0,
@@ -132,10 +121,6 @@
                       "maximum": 9007199254740991
                     },
                     "throughput": {
-                      "type": "number",
-                      "minimum": 0
-                    },
-                    "powerKw": {
                       "type": "number",
                       "minimum": 0
                     },
@@ -294,11 +279,6 @@
                       "type": "string",
                       "minLength": 1
                     },
-                    "area": {
-                      "type": "integer",
-                      "minimum": 0,
-                      "maximum": 9007199254740991
-                    },
                     "group": {
                       "type": "integer",
                       "minimum": 0,
@@ -314,10 +294,6 @@
                       "maximum": 9007199254740991
                     },
                     "throughput": {
-                      "type": "number",
-                      "minimum": 0
-                    },
-                    "powerKw": {
                       "type": "number",
                       "minimum": 0
                     },
@@ -472,114 +448,6 @@
               "additionalProperties": false
             }
           },
-          "warnings": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "code": {
-                  "type": "string",
-                  "enum": [
-                    "no-recipe",
-                    "duplicate-recipe",
-                    "infeasible-pins",
-                    "overconstrained",
-                    "area-shortfall",
-                    "loop-not-converged",
-                    "request-loop-not-converged"
-                  ]
-                },
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "properties": {
-                      "id": {
-                        "type": "string",
-                        "minLength": 1
-                      },
-                      "type": {
-                        "type": "string",
-                        "enum": [
-                          "item",
-                          "fluid",
-                          "virtual"
-                        ]
-                      }
-                    },
-                    "required": [
-                      "id",
-                      "type"
-                    ],
-                    "additionalProperties": false
-                  }
-                },
-                "recipes": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "minLength": 1
-                  }
-                },
-                "blocks": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
-                  }
-                },
-                "areas": {
-                  "type": "array",
-                  "items": {
-                    "type": "integer",
-                    "minimum": 0,
-                    "maximum": 9007199254740991
-                  }
-                }
-              },
-              "required": [
-                "code"
-              ],
-              "additionalProperties": false
-            }
-          },
-          "connections": {
-            "type": "array",
-            "items": {
-              "type": "object",
-              "properties": {
-                "from": {
-                  "type": "integer",
-                  "minimum": 0,
-                  "maximum": 9007199254740991
-                },
-                "id": {
-                  "type": "string",
-                  "minLength": 1
-                },
-                "type": {
-                  "type": "string",
-                  "enum": [
-                    "item",
-                    "fluid",
-                    "virtual"
-                  ]
-                },
-                "available": {
-                  "type": "number",
-                  "minimum": 0
-                }
-              },
-              "required": [
-                "from",
-                "id",
-                "type",
-                "available"
-              ],
-              "additionalProperties": false
-            }
-          },
           "error": {
             "type": "string"
           }
@@ -589,9 +457,7 @@
           "color",
           "products",
           "rows",
-          "imports",
-          "warnings",
-          "connections"
+          "imports"
         ],
         "additionalProperties": false
       }

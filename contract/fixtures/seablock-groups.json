@@ -47,7 +47,6 @@
           "machines": 0.143,
           "machinesCeil": 1,
           "throughput": 60,
-          "powerKw": 68.571,
           "inputs": [
             {
               "id": "iron-plate",
@@ -70,7 +69,6 @@
           "machines": 1.563,
           "machinesCeil": 2,
           "throughput": 50,
-          "powerKw": 937.5,
           "inputs": [
             {
               "id": "iron-ore",
@@ -102,8 +100,7 @@
           "group": 1,
           "machines": 237.799,
           "machinesCeil": 238,
-          "throughput": 14267.936,
-          "powerKw": 0
+          "throughput": 14267.936
         },
         {
           "kind": "power",
@@ -115,8 +112,7 @@
           "group": 1,
           "machines": 0.167,
           "machinesCeil": 1,
-          "throughput": 10,
-          "powerKw": 0
+          "throughput": 10
         },
         {
           "recipe": "copper-cable",
@@ -125,7 +121,6 @@
           "machines": 0.025,
           "machinesCeil": 1,
           "throughput": 60,
-          "powerKw": 153.695,
           "inputs": [
             {
               "id": "copper-plate",
@@ -153,7 +148,6 @@
           "machines": 0.071,
           "machinesCeil": 1,
           "throughput": 30,
-          "powerKw": 34.286,
           "inputs": [
             {
               "id": "iron-plate",
@@ -181,9 +175,7 @@
           "type": "item",
           "rate": 60
         }
-      ],
-      "warnings": [],
-      "connections": []
+      ]
     }
   ]
 }

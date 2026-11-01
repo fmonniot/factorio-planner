@@ -48,17 +48,17 @@ describe('snapshot id and frame', () => {
   const bytes = snapshotBytes(SnapshotSchema.parse(JSON.parse(small)))
 
   it('hashes the small fixture to the documented id', async () => {
-    expect(await snapshotId(bytes)).toBe('721d0a38833f2efa')
+    expect(await snapshotId(bytes)).toBe('b50eac1dfa0cae79')
   })
 
   it('writes the documented frame for the small fixture', async () => {
     const fixture = named('snapshot')
     expect(Buffer.from(encodeSnapshotFrame(await snapshotId(bytes), bytes)).toString('hex')).toBe(fixture.hex)
-    expect(new TextDecoder().decode(encodeSnapshotFrame('721d0a38833f2efa', bytes).subarray(0, WS_ENVELOPE_BYTES))).toBe(fixture.doc)
+    expect(new TextDecoder().decode(encodeSnapshotFrame('b50eac1dfa0cae79', bytes).subarray(0, WS_ENVELOPE_BYTES))).toBe(fixture.doc)
   })
 
   it('writes the documented announce', () => {
-    expect(encodeAnnounce('8bacd4a26565db63')).toBe(named('announce').doc)
+    expect(encodeAnnounce('8a7dc7be68ce742c')).toBe(named('announce').doc)
   })
 })
 
