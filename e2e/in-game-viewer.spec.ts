@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import Ajv2020 from 'ajv/dist/2020.js'
 import { loadPlanFixture } from './support/loadPlan'
-import { pickPlanFile, selectDataset } from './support/appMenu'
+import { menuTrigger, openAppMenu, pickPlanFile, selectDataset } from './support/appMenu'
 import { fixtureMessage, startFakeBridge, type FakeBridge } from './support/fakeBridge'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
@@ -23,9 +23,10 @@ const connectedStatus = (extra: Record<string, unknown> = {}) => ({
 // Helpers
 // ---------------------------------------------------------------------------
 
-const viewerButton = (page: Page) => page.getByRole('button', { name: /^In-game viewer/ })
+const viewerItem = (page: Page) => page.getByRole('menuitem', { name: /^In-game viewer/ })
 const viewerDialog = (page: Page) => page.getByRole('dialog', { name: 'In-game viewer' })
 const badge = (page: Page) => viewerDialog(page).getByTestId('viewer-badge')
+const troubleshootDialog = (page: Page) => page.getByRole('dialog', { name: 'Troubleshoot the in-game viewer' })
 
 async function openApp(page: Page) {
   await loadPlanFixture(page, FIXTURE)
@@ -34,16 +35,38 @@ async function openApp(page: Page) {
 }
 
 async function openViewer(page: Page) {
-  if (!(await viewerDialog(page).isVisible())) await viewerButton(page).click()
+  await openAppMenu(page)
+  if (!(await viewerDialog(page).isVisible())) await viewerItem(page).click()
   await expect(viewerDialog(page)).toBeVisible()
   return viewerDialog(page)
 }
 
 /** Types the bridge address, switches the connection on and leaves the dialog open. */
 async function switchOn(page: Page, bridge: FakeBridge) {
+  await setAddress(page, bridge.url)
+  await (await openViewer(page)).getByLabel('Connect to the bridge').check()
+}
+
+/** Types the bridge address through the flyout's Change link. */
+async function setAddress(page: Page, url: string) {
   const dialog = await openViewer(page)
-  await dialog.getByLabel('Bridge address').fill(bridge.url)
-  await dialog.getByLabel('Connect to the bridge').check()
+  await dialog.getByRole('button', { name: 'Change' }).click()
+  await dialog.getByLabel('Bridge address').fill(url)
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  await expect(dialog.getByTestId('viewer-address')).toHaveText(url)
+}
+
+/** Opens the Troubleshoot dialog from the flyout (which closes the menu behind it). */
+async function openTroubleshoot(page: Page) {
+  await (await openViewer(page)).getByRole('button', { name: 'Troubleshoot…' }).click()
+  await expect(troubleshootDialog(page)).toBeVisible()
+  return troubleshootDialog(page)
+}
+
+/** The connection says nothing on the workspace menu's trigger. */
+async function expectViewerOff(page: Page) {
+  await expect(menuTrigger(page)).not.toHaveAccessibleName(/In-game viewer/)
+  await expect(page.getByTestId('viewer-dot')).toHaveCount(0)
 }
 
 async function expectBadge(page: Page, label: string, timeout = 5000) {
@@ -71,7 +94,7 @@ test.describe('In-game viewer connection', () => {
     // Point the saved address at the fake bridge: only switching the connection on may reach it.
     await page.addInitScript(url => localStorage.setItem('factorio-planner:ui', JSON.stringify({ bridgeUrl: url })), bridge.url)
     await openApp(page)
-    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Off')
+    await expectViewerOff(page)
     await addGoal(page)
     await page.waitForTimeout(500)
     expect(bridge.connections).toBe(0)
@@ -80,43 +103,45 @@ test.describe('In-game viewer connection', () => {
   test('connects, announces the plan, and shows no game', async ({ page }) => {
     await openApp(page)
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Bridge, no game')
+    await expectBadge(page, 'Bridge, no game')
     await expect.poll(() => bridge.connections).toBe(1)
     await expect.poll(() => bridge.announces().length).toBe(1)
     expect(bridge.announces()[0].protocol).toBe(1)
     expect(bridge.snapshots()).toHaveLength(0)
-    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Bridge, no game')
+    await expect(menuTrigger(page)).toHaveAccessibleName(/\. In-game viewer: Bridge, no game$/)
   })
 
   test('the badge follows the bridge status', async ({ page }) => {
     await openApp(page)
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Bridge, no game')
+    await expectBadge(page, 'Bridge, no game')
 
     bridge.broadcast(connectedStatus())
-    await expect(badge(page)).toHaveText('Connected')
+    await expectBadge(page, 'Connected')
 
     bridge.broadcast(fixtureMessage('status-delivered'))
-    await expect(badge(page)).toHaveText('Data set mismatch')
-    await expect(viewerDialog(page).getByTestId('viewer-detail')).toContainText('2')
+    await expectBadge(page, 'Data set mismatch')
+    await expect(await openTroubleshoot(page)).toContainText('does not know 2')
+    await troubleshootDialog(page).getByRole('button', { name: 'Done' }).click()
 
     bridge.broadcast(fixtureMessage('status-stalled'))
-    await expect(badge(page)).toHaveText('Game quiet')
+    await expectBadge(page, 'Game quiet')
 
     bridge.broadcast(fixtureMessage('status-mismatch'))
-    await expect(badge(page)).toHaveText('Mod version mismatch')
+    await expectBadge(page, 'Mod version mismatch')
 
     bridge.broadcast(connectedStatus())
-    await expect(badge(page)).toHaveText('Connected')
+    await expectBadge(page, 'Connected')
   })
 
   test('another protocol version: says so and sends nothing', async ({ page }) => {
     bridge.initialStatus = { ...NO_GAME, protocol: 2 }
     await openApp(page)
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Version mismatch')
-    await expect(viewerDialog(page).getByTestId('viewer-detail')).toContainText('Update the planner and the bridge together')
+    await expectBadge(page, 'Version mismatch')
     await expect(viewerDialog(page).getByRole('button', { name: 'Send to Factorio' })).toBeDisabled()
+    await expect(await openTroubleshoot(page)).toContainText('Update the planner and the bridge together')
+    await troubleshootDialog(page).getByRole('button', { name: 'Done' }).click()
     await addGoal(page)
     await page.waitForTimeout(500)
     expect(bridge.received).toHaveLength(0)
@@ -179,9 +204,9 @@ test.describe('In-game viewer connection', () => {
     await expect.poll(() => bridge.connections).toBe(1)
     await page.reload()
     await expect(page.getByTestId('block-tab').first()).toBeVisible()
-    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Off')
+    await expectViewerOff(page)
     const dialog = await openViewer(page)
-    await expect(dialog.getByLabel('Bridge address')).toHaveValue(bridge.url)
+    await expect(dialog.getByTestId('viewer-address')).toHaveText(bridge.url)
     await expect(dialog.getByLabel('Send after every change')).toBeChecked()
     await page.waitForTimeout(300)
     expect(bridge.connections).toBe(1)
@@ -190,13 +215,73 @@ test.describe('In-game viewer connection', () => {
   test('switching off closes the connection and stops the retries', async ({ page }) => {
     await openApp(page)
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Bridge, no game')
+    await expectBadge(page, 'Bridge, no game')
     await viewerDialog(page).getByLabel('Connect to the bridge').uncheck()
-    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Off')
+    await expectViewerOff(page)
     bridge.clear()
     await addGoal(page)
     await page.waitForTimeout(300)
     expect(bridge.received).toHaveLength(0)
+  })
+})
+
+test.describe('In-game viewer in the workspace menu', () => {
+  test('the entry shows the status and the trigger carries a dot', async ({ page }) => {
+    await openApp(page)
+    const menu = await openAppMenu(page)
+    await expect(viewerItem(page)).toContainText('Off')
+    await page.keyboard.press('Escape')
+    await expectViewerOff(page)
+
+    await switchOn(page, bridge)
+    await expectBadge(page, 'Bridge, no game')
+    await expect(viewerItem(page)).toContainText('No game')
+    await expect(page.getByTestId('viewer-dot')).toBeVisible()
+    await expect(menuTrigger(page)).toHaveAccessibleName(/^Plan: .*\. In-game viewer: Bridge, no game$/)
+    await expect(menu).toBeVisible()
+  })
+
+  test('the flyout opens from the keyboard and Escape steps back to the entry', async ({ page }) => {
+    await openApp(page)
+    await menuTrigger(page).focus()
+    await page.keyboard.press('Enter')
+    await viewerItem(page).focus()
+    await page.keyboard.press('ArrowRight')
+    await expect(viewerDialog(page).getByRole('switch', { name: 'Connect to the bridge' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(viewerItem(page)).toBeFocused()
+    await expect(viewerDialog(page)).toBeHidden()
+  })
+
+  test('Troubleshoot walks the bridge, the game and the plan', async ({ page }) => {
+    await openApp(page)
+    await switchOn(page, bridge)
+    const dialog = await openTroubleshoot(page)
+    await expect(dialog.getByTestId('troubleshoot-bridge')).toContainText('Running')
+    const game = dialog.getByTestId('troubleshoot-game')
+    await expect(game).toContainText('No game answered')
+    await expect(game).toContainText('--enable-lua-udp 34198')
+    await expect(dialog.getByTestId('troubleshoot-plan')).toContainText('Waiting')
+
+    // The planner keeps listening while the dialog is open.
+    bridge.broadcast(connectedStatus())
+    await expect(game).toContainText('Answering')
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(troubleshootDialog(page)).toBeHidden()
+  })
+
+  test('changing the address while connected reconnects to the new bridge', async ({ page }) => {
+    const other = await startFakeBridge(NO_GAME)
+    try {
+      await openApp(page)
+      await switchOn(page, bridge)
+      await expect.poll(() => bridge.connections).toBe(1)
+      await setAddress(page, other.url)
+      await expect.poll(() => other.connections).toBe(1)
+      await expectBadge(page, 'Bridge, no game')
+    } finally {
+      await other.stop()
+    }
   })
 })
 
@@ -208,7 +293,7 @@ test.describe('In-game viewer connection, after switching off', () => {
     const stale = bridge.announces()[0].id
 
     await viewerDialog(page).getByLabel('Connect to the bridge').uncheck()
-    await expect(viewerButton(page)).toHaveAccessibleName('In-game viewer: Off')
+    await expectViewerOff(page)
     await addGoal(page)
     bridge.clear()
 
@@ -226,11 +311,11 @@ test.describe('In-game viewer errors', () => {
     await bridge.restart({ type: 'status', protocol: 1, mod: 'oops' })
     await openApp(page)
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Unreadable status')
+    await expectBadge(page, 'Unreadable status')
     await expect(viewerDialog(page).getByRole('button', { name: 'Send to Factorio' })).toBeDisabled()
     // A readable status recovers.
     bridge.broadcast(NO_GAME)
-    await expect(badge(page)).toHaveText('Bridge, no game')
+    await expectBadge(page, 'Bridge, no game')
   })
 
   test('the alert about a refused plan goes away when the bridge does', async ({ page }) => {
@@ -241,7 +326,7 @@ test.describe('In-game viewer errors', () => {
     await viewerDialog(page).getByRole('button', { name: 'Send to Factorio' }).click()
     await expect(viewerDialog(page).getByTestId('viewer-notice')).toContainText('too large for the in-game viewer')
     await bridge.stop()
-    await expect(badge(page)).toHaveText('No bridge', { timeout: 10_000 })
+    await expectBadge(page, 'No bridge', 10_000)
     await expect(viewerDialog(page).getByTestId('viewer-notice')).toHaveCount(0)
   })
 
@@ -285,7 +370,7 @@ test.describe('In-game viewer errors', () => {
     await selectDataset(page, 'Nullius')
 
     await switchOn(page, bridge)
-    await expect(badge(page)).toHaveText('Bridge, no game')
+    await expectBadge(page, 'Bridge, no game')
     await viewerDialog(page).getByLabel('Send after every change').check()
     await page.keyboard.press('Escape')
     bridge.clear()
@@ -311,15 +396,15 @@ test.describe('In-game viewer reconnection', () => {
     const url = down.url
     await down.stop()
     await openApp(page)
-    const dialog = await openViewer(page)
-    await dialog.getByLabel('Bridge address').fill(url)
-    await dialog.getByLabel('Connect to the bridge').check()
-    await expect(badge(page)).toHaveText('No bridge')
-    await expect(viewerDialog(page).getByTestId('viewer-detail')).toContainText('uBlock')
+    await setAddress(page, url)
+    await (await openViewer(page)).getByLabel('Connect to the bridge').check()
+    await expectBadge(page, 'No bridge')
+    await expect(await openTroubleshoot(page)).toContainText('uBlock')
+    await troubleshootDialog(page).getByRole('button', { name: 'Done' }).click()
 
     const back = await startFakeBridge(NO_GAME, down.port)
     try {
-      await expect(badge(page)).toHaveText('Bridge, no game', { timeout: 12_000 })
+      await expectBadge(page, 'Bridge, no game', 12_000)
       expect(back.connections).toBe(1)
     } finally {
       await back.stop()

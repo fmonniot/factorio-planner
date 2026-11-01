@@ -28,6 +28,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Integrations
 
 - [ ] **In-game plan viewer.** A read-only Factorio mod that shows the planner's blocks and plans in the game, fed by a Rust bridge (planner to bridge over a localhost WebSocket, bridge to mod over Factorio's opt-in UDP). Design, phases and open questions are in [in-game-viewer/](in-game-viewer/plan.md); the spike phase is closed and the rest is being implemented.
+- [ ] **Planner learns the game's UDP port from the bridge.** The Troubleshoot dialog tells the player to launch Factorio with `--enable-lua-udp 34198` (`GAME_LAUNCH_OPTION` in `src/viewer/troubleshoot.ts`, also the "Bridge, no game" badge text), but 34198 is only the default of the bridge's `--game-port`; a bridge started with another port makes the copied option wrong. Have the bridge report the port it sends to in its `status` message (a [protocol](in-game-viewer/protocol.md#status) change, so decide whether it needs a protocol version bump), keep it in the connection state, and build the launch option from it, falling back to 34198 until the first `status`. Update the protocol, `spec/ui.md` and the shared fixtures in `contract/`.
 
 ## Planning features
 

@@ -327,6 +327,8 @@ export interface Badge {
   kind: BadgeKind
   tone: BadgeTone
   label: string
+  /** One or two words, for the workspace menu's entry. */
+  short: string
   /** A sentence or two for the popover. */
   detail: string
 }
@@ -352,32 +354,35 @@ export function transferText(status: BridgeStatus | undefined): string {
 export function badgeFor(state: ConnectionState): Badge {
   switch (state.phase) {
     case 'off':
-      return { kind: 'off', tone: 'idle', label: 'Off', detail: 'The planner is not connected to the in-game viewer.' }
+      return { kind: 'off', tone: 'idle', label: 'Off', short: 'Off', detail: 'The planner is not connected to the in-game viewer.' }
     case 'connecting':
       return state.slowConnect
         ? {
             kind: 'permission',
             tone: 'busy',
             label: 'Waiting for the browser',
+            short: 'Waiting',
             detail: 'The connection is taking a while. The browser may be asking for permission to connect to devices on your network: allow it, or the connection stays blocked.',
           }
-        : { kind: 'connecting', tone: 'busy', label: 'Connecting', detail: 'Reaching the bridge.' }
+        : { kind: 'connecting', tone: 'busy', label: 'Connecting', short: 'Connecting', detail: 'Reaching the bridge.' }
     case 'waiting':
       if (state.failure === 'blocked') {
         return {
           kind: 'blocked',
           tone: 'error',
           label: 'Blocked by the browser',
+          short: 'Blocked',
           detail: 'The browser refused to open the connection (an https page may not open a plain ws:// address in every browser). Use the planner from http://localhost, or allow the connection. Retrying every few seconds.',
         }
       }
       if (state.failure === 'bad-address') {
-        return { kind: 'blocked', tone: 'error', label: 'Bad address', detail: 'The bridge address is not a valid WebSocket address (it starts with ws://).' }
+        return { kind: 'blocked', tone: 'error', label: 'Bad address', short: 'Blocked', detail: 'The bridge address is not a valid WebSocket address (it starts with ws://).' }
       }
       return {
         kind: 'no-bridge',
         tone: 'warn',
         label: 'No bridge',
+        short: 'No bridge',
         detail: `${state.failure === 'lost' ? 'The connection to the bridge closed.' : 'No bridge answered at this address.'} Start the bridge, or check the address. Retrying every few seconds. ${BLOCK_HINT}`,
       }
     case 'open': {
@@ -387,38 +392,41 @@ export function badgeFor(state: ConnectionState): Badge {
           kind: 'bad-status',
           tone: 'error',
           label: 'Unreadable status',
+          short: 'Error',
           detail: `The bridge sent a status this planner could not read, although it speaks the same protocol version (${PROTOCOL_VERSION}). This is a bug in the bridge or the planner; please report it. Nothing is sent until a readable status arrives.`,
         }
       }
-      if (!status) return { kind: 'connecting', tone: 'busy', label: 'Connecting', detail: 'Waiting for the bridge to report its state.' }
+      if (!status) return { kind: 'connecting', tone: 'busy', label: 'Connecting', short: 'Connecting', detail: 'Waiting for the bridge to report its state.' }
       if (state.protocolMismatch !== undefined) {
         return {
           kind: 'protocol-mismatch',
           tone: 'error',
           label: 'Version mismatch',
+          short: 'Mismatch',
           detail: `The bridge speaks protocol ${state.protocolMismatch} and this planner speaks ${PROTOCOL_VERSION}. Update the planner and the bridge together; nothing is sent until then.`,
         }
       }
       const mod = status.mod
       const link = mod?.link ?? 'none'
       if (link === 'none') {
-        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', detail: 'The bridge is running but no game has answered it. Start Factorio with --enable-lua-udp and the mod enabled.' }
+        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', short: 'No game', detail: 'The bridge is running but no game has answered it. Start Factorio with --enable-lua-udp 34198 and the mod enabled.' }
       }
       if (link === 'mismatch') {
-        return { kind: 'mod-mismatch', tone: 'error', label: 'Mod version mismatch', detail: 'The mod and the bridge speak different protocol versions. Update the mod and the bridge together.' }
+        return { kind: 'mod-mismatch', tone: 'error', label: 'Mod version mismatch', short: 'Mismatch', detail: 'The mod and the bridge speak different protocol versions. Update the mod and the bridge together.' }
       }
       if (link === 'quiet') {
-        return { kind: 'game-quiet', tone: 'warn', label: 'Game quiet', detail: `The bridge has not heard the game lately: it is paused, saving, at the title screen or closed. ${transferText(status)}`.trim() }
+        return { kind: 'game-quiet', tone: 'warn', label: 'Game quiet', short: 'Quiet', detail: `The bridge has not heard the game lately: it is paused, saving, at the title screen or closed. ${transferText(status)}`.trim() }
       }
       if ((mod?.unknownIds ?? 0) > 0) {
         return {
           kind: 'data-set-mismatch',
           tone: 'warn',
           label: 'Data set mismatch',
+          short: 'Data set',
           detail: `The game does not know ${mod?.unknownIds} item, fluid, recipe or machine ids of the plan it holds. The planner's game data and the running game's mods differ. ${transferText(status)}`.trim(),
         }
       }
-      return { kind: 'connected', tone: 'ok', label: 'Connected', detail: transferText(status) || 'The game is connected. Nothing has been sent yet.' }
+      return { kind: 'connected', tone: 'ok', label: 'Connected', short: 'Connected', detail: transferText(status) || 'The game is connected. Nothing has been sent yet.' }
     }
   }
 }

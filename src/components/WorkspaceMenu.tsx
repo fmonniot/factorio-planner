@@ -12,6 +12,8 @@ import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
 import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
 import { Segment, Segmented } from './SegmentedControl'
+import { useViewerTriggerName } from '../viewer/viewer'
+import { ViewerMenuItem, ViewerStatusDot, ViewerTroubleshootDialog } from './ViewerMenu'
 import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
 
 const STORAGE_KEY = 'factorio-planner:game-data-source'
@@ -371,6 +373,8 @@ export function WorkspaceMenu() {
     selectedValue, uploadedFilename, selectServerDataset, fileInputRef, openUploadPicker, handleUploadChange,
   } = useGameDataSource()
   const { startImport, dialog } = usePlanImport()
+  const [troubleshooting, setTroubleshooting] = useState(false)
+  const viewerName = useViewerTriggerName()
   const plans = usePlanSection()
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -385,7 +389,7 @@ export function WorkspaceMenu() {
   const topLine = plans.active?.name ?? 'Choose game data'
   const datasetLabel = DATASET_LABELS[selectedValue] ?? uploadedFilename
   const statusSuffix = status.type === 'loading' ? ', loading' : status.type === 'error' ? ', error loading data' : ''
-  const ariaLabel = (plans.active ? `Plan: ${plans.active.name}` : 'Choose game data') + statusSuffix
+  const ariaLabel = (plans.active ? `Plan: ${plans.active.name}` : 'Choose game data') + statusSuffix + (viewerName ? `. ${viewerName}` : '')
 
   return (
     <>
@@ -405,13 +409,14 @@ export function WorkspaceMenu() {
                 <span className="text-[11px] text-gray-400 truncate max-w-40">{datasetLabel}</span>
               )}
             </span>
+            <ViewerStatusDot />
           </>
         }
         ariaLabel={ariaLabel}
-        title="Plans, game data, export and import"
+        title="Plans, game data, in-game viewer, export and import"
         menuLabel="Plan and game data"
         align="right"
-        triggerClassName="h-9 flex items-center gap-2.5 pl-1.5 pr-2 bg-gray-800 border border-gray-600 hover:border-gray-500 rounded-lg"
+        triggerClassName="relative h-9 flex items-center gap-2.5 pl-1.5 pr-2 bg-gray-800 border border-gray-600 hover:border-gray-500 rounded-lg"
         caret={<ChevronDownIcon className="w-3.5 h-3.5 text-gray-400" />}
         panelClassName="w-72"
         openSignal={defaultMachinesSignal}
@@ -486,6 +491,8 @@ export function WorkspaceMenu() {
               </button>
             </div>
             <div role="separator" className="my-1 border-t border-gray-700" />
+            <ViewerMenuItem onTroubleshoot={() => { setTroubleshooting(true); close(true) }} />
+            <div role="separator" className="my-1 border-t border-gray-700" />
             {status.type === 'loaded' && gameData && (
               <>
                 <div role="group" aria-label="Rate unit" className="flex items-center px-3 py-1 gap-2">
@@ -541,6 +548,7 @@ export function WorkspaceMenu() {
       />
       {plans.dialogs}
       {dialog}
+      {troubleshooting && <ViewerTroubleshootDialog onClose={() => setTroubleshooting(false)} />}
     </>
   )
 }

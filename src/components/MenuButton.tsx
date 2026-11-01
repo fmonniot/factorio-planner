@@ -103,6 +103,19 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
       const inMenu = active === triggerRef.current || !!panelRef.current?.contains(active)
       if (e.key !== 'Escape' && !inMenu) return
       const panel = panelRef.current
+      // A flyout of controls (a switch, a text field) keeps its own keys; only Escape and Tab are the menu's.
+      const controlsFlyout = active instanceof Element ? active.closest<HTMLElement>('[data-flyout-controls]') : null
+      if (controlsFlyout && panel?.contains(controlsFlyout)) {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          const owner = Array.from(panel.querySelectorAll('[aria-controls]')).find(el => el.getAttribute('aria-controls') === controlsFlyout.id)
+          if (owner instanceof HTMLElement) owner.focus()
+        } else if (e.key === 'Tab') {
+          // Tab moves between the flyout's controls; the menu closes once focus has left it.
+          setTimeout(() => { if (!panelRef.current?.contains(document.activeElement)) close(false) }, 0)
+        }
+        return
+      }
       const menu = panel ? currentMenu(panel, active) : null
       const nested = !!panel && !!menu && menu !== panel
       const items = menu ? menuItems(menu) : []
@@ -127,7 +140,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           leaveFlyout()
           break
         case 'ArrowRight':
-          if (nested || !(active instanceof HTMLElement) || active.getAttribute('aria-haspopup') !== 'menu') break
+          if (nested || !(active instanceof HTMLElement) || !['menu', 'dialog'].includes(active.getAttribute('aria-haspopup') ?? '')) break
           if (!panel?.contains(active)) break
           e.preventDefault()
           active.click() // detail is 0, which opens the flyout with focus
@@ -212,6 +225,13 @@ interface SubmenuItemProps {
   menuLabel: string
   /** Appended to the flyout classes (e.g. a width). */
   panelClassName?: string
+  /**
+   * `menu` (the default): the flyout is a menu of items. `controls`: a dialog holding controls
+   * of its own (switches, fields); it needs `initialFocus` for a keyboard open.
+   */
+  variant?: 'menu' | 'controls'
+  /** Shown after the label, before the chevron (a status, for instance). */
+  trailing?: ReactNode
   /** Mount with the flyout open and focus inside it. */
   defaultOpen?: boolean
   /** Focus target on keyboard / `defaultOpen` opens; falls back to the first checked item, then the first item. */
@@ -225,7 +245,7 @@ const FLYOUT_CLOSE_DELAY_MS = 200
  * A `MenuButton` item that opens a flyout menu to its left. Hover opens it without
  * moving focus, a keyboard or `defaultOpen` open focuses into it.
  */
-export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen = false, initialFocus, children }: SubmenuItemProps) {
+export function SubmenuItem({ label, menuLabel, panelClassName = '', variant = 'menu', trailing, defaultOpen = false, initialFocus, children }: SubmenuItemProps) {
   const [open, setOpen] = useState(defaultOpen)
   const flyoutId = useId()
   const wrapperRef = useRef<HTMLDivElement>(null)
@@ -293,7 +313,7 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen
         ref={ownerRef}
         type="button"
         role="menuitem"
-        aria-haspopup="menu"
+        aria-haspopup={variant === 'controls' ? 'dialog' : 'menu'}
         aria-expanded={open}
         aria-controls={open ? flyoutId : undefined}
         tabIndex={-1}
@@ -314,15 +334,17 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', defaultOpen
         }}
       >
         {label}
-        <ChevronDownIcon className="w-3 h-3 -rotate-90 ml-auto" />
+        {trailing}
+        <ChevronDownIcon className={`w-3 h-3 -rotate-90 ${trailing ? '' : 'ml-auto'}`} />
       </button>
       {open && (
         <div
           ref={flyoutRef}
           id={flyoutId}
-          role="menu"
+          role={variant === 'controls' ? 'dialog' : 'menu'}
+          data-flyout-controls={variant === 'controls' ? '' : undefined}
           aria-label={menuLabel}
-          className={`absolute right-full top-0 mr-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 flex flex-col text-xs max-h-[calc(100vh-4rem)] overflow-y-auto ${panelClassName}`}
+          className={`absolute right-full top-0 mr-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg ${variant === 'controls' ? 'p-3.5 gap-3' : 'py-1'} flex flex-col text-xs max-h-[calc(100vh-4rem)] overflow-y-auto ${panelClassName}`}
         >
           {children}
         </div>

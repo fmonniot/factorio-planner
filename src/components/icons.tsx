@@ -78,4 +78,6 @@ export const DownloadIcon = (p: IconProps) => <SvgIcon {...p}><path d="M12 4v11M
 
 export const UploadIcon = (p: IconProps) => <SvgIcon {...p}><path d="M12 20V9M7 14l5-5 5 5M5 4h14" /></SvgIcon>
 
+export const CheckIcon = (p: IconProps) => <SvgIcon {...p}><path d="m5 12 5 5 9-10" /></SvgIcon>
+
 export const XIcon = (p: IconProps) => <SvgIcon {...p}><path d="M6 6l12 12M18 6 6 18" /></SvgIcon>
