@@ -1,7 +1,9 @@
 ---
 name: backlog-task
 description: Take one item from initiatives/backlog.md through analysis, plan, approval, implementation, review, fixes and a pull request. Use when the user names a backlog item to work on (e.g. "/backlog-task game data").
-argument-hint: <words identifying the backlog item> [opus|light] [noplan]
+argument-hint: <words identifying the backlog item> [opus|sonnet|light] [noplan]
+model: sonnet
+effort: medium
 ---
 
 # Backlog task → pull request
@@ -12,23 +14,27 @@ With the `noplan` argument the approval gate is skipped: the plan is still writt
 
 `$ARGUMENTS` identifies the item. Follow the repo's [CLAUDE.md](../../../CLAUDE.md) throughout (spec maintenance, backlog edits, test conventions); this skill only describes the workflow.
 
-Control words in `$ARGUMENTS` (`opus`, `light`, `noplan`) are not part of the item description: ignore them when matching the item in step 0.
+Control words in `$ARGUMENTS` (`opus`, `sonnet`, `light`, `noplan`) are not part of the item description: ignore them when matching the item in step 0.
 
 ## Models and cost
 
-The main session is only the orchestrator: it talks to the user, relays between agents and runs git/`gh`. It should run on a cheap model (Sonnet). Judgment-heavy work goes to subagents on a model pinned **explicitly** per call. Never rely on inheritance: a subagent without `model` runs on whatever the session runs on, which silently turns every step into the most expensive model if the user switched the session.
+The main session is only the orchestrator: it talks to the user, relays between agents and runs git/`gh`. The skill's frontmatter pins it to Sonnet at `medium` for the invoking turn. Judgment-heavy work goes to subagents on a model pinned **explicitly** per call. Never rely on inheritance: a subagent without `model` runs on whatever the session runs on, which silently turns every step into the most expensive model if the user switched the session.
 
-| Step | Agent | `model` | `effort` |
-|---|---|---|---|
-| 1. Explore | `Explore` | `haiku` | (default) |
-| 1. Design, **open** task | `Plan` | `opus` | (default) |
-| 1. Design, **constrained** task | none: the main session designs it | (session) | (session) |
-| 2. Implement | `general-purpose` | `sonnet` | `medium` |
-| 3. Review, **open** task | `general-purpose` | `opus` | (default) |
-| 3. Review, **constrained** task | `general-purpose` | `sonnet` | `high` |
-| 4. Fix | `general-purpose` | `sonnet` | `medium` |
+| Step | Agent | `model` | `effort` | `code-review` level |
+|---|---|---|---|---|
+| 1. Explore | `Explore` | `haiku` | `medium` | |
+| 1. Design, **small** | none: the main session designs it | `sonnet` | `medium` | |
+| 1. Design, **standard** | `Plan` | `sonnet` | `high` | |
+| 1. Design, **hard** | `Plan` | `opus` | `high` | |
+| 2. Implement | `general-purpose` | `sonnet` | `medium` | |
+| 3. Review, **small** | `general-purpose` | `sonnet` | `low` | `medium` |
+| 3. Review, **standard** | `general-purpose` | `sonnet` | `low` | `high` |
+| 3. Review, **hard** or risky diff | `general-purpose` | `opus` | `low` | `high` |
+| 4. Fix | `general-purpose` | `sonnet` | `medium` | |
 
-Opus is for design and review, the two steps where a better answer changes the outcome, but only on tasks that have real design or risk in them. Step 1 classifies the task as **open** or **constrained**, and that tier drives both the design and the review model. Implementation and fixes are mechanical when the plan is implementation-grade, so a good plan is what keeps the Sonnet steps cheap. Raise a step's model or effort only with user consent.
+Opus is reserved for work where a wrong call is expensive to find or reverse, so tier and risk are judged separately: step 1 classifies the design difficulty, and step 3 also checks the risk of the diff that was actually written. Product and UX decisions do not need Opus, because they go to the user whichever model drafts them. Implementation and fixes are mechanical when the plan is implementation-grade, so a good plan is what keeps the Sonnet steps cheap. Raise a step's model or effort only with user consent.
+
+Review depth is the `code-review` level, not the agent's `effort`. The forked review inherits the agent's model but not its effort; without a level it reuses whichever level the user last typed. The `effort` on the review agent only sets how much that agent itself spends, and it has nothing to do but launch the review and relay the result.
 
 Subagent reports land in the main context, so every prompt below asks for a bounded report.
 
@@ -44,15 +50,18 @@ Subagent reports land in the main context, so every prompt below asks for a boun
 With `noplan`, plan mode is not used: skip `EnterPlanMode` and `ExitPlanMode`, write the plan to `plan.md` in the scratchpad directory instead of the plan file (that path is what the implementer reads in step 2), and do not wait for approval. Everything else in this step still applies, so the plan stays implementation-grade. For decisions that are really the user's, pick the recommended option and record it in the plan so it appears in the PR; ask with `AskUserQuestion` only when there is no sensible default.
 
 1. Enter plan mode (`EnterPlanMode`), unless `noplan`.
-2. Launch one `Explore` agent (`model: "haiku"`; up to three only if the scope is truly uncertain) with the item text and a precise list of what to report: the code paths involved with `file:line`, existing helpers to reuse, tests (unit and `e2e/`) touching the area, and every doc in `spec/` and `README.md` that describes the behaviour. Do not duplicate its searching yourself.
-3. **Classify the task** from the item text and the Explore findings, and say the tier and the one-line reason to the user. The user can override it by putting `opus` or `light` in `$ARGUMENTS`.
-   - **Constrained**: all of the following hold. The fix is stated or evident from the backlog text and the code; it touches about three source files or fewer; no product or UX decision is needed; it does not change the LP formulation in `src/solver/`, `src/data/schema.ts` or the persisted `AppState` shape; there is one sensible approach. Typical: a bug with a known cause, dead-code removal, wiring an existing store function to the UI, a small tooling or CI change, porting known test cases.
-   - **Open**: anything else, in particular new features, anything that changes the solver model or the persisted state, several viable approaches, product choices, or Explore findings showing a wide or unclear blast radius. **When unsure, pick open**: a weak plan costs more downstream than the design call does.
+2. Launch one `Explore` agent (`model: "haiku"`, `effort: "medium"`; up to three only if the scope is truly uncertain) with the item text and a precise list of what to report: the code paths involved with `file:line`, existing helpers to reuse, tests (unit and `e2e/`) touching the area, and every doc in `spec/` and `README.md` that describes the behaviour. Do not duplicate its searching yourself.
+3. **Classify the task** from the item text and the Explore findings, and say the tier and the one-line reason to the user. The user can override it: `light` forces small, `sonnet` forces standard and keeps Opus out of the whole run, including the review, and `opus` forces hard.
+   - **Small**: all of the following hold. The fix is stated or evident from the backlog text and the code; it touches about three source files or fewer; no product or UX decision is needed; it does not change the LP formulation in `src/solver/`, `src/data/schema.ts` or the persisted `AppState` shape; there is one sensible approach. Typical: a bug with a known cause, dead-code removal, wiring an existing store function to the UI, a small tooling or CI change, porting known test cases.
+   - **Hard**: any of the following holds. It changes the LP formulation or the solver pipeline; it changes the persisted `AppState` shape in a way that needs a migration; it adds a concept that spans the solver, the store and the UI together; it has several viable architectures and the choice would be expensive to reverse. Typical: a new kind of constraint or flow between blocks, a new solver phase, restructuring how plans are stored.
+   - **Standard**: anything else, however many files it touches. Typical: a new feature that follows existing patterns (panels, menus, popups, pickers, graph views), a redesign whose behaviour is specified, a new exported data field, a bug whose cause is not yet known but is local to one subsystem. Product choices belong here too: they become questions for the user.
+   - An initiative phase is classified on what is still left to decide: when its doc already settles the approach, the doc's size does not make the phase hard, though the solver and persistence criteria above still apply.
+   - **When unsure, pick standard.** A task that turns out harder is caught by the reclassification in step 4 and the risk check in step 3.
 4. **Design**, per tier. Either way, the plan must be **implementation-grade** so a Sonnet implementer needs no design decisions: Context; the recommended approach only; files to change, naming the functions, types and signatures to add or modify; tests to add, with the concrete cases and assertions (prefer Playwright e2e for end-to-end validation, per CLAUDE.md); docs to update (use the CLAUDE.md spec-maintenance table; remove the item from `initiatives/backlog.md` once done); out-of-scope items; a **Verification** section; and the riskiest parts of the change, for the review step.
-   - **Constrained**: design it yourself in the main session. Use `AskUserQuestion` only for decisions that are really the user's, not for things the code or conventions settle. If you hit real ambiguity or the scope turns out wider than the Explore report suggested, reclassify as open and continue below.
-   - **Open**: launch a `Plan` agent with `model: "opus"`. Its prompt is self-contained and includes the backlog item text, the initiative doc if any, the full Explore findings, the repo path, the relevant CLAUDE.md rules (spec-maintenance table, test conventions, type system) and the plan requirements above. It is read-only, so it returns the plan as text, plus a list of **open decisions**: only those that are really the user's (product behaviour, naming, scope), each with its options and a recommendation. Anything the code or conventions settle must be decided in the plan, not listed. Put those decisions to the user with `AskUserQuestion`, then send the answers back to the **same** `Plan` agent with `SendMessage` (load it via `ToolSearch` if needed) and ask for the revised plan. Do not start a new agent: it would re-derive everything. Do not redesign its plan yourself; if you disagree, send the objection back.
-5. Write the plan to the plan file. For an open task, write the `Plan` agent's output verbatim, fixing formatting or trimming only.
-6. Call `ExitPlanMode`. This is the approval gate. If the user rejects or amends the plan, revise it (through the `Plan` agent for an open task, for anything beyond a wording change); do not start implementing without approval. With `noplan`, skip this call and continue to step 2; mention the plan's file path and the tier in one line so the user can follow along.
+   - **Small**: design it yourself in the main session. Use `AskUserQuestion` only for decisions that are really the user's, not for things the code or conventions settle. If you hit real ambiguity or the scope turns out wider than the Explore report suggested, reclassify as standard and continue below.
+   - **Standard** or **hard**: launch a `Plan` agent with `effort: "high"` and `model: "sonnet"` (standard) or `model: "opus"` (hard). Its prompt is self-contained and includes the backlog item text, the initiative doc if any, the full Explore findings, the repo path, the relevant CLAUDE.md rules (spec-maintenance table, test conventions, type system) and the plan requirements above. It is read-only, so it returns the plan as text, plus a list of **open decisions**: only those that are really the user's (product behaviour, naming, scope), each with its options and a recommendation. Anything the code or conventions settle must be decided in the plan, not listed. Put those decisions to the user with `AskUserQuestion`, then send the answers back to the **same** `Plan` agent with `SendMessage` (load it via `ToolSearch` if needed) and ask for the revised plan. Do not start a new agent: it would re-derive everything. Do not redesign its plan yourself; if you disagree, send the objection back. The one exception to reusing the agent: a standard task's prompt also includes the hard criteria from step 3 and asks the agent to say so at the top of its reply if the task meets one, in which case reclassify as hard and launch a new `Plan` agent on `opus`, passing it the first agent's findings (a `SendMessage` cannot change the model).
+5. Write the plan to the plan file. When a `Plan` agent designed it, write its output verbatim, fixing formatting or trimming only.
+6. Call `ExitPlanMode`. This is the approval gate. If the user rejects or amends the plan, revise it (through the `Plan` agent if there was one, for anything beyond a wording change); do not start implementing without approval. With `noplan`, skip this call and continue to step 2; mention the plan's file path and the tier in one line so the user can follow along.
 
 ## 2. Implement (subagent)
 
@@ -71,15 +80,24 @@ When it reports, check `git log main..HEAD` and `git diff --stat main..HEAD` you
 
 ## 3. Review (subagent)
 
-Model by tier, as in the table: `opus` for an open task, `sonnet` with `effort: "high"` for a constrained one. Pass `model` (and `effort`) explicitly.
+First pick the model and level from the table. The tier sets them, and `git diff --numstat main..HEAD` can raise them: treat the diff as **risky**, which means `opus` at level `high` whatever the tier, when it changes 30 or more lines of non-test code under `src/solver/` or in `src/data/schema.ts`, changes `src/store/persistence.ts` at all, or changes more than 800 lines of non-test source. With `sonnet` in `$ARGUMENTS` the review stays on `sonnet`. Say the choice and, if the diff raised it, the reason in one line.
 
-Spawn a `general-purpose` agent that invokes the `code-review` skill (via the Skill tool) on the branch diff against `main`. It must be review only: no edits, commits, pushes or GitHub comments. Ask it to focus on the risky parts of this particular change (name them from the plan), to verify each candidate finding against the code before keeping it, and to report findings most severe first with `file:line`, a one-sentence defect and a concrete failure scenario, plus any spec/README drift against CLAUDE.md's maintenance rules. "No findings" is a valid result; say so explicitly.
+Spawn a `general-purpose` agent with that `model` and `effort: "low"`. A second agent reviewing the same diff by hand costs as much as the review and duplicates it, so its prompt must say that it does not review the code itself, and that:
+
+- it invokes the `code-review` skill via the Skill tool with the level first, then the target, then the focus, for example `high main..HEAD focus: <the risky parts of this change, named from the plan>`;
+- it waits for that review to finish and does nothing else in the meantime;
+- it is review only: no edits, commits, pushes or GitHub comments;
+- it then compares `git diff --stat main..HEAD` with CLAUDE.md's maintenance table and opens a doc only to confirm a suspected spec/README drift;
+- it reports the level the review ran at, the findings most severe first with `file:line`, a one-sentence defect and a concrete failure scenario, then any drift. "No findings" is a valid result; say so explicitly.
+
+If the report shows the review ran at another level than the one requested, say so to the user in the final report.
 
 ## 4. Fix (subagent)
 
 If the review has findings, spawn a second `general-purpose` agent (`model: "sonnet"`, `effort: "medium"`) with the full findings list verbatim. It must:
 
-- check out the branch, fix **every** finding (if one can't be fixed cleanly, document the limitation in the relevant `spec/` file and say so in its report);
+- check out the branch and check each finding against the code first, since the review agent does not: a finding that does not hold is left unfixed and named in its report with the reason;
+- fix **every** finding that holds (if one can't be fixed cleanly, document the limitation in the relevant `spec/` file and say so in its report);
 - add or adjust tests for each behaviour change;
 - iterate with targeted checks, then run lint, `lint:docs`, unit, e2e and build **once** before committing, and commit as a **new** commit (not an amend) with the trailer;
 - not push and not open a PR;
