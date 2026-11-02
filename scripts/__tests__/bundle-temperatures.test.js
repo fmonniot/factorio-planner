@@ -57,16 +57,28 @@ describe('bundled temperatures', () => {
     expect(bundle.items['power:heat']).not.toHaveProperty('defaultTemperature')
     expect(bundle.items['power:heat']).not.toHaveProperty('maxTemperature')
 
-    const withTemp = Object.values(bundle.recipes).flatMap(r => r.products.filter(p => 'temperature' in p))
+    const withTemp = Object.values(bundle.recipes).filter(r => !r.power)
+      .flatMap(r => r.products.filter(p => 'temperature' in p))
     expect(withTemp.length).toBeGreaterThanOrEqual(40)
     expect(withTemp.length).toBeLessThan(80)
     const steamOf = id => bundle.recipes[id].products.find(p => p.itemId === 'steam')
     expect(steamOf('angels-steam-water').temperature).toBe(165)
     expect(steamOf('bob-sodium-hydroxide-sink').temperature).toBe(465)
 
+    // Boilers and heat exchangers (both `boiler` machines) stamp their target temperature on every fluid product.
+    const BOILER_TARGETS = [165, 315, 465, 615, 765]
+    let steamWithTemp = 0
     for (const r of Object.values(bundle.recipes)) {
       if (!r.extraction && !r.power) continue
-      for (const p of r.products) expect(p, `${r.id} ${p.itemId}`).not.toHaveProperty('temperature')
+      for (const p of r.products) {
+        if (r.power && r.madeIn.some(m => bundle.machines[m]?.type === 'boiler') && p.type === 'fluid') {
+          expect(BOILER_TARGETS, `${r.id} ${p.itemId}`).toContain(p.temperature)
+          steamWithTemp++
+        } else {
+          expect(p, `${r.id} ${p.itemId}`).not.toHaveProperty('temperature')
+        }
+      }
     }
+    expect(steamWithTemp).toBeGreaterThanOrEqual(40)
   })
 })

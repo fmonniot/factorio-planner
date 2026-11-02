@@ -218,7 +218,7 @@ export async function exportPower(raw, opts) {
           { itemId: inFluid.name, type: 'fluid', amount: steamPerSec },
           { itemId: fuel.id, type: fuel.type, amount: fuelPerSec },
         ],
-        products: [{ itemId: outFluid.name, type: 'fluid', amount: steamPerSec }, ...burnt(fuel, fuelPerSec)],
+        products: [{ itemId: outFluid.name, type: 'fluid', amount: steamPerSec, temperature: target }, ...burnt(fuel, fuelPerSec)],
         mainProduct: outFluid.name,
       }
     })

@@ -153,7 +153,7 @@ describe('boilers', () => {
     expect(amountOf(r.ingredients, 'water')).toBeCloseTo(60, 9)
     expect(amountOf(r.ingredients, 'coal')).toBeCloseTo(0.45, 9)
     expect(r.ingredients.at(-1).itemId).toBe('coal')
-    expect(r.products).toEqual([{ itemId: 'steam', type: 'fluid', amount: expect.closeTo(60, 9) }])
+    expect(r.products).toEqual([{ itemId: 'steam', type: 'fluid', amount: expect.closeTo(60, 9), temperature: 165 }])
     expect(amountOf(recipes['power:boiler:solid-fuel'].ingredients, 'solid-fuel')).toBeCloseTo(0.15, 9)
     const half = recipes['power:half-boiler:coal']
     expect(amountOf(half.ingredients, 'coal')).toBeCloseTo(0.5, 9)
@@ -190,7 +190,7 @@ describe('boilers', () => {
     })
     expect(amountOf(r.ingredients, 'water')).toBeCloseTo(10000 / 97, 4)
     expect(r.ingredients.at(-1)).toEqual({ itemId: 'power:heat', type: 'fluid', amount: 10 })
-    expect(r.products).toEqual([{ itemId: 'steam', type: 'fluid', amount: expect.closeTo(10000 / 97, 4) }])
+    expect(r.products).toEqual([{ itemId: 'steam', type: 'fluid', amount: expect.closeTo(10000 / 97, 4), temperature: 500 }])
     expect(machines['heat-exchanger'].type).toBe('boiler')
     expect(machines['heat-exchanger']).not.toHaveProperty('neighbourBonus')
   })

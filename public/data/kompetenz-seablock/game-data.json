@@ -136739,7 +136739,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136773,7 +136774,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136807,7 +136809,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136841,7 +136844,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136875,7 +136879,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136909,7 +136914,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136943,7 +136949,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -136977,7 +136984,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137011,7 +137019,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137045,7 +137054,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137079,7 +137089,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137113,7 +137124,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137147,7 +137159,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137181,7 +137194,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 165
         }
       ],
       "madeIn": [
@@ -137215,7 +137229,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 120
+          "amount": 120,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137249,7 +137264,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137283,7 +137299,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137317,7 +137334,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137351,7 +137369,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137385,7 +137404,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137419,7 +137439,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137453,7 +137474,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137487,7 +137509,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137521,7 +137544,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137555,7 +137579,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137589,7 +137614,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137623,7 +137649,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137657,7 +137684,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137691,7 +137719,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -137725,7 +137754,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137759,7 +137789,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137793,7 +137824,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137827,7 +137859,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137861,7 +137894,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137895,7 +137929,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137929,7 +137964,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137963,7 +137999,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -137997,7 +138034,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138031,7 +138069,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138065,7 +138104,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138099,7 +138139,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138133,7 +138174,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138167,7 +138209,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -138201,7 +138244,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138235,7 +138279,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138269,7 +138314,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138303,7 +138349,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138337,7 +138384,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138371,7 +138419,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138405,7 +138454,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138439,7 +138489,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138473,7 +138524,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138507,7 +138559,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138541,7 +138594,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138575,7 +138629,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138609,7 +138664,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138643,7 +138699,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -138677,7 +138734,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138711,7 +138769,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138745,7 +138804,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138779,7 +138839,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138813,7 +138874,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138847,7 +138909,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138881,7 +138944,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138915,7 +138979,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138949,7 +139014,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -138983,7 +139049,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139017,7 +139084,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139051,7 +139119,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139085,7 +139154,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139119,7 +139189,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 60
+          "amount": 60,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139153,7 +139224,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -139187,7 +139259,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -139221,7 +139294,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -139255,7 +139329,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 315
         }
       ],
       "madeIn": [
@@ -139289,7 +139364,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -139323,7 +139399,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -139357,7 +139434,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -139391,7 +139469,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -139425,7 +139504,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -139459,7 +139539,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -139493,7 +139574,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -139527,7 +139609,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -139561,7 +139644,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139595,7 +139679,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139629,7 +139714,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139663,7 +139749,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 765
         }
       ],
       "madeIn": [
@@ -139697,7 +139784,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 120
+          "amount": 120,
+          "temperature": 465
         }
       ],
       "madeIn": [
@@ -139731,7 +139819,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 120
+          "amount": 120,
+          "temperature": 615
         }
       ],
       "madeIn": [
@@ -139765,7 +139854,8 @@
         {
           "itemId": "steam",
           "type": "fluid",
-          "amount": 120
+          "amount": 120,
+          "temperature": 765
         }
       ],
       "madeIn": [
