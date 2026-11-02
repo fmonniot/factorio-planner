@@ -9,5 +9,5 @@ export const ENERGY_ITEM_IDS = [ELECTRICITY_ITEM_ID, HEAT_ITEM_ID] as const
 
 /** True for electricity and heat: 1 unit = 1 MJ, shown in W-GW and typed in MW. */
 export function isEnergyItem(itemId: string | undefined): boolean {
-  return itemId === ELECTRICITY_ITEM_ID || itemId === HEAT_ITEM_ID
+  return itemId !== undefined && (ENERGY_ITEM_IDS as readonly string[]).includes(itemId)
 }
