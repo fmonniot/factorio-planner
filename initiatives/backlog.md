@@ -51,7 +51,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Wind turbines and other `electric-energy-interface` generators.** Seablock's `wind-turbine-2` (15 kW) and Nullius' wind turbines and Stirling engines are `electric-energy-interface` entities whose output is set by script (wind, altitude, heat). Decide an average per entity and export them as generation recipes.
 - [ ] **Accumulators and solar at night.** Solar recipes use 70 % of peak (the Nauvis average) and assume nothing about storage. Add an accumulator ratio per panel, or a note.
 - [ ] **Burner machines' fuel use.** Burner crafting machines and drills report their energy as an electric ⚡ draw. Export `fuel_value` / `fuel_category` on items (the power exporter already reads them) and model the fuel as an input.
-- [ ] **Heat pipe tiers.** Heat temperatures are compared between a reactor's maximum and an exchanger's minimum, but a heat pipe's `max_temperature` caps the heat between them (e.g. a basic pipe on a 1000 °C reactor). Model the pipe tier between reactor and exchanger.
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.
 - [ ] **Beacon power.** Beacon energy is not counted in a row's power (spec/solver.md); needed for self-powering blocks.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
