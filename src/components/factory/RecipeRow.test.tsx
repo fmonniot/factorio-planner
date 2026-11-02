@@ -1495,3 +1495,78 @@ describe('RecipeRow in a block with areas', () => {
     expect(container.querySelector('tr')).not.toHaveAttribute('data-highlighted')
   })
 })
+
+describe('RecipeRow — reactor neighbour count', () => {
+  it('opens the Edit machine modal with the stored neighbour count', () => {
+    const gameData = {
+      ...mockGameData,
+      recipes: {
+        ...mockGameData.recipes,
+        'power:reactor:fuel': {
+          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
+          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
+          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
+        },
+      },
+      machines: {
+        ...mockGameData.machines,
+        reactor: {
+          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
+          neighbourBonus: 1, iconPath: '', hidden: false,
+        },
+      },
+      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
+    } as unknown as GameData
+    renderRow({
+      gameData,
+      planNode: { kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 2 },
+    })
+    fireEvent.click(screen.getByTitle('Reactor', { exact: true }))
+    expect(screen.getByTestId('neighbour-count')).toHaveValue(2)
+  })
+
+  it('applies the heat bonus when converting a typed pin with no solved throughput', () => {
+    const gameData = {
+      ...mockGameData,
+      recipes: {
+        ...mockGameData.recipes,
+        'power:reactor:fuel': {
+          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
+          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
+          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
+        },
+      },
+      machines: {
+        ...mockGameData.machines,
+        reactor: {
+          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
+          neighbourBonus: 1, iconPath: '', hidden: false,
+        },
+      },
+      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
+    } as unknown as GameData
+    const planNode: GameRecipeNode = {
+      kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {},
+      neighbourCount: 3, pinnedRate: 1,
+    }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [planNode] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    const idle: SolvedNode = {
+      recipeNodeId: 'node-r', inputRates: {}, outputRates: { 'power:heat': 0 },
+      throughput: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0,
+    }
+    renderRow({ gameData, planNode, solvedNode: idle })
+    // 10 heat/run * (1 + 1 * 3) = 40 heat/run; energy items are typed per second.
+    fireEvent.change(screen.getByLabelText('Pinned rate'), { target: { value: '20' } })
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.pinnedRate).toBeCloseTo(30) // 20 * 60 / 40
+  })
+})

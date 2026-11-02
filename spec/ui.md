@@ -849,7 +849,7 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   does not remount or change value.
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
   replaces the row with a new sub-factory containing just this node.
-- **Build also in…** (blocks with areas only) — adds a copy of this row to another area.
+- **Build also in…** (blocks with areas only) — adds a copy of this row to another area (machine, modules, beacon, neighbour count, byproduct policy and primary product; not the pin).
   It is disabled when no area qualifies, with the title "No other area uses <item>
   without a row of this recipe", or "Waiting for the solve" while the row has no solve
   result (right after turning on Separate area, or when the solve failed). An area qualifies when its rows (including those in
@@ -1040,7 +1040,7 @@ The same component in recipes mode (`source="recipes"`).
   ingredient, fluid temperature ignored) are listed and the subtitle reads
   "Choose a recipe that consumes '…'".
 - Extraction recipes ("Iron ore (mining)", "Water (offshore pump)") are listed like any other recipe, under the group of what they produce; they are always inside the research horizon.
-- Power generation recipes (`Recipe.power`; "Boiler (Coal)", "Steam engine (Steam)", "Solar panel (electricity)") are listed in the **Power** group, by subgroup (boilers and heat exchangers, generators, burner generators, solar panels, reactors); a heat exchanger reads "Heat exchanger (Heat)" and a reactor "Uranium reactor (Uranium-235 fuel cell)", with heat as the badge of the exchanger. Reactor counts assume no neighbour bonus. A power slot shows its machine's icon, with its last ingredient (the fuel, or the steam of a generator) as a small badge at the bottom-right (`data-testid="recipe-slot-badge"`); there is one slot per fuel. They are always inside the research horizon (their detail panel reads "Available from the start"; the machine is gated through its placing item). Amounts below 0.01 in the detail panel show two significant digits ("0.0015 ×"). Steam temperature is not checked: a low-temperature boiler can feed a high-temperature engine, so match the boiler tier to the engine tier yourself (backlog: temperature-aware steam).
+- Power generation recipes (`Recipe.power`; "Boiler (Coal)", "Steam engine (Steam)", "Solar panel (electricity)") are listed in the **Power** group, by subgroup (boilers and heat exchangers, generators, burner generators, solar panels, reactors); a heat exchanger reads "Heat exchanger (Heat)" and a reactor "Uranium reactor (Uranium-235 fuel cell)", with heat as the badge of the exchanger. A reactor row's neighbour count is set in the Edit machine modal. A power slot shows its machine's icon, with its last ingredient (the fuel, or the steam of a generator) as a small badge at the bottom-right (`data-testid="recipe-slot-badge"`); there is one slot per fuel. They are always inside the research horizon (their detail panel reads "Available from the start"; the machine is gated through its placing item). Amounts below 0.01 in the detail panel show two significant digits ("0.0015 ×"). Steam temperature is not checked: a low-temperature boiler can feed a high-temperature engine, so match the boiler tier to the engine tier yourself (backlog: temperature-aware steam).
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
@@ -1082,6 +1082,30 @@ The same component in recipes mode (`source="recipes"`).
   swaps the row's recipe and resets its machine, modules, beacon, pin and other
   settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel
   change goes through **Alternate recipe**.
+- **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
+  a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
+  **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a
+  typed value outside the range is clamped, other text stays until blur) and a drawing
+  (`neighbour-grid`, `role="img"`). Each 40 px tile shows how many reactors share a side with it
+  (0–4, diagonals do not count), coloured by that number. An axis longer than 5 is folded into
+  five tracks (the first two, a gap marked ⋯ / ⋮ / ⋱, the last two); the numbers come from the
+  real positions and the average always uses the full size. The average of the drawing,
+  `2 × (cols × (rows − 1) + rows × (cols − 1)) / (cols × rows)`, is what is stored in
+  `neighbourCount` (an exact ratio; 1 × 1 stores nothing). The size is UI state and is not
+  persisted: reopening the modal finds the rectangle whose average equals the stored count
+  (smallest area, then the most square, then cols ≤ rows; no stored count opens as 1 × 1) and,
+  when none matches, opens in own-average mode.
+  Below a rule, **Not a rectangle?** is a number input (`neighbour-count`, accessible name
+  "Neighbouring reactors", 0–4) that shows the drawing's average and takes the player's own.
+  Typing a valid own value saves it, dims the drawing ("Not used: you typed your own average
+  below.") and offers **Use the drawing**; changing a size does the same. Text outside 0–4 shows
+  "A reactor has four sides, so use a number from 0 to 4." and is not saved (the schema accepts
+  any non-negative number, and a stored value above 4 is kept and flagged); on blur the field
+  reverts to the stored value. Every valid change is saved at once and is undoable (0 clears
+  it). A result strip shows the average, "Each neighbour adds +N %" (from the machine's bonus)
+  and the heat per reactor (`neighbour-multiplier`, "×N" = 1 + bonus × average). Switching to a
+  machine without a bonus hides the section; the count is kept but ignored. **Apply to every row
+  of this recipe** does not copy it.
 - **Modules** (when the machine has slots or modules are configured) — each configured
   module with −/+ counts, and an "add module" dropdown. Only modules inside the
   research horizon whose effects the machine allows (and whose recipe limitations

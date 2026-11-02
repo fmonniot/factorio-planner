@@ -1694,6 +1694,7 @@ describe('buildRowAlsoIn', () => {
       modules: [{ moduleId: 'speed', count: 2 }],
       beaconConfig: { ...beacon },
       pinnedRate: 10,
+      neighbourCount: 2,
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
       byproductConsumer: true,
@@ -1717,6 +1718,7 @@ describe('buildRowAlsoIn', () => {
       machineId: 'm2',
       modules: [{ moduleId: 'speed', count: 2 }],
       beaconConfig: beacon,
+      neighbourCount: 2,
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
     })
@@ -1860,6 +1862,47 @@ describe('duplicateSubPlanTo', () => {
     useBlockStore.getState().redo()
     expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1', id])
     expect(treePlan(copyId).name).toBe('Second')
+  })
+})
+
+describe('updateNodeNeighbourCount', () => {
+  function setup(extra: Partial<GameRecipeNode> = {}): string {
+    return loadRoot(planOf('root', [gameRow('r1', 'reactor', extra), gameRow('r2', 'reactor')]))
+  }
+  const count = () => rowIn('root', 'r1').neighbourCount
+  const undoDepth = (blockId: string) => useBlockStore.getState().history[blockId]?.undoStack.length ?? 0
+
+  it('sets the count, undoes to undefined and redoes', () => {
+    setup()
+    useBlockStore.getState().updateNodeNeighbourCount('r1', 3)
+    expect(count()).toBe(3)
+    useBlockStore.getState().undo()
+    expect(count()).toBeUndefined()
+    useBlockStore.getState().redo()
+    expect(count()).toBe(3)
+  })
+
+  it('treats 0 as removing the count', () => {
+    setup({ neighbourCount: 2 })
+    useBlockStore.getState().updateNodeNeighbourCount('r1', 0)
+    expect(count()).toBeUndefined()
+    useBlockStore.getState().undo()
+    expect(count()).toBe(2)
+  })
+
+  it('adds no history entry when the value is unchanged', () => {
+    const blockId = setup({ neighbourCount: 2 })
+    useBlockStore.getState().updateNodeNeighbourCount('r1', 2)
+    useBlockStore.getState().updateNodeNeighbourCount('r2', 0)
+    expect(undoDepth(blockId)).toBe(0)
+  })
+
+  it('is dropped by a recipe change and not copied by "apply to every row"', () => {
+    setup({ neighbourCount: 2 })
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    expect(rowIn('root', 'r2').neighbourCount).toBeUndefined()
+    useBlockStore.getState().updateNodeRecipe('r1', 'other')
+    expect(count()).toBeUndefined()
   })
 })
 

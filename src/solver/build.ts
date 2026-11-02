@@ -1,4 +1,5 @@
-import type { GameData } from '../data/types'
+import type { GameData, RecipeProduct } from '../data/types'
+import { HEAT_ITEM_ID } from '../data/electricity'
 
 // ---------------------------------------------------------------------------
 // Item classification for the LP solver
@@ -43,6 +44,24 @@ export function effectiveProductAmount(
 }
 
 /**
+ * Effective amount of one product per execution of a row: probability and
+ * productivity, then the reactor neighbour bonus for the heat product.
+ */
+export function rowProductAmount(
+  prod: RecipeProduct,
+  productivityBonus = 0,
+  heatBonus = 0,
+): number {
+  const amount = effectiveProductAmount(
+    prod.amount ?? 0,
+    prod.probability ?? 1,
+    prod.ignoredByProductivity ?? 0,
+    productivityBonus,
+  )
+  return prod.itemId === HEAT_ITEM_ID ? amount * (1 + heatBonus) : amount
+}
+
+/**
  * Build the net stoichiometry map and classify items for the LP.
  */
 export function buildClassifiedSystem(
@@ -50,6 +69,7 @@ export function buildClassifiedSystem(
   recipeIds: string[],
   goalsMap: Map<string, number>,
   productivityMap: Map<string, number> = new Map(),
+  heatBonusMap: Map<string, number> = new Map(),
 ): ClassifiedSystem {
   const producers = new Map<string, Set<string>>() // itemId → recipeIds that produce it
   const consumers = new Map<string, Set<string>>() // itemId → recipeIds that consume it
@@ -68,12 +88,7 @@ export function buildClassifiedSystem(
     const prodBonus = productivityMap.get(recipeId) ?? 0
 
     for (const prod of recipe.products) {
-      const amount = effectiveProductAmount(
-        prod.amount ?? 0,
-        prod.probability ?? 1,
-        prod.ignoredByProductivity ?? 0,
-        prodBonus,
-      )
+      const amount = rowProductAmount(prod, prodBonus, heatBonusMap.get(recipeId) ?? 0)
       if (amount > 0) {
         addCoeff(prod.itemId, recipeId, amount)
         if (!producers.has(prod.itemId)) producers.set(prod.itemId, new Set())

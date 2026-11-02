@@ -10,7 +10,7 @@ import type {
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
-import { effectiveProductAmount, type ClassifiedSystem } from './build'
+import { rowProductAmount, type ClassifiedSystem } from './build'
 import { computeMachineMetrics, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
 
@@ -97,12 +97,7 @@ export function solvedNodeOf(
 
   const outputRates: Record<string, number> = {}
   for (const prod of recipe.products) {
-    const effective = effectiveProductAmount(
-      prod.amount ?? 0,
-      prod.probability ?? 1,
-      prod.ignoredByProductivity ?? 0,
-      prodBonus,
-    )
+    const effective = rowProductAmount(prod, prodBonus, effects.heatBonus)
     outputRates[prod.itemId] = (outputRates[prod.itemId] ?? 0) + effective * throughput
   }
 

@@ -380,3 +380,242 @@ describe('EditMachineModal — apply to every row of the recipe', () => {
     expect(screen.queryByRole('button', { name: /Apply to every row/ })).not.toBeInTheDocument()
   })
 })
+
+describe('EditMachineModal — neighbours', () => {
+  function reactorData(neighbourBonus = 1): GameData {
+    const gd = makeGameData()
+    gd.machines.reactor = {
+      id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+      drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
+      neighbourBonus, iconPath: '', hidden: false,
+    }
+    gd.recipes['power:reactor:fuel'] = {
+      ...recipe('power:reactor:fuel', 'Reactor fuel'),
+      category: 'power:reactor',
+      products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
+      madeIn: ['reactor'],
+    }
+    gd.defaultMachines['power:reactor'] = 'reactor'
+    return gd
+  }
+
+  function renderReactor(count?: number, bonus = 1, recipeId = 'power:reactor:fuel') {
+    const gameData = reactorData(bonus)
+    const block = makeEmptyBlock('Test')
+    const row: GameRecipeNode = {
+      kind: 'game-recipe', id: 'n1', recipeId, modules: [], byproductPolicy: {},
+      ...(count !== undefined && { neighbourCount: count }),
+    }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [row] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    render(
+      <EditMachineModal
+        nodeId="n1"
+        recipeId={recipeId}
+        recipeCategory={recipeId === 'plate' ? 'crafting' : 'power:reactor'}
+        machineId={undefined}
+        machineCountCeil={1}
+        modules={[]}
+        neighbourCount={count}
+        gameData={gameData}
+        onClose={() => {}}
+      />,
+    )
+  }
+  const input = () => screen.getByLabelText('Neighbouring reactors') as HTMLInputElement
+  const colsInput = () => screen.getByTestId('neighbour-cols') as HTMLInputElement
+  const rowsInput = () => screen.getByTestId('neighbour-rows') as HTMLInputElement
+  const stored = () => (useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode).neighbourCount
+  const multiplier = () => screen.getByTestId('neighbour-multiplier').textContent
+  const grid = () => screen.getByTestId('neighbour-grid')
+  const tiles = () => grid().querySelectorAll('[data-neighbours]')
+  const setSize = (cols: string, rows: string) => {
+    fireEvent.change(colsInput(), { target: { value: cols } })
+    fireEvent.change(rowsInput(), { target: { value: rows } })
+  }
+
+  it('starts at 1 × 1 with an average of 0 and a x1 multiplier, without saving', () => {
+    renderReactor()
+    expect(colsInput().value).toBe('1')
+    expect(rowsInput().value).toBe('1')
+    expect(input().value).toBe('0')
+    expect(multiplier()).toBe('×1')
+    expect(screen.getByText('1 reactors in this cluster')).toBeInTheDocument()
+    expect(stored()).toBeUndefined()
+  })
+
+  it('saves the average when the Wide stepper is used', () => {
+    renderReactor()
+    fireEvent.click(screen.getByRole('button', { name: 'More columns' }))
+    expect(colsInput().value).toBe('2')
+    expect(stored()).toBe(1)
+    expect(input().value).toBe('1')
+    expect(multiplier()).toBe('×2')
+    fireEvent.click(screen.getByRole('button', { name: 'Fewer columns' }))
+    expect(stored()).toBeUndefined()
+  })
+
+  it('disables the steppers at the ends of the range', () => {
+    renderReactor()
+    expect(screen.getByRole('button', { name: 'Fewer columns' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Fewer rows' })).toBeDisabled()
+    setSize('30', '30')
+    expect(screen.getByRole('button', { name: 'More columns' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'More rows' })).toBeDisabled()
+  })
+
+  it('applies typed sizes at once and clamps them to 1–30', () => {
+    renderReactor()
+    setSize('2', '4')
+    expect(stored()).toBeCloseTo(2.5, 10)
+    expect(input().value).toBe('2.5')
+    fireEvent.change(colsInput(), { target: { value: '99' } })
+    expect(colsInput().value).toBe('30')
+    expect(screen.getByText('120 reactors in this cluster')).toBeInTheDocument()
+  })
+
+  it('keeps non-integer size text until blur, then resets it', () => {
+    renderReactor()
+    setSize('2', '4')
+    fireEvent.change(colsInput(), { target: { value: '2.5' } })
+    expect(colsInput().value).toBe('2.5')
+    expect(stored()).toBeCloseTo(2.5, 10)
+    fireEvent.blur(colsInput())
+    expect(colsInput().value).toBe('2')
+  })
+
+  it('numbers every tile with its neighbour count', () => {
+    renderReactor()
+    setSize('3', '3')
+    const counts = [...tiles()].map(t => Number(t.getAttribute('data-neighbours')))
+    expect(counts).toEqual([2, 3, 2, 3, 4, 3, 2, 3, 2])
+    expect(grid()).toHaveAccessibleName('3 by 3 cluster, 2.67 neighbours on average')
+  })
+
+  it('folds a long axis but still saves the full average', () => {
+    renderReactor()
+    setSize('6', '6')
+    expect(tiles()).toHaveLength(16)
+    expect(grid().textContent).toContain('⋯')
+    expect(grid().textContent).toContain('⋮')
+    expect(grid().textContent).toContain('⋱')
+    expect(stored()).toBeCloseTo((2 * (6 * 5 + 6 * 5)) / 36, 10)
+    expect(screen.getByText('36 reactors in this cluster')).toBeInTheDocument()
+  })
+
+  it('saves an own average, dims the grid and goes back with Use the drawing', () => {
+    renderReactor()
+    setSize('2', '2')
+    fireEvent.change(input(), { target: { value: '3' } })
+    expect(stored()).toBe(3)
+    expect(multiplier()).toBe('×4')
+    expect(grid()).toHaveClass('opacity-30')
+    expect(screen.getByText('Not used: you typed your own average below.')).toBeInTheDocument()
+    fireEvent.click(screen.getByRole('button', { name: 'Use the drawing' }))
+    expect(stored()).toBe(2)
+    expect(grid()).not.toHaveClass('opacity-30')
+    expect(input().value).toBe('2')
+  })
+
+  it('leaves own mode when a size changes', () => {
+    renderReactor()
+    fireEvent.change(input(), { target: { value: '3' } })
+    fireEvent.click(screen.getByRole('button', { name: 'More rows' }))
+    expect(stored()).toBe(1)
+    expect(grid()).not.toHaveClass('opacity-30')
+  })
+
+  it('clears the stored count when set to 0', () => {
+    renderReactor(3)
+    fireEvent.change(input(), { target: { value: '0' } })
+    expect(stored()).toBeUndefined()
+  })
+
+  it('does not save an empty, negative or too large value and reverts on blur', () => {
+    renderReactor(2)
+    for (const bad of ['', '-1', '5']) {
+      fireEvent.change(input(), { target: { value: bad } })
+      expect(stored(), bad).toBe(2)
+      fireEvent.blur(input())
+      expect(input().value, bad).toBe('2')
+      expect(grid(), bad).not.toHaveClass('opacity-30')
+    }
+  })
+
+  it('explains that a reactor has four sides for a value above 4', () => {
+    renderReactor(2)
+    fireEvent.change(input(), { target: { value: '5' } })
+    expect(screen.getByText('A reactor has four sides, so use a number from 0 to 4.')).toBeInTheDocument()
+    expect(stored()).toBe(2)
+    expect(multiplier()).toBe('×3')
+  })
+
+  it('reopens a stored 2.5 as a 2 × 4 drawing', () => {
+    renderReactor(2.5)
+    expect(colsInput().value).toBe('2')
+    expect(rowsInput().value).toBe('4')
+    expect(input().value).toBe('2.5')
+    expect(multiplier()).toBe('×3.5')
+    expect(grid()).not.toHaveClass('opacity-30')
+  })
+
+  it('reopens a stored value that no rectangle gives in own mode', () => {
+    renderReactor(0.3)
+    expect(input().value).toBe('0.3')
+    expect(grid()).toHaveClass('opacity-30')
+    expect(stored()).toBe(0.3)
+  })
+
+  it('keeps and flags a stored value above 4 without rewriting it', () => {
+    renderReactor(6)
+    expect(input().value).toBe('6')
+    expect(screen.getByText('A reactor has four sides, so use a number from 0 to 4.')).toBeInTheDocument()
+    expect(stored()).toBe(6)
+  })
+
+  it('shows the bonus per neighbour and scales the multiplier by it', () => {
+    renderReactor(2, 0.5)
+    expect(screen.getByText('+50 %')).toBeInTheDocument()
+    expect(multiplier()).toBe('×2')
+  })
+
+  it('re-syncs the section when the stored count changes under the modal', () => {
+    const gameData = reactorData()
+    const props = {
+      nodeId: 'n1', recipeId: 'power:reactor:fuel', recipeCategory: 'power:reactor', machineId: undefined,
+      machineCountCeil: 1, modules: [], gameData, onClose: () => {},
+    }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 3 }] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    const { rerender } = render(<EditMachineModal {...props} neighbourCount={3} />)
+    expect(colsInput().value).toBe('4')
+    expect(rowsInput().value).toBe('4')
+    expect(input().value).toBe('3')
+    expect(multiplier()).toBe('×4')
+    rerender(<EditMachineModal {...props} neighbourCount={undefined} />)
+    expect(colsInput().value).toBe('1')
+    expect(input().value).toBe('0')
+    expect(multiplier()).toBe('×1')
+  })
+
+  it('does not clobber in-progress text that matches the stored count', () => {
+    renderReactor()
+    fireEvent.change(input(), { target: { value: '2.' } })
+    expect(stored()).toBe(2)
+    expect(input().value).toBe('2.')
+  })
+
+  it('is absent for a machine without a neighbour bonus', () => {
+    renderReactor(undefined, 1, 'plate')
+    expect(screen.queryByTestId('neighbour-section')).toBeNull()
+  })
+})

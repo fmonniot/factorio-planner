@@ -7,6 +7,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
+import { NeighbourSection } from './NeighbourSection'
 import { countRecipeRows } from './recipeAreas'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './moduleRules'
 
@@ -101,6 +102,10 @@ export function EffectsPanel({ label, totals, showQuality }: EffectsPanelProps) 
 
 // ---------------------------------------------------------------------------
 // EditMachineModal
+//
+// Every valid change is saved immediately through a store action (the footer
+// only has Close). "Apply to every row of this recipe" copies machine and
+// modules only, not the reactor neighbour count.
 // ---------------------------------------------------------------------------
 
 export interface EditMachineModalProps {
@@ -110,6 +115,7 @@ export interface EditMachineModalProps {
   machineId: string | undefined
   machineCountCeil: number
   modules: ModuleConfig[]
+  neighbourCount?: number
   gameData: GameData
   onClose: () => void
 }
@@ -121,6 +127,7 @@ export function EditMachineModal({
   machineId,
   machineCountCeil,
   modules,
+  neighbourCount,
   gameData,
   onClose,
 }: EditMachineModalProps) {
@@ -144,6 +151,8 @@ export function EditMachineModal({
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
   const { machine } = row
   const recipe = gameData.recipes[recipeId]
+
+  const neighbourBonus = machine?.neighbourBonus ?? 0
 
   const machineSlots = machine?.moduleSlots ?? 0
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
@@ -353,6 +362,11 @@ export function EditMachineModal({
             </div>
           )}
         </div>
+
+        {/* Neighbours section (reactors) */}
+        {neighbourBonus > 0 && (
+          <NeighbourSection nodeId={nodeId} neighbourCount={neighbourCount} neighbourBonus={neighbourBonus} />
+        )}
 
         {/* Modules section */}
         {(machineSlots > 0 || modules.length > 0) && (

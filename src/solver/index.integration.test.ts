@@ -535,6 +535,22 @@ describe('power generation on the real Seablock data', () => {
     expectSane(r, plan, 'power')
   })
 
+  it('plans 10 MW with a neighbour count of 3: a quarter of the reactor and fuel', () => {
+    const recipeIds = ['power:steam-engine:steam', 'power:heat-exchanger:power:heat', 'power:nuclear-reactor:uranium-fuel-cell']
+    const plan = makePlan([['power:electricity', 600]], recipeIds)
+    plan.nodes = plan.nodes.map(n =>
+      n.kind === 'game-recipe' && n.recipeId === 'power:nuclear-reactor:uranium-fuel-cell'
+        ? { ...n, neighbourCount: 3 }
+        : n,
+    )
+    const r = solve(plan, seablock)
+    expect(nodeOf(r, 'power:nuclear-reactor:uranium-fuel-cell').machineCountExact).toBeCloseTo(5 / 54, 3)
+    expect(unsatisfiedRate(r, 'uranium-fuel-cell')).toBeCloseTo(0.15, 3)
+    expect(nodeOf(r, 'power:steam-engine:steam').machineCountExact).toBeCloseTo(11.111, 3)
+    expect(nodeOf(r, 'power:heat-exchanger:power:heat').machineCountExact).toBeCloseTo(2.778, 3)
+    expectSane(r, plan, 'power')
+  })
+
   it('plans 10 MW with steam engines on boilers burning solid fuel', () => {
     const recipeIds = ['power:steam-engine:steam', 'power:boiler:solid-fuel']
     const plan = makePlan([['power:electricity', 600]], recipeIds)
