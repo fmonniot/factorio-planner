@@ -104,6 +104,11 @@ describe('productSlot', () => {
     // The same gap of an ordinary item rounds away on /s.
     expect(isShortfall(600, 599.82, 'sec')).toBe(false)
   })
+
+  it('rounds heat in power units too', () => {
+    expect(isShortfall(600, 599.82, 'sec', 'power:heat')).toBe(true)
+    expect(isShortfall(600, 600 - 1e-6, 'min', 'power:heat')).toBe(false)
+  })
 })
 
 describe('byproductSlot', () => {

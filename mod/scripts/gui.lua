@@ -126,7 +126,12 @@ end
 -- ---------------------------------------------------------------------------
 -- Ids
 
-local ELECTRICITY_ICON = "utility/electricity_icon"
+-- The virtual items (the planner'"'"'s electricity and heat), which the game has no
+-- prototype for: the vanilla sprite to draw and the locale key of the caption.
+local VIRTUAL = {
+  electricity = { sprite = "utility/electricity_icon", key = "electricity" },
+  heat = { sprite = "utility/heat_exchange_indication", key = "heat" },
+}
 
 -- Looks an id up in the running game's prototypes; nil when it is not there.
 local function prototype(kind, id)
@@ -155,16 +160,13 @@ local function sprite_of(path, missing)
   return nil
 end
 
-local function electricity_sprite()
-  return sprite_of(ELECTRICITY_ICON, false)
-end
-
--- A view-model reference: an item, a fluid or the virtual electricity item,
--- which the game has no prototype for and this mod draws itself.
+-- A view-model reference: an item, a fluid or a virtual item (electricity,
+-- heat), which this mod draws itself. An unknown virtual id shows as its id.
 local function ref_caption(ref)
   if ref.virtual then
-    if ref.id == "electricity" then
-      return { key("electricity") }
+    local virtual = VIRTUAL[ref.id]
+    if virtual then
+      return { key(virtual.key) }
     end
     return ref.id
   end
@@ -411,7 +413,7 @@ local function rate_tooltip(ref)
   return { "", ref_caption(ref), "\n", { key("tt-rate"), format.tooltip_number(ref.rate) } }
 end
 
--- A table of item buttons. Virtual refs (electricity) are never drawn here: their
+-- A table of item buttons. Virtual refs (electricity, heat) are never drawn here: their
 -- rate is not an item count.
 local function add_items(parent, refs, style, gray, columns)
   local t = parent.add({ type = "table", column_count = columns })
@@ -459,7 +461,7 @@ local function recipe_cell(cell, row, gray)
   local product = row.product
   local sprite
   if product.virtual then
-    sprite = product.id == "electricity" and electricity_sprite() or nil
+    sprite = VIRTUAL[product.id] and sprite_of(VIRTUAL[product.id].sprite, false) or nil
   else
     sprite = sprite_of(product.sprite, product.missing)
   end

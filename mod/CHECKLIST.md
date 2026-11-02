@@ -60,7 +60,7 @@ Run it on **Factorio 2.0.77 only**, on a **throwaway save** (the mod writes the 
 1. With the base game only, send `contract/fixtures/seablock-edge-cases.json` (its ids are Seablock's). The ack carries a count above 0.
 2. The window shows a red line "N ids of this plan are not in this game" and a scrolling list `Item: <id>`, `Fluid: ...`, `Recipe: ...`, `Machine: ...`; none is hidden.
 3. In the table, a missing recipe, machine or item is a red slot button with no icon, and its tooltip says `<id> (not in this game)`; an id the game has shows its icon, and its tooltip the localised name.
-4. Quick hook: a synthetic row (mining, offshore, power) shows its product's icon, with its kind and product in the tooltip; a power row making electricity shows the `utility/electricity_icon` with **Power: Electricity** in the tooltip, and `electricity` is **not** in the missing list.
+4. Quick hook: a synthetic row (mining, offshore, power) shows its product's icon, with its kind and product in the tooltip; a power row making electricity shows the `utility/electricity_icon` with **Power: Electricity** in the tooltip, and `electricity` is **not** in the missing list. A reactor row (heat) shows the `utility/heat_exchange_indication` icon with **Power: Heat** in its tooltip, and `heat` is **not** in the missing list nor an item button.
 5. Edit a fixture copy so a `kind: "mining"` row has no `product`: the row's recipe cell is a button with no icon and the tooltip `Unknown (Mining)` in orange; nothing raises.
 6. Add a mod that adds a recipe id used by a fixture, restart: the unknown-id count in the next `hello` is lower (it is recomputed on a configuration change).
 

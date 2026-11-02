@@ -54,7 +54,7 @@
 --                    modules = { module } },         -- the module each beacon holds, same shape as above
 -- }
 --
--- ref = { id, type, rate, sprite, rich, missing }; a `virtual` ref (electricity)
+-- ref = { id, type, rate, sprite, rich, missing }; a `virtual` ref (electricity, heat)
 -- has `virtual = true` and neither sprite, rich nor missing.
 --
 -- Net flows (a group's line): over the rows under it, at any depth, outputs
@@ -102,7 +102,7 @@ function M.build(snapshot, opts)
   end
 
   -- An item, fluid or virtual reference. `sprite` and `rich` are what the GUI
-  -- gives the game; virtual items have neither (the GUI draws electricity itself).
+  -- gives the game; virtual items have neither (the GUI draws electricity and heat itself).
   local function ref(r)
     local out = { id = r.id, type = r.type, rate = r.rate }
     if r.type == "virtual" then

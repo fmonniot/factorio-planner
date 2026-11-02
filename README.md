@@ -23,7 +23,7 @@ Each row in the table is one recipe, with its machines, modules, beacons, power 
 - **Add recipes** with the **+** button in the table header's left (reorder) column (or **+ Add recipe** in an empty block). To switch a row to an alternative recipe for the same product, open its machine cell, open the machine picker and choose from the **Alternate recipe** list (this resets the row's modules and beacons). The recipe picker greys out recipes the area (or, in a block without areas, the block) already has.
 - **Configure machines, modules and beacons** from the machine and beacon cells. The modals show the resulting speed, productivity and consumption effects.
 - **Pin a rate** on a recipe to fix its throughput instead of letting the solver pick it.
-- **Plan power.** In a data set with power data (Seablock), set a goal of **Electricity** from the **Power** tab of the product picker (the amount is in MW) and add a generator recipe, for example "Steam engine (Steam)"; click its Steam ingredient to add a boiler recipe on the fuel you choose, one recipe per fuel. The table shows how many engines, boilers and solar panels (at 70 % of peak) you need, and the fuel and water they take. Electricity is always shown in W / kW / MW / GW. Steam temperature is not checked: a low-temperature boiler can feed a high-temperature engine, so pick boilers and engines of the same tier yourself. Grids, accumulators and heat or reactor power are not modelled.
+- **Plan power.** In a data set with power data (Seablock), set a goal of **Electricity** from the **Power** tab of the product picker (the amount is in MW) and add a generator recipe, for example "Steam engine (Steam)"; click its Steam ingredient to add a boiler recipe on the fuel you choose, one recipe per fuel. The table shows how many engines, boilers and solar panels (at 70 % of peak) you need, and the fuel and water they take. Electricity is always shown in W / kW / MW / GW. Steam temperature is not checked: a low-temperature boiler can feed a high-temperature engine, so pick boilers and engines of the same tier yourself. For heat power, click Steam and pick "Heat exchanger (Heat)", then click its Heat ingredient and pick a reactor and fuel; heat is shown in MW like electricity. Reactors are counted without neighbour bonus (a reactor with N working neighbours makes 1 + bonus × N times the heat on the same fuel), and heat pipes and heat temperatures are not checked. Grids and accumulators are not modelled.
 - **Click an ingredient** on a row, or select it in the summary's **Ingredients** pane and use **Find recipe**, to find or add a recipe that produces it. For a raw ore or pumped fluid this offers its mining or offshore-pump recipe ("Iron ore (mining)"), so the row shows the drills or pumps you need. Without such a row the item stays a raw input. Mining assumes the base mining rate (no mining productivity research) and fluid resources a 100 % yield.
 - **Read fluid temperatures.** Ingredient tiles show the fluid temperature a recipe requires (e.g. ≥95°C), when it has one.
 - **Choose the primary output** of a multi-output recipe by clicking one of its byproducts. In a block with areas, the primary output is what the row builds for its own area first.
@@ -153,7 +153,7 @@ node scripts/build-game-data.js \
 
 The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
 
-To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode:
+To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode (the mod-set check ignores `base` and `factorio-planner-viewer`, the in-game viewer mod, which adds no game data):
 
 ```sh
 node scripts/build-game-data.js --patch-technologies \
@@ -163,7 +163,7 @@ node scripts/build-game-data.js --patch-technologies \
 
 `--patch-extraction` adds the mining and offshore-pump recipes, and the drills and pumps that run them, to an existing bundle the same way (same mod-set check, safe to re-run); it also refreshes `placeResult`. Machine icons already on disk are never overwritten, because a drill or pump can share its id with an item whose icon is already written. The Seablock bundle has them; the Nullius bundle does not yet.
 
-`--patch-power` adds the power generation recipes (boilers, generators, burner generators and solar panels), the machines that run them, the `power:electricity` item and the Power item group to an existing bundle the same way (same mod-set check, safe to re-run); it also refreshes `placeResult`. The Seablock bundle has them; the Nullius bundle does not yet.
+`--patch-power` adds the power generation recipes (boilers, heat exchangers, generators, burner generators, reactors and solar panels), the machines that run them, the `power:electricity` and `power:heat` items and the Power item group to an existing bundle the same way (same mod-set check, safe to re-run); it also refreshes `placeResult`. The Seablock bundle has them; the Nullius bundle does not yet.
 
 Patch mode also writes `placeResult` on the items that place a machine or beacon, which the horizon uses to gate machines and beacons (bundles without it match machines to the item with the same id).
 
@@ -200,10 +200,11 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/icon-url.js` | Derives the public-relative `iconPath` prefix from the icons output directory |
 | `scripts/locale.js` | Locale parsing, name resolution and the game's resolved-name lookup (used by the build script) |
+| `scripts/modset.js` | Compares the bundle's mod set with the dump's, ignoring `base` and the viewer mod (used by the patch modes) |
 | `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
 | `scripts/temperatures.js` | Fluid and recipe-product temperatures (used by the build script and `--patch-temperatures`) |
 | `scripts/extraction.js` | Exports mining and offshore-pump recipes and the drills and pumps that run them (used by the build script) |
-| `scripts/power.js` | Exports boiler, generator, burner-generator and solar-panel recipes, their machines and the electricity item (used by the build script) |
+| `scripts/power.js` | Exports boiler, heat-exchanger, generator, burner-generator, reactor and solar-panel recipes, their machines and the electricity and heat items (used by the build script) |
 | `scripts/energy.js` | Energy-string parsing and energy-type inference shared by the export scripts |
 | `scripts/technologies.js` | Exports technologies and starting recipes from a dump (used by the build script) |
 | `scripts/build-icons.mjs` | `postbuild` step: WebP and optimised PNG icons in `dist/data` (cached in `.cache/icons`) |

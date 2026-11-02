@@ -52,9 +52,10 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
- * Power patch mode: add the power generation recipes (boilers, generators,
- * burner generators, solar panels), the machines that run them, the
- * `power:electricity` item and the Power item group to an existing bundle (same
+ * Power patch mode: add the power generation recipes (boilers, heat
+ * exchangers, generators, burner generators, reactors, solar panels), the
+ * machines that run them, the `power:electricity` and `power:heat` items and
+ * the Power item group to an existing bundle (same
  * mod-set check). Safe to re-run. It also refreshes `placeResult` on the items
  * and the default machines of the generated `power:` categories:
  *   node scripts/build-game-data.js --patch-power \
@@ -91,8 +92,9 @@ import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
 import {
   exportPower, isPowerCategory, parsePowerRecipeId, powerRecipeName,
-  ELECTRICITY_ITEM_ID, POWER_PREFIX, POWER_MACHINE_TYPES,
+  POWER_ITEM_IDS, POWER_PREFIX, POWER_MACHINE_TYPES,
 } from './power.js'
+import { modSetDiffs } from './modset.js'
 import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
@@ -774,16 +776,9 @@ function warnCollisions(target, added, label = 'extraction') {
   }
 }
 
-/** Exit with the printed diff if the bundle's mod set differs from the dump's (ignoring `base`). */
+/** Exit with the printed diff if the bundle's mod set differs from the dump's (ignoring `base` and the viewer mod). */
 function assertSameModSet(existing, modSet) {
-  const diffs = []
-  const oldSet = existing.modSet ?? {}
-  for (const name of new Set([...Object.keys(oldSet), ...Object.keys(modSet)])) {
-    if (name === 'base') continue
-    if (oldSet[name] !== modSet[name]) {
-      diffs.push(`  ${name}: bundle=${oldSet[name] ?? '(missing)'} dump=${modSet[name] ?? '(missing)'}`)
-    }
-  }
+  const diffs = modSetDiffs(existing.modSet, modSet)
   if (diffs.length > 0) {
     process.stderr.write(`[build-game-data] Mod set mismatch between bundle and dump:\n${diffs.join('\n')}\n`)
     process.exit(1)
@@ -805,7 +800,7 @@ function patchNames(existing, raw, locale) {
     for (const [id, entry] of Object.entries(existing[section] ?? {})) {
       const name = lookup(id, entry)
       if (name === undefined) {
-        // Generated entries (the electricity item, the power group) are not in the dump.
+        // Generated entries (the electricity and heat items, the power group) are not in the dump.
         if (section === 'recipes' || !id.startsWith(POWER_PREFIX)) missing++
         out[id] = entry
         continue
@@ -955,7 +950,7 @@ if (args.patchPower) {
   const machines = Object.fromEntries(
     Object.entries(existing.machines).filter(([, m]) => !POWER_MACHINE_TYPES.includes(m.type)),
   )
-  const items = Object.fromEntries(Object.entries(existing.items).filter(([id]) => id !== ELECTRICITY_ITEM_ID))
+  const items = Object.fromEntries(Object.entries(existing.items).filter(([id]) => !POWER_ITEM_IDS.includes(id)))
   const itemGroups = Object.fromEntries(Object.entries(existing.itemGroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
   const itemSubgroups = Object.fromEntries(Object.entries(existing.itemSubgroups ?? {}).filter(([id]) => !id.startsWith(POWER_PREFIX)))
   const defaultMachines = Object.fromEntries(

@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import {
   exportPower, parsePowerRecipeId, powerRecipeName, isPowerCategory, isScriptPlacedGenerator,
-  ELECTRICITY_ITEM_ID, POWER_GROUP_ID, POWER_SUBGROUPS, POWER_MACHINE_TYPES,
+  ELECTRICITY_ITEM_ID, HEAT_ITEM_ID, POWER_ITEM_IDS, HEAT_ICON, POWER_GROUP_ID, POWER_SUBGROUPS, POWER_MACHINE_TYPES,
 } from '../power.js'
 import { computeDefaultMachines } from '../extraction.js'
-import { ELECTRICITY_ITEM_ID as TS_ELECTRICITY_ITEM_ID } from '../../src/data/electricity'
+import { ELECTRICITY_ITEM_ID as TS_ELECTRICITY_ITEM_ID, HEAT_ITEM_ID as TS_HEAT_ITEM_ID } from '../../src/data/electricity'
 
 const fluid = (name, extra = {}) => ({ name, heat_capacity: '0.2kJ', default_temperature: 15, ...extra })
 
@@ -23,7 +23,8 @@ function makeRaw() {
       'solid-fuel': { name: 'solid-fuel', fuel_category: 'chemical', fuel_value: '12MJ' },
       'wood-chip': { name: 'wood-chip', fuel_category: 'chemical', fuel_value: '1MJ', burnt_result: 'ash' },
       'hidden-fuel': { name: 'hidden-fuel', hidden: true, fuel_category: 'chemical', fuel_value: '5MJ' },
-      'fuel-cell': { name: 'fuel-cell', fuel_category: 'nuclear', fuel_value: '8GJ' },
+      'fuel-cell': { name: 'fuel-cell', fuel_category: 'nuclear', fuel_value: '8GJ', burnt_result: 'depleted-cell' },
+      'depleted-cell': { name: 'depleted-cell' },
       rock: { name: 'rock' },
       ash: { name: 'ash' },
     },
@@ -47,6 +48,11 @@ function makeRaw() {
         name: 'heat-exchanger', target_temperature: 500,
         fluid_box: { filter: 'water' }, output_fluid_box: { filter: 'steam' },
         energy_consumption: '10MW', energy_source: { type: 'heat' },
+      },
+      'electric-boiler': {
+        name: 'electric-boiler', target_temperature: 165,
+        fluid_box: { filter: 'water' }, output_fluid_box: { filter: 'steam' },
+        energy_consumption: '1MW', energy_source: { type: 'electric' },
       },
       'hidden-boiler': {
         name: 'hidden-boiler', hidden: true, target_temperature: 165,
@@ -84,6 +90,34 @@ function makeRaw() {
     'burner-generator': {
       'burner-gen': {
         name: 'burner-gen', max_power_output: '1MW', burner: { type: 'burner', fuel_categories: ['chemical'], effectivity: 0.5, burnt_inventory_size: 1 },
+      },
+    },
+    reactor: {
+      'nuclear-reactor': {
+        name: 'nuclear-reactor', consumption: '40MW', neighbour_bonus: 1,
+        energy_source: { type: 'burner', fuel_categories: ['nuclear'], effectivity: 1, burnt_inventory_size: 1 },
+      },
+      'burner-reactor': {
+        name: 'burner-reactor', consumption: '0.6MW', neighbour_bonus: 0.25,
+        energy_source: { type: 'burner', fuel_categories: ['chemical'], effectivity: 0.6 },
+      },
+      'fluid-reactor': {
+        name: 'fluid-reactor', consumption: '0.8MW', neighbour_bonus: 0.1,
+        energy_source: { type: 'fluid', burns_fluid: true, scale_fluid_usage: true, effectivity: 0.8 },
+      },
+      'default-bonus-reactor': {
+        name: 'default-bonus-reactor', consumption: '1MW',
+        energy_source: { type: 'burner', fuel_categories: ['chemical'] },
+      },
+      'geothermal-reactor': {
+        name: 'geothermal-reactor', consumption: '10MW', neighbour_bonus: 0, energy_source: { type: 'void' },
+      },
+      'thermal-tank': {
+        name: 'thermal-tank', consumption: '2kW', energy_source: { type: 'electric' },
+      },
+      'hidden-reactor': {
+        name: 'hidden-reactor', hidden: true, consumption: '1MW',
+        energy_source: { type: 'burner', fuel_categories: ['chemical'] },
       },
     },
     'solar-panel': { 'solar-panel': { name: 'solar-panel', production: '60kW' } },
@@ -146,14 +180,74 @@ describe('boilers', () => {
     expect(recipes['power:oil-boiler:hidden-oil']).toBeUndefined()
   })
 
-  it('warns once about a heat boiler and skips hidden boilers silently', async () => {
+  it('turns a heat exchanger into a recipe that consumes heat', async () => {
+    quiet()
+    const { recipes, machines } = await exportPower(makeRaw(), makeOpts())
+    const r = recipes['power:heat-exchanger:power:heat']
+    expect(r).toMatchObject({
+      name: 'heat-exchanger (Heat)', category: 'power:heat-exchanger', mainProduct: 'steam',
+      subgroup: 'power:boilers', power: true,
+    })
+    expect(amountOf(r.ingredients, 'water')).toBeCloseTo(10000 / 97, 4)
+    expect(r.ingredients.at(-1)).toEqual({ itemId: 'power:heat', type: 'fluid', amount: 10 })
+    expect(r.products).toEqual([{ itemId: 'steam', type: 'fluid', amount: expect.closeTo(10000 / 97, 4) }])
+    expect(machines['heat-exchanger'].type).toBe('boiler')
+    expect(machines['heat-exchanger']).not.toHaveProperty('neighbourBonus')
+  })
+})
+
+describe('reactors', () => {
+  it('turns fuel into heat and a burnt result', async () => {
+    quiet()
+    const { recipes, machines } = await exportPower(makeRaw(), makeOpts())
+    const r = recipes['power:nuclear-reactor:fuel-cell']
+    expect(r).toMatchObject({ mainProduct: 'power:heat', subgroup: 'power:reactors' })
+    expect(r.ingredients).toEqual([{ itemId: 'fuel-cell', type: 'item', amount: expect.closeTo(0.005, 9) }])
+    expect(amountOf(r.products, 'power:heat')).toBeCloseTo(40, 9)
+    expect(amountOf(r.products, 'depleted-cell')).toBeCloseTo(0.005, 9)
+    expect(recipes['power:nuclear-reactor:coal']).toBeUndefined()
+    expect(machines['nuclear-reactor']).toMatchObject({ type: 'reactor', neighbourBonus: 1, energyUsageKw: 0, energyType: 'void' })
+  })
+
+  it('applies the effectivity and skips burnt-result and hidden fuels without a burnt inventory', async () => {
+    quiet()
+    const { recipes, machines } = await exportPower(makeRaw(), makeOpts())
+    const r = recipes['power:burner-reactor:coal']
+    expect(amountOf(r.ingredients, 'coal')).toBeCloseTo(0.25, 9)
+    expect(amountOf(r.products, 'power:heat')).toBeCloseTo(0.6, 9)
+    expect(recipes['power:burner-reactor:wood-chip']).toBeUndefined()
+    expect(recipes['power:burner-reactor:hidden-fuel']).toBeUndefined()
+    expect(machines['burner-reactor'].neighbourBonus).toBe(0.25)
+  })
+
+  it('burns fluids in a fluid reactor', async () => {
+    quiet()
+    const { recipes, machines } = await exportPower(makeRaw(), makeOpts())
+    expect(Object.keys(recipes).filter(id => id.startsWith('power:fluid-reactor'))).toEqual(['power:fluid-reactor:crude-oil'])
+    const r = recipes['power:fluid-reactor:crude-oil']
+    expect(amountOf(r.ingredients, 'crude-oil')).toBeCloseTo(2, 9)
+    expect(amountOf(r.products, 'power:heat')).toBeCloseTo(0.8, 9)
+    expect(machines['fluid-reactor'].neighbourBonus).toBe(0.1)
+  })
+
+  it('defaults the neighbour bonus to 1', async () => {
+    quiet()
+    const { machines } = await exportPower(makeRaw(), makeOpts())
+    expect(machines['default-bonus-reactor'].neighbourBonus).toBe(1)
+  })
+})
+
+describe('skipped prototypes', () => {
+  it('warns about electric boilers and non-burning reactors, and skips hidden ones silently', async () => {
     const warn = quiet()
     const { recipes, machines } = await exportPower(makeRaw(), makeOpts())
-    expect(warn).toHaveBeenCalledTimes(1)
-    expect(warn.mock.calls[0][0]).toContain('heat-exchanger')
-    expect(Object.keys(recipes).some(id => id.includes('heat-exchanger'))).toBe(false)
-    expect(machines['heat-exchanger']).toBeUndefined()
-    expect(Object.keys(recipes).some(id => id.includes('hidden-boiler'))).toBe(false)
+    expect(warn).toHaveBeenCalledTimes(3)
+    const messages = warn.mock.calls.map(c => c[0]).join('\n')
+    for (const name of ['electric-boiler', 'geothermal-reactor', 'thermal-tank']) expect(messages).toContain(name)
+    for (const name of ['electric-boiler', 'geothermal-reactor', 'thermal-tank', 'hidden-reactor', 'hidden-boiler']) {
+      expect(Object.keys(recipes).some(id => id.startsWith(`power:${name}`)), name).toBe(false)
+      expect(machines[name], name).toBeUndefined()
+    }
   })
 })
 
@@ -284,6 +378,28 @@ describe('electricity item and groups', () => {
     expect(itemSubgroups['power:boilers']).toEqual({ id: 'power:boilers', group: 'power:power', order: 'b' })
   })
 
+  it('emits the heat item and the reactors subgroup', async () => {
+    quiet()
+    const opts = makeOpts()
+    const { items, itemSubgroups } = await exportPower(makeRaw(), opts)
+    expect(items[HEAT_ITEM_ID]).toEqual({
+      id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '/icons/power-heat.png',
+      hidden: false, subgroup: 'power:electricity', order: 'b',
+    })
+    expect(opts.resolveIcon).toHaveBeenCalledWith(expect.objectContaining({ icon: HEAT_ICON, icon_size: 48 }), 'power-heat')
+    expect(itemSubgroups['power:reactors']).toEqual({ id: 'power:reactors', group: 'power:power', order: 'f' })
+  })
+
+  it('emits no heat item without a heat recipe', async () => {
+    quiet()
+    const raw = makeRaw()
+    delete raw.reactor
+    delete raw.boiler['heat-exchanger']
+    const { items, itemSubgroups } = await exportPower(raw, makeOpts())
+    expect(Object.keys(items)).toEqual([ELECTRICITY_ITEM_ID])
+    expect(itemSubgroups['power:reactors']).toBeUndefined()
+  })
+
   it('emits nothing without power prototypes', async () => {
     const result = await exportPower({ fluid: {}, item: {} }, makeOpts())
     expect(result).toEqual({ machines: {}, recipes: {}, items: {}, itemGroups: {}, itemSubgroups: {} })
@@ -300,8 +416,22 @@ describe('helpers', () => {
     expect(isPowerCategory('mining:basic-solid')).toBe(false)
   })
 
-  it('shares the electricity id with the app', () => {
+  it('shares the electricity and heat ids with the app', () => {
     expect(ELECTRICITY_ITEM_ID).toBe(TS_ELECTRICITY_ITEM_ID)
+    expect(HEAT_ITEM_ID).toBe(TS_HEAT_ITEM_ID)
+    expect(POWER_ITEM_IDS).toEqual(['power:electricity', 'power:heat'])
+  })
+
+  it('parses a heat exchanger id with a power: input', () => {
+    expect(parsePowerRecipeId('power:heat-exchanger:power:heat')).toEqual({ machineId: 'heat-exchanger', inputId: 'power:heat' })
+  })
+
+  it('exports neighbourBonus on reactors only', async () => {
+    quiet()
+    const { machines } = await exportPower(makeRaw(), makeOpts())
+    for (const m of Object.values(machines)) {
+      if (m.type !== 'reactor') expect(m).not.toHaveProperty('neighbourBonus')
+    }
   })
 
   it('picks the machine of each power category as default', async () => {

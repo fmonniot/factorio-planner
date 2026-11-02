@@ -1,11 +1,12 @@
 /**
  * power.js
  *
- * Pure helpers that turn the `boiler`, `generator`, `burner-generator` and
- * `solar-panel` prototypes of a `factorio --dump-data` dump into power
- * generation recipes and the machines that run them. Electricity is an
- * ordinary pseudo-item (1 unit = 1 MJ, so 1 unit/s = 1 MW), so the solver
- * needs no special case. Recipes have one machine, `craftingTime` 1 and a
+ * Pure helpers that turn the `boiler` (including heat exchangers), `generator`,
+ * `burner-generator`, `reactor` and `solar-panel` prototypes of a
+ * `factorio --dump-data` dump into power generation recipes and the machines
+ * that run them. Electricity and heat are ordinary pseudo-items (1 unit = 1 MJ,
+ * so 1 unit/s = 1 MW), so the solver needs no special case. Reactor recipes
+ * model a reactor without neighbours (no neighbour bonus). Recipes have one machine, `craftingTime` 1 and a
  * generated `power:<machine>` category: amounts are per second per building.
  * Kept free of side effects so unit tests can import it.
  */
@@ -15,6 +16,12 @@ import { parseEnergyKj, parsePowerKw } from './energy.js'
 
 /** Must equal ELECTRICITY_ITEM_ID in src/data/electricity.ts. */
 export const ELECTRICITY_ITEM_ID = 'power:electricity'
+/** Must equal HEAT_ITEM_ID in src/data/electricity.ts. */
+export const HEAT_ITEM_ID = 'power:heat'
+export const POWER_ITEM_IDS = [ELECTRICITY_ITEM_ID, HEAT_ITEM_ID]
+/** The game's own heat sprite (`utility/heat_exchange_indication` in game). */
+export const HEAT_ICON = '__core__/graphics/arrows/heat-exchange-indication.png'
+export const HEAT_ICON_SIZE = 48
 export const POWER_PREFIX = 'power:'
 export const POWER_GROUP_ID = 'power:power'
 export const POWER_SUBGROUPS = {
@@ -23,8 +30,9 @@ export const POWER_SUBGROUPS = {
   generators:       'power:generators',
   burnerGenerators: 'power:burner-generators',
   solarPanels:      'power:solar-panels',
+  reactors:         'power:reactors',
 }
-export const POWER_MACHINE_TYPES = ['boiler', 'generator', 'burner-generator', 'solar-panel']
+export const POWER_MACHINE_TYPES = ['boiler', 'generator', 'burner-generator', 'solar-panel', 'reactor']
 
 /** Fraction of its peak output a solar panel delivers on average (Nauvis day / night cycle). */
 export const SOLAR_AVERAGE_FACTOR = 0.7
@@ -37,6 +45,7 @@ const SUBGROUP_ORDER = {
   [POWER_SUBGROUPS.generators]:       'c',
   [POWER_SUBGROUPS.burnerGenerators]: 'd',
   [POWER_SUBGROUPS.solarPanels]:      'e',
+  [POWER_SUBGROUPS.reactors]:         'f',
 }
 
 /** True for a category this module generates (`power:<machine>`). */
@@ -115,7 +124,7 @@ export async function exportPower(raw, opts) {
   const skip = (kind, proto, why) => console.warn(`[power] skipping ${kind} ${proto.name}: ${why}`)
 
   // Records one machine's recipes and the machine itself (only when it has a recipe).
-  const addMachine = async (proto, type, subgroup, entries) => {
+  const addMachine = async (proto, type, subgroup, entries, extra = {}) => {
     if (entries.length === 0) return
     const category = POWER_PREFIX + proto.name
     const machineName = entityName(proto)
@@ -151,8 +160,24 @@ export async function exportPower(raw, opts) {
       craftingCategories: [category],
       iconPath:           await resolveIcon(proto, proto.name),
       hidden:             false,
+      ...extra,
     }
   }
+
+  // Fuels of a burning energy source (burner, or fluid with `burns_fluid`); null for any other source.
+  const fuelsOf = (source) => {
+    if (source.type === 'burner') {
+      return fuelItemsOf(fuelCategories(source), source.burnt_inventory_size ?? 0)
+    }
+    if (source.type === 'fluid' && source.burns_fluid) {
+      const filter = source.fluid_box?.filter
+      const fuels = filter ? (raw.fluid?.[filter] && !raw.fluid[filter].hidden ? [fluidFuel(raw.fluid[filter])] : []) : allFluidFuels()
+      return fuels.filter(f => f.kj > 0)
+    }
+    return null
+  }
+  // A heat exchanger "burns" heat: 1 unit = 1 MJ = 1000 kJ.
+  const heatInput = { id: HEAT_ITEM_ID, type: 'fluid', kj: 1000, burnt: undefined, name: 'Heat' }
 
   const burnt = (fuel, amount) => (fuel.burnt ? [{ itemId: fuel.burnt, type: 'item', amount }] : [])
 
@@ -160,14 +185,9 @@ export async function exportPower(raw, opts) {
   for (const proto of Object.values(raw.boiler ?? {})) {
     if (proto.hidden) continue
     const source = proto.energy_source ?? {}
-    let fuels
-    if (source.type === 'burner') {
-      fuels = fuelItemsOf(fuelCategories(source), source.burnt_inventory_size ?? 0)
-    } else if (source.type === 'fluid' && source.burns_fluid) {
-      const filter = source.fluid_box?.filter
-      fuels = filter ? (raw.fluid?.[filter] && !raw.fluid[filter].hidden ? [fluidFuel(raw.fluid[filter])] : []) : allFluidFuels()
-      fuels = fuels.filter(f => f.kj > 0)
-    } else {
+    const isHeat = source.type === 'heat'
+    const fuels = isHeat ? [heatInput] : fuelsOf(source)
+    if (fuels === null) {
       skip('boiler', proto, `${source.type ?? 'unknown'} energy source is not a burning one`)
       continue
     }
@@ -189,7 +209,7 @@ export async function exportPower(raw, opts) {
       continue
     }
     const steamPerSec = powerKw / perUnit
-    const eff = source.effectivity ?? 1
+    const eff = isHeat ? 1 : source.effectivity ?? 1
     const entries = fuels.map(fuel => {
       const fuelPerSec = powerKw / (fuel.kj * eff)
       return {
@@ -284,6 +304,36 @@ export async function exportPower(raw, opts) {
     await addMachine(proto, 'burner-generator', POWER_SUBGROUPS.burnerGenerators, entries)
   }
 
+  // --- Reactors -----------------------------------------------------------
+  // Heat out = `consumption`; fuel in = consumption / (fuel value x effectivity).
+  // No neighbours are assumed (see Machine.neighbourBonus).
+  for (const proto of Object.values(raw.reactor ?? {})) {
+    if (proto.hidden) continue
+    const source = proto.energy_source ?? {}
+    const fuels = fuelsOf(source)
+    if (fuels === null) {
+      skip('reactor', proto, `${source.type ?? 'unknown'} energy source is not a burning one`)
+      continue
+    }
+    const heatKw = parsePowerKw(proto.consumption)
+    if (!(heatKw > 0)) {
+      skip('reactor', proto, 'no consumption')
+      continue
+    }
+    const eff = source.effectivity ?? 1
+    const entries = fuels.map(fuel => {
+      const fuelPerSec = heatKw / (fuel.kj * eff)
+      return {
+        input: fuel,
+        ingredients: [{ itemId: fuel.id, type: fuel.type, amount: fuelPerSec }],
+        products: [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: heatKw / 1000 }, ...burnt(fuel, fuelPerSec)],
+        mainProduct: HEAT_ITEM_ID,
+      }
+    })
+    const bonus = proto.neighbour_bonus ?? 1
+    await addMachine(proto, 'reactor', POWER_SUBGROUPS.reactors, entries, bonus > 0 ? { neighbourBonus: bonus } : {})
+  }
+
   // --- Solar panels -------------------------------------------------------
   for (const proto of Object.values(raw['solar-panel'] ?? {})) {
     if (proto.hidden) continue
@@ -300,7 +350,7 @@ export async function exportPower(raw, opts) {
     }])
   }
 
-  // --- Electricity item, group and subgroups ------------------------------
+  // --- Electricity and heat items, group and subgroups ------------------------------
   const items = {}
   const itemGroups = {}
   const itemSubgroups = {}
@@ -315,6 +365,19 @@ export async function exportPower(raw, opts) {
       hidden:   false,
       subgroup: POWER_SUBGROUPS.electricity,
       order:    'a',
+    }
+    const usesHeat = Object.values(recipes).some(r =>
+      [...r.ingredients, ...r.products].some(e => e.itemId === HEAT_ITEM_ID))
+    if (usesHeat) {
+      items[HEAT_ITEM_ID] = {
+        id:       HEAT_ITEM_ID,
+        name:     'Heat',
+        type:     'fluid',
+        iconPath: await resolveIcon({ name: 'power-heat', icon: HEAT_ICON, icon_size: HEAT_ICON_SIZE }, 'power-heat'),
+        hidden:   false,
+        subgroup: POWER_SUBGROUPS.electricity,
+        order:    'b',
+      }
     }
     itemGroups[POWER_GROUP_ID] = { id: POWER_GROUP_ID, name: 'Power', order: 'zz', iconPath }
     for (const id of [POWER_SUBGROUPS.electricity, ...usedSubgroups]) {

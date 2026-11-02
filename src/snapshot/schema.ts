@@ -11,8 +11,8 @@ import { PlanDataSetStampSchema } from '../data/schema'
 // - Ids are the ones the game knows. No icons, no display names of game objects.
 //   (Block and sub-factory names are the player's own text, not game objects.) Ids the data
 //   exporter invented (`mining:*`, `offshore:*`, `power:*` recipes, the `power:electricity`
-//   item) never appear: such a row carries a `kind` and its `product` instead of a recipe,
-//   and the electricity item is a `virtual` reference that the reader draws itself.
+//   and `power:heat` items) never appear: such a row carries a `kind` and its `product` instead of a recipe,
+//   and electricity and heat are `virtual` references that the reader draws itself.
 // - JSON `null` never appears: an absent value is an omitted key.
 // - Rates are items per minute, rounded to three decimals.
 // - Blocks' sub-factory groups are referred to by their index in the block's `groups`, so a
@@ -28,8 +28,9 @@ const rate = z.number().nonnegative()
 const count = z.number().int().nonnegative()
 const index = z.number().int().nonnegative()
 
-/** The id of the one `virtual` item, the electricity pseudo-item (`ELECTRICITY_ITEM_ID` in the plan). */
+/** The ids of the `virtual` items, the electricity and heat pseudo-items (`ELECTRICITY_ITEM_ID` and `HEAT_ITEM_ID` in the plan). */
 export const SNAPSHOT_ELECTRICITY_ID = 'electricity'
+export const SNAPSHOT_HEAT_ID = 'heat'
 
 /**
  * `item` and `fluid` pick the sprite prefix (`item/<id>`, `fluid/<id>`). `virtual` is not a game
@@ -37,7 +38,7 @@ export const SNAPSHOT_ELECTRICITY_ID = 'electricity'
  */
 const itemType = z.enum(['item', 'fluid', 'virtual'])
 
-/** A reference to an item, a fluid or the virtual electricity item. */
+/** A reference to an item, a fluid or a virtual item (electricity, heat). */
 export const SnapshotItemRefSchema = z.strictObject({
   id: z.string().min(1),
   type: itemType,
@@ -80,7 +81,7 @@ const rowShape = {
   machinesCeil: count.optional(),
   /** Recipe executions per minute. */
   throughput: rate.optional(),
-  /** Items consumed per minute, from the solve; omitted when empty or when the row is unsolved. Electricity is left out. */
+  /** Items consumed per minute, from the solve; omitted when empty or when the row is unsolved. Electricity and heat are left out. */
   inputs: z.array(SnapshotItemRateSchema).optional(),
   /** Items produced per minute (gross), from the solve; same rules as `inputs`. */
   outputs: z.array(SnapshotItemRateSchema).optional(),

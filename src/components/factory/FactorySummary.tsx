@@ -4,7 +4,7 @@ import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solv
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
-import { isElectricity } from '../../data/electricity'
+import { isEnergyItem } from '../../data/electricity'
 import { RateInput } from './RateInput'
 import { ItemPicker } from '../ItemPicker'
 import type { ConnectionFlow, Product } from '../../data/types'
@@ -42,8 +42,8 @@ interface ProductRatesProps {
 
 function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop, onUpdateExtra }: ProductRatesProps) {
   // product.extraRate is stored in items/min internally
-  // Electricity is shown in power units (value and unit together); its inputs are typed in MW.
-  const power = isElectricity(product.itemId)
+  // Electricity and heat are shown in power units (value and unit together); its inputs are typed in MW.
+  const power = isEnergyItem(product.itemId)
   const unitLabel = power ? '' : fmtItemRate(product.itemId, 0, rateUnit).unit
   const text = (perMin: number) => power
     ? fmtItemRateText(product.itemId, perMin / 60, rateUnit)
@@ -70,7 +70,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
             onCommit={onUpdateExtra}
             onStop={onStop}
           />
-          {/* Electricity has no unitLabel, but its field is typed in MW whatever the rate unit. */}
+          {/* Electricity and heat have no unitLabel, but its field is typed in MW whatever the rate unit. */}
           {power && <span data-testid="extra-input-unit" className="text-gray-400 text-[10px]">MW</span>}
         </>
       ) : hasExtra && (
@@ -224,7 +224,7 @@ export function FactorySummary() {
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
   // A product shortfall can neither receive supply nor be forbidden imports (products have no slack).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
-  // Number and unit of a rate of `itemId` (power units for electricity).
+  // Number and unit of a rate of `itemId` (power units for electricity and heat).
   const fmtFor = (itemId: string, perMin: number) => fmtItemRate(itemId, perMin / 60, rateUnit)
 
   function requestAddProduct(itemId: string, extraRate?: number) {

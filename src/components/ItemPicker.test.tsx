@@ -398,6 +398,9 @@ function fixtureWithPower(): GameData {
   data.items['power:electricity'] = {
     id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false, subgroup: 'power:electricity', order: 'a',
   }
+  data.items['power:heat'] = {
+    id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '', hidden: false, subgroup: 'power:electricity', order: 'b',
+  }
   data.items['coal'] = { id: 'coal', name: 'Coal', type: 'item', iconPath: '/icons/coal.png', hidden: false, subgroup: 'raw-material', order: 'd' }
   data.itemGroups['power:power'] = { id: 'power:power', name: 'Power', order: 'zz', iconPath: '' }
   data.itemSubgroups['power:electricity'] = { id: 'power:electricity', group: 'power:power', order: 'a' }
@@ -424,11 +427,20 @@ describe('ItemPicker — power generation', () => {
   it('takes the amount of electricity in MW and passes it per minute', () => {
     const onSelect = vi.fn()
     render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
-    expect(screen.getByText('/min (MW for Electricity)')).toBeInTheDocument()
+    expect(screen.getByText('/min (MW for Electricity and Heat)')).toBeInTheDocument()
     fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '10' } })
     fireEvent.click(screen.getAllByTestId('item-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
-    fireEvent.click(screen.getByTestId('item-slot'))
+    fireEvent.click(screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'power:electricity')!)
     expect(onSelect).toHaveBeenCalledWith('power:electricity', 600)
+  })
+
+  it('takes the amount of heat in MW too', () => {
+    const onSelect = vi.fn()
+    render(<ItemPicker source="items" onSelect={onSelect} onClose={() => {}} />)
+    fireEvent.change(screen.getByLabelText('Amount'), { target: { value: '21.6' } })
+    fireEvent.click(screen.getAllByTestId('item-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    fireEvent.click(screen.getAllByTestId('item-slot').find(s => s.getAttribute('data-item-id') === 'power:heat')!)
+    expect(onSelect).toHaveBeenCalledWith('power:heat', 1296)
   })
 
   it('shows a power recipe as its machine with the fuel as a badge, and small amounts with two digits', () => {

@@ -144,6 +144,7 @@ describe("viewmodel.build", function()
     s.blocks[1].products = {
       { id = "water", type = "fluid", rate = 1 },
       { id = "electricity", type = "virtual", rate = 1000 },
+      { id = "heat", type = "virtual", rate = 60 },
     }
     local products = viewmodel.build(s).blocks[1].products
     assert.are.equal("fluid/water", products[1].sprite)
@@ -152,6 +153,9 @@ describe("viewmodel.build", function()
     assert.is_nil(products[2].sprite)
     assert.is_nil(products[2].rich)
     assert.is_nil(products[2].missing)
+    assert.is_true(products[3].virtual)
+    assert.is_nil(products[3].sprite)
+    assert.is_nil(products[3].rich)
   end)
 
   describe("a synthetic row", function()

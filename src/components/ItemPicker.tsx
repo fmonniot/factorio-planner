@@ -7,7 +7,7 @@ import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
-import { ELECTRICITY_ITEM_ID, isElectricity } from '../data/electricity'
+import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -536,9 +536,11 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
     return Number.isFinite(v) && v > 0 ? v : null
   }
 
-  /** The amount is typed per minute, except for electricity, which is typed in MW (1 MW = 60 units/min). */
+  const energyNames = ENERGY_ITEM_IDS.filter(id => id in gameData.items).map(id => gameData.items[id].name)
+
+  /** The amount is typed per minute, except for electricity and heat, which are typed in MW (1 MW = 60 units/min). */
   function toRate(itemId: string, amount: number | undefined): number | undefined {
-    return amount !== undefined && isElectricity(itemId) ? amount * 60 : amount
+    return amount !== undefined && isEnergyItem(itemId) ? amount * 60 : amount
   }
 
   function pick(itemId: string) {
@@ -593,7 +595,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
             className="ml-2 w-24 bg-gray-800 text-gray-100 px-2 py-1 rounded outline-none focus:ring-1 focus:ring-blue-500"
           />
         </label>
-        <span className="text-gray-500">{ELECTRICITY_ITEM_ID in gameData.items ? '/min (MW for Electricity)' : '/min'}</span>
+        <span className="text-gray-500">{energyNames.length > 0 ? `/min (MW for ${energyNames.join(' and ')})` : '/min'}</span>
       </div>
 
       {/* Group tabs (hidden when bundle has no group metadata) */}

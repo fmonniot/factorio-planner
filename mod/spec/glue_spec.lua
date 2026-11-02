@@ -268,6 +268,21 @@ describe("scripts/gui.lua", function()
     end))
   end)
 
+  it("draws a reactor row with the heat icon and its kind in the tooltip", function()
+    local snapshot = support.json_to_table(fixture_text("small"))
+    snapshot.blocks[1].rows[1] = { kind = "power", product = { id = "heat", type = "virtual" }, machines = 1, machinesCeil = 1 }
+    local _, window = show(snapshot)
+    local heat = fake_game.find(window, function(e)
+      return e.type == "sprite-button" and e.sprite == "utility/heat_exchange_indication"
+    end)
+    assert.are.equal(1, #heat)
+    assert.are.equal("{fp-viewer.kind-power}: {fp-viewer.heat}", fake_game.flatten(heat[1].tooltip))
+    -- Heat is never an item button.
+    assert.are.equal(0, #fake_game.find(window, function(e)
+      return e.sprite == "virtual/heat" or e.sprite == "item/heat"
+    end))
+  end)
+
   it("says why a failed block has no numbers", function()
     local snapshot = support.json_to_table(fixture_text("seablock-edge-cases"))
     local _, window = show(snapshot, { selected = 3 })

@@ -178,4 +178,20 @@ describe('electricity rates', () => {
     expect(container.textContent).toContain('10.0MW')
     expect(container.querySelector('[data-variant="product"]')).not.toBeNull()
   })
+
+  const heat: Item = {
+    id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '/icons/power-heat.png', hidden: false, subgroup: '', order: '',
+  }
+
+  it('formats and types heat like electricity', () => {
+    expect(fmtItemRate('power:heat', 21.6, 'min')).toEqual({ value: '21.6', unit: 'MW' })
+    expect(inputRateUnit('power:heat', 'min')).toBe('sec')
+  })
+
+  it('shows a heat item tile with its icon, not ⚡', () => {
+    const { container } = render(<ItemTile item={heat} ratePerSec={21.6} variant="product" />)
+    expect(container.querySelector('img')).not.toBeNull()
+    expect(screen.queryByText('⚡')).not.toBeInTheDocument()
+    expect(container.textContent).toContain('21.6MW')
+  })
 })

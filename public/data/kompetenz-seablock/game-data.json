@@ -1261,7 +1261,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-b",
-      "order": "a"
+      "order": "a",
+      "placeResult": "nuclear-reactor"
     },
     "uranium-235": {
       "id": "uranium-235",
@@ -1322,7 +1323,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-heat-exchanger",
-      "order": "a"
+      "order": "a",
+      "placeResult": "heat-exchanger"
     },
     "steam-turbine": {
       "id": "steam-turbine",
@@ -19376,7 +19378,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-a",
-      "order": "a[fuel-burner]-a"
+      "order": "a[fuel-burner]-a",
+      "placeResult": "bob-burner-reactor"
     },
     "bob-burner-reactor-2": {
       "id": "bob-burner-reactor-2",
@@ -19386,7 +19389,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-a",
-      "order": "a[fuel-burner]-b"
+      "order": "a[fuel-burner]-b",
+      "placeResult": "bob-burner-reactor-2"
     },
     "bob-fluid-reactor": {
       "id": "bob-fluid-reactor",
@@ -19396,7 +19400,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-a",
-      "order": "b[fluid-burner]-a"
+      "order": "b[fluid-burner]-a",
+      "placeResult": "bob-fluid-reactor"
     },
     "bob-fluid-reactor-2": {
       "id": "bob-fluid-reactor-2",
@@ -19406,7 +19411,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-a",
-      "order": "b[fluid-burner]-b"
+      "order": "b[fluid-burner]-b",
+      "placeResult": "bob-fluid-reactor-2"
     },
     "bob-heat-pipe-2": {
       "id": "bob-heat-pipe-2",
@@ -19836,7 +19842,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-heat-exchanger",
-      "order": "b"
+      "order": "b",
+      "placeResult": "bob-heat-exchanger-2"
     },
     "bob-heat-exchanger-3": {
       "id": "bob-heat-exchanger-3",
@@ -19846,7 +19853,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-heat-exchanger",
-      "order": "c"
+      "order": "c",
+      "placeResult": "bob-heat-exchanger-3"
     },
     "bob-heat-exchanger-4": {
       "id": "bob-heat-exchanger-4",
@@ -19856,7 +19864,8 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-heat-exchanger",
-      "order": "d"
+      "order": "d",
+      "placeResult": "bob-heat-exchanger-4"
     },
     "bob-steam-turbine-2": {
       "id": "bob-steam-turbine-2",
@@ -19888,7 +19897,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-b",
-      "order": "b"
+      "order": "b",
+      "placeResult": "bob-nuclear-reactor-2"
     },
     "bob-nuclear-reactor-3": {
       "id": "bob-nuclear-reactor-3",
@@ -19898,7 +19908,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear-reactor-b",
-      "order": "c"
+      "order": "c",
+      "placeResult": "bob-nuclear-reactor-3"
     },
     "bob-heat-shield-tile": {
       "id": "bob-heat-shield-tile",
@@ -23171,7 +23182,8 @@
       "hidden": false,
       "stackSize": 10,
       "subgroup": "angels-power-nuclear",
-      "order": "a[reactor]-b"
+      "order": "a[reactor]-b",
+      "placeResult": "angels-burner-reactor"
     },
     "angels-chemical-void": {
       "id": "angels-chemical-void",
@@ -34372,6 +34384,15 @@
       "hidden": false,
       "subgroup": "power:electricity",
       "order": "a"
+    },
+    "power:heat": {
+      "id": "power:heat",
+      "name": "Heat",
+      "type": "fluid",
+      "iconPath": "/data/kompetenz-seablock/icons/power-heat.png",
+      "hidden": false,
+      "subgroup": "power:electricity",
+      "order": "b"
     }
   },
   "recipes": {
@@ -137173,6 +137194,40 @@
       "power": true,
       "mainProduct": "steam"
     },
+    "power:heat-exchanger:power:heat": {
+      "id": "power:heat-exchanger:power:heat",
+      "name": "Heat exchanger (Heat)",
+      "category": "power:heat-exchanger",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 120
+        },
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 7.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 120
+        }
+      ],
+      "madeIn": [
+        "heat-exchanger"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
     "power:bob-boiler-2:angels-cellulose-fiber": {
       "id": "power:bob-boiler-2:angels-cellulose-fiber",
       "name": "Boiler 2 (Cellulose fiber)",
@@ -139621,6 +139676,108 @@
       "power": true,
       "mainProduct": "steam"
     },
+    "power:bob-heat-exchanger-2:power:heat": {
+      "id": "power:bob-heat-exchanger-2:power:heat",
+      "name": "Heat exchanger 2 (Heat)",
+      "category": "power:bob-heat-exchanger-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 120
+        },
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 10.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 120
+        }
+      ],
+      "madeIn": [
+        "bob-heat-exchanger-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-heat-exchanger-3:power:heat": {
+      "id": "power:bob-heat-exchanger-3:power:heat",
+      "name": "Heat exchanger 3 (Heat)",
+      "category": "power:bob-heat-exchanger-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 120
+        },
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 14.4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 120
+        }
+      ],
+      "madeIn": [
+        "bob-heat-exchanger-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
+    "power:bob-heat-exchanger-4:power:heat": {
+      "id": "power:bob-heat-exchanger-4:power:heat",
+      "name": "Heat exchanger 4 (Heat)",
+      "category": "power:bob-heat-exchanger-4",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "water",
+          "type": "fluid",
+          "amount": 120
+        },
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 18
+        }
+      ],
+      "products": [
+        {
+          "itemId": "steam",
+          "type": "fluid",
+          "amount": 120
+        }
+      ],
+      "madeIn": [
+        "bob-heat-exchanger-4"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:boilers",
+      "order": "",
+      "power": true,
+      "mainProduct": "steam"
+    },
     "power:steam-engine:steam": {
       "id": "power:steam-engine:steam",
       "name": "Steam engine (Steam)",
@@ -139860,6 +140017,1322 @@
       "order": "",
       "power": true,
       "mainProduct": "power:electricity"
+    },
+    "power:nuclear-reactor:angels-mixed-oxide-cell": {
+      "id": "power:nuclear-reactor:angels-mixed-oxide-cell",
+      "name": "Uranium reactor (Mixed-oxide (MOX) fuel cell)",
+      "category": "power:nuclear-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-mixed-oxide-cell",
+          "type": "item",
+          "amount": 0.00675
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 54
+        },
+        {
+          "itemId": "angels-depleted-mixed-oxide-cell",
+          "type": "item",
+          "amount": 0.00675
+        }
+      ],
+      "madeIn": [
+        "nuclear-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:nuclear-reactor:angels-uranium-fuel-cell": {
+      "id": "power:nuclear-reactor:angels-uranium-fuel-cell",
+      "name": "Uranium reactor (Uranium-234 fuel cell)",
+      "category": "power:nuclear-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.036
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 54
+        },
+        {
+          "itemId": "depleted-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.036
+        }
+      ],
+      "madeIn": [
+        "nuclear-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:nuclear-reactor:uranium-fuel-cell": {
+      "id": "power:nuclear-reactor:uranium-fuel-cell",
+      "name": "Uranium reactor (Uranium-235 fuel cell)",
+      "category": "power:nuclear-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.027
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 54
+        },
+        {
+          "itemId": "depleted-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.027
+        }
+      ],
+      "madeIn": [
+        "nuclear-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-cellulose-fiber": {
+      "id": "power:bob-burner-reactor:angels-cellulose-fiber",
+      "name": "Burner heat source (Cellulose fiber)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-nuclear-fuel": {
+      "id": "power:bob-burner-reactor:angels-nuclear-fuel",
+      "name": "Burner heat source (Plutonium nuclear fuel)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.0006830134553650707
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-nuclear-fuel-2": {
+      "id": "power:bob-burner-reactor:angels-nuclear-fuel-2",
+      "name": "Burner heat source (Fusion nuclear fuel)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.00045533193698205993
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-pellet-charcoal": {
+      "id": "power:bob-burner-reactor:angels-pellet-charcoal",
+      "name": "Burner heat source (Charcoal pellet)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.041666666666666664
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-rocket-booster": {
+      "id": "power:bob-burner-reactor:angels-rocket-booster",
+      "name": "Burner heat source (Rocket booster)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-solid-carbon": {
+      "id": "power:bob-burner-reactor:angels-solid-carbon",
+      "name": "Burner heat source (Carbon)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 0.4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-wood-bricks": {
+      "id": "power:bob-burner-reactor:angels-wood-bricks",
+      "name": "Burner heat source (Wood bricks)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.05555555555555555
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-wood-charcoal": {
+      "id": "power:bob-burner-reactor:angels-wood-charcoal",
+      "name": "Burner heat source (Charcoal)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 0.25
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:angels-wood-pellets": {
+      "id": "power:bob-burner-reactor:angels-wood-pellets",
+      "name": "Burner heat source (Wood pellets)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.125
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:bob-enriched-fuel": {
+      "id": "power:bob-burner-reactor:bob-enriched-fuel",
+      "name": "Burner heat source (Enriched fuel block)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.02
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:nuclear-fuel": {
+      "id": "power:bob-burner-reactor:nuclear-fuel",
+      "name": "Burner heat source (Nuclear fuel)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.0008264462809917355
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:rocket-fuel": {
+      "id": "power:bob-burner-reactor:rocket-fuel",
+      "name": "Burner heat source (Rocket fuel)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.01
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:solid-fuel": {
+      "id": "power:bob-burner-reactor:solid-fuel",
+      "name": "Burner heat source (Solid fuel)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.08333333333333333
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor:wood": {
+      "id": "power:bob-burner-reactor:wood",
+      "name": "Burner heat source (Wood)",
+      "category": "power:bob-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 0.5
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.6
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-cellulose-fiber": {
+      "id": "power:bob-burner-reactor-2:angels-cellulose-fiber",
+      "name": "Burner heat source 2 (Cellulose fiber)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-cellulose-fiber",
+          "type": "item",
+          "amount": 2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-nuclear-fuel": {
+      "id": "power:bob-burner-reactor-2:angels-nuclear-fuel",
+      "name": "Burner heat source 2 (Plutonium nuclear fuel)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-nuclear-fuel",
+          "type": "item",
+          "amount": 0.0013660269107301415
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-nuclear-fuel-2": {
+      "id": "power:bob-burner-reactor-2:angels-nuclear-fuel-2",
+      "name": "Burner heat source 2 (Fusion nuclear fuel)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-nuclear-fuel-2",
+          "type": "item",
+          "amount": 0.0009106638739641199
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-pellet-charcoal": {
+      "id": "power:bob-burner-reactor-2:angels-pellet-charcoal",
+      "name": "Burner heat source 2 (Charcoal pellet)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-pellet-charcoal",
+          "type": "item",
+          "amount": 0.08333333333333333
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-rocket-booster": {
+      "id": "power:bob-burner-reactor-2:angels-rocket-booster",
+      "name": "Burner heat source 2 (Rocket booster)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-rocket-booster",
+          "type": "item",
+          "amount": 0.2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-solid-carbon": {
+      "id": "power:bob-burner-reactor-2:angels-solid-carbon",
+      "name": "Burner heat source 2 (Carbon)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-solid-carbon",
+          "type": "item",
+          "amount": 0.8
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-wood-bricks": {
+      "id": "power:bob-burner-reactor-2:angels-wood-bricks",
+      "name": "Burner heat source 2 (Wood bricks)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-bricks",
+          "type": "item",
+          "amount": 0.1111111111111111
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-wood-charcoal": {
+      "id": "power:bob-burner-reactor-2:angels-wood-charcoal",
+      "name": "Burner heat source 2 (Charcoal)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-charcoal",
+          "type": "item",
+          "amount": 0.5
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:angels-wood-pellets": {
+      "id": "power:bob-burner-reactor-2:angels-wood-pellets",
+      "name": "Burner heat source 2 (Wood pellets)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-wood-pellets",
+          "type": "item",
+          "amount": 0.25
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:bob-enriched-fuel": {
+      "id": "power:bob-burner-reactor-2:bob-enriched-fuel",
+      "name": "Burner heat source 2 (Enriched fuel block)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "bob-enriched-fuel",
+          "type": "item",
+          "amount": 0.04
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:nuclear-fuel": {
+      "id": "power:bob-burner-reactor-2:nuclear-fuel",
+      "name": "Burner heat source 2 (Nuclear fuel)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "nuclear-fuel",
+          "type": "item",
+          "amount": 0.001652892561983471
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:rocket-fuel": {
+      "id": "power:bob-burner-reactor-2:rocket-fuel",
+      "name": "Burner heat source 2 (Rocket fuel)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "rocket-fuel",
+          "type": "item",
+          "amount": 0.02
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:solid-fuel": {
+      "id": "power:bob-burner-reactor-2:solid-fuel",
+      "name": "Burner heat source 2 (Solid fuel)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "solid-fuel",
+          "type": "item",
+          "amount": 0.16666666666666666
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-burner-reactor-2:wood": {
+      "id": "power:bob-burner-reactor-2:wood",
+      "name": "Burner heat source 2 (Wood)",
+      "category": "power:bob-burner-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "wood",
+          "type": "item",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.4
+        }
+      ],
+      "madeIn": [
+        "bob-burner-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor:angels-gas-methane": {
+      "id": "power:bob-fluid-reactor:angels-gas-methane",
+      "name": "Fluid burning heat source (Methane gas)",
+      "category": "power:bob-fluid-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor:angels-liquid-fuel-oil": {
+      "id": "power:bob-fluid-reactor:angels-liquid-fuel-oil",
+      "name": "Fluid burning heat source (Fuel oil)",
+      "category": "power:bob-fluid-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 1
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor:angels-liquid-naphtha": {
+      "id": "power:bob-fluid-reactor:angels-liquid-naphtha",
+      "name": "Fluid burning heat source (Naphtha)",
+      "category": "power:bob-fluid-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor:crude-oil": {
+      "id": "power:bob-fluid-reactor:crude-oil",
+      "name": "Fluid burning heat source (Crude oil)",
+      "category": "power:bob-fluid-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 0.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor-2:angels-gas-methane": {
+      "id": "power:bob-fluid-reactor-2:angels-gas-methane",
+      "name": "Fluid burning heat source 2 (Methane gas)",
+      "category": "power:bob-fluid-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-gas-methane",
+          "type": "fluid",
+          "amount": 4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor-2:angels-liquid-fuel-oil": {
+      "id": "power:bob-fluid-reactor-2:angels-liquid-fuel-oil",
+      "name": "Fluid burning heat source 2 (Fuel oil)",
+      "category": "power:bob-fluid-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-liquid-fuel-oil",
+          "type": "fluid",
+          "amount": 2
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor-2:angels-liquid-naphtha": {
+      "id": "power:bob-fluid-reactor-2:angels-liquid-naphtha",
+      "name": "Fluid burning heat source 2 (Naphtha)",
+      "category": "power:bob-fluid-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-liquid-naphtha",
+          "type": "fluid",
+          "amount": 4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-fluid-reactor-2:crude-oil": {
+      "id": "power:bob-fluid-reactor-2:crude-oil",
+      "name": "Fluid burning heat source 2 (Crude oil)",
+      "category": "power:bob-fluid-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "crude-oil",
+          "type": "fluid",
+          "amount": 4
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 1.8
+        }
+      ],
+      "madeIn": [
+        "bob-fluid-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-nuclear-reactor-2:angels-thorium-fuel-cell": {
+      "id": "power:bob-nuclear-reactor-2:angels-thorium-fuel-cell",
+      "name": "Thorium reactor (Thorium fuel cell)",
+      "category": "power:bob-nuclear-reactor-2",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-thorium-fuel-cell",
+          "type": "item",
+          "amount": 0.0048
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 72
+        },
+        {
+          "itemId": "angels-depleted-thorium-fuel-cell",
+          "type": "item",
+          "amount": 0.0048
+        }
+      ],
+      "madeIn": [
+        "bob-nuclear-reactor-2"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:bob-nuclear-reactor-3:angels-deuterium-fuel-cell": {
+      "id": "power:bob-nuclear-reactor-3:angels-deuterium-fuel-cell",
+      "name": "Deuterium reactor (Deuterium fuel cell)",
+      "category": "power:bob-nuclear-reactor-3",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-deuterium-fuel-cell",
+          "type": "item",
+          "amount": 0.001125
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 90
+        },
+        {
+          "itemId": "angels-depleted-deuterium-fuel-cell",
+          "type": "item",
+          "amount": 0.001125
+        }
+      ],
+      "madeIn": [
+        "bob-nuclear-reactor-3"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:angels-burner-reactor:angels-mixed-oxide-cell": {
+      "id": "power:angels-burner-reactor:angels-mixed-oxide-cell",
+      "name": "Fast burner reactor (Mixed-oxide (MOX) fuel cell)",
+      "category": "power:angels-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-mixed-oxide-cell",
+          "type": "item",
+          "amount": 0.08
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 160
+        },
+        {
+          "itemId": "angels-depleted-mixed-oxide-cell",
+          "type": "item",
+          "amount": 0.08
+        }
+      ],
+      "madeIn": [
+        "angels-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:angels-burner-reactor:angels-uranium-fuel-cell": {
+      "id": "power:angels-burner-reactor:angels-uranium-fuel-cell",
+      "name": "Fast burner reactor (Uranium-234 fuel cell)",
+      "category": "power:angels-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "angels-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.4266666666666667
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 160
+        },
+        {
+          "itemId": "depleted-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.4266666666666667
+        }
+      ],
+      "madeIn": [
+        "angels-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
+    },
+    "power:angels-burner-reactor:uranium-fuel-cell": {
+      "id": "power:angels-burner-reactor:uranium-fuel-cell",
+      "name": "Fast burner reactor (Uranium-235 fuel cell)",
+      "category": "power:angels-burner-reactor",
+      "craftingTime": 1,
+      "ingredients": [
+        {
+          "itemId": "uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.32
+        }
+      ],
+      "products": [
+        {
+          "itemId": "power:heat",
+          "type": "fluid",
+          "amount": 160
+        },
+        {
+          "itemId": "depleted-uranium-fuel-cell",
+          "type": "item",
+          "amount": 0.32
+        }
+      ],
+      "madeIn": [
+        "angels-burner-reactor"
+      ],
+      "allowProductivity": false,
+      "hidden": false,
+      "subgroup": "power:reactors",
+      "order": "",
+      "power": true,
+      "mainProduct": "power:heat"
     },
     "power:solar-panel": {
       "id": "power:solar-panel",
@@ -144065,6 +145538,22 @@
       "iconPath": "/data/kompetenz-seablock/icons/boiler.png",
       "hidden": false
     },
+    "heat-exchanger": {
+      "id": "heat-exchanger",
+      "name": "Heat exchanger",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:heat-exchanger"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/heat-exchanger.png",
+      "hidden": false
+    },
     "bob-boiler-2": {
       "id": "bob-boiler-2",
       "name": "Boiler 2",
@@ -144193,6 +145682,54 @@
       "iconPath": "/data/kompetenz-seablock/icons/bob-oil-boiler-4.png",
       "hidden": false
     },
+    "bob-heat-exchanger-2": {
+      "id": "bob-heat-exchanger-2",
+      "name": "Heat exchanger 2",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-heat-exchanger-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-heat-exchanger-2.png",
+      "hidden": false
+    },
+    "bob-heat-exchanger-3": {
+      "id": "bob-heat-exchanger-3",
+      "name": "Heat exchanger 3",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-heat-exchanger-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-heat-exchanger-3.png",
+      "hidden": false
+    },
+    "bob-heat-exchanger-4": {
+      "id": "bob-heat-exchanger-4",
+      "name": "Heat exchanger 4",
+      "type": "boiler",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-heat-exchanger-4"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-heat-exchanger-4.png",
+      "hidden": false
+    },
     "steam-engine": {
       "id": "steam-engine",
       "name": "Steam engine",
@@ -144319,6 +145856,141 @@
         "power:bob-steam-turbine-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-steam-turbine-3.png",
+      "hidden": false
+    },
+    "nuclear-reactor": {
+      "id": "nuclear-reactor",
+      "name": "Uranium reactor",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:nuclear-reactor"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/nuclear-reactor.png",
+      "hidden": false,
+      "neighbourBonus": 1
+    },
+    "bob-burner-reactor": {
+      "id": "bob-burner-reactor",
+      "name": "Burner heat source",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-burner-reactor"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-burner-reactor.png",
+      "hidden": false,
+      "neighbourBonus": 0.25
+    },
+    "bob-burner-reactor-2": {
+      "id": "bob-burner-reactor-2",
+      "name": "Burner heat source 2",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-burner-reactor-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-burner-reactor-2.png",
+      "hidden": false,
+      "neighbourBonus": 0.25
+    },
+    "bob-fluid-reactor": {
+      "id": "bob-fluid-reactor",
+      "name": "Fluid burning heat source",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-fluid-reactor"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-fluid-reactor.png",
+      "hidden": false,
+      "neighbourBonus": 0.1
+    },
+    "bob-fluid-reactor-2": {
+      "id": "bob-fluid-reactor-2",
+      "name": "Fluid burning heat source 2",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-fluid-reactor-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-fluid-reactor-2.png",
+      "hidden": false,
+      "neighbourBonus": 0.1
+    },
+    "bob-nuclear-reactor-2": {
+      "id": "bob-nuclear-reactor-2",
+      "name": "Thorium reactor",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-nuclear-reactor-2"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-nuclear-reactor-2.png",
+      "hidden": false,
+      "neighbourBonus": 1
+    },
+    "bob-nuclear-reactor-3": {
+      "id": "bob-nuclear-reactor-3",
+      "name": "Deuterium reactor",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:bob-nuclear-reactor-3"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/bob-nuclear-reactor-3.png",
+      "hidden": false,
+      "neighbourBonus": 1
+    },
+    "angels-burner-reactor": {
+      "id": "angels-burner-reactor",
+      "name": "Fast burner reactor",
+      "type": "reactor",
+      "craftingSpeed": 1,
+      "energyUsageKw": 0,
+      "energyType": "void",
+      "drainKw": 0,
+      "moduleSlots": 0,
+      "allowedEffects": [],
+      "craftingCategories": [
+        "power:angels-burner-reactor"
+      ],
+      "iconPath": "/data/kompetenz-seablock/icons/angels-burner-reactor.png",
       "hidden": false
     },
     "solar-panel": {
@@ -145117,6 +146789,7 @@
     "offshore:water": "angels-sea-pump-placeable",
     "offshore:angels-water-viscous-mud": "angels-seafloor-pump",
     "power:boiler": "boiler",
+    "power:heat-exchanger": "heat-exchanger",
     "power:bob-boiler-2": "bob-boiler-2",
     "power:bob-boiler-3": "bob-boiler-3",
     "power:bob-boiler-4": "bob-boiler-4",
@@ -145125,6 +146798,9 @@
     "power:bob-oil-boiler-2": "bob-oil-boiler-2",
     "power:bob-oil-boiler-3": "bob-oil-boiler-3",
     "power:bob-oil-boiler-4": "bob-oil-boiler-4",
+    "power:bob-heat-exchanger-2": "bob-heat-exchanger-2",
+    "power:bob-heat-exchanger-3": "bob-heat-exchanger-3",
+    "power:bob-heat-exchanger-4": "bob-heat-exchanger-4",
     "power:steam-engine": "steam-engine",
     "power:steam-turbine": "steam-turbine",
     "power:bob-steam-engine-2": "bob-steam-engine-2",
@@ -145133,6 +146809,14 @@
     "power:bob-steam-engine-5": "bob-steam-engine-5",
     "power:bob-steam-turbine-2": "bob-steam-turbine-2",
     "power:bob-steam-turbine-3": "bob-steam-turbine-3",
+    "power:nuclear-reactor": "nuclear-reactor",
+    "power:bob-burner-reactor": "bob-burner-reactor",
+    "power:bob-burner-reactor-2": "bob-burner-reactor-2",
+    "power:bob-fluid-reactor": "bob-fluid-reactor",
+    "power:bob-fluid-reactor-2": "bob-fluid-reactor-2",
+    "power:bob-nuclear-reactor-2": "bob-nuclear-reactor-2",
+    "power:bob-nuclear-reactor-3": "bob-nuclear-reactor-3",
+    "power:angels-burner-reactor": "angels-burner-reactor",
     "power:solar-panel": "solar-panel",
     "power:bob-solar-panel-small": "bob-solar-panel-small",
     "power:bob-solar-panel-large": "bob-solar-panel-large",
@@ -147699,6 +149383,11 @@
       "id": "power:generators",
       "group": "power:power",
       "order": "c"
+    },
+    "power:reactors": {
+      "id": "power:reactors",
+      "group": "power:power",
+      "order": "f"
     },
     "power:solar-panels": {
       "id": "power:solar-panels",
