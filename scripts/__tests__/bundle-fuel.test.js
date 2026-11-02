@@ -2,9 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { readdirSync, readFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 
-// Regression guard for the exported burner fuel data. The bundles gain it when they are re-patched with
-// `--patch-fuel` (see the backlog), so the invariants that hold either way are asserted for every bundle
-// and the exact expectations only for a bundle that carries the data.
+// Regression guard for the exported burner fuel data: the invariants are asserted for every bundle and the
+// exact expectations for kompetenz-seablock, which was patched with `--patch-fuel`.
 const DATA_DIR = join(import.meta.dirname, '../../public/data')
 const load = dir => JSON.parse(readFileSync(join(DATA_DIR, dir, 'game-data.json'), 'utf8'))
 
@@ -38,10 +37,8 @@ describe('bundled burner fuel', () => {
     })
   }
 
-  it('a patched kompetenz-seablock has fuel for every burner machine and boiler fuel', () => {
+  it('kompetenz-seablock has fuel for every burner machine and boiler fuel', () => {
     const bundle = load('kompetenz-seablock')
-    const patched = Object.values(bundle.items).some(i => 'fuelValueKj' in i)
-    if (!patched) return // not re-patched yet
     const burners = Object.values(bundle.machines).filter(m => m.energyType === 'burner')
     expect(burners.length).toBe(11)
     for (const m of burners) expect(m.fuelCategories, m.id).toEqual(expect.any(Array))

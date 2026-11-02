@@ -196,7 +196,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "a[wood]"
+      "order": "a[wood]",
+      "fuelValueKj": 2000,
+      "fuelCategory": "chemical"
     },
     "coal": {
       "id": "coal",
@@ -583,7 +585,9 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-petrochem-fuel",
-      "order": "a[solid-fuel]-a"
+      "order": "a[solid-fuel]-a",
+      "fuelValueKj": 12000,
+      "fuelCategory": "chemical"
     },
     "rocket-fuel": {
       "id": "rocket-fuel",
@@ -593,7 +597,9 @@
       "hidden": false,
       "stackSize": 20,
       "subgroup": "angels-petrochem-fuel",
-      "order": "b[rocket-fuel]-c"
+      "order": "b[rocket-fuel]-c",
+      "fuelValueKj": 100000,
+      "fuelCategory": "chemical"
     },
     "iron-chest": {
       "id": "iron-chest",
@@ -1211,7 +1217,9 @@
       "hidden": false,
       "stackSize": 2,
       "subgroup": "angels-petrochem-fuel",
-      "order": "d[nuclear-fuel]"
+      "order": "d[nuclear-fuel]",
+      "fuelValueKj": 1210000,
+      "fuelCategory": "chemical"
     },
     "rocket-part": {
       "id": "rocket-part",
@@ -1303,7 +1311,10 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-fuel-cell",
-      "order": "a[uranium]-b"
+      "order": "a[uranium]-b",
+      "fuelValueKj": 2000000,
+      "fuelCategory": "nuclear",
+      "burntResult": "depleted-uranium-fuel-cell"
     },
     "depleted-uranium-fuel-cell": {
       "id": "depleted-uranium-fuel-cell",
@@ -16876,7 +16887,9 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-petrochem-fuel",
-      "order": "a[solid-fuel]-b"
+      "order": "a[solid-fuel]-b",
+      "fuelValueKj": 50000,
+      "fuelCategory": "chemical"
     },
     "bob-tin-plate": {
       "id": "bob-tin-plate",
@@ -17482,7 +17495,10 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-fuel-cells",
-      "order": "r[uranium-processing]-ab[bob-plutonium-fuel-cell]"
+      "order": "r[uranium-processing]-ab[bob-plutonium-fuel-cell]",
+      "fuelValueKj": 40000000,
+      "fuelCategory": "nuclear",
+      "burntResult": "depleted-uranium-fuel-cell"
     },
     "bob-empty-nuclear-fuel-cell": {
       "id": "bob-empty-nuclear-fuel-cell",
@@ -17512,7 +17528,10 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-fuel-cells",
-      "order": "s[thorium-processing]-a[bob-thorium-fuel-cell-1]"
+      "order": "s[thorium-processing]-a[bob-thorium-fuel-cell-1]",
+      "fuelValueKj": 12000000,
+      "fuelCategory": "bob-thorium",
+      "burntResult": "bob-depleted-thorium-fuel-cell"
     },
     "bob-thorium-plutonium-fuel-cell": {
       "id": "bob-thorium-plutonium-fuel-cell",
@@ -17522,7 +17541,10 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-fuel-cells",
-      "order": "s[thorium-processing]-a[bob-thorium-fuel-cell-2]"
+      "order": "s[thorium-processing]-a[bob-thorium-fuel-cell-2]",
+      "fuelValueKj": 60000000,
+      "fuelCategory": "bob-thorium",
+      "burntResult": "bob-depleted-thorium-fuel-cell"
     },
     "bob-depleted-thorium-fuel-cell": {
       "id": "bob-depleted-thorium-fuel-cell",
@@ -17542,7 +17564,10 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-fuel-cells",
-      "order": "t[deuterium-processing]-a[bob-deuterium-fuel-cell]"
+      "order": "t[deuterium-processing]-a[bob-deuterium-fuel-cell]",
+      "fuelValueKj": 80000000,
+      "fuelCategory": "bob-deuterium",
+      "burntResult": "bob-depleted-deuterium-fuel-cell"
     },
     "bob-depleted-deuterium-fuel-cell": {
       "id": "bob-depleted-deuterium-fuel-cell",
@@ -17562,7 +17587,10 @@
       "hidden": true,
       "stackSize": 50,
       "subgroup": "bob-fuel-cells",
-      "order": "t[deuterium-processing]-b[bob-deuterium-fuel-cell-2]"
+      "order": "t[deuterium-processing]-b[bob-deuterium-fuel-cell-2]",
+      "fuelValueKj": 120000000,
+      "fuelCategory": "bob-deuterium",
+      "burntResult": "bob-depleted-deuterium-fuel-cell"
     },
     "bob-fusion-catalyst": {
       "id": "bob-fusion-catalyst",
@@ -17813,7 +17841,9 @@
       "hidden": true,
       "stackSize": 100,
       "subgroup": "ee-trains",
-      "order": "c"
+      "order": "c",
+      "fuelValueKj": 1e+24,
+      "fuelCategory": "chemical"
     },
     "ee-super-inserter": {
       "id": "ee-super-inserter",
@@ -23413,7 +23443,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-petrochem-coal",
-      "order": "a[carbon]-d"
+      "order": "a[carbon]-d",
+      "fuelValueKj": 2500,
+      "fuelCategory": "chemical"
     },
     "angels-solid-ammonium-nitrate": {
       "id": "angels-solid-ammonium-nitrate",
@@ -23463,7 +23495,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-petrochem-fuel",
-      "order": "c[rocket-booster]"
+      "order": "c[rocket-booster]",
+      "fuelValueKj": 10000,
+      "fuelCategory": "chemical"
     },
     "angels-solid-calcium-sulfate": {
       "id": "angels-solid-calcium-sulfate",
@@ -23593,7 +23627,9 @@
       "hidden": false,
       "stackSize": 2,
       "subgroup": "angels-petrochem-fuel",
-      "order": "k"
+      "order": "k",
+      "fuelValueKj": 1464100,
+      "fuelCategory": "chemical"
     },
     "angels-nuclear-fuel-2": {
       "id": "angels-nuclear-fuel-2",
@@ -23603,7 +23639,9 @@
       "hidden": false,
       "stackSize": 2,
       "subgroup": "angels-petrochem-fuel",
-      "order": "l"
+      "order": "l",
+      "fuelValueKj": 2196200,
+      "fuelCategory": "chemical"
     },
     "angels-uranium-fuel-cell": {
       "id": "angels-uranium-fuel-cell",
@@ -23613,7 +23651,10 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-fuel-cell",
-      "order": "a[uranium]-a"
+      "order": "a[uranium]-a",
+      "fuelValueKj": 1500000,
+      "fuelCategory": "nuclear",
+      "burntResult": "depleted-uranium-fuel-cell"
     },
     "angels-mixed-oxide-cell": {
       "id": "angels-mixed-oxide-cell",
@@ -23623,7 +23664,10 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-fuel-cell",
-      "order": "b[AMOX]-a"
+      "order": "b[AMOX]-a",
+      "fuelValueKj": 8000000,
+      "fuelCategory": "nuclear",
+      "burntResult": "angels-depleted-mixed-oxide-cell"
     },
     "angels-depleted-mixed-oxide-cell": {
       "id": "angels-depleted-mixed-oxide-cell",
@@ -23643,7 +23687,10 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-fuel-cell",
-      "order": "c[thorium]-a"
+      "order": "c[thorium]-a",
+      "fuelValueKj": 15000000,
+      "fuelCategory": "bob-thorium",
+      "burntResult": "angels-depleted-thorium-fuel-cell"
     },
     "angels-depleted-thorium-fuel-cell": {
       "id": "angels-depleted-thorium-fuel-cell",
@@ -23663,7 +23710,10 @@
       "hidden": false,
       "stackSize": 50,
       "subgroup": "angels-power-nuclear-fuel-cell",
-      "order": "d[deuterium]-a"
+      "order": "d[deuterium]-a",
+      "fuelValueKj": 80000000,
+      "fuelCategory": "bob-deuterium",
+      "burntResult": "angels-depleted-deuterium-fuel-cell"
     },
     "angels-depleted-deuterium-fuel-cell": {
       "id": "angels-depleted-deuterium-fuel-cell",
@@ -26393,7 +26443,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "b[cellulose-fiber]"
+      "order": "b[cellulose-fiber]",
+      "fuelValueKj": 1000,
+      "fuelCategory": "chemical"
     },
     "angels-wood-pellets": {
       "id": "angels-wood-pellets",
@@ -26403,7 +26455,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "d[wood-pellets]"
+      "order": "d[wood-pellets]",
+      "fuelValueKj": 8000,
+      "fuelCategory": "chemical"
     },
     "angels-wood-charcoal": {
       "id": "angels-wood-charcoal",
@@ -26413,7 +26467,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "e[wood-bricks]"
+      "order": "e[wood-bricks]",
+      "fuelValueKj": 4000,
+      "fuelCategory": "chemical"
     },
     "angels-wood-bricks": {
       "id": "angels-wood-bricks",
@@ -26423,7 +26479,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "e[wood-bricks]"
+      "order": "e[wood-bricks]",
+      "fuelValueKj": 18000,
+      "fuelCategory": "chemical"
     },
     "angels-solid-wood-pulp": {
       "id": "angels-solid-wood-pulp",
@@ -30083,7 +30141,9 @@
       "hidden": false,
       "stackSize": 200,
       "subgroup": "angels-bio-processing-wood",
-      "order": "f[pellet-coke]"
+      "order": "f[pellet-coke]",
+      "fuelValueKj": 24000,
+      "fuelCategory": "chemical"
     },
     "automation-science-pack": {
       "id": "automation-science-pack",
@@ -141858,7 +141918,11 @@
         "bob-chemical-furnace"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-stone-chemical-furnace.png",
-      "hidden": true
+      "hidden": true,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "bob-steel-chemical-furnace": {
       "id": "bob-steel-chemical-furnace",
@@ -141874,7 +141938,11 @@
         "bob-chemical-furnace"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-steel-chemical-furnace.png",
-      "hidden": true
+      "hidden": true,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "bob-electric-chemical-furnace": {
       "id": "bob-electric-chemical-furnace",
@@ -141912,7 +141980,11 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-stone-mixing-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "bob-steel-mixing-furnace": {
       "id": "bob-steel-mixing-furnace",
@@ -141929,7 +142001,11 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-steel-mixing-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "bob-electric-mixing-furnace": {
       "id": "bob-electric-mixing-furnace",
@@ -142401,7 +142477,11 @@
         "angels-ore-refining-t1"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-burner-ore-crusher.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "angels-ore-crusher": {
       "id": "angels-ore-crusher",
@@ -144066,7 +144146,11 @@
         "angels-blast-smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-blast-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "angels-blast-furnace-2": {
       "id": "angels-blast-furnace-2",
@@ -144088,7 +144172,11 @@
         "angels-blast-smelting-2"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-blast-furnace-2.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "angels-blast-furnace-3": {
       "id": "angels-blast-furnace-3",
@@ -144111,7 +144199,11 @@
         "angels-blast-smelting-3"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-blast-furnace-3.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "angels-blast-furnace-4": {
       "id": "angels-blast-furnace-4",
@@ -144135,7 +144227,11 @@
         "angels-blast-smelting-4"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/angels-blast-furnace-4.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "angels-chemical-furnace": {
       "id": "angels-chemical-furnace",
@@ -145286,7 +145382,11 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/stone-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "electric-furnace": {
       "id": "electric-furnace",
@@ -145328,7 +145428,11 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/steel-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "fuelCategories": [
+        "chemical"
+      ],
+      "effectivity": 1
     },
     "bob-distillery": {
       "id": "bob-distillery",
