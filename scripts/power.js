@@ -8,6 +8,8 @@
  * so 1 unit/s = 1 MW), so the solver needs no special case. Reactor recipes
  * model a reactor without neighbours (the row's neighbour count scales the heat in the solver). Recipes have one machine, `craftingTime` 1 and a
  * generated `power:<machine>` category: amounts are per second per building.
+ * Heat carries a temperature like steam: a reactor's heat product gets its `heat_buffer.max_temperature`, a heat
+ * exchanger's heat ingredient its `min_working_temperature` as `minimumTemperature`.
  * Kept free of side effects so unit tests can import it.
  */
 
@@ -84,6 +86,8 @@ function fuelCategories(source) {
   return ['chemical']
 }
 
+/** `{ [key]: value }` when `value` is a finite number, else `{}`, for spreading into an object. */
+const ifFinite = (key, value) => (Number.isFinite(value) ? { [key]: value } : {})
 const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
 /**
@@ -210,13 +214,18 @@ export async function exportPower(raw, opts) {
     }
     const steamPerSec = powerKw / perUnit
     const eff = isHeat ? 1 : source.effectivity ?? 1
+    // A heat exchanger only works above `min_working_temperature`: the heat ingredient carries that bound.
+    const minHeat = source.min_working_temperature
     const entries = fuels.map(fuel => {
       const fuelPerSec = powerKw / (fuel.kj * eff)
       return {
         input: fuel,
         ingredients: [
           { itemId: inFluid.name, type: 'fluid', amount: steamPerSec },
-          { itemId: fuel.id, type: fuel.type, amount: fuelPerSec },
+          {
+            itemId: fuel.id, type: fuel.type, amount: fuelPerSec,
+            ...(isHeat ? ifFinite('minimumTemperature', minHeat) : {}),
+          },
         ],
         products: [{ itemId: outFluid.name, type: 'fluid', amount: steamPerSec, temperature: target }, ...burnt(fuel, fuelPerSec)],
         mainProduct: outFluid.name,
@@ -321,12 +330,14 @@ export async function exportPower(raw, opts) {
       continue
     }
     const eff = source.effectivity ?? 1
+    // The reactor's heat buffer cap is the temperature of the heat it produces.
+    const maxHeat = proto.heat_buffer?.max_temperature
     const entries = fuels.map(fuel => {
       const fuelPerSec = heatKw / (fuel.kj * eff)
       return {
         input: fuel,
         ingredients: [{ itemId: fuel.id, type: fuel.type, amount: fuelPerSec }],
-        products: [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: heatKw / 1000 }, ...burnt(fuel, fuelPerSec)],
+        products: [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: heatKw / 1000, ...ifFinite('temperature', maxHeat) }, ...burnt(fuel, fuelPerSec)],
         mainProduct: HEAT_ITEM_ID,
       }
     })

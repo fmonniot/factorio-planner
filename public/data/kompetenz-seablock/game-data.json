@@ -137222,7 +137222,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 7.2
+          "amount": 7.2,
+          "minimumTemperature": 315
         }
       ],
       "products": [
@@ -139777,7 +139778,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 10.8
+          "amount": 10.8,
+          "minimumTemperature": 465
         }
       ],
       "products": [
@@ -139812,7 +139814,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 14.4
+          "amount": 14.4,
+          "minimumTemperature": 615
         }
       ],
       "products": [
@@ -139847,7 +139850,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 18
+          "amount": 18,
+          "minimumTemperature": 765
         }
       ],
       "products": [
@@ -140124,7 +140128,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 54
+          "amount": 54,
+          "temperature": 1000
         },
         {
           "itemId": "angels-depleted-mixed-oxide-cell",
@@ -140158,7 +140163,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 54
+          "amount": 54,
+          "temperature": 1000
         },
         {
           "itemId": "depleted-uranium-fuel-cell",
@@ -140192,7 +140198,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 54
+          "amount": 54,
+          "temperature": 1000
         },
         {
           "itemId": "depleted-uranium-fuel-cell",
@@ -140226,7 +140233,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140255,7 +140263,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140284,7 +140293,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140313,7 +140323,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140342,7 +140353,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140371,7 +140383,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140400,7 +140413,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140429,7 +140443,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140458,7 +140473,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140487,7 +140503,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140516,7 +140533,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140545,7 +140563,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140574,7 +140593,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140603,7 +140623,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.6
+          "amount": 0.6,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -140632,7 +140653,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140661,7 +140683,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140690,7 +140713,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140719,7 +140743,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140748,7 +140773,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140777,7 +140803,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140806,7 +140833,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140835,7 +140863,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140864,7 +140893,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140893,7 +140923,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140922,7 +140953,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140951,7 +140983,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -140980,7 +141013,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141009,7 +141043,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.4
+          "amount": 1.4,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141038,7 +141073,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.8
+          "amount": 0.8,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -141067,7 +141103,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.8
+          "amount": 0.8,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -141096,7 +141133,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.8
+          "amount": 0.8,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -141125,7 +141163,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 0.8
+          "amount": 0.8,
+          "temperature": 750
         }
       ],
       "madeIn": [
@@ -141154,7 +141193,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.8
+          "amount": 1.8,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141183,7 +141223,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.8
+          "amount": 1.8,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141212,7 +141253,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.8
+          "amount": 1.8,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141241,7 +141283,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 1.8
+          "amount": 1.8,
+          "temperature": 1000
         }
       ],
       "madeIn": [
@@ -141270,7 +141313,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 72
+          "amount": 72,
+          "temperature": 1250
         },
         {
           "itemId": "angels-depleted-thorium-fuel-cell",
@@ -141304,7 +141348,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 90
+          "amount": 90,
+          "temperature": 1500
         },
         {
           "itemId": "angels-depleted-deuterium-fuel-cell",
@@ -141338,7 +141383,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 160
+          "amount": 160,
+          "temperature": 600
         },
         {
           "itemId": "angels-depleted-mixed-oxide-cell",
@@ -141372,7 +141418,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 160
+          "amount": 160,
+          "temperature": 600
         },
         {
           "itemId": "depleted-uranium-fuel-cell",
@@ -141406,7 +141453,8 @@
         {
           "itemId": "power:heat",
           "type": "fluid",
-          "amount": 160
+          "amount": 160,
+          "temperature": 600
         },
         {
           "itemId": "depleted-uranium-fuel-cell",

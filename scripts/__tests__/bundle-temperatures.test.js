@@ -74,11 +74,29 @@ describe('bundled temperatures', () => {
         if (r.power && r.madeIn.some(m => bundle.machines[m]?.type === 'boiler') && p.type === 'fluid') {
           expect(BOILER_TARGETS, `${r.id} ${p.itemId}`).toContain(p.temperature)
           steamWithTemp++
+        } else if (r.power && p.itemId === 'power:heat' && r.madeIn.some(m => bundle.machines[m]?.type === 'reactor')) {
+          expect(p.temperature, `${r.id} heat`).toEqual(expect.any(Number))
         } else {
           expect(p, `${r.id} ${p.itemId}`).not.toHaveProperty('temperature')
         }
       }
     }
     expect(steamWithTemp).toBeGreaterThanOrEqual(40)
+
+    // Reactor heat carries the heat buffer cap; exchangers bound the heat they accept.
+    const heatOf = id => bundle.recipes[id].products.find(p => p.itemId === 'power:heat')
+    expect(heatOf('power:bob-burner-reactor:wood').temperature).toBe(750)
+    expect(heatOf('power:bob-burner-reactor-2:wood').temperature).toBe(1000)
+    expect(heatOf('power:nuclear-reactor:uranium-fuel-cell').temperature).toBe(1000)
+    const minOf = id => bundle.recipes[id].ingredients.find(i => i.itemId === 'power:heat').minimumTemperature
+    expect(minOf('power:heat-exchanger:power:heat')).toBe(315)
+    expect(minOf('power:bob-heat-exchanger-2:power:heat')).toBe(465)
+    expect(minOf('power:bob-heat-exchanger-3:power:heat')).toBe(615)
+    expect(minOf('power:bob-heat-exchanger-4:power:heat')).toBe(765)
+    for (const r of Object.values(bundle.recipes)) {
+      if (!r.power) continue
+      const usesHeat = r.ingredients.find(i => i.itemId === 'power:heat')
+      if (usesHeat) expect(usesHeat.minimumTemperature, `${r.id} heat bound`).toEqual(expect.any(Number))
+    }
   })
 })
