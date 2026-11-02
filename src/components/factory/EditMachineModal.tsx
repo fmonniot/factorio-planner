@@ -181,6 +181,8 @@ export function EditMachineModal({
   const fuel = resolveRowFuel(gameData, machine, fuelItemId)
   const fuelDefault = machine ? defaultFuel(gameData, machine) : undefined
   const fuelOptions = machine ? acceptedFuels(gameData, machine).filter(f => withinHorizon(horizon.itemIds, f.id)) : []
+  // A machine with fuel categories whose every accepted fuel is filtered out (burnt result, hidden) is not "no data".
+  const hasFuelCategories = (machine?.fuelCategories?.length ?? 0) > 0
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
@@ -443,7 +445,7 @@ export function EditMachineModal({
               </>
             ) : (
               <div data-testid="no-fuel-data" className="px-2 py-1.5 text-xs text-gray-500 italic">
-                No fuel data in this data set
+                {hasFuelCategories ? 'No usable fuel for this machine' : 'No fuel data in this data set'}
               </div>
             )}
           </div>

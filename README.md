@@ -176,7 +176,7 @@ node scripts/build-game-data.js --patch-temperatures \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
-`--patch-fuel` adds the burner fuel data: `fuelValueKj` / `fuelCategory` / `burntResult` on the items and `fuelCategories` / `effectivity` on the burner machines (same mod-set check, safe to re-run). It exits without writing when the bundle has burner machines but the dump has no fuel items. No bundle has the data yet; until then burner rows keep their ⚡ draw.
+`--patch-fuel` adds the burner fuel data: `fuelValueKj` / `fuelCategory` / `burntResult` on the items and `fuelCategories` / `effectivity` on the burner machines (same mod-set check, safe to re-run). It exits without writing when the bundle has burner machines but the dump has no fuel items, or no burner machine accepts any of them. No bundle has the data yet; until then burner rows keep their ⚡ draw.
 
 ```sh
 node scripts/build-game-data.js --patch-fuel \

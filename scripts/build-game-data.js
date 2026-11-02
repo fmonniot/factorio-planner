@@ -96,7 +96,7 @@ import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compo
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
-import { itemFuel, burnerFuel, attachFuel } from './fuel.js'
+import { itemFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -1030,6 +1030,10 @@ if (args.patchFuel) {
   const bundleHasBurners = Object.values(existing.machines).some(m => m.energyType === 'burner')
   if (bundleHasBurners && fuel.counts.items === 0) {
     process.stderr.write('[build-game-data] the dump has no fuel items although the bundle has burner machines; wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
+  if (bundleHasBurners && !fuelOverlaps(fuel.items, fuel.machines)) {
+    process.stderr.write('[build-game-data] no burner machine of the dump accepts a fuel item of the dump (missing machines or no shared fuel category); wrong dump? Nothing written.\n')
     process.exit(1)
   }
   writeFileSync(outputPath, JSON.stringify({ ...existing, items: fuel.items, machines: fuel.machines }, null, 2))

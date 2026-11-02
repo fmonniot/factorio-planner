@@ -1090,7 +1090,7 @@ The same component in recipes mode (`source="recipes"`).
   machine's accepted fuels inside the research horizon (`fuel-option`, `data-item-id`, lowest value first).
   Choosing one stores it as the row's `fuelItemId`, **Default** clears it; both are undoable. An effective fuel outside
   the horizon carries the "Beyond research horizon" marker (`beyond-horizon`) and is not listed. A burner whose data set
-  has no fuel data shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw.
+  has no fuel data shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw; a machine with fuel categories whose every accepted fuel is excluded (burnt result, hidden) shows "No usable fuel for this machine" in the same slot.
 - **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
   a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
   **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a

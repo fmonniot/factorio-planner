@@ -24,6 +24,8 @@ const seablock = bundled('kompetenz-seablock')
 function planFixtures(): string[] {
   return readdirSync(FIXTURES)
     .filter(f => f.endsWith('.json'))
+    // Fuel is not in the bundled data yet (e2e/burner-fuel.spec.ts injects it), so this plan would only pin the no-fuel behaviour.
+    .filter(f => !f.startsWith('burner-fuel'))
     .filter(f => 'blocks' in JSON.parse(readFileSync(resolve(FIXTURES, f), 'utf-8')))
     .sort()
 }

@@ -63,7 +63,7 @@ interface Item {
   defaultTemperature?: number  // fluids: prototype `default_temperature`
   maxTemperature?: number      // fluids: prototype `max_temperature`; equals defaultTemperature when the prototype omits it
   fuelValueKj?: number         // items: prototype `fuel_value` in kJ per item (> 0); absent = not a fuel
-  fuelCategory?: string        // items: prototype `fuel_category`; set together with fuelValueKj
+  fuelCategory?: string        // items: prototype `fuel_category` (`chemical` when the prototype names none, as the engine does); set together with fuelValueKj
   burntResult?: string         // items: prototype `burnt_result`; such a fuel is never offered to a row
 }
 ```
@@ -416,7 +416,7 @@ Things to keep in mind when reading a bundle:
 - A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories.
 - A bundle may lack power data: it then has no `power:electricity` or `power:heat` item and no generation recipes. `node scripts/build-game-data.js --patch-power` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the `power:` categories. Seablock has it; Nullius does not yet.
 - A bundle may lack temperature data: fluid items then have no `defaultTemperature` / `maxTemperature` and products no `temperature`, and consumers treat the temperature as unknown. `node scripts/build-game-data.js --patch-temperatures` adds it (same mod-set check; safe to re-run). Seablock has it; Nullius does not yet.
-- A bundle may lack fuel data: items then have no `fuelValueKj` / `fuelCategory` / `burntResult` and burner machines no `fuelCategories` / `effectivity`, and a burner row keeps drawing power as before (no fuel ingredient). `node scripts/build-game-data.js --patch-fuel` adds it (same mod-set check; safe to re-run; it exits without writing when the bundle has burner machines but the dump has no fuel items). Neither bundle has it yet.
+- A bundle may lack fuel data: items then have no `fuelValueKj` / `fuelCategory` / `burntResult` and burner machines no `fuelCategories` / `effectivity`, and a burner row keeps drawing power as before (no fuel ingredient). `node scripts/build-game-data.js --patch-fuel` adds it (same mod-set check; safe to re-run; it exits without writing when the bundle has burner machines but the dump has no fuel items, or no burner machine accepts any fuel item of the dump). Neither bundle has it yet.
 - Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node

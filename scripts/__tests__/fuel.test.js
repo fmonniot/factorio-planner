@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemFuel, burnerFuel, attachFuel } from '../fuel.js'
+import { itemFuel, burnerFuel, attachFuel, fuelOverlaps } from '../fuel.js'
 
 // Each call returns fresh objects.
 function makeItems() {
@@ -107,5 +107,25 @@ describe('attachFuel', () => {
     const out = attachFuel(items, makeMachines(), makeRaw(), SUBTYPES)
     expect(out.items.plate).not.toHaveProperty('fuelValueKj')
     expect(out.items.plate).not.toHaveProperty('fuelCategory')
+  })
+})
+
+describe('itemFuel default category', () => {
+  it('uses chemical when the prototype names no category', () => {
+    expect(itemFuel({ fuel_value: '2MJ' })).toEqual({ fuelValueKj: 2000, fuelCategory: 'chemical' })
+  })
+})
+
+describe('fuelOverlaps', () => {
+  it('is true when a burner machine accepts a fuel item', () => {
+    const out = attachFuel(makeItems(), makeMachines(), makeRaw(), SUBTYPES)
+    expect(fuelOverlaps(out.items, out.machines)).toBe(true)
+  })
+
+  it('is false when no burner machine has data, or no category is shared', () => {
+    const out = attachFuel(makeItems(), makeMachines(), makeRaw(), SUBTYPES)
+    expect(fuelOverlaps(out.items, makeMachines())).toBe(false)
+    const nuclear = { furnace: { ...out.machines.furnace, fuelCategories: ['nuclear'] } }
+    expect(fuelOverlaps(out.items, nuclear)).toBe(false)
   })
 })

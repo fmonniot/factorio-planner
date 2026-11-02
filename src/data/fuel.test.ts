@@ -90,3 +90,12 @@ describe('resolveRowFuel', () => {
     expect(resolveRowFuel({ ...gd, items: {} }, gd.machines.furnace, 'coal')).toBeUndefined()
   })
 })
+
+describe('acceptedFuels cache', () => {
+  it('serves two machines of different categories from the same item table', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, gd.machines.furnace).map(i => i.id)).toContain('coal')
+    expect(acceptedFuels(gd, burner({ fuelCategories: ['nuclear'] })).map(i => i.id)).toEqual(['uranium'])
+    expect(acceptedFuels(gd, gd.machines.furnace)).not.toContainEqual(expect.objectContaining({ id: 'uranium' }))
+  })
+})

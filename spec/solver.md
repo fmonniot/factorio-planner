@@ -336,25 +336,25 @@ Per node, given recipe throughput `x_j` (executions/minute) — `computeMachineM
 ```
 machineCountExact = x_j · craftingTime / 60 / (craftingSpeed · (1 + speedBonus))
 machineCountCeil  = Math.ceil(machineCountExact)
-powerKw           = machineCountExact · (energyUsageKw · (1 + consumptionBonus) + drainKw)
+powerKw           = machineCountExact · (energyUsageKw · max(0.2, 1 + consumptionBonus) + drainKw)
 ```
 
-Drain is not affected by consumption modules. Beacon power is not counted. Power generation machines (boiler, generator, burner generator, reactor, solar panel) have `energyUsageKw` 0 and `drainKw` 0, so they add no draw; the electricity and heat they make are ordinary LP items (`power:electricity` and `power:heat`, 1 unit = 1 MJ), balanced like any other fluid. For a mining drill or offshore pump, `craftingSpeed` is its mining or pumping speed (an offshore pump recipe yields 60 units per craft, so one pump of speed 20 makes 1200 per second).
+The consumption multiplier is clamped at 0.2 (the game's −80 % floor; `consumptionMultiplier`), so stacked consumption modules never zero or reverse a row's draw. Drain is not affected by consumption modules. Beacon power is not counted. Power generation machines (boiler, generator, burner generator, reactor, solar panel) have `energyUsageKw` 0 and `drainKw` 0, so they add no draw; the electricity and heat they make are ordinary LP items (`power:electricity` and `power:heat`, 1 unit = 1 MJ), balanced like any other fluid. For a mining drill or offshore pump, `craftingSpeed` is its mining or pumping speed (an offshore pump recipe yields 60 units per craft, so one pump of speed 20 makes 1200 per second).
 
 ### Burner fuel
 
 A burner row burns a fuel item that is one more ingredient of the row. The fuel per recipe execution is constant for the row, so the LP stays linear. `computeNodeEffects` resolves the row's machine (as above) and, when the machine is a burner with `fuelCategories` and an accepted fuel exists, puts `fuel: { itemId, type: 'item', amount }` on the row's `NodeEffects`:
 
 ```
-fuel per execution = energyUsageKw · (1 + consumptionBonus) · craftingTime
+fuel per execution = energyUsageKw · max(0.2, 1 + consumptionBonus) · craftingTime
                      / (craftingSpeed · (1 + speedBonus)) / (fuelValueKj · effectivity)
 ```
 
-`effectivity` is 1 when absent. This is the row's power draw divided by the fuel's energy, with the same bonuses as `computeMachineMetrics`; productivity does not change the energy per craft and burner sources have no drain. The −80 % consumption floor is not applied (as for power). The amount is dropped unless finite and > 0.
+`effectivity` is 1 when absent. This is the row's power draw divided by the fuel's energy, with the same bonuses as `computeMachineMetrics`; productivity does not change the energy per craft and burner sources have no drain. The −80 % consumption floor applies (`consumptionMultiplier`, shared with power), so the fuel never reaches 0 from modules. The amount is dropped unless finite and > 0.
 
-Which fuel: `fuelItemId` when the machine accepts it, else the default (`src/data/fuel.ts`: `acceptedFuels` are the non-hidden items with `fuelValueKj` > 0 and no `burntResult` whose `fuelCategory` is in `fuelCategories`, ordered by `fuelValueKj`, then id; the default is the first, ignoring the research horizon). A machine that is not a burner, has no `fuelCategories` or has no accepted fuel gets no fuel and keeps its power draw.
+Which fuel: `fuelItemId` when the machine accepts it, else the default (`src/data/fuel.ts`: `acceptedFuels` are the non-hidden items with `fuelValueKj` > 0 and no `burntResult` whose `fuelCategory` is in `fuelCategories`, ordered by `fuelValueKj`, then id; the default is the first, ignoring the research horizon; the list is computed once per item table). Known limitation: the default is simply the cheapest accepted item, so a data set where an odd item (a wooden chest, say) has a lower fuel value than the intended fuel defaults to it; the user then picks the fuel explicitly. Items whose fuel is not in the horizon are still the default and the modal flags them (see the backlog). A machine that is not a burner, has no `fuelCategories` or has no accepted fuel gets no fuel and keeps its power draw.
 
-`rowIngredients(recipe, effects)` (`build.ts`) is the recipe's ingredients plus the fuel. It is used for the LP coefficients and the consumer sets (`buildClassifiedSystem`'s `extraIngredients`, built from the representatives' effects, so an in-plan fuel is an intermediate, not a byproduct; the area solve builds the same from its columns), for the solved `inputRates`, and for the no-import set: a byproduct-consumer row locks its fuel against import like its other ingredients. The solved node carries `fuelItemId` and `powerKw` 0 (the energy is the ingredient); upstream fuel rows, imports, connections, areas and the in-game viewer see the fuel as an ordinary input. As with modules, a duplicated recipe uses the first row's fuel.
+`rowIngredients(recipe, effects)` (`build.ts`) is the recipe's ingredients plus the fuel. It is used for the LP coefficients and the consumer sets (`buildClassifiedSystem`'s `extraIngredients`, built from the representatives' effects, so an in-plan fuel is an intermediate, not a byproduct; the area solve builds the same from its columns), for the solved `inputRates`, and (`lockedIngredients`) for the no-import set: a byproduct-consumer row locks its fuel against import like its other ingredients, but only a fuel the user picked (`fuelItemId` is the row's fuel); the automatic default stays importable, so a default the user never touched cannot make the block infeasible. `buildClassifiedSystem` takes one `recipeId → effects` map (productivity, heat bonus, fuel). The solved node carries `fuelItemId` and `powerKw` 0 (the energy is the ingredient); upstream fuel rows, imports, connections, areas and the in-game viewer see the fuel as an ordinary input. As with modules, a duplicated recipe uses the first row's fuel.
 
 ---
 

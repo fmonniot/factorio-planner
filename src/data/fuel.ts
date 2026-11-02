@@ -9,6 +9,23 @@ import type { GameData, Item, Machine } from './types'
 // Shared by the solver and the UI.
 // ---------------------------------------------------------------------------
 
+/** Every visible item with a fuel value and no burnt result, lowest value first, then id. Computed once per item table. */
+const fuelCandidates = new WeakMap<GameData['items'], Item[]>()
+
+function candidatesOf(gameData: GameData): Item[] {
+  let list = fuelCandidates.get(gameData.items)
+  if (!list) {
+    list = Object.values(gameData.items)
+      .filter(item =>
+        item.type === 'item' && !item.hidden && !item.burntResult
+        && (item.fuelValueKj ?? 0) > 0 && item.fuelCategory !== undefined)
+      .sort((a, b) =>
+        (a.fuelValueKj ?? 0) - (b.fuelValueKj ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+    fuelCandidates.set(gameData.items, list)
+  }
+  return list
+}
+
 /**
  * Items the machine can burn: visible, with a fuel value and a category the machine accepts, no burnt
  * result (not modelled). Lowest fuel value first, then id. Empty for a machine without fuel data.
@@ -16,13 +33,7 @@ import type { GameData, Item, Machine } from './types'
 export function acceptedFuels(gameData: GameData, machine: Machine): Item[] {
   const categories = machine.fuelCategories
   if (machine.energyType !== 'burner' || !categories || categories.length === 0) return []
-  return Object.values(gameData.items)
-    .filter(item =>
-      item.type === 'item' && !item.hidden && !item.burntResult
-      && (item.fuelValueKj ?? 0) > 0
-      && item.fuelCategory !== undefined && categories.includes(item.fuelCategory))
-    .sort((a, b) =>
-      (a.fuelValueKj ?? 0) - (b.fuelValueKj ?? 0) || (a.id < b.id ? -1 : a.id > b.id ? 1 : 0))
+  return candidatesOf(gameData).filter(item => categories.includes(item.fuelCategory!))
 }
 
 /** The fuel a row burns when it has no (valid) choice: the lowest-value accepted fuel. */

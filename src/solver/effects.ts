@@ -40,7 +40,7 @@ export interface NodeEffects {
 }
 
 /** The machine a row runs on: its own choice, else the category default. */
-function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefined {
+export function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefined {
   const recipe = gameData.recipes[node.recipeId]
   const id = node.machineId ?? (recipe && gameData.defaultMachines[recipe.category])
   return id ? gameData.machines[id] : undefined
@@ -52,10 +52,7 @@ function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefin
  * count, or anything is unknown.
  */
 export function neighbourHeatBonus(node: GameRecipeNode, gameData: GameData): number {
-  const recipe = gameData.recipes[node.recipeId]
-  const id = node.machineId ?? (recipe && gameData.defaultMachines[recipe.category])
-  if (!id) return 0
-  return (gameData.machines[id]?.neighbourBonus ?? 0) * (node.neighbourCount ?? 0)
+  return (rowMachine(node, gameData)?.neighbourBonus ?? 0) * (node.neighbourCount ?? 0)
 }
 
 /**
@@ -102,9 +99,14 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
   return fuel ? { ...effects, fuel } : effects
 }
 
+/** Factorio clamps a machine's energy consumption at -80 %: the multiplier on its base draw never goes below 0.2. */
+export function consumptionMultiplier(consumptionBonus: number): number {
+  return Math.max(0.2, 1 + consumptionBonus)
+}
+
 /**
  * Fuel a burner row burns per execution:
- * energyUsageKw × (1 + consumptionBonus) × craftingTime / (craftingSpeed × (1 + speedBonus)) / (fuelValueKj × effectivity),
+ * energyUsageKw × consumptionMultiplier × craftingTime / (craftingSpeed × (1 + speedBonus)) / (fuelValueKj × effectivity),
  * i.e. the row's power draw divided by the fuel's energy. Undefined without a resolvable fuel or a positive finite amount.
  */
 function nodeFuel(node: GameRecipeNode, gameData: GameData, effects: NodeEffects): Ingredient | undefined {
@@ -114,7 +116,7 @@ function nodeFuel(node: GameRecipeNode, gameData: GameData, effects: NodeEffects
   const item = resolveRowFuel(gameData, machine, node.fuelItemId)
   if (!item?.fuelValueKj) return undefined
   const amount =
-    machine.energyUsageKw * (1 + effects.consumptionBonus) * recipe.craftingTime
+    machine.energyUsageKw * consumptionMultiplier(effects.consumptionBonus) * recipe.craftingTime
     / (machine.craftingSpeed * (1 + effects.speedBonus))
     / (item.fuelValueKj * (machine.effectivity ?? 1))
   if (!Number.isFinite(amount) || amount <= 0) return undefined
@@ -144,11 +146,11 @@ export function computeMachineMetrics(
 
   const machineCountCeil = Math.ceil(machineCountExact)
 
-  // Power: energy usage scaled by consumption bonus, plus drain.
+  // Power: energy usage scaled by the consumption bonus (clamped at -80 %), plus drain.
   // Drain is a constant idle draw not affected by consumption modules.
   const powerKw =
     machineCountExact *
-      (machine.energyUsageKw * (1 + effects.consumptionBonus) + machine.drainKw)
+      (machine.energyUsageKw * consumptionMultiplier(effects.consumptionBonus) + machine.drainKw)
 
   return { machineCountExact, machineCountCeil, powerKw }
 }

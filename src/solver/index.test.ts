@@ -2074,19 +2074,23 @@ describe('solve — burner fuel', () => {
     expect(nodeOf(result, 'c').throughput).toBeCloseTo(0, 4)
   })
 
-  it('does not import or make fuel just for a byproduct-consumer burner', () => {
+  it('locks only a fuel the user chose for a byproduct-consumer burner', () => {
+    // The char row needs 10 coal/min but the coal producer is pinned at 2; the burner consumes slag and burns coal.
+    const data = fuelGameData()
+    data.recipes.char = recipe('char', 1, [{ itemId: 'coal', type: 'item', amount: 1 }], [product('charcoal', 1)])
     const burner: RecipeNode = { ...planNode('b', 'burn-slag'), byproductConsumer: true }
-    const plan = {
-      goals: [{ id: 'g', itemId: 'ore', rate: 10 }] as SolverGoal[],
-      nodes: [planNode('w', 'wash'), burner, planNode('c', 'coal-from-wood')],
-    }
-    // Without fuel data the consumer burns the slag surplus. With it, the burner's coal is locked like its
-    // other ingredients (no import, and nothing makes it for the burner alone), so the burner stays idle.
-    const noFuelData = solveBlock(plan, fuelGameData({ fuelCategories: undefined })).result
-    expect(nodeOf(noFuelData, 'b').throughput).toBeCloseTo(10, 4)
-    const { result } = solveBlock(plan, fuelGameData())
-    expect(nodeOf(result, 'b').throughput).toBeCloseTo(0, 4)
-    expect(rate(result.unsatisfied, 'coal')).toBe(0)
+    const plan = (node: RecipeNode) => ({
+      goals: [{ id: 'g', itemId: 'charcoal', rate: 10 }, { id: 'h', itemId: 'ore', rate: 10 }] as SolverGoal[],
+      nodes: [planNode('k', 'char'), planNode('w', 'wash'), node, { ...planNode('c', 'coal-from-wood'), pinnedRate: 2 }],
+    })
+    const auto = solveBlock(plan(burner), data)
+    const chosen = solveBlock(plan({ ...burner, fuelItemId: 'coal' }), data)
+    // The automatic default fuel is not locked: coal stays importable for the char row beyond the pinned producer.
+    expect(rate(auto.result.unsatisfied, 'coal')).toBeCloseTo(8, 4)
+    expect(auto.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    // A fuel the user picked locks coal for the whole block, like any other ingredient of the consumer.
+    expect(rate(chosen.result.unsatisfied, 'coal')).toBe(0)
+    expect(chosen.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(true)
   })
 
   it('balances the fuel between areas', () => {

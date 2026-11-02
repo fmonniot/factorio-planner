@@ -33,7 +33,8 @@ export function itemFuel(proto) {
   const burnt = typeof proto.burnt_result === 'string' && proto.burnt_result ? proto.burnt_result : undefined
   return {
     fuelValueKj: kj,
-    fuelCategory: proto.fuel_category ?? '',
+    // The engine's default fuel category is 'chemical', as for burner sources.
+    fuelCategory: typeof proto.fuel_category === 'string' && proto.fuel_category ? proto.fuel_category : 'chemical',
     ...(burnt ? { burntResult: burnt } : {}),
   }
 }
@@ -106,4 +107,14 @@ export function attachFuel(items, machines, raw, itemSubtypes) {
     outMachines[id] = { ...without(machine, FUEL_MACHINE_KEYS), ...fuel }
   }
   return { items: outItems, machines: outMachines, counts: { items: itemCount, machines: machineCount }, missingMachines }
+}
+
+/**
+ * True when at least one burner machine with fuel categories accepts at least one fuel item.
+ * @param {Record<string, any>} items bundle items after `attachFuel`
+ * @param {Record<string, any>} machines bundle machines after `attachFuel`
+ */
+export function fuelOverlaps(items, machines) {
+  const categories = new Set(Object.values(items).filter(i => i.fuelValueKj > 0).map(i => i.fuelCategory))
+  return Object.values(machines).some(m => (m.fuelCategories ?? []).some(c => categories.has(c)))
 }

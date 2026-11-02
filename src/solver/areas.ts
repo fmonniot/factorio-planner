@@ -2,7 +2,6 @@ import solver, { type SolveResult } from 'javascript-lp-solver'
 import type {
   GameData,
   GameRecipeNode,
-  Ingredient,
   Recipe,
   SolvedArea,
   SolvedNode,
@@ -10,7 +9,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { buildClassifiedSystem, rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
+import { buildClassifiedSystem, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -183,12 +182,14 @@ function buildColumnSystem(
   // Productivity cannot change the sign of a coefficient, so this equals a per-column classification.
   // A burner column's fuel counts as a consumption (only the sign matters), so an in-plan fuel is an
   // intermediate, not a byproduct.
-  const fuels = new Map<string, Ingredient[]>()
+  const effectsMap = new Map<string, RowEffects>()
   for (const col of columns) {
-    if (col.effects.fuel) fuels.set(col.node.recipeId, [...(fuels.get(col.node.recipeId) ?? []), col.effects.fuel])
+    const prev = effectsMap.get(col.node.recipeId)
+    const fuels = [prev?.fuel ?? [], col.effects.fuel ?? []].flat()
+    effectsMap.set(col.node.recipeId, { ...col.effects, fuel: fuels })
   }
   const { classification } = buildClassifiedSystem(
-    gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap, undefined, undefined, fuels,
+    gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap, effectsMap,
   )
   const S = new Map<string, Map<string, number>>()
   function addCoeff(itemId: string, columnId: string, delta: number) {
@@ -486,7 +487,7 @@ export function solveAreaBlock(
   const noImportItems = new Set(plan.noImportItems ?? [])
   for (const col of columns) {
     if (!col.node.byproductConsumer || !col.recipe) continue
-    for (const ing of rowIngredients(col.recipe, col.effects)) {
+    for (const ing of lockedIngredients(col.recipe, col.effects, col.node)) {
       noImportItems.add(ing.itemId)
     }
   }

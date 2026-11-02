@@ -241,6 +241,12 @@ describe('computeMachineMetrics', () => {
     expect(metrics.powerKw).toBeCloseTo(155)
   })
 
+  it('consumption bonus is clamped at -80 %', () => {
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: -1.5, heatBonus: 0 }
+    // 1 machine × (100 × 0.2 + 5) = 25 kW
+    expect(computeMachineMetrics(1, 60, m, fx).powerKw).toBeCloseTo(25)
+  })
+
   it('machineCountCeil rounds up fractional counts', () => {
     const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0, heatBonus: 0 }
     // 2.5 machines needed
@@ -349,6 +355,14 @@ describe('computeNodeEffects — burner fuel', () => {
     // 90 x 1.5 x 3.2 / 1.2 / 4000
     const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 1 }] }), burnerGameData())
     expect(fx.fuel?.amount).toBeCloseTo(0.09)
+  })
+
+  it('keeps burning 20 % of the fuel when consumption modules go below -80 %', () => {
+    const gd = burnerGameData()
+    gd.modules['fuel-module'] = { ...gd.modules['fuel-module'], effects: { consumption: -0.5 } }
+    const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 2 }] }), gd)
+    // 90 x 0.2 x 3.2 / 4000
+    expect(fx.fuel?.amount).toBeCloseTo(0.0144)
   })
 
   it('divides by the effectivity', () => {

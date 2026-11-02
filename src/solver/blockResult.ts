@@ -11,7 +11,7 @@ import type {
   UnsatisfiedItem,
 } from '../data/types'
 import { rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
-import { computeMachineMetrics, type NodeEffects } from './effects'
+import { computeMachineMetrics, rowMachine, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
 
 // ---------------------------------------------------------------------------
@@ -77,8 +77,7 @@ export function solvedNodeOf(
 ): SolvedNode {
   // A missing default (no machine for the category, or none within the research horizon) leaves
   // count and power at 0; rates do not depend on the machine, except a burner's fuel.
-  const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
-  const machine = machineId ? gameData.machines[machineId] : undefined
+  const machine = rowMachine(planNode, gameData)
 
   let machineCountExact = 0
   let machineCountCeil = 0

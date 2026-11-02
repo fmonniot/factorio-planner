@@ -715,6 +715,13 @@ describe('EditMachineModal — fuel', () => {
     expect(storedFuel()).toBeUndefined()
   })
 
+  it('says no fuel is usable when the machine has categories but every fuel is filtered out', () => {
+    const gd = burnerData()
+    for (const id of ['wood', 'coal', 'solid-fuel']) gd.items[id] = { ...gd.items[id], burntResult: 'ash' }
+    renderBurner(undefined, gd)
+    expect(screen.getByTestId('no-fuel-data')).toHaveTextContent('No usable fuel for this machine')
+  })
+
   it('says so for a burner without fuel data', () => {
     const gd = burnerData()
     delete gd.machines.furnace.fuelCategories
