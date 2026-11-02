@@ -112,7 +112,7 @@ interface RecipeProduct {
   amountMin?: number            // informational, see below
   amountMax?: number
   ignoredByProductivity?: number
-  temperature?: number          // fluid products only: explicit output temperature; absent means the fluid's defaultTemperature
+  temperature?: number          // fluid products only: explicit output temperature; absent means the fluid's defaultTemperature. Boiler and heat-exchanger steam carries the machine's target_temperature, to be compared with the generator ingredient's minimumTemperature
 }
 ```
 

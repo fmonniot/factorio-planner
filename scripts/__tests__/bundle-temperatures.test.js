@@ -65,15 +65,20 @@ describe('bundled temperatures', () => {
     expect(steamOf('angels-steam-water').temperature).toBe(165)
     expect(steamOf('bob-sodium-hydroxide-sink').temperature).toBe(465)
 
+    // Boilers and heat exchangers (both `boiler` machines) stamp their target temperature on every fluid product.
+    const BOILER_TARGETS = [165, 315, 465, 615, 765]
+    let steamWithTemp = 0
     for (const r of Object.values(bundle.recipes)) {
       if (!r.extraction && !r.power) continue
       for (const p of r.products) {
-        if (r.power && r.madeIn.some(m => bundle.machines[m]?.type === 'boiler') && p.itemId === 'steam') {
-          expect(p.temperature, `${r.id} ${p.itemId}`).toEqual(expect.any(Number))
+        if (r.power && r.madeIn.some(m => bundle.machines[m]?.type === 'boiler') && p.type === 'fluid') {
+          expect(BOILER_TARGETS, `${r.id} ${p.itemId}`).toContain(p.temperature)
+          steamWithTemp++
         } else {
           expect(p, `${r.id} ${p.itemId}`).not.toHaveProperty('temperature')
         }
       }
     }
+    expect(steamWithTemp).toBeGreaterThanOrEqual(40)
   })
 })
