@@ -72,6 +72,15 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Fuel patch mode: write the burner fuel data into an existing bundle (same
+ * mod-set check): `fuelValueKj` / `fuelCategory` / `burntResult` on the items
+ * and `fuelCategories` / `effectivity` on the burner machines. Icons, names
+ * and recipes are not touched. Safe to re-run. Exits without writing when the
+ * bundle has burner machines but the dump yields no fuel items:
+ *   node scripts/build-game-data.js --patch-fuel \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * For a Steam installation, the following command dump the data
  * ~/Library/Application\ Support/Steam/steamapps/common/Factorio/factorio.app/Contents/MacOS/factorio --dump-data
  */
@@ -87,6 +96,7 @@ import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compo
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
+import { itemFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -130,6 +140,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-extraction') args.patchExtraction = true
     else if (argv[i] === '--patch-power') args.patchPower = true
     else if (argv[i] === '--patch-temperatures') args.patchTemperatures = true
+    else if (argv[i] === '--patch-fuel') args.patchFuel = true
   }
   return args
 }
@@ -439,6 +450,7 @@ async function exportItems(raw, locale, resolveIcon) {
         stackSize: proto.stack_size,
         subgroup:  proto.subgroup ?? '',
         order:     proto.order ?? '',
+        ...itemFuel(proto),
       }
     }
   }
@@ -520,6 +532,7 @@ async function exportMachines(raw, locale, resolveIcon) {
         craftingCategories,
         iconPath:          await resolveIcon(proto, proto.name),
         hidden:            proto.hidden ?? false,
+        ...burnerFuel(proto),
       }
     }
   }
@@ -1005,6 +1018,28 @@ if (args.patchTemperatures) {
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: fluidTemperatures=${fluids.count} productTemperatures=${prods.count} ` +
     `mismatched=${prods.mismatched.length} missing=${prods.missing.length}\n`
+  )
+  process.exit(0)
+}
+
+if (args.patchFuel) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const fuel = attachFuel(existing.items, existing.machines, raw, ITEM_SUBTYPES)
+  for (const id of fuel.missingMachines) process.stderr.write(`[warn] burner machine ${id} is missing from the dump\n`)
+  const bundleHasBurners = Object.values(existing.machines).some(m => m.energyType === 'burner')
+  if (bundleHasBurners && fuel.counts.items === 0) {
+    process.stderr.write('[build-game-data] the dump has no fuel items although the bundle has burner machines; wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
+  if (bundleHasBurners && !fuelOverlaps(fuel.items, fuel.machines)) {
+    process.stderr.write('[build-game-data] no burner machine of the dump accepts a fuel item of the dump (missing machines or no shared fuel category); wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
+  writeFileSync(outputPath, JSON.stringify({ ...existing, items: fuel.items, machines: fuel.machines }, null, 2))
+  process.stderr.write(
+    `[build-game-data] Patched ${outputPath}: fuelItems=${fuel.counts.items} burnerMachines=${fuel.counts.machines} ` +
+    `missing=${fuel.missingMachines.length}\n`
   )
   process.exit(0)
 }

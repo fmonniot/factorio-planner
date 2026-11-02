@@ -4,6 +4,7 @@ import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
+import { acceptedFuels, defaultFuel, resolveRowFuel } from '../../data/fuel'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
@@ -49,6 +50,11 @@ export function applyRecipeConstraints(
     pollution: allowedEffects.includes('pollution') ? totals.pollution : 0,
     quality: allowedEffects.includes('quality') ? totals.quality : 0,
   }
+}
+
+/** "4 MJ" for a fuel value in kJ. */
+function fmtFuelValue(kj: number): string {
+  return kj >= 1000 ? `${+(kj / 1000).toPrecision(4)} MJ` : `${+kj.toPrecision(4)} kJ`
 }
 
 function fmtEffect(value: number): string {
@@ -104,8 +110,8 @@ export function EffectsPanel({ label, totals, showQuality }: EffectsPanelProps) 
 // EditMachineModal
 //
 // Every valid change is saved immediately through a store action (the footer
-// only has Close). "Apply to every row of this recipe" copies machine and
-// modules only, not the reactor neighbour count.
+// only has Close). "Apply to every row of this recipe" copies machine, modules and
+// fuel, not the reactor neighbour count.
 // ---------------------------------------------------------------------------
 
 export interface EditMachineModalProps {
@@ -116,6 +122,7 @@ export interface EditMachineModalProps {
   machineCountCeil: number
   modules: ModuleConfig[]
   neighbourCount?: number
+  fuelItemId?: string
   gameData: GameData
   onClose: () => void
 }
@@ -128,11 +135,13 @@ export function EditMachineModal({
   machineCountCeil,
   modules,
   neighbourCount,
+  fuelItemId,
   gameData,
   onClose,
 }: EditMachineModalProps) {
   const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
+  const updateNodeFuel = useBlockStore(s => s.updateNodeFuel)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
   const setDefaultMachine = useBlockStore(s => s.setDefaultMachine)
   const recipeRowCount = useBlockStore(s => {
@@ -146,6 +155,7 @@ export function EditMachineModal({
   const horizon = useHorizon(gameData)
 
   const [showMachinePicker, setShowMachinePicker] = useState(false)
+  const [showFuelPicker, setShowFuelPicker] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
 
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
@@ -165,6 +175,14 @@ export function EditMachineModal({
   const defaultMachineName = defaultMachineId ? gameData.machines[defaultMachineId]?.name : undefined
   const defaultRowCounts = useMemo(() => defaultMachineRowCounts(blocks, gameData), [blocks, gameData])
   const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
+
+  // Fuel (burner machines): the explicit choice or the default, and the accepted fuels within the horizon.
+  const isBurner = machine?.energyType === 'burner'
+  const fuel = resolveRowFuel(gameData, machine, fuelItemId)
+  const fuelDefault = machine ? defaultFuel(gameData, machine) : undefined
+  const fuelOptions = machine ? acceptedFuels(gameData, machine).filter(f => withinHorizon(horizon.itemIds, f.id)) : []
+  // A machine with fuel categories whose every accepted fuel is filtered out (burnt result, hidden) is not "no data".
+  const hasFuelCategories = (machine?.fuelCategories?.length ?? 0) > 0
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
@@ -206,6 +224,11 @@ export function EditMachineModal({
     setDefaultMachine(recipeCategory, id)
     if (machineId !== undefined) updateNodeMachine(nodeId, undefined)
     setShowMachinePicker(false)
+  }
+
+  function selectFuel(id: string | undefined) {
+    updateNodeFuel(nodeId, id)
+    setShowFuelPicker(false)
   }
 
   function openAllDefaults() {
@@ -363,6 +386,71 @@ export function EditMachineModal({
           )}
         </div>
 
+        {/* Fuel section (burner machines) */}
+        {isBurner && (
+          <div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1.5">Fuel</div>
+            {fuel ? (
+              <>
+                <button
+                  type="button"
+                  data-testid="fuel-button"
+                  onClick={() => setShowFuelPicker(p => !p)}
+                  className="flex items-center gap-2 w-full bg-gray-800 hover:bg-gray-700 rounded px-2 py-1.5 text-sm text-gray-200"
+                >
+                  {fuel.iconPath ? (
+                    <Icon iconPath={fuel.iconPath} alt={fuel.name} className="w-[30px] h-[30px] object-contain shrink-0" />
+                  ) : (
+                    <span className="w-[30px] h-[30px] bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400 shrink-0">?</span>
+                  )}
+                  <span className="flex-1 text-left">
+                    {fuel.name}
+                    {!withinHorizon(horizon.itemIds, fuel.id) && (
+                      <>
+                        {' '}
+                        <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>
+                      </>
+                    )}
+                  </span>
+                  <span className="text-gray-500 text-xs">{fmtFuelValue(fuel.fuelValueKj ?? 0)}</span>
+                  <span className="text-gray-500 text-xs">▾</span>
+                </button>
+                {showFuelPicker && (
+                  <div className="mt-1 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-40 overflow-y-auto">
+                    <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 mb-1">Select fuel</div>
+                    <button
+                      data-testid="fuel-default"
+                      onClick={() => selectFuel(undefined)}
+                      className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${fuelItemId === undefined ? 'text-teal-400' : 'text-gray-300'}`}
+                    >
+                      {fuelDefault ? `Default (${fuelDefault.name})` : 'Default'}
+                    </button>
+                    {fuelOptions.map(f => (
+                      <button
+                        key={f.id}
+                        data-testid="fuel-option"
+                        data-item-id={f.id}
+                        onClick={() => selectFuel(f.id)}
+                        className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${f.id === fuelItemId ? 'text-teal-400' : 'text-gray-300'}`}
+                      >
+                        {f.iconPath && (
+                          <Icon iconPath={f.iconPath} alt={f.name} className="w-5 h-5 object-contain shrink-0" />
+                        )}
+                        <span className="flex-1">{f.name}</span>
+                        <span className="text-gray-500">{fmtFuelValue(f.fuelValueKj ?? 0)}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div data-testid="no-fuel-data" className="px-2 py-1.5 text-xs text-gray-500 italic">
+                {hasFuelCategories ? 'No usable fuel for this machine' : 'No fuel data in this data set'}
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Neighbours section (reactors) */}
         {neighbourBonus > 0 && (
           <NeighbourSection nodeId={nodeId} neighbourCount={neighbourCount} neighbourBonus={neighbourBonus} />
@@ -454,7 +542,7 @@ export function EditMachineModal({
           <button
             type="button"
             data-testid="apply-to-recipe-rows"
-            title={`Copy this row's machine and modules to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+            title={`Copy this row's machine, fuel and modules to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
             onClick={() => applyRowSettingsToRecipe(nodeId, 'machine')}
             className="text-xs text-teal-400 hover:text-teal-300"
           >

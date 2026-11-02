@@ -10,8 +10,8 @@ import type {
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
-import { rowProductAmount, type ClassifiedSystem } from './build'
-import { computeMachineMetrics, type NodeEffects } from './effects'
+import { rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
+import { computeMachineMetrics, rowMachine, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
 
 // ---------------------------------------------------------------------------
@@ -76,9 +76,8 @@ export function solvedNodeOf(
   gameData: GameData,
 ): SolvedNode {
   // A missing default (no machine for the category, or none within the research horizon) leaves
-  // count and power at 0; rates do not depend on the machine.
-  const machineId = planNode.machineId ?? gameData.defaultMachines[recipe.category]
-  const machine = machineId ? gameData.machines[machineId] : undefined
+  // count and power at 0; rates do not depend on the machine, except a burner's fuel.
+  const machine = rowMachine(planNode, gameData)
 
   let machineCountExact = 0
   let machineCountCeil = 0
@@ -87,11 +86,12 @@ export function solvedNodeOf(
     const m = computeMachineMetrics(throughput, recipe.craftingTime, machine, effects)
     machineCountExact = m.machineCountExact
     machineCountCeil = m.machineCountCeil
-    powerKw = m.powerKw
+    // A burner row with fuel data draws no electricity: its energy is the fuel ingredient.
+    powerKw = effects.fuel ? 0 : m.powerKw
   }
 
   const inputRates: Record<string, number> = {}
-  for (const ing of recipe.ingredients) {
+  for (const ing of rowIngredients(recipe, effects)) {
     inputRates[ing.itemId] = (inputRates[ing.itemId] ?? 0) + ing.amount * throughput
   }
 
@@ -109,6 +109,7 @@ export function solvedNodeOf(
     machineCountExact,
     machineCountCeil,
     powerKw,
+    ...(effects.fuel ? { fuelItemId: effects.fuel.itemId } : {}),
   }
 }
 

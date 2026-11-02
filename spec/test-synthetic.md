@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Nine recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Ten recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`).
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -397,4 +397,36 @@ Electricity 600/min ÷ 0.9 per run = 666.667 engine runs/min; × 30 = 20000 stea
 Steam 20000/min ÷ 60 per run = 333.333 boiler runs/min.
 Coal = 333.333 × 0.45 = 150/min; water = 333.333 × 60 = 20000/min.
 Machines = runs/min × 1 s / 60: 11.111 engines (12 buildings), 5.556 boilers (6 buildings).
+```
+
+---
+
+## Case 10 — Burner fuel
+
+**Exercises:** a burner row's fuel as an ingredient (`NodeEffects.fuel`, `rowIngredients`; see [solver.md](solver.md#burner-fuel)). Vanilla figures on synthetic fixtures: `stone-furnace` (speed 1) and `steel-furnace` (speed 2), both burners at 90 kW accepting the `chemical` category; `coal` 4 MJ and `solid-fuel` 12 MJ.
+
+**Goal:** 60 `iron-plate` / min
+
+Recipes:
+- `iron-plate` (`smelting`, 3.2 s): 1 iron ore → 1 iron plate
+- `solid-fuel-from-light-oil` (`chemistry`, 2 s): 10 light oil → 1 solid fuel
+
+### Expected solver output
+
+| Case | Row setup | Furnaces (exact) | Fuel burnt | Other |
+|---|---|---|---|---|
+| 10a | stone furnaces, default fuel | 3.2 | 0.072 coal / execution = 4.32 coal / min | `powerKw` 0; coal is an unsatisfied input |
+| 10b | steel furnaces on solid fuel, `solid-fuel-from-light-oil` in the plan | 1.6 | 0.012 solid fuel / execution = 0.72 / min | `powerKw` 0; light oil 7.2 / min is the only raw input besides ore |
+| 10c | as 10a, one module with +20 % speed and +50 % consumption | 2.667 | 0.09 coal / execution = 5.4 coal / min | |
+
+The default fuel is the lowest-value accepted fuel, so 10a burns coal; 10b sets `fuelItemId` to solid fuel. No warnings.
+
+### Derivation
+
+```
+Plates 60/min at 1 per run = 60 executions/min.
+10a: machines = 60 × 3.2 / 60 = 3.2; fuel per run = 90 kW × 3.2 s / 4000 kJ = 0.072; × 60 = 4.32/min.
+10b: machines = 60 × 3.2 / 60 / 2 = 1.6; fuel per run = 90 × 3.2 / 2 / 12000 = 0.012; × 60 = 0.72/min.
+     Solid fuel 0.72/min = 0.72 runs/min of the 2 s recipe: light oil = 0.72 × 10 = 7.2/min.
+10c: machines = 60 × 3.2 / 60 / 1.2 = 2.667; fuel per run = 90 × 1.5 × 3.2 / 1.2 / 4000 = 0.09; × 60 = 5.4/min.
 ```

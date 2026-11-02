@@ -2005,3 +2005,110 @@ describe('solve — reactor neighbour count', () => {
     expect(n.outputRates['power:heat']).toBeCloseTo(1200, 3)
   })
 })
+
+describe('solve — burner fuel', () => {
+  // A burner furnace (90 kW) smelts in 2 s: 0.045 coal (4000 kJ) per execution, 2.7 coal/min at 60 executions/min.
+  const smelt = { ...recipe('smelt', 2, [{ itemId: 'ore', type: 'item', amount: 1 }], [product('plate', 1)]), category: 'smelting' }
+  const wash = { ...recipe('wash', 1, [{ itemId: 'dirt', type: 'item', amount: 1 }], [product('ore', 1), product('slag', 1)]), mainProduct: 'ore' }
+  const burnSlag = { ...recipe('burn-slag', 1, [{ itemId: 'slag', type: 'item', amount: 1 }], [product('ash', 1)]), category: 'smelting' }
+  const coalFromWood = recipe('coal-from-wood', 1, [{ itemId: 'wood', type: 'item', amount: 2 }], [product('coal', 1)])
+  const fuelItem = (id: string, fuelValueKj: number): GameData['items'][string] =>
+    ({ id, name: id, type: 'item', iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj, fuelCategory: 'chemical' })
+  function fuelGameData(machine: Partial<GameData['machines'][string]> = {}): GameData {
+    return makeGameData({
+      recipes: { smelt, wash, 'burn-slag': burnSlag, 'coal-from-wood': coalFromWood },
+      items: { coal: fuelItem('coal', 4000) },
+      machines: {
+        furnace: {
+          id: 'furnace', name: 'furnace', type: 'furnace', craftingSpeed: 1, energyUsageKw: 90, energyType: 'burner',
+          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['smelting'], iconPath: '', hidden: false,
+          fuelCategories: ['chemical'], ...machine,
+        },
+      },
+      defaultMachines: { smelting: 'furnace' },
+    })
+  }
+  const plateGoal: SolverGoal[] = [{ id: 'g', itemId: 'plate', rate: 60 }]
+  const nodeOf = (result: { nodes: { recipeNodeId: string }[] }, id: string) =>
+    result.nodes.find(n => n.recipeNodeId === id) as ReturnType<typeof solve>['nodes'][number]
+
+  it('counts the fuel as an input and draws no electricity', () => {
+    const r = solve({ goals: plateGoal, nodes: [planNode('s', 'smelt')] }, fuelGameData())
+    const n = nodeOf(r, 's')
+    expect(n.inputRates.coal).toBeCloseTo(2.7, 4)
+    expect(n.fuelItemId).toBe('coal')
+    expect(n.powerKw).toBe(0)
+    expect(n.machineCountExact).toBeCloseTo(2, 4)
+    expect(rate(r.unsatisfied, 'coal')).toBeCloseTo(2.7, 4)
+  })
+
+  it('keeps the power draw when the machine has no fuel data', () => {
+    const r = solve({ goals: plateGoal, nodes: [planNode('s', 'smelt')] }, fuelGameData({ fuelCategories: undefined }))
+    const n = nodeOf(r, 's')
+    expect(n.inputRates.coal).toBeUndefined()
+    expect(n.fuelItemId).toBeUndefined()
+    expect(n.powerKw).toBeCloseTo(180, 4)
+  })
+
+  it('sizes an in-plan fuel producer by the demand, leaving the fuel intermediate', () => {
+    const r = solve({ goals: plateGoal, nodes: [planNode('s', 'smelt'), planNode('c', 'coal-from-wood')] }, fuelGameData())
+    expect(nodeOf(r, 'c').throughput).toBeCloseTo(2.7, 4)
+    expect(rate(r.unsatisfied, 'coal')).toBe(0)
+    expect(rate(r.unsatisfied, 'wood')).toBeCloseTo(5.4, 4)
+  })
+
+  it('burns the chosen fuel', () => {
+    const data = fuelGameData()
+    data.items['solid-fuel'] = fuelItem('solid-fuel', 12000)
+    const r = solve({ goals: plateGoal, nodes: [{ ...planNode('s', 'smelt'), fuelItemId: 'solid-fuel' }] }, data)
+    expect(nodeOf(r, 's').inputRates['solid-fuel']).toBeCloseTo(0.9, 4)
+    expect(nodeOf(r, 's').inputRates.coal).toBeUndefined()
+  })
+
+  it('takes the fuel from a connection', () => {
+    const { result, received } = solveBlock(
+      { goals: plateGoal, nodes: [planNode('s', 'smelt'), planNode('c', 'coal-from-wood')], itemSourcing: { coal: 'connections-first' } },
+      fuelGameData(), new Map([['coal', 100]]),
+    )
+    expect(received.get('coal')).toBeCloseTo(2.7, 4)
+    expect(nodeOf(result, 'c').throughput).toBeCloseTo(0, 4)
+  })
+
+  it('locks only a fuel the user chose for a byproduct-consumer burner', () => {
+    // The char row needs 10 coal/min but the coal producer is pinned at 2; the burner consumes slag and burns coal.
+    const data = fuelGameData()
+    data.recipes.char = recipe('char', 1, [{ itemId: 'coal', type: 'item', amount: 1 }], [product('charcoal', 1)])
+    const burner: RecipeNode = { ...planNode('b', 'burn-slag'), byproductConsumer: true }
+    const plan = (node: RecipeNode) => ({
+      goals: [{ id: 'g', itemId: 'charcoal', rate: 10 }, { id: 'h', itemId: 'ore', rate: 10 }] as SolverGoal[],
+      nodes: [planNode('k', 'char'), planNode('w', 'wash'), node, { ...planNode('c', 'coal-from-wood'), pinnedRate: 2 }],
+    })
+    const auto = solveBlock(plan(burner), data)
+    const chosen = solveBlock(plan({ ...burner, fuelItemId: 'coal' }), data)
+    // The automatic default fuel is not locked: coal stays importable for the char row beyond the pinned producer.
+    expect(rate(auto.result.unsatisfied, 'coal')).toBeCloseTo(8, 4)
+    expect(auto.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    // A fuel the user picked locks coal for the whole block, like any other ingredient of the consumer.
+    expect(rate(chosen.result.unsatisfied, 'coal')).toBe(0)
+    expect(chosen.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(true)
+  })
+
+  it('balances the fuel between areas', () => {
+    const now = new Date().toISOString()
+    const sub = (id: string, nodes: RecipeNode[], area?: boolean): SubPlan =>
+      ({ id, name: id, nodes, subPlans: [], ...(area ? { area } : {}), createdAt: now, updatedAt: now })
+    const fuelArea = sub('fuel', [planNode('c', 'coal-from-wood')], true)
+    const root: SubPlan = {
+      ...sub('root', [planNode('s', 'smelt'), { kind: 'subplan', id: 'h', subPlanId: fuelArea.id }]),
+      subPlans: [fuelArea],
+    }
+    const block = makeBlock(root, [{ id: 'p', itemId: 'plate', extraRate: 60 }])
+    const r = solve(flattenBlock(block), fuelGameData())
+    expect(nodeOf(r, 's').inputRates.coal).toBeCloseTo(2.7, 4)
+    expect(nodeOf(r, 's').powerKw).toBe(0)
+    expect(nodeOf(r, 'c').throughput).toBeCloseTo(2.7, 4)
+    expect(rate(r.unsatisfied, 'coal')).toBe(0)
+    const received = r.areas!.find(a => a.areaId === 'root')!.receives.find(f => f.itemId === 'coal')
+    expect(received?.rate).toBeCloseTo(2.7, 4)
+  })
+})

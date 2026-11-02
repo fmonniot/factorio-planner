@@ -50,6 +50,8 @@ export interface SolvedNode {
   machineCountExact: number
   machineCountCeil: number
   powerKw: number
+  /** Burner rows: the fuel item burnt (already counted in `inputRates`; `powerKw` is then 0). */
+  fuelItemId?: string
 }
 
 export interface UnsatisfiedItem {

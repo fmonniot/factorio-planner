@@ -1,0 +1,35 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0001-0000-0000-0000-000000000001",
+      "name": "Burner fuel",
+      "color": "#60a5fa",
+      "goals": [
+        {
+          "id": "ffff0001-0000-0000-0000-0000000000g1",
+          "itemId": "iron-plate",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0001-0000-0000-0000-0000000000n1",
+            "recipeId": "iron-plate",
+            "machineId": "stone-furnace",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-01T00:00:00.000Z",
+        "updatedAt": "2026-11-01T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0001-0000-0000-0000-000000000001"
+}

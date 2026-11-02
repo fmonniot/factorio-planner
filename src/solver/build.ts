@@ -1,4 +1,5 @@
-import type { GameData, RecipeProduct } from '../data/types'
+import type { GameData, GameRecipeNode, Ingredient, Recipe, RecipeProduct } from '../data/types'
+import type { NodeEffects } from './effects'
 import { HEAT_ITEM_ID } from '../data/electricity'
 
 // ---------------------------------------------------------------------------
@@ -61,6 +62,23 @@ export function rowProductAmount(
   return prod.itemId === HEAT_ITEM_ID ? amount * (1 + heatBonus) : amount
 }
 
+/** A row's ingredients: the recipe's plus the fuel a burner row burns (per execution). */
+export function rowIngredients(recipe: Recipe, effects: { fuel?: Ingredient } | undefined): Ingredient[] {
+  return effects?.fuel ? [...recipe.ingredients, effects.fuel] : recipe.ingredients
+}
+
+/**
+ * The ingredients a byproduct-consumer row locks against import: the recipe's, plus its fuel only when
+ * the user picked that fuel (`fuelItemId`). The automatic default fuel stays importable.
+ */
+export function lockedIngredients(recipe: Recipe, effects: { fuel?: Ingredient } | undefined, node: GameRecipeNode): Ingredient[] {
+  const fuel = effects?.fuel
+  return fuel && node.fuelItemId === fuel.itemId ? [...recipe.ingredients, fuel] : recipe.ingredients
+}
+
+/** What `buildClassifiedSystem` reads of a recipe's row effects; `fuel` may list several (areas: one per column). */
+export type RowEffects = Pick<NodeEffects, 'productivityBonus' | 'heatBonus'> & { fuel?: Ingredient | Ingredient[] }
+
 /**
  * Build the net stoichiometry map and classify items for the LP.
  */
@@ -68,8 +86,8 @@ export function buildClassifiedSystem(
   gameData: GameData,
   recipeIds: string[],
   goalsMap: Map<string, number>,
-  productivityMap: Map<string, number> = new Map(),
-  heatBonusMap: Map<string, number> = new Map(),
+  /** Per recipe: its row's productivity, heat bonus and fuel (an ingredient that is not the recipe's own). */
+  effectsMap: Map<string, RowEffects> = new Map(),
 ): ClassifiedSystem {
   const producers = new Map<string, Set<string>>() // itemId → recipeIds that produce it
   const consumers = new Map<string, Set<string>>() // itemId → recipeIds that consume it
@@ -85,10 +103,12 @@ export function buildClassifiedSystem(
   for (const recipeId of recipeIds) {
     const recipe = gameData.recipes[recipeId]
     if (!recipe) continue
-    const prodBonus = productivityMap.get(recipeId) ?? 0
+    const rowEffects = effectsMap.get(recipeId)
+    const prodBonus = rowEffects?.productivityBonus ?? 0
+    const fuel = rowEffects?.fuel
 
     for (const prod of recipe.products) {
-      const amount = rowProductAmount(prod, prodBonus, heatBonusMap.get(recipeId) ?? 0)
+      const amount = rowProductAmount(prod, prodBonus, rowEffects?.heatBonus ?? 0)
       if (amount > 0) {
         addCoeff(prod.itemId, recipeId, amount)
         if (!producers.has(prod.itemId)) producers.set(prod.itemId, new Set())
@@ -96,7 +116,7 @@ export function buildClassifiedSystem(
       }
     }
 
-    for (const ing of recipe.ingredients) {
+    for (const ing of [...recipe.ingredients, ...(fuel === undefined ? [] : Array.isArray(fuel) ? fuel : [fuel])]) {
       if (ing.amount > 0) {
         addCoeff(ing.itemId, recipeId, -ing.amount)
         if (!consumers.has(ing.itemId)) consumers.set(ing.itemId, new Set())

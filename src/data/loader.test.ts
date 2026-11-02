@@ -267,6 +267,35 @@ describe('parseGameData — temperatures', () => {
   })
 })
 
+describe('parseGameData — burner fuel', () => {
+  it('parses a bundle without fuel data, leaving the fields undefined', () => {
+    const data = parseGameData(minimalGameData())
+    for (const i of Object.values(data.items)) expect(i.fuelValueKj).toBeUndefined()
+    for (const m of Object.values(data.machines)) {
+      expect(m.fuelCategories).toBeUndefined()
+      expect(m.effectivity).toBeUndefined()
+    }
+  })
+
+  it('keeps item fuel fields and machine fuel categories and effectivity', () => {
+    const gd = minimalGameData()
+    const itemId = Object.keys(gd.items)[0]
+    const machineId = Object.keys(gd.machines)[0]
+    gd.items[itemId] = { ...gd.items[itemId], fuelValueKj: 4000, fuelCategory: 'chemical', burntResult: 'ash' } as GameData['items'][string]
+    gd.machines[machineId] = { ...gd.machines[machineId], fuelCategories: ['chemical'], effectivity: 0.5 } as GameData['machines'][string]
+    const data = parseGameData(gd)
+    expect(data.items[itemId]).toMatchObject({ fuelValueKj: 4000, fuelCategory: 'chemical', burntResult: 'ash' })
+    expect(data.machines[machineId]).toMatchObject({ fuelCategories: ['chemical'], effectivity: 0.5 })
+  })
+
+  it('rejects a non-positive fuel value', () => {
+    const gd = minimalGameData()
+    const itemId = Object.keys(gd.items)[0]
+    gd.items[itemId] = { ...gd.items[itemId], fuelValueKj: 0 } as GameData['items'][string]
+    expect(() => parseGameData(gd)).toThrow(GameDataLoadError)
+  })
+})
+
 describe('parseGameData — technologies', () => {
   it('defaults a bundle without technology data to empty collections', () => {
     const data = parseGameData(minimalGameData())
@@ -490,6 +519,14 @@ describe('parsePlan', () => {
     expect((parsePlan(plan).nodes[0] as GameRecipeNode).neighbourCount).toBe(2.5)
     n.neighbourCount = -1
     expect(() => parsePlan(plan)).toThrow()
+  })
+
+  it('round-trips the fuel choice and loads nodes saved without one', () => {
+    const plan = minimalPlan()
+    const n = plan.nodes[0] as GameRecipeNode
+    expect((parsePlan(plan).nodes[0] as GameRecipeNode).fuelItemId).toBeUndefined()
+    n.fuelItemId = 'solid-fuel'
+    expect((parsePlan(JSON.parse(JSON.stringify(plan))).nodes[0] as GameRecipeNode).fuelItemId).toBe('solid-fuel')
   })
 
   it('loads a node saved before the neighbour count existed', () => {

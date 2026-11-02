@@ -16,7 +16,7 @@ import type {
   SubPlan,
 } from '../data/types'
 import { blockAreas, solveAreaBlock } from './areas'
-import { buildClassifiedSystem } from './build'
+import { buildClassifiedSystem, lockedIngredients } from './build'
 import { solveLP } from './solve'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
@@ -193,17 +193,11 @@ export function solveBlock(
     }
   }
 
-  const heatBonusMap = new Map<string, number>()
-  for (const n of representatives) {
-    const effects = nodeEffectsMap.get(n.recipeId)!
-    if (effects.heatBonus > 0) heatBonusMap.set(n.recipeId, effects.heatBonus)
-  }
-
   const bcRecipeIds = new Set(
     representatives.filter(n => n.byproductConsumer).map(n => n.recipeId),
   )
 
-  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap, heatBonusMap)
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap)
 
   // Warn for goal items with no producer recipe in the plan.
   const noRecipeWarnings: SolverResult['warnings'] = []
@@ -244,7 +238,7 @@ export function solveBlock(
     if (!n.byproductConsumer) continue
     const recipe = gameData.recipes[n.recipeId]
     if (!recipe) continue
-    for (const ing of recipe.ingredients) {
+    for (const ing of lockedIngredients(recipe, nodeEffectsMap.get(n.recipeId), n)) {
       noImportItems.add(ing.itemId)
     }
   }

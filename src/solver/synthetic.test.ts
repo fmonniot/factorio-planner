@@ -105,7 +105,22 @@ function recipes(): GameRecipe[] {
     recipe('power:steam-engine:steam', 'power:steam-engine', 1,
       [fluid('steam', 30)],
       [fluid('power:electricity', 0.9)]),
+    // Vanilla recipes of case 10 (burner fuel).
+    recipe('iron-plate', 'smelting', 3.2, [item('iron-ore', 1)], [item('iron-plate', 1)]),
+    recipe('solid-fuel-from-light-oil', 'chemistry', 2, [fluid('light-oil', 10)], [item('solid-fuel', 1)]),
   ]
+}
+
+function fuelItem(id: string, fuelValueKj: number): GameData['items'][string] {
+  return { id, name: id, type: 'item', iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj, fuelCategory: 'chemical' }
+}
+
+// Vanilla burner furnaces: 90 kW, chemical fuel.
+function furnace(id: string, craftingSpeed: number): Machine {
+  return {
+    id, name: id, type: 'furnace', craftingSpeed, energyUsageKw: 90, energyType: 'burner', drainKw: 0, moduleSlots: 0,
+    allowedEffects: [], craftingCategories: ['smelting'], iconPath: '', hidden: false, fuelCategories: ['chemical'],
+  }
 }
 
 function makeGameData(): GameData {
@@ -114,9 +129,16 @@ function makeGameData(): GameData {
   return {
     factorioVersion: '2.0.0',
     modSet: {},
-    items: {},
     recipes: Object.fromEntries(rs.map(r => [r.id, r])),
-    machines: Object.fromEntries(categories.map(c => [`machine-${c}`, speedOneMachine(c)])),
+    items: {
+      coal: fuelItem('coal', 4000),
+      'solid-fuel': fuelItem('solid-fuel', 12000),
+    },
+    machines: {
+      ...Object.fromEntries(categories.map(c => [`machine-${c}`, speedOneMachine(c)])),
+      'stone-furnace': furnace('stone-furnace', 1),
+      'steel-furnace': furnace('steel-furnace', 2),
+    },
     modules: {
       'productivity-module-3': {
         id: 'productivity-module-3',
@@ -125,6 +147,16 @@ function makeGameData(): GameData {
         category: 'productivity',
         tier: 3,
         effects: { productivity: 0.1, consumption: 0.8, speed: -0.15, quality: 0 },
+        limitation: [],
+        limitationBlacklist: [],
+      },
+      'speed-and-consumption': {
+        id: 'speed-and-consumption',
+        name: 'speed-and-consumption',
+        iconPath: '',
+        category: 'speed',
+        tier: 1,
+        effects: { speed: 0.2, consumption: 0.5, productivity: 0, quality: 0 },
         limitation: [],
         limitationBlacklist: [],
       },
@@ -138,8 +170,8 @@ function makeGameData(): GameData {
   }
 }
 
-function planNode(recipeId: string, modules: GameRecipeNode['modules'] = []): GameRecipeNode {
-  return { kind: 'game-recipe', id: recipeId, recipeId, modules, byproductPolicy: {} }
+function planNode(recipeId: string, modules: GameRecipeNode['modules'] = [], extra: Partial<GameRecipeNode> = {}): GameRecipeNode {
+  return { kind: 'game-recipe', id: recipeId, recipeId, modules, byproductPolicy: {}, ...extra }
 }
 
 // `modules` maps a recipe id to the modules slotted in its machines; recipes not listed get none.
@@ -147,10 +179,11 @@ function run(
   goals: Array<[string, number]>,
   recipeIds: string[],
   modules: Record<string, GameRecipeNode['modules']> = {},
+  rows: Record<string, Partial<GameRecipeNode>> = {},
 ): SolverResult {
   const plan: { goals: SolverGoal[]; nodes: RecipeNode[] } = {
     goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
-    nodes: recipeIds.map(id => planNode(id, modules[id])),
+    nodes: recipeIds.map(id => planNode(id, modules[id], rows[id])),
   }
   return solve(plan, makeGameData())
 }
@@ -359,6 +392,44 @@ describe('solver synthetic cases', () => {
       expect(unsatisfiedRate(r, 'water')).toBeCloseTo(20000, 3)
       expect(unsatisfiedRate(r, 'steam') ?? 0).toBe(0)
       expect(r.warnings).toEqual([])
+    })
+  })
+
+  describe('case 10: burner fuel', () => {
+    const plates: Array<[string, number]> = [['iron-plate', 60]]
+
+    it('10a: stone furnaces burn the default (lowest-value) fuel instead of drawing power', () => {
+      const r = run(plates, ['iron-plate'], {}, { 'iron-plate': { machineId: 'stone-furnace' } })
+      const n = nodeOf(r, 'iron-plate')
+      expect(n.throughput).toBeCloseTo(60, 3)
+      expect(n.machineCountExact).toBeCloseTo(3.2, 3)
+      expect(n.inputRates['coal']).toBeCloseTo(4.32, 3)
+      expect(n.fuelItemId).toBe('coal')
+      expect(n.powerKw).toBe(0)
+      expect(unsatisfiedRate(r, 'coal')).toBeCloseTo(4.32, 3)
+      expect(r.warnings).toEqual([])
+    })
+
+    it('10b: steel furnaces on solid fuel made in the plan', () => {
+      const r = run(plates, ['iron-plate', 'solid-fuel-from-light-oil'], {},
+        { 'iron-plate': { machineId: 'steel-furnace', fuelItemId: 'solid-fuel' } })
+      const furnaces = nodeOf(r, 'iron-plate')
+      expect(furnaces.machineCountExact).toBeCloseTo(1.6, 3)
+      expect(furnaces.inputRates['solid-fuel']).toBeCloseTo(0.72, 3)
+      expect(furnaces.powerKw).toBe(0)
+      expect(nodeOf(r, 'solid-fuel-from-light-oil').throughput).toBeCloseTo(0.72, 3)
+      expect(unsatisfiedRate(r, 'light-oil')).toBeCloseTo(7.2, 3)
+      expect(unsatisfiedRate(r, 'solid-fuel') ?? 0).toBe(0)
+      expect(unsatisfiedRate(r, 'coal')).toBeUndefined()
+      expect(r.warnings).toEqual([])
+    })
+
+    it('10c: speed and consumption modules scale the fuel per execution by (1 + consumption) / (1 + speed)', () => {
+      const r = run(plates, ['iron-plate'], { 'iron-plate': [{ moduleId: 'speed-and-consumption', count: 1 }] },
+        { 'iron-plate': { machineId: 'stone-furnace' } })
+      const n = nodeOf(r, 'iron-plate')
+      expect(n.machineCountExact).toBeCloseTo(2.667, 3)
+      expect(n.inputRates['coal']).toBeCloseTo(5.4, 3)
     })
   })
 
