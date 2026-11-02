@@ -1,0 +1,77 @@
+{
+  "blocks": [
+    {
+      "id": "ffff0001-0000-0000-0000-000000000001",
+      "name": "Too cold",
+      "color": "#f87171",
+      "goals": [
+        {
+          "id": "ffff0001-0000-0000-0000-0000000000g1",
+          "itemId": "steam",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0001-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0001-0000-0000-0000-0000000000n1",
+            "recipeId": "power:bob-burner-reactor:wood",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "ffff0001-0000-0000-0000-0000000000n2",
+            "recipeId": "power:bob-heat-exchanger-4:power:heat",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-21T00:00:00.000Z",
+        "updatedAt": "2026-10-21T00:00:00.000Z"
+      }
+    },
+    {
+      "id": "ffff0002-0000-0000-0000-000000000001",
+      "name": "Hot enough",
+      "color": "#4ade80",
+      "goals": [
+        {
+          "id": "ffff0002-0000-0000-0000-0000000000g1",
+          "itemId": "steam",
+          "rate": 60
+        }
+      ],
+      "noImportItems": [],
+      "rootPlan": {
+        "id": "ffff0002-0000-0000-0000-0000000000a1",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "ffff0002-0000-0000-0000-0000000000n1",
+            "recipeId": "power:bob-burner-reactor-2:wood",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "ffff0002-0000-0000-0000-0000000000n2",
+            "recipeId": "power:bob-heat-exchanger-4:power:heat",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-10-21T00:00:00.000Z",
+        "updatedAt": "2026-10-21T00:00:00.000Z"
+      }
+    }
+  ],
+  "activeBlockId": "ffff0001-0000-0000-0000-000000000001"
+}

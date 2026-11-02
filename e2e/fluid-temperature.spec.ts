@@ -50,3 +50,29 @@ test('a steam engine on boiler steam raises no warning', async ({ page }) => {
   await expect(page.locator('main [title="Steam (165°C)"]').first()).toBeVisible()
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
 })
+
+/** Two Seablock blocks making electricity from reactor heat on a heat exchanger 4 (needs heat of at least 765°C): a burner reactor (750°C) and a burner reactor 2 (1000°C). */
+const HEAT_FIXTURE = path.resolve('e2e/fixtures/heat-temperature-seablock.json')
+
+test('a burner reactor under a heat exchanger 4 warns, and shows the heat bound', async ({ page }) => {
+  await loadPlanFixture(page, HEAT_FIXTURE, 'kompetenz-seablock')
+  await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+
+  await expect(page.locator('[data-testid="block-tab"] button[title="Too cold"]').first()).toHaveAttribute('aria-current', 'true')
+  await expect(page.locator('main [title^="Heat (≥765°C)"]').first()).toContainText('≥765°C')
+
+  const pill = page.getByRole('button', { name: /1 warning/ })
+  await expect(pill).toBeVisible()
+  await pill.click()
+  const body = page.getByText(/needs Heat at/)
+  await expect(body).toContainText('≥765°C')
+  await expect(body).toContainText('750°C')
+})
+
+test('a burner reactor 2 under a heat exchanger 4 raises no warning', async ({ page }) => {
+  await loadPlanFixture(page, HEAT_FIXTURE, 'kompetenz-seablock')
+  await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+  await page.locator('[data-testid="block-tab"] button[title="Hot enough"]').click()
+  await expect(page.locator('main [title^="Heat (≥765°C)"]').first()).toBeVisible()
+  await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
+})
