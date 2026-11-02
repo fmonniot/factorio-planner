@@ -86,6 +86,8 @@ function fuelCategories(source) {
   return ['chemical']
 }
 
+/** `{ [key]: value }` when `value` is a finite number, else `{}`, for spreading into an object. */
+const ifFinite = (key, value) => (Number.isFinite(value) ? { [key]: value } : {})
 const byId = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
 
 /**
@@ -222,7 +224,7 @@ export async function exportPower(raw, opts) {
           { itemId: inFluid.name, type: 'fluid', amount: steamPerSec },
           {
             itemId: fuel.id, type: fuel.type, amount: fuelPerSec,
-            ...(isHeat && Number.isFinite(minHeat) ? { minimumTemperature: minHeat } : {}),
+            ...(isHeat ? ifFinite('minimumTemperature', minHeat) : {}),
           },
         ],
         products: [{ itemId: outFluid.name, type: 'fluid', amount: steamPerSec, temperature: target }, ...burnt(fuel, fuelPerSec)],
@@ -335,7 +337,7 @@ export async function exportPower(raw, opts) {
       return {
         input: fuel,
         ingredients: [{ itemId: fuel.id, type: fuel.type, amount: fuelPerSec }],
-        products: [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: heatKw / 1000, ...(Number.isFinite(maxHeat) ? { temperature: maxHeat } : {}) }, ...burnt(fuel, fuelPerSec)],
+        products: [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: heatKw / 1000, ...ifFinite('temperature', maxHeat) }, ...burnt(fuel, fuelPerSec)],
         mainProduct: HEAT_ITEM_ID,
       }
     })

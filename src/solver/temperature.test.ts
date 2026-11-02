@@ -135,10 +135,6 @@ describe('temperature-mismatch warning', () => {
 
 })
 
-/**
- * The solver only offers a block's own net output, so a source that both makes a fluid and hands on
- * what it received cannot be built from real blocks; these call `temperatureWarnings` with hand-made results.
- */
 /** A reactor: no ingredients, 1 heat per run at `temperature` (absent: unknown). */
 function reactor(id: string, temperature?: number): GameRecipe {
   return recipe(id, [], [{ itemId: 'heat', type: 'fluid', amount: 1, ...(temperature === undefined ? {} : { temperature }) }])
@@ -191,6 +187,10 @@ describe('heat', () => {
   })
 })
 
+/**
+ * The solver only offers a block's own net output, so a source that both makes a fluid and hands on
+ * what it received cannot be built from real blocks; these call `temperatureWarnings` with hand-made results.
+ */
 describe('temperatureWarnings on connections', () => {
   const gd = gameData([boiler('b165', 165), boiler('b500', 500), generator('turbine', 465)], STEAM_ITEMS())
   const solved = (id: string, outputs: Record<string, number>, inputs: Record<string, number> = {}, unsatisfied: SolverResult['unsatisfied'] = []): SolverResult => ({
@@ -249,8 +249,8 @@ describe('temperature-mismatch warning (more)', () => {
 
   it('stays silent when the consumer bound is on a fluid nobody gives a temperature', () => {
     const heater = recipe('heater', [], [{ itemId: 'heat', type: 'fluid', amount: 1 }])
-    const exchanger = recipe('exchanger', [{ itemId: 'heat', type: 'fluid', amount: 1, minimumTemperature: 500 }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
-    const gd = gameData([heater, exchanger])
+    const consumer = recipe('exchanger', [{ itemId: 'heat', type: 'fluid', amount: 1, minimumTemperature: 500 }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
+    const gd = gameData([heater, consumer])
     const all = solveAll([block('A', [node('h', 'heater'), node('e', 'exchanger')])], gd)
     expect(mismatches(all.results.A.warnings)).toHaveLength(0)
   })

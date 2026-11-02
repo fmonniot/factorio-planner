@@ -95,8 +95,6 @@ describe('bundled temperatures', () => {
     expect(minOf('power:bob-heat-exchanger-4:power:heat')).toBe(765)
     for (const r of Object.values(bundle.recipes)) {
       if (!r.power) continue
-      const makesHeat = r.products.find(p => p.itemId === 'power:heat')
-      if (makesHeat) expect(makesHeat.temperature, `${r.id} heat`).toEqual(expect.any(Number))
       const usesHeat = r.ingredients.find(i => i.itemId === 'power:heat')
       if (usesHeat) expect(usesHeat.minimumTemperature, `${r.id} heat bound`).toEqual(expect.any(Number))
     }

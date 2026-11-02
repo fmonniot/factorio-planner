@@ -263,6 +263,18 @@ describe('reactors', () => {
     expect(burnt).not.toHaveProperty('temperature')
   })
 
+  it('leaves the heat temperature out when the heat buffer or its maximum is missing or not finite', async () => {
+    quiet()
+    const raw = makeRaw()
+    delete raw.reactor['burner-reactor'].heat_buffer
+    raw.reactor['nuclear-reactor'].heat_buffer = { max_temperature: '1000' }
+    raw.reactor['fluid-reactor'].heat_buffer = { max_temperature: NaN }
+    const { recipes } = await exportPower(raw, makeOpts())
+    for (const id of ['power:burner-reactor:coal', 'power:nuclear-reactor:fuel-cell', 'power:fluid-reactor:crude-oil']) {
+      expect(recipes[id].products.find(p => p.itemId === 'power:heat'), id).not.toHaveProperty('temperature')
+    }
+  })
+
   it('defaults the neighbour bonus to 1', async () => {
     quiet()
     const { machines } = await exportPower(makeRaw(), makeOpts())
