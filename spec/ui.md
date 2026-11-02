@@ -1083,11 +1083,27 @@ The same component in recipes mode (`source="recipes"`).
   settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel
   change goes through **Alternate recipe**.
 - **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
-  a number input (`neighbour-count`, accessible name "Neighbouring reactors") for the average
-  number of working reactors next to each reactor: at least 0, fractions allowed. Every valid
-  change is saved at once and is undoable (0 clears it); empty or negative text is not saved and
-  reverts to the stored value on blur. `neighbour-multiplier` shows "Heat ×N" (1 + bonus × count),
-  with a helper line ("+100 % heat on the same fuel, so you need fewer reactors"). Switching to a
+  a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
+  **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a
+  typed value outside the range is clamped, other text stays until blur) and a drawing
+  (`neighbour-grid`, `role="img"`). Each 40 px tile shows how many reactors share a side with it
+  (0–4, diagonals do not count), coloured by that number. An axis longer than 5 is folded into
+  five tracks (the first two, a gap marked ⋯ / ⋮ / ⋱, the last two); the numbers come from the
+  real positions and the average always uses the full size. The average of the drawing,
+  `2 × (cols × (rows − 1) + rows × (cols − 1)) / (cols × rows)`, is what is stored in
+  `neighbourCount` (an exact ratio; 1 × 1 stores nothing). The size is UI state and is not
+  persisted: reopening the modal finds the rectangle whose average equals the stored count
+  (smallest area, then the most square, then cols ≤ rows; no stored count opens as 1 × 1) and,
+  when none matches, opens in own-average mode.
+  Below a rule, **Not a rectangle?** is a number input (`neighbour-count`, accessible name
+  "Neighbouring reactors", 0–4) that shows the drawing's average and takes the player's own.
+  Typing a valid own value saves it, dims the drawing ("Not used: you typed your own average
+  below.") and offers **Use the drawing**; changing a size does the same. Text outside 0–4 shows
+  "A reactor has four sides, so use a number from 0 to 4." and is not saved (the schema accepts
+  any non-negative number, and a stored value above 4 is kept and flagged); on blur the field
+  reverts to the stored value. Every valid change is saved at once and is undoable (0 clears
+  it). A result strip shows the average, "Each neighbour adds +N %" (from the machine's bonus)
+  and the heat per reactor (`neighbour-multiplier`, "×N" = 1 + bonus × average). Switching to a
   machine without a bonus hides the section; the count is kept but ignored. **Apply to every row
   of this recipe** does not copy it.
 - **Modules** (when the machine has slots or modules are configured) — each configured

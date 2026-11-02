@@ -272,11 +272,11 @@ test.describe('Heat', () => {
     await reactor.click()
     const count = page.getByLabel('Neighbouring reactors')
     await expect(count).toHaveValue('0')
-    // The hint wraps inside the modal instead of running off its right edge.
-    const hint = page.getByTestId('neighbour-section').locator('p')
-    expect((await hint.boundingBox())!.height).toBeGreaterThan(20)
+    // The caption wraps inside the modal instead of running off its right edge.
+    const caption = page.getByTestId('neighbour-section').getByText(/^Each number is how many reactors/)
+    expect((await caption.boundingBox())!.height).toBeGreaterThan(20)
     await count.fill('3')
-    await expect(page.getByTestId('neighbour-multiplier')).toHaveText('Heat ×4')
+    await expect(page.getByTestId('neighbour-multiplier')).toHaveText('×4')
     await expect(page.getByText('×1 machines')).toBeVisible()
     await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
@@ -286,6 +286,8 @@ test.describe('Heat', () => {
 
     await reactor.click()
     await expect(page.getByLabel('Neighbouring reactors')).toHaveValue('3')
+    await expect(page.getByTestId('neighbour-cols')).toHaveValue('4')
+    await expect(page.getByTestId('neighbour-rows')).toHaveValue('4')
     await page.getByLabel('Neighbouring reactors').fill('0')
     await page.getByRole('button', { name: 'Close', exact: true }).last().click()
     await expect(reactor).toHaveText(/^\??2$/)
