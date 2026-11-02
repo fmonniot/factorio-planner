@@ -32,7 +32,7 @@ import { neighbourHeatBonus } from '../../solver/effects'
 import { hasProduct } from '../../solver/blockGraph'
 import { itemSourcingActions } from './itemSourcing'
 import { countSubPlanContents } from './subPlanContents'
-import { ingredientTemperatureLabels } from './temperature'
+import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 
 /** Solved items-per-run of the primary product; undefined unless strictly positive. */
 // eslint-disable-next-line react-refresh/only-export-components
@@ -423,6 +423,7 @@ export function RecipeRow({
   if (!recipe) return null
 
   const temperatureLabels = ingredientTemperatureLabels(recipe)
+  const productTemperatures = productTemperatureLabels(recipe)
 
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
@@ -687,6 +688,7 @@ export function RecipeRow({
                 </div>
               )
             }
+            const productTemp = productTemperatures[itemId]
             return (
               <ItemTile
                 key={itemId}
@@ -695,6 +697,8 @@ export function RecipeRow({
                 variant="product"
                 sourcing={activeBlock?.itemSourcing[itemId]}
                 onContextMenu={e => openItemMenu(e, itemId, false)}
+                temperature={productTemp}
+                title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
               />
             )
           })}
@@ -706,7 +710,9 @@ export function RecipeRow({
         <div className="flex flex-wrap gap-0.5">
           {byproductEntries.map(([itemId, ratePerMin]) => {
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
-            const itemName = gameData.items[itemId]?.name ?? itemId
+            const baseName = gameData.items[itemId]?.name ?? itemId
+            const byproductTemp = productTemperatures[itemId]
+            const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
             const openMenu = (e: React.MouseEvent) => openItemMenu(e, itemId, true)
             const sourcing = activeBlock?.itemSourcing[itemId]
             const hint = onAddConsumer ? '; right-click to add a consumer recipe or choose how it is sourced' : '; right-click to choose how it is sourced'
@@ -719,6 +725,7 @@ export function RecipeRow({
                   item={gameData.items[itemId]}
                   ratePerSec={ratePerMin / 60}
                   variant="byproduct"
+                  temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
                   onContextMenu={openMenu}
                   sourcing={sourcing}
@@ -735,6 +742,7 @@ export function RecipeRow({
                 item={gameData.items[itemId]}
                 ratePerSec={ratePerMin / 60}
                 variant="byproduct"
+                temperature={byproductTemp}
                 onClick={() =>
                   updateNodeByproductPolicy(planNode.id, {
                     ...planNode.byproductPolicy,

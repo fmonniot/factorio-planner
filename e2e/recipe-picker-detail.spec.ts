@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
+import { loadPlanFixture } from './support/loadPlan'
 
 const GAME_DATA_PATH = path.resolve('public/data/nullius/game-data.json')
 
@@ -90,5 +91,33 @@ test.describe('Recipe picker detail panel', () => {
 
     // No recipe detail panel exists in items mode.
     await expect(overlay.getByTestId('recipe-detail-panel')).not.toBeVisible()
+  })
+})
+
+test.describe('Recipe picker detail panel — fluid temperatures (Seablock)', () => {
+  test.beforeEach(async ({ page }) => {
+    await loadPlanFixture(page, path.resolve('e2e/fixtures/fluid-temperature-seablock.json'), 'kompetenz-seablock')
+    await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
+  })
+
+  async function hoverRecipe(page: import('@playwright/test').Page, search: string, recipeId: string) {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await overlay.getByPlaceholder('Search…').fill(search)
+    const slot = overlay.locator(`[data-testid="recipe-slot"][data-recipe-id="${recipeId}"]`)
+    await slot.hover()
+    const detail = overlay.getByTestId('recipe-detail-panel')
+    await expect(detail).toBeVisible()
+    return detail
+  }
+
+  test('a steam engine lists its minimum steam temperature among the ingredients', async ({ page }) => {
+    const detail = await hoverRecipe(page, 'Steam engine (Steam)', 'power:steam-engine:steam')
+    await expect(detail.getByTestId('recipe-detail-temperature').first()).toHaveText('≥165°C')
+  })
+
+  test('a boiler lists the steam temperature among the products', async ({ page }) => {
+    const detail = await hoverRecipe(page, 'Boiler (Carbon)', 'power:boiler:angels-solid-carbon')
+    await expect(detail.getByTestId('recipe-detail-temperature').first()).toHaveText('165°C')
   })
 })

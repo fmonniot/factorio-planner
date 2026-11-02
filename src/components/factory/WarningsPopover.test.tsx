@@ -154,6 +154,54 @@ describe('WarningsPopover — request-loop-not-converged', () => {
 })
 
 // ---------------------------------------------------------------------------
+// temperature-mismatch
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — temperature-mismatch', () => {
+  beforeEach(() => {
+    useGameDataStore.setState({
+      status: {
+        type: 'loaded',
+        gameData: {
+          ...mockGameData,
+          recipes: {
+            ...mockGameData.recipes,
+            turbine: { id: 'turbine', name: 'Steam Turbine', category: 'crafting', craftingTime: 1, ingredients: [], products: [], madeIn: [], allowProductivity: false, mainProduct: undefined, hidden: false },
+          },
+        } as unknown as GameData,
+        sourceId: 'test',
+      },
+    })
+    useSolverStore.setState({
+      status: { type: 'idle' },
+      lastResult: {
+        nodes: [], unsatisfied: [],
+        warnings: [{ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [165], minimum: 465 }],
+      },
+      _setStatus: () => {},
+    })
+    render(<WarningsPopover />)
+    openPopover()
+  })
+
+  it('shows the title, the need and the supplied temperature', () => {
+    expect(screen.getByText(/Fluid temperature does not fit/)).toBeInTheDocument()
+    expect(screen.getByText('Steam Turbine needs Steam at ≥465°C, but it is only supplied at 165°C.')).toBeInTheDocument()
+  })
+
+  it('hints at a boiler or a connected block', () => {
+    expect(screen.getByText(/Use a boiler or recipe whose output is in range/)).toBeInTheDocument()
+  })
+
+  it('is not critical: the pill stays amber and counts it', () => {
+    expect(screen.getByText(/Fluid temperature does not fit/).className).toContain('text-yellow-400')
+    const pill = screen.getByTitle('Show solver warnings')
+    expect(pill).toHaveTextContent('1 warning')
+    expect(pill.className).toContain('text-yellow-300')
+  })
+})
+
+// ---------------------------------------------------------------------------
 // infeasible-pins
 // ---------------------------------------------------------------------------
 

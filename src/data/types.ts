@@ -65,6 +65,7 @@ export type SolverWarning =
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
+  | { type: 'temperature-mismatch'; recipeId: string; itemId: string; supplied: number[]; minimum?: number; maximum?: number }
 
 /** An item moving into or out of an area; `boundary` when the block also imports or exports it. */
 export interface AreaFlow {

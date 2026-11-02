@@ -529,6 +529,45 @@ describe('ItemPicker — items mode', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Recipe detail panel — fluid temperatures
+// ---------------------------------------------------------------------------
+
+describe('ItemPicker — recipe detail panel temperatures', () => {
+  function hoverWith(recipe: GameData['recipes'][string]) {
+    const data = structuredClone(fixture)
+    data.recipes[recipe.id] = recipe
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    const slot = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === recipe.id)!
+    fireEvent.mouseEnter(slot)
+    return screen.getByTestId('recipe-detail-panel')
+  }
+
+  const base = {
+    category: 'crafting', craftingTime: 1, madeIn: ['assembling-machine-1'], allowProductivity: false, hidden: false,
+    mainProduct: null, subgroup: 'smelting-basic', order: 'q',
+  }
+
+  it('shows the ingredient bound and the explicit product temperature', () => {
+    const panel = hoverWith({
+      ...base, id: 'steam-recipe', name: 'Steam Recipe',
+      ingredients: [{ itemId: 'water', type: 'fluid', amount: 10, minimumTemperature: 95 }],
+      products: [{ itemId: 'steam', type: 'fluid', amount: 10, temperature: 165 }],
+    } as unknown as GameData['recipes'][string])
+    expect(within(panel).getAllByTestId('recipe-detail-temperature').map(e => e.textContent)).toEqual(['≥95°C', '165°C'])
+  })
+
+  it('shows none when the recipe states no temperature', () => {
+    const panel = hoverWith({
+      ...base, id: 'plain-recipe', name: 'Plain Recipe',
+      ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+      products: [{ itemId: 'iron-plate', type: 'item', amount: 1 }],
+    } as unknown as GameData['recipes'][string])
+    expect(within(panel).queryByTestId('recipe-detail-temperature')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Recipe detail panel — "Unlocked by:" section
 // ---------------------------------------------------------------------------
 

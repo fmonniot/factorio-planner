@@ -8,6 +8,7 @@ import { recipeUnlock } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
 import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
+import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -38,8 +39,8 @@ function fmtAmount(amount: number): string {
 }
 
 function ItemRow({
-  iconPath, name, amount, probability,
-}: { iconPath: string | undefined; name: string; amount: number; probability?: number }) {
+  iconPath, name, amount, probability, temperature,
+}: { iconPath: string | undefined; name: string; amount: number; probability?: number; temperature?: string }) {
   const prob = probability ?? 1
   return (
     <div className="flex items-center gap-2 py-1">
@@ -51,6 +52,11 @@ function ItemRow({
         {fmtAmount(amount)}{prob < 1 ? ` ×${prob}` : ''} ×
       </span>
       <span className="text-gray-300 truncate">{name}</span>
+      {temperature && (
+        <span data-testid="recipe-detail-temperature" className="shrink-0 text-orange-300 text-xs tabular-nums">
+          {temperature}
+        </span>
+      )}
     </div>
   )
 }
@@ -108,6 +114,7 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
               iconPath={item?.iconPath}
               name={item?.name ?? ing.itemId}
               amount={ing.amount}
+              temperature={fmtTemperatureRange(ing.minimumTemperature, ing.maximumTemperature)}
             />
           )
         })}
@@ -132,6 +139,7 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
                 name={item?.name ?? prod.itemId}
                 amount={prod.amount}
                 probability={prod.probability}
+                temperature={fmtTemperatureRange(prod.temperature, prod.temperature)}
               />
             )
           })}
