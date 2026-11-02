@@ -183,7 +183,7 @@ interface Machine {
   craftingCategories: string[]   // sorted
   iconPath: string
   hidden: boolean                // default false
-  neighbourBonus?: number        // reactors only: extra heat per adjacent working reactor (1 = +100 %); informational, recipes assume no neighbours
+  neighbourBonus?: number        // reactors only: extra heat per adjacent working reactor (1 = +100 %); recipes assume no neighbours, the row's `neighbourCount` scales the heat
 }
 
 type EffectName = 'speed' | 'productivity' | 'consumption' | 'pollution' | 'quality'
@@ -345,7 +345,7 @@ The build script (`scripts/power.js`) turns boilers, heat exchangers, generators
 - **Machines** are emitted only when they got a recipe. Hidden machines and hidden fuels are skipped (also a hidden fluid named by a fluid-burning boiler's `fluid_box.filter`), as are fuels with a `burnt_result` in a burner whose `burnt_inventory_size` is 0 or absent (Factorio refuses them), except a hidden `generator` with no `minable` result, which is placed by a script as part of a compound entity (Nullius' turbines) and is exported not hidden. A generator's own `fluid_box.filter` fluid is used even if hidden (`nullius-energy`). Other cases are skipped with a `[power] skipping …` warning: electric or non-burning fluid boilers, reactors with a void or electric energy source (script-driven geothermal reactors, thermal tanks, solar collectors), a `mode` other than `output-to-separate-pipe`, a missing filter or temperature, and non-positive amounts.
 - **Boilers.** Per fuel: steam per second = `energy_consumption` / (output fluid `heat_capacity` x (`target_temperature` - input fluid `default_temperature`)); fuel per second = power / (fuel value x burner `effectivity`). Ingredients are the input fluid and the fuel; products are the output fluid (no temperature) and the fuel's `burnt_result`, if any, at the fuel rate. Fuels are the non-hidden items whose `fuel_category` is in the boiler's `fuel_categories` (default `chemical`) with a positive `fuel_value`, or the non-hidden fluids with a `fuel_value` for a fluid-burning boiler.
 - **Heat exchangers.** A `boiler` whose `energy_source` is `heat` gets one recipe, `power:<machine>:power:heat`, with the same formulas as a boiler: the heat "fuel" has 1000 kJ per unit and effectivity 1, so heat per second = `energy_consumption` / 1000 (MW). Ingredients are water then heat (heat last); the product is steam with no temperature. The machine type is `boiler`.
-- **Reactors.** One recipe per fuel with the boiler's fuel selection (burner categories, or burning fluids): fuel per second = `consumption` / (fuel value x burner `effectivity`); products are heat at `consumption` / 1000 and the fuel's `burnt_result` at the fuel rate (reactors accept a burnt-result fuel only with a burnt inventory). The recipes assume a reactor **without neighbours**: a reactor with N working neighbours makes (1 + `neighbourBonus` x N) times the heat on the same fuel. `Machine.neighbourBonus` (`neighbour_bonus`, engine default 1, emitted only when > 0) is informational; nothing reads it yet.
+- **Reactors.** One recipe per fuel with the boiler's fuel selection (burner categories, or burning fluids): fuel per second = `consumption` / (fuel value x burner `effectivity`); products are heat at `consumption` / 1000 and the fuel's `burnt_result` at the fuel rate (reactors accept a burnt-result fuel only with a burnt inventory). The recipes assume a reactor **without neighbours**: a reactor with N working neighbours makes (1 + `neighbourBonus` x N) times the heat on the same fuel. `Machine.neighbourBonus` (`neighbour_bonus`, engine default 1, emitted only when > 0) is applied per row through `GameRecipeNode.neighbourCount`.
 - **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the solver ignores it). A missing `heat_capacity` counts as 1 kJ.
 - **Burner generators.** Per fuel: fuel per second = `max_power_output` / (fuel value x burner `effectivity`), product electricity at `max_power_output`, plus any burnt result.
 - **Solar panels.** No ingredients; electricity = `production` x 0.7 (the Nauvis day/night average, no storage).
@@ -622,6 +622,7 @@ interface GameRecipeNode {
   modules: ModuleConfig[]
   beaconConfig?: BeaconConfig
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute
+  neighbourCount?: number       // reactor rows: average adjacent working reactors; > 0 (0 → undefined)
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
   byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
@@ -641,6 +642,7 @@ interface SubPlanNode {
   so a plan saved with a zero pin still loads. The unit is runs, not items: the UI
   shows and edits the primary product's rate and converts with that product's
   items per run.
+- **`neighbourCount`.** Reactor rows: the average number of adjacent working reactors per reactor (fractional allowed). The heat product is multiplied by `1 + Machine.neighbourBonus × neighbourCount`; ignored when the row's machine has no `neighbourBonus`. The preprocess coerces `0` to `undefined`; negatives fail to load. Optional, so older plans load unchanged. See [solver.md](solver.md#machine-count-and-power).
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Override of the recipe's main product: it decides which

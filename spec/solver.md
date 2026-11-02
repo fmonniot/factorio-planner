@@ -21,9 +21,9 @@ Entry point: `solveAll(blocks, gameData, cache?, options?)` in [src/solver/index
 
 Per block, `solveBlock` runs the steps below. When `plan.areas` is present its first statement hands the block to `solveAreaBlock` ([src/solver/areas.ts](../src/solver/areas.ts)), which runs the same steps on one column per row instead of one per recipe (see [Areas](#areas)); a block without it takes exactly the path below.
 
-1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted; with areas the rule is per area, see [Areas](#areas)). The first node in flatten order (a plan's own nodes before its sub-plans, depth-first) is authoritative for effects, pin and byproduct settings; later duplicates solve to zero throughput, machines and power, with empty rates.
-2. `computeNodeEffects` — module + beacon bonuses per node ([src/solver/effects.ts](../src/solver/effects.ts)).
-3. `buildClassifiedSystem` — net stoichiometry `S[item][recipe]` with productivity applied, and item classification ([src/solver/build.ts](../src/solver/build.ts)).
+1. Keep only `game-recipe` nodes. One LP variable per distinct `recipeId`: nodes that share a recipe share one throughput (and a `duplicate-recipe` warning is emitted; with areas the rule is per area, see [Areas](#areas)). The first node in flatten order (a plan's own nodes before its sub-plans, depth-first) is authoritative for effects (modules, beacons, neighbour count), pin and byproduct settings; later duplicates solve to zero throughput, machines and power, with empty rates.
+2. `computeNodeEffects` — module, beacon and reactor-neighbour bonuses per node ([src/solver/effects.ts](../src/solver/effects.ts)).
+3. `buildClassifiedSystem` — net stoichiometry `S[item][recipe]` with productivity and heat bonus applied, and item classification ([src/solver/build.ts](../src/solver/build.ts)).
 4. `no-recipe` check on goals.
 5. Apply `byproductPolicy = 'discard'` (zeroes coefficients in `S`).
 6. Collect pins and the no-import set, then the byproducts-first set (`itemSourcing` items that are not in the no-import set).
@@ -276,7 +276,7 @@ A sub-factory with `area: true` is a separate area; the block's root plan is alw
 
 **Membership and rank.** `blockAreas(rootPlan)` ([src/solver/areas.ts](../src/solver/areas.ts)) walks the tree like `flattenBlock` (through `subPlans`, which the data model keeps in step with the handles, see [data-model.md](data-model.md#subplan)): a row belongs to its nearest enclosing area, so a sub-factory that is not an area only organises the rows of the area around it. Areas are listed in table order: the root first, then a pre-order walk where each plan's sub-factories come in the order of their handles in `plan.nodes` (those without a handle last, in `subPlans` order). The rank of an area is its index. `flattenBlock` puts `areas: { id, nodeIds }[]` on the plan (id: root plan id or sub-plan id); `planKey` and the request-loop memo key include it only when present.
 
-**Columns.** Each area has one column per recipe: its first row of that recipe in flatten order. Later rows of the same recipe in the same area are duplicates (`duplicate-recipe` with `areaId`, solved to zero). The same recipe in two areas is not a duplicate. A column has its own effects (modules, beacons, so its own productivity) and its own `S` coefficients, named `n0`, `n1`, … in the LP. Classification, `no-recipe`, discard, pins, byproduct consumers and the no-import set work per column exactly as for a recipe. Machine count and `Math.ceil` are per row, so each area rounds up on its own.
+**Columns.** Each area has one column per recipe: its first row of that recipe in flatten order. Later rows of the same recipe in the same area are duplicates (`duplicate-recipe` with `areaId`, solved to zero). The same recipe in two areas is not a duplicate. A column has its own effects (modules, beacons, neighbour count, so its own productivity and heat bonus) and its own `S` coefficients, named `n0`, `n1`, … in the LP. Classification, `no-recipe`, discard, pins, byproduct consumers and the no-import set work per column exactly as for a recipe. Machine count and `Math.ceil` are per row, so each area rounds up on its own.
 
 **Dedicated rows.** A column is dedicated to item `i` when `i` is the row's `primaryProduct`, else the recipe's `mainProduct`, else its first product (`dedicatedProduct`), and its coefficient for `i` is still positive after `discard`. A primary product that is discarded or is not a product of the recipe makes the row dedicated to nothing.
 
@@ -326,6 +326,8 @@ bonus = Σ moduleEffect · moduleCount
 ```
 
 The productivity bonus is dropped (treated as 0) when the recipe has `allowProductivity: false`, or is not in the game data; speed and consumption bonuses are unaffected. The machine's `allowedEffects` is not checked by the solver.
+
+**Reactor neighbours.** `heatBonus = neighbourBonus(resolved machine) × neighbourCount` (`neighbourHeatBonus`; `GameRecipeNode.neighbourCount` is the average number of working reactors next to each reactor, 0 when absent, and the machine is the row's or the effective default, so a stale count on a machine without `neighbourBonus` has no effect). The heat product (`power:heat`) per execution is multiplied by `1 + heatBonus` in every product amount (`rowProductAmount`: LP coefficients, solved output rates, area columns); ingredients and other products (the burnt result) are unchanged, so a fixed heat target needs fewer executions, hence fewer reactors and less fuel. A pinned rate stays in executions/min, so a pinned row keeps its reactor count and makes more heat. As with other effects, only the first row of a recipe counts: a later duplicate row's count is ignored.
 
 Per node, given recipe throughput `x_j` (executions/minute) — `computeMachineMetrics`:
 

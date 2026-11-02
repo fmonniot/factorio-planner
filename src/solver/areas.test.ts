@@ -54,6 +54,10 @@ function gd(): GameData {
     // Cycle of requests
     recipe('fx', [['y', 0.5]], [['x', 1]]),
     recipe('fy', [['x', 0.5]], [['y', 1]]),
+    // Reactor neighbours: a reactor makes 10 heat per run on 1 fuel; two consumers of heat.
+    recipe('reactor-run', [['fuel', 1]], [['power:heat', 10]], { category: 'rc' }),
+    recipe('heat-use-a', [['power:heat', 10]], [['ha', 1]]),
+    recipe('heat-use-b', [['power:heat', 10]], [['hb', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -75,6 +79,21 @@ function gd(): GameData {
         iconPath: '',
         hidden: false,
       },
+      rx: {
+        id: 'rx',
+        name: 'rx',
+        type: 'reactor',
+        craftingSpeed: 1,
+        energyUsageKw: 0,
+        energyType: 'electric',
+        drainKw: 0,
+        moduleSlots: 0,
+        allowedEffects: [],
+        craftingCategories: ['rc'],
+        neighbourBonus: 1,
+        iconPath: '',
+        hidden: false,
+      },
     },
     modules: {
       prod: {
@@ -89,7 +108,7 @@ function gd(): GameData {
       },
     },
     beacons: {},
-    defaultMachines: { c: 'm' },
+    defaultMachines: { c: 'm', rc: 'rx' },
     itemGroups: {},
     itemSubgroups: {},
     technologies: {},
@@ -286,6 +305,18 @@ describe('subPlanCopyBlocker', () => {
 })
 
 describe('areas in the solve', () => {
+  it('each area column uses its own row neighbour count for the heat product', () => {
+    const a = sub('A', [row('reactor-run', 'A'), row('heat-use-a', 'A')], [], true)
+    const b = sub('B', [row('reactor-run', 'B', { neighbourCount: 1 }), row('heat-use-b', 'B')], [], true)
+    const r = solved(blk(root([], [a, b]), [['ha', 60], ['hb', 60]]))
+    const ra = node(r, 'reactor-run@A')
+    const rb = node(r, 'reactor-run@B')
+    expect(ra.outputRates['power:heat'] / ra.throughput).toBeCloseTo(10, 6)
+    expect(rb.outputRates['power:heat'] / rb.throughput).toBeCloseTo(20, 6)
+    expect(ra.throughput).toBeCloseTo(60, 4)
+    expect(rb.throughput).toBeCloseTo(30, 4)
+  })
+
   it('S1: each area builds its own electrolysis and receives no hydrogen', () => {
     const r = solved(scenario1())
     expect(node(r, 'electrolysis@root').throughput).toBeCloseTo(276, 6)

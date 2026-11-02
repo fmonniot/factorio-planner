@@ -99,8 +99,16 @@ export function EffectsPanel({ label, totals, showQuality }: EffectsPanelProps) 
   )
 }
 
+function fmtMultiplier(x: number): string {
+  return String(Number(x.toFixed(2)))
+}
+
 // ---------------------------------------------------------------------------
 // EditMachineModal
+//
+// Every valid change is saved immediately through a store action (the footer
+// only has Close). "Apply to every row of this recipe" copies machine and
+// modules only, not the reactor neighbour count.
 // ---------------------------------------------------------------------------
 
 export interface EditMachineModalProps {
@@ -110,6 +118,7 @@ export interface EditMachineModalProps {
   machineId: string | undefined
   machineCountCeil: number
   modules: ModuleConfig[]
+  neighbourCount?: number
   gameData: GameData
   onClose: () => void
 }
@@ -121,11 +130,13 @@ export function EditMachineModal({
   machineId,
   machineCountCeil,
   modules,
+  neighbourCount,
   gameData,
   onClose,
 }: EditMachineModalProps) {
   const updateNodeMachine = useBlockStore(s => s.updateNodeMachine)
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
+  const updateNodeNeighbourCount = useBlockStore(s => s.updateNodeNeighbourCount)
   const updateNodeRecipe = useBlockStore(s => s.updateNodeRecipe)
   const setDefaultMachine = useBlockStore(s => s.setDefaultMachine)
   const recipeRowCount = useBlockStore(s => {
@@ -140,10 +151,22 @@ export function EditMachineModal({
 
   const [showMachinePicker, setShowMachinePicker] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
+  const [neighbourText, setNeighbourText] = useState(() => String(neighbourCount ?? 0))
 
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
   const { machine } = row
   const recipe = gameData.recipes[recipeId]
+
+  const neighbourBonus = machine?.neighbourBonus ?? 0
+  const parsedNeighbours = parseFloat(neighbourText)
+  const shownNeighbours =
+    Number.isFinite(parsedNeighbours) && parsedNeighbours >= 0 ? parsedNeighbours : (neighbourCount ?? 0)
+
+  function changeNeighbours(text: string) {
+    setNeighbourText(text)
+    const v = parseFloat(text)
+    if (Number.isFinite(v) && v >= 0) updateNodeNeighbourCount(nodeId, v)
+  }
 
   const machineSlots = machine?.moduleSlots ?? 0
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
@@ -353,6 +376,38 @@ export function EditMachineModal({
             </div>
           )}
         </div>
+
+        {/* Neighbours section (reactors) */}
+        {neighbourBonus > 0 && (
+          <div data-testid="neighbour-section">
+            <label
+              htmlFor="neighbour-count"
+              className="text-[10px] uppercase tracking-wide text-gray-500 mb-1.5 block"
+            >
+              Neighbours
+            </label>
+            <div className="flex items-center gap-2">
+              <input
+                id="neighbour-count"
+                data-testid="neighbour-count"
+                type="number"
+                min="0"
+                step="any"
+                aria-label="Neighbouring reactors"
+                value={neighbourText}
+                onChange={e => changeNeighbours(e.target.value)}
+                onBlur={() => setNeighbourText(String(neighbourCount ?? 0))}
+                className="w-16 bg-gray-800 border border-gray-700 text-gray-200 rounded px-1.5 py-1 text-xs text-right tabular-nums outline-none focus:border-gray-500"
+              />
+              <span data-testid="neighbour-multiplier" className="text-xs text-gray-300">
+                Heat ×{fmtMultiplier(1 + neighbourBonus * shownNeighbours)}
+              </span>
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1">
+              Average working reactors next to each reactor. Each one adds +{Math.round(neighbourBonus * 100)} % heat on the same fuel, so you need fewer reactors.
+            </p>
+          </div>
+        )}
 
         {/* Modules section */}
         {(machineSlots > 0 || modules.length > 0) && (

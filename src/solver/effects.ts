@@ -19,6 +19,9 @@ import type { GameData, GameRecipeNode, Machine } from '../data/types'
 // Productivity adjusts the stoichiometry matrix before solving (handled by
 // buildClassifiedSystem via productivityMap).
 //
+// Reactor rows also carry a heat bonus: Machine.neighbourBonus × the row's
+// neighbourCount, applied to the heat product (see rowProductAmount in build.ts).
+//
 // Speed and consumption are applied post-solve to compute machine counts
 // and power draw.
 // ---------------------------------------------------------------------------
@@ -27,6 +30,19 @@ export interface NodeEffects {
   productivityBonus: number  // e.g. 0.40 for +40%
   speedBonus: number         // e.g. 0.30 for +30%
   consumptionBonus: number   // e.g. -0.20 for −20%
+  heatBonus: number          // reactor neighbours: heat product × (1 + heatBonus)
+}
+
+/**
+ * Heat bonus of a reactor row: the resolved machine's `neighbourBonus` times the
+ * row's average neighbour count. Zero when the machine has no bonus, the row no
+ * count, or anything is unknown.
+ */
+export function neighbourHeatBonus(node: GameRecipeNode, gameData: GameData): number {
+  const recipe = gameData.recipes[node.recipeId]
+  const id = node.machineId ?? (recipe && gameData.defaultMachines[recipe.category])
+  if (!id) return 0
+  return (gameData.machines[id]?.neighbourBonus ?? 0) * (node.neighbourCount ?? 0)
 }
 
 /**
@@ -66,7 +82,7 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
     }
   }
 
-  return { productivityBonus, speedBonus, consumptionBonus }
+  return { productivityBonus, speedBonus, consumptionBonus, heatBonus: neighbourHeatBonus(node, gameData) }
 }
 
 /**

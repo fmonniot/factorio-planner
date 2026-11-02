@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
+import { rowProductAmount } from './build'
 import type { GameData, GameRecipeNode, Machine } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -208,42 +209,96 @@ describe('computeMachineMetrics', () => {
   const m = machine()  // speed=1, energy=100kW, drain=5kW
 
   it('baseline: 1 exec/min at 60s crafting → exactly 1 machine', () => {
-    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 }
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0, heatBonus: 0 }
     const metrics = computeMachineMetrics(1, 60, m, fx)
     expect(metrics.machineCountExact).toBeCloseTo(1)
     expect(metrics.machineCountCeil).toBe(1)
   })
 
   it('5 exec/min at 60s crafting → 5 machines', () => {
-    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 }
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0, heatBonus: 0 }
     const metrics = computeMachineMetrics(5, 60, m, fx)
     expect(metrics.machineCountExact).toBeCloseTo(5)
   })
 
   it('+100% speed halves machine count', () => {
-    const fx = { productivityBonus: 0, speedBonus: 1.0, consumptionBonus: 0 }
+    const fx = { productivityBonus: 0, speedBonus: 1.0, consumptionBonus: 0, heatBonus: 0 }
     const metrics = computeMachineMetrics(5, 60, m, fx)
     expect(metrics.machineCountExact).toBeCloseTo(2.5)
   })
 
   it('power = machineCount × (energyUsage × (1+consumption) + drain)', () => {
-    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 }
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0, heatBonus: 0 }
     const metrics = computeMachineMetrics(1, 60, m, fx)
     // 1 machine × (100 × 1 + 5) = 105 kW
     expect(metrics.powerKw).toBeCloseTo(105)
   })
 
   it('consumption bonus scales energy usage but not drain', () => {
-    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0.5 }
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0.5, heatBonus: 0 }
     const metrics = computeMachineMetrics(1, 60, m, fx)
     // 1 machine × (100 × 1.5 + 5) = 155 kW
     expect(metrics.powerKw).toBeCloseTo(155)
   })
 
   it('machineCountCeil rounds up fractional counts', () => {
-    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 }
+    const fx = { productivityBonus: 0, speedBonus: 0, consumptionBonus: 0, heatBonus: 0 }
     // 2.5 machines needed
     const metrics = computeMachineMetrics(2.5, 60, m, fx)
     expect(metrics.machineCountCeil).toBe(3)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Reactor neighbours
+// ---------------------------------------------------------------------------
+
+describe('computeNodeEffects — reactor neighbours', () => {
+  function reactorData(neighbourBonus?: number): GameData {
+    const gd = makeGameData({ r1: { ...recipe(false), category: 'power:reactor' } })
+    gd.machines = {
+      reactor: machine({ id: 'reactor', type: 'reactor', neighbourBonus }),
+      assembler: machine(),
+    }
+    gd.defaultMachines = { 'power:reactor': 'reactor' }
+    return gd
+  }
+  const withCount = (count?: number, machineId?: string): GameRecipeNode => ({
+    ...node('n1', 'r1'),
+    ...(count !== undefined && { neighbourCount: count }),
+    ...(machineId !== undefined && { machineId }),
+  })
+
+  it('bonus 1 × count 3 → 3', () => {
+    expect(computeNodeEffects(withCount(3), reactorData(1)).heatBonus).toBe(3)
+  })
+
+  it('bonus 0.25 × count 2.5 → 0.625', () => {
+    expect(computeNodeEffects(withCount(2.5), reactorData(0.25)).heatBonus).toBeCloseTo(0.625)
+  })
+
+  it('is 0 for a machine without a bonus or a row without a count', () => {
+    expect(computeNodeEffects(withCount(3), reactorData()).heatBonus).toBe(0)
+    expect(computeNodeEffects(withCount(), reactorData(1)).heatBonus).toBe(0)
+  })
+
+  it('is 0 for an explicit non-reactor machine', () => {
+    expect(computeNodeEffects(withCount(3, 'assembler'), reactorData(1)).heatBonus).toBe(0)
+  })
+})
+
+describe('rowProductAmount', () => {
+  const heat = { itemId: 'power:heat', type: 'fluid' as const, amount: 10.8 }
+
+  it('multiplies the heat product by 1 + heatBonus', () => {
+    expect(rowProductAmount(heat, 0, 3)).toBeCloseTo(43.2)
+  })
+
+  it('leaves other products alone', () => {
+    expect(rowProductAmount({ itemId: 'spent', type: 'item', amount: 0.0054 }, 0, 3)).toBeCloseTo(0.0054)
+  })
+
+  it('combines with productivity', () => {
+    expect(rowProductAmount({ ...heat, amount: 2 }, 0.5, 1)).toBeCloseTo(6)
   })
 })

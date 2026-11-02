@@ -9,7 +9,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { buildClassifiedSystem, effectiveProductAmount, type ClassifiedSystem } from './build'
+import { buildClassifiedSystem, rowProductAmount, type ClassifiedSystem } from './build'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -190,12 +190,7 @@ function buildColumnSystem(
     const recipe = col.recipe
     if (!recipe) continue
     for (const prod of recipe.products) {
-      const amount = effectiveProductAmount(
-        prod.amount ?? 0,
-        prod.probability ?? 1,
-        prod.ignoredByProductivity ?? 0,
-        col.effects.productivityBonus,
-      )
+      const amount = rowProductAmount(prod, col.effects.productivityBonus, col.effects.heatBonus)
       if (amount > 0) addCoeff(prod.itemId, col.id, amount)
     }
     for (const ing of recipe.ingredients) {

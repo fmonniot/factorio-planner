@@ -380,3 +380,99 @@ describe('EditMachineModal — apply to every row of the recipe', () => {
     expect(screen.queryByRole('button', { name: /Apply to every row/ })).not.toBeInTheDocument()
   })
 })
+
+describe('EditMachineModal — neighbours', () => {
+  function reactorData(neighbourBonus = 1): GameData {
+    const gd = makeGameData()
+    gd.machines.reactor = {
+      id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+      drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
+      neighbourBonus, iconPath: '', hidden: false,
+    }
+    gd.recipes['power:reactor:fuel'] = {
+      ...recipe('power:reactor:fuel', 'Reactor fuel'),
+      category: 'power:reactor',
+      products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
+      madeIn: ['reactor'],
+    }
+    gd.defaultMachines['power:reactor'] = 'reactor'
+    return gd
+  }
+
+  function renderReactor(count?: number, bonus = 1, recipeId = 'power:reactor:fuel') {
+    const gameData = reactorData(bonus)
+    const block = makeEmptyBlock('Test')
+    const row: GameRecipeNode = {
+      kind: 'game-recipe', id: 'n1', recipeId, modules: [], byproductPolicy: {},
+      ...(count !== undefined && { neighbourCount: count }),
+    }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [row] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    render(
+      <EditMachineModal
+        nodeId="n1"
+        recipeId={recipeId}
+        recipeCategory={recipeId === 'plate' ? 'crafting' : 'power:reactor'}
+        machineId={undefined}
+        machineCountCeil={1}
+        modules={[]}
+        neighbourCount={count}
+        gameData={gameData}
+        onClose={() => {}}
+      />,
+    )
+  }
+  const input = () => screen.getByLabelText('Neighbouring reactors') as HTMLInputElement
+  const stored = () => (useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode).neighbourCount
+  const multiplier = () => screen.getByTestId('neighbour-multiplier').textContent
+
+  it('starts at 0 with a x1 multiplier', () => {
+    renderReactor()
+    expect(input().value).toBe('0')
+    expect(multiplier()).toBe('Heat ×1')
+  })
+
+  it('saves a valid count and shows the multiplier', () => {
+    renderReactor()
+    fireEvent.change(input(), { target: { value: '3' } })
+    expect(stored()).toBe(3)
+    expect(multiplier()).toBe('Heat ×4')
+  })
+
+  it('clears the stored count when set to 0', () => {
+    renderReactor(3)
+    fireEvent.change(input(), { target: { value: '0' } })
+    expect(stored()).toBeUndefined()
+  })
+
+  it('does not save an empty or negative value and reverts on blur', () => {
+    renderReactor(2)
+    for (const bad of ['', '-1']) {
+      fireEvent.change(input(), { target: { value: bad } })
+      expect(stored()).toBe(2)
+      fireEvent.blur(input())
+      expect(input().value).toBe('2')
+    }
+  })
+
+  it('shows a fractional count', () => {
+    renderReactor(2.5)
+    expect(input().value).toBe('2.5')
+    expect(multiplier()).toBe('Heat ×3.5')
+  })
+
+  it('scales the multiplier by the machine bonus and mentions it', () => {
+    renderReactor(2, 0.25)
+    expect(multiplier()).toBe('Heat ×1.5')
+    expect(screen.getByText(/\+25 % heat/)).toBeInTheDocument()
+  })
+
+  it('is absent for a machine without a neighbour bonus', () => {
+    renderReactor(undefined, 1, 'plate')
+    expect(screen.queryByTestId('neighbour-section')).toBeNull()
+  })
+})

@@ -121,8 +121,8 @@ export const MachineSchema = z.object({
     'assembling-machine', 'furnace', 'rocket-silo', 'mining-drill', 'offshore-pump',
     'boiler', 'generator', 'burner-generator', 'reactor', 'solar-panel',
   ]),
-  // Reactors: `neighbour_bonus`, extra heat per adjacent working reactor (1 = +100 %); informational,
-  // recipes assume no neighbours; absent = none.
+  // Reactors: `neighbour_bonus`, extra heat per adjacent working reactor (1 = +100 %); recipes assume
+  // no neighbours, the row's `GameRecipeNode.neighbourCount` scales the heat; absent = none.
   neighbourBonus: z.number().nonnegative().optional(),
   // Some older exports omit this field. Default to 1 so they still load;
   // re-export to get real values.
@@ -236,6 +236,9 @@ export const GameRecipeNodeSchema = z.object({
   // Coerce 0 → undefined so a plan saved with pinnedRate=0 (produced by
   // clicking pin while throughput is 0) still loads correctly.
   pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
+  // Reactor rows: average adjacent working reactors per reactor; heat × (1 + Machine.neighbourBonus ×
+  // neighbourCount); ignored when the machine has no neighbourBonus; 0 → undefined.
+  neighbourCount: z.preprocess(v => (v === 0 ? undefined : v), z.number().nonnegative().optional()),
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
   byproductConsumer: z.boolean().optional(),

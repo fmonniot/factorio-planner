@@ -481,6 +481,22 @@ describe('parsePlan', () => {
     expect(() => parsePlan(plan)).not.toThrow()
   })
 
+  it('normalises the neighbour count: 0 becomes undefined, fractions are kept, negatives fail', () => {
+    const plan = minimalPlan()
+    const n = plan.nodes[0] as GameRecipeNode
+    n.neighbourCount = 0
+    expect((parsePlan(plan).nodes[0] as GameRecipeNode).neighbourCount).toBeUndefined()
+    n.neighbourCount = 2.5
+    expect((parsePlan(plan).nodes[0] as GameRecipeNode).neighbourCount).toBe(2.5)
+    n.neighbourCount = -1
+    expect(() => parsePlan(plan)).toThrow()
+  })
+
+  it('loads a node saved before the neighbour count existed', () => {
+    const plan = minimalPlan()
+    expect((parsePlan(plan).nodes[0] as GameRecipeNode).neighbourCount).toBeUndefined()
+  })
+
   it('accepts byproduct policy entries', () => {
     const plan = minimalPlan()
     ;(plan.nodes[0] as GameRecipeNode).byproductPolicy = { 'heavy-oil': 'discard', 'light-oil': 'feed-back' }

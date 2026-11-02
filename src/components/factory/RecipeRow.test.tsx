@@ -1495,3 +1495,35 @@ describe('RecipeRow in a block with areas', () => {
     expect(container.querySelector('tr')).not.toHaveAttribute('data-highlighted')
   })
 })
+
+describe('RecipeRow — reactor neighbour count', () => {
+  it('opens the Edit machine modal with the stored neighbour count', () => {
+    const gameData = {
+      ...mockGameData,
+      recipes: {
+        ...mockGameData.recipes,
+        'power:reactor:fuel': {
+          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
+          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
+          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
+        },
+      },
+      machines: {
+        ...mockGameData.machines,
+        reactor: {
+          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
+          neighbourBonus: 1, iconPath: '', hidden: false,
+        },
+      },
+      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
+    } as unknown as GameData
+    renderRow({
+      gameData,
+      planNode: { kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 2 },
+    })
+    fireEvent.click(screen.getByTitle('Reactor', { exact: true }))
+    expect(screen.getByTestId('neighbour-count')).toHaveValue(2)
+  })
+})

@@ -342,7 +342,7 @@ export interface BlockStoreState {
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
-  /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, modules, beacon, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
+  /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, modules, beacon, neighbour count, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
   buildRowAlsoIn: (nodeId: string, areaId: string) => string | undefined
   /** Copy row `nodeId`'s machine and modules ('machine') or its beacon ('beacon') to every other row of the same recipe in the active block, as one undoable command. No-op when no other row differs. */
   applyRowSettingsToRecipe: (nodeId: string, what: 'machine' | 'beacon') => void
@@ -354,6 +354,8 @@ export interface BlockStoreState {
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
+  /** Set a reactor row's average neighbour count; 0 or undefined removes it. Undoable; no-op when unchanged. */
+  updateNodeNeighbourCount: (nodeId: string, count: number | undefined) => void
   updateNodeByproductPolicy: (nodeId: string, policy: Record<string, 'discard' | 'feed-back'>) => void
   updateNodeByproductConsumer: (nodeId: string, value: boolean) => void
   updateNodePrimaryProduct: (nodeId: string, itemId: string | undefined) => void
@@ -926,6 +928,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         ...(src.machineId !== undefined && { machineId: src.machineId }),
         modules: structuredClone(src.modules),
         ...(src.beaconConfig && { beaconConfig: structuredClone(src.beaconConfig) }),
+        ...(src.neighbourCount !== undefined && { neighbourCount: src.neighbourCount }),
         byproductPolicy: { ...src.byproductPolicy },
         ...(src.primaryProduct !== undefined && { primaryProduct: src.primaryProduct }),
       }
@@ -1198,6 +1201,23 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? { ...n, pinnedRate } : n,
         n => n.kind === 'game-recipe' ? { ...n, pinnedRate: oldPinned } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
+    }),
+
+  updateNodeNeighbourCount: (nodeId, count) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old || old.kind !== 'game-recipe') return state
+      const next = count !== undefined && Number.isFinite(count) && count > 0 ? count : undefined
+      const oldCount = old.neighbourCount
+      if (next === oldCount) return state
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, neighbourCount: next } : n,
+        n => n.kind === 'game-recipe' ? { ...n, neighbourCount: oldCount } : n,
       )
       return cmd ? applyCommand(state, cmd) : state
     }),

@@ -6,7 +6,7 @@
  * `factorio --dump-data` dump into power generation recipes and the machines
  * that run them. Electricity and heat are ordinary pseudo-items (1 unit = 1 MJ,
  * so 1 unit/s = 1 MW), so the solver needs no special case. Reactor recipes
- * model a reactor without neighbours (no neighbour bonus). Recipes have one machine, `craftingTime` 1 and a
+ * model a reactor without neighbours (the row's neighbour count scales the heat in the solver). Recipes have one machine, `craftingTime` 1 and a
  * generated `power:<machine>` category: amounts are per second per building.
  * Kept free of side effects so unit tests can import it.
  */
@@ -306,7 +306,7 @@ export async function exportPower(raw, opts) {
 
   // --- Reactors -----------------------------------------------------------
   // Heat out = `consumption`; fuel in = consumption / (fuel value x effectivity).
-  // No neighbours are assumed (see Machine.neighbourBonus).
+  // No neighbours are assumed; the row's neighbourCount scales the heat in the solver (see Machine.neighbourBonus).
   for (const proto of Object.values(raw.reactor ?? {})) {
     if (proto.hidden) continue
     const source = proto.energy_source ?? {}

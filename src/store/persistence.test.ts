@@ -702,6 +702,19 @@ describe('plan names and files', () => {
     expect(parseAppState(JSON.parse(out))).toEqual(state)
   })
 })
+describe('neighbour count persistence', () => {
+  it('survives an export and parse round trip', () => {
+    const block = makeEmptyBlock('Factory')
+    block.rootPlan.nodes = [
+      { kind: 'game-recipe', id: 'r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 3 },
+    ]
+    const state: AppState = { blocks: [block], activeBlockId: block.id, horizonTechnologyIds: [], defaultMachineOverrides: {} }
+    const out = exportPlanJson(state, { id: 'nullius', name: 'Nullius', factorioVersion: '2.0.9' })
+    const back = parseAppState(JSON.parse(out))
+    expect((back.blocks[0].rootPlan.nodes[0] as GameRecipeNode).neighbourCount).toBe(3)
+  })
+})
+
 describe('makeEmptyBlock', () => {
   it('produces a block with a root plan', () => {
     const block = makeEmptyBlock('New Plan')

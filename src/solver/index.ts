@@ -168,7 +168,7 @@ export function solveBlock(
   }
 
   // One LP variable per recipe: the first node in plan order is authoritative
-  // (effects, pin, byproduct settings); later duplicates solve to zero.
+  // (effects (modules, beacons, neighbour count), pin, byproduct settings); later duplicates solve to zero.
   const seenRecipes = new Set<string>()
   const representatives = gameRecipeNodes.filter(n => {
     if (seenRecipes.has(n.recipeId)) return false
@@ -192,11 +192,17 @@ export function solveBlock(
     }
   }
 
+  const heatBonusMap = new Map<string, number>()
+  for (const n of representatives) {
+    const effects = nodeEffectsMap.get(n.recipeId)!
+    if (effects.heatBonus > 0) heatBonusMap.set(n.recipeId, effects.heatBonus)
+  }
+
   const bcRecipeIds = new Set(
     representatives.filter(n => n.byproductConsumer).map(n => n.recipeId),
   )
 
-  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap)
+  const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, productivityMap, heatBonusMap)
 
   // Warn for goal items with no producer recipe in the plan.
   const noRecipeWarnings: SolverResult['warnings'] = []

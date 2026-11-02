@@ -1948,3 +1948,60 @@ describe('solve — duplicate recipe nodes', () => {
     expect(result.warnings).toContainEqual({ type: 'duplicate-recipe', recipeId: 'iron-plate', count: 2 })
   })
 })
+
+// ---------------------------------------------------------------------------
+// Reactor neighbours
+// ---------------------------------------------------------------------------
+
+describe('solve — reactor neighbour count', () => {
+  const reactorData = makeGameData({
+    recipes: {
+      'power:r:fuel': {
+        ...recipe('power:r:fuel', 1, [product('fuel', 1)], [product('power:heat', 10), product('spent', 1)]),
+        category: 'power:r',
+      },
+    },
+    machines: {
+      r: {
+        id: 'r', name: 'r', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
+        drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:r'],
+        neighbourBonus: 1, iconPath: '', hidden: false,
+      },
+    },
+    defaultMachines: { 'power:r': 'r' },
+  })
+  const heatGoal: SolverGoal = { id: 'g', itemId: 'power:heat', rate: 600 }
+  const reactorRow = (id: string, extra: Partial<GameRecipeNode> = {}): RecipeNode =>
+    ({ ...planNode(id, 'power:r:fuel'), ...extra })
+  const run = (nodes: RecipeNode[]) => solve({ goals: [heatGoal], nodes }, reactorData)
+
+  it('without a count the reactor makes the base heat', () => {
+    const r = run([reactorRow('a')])
+    expect(r.nodes[0].throughput).toBeCloseTo(60, 3)
+    expect(r.nodes[0].machineCountExact).toBeCloseTo(1, 3)
+    expect(r.nodes[0].inputRates.fuel).toBeCloseTo(60, 3)
+  })
+
+  it('a count of 2 triples the heat per execution: fewer reactors, less fuel', () => {
+    const n = run([reactorRow('a', { neighbourCount: 2 })]).nodes[0]
+    expect(n.throughput).toBeCloseTo(20, 3)
+    expect(n.machineCountExact).toBeCloseTo(1 / 3, 3)
+    expect(n.inputRates.fuel).toBeCloseTo(20, 3)
+    expect(n.outputRates['power:heat']).toBeCloseTo(600, 3)
+    expect(n.outputRates.spent).toBeCloseTo(20, 3)
+  })
+
+  it('the first duplicate row decides the count; later rows solve to zero', () => {
+    const r = run([reactorRow('a', { neighbourCount: 2 }), reactorRow('b')])
+    expect(r.nodes.find(n => n.recipeNodeId === 'a')!.throughput).toBeCloseTo(20, 3)
+    expect(r.nodes.find(n => n.recipeNodeId === 'b')!.throughput).toBe(0)
+    const rev = run([reactorRow('b'), reactorRow('a', { neighbourCount: 2 })])
+    expect(rev.nodes.find(n => n.recipeNodeId === 'b')!.throughput).toBeCloseTo(60, 3)
+  })
+
+  it('a pinned rate stays in executions/min and makes more heat', () => {
+    const n = run([reactorRow('a', { neighbourCount: 1, pinnedRate: 60 })]).nodes[0]
+    expect(n.throughput).toBeCloseTo(60, 3)
+    expect(n.outputRates['power:heat']).toBeCloseTo(1200, 3)
+  })
+})

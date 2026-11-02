@@ -236,6 +236,9 @@ test.describe('Heat', () => {
     await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)
     await expect(slot(page, 'Ingredients', 'Uranium fuel cell')).toHaveAccessibleName('Uranium fuel cell, 0.65 per minute')
     await expect(slot(page, 'Ingredients', 'Heat')).toHaveCount(0)
+
+    await rows.nth(1).getByTitle('Heat exchanger', { exact: true }).click()
+    await expect(page.getByTestId('neighbour-section')).toHaveCount(0)
   })
 
   test('heat is typed in MW and stays in MW per second', async ({ page }) => {
@@ -252,6 +255,37 @@ test.describe('Heat', () => {
     const menu = await openAppMenu(page)
     await menu.getByRole('menuitemradio', { name: '/sec' }).click()
     await expect(slot(page, 'Products', 'Heat')).toContainText('21.6MW')
+  })
+
+  test('a reactor neighbour count lowers the reactor count and the fuel', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByTitle('Add product').click()
+    await overlay.getByLabel('Amount').fill('21.6')
+    await overlay.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
+    await overlay.locator('[data-testid="item-slot"][data-item-id="power:heat"]').click()
+    await expect(overlay).not.toBeVisible()
+    await addRecipe(page, 'power:nuclear-reactor:uranium-fuel-cell')
+    const rows = page.locator('main table tbody tr')
+    const reactor = rows.first().getByTitle('Nuclear reactor', { exact: true })
+    await expect(reactor).toHaveText(/^\??2$/)
+
+    await reactor.click()
+    const count = page.getByLabel('Neighbouring reactors')
+    await expect(count).toHaveValue('0')
+    await count.fill('3')
+    await expect(page.getByTestId('neighbour-multiplier')).toHaveText('Heat ×4')
+    await expect(page.getByText('×1 machines')).toBeVisible()
+    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    await expect(reactor).toHaveText(/^\??1$/)
+    await expect(slot(page, 'Ingredients', 'Uranium fuel cell')).toHaveAccessibleName('Uranium fuel cell, 0.16 per minute')
+    await expect(slot(page, 'Products', 'Heat')).toHaveAccessibleName('Heat, 21.6 MW')
+
+    await reactor.click()
+    await expect(page.getByLabel('Neighbouring reactors')).toHaveValue('3')
+    await page.getByLabel('Neighbouring reactors').fill('0')
+    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+    await expect(reactor).toHaveText(/^\??2$/)
   })
 
   test('heat and reactor recipes ignore the research horizon', async ({ page }) => {

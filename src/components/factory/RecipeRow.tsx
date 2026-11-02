@@ -642,6 +642,7 @@ export function RecipeRow({
             machineId={planNode.machineId}
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             modules={planNode.modules}
+            neighbourCount={planNode.neighbourCount}
             gameData={gameData}
             onClose={() => setEditMachineOpen(false)}
           />
