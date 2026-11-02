@@ -2,6 +2,7 @@ import type { GameData, SolvedNode, SubPlan } from '../../data/types'
 import { dedicatedProduct } from '../../solver/areas'
 import { Icon } from '../Icon'
 import { ItemTile } from './ItemTile'
+import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 import {
   multiAreaSummary,
   multiAreaTitle,
@@ -32,6 +33,8 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
   const primaryItemId = dedicatedProduct(group.rows[0].node, recipe)
   const iconPath = primaryItemId ? gameData.items[primaryItemId]?.iconPath : undefined
   const b = summary.buildings
+  const productTemps = productTemperatureLabels(recipe)
+  const ingredientTemps = ingredientTemperatureLabels(recipe)
 
   return (
     <tr data-testid="recipe-group" data-recipe-id={group.recipeId} className="border-b border-gray-800 hover:bg-gray-800/40">
@@ -73,14 +76,14 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
       <td className="px-2 py-0.5">
         <div className="flex flex-wrap gap-0.5">
           {rates.products.map(([id, rate]) => (
-            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="product" />
+            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="product" temperature={productTemps[id]} />
           ))}
         </div>
       </td>
       <td className="px-2 py-0.5">
         <div className="flex flex-wrap gap-0.5">
           {rates.byproducts.map(([id, rate]) => (
-            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="byproduct" />
+            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="byproduct" temperature={productTemps[id]} />
           ))}
         </div>
       </td>
@@ -88,7 +91,7 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
         <div className="flex items-start gap-1">
           <div className="flex flex-wrap gap-0.5 flex-1">
             {rates.inputs.map(([id, rate]) => (
-              <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="ingredient" />
+              <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="ingredient" temperature={ingredientTemps[id]} />
             ))}
           </div>
           {rates.powerKw > 0 && <ItemTile item={undefined} ratePerSec={rates.powerKw} variant="electricity" />}

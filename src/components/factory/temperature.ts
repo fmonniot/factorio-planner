@@ -1,16 +1,12 @@
-import type { Recipe } from '../../data/types'
+import type { GameData, Recipe, SolverWarning } from '../../data/types'
+import { UNBOUNDED_TEMPERATURE, isBound } from '../../data/temperature'
 
-/** Magnitudes at or beyond this are treated as "no bound" (e.g. math.huge exported as 1.79e308). */
-export const UNBOUNDED_TEMPERATURE = 1e30
+export { UNBOUNDED_TEMPERATURE }
 
 /** "95", "26.5", "-10": at most 1 decimal, trailing ".0" stripped, -0 shown as "0". */
 export function fmtTemperatureValue(value: number): string {
   const r = Math.round(value * 10) / 10
   return String(Object.is(r, -0) ? 0 : r)
-}
-
-function isBound(v: number | undefined): v is number {
-  return typeof v === 'number' && Number.isFinite(v) && Math.abs(v) < UNBOUNDED_TEMPERATURE
 }
 
 /** Label for an ingredient's temperature bounds, or undefined when neither bound is set. */
@@ -33,4 +29,33 @@ export function ingredientTemperatureLabels(recipe: Recipe): Record<string, stri
     if (!labels.includes(label)) labels.push(label)
   }
   return Object.fromEntries(Object.entries(perItem).map(([id, labels]) => [id, labels.join(', ')]))
+}
+
+/** itemId → label for every product of `recipe` with an explicit temperature (e.g. "165°C"). */
+export function productTemperatureLabels(recipe: Recipe): Record<string, string> {
+  const perItem: Record<string, string[]> = {}
+  for (const p of recipe.products) {
+    const label = isBound(p.temperature) ? fmtTemperatureRange(p.temperature, p.temperature) : undefined
+    if (label === undefined) continue
+    const labels = (perItem[p.itemId] ??= [])
+    if (!labels.includes(label)) labels.push(label)
+  }
+  return Object.fromEntries(Object.entries(perItem).map(([id, labels]) => [id, labels.join(', ')]))
+}
+
+/** Sentence for a `temperature-mismatch` warning, e.g. "Steam Turbine (Steam) needs Steam at ≥465°C, but this block only makes it at 165°C." */
+export function fmtTemperatureWarning(
+  w: Extract<SolverWarning, { type: 'temperature-mismatch' }>,
+  gameData: GameData,
+): string {
+  const recipe = gameData.recipes[w.recipeId]?.name ?? w.recipeId
+  const item = gameData.items[w.itemId]?.name ?? w.itemId
+  const need = fmtTemperatureRange(w.minimum, w.maximum) ?? ''
+  const supplied = w.supplied.map(t => `${fmtTemperatureValue(t)}°C`).join(', ')
+  const fluid = gameData.items[w.itemId]
+  const isDefault =
+    w.supplied.length === 1 &&
+    fluid?.defaultTemperature !== undefined &&
+    fluid.defaultTemperature === w.supplied[0]
+  return `${recipe} needs ${item} at ${need}, but this block only makes it at ${supplied}${isDefault ? " (its default)" : ''}.`
 }

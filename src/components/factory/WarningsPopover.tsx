@@ -8,6 +8,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { blockAreas } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
 import { fmtItemRateText } from './ItemTile'
+import { fmtTemperatureWarning } from './temperature'
 import type { SolverWarning, GameData, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
@@ -23,6 +24,7 @@ function warningTitle(w: SolverWarning): string {
     case 'area-shortfall': return "Area can't cover its own need"
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
+    case 'temperature-mismatch': return 'Fluid temperature does not fit'
   }
 }
 
@@ -66,6 +68,7 @@ function warningBody(
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
     }
+    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData)
     case 'request-loop-not-converged': {
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The requests around the loop ${names.join(' → ')} did not settle after ${w.rounds} rounds: the blocks need more of each other than the loop can give back. The requests that close the loop only take what is left over.`
@@ -85,6 +88,7 @@ function warningHint(w: SolverWarning): string {
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
+    case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'
   }
 }
 

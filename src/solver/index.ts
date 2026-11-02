@@ -18,6 +18,7 @@ import type {
 import { blockAreas, solveAreaBlock } from './areas'
 import { buildClassifiedSystem } from './build'
 import { solveLP } from './solve'
+import { temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
@@ -557,22 +558,20 @@ function backOffersSettled(
   return true
 }
 
-const loopWarningCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
+const extraWarningCopies = new WeakMap<SolverResult, { key: string; result: SolverResult }>()
 
 /**
- * `result` plus a warning, on a copy (cached results are never mutated). The copy is
- * memoised per result object, so a loop that stays unsettled keeps result identity
- * between solves as long as its cached results do.
+ * `result` plus warnings, on a copy (cached results are never mutated). The copy is
+ * memoised per result object, so warnings that stay the same keep result identity
+ * between solves as long as the cached results do.
  */
-function withLoopWarning(
-  result: SolverResult,
-  warning: Extract<SolverWarning, { type: 'loop-not-converged' | 'request-loop-not-converged' }>,
-): SolverResult {
-  const key = `${warning.type}\0${warning.rounds}\0${warning.blockIds.join('\0')}`
-  const hit = loopWarningCopies.get(result)
+function withExtraWarnings(result: SolverResult, list: SolverWarning[]): SolverResult {
+  if (list.length === 0) return result
+  const key = JSON.stringify(list)
+  const hit = extraWarningCopies.get(result)
   if (hit?.key === key) return hit.result
-  const copy = { ...result, warnings: [...result.warnings, warning] }
-  loopWarningCopies.set(result, { key, result: copy })
+  const copy = { ...result, warnings: [...result.warnings, ...list] }
+  extraWarningCopies.set(result, { key, result: copy })
   return copy
 }
 
@@ -1149,7 +1148,7 @@ export function solveAll(
       const step = steps.get(m.id)!
       commit(m, step)
       if (!converged) {
-        results[m.id] = withLoopWarning(step.result, { type: 'loop-not-converged', blockIds: loop.blockIds, rounds })
+        results[m.id] = withExtraWarnings(step.result, [{ type: 'loop-not-converged', blockIds: loop.blockIds, rounds }])
       }
     }
     for (const [id, offers] of rem) remaining.set(id, offers)
@@ -1160,8 +1159,18 @@ export function solveAll(
   for (const loop of requestPlan.loops) {
     if (loop.converged) continue
     for (const id of loop.blockIds) {
-      results[id] = withLoopWarning(results[id], { type: 'request-loop-not-converged', blockIds: loop.blockIds, rounds: loop.rounds })
+      results[id] = withExtraWarnings(results[id], [{ type: 'request-loop-not-converged', blockIds: loop.blockIds, rounds: loop.rounds }])
     }
+  }
+
+  const recipeIdOfNode = new Map<string, Map<string, string>>()
+  for (const b of blocks) {
+    const recipes = new Map<string, string>()
+    for (const n of flattenBlock(b).nodes) if (n.kind === 'game-recipe') recipes.set(n.id, n.recipeId)
+    recipeIdOfNode.set(b.id, recipes)
+  }
+  for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode)) {
+    results[id] = withExtraWarnings(results[id], list)
   }
 
   cache?.retain(blockIds)

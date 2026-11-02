@@ -1140,6 +1140,49 @@ describe('RecipeRow sub-factory actions', () => {
       expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
     })
   })
+
+  describe('product temperature', () => {
+    const boilerData = (): GameData => ({
+      ...mockGameData,
+      recipes: {
+        ...mockGameData.recipes,
+        'boiler-steam': {
+          id: 'boiler-steam', name: 'Boiler', category: 'crafting', craftingTime: 1, ingredients: [],
+          products: [{ itemId: 'steam', type: 'fluid', amount: 60, temperature: 165 }],
+          madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'steam',
+        },
+        'cogeneration': {
+          id: 'cogeneration', name: 'Cogeneration', category: 'crafting', craftingTime: 1, ingredients: [],
+          products: [
+            { itemId: 'hydrogen', type: 'fluid', amount: 6 },
+            { itemId: 'steam', type: 'fluid', amount: 3, temperature: 165 },
+          ],
+          madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'hydrogen',
+        },
+      },
+    }) as unknown as GameData
+    const node = (id: string, recipeId: string): RecipeNode => ({ kind: 'game-recipe', id, recipeId, modules: [], byproductPolicy: {} })
+    const solved = (id: string, outputRates: SolvedNode['outputRates']): SolvedNode => ({
+      recipeNodeId: id, inputRates: {}, outputRates, throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    })
+
+    it('shows the explicit temperature on the product tile', () => {
+      renderRow({ gameData: boilerData(), planNode: node('n-b', 'boiler-steam'), solvedNode: solved('n-b', { steam: 60 }) })
+      const tile = screen.getByTitle('Steam (165°C)')
+      expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
+    })
+
+    it('shows it on a byproduct tile and keeps the click hint in its title', () => {
+      renderRow({ gameData: boilerData(), planNode: node('n-c', 'cogeneration'), solvedNode: solved('n-c', { hydrogen: 360, steam: 180 }) })
+      const tile = screen.getByTitle(/^Steam \(165°C\) — Set as primary/)
+      expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
+    })
+
+    it('shows no temperature for a product without an explicit one', () => {
+      renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+      expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

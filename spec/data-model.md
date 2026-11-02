@@ -69,7 +69,7 @@ interface Item {
 research horizon uses it to gate machines and beacons (see
 [Technology](#technology)). Several items can place the same entity.
 
-Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none. The solver does not use them.
+Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none. The solver does not use them; only the `temperature-mismatch` warning reads them (see [spec/solver.md](solver.md#warnings-and-unsatisfied-items)).
 
 A bundle with power generation recipes also holds the pseudo-item `power:electricity` (`type: 'fluid'`, name "Electricity", subgroup `power:electricity`). One unit is 1 MJ, so 1 unit/s is 1 MW and 10 MW is 600 units/min. It is a fluid only because it is a continuous fractional quantity with no stack size; `src/` never branches on `type`. The pseudo-item `power:heat` (`type: 'fluid'`, name "Heat", subgroup `power:electricity`, order `b`; electricity is `a`) is added the same way, only when some recipe uses it, with the game's heat sprite as icon. Same unit: 1 unit = 1 MJ, so units/s = MW. See [Power generation recipes](#power-generation-recipes).
 
@@ -100,7 +100,7 @@ interface Ingredient {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // > 0
-  minimumTemperature?: number   // shown on the recipe row's ingredient tile; not used by the solver
+  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read only by the `temperature-mismatch` warning, not by the LP
   maximumTemperature?: number
 }
 
@@ -119,7 +119,7 @@ interface RecipeProduct {
 Recipe ingredients carry optional temperature bounds. Fluid items carry
 `defaultTemperature` / `maxTemperature`. A fluid product carries `temperature` only when
 the recipe sets one; otherwise the fluid is at its `defaultTemperature`. All of these are
-informational and the solver ignores them. The generated extraction recipes set no product
+shown in the UI and read by the `temperature-mismatch` warning after the solve; the LP ignores them. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
 `temperature`; the power recipes set it only on boiler and heat-exchanger steam (the machine's
 `target_temperature`), and `power:heat` has no temperature.
 
@@ -347,7 +347,7 @@ The build script (`scripts/power.js`) turns boilers, heat exchangers, generators
 - **Boilers.** Per fuel: steam per second = `energy_consumption` / (output fluid `heat_capacity` x (`target_temperature` - input fluid `default_temperature`)); fuel per second = power / (fuel value x burner `effectivity`). Ingredients are the input fluid and the fuel; products are the output fluid (at the boiler's `target_temperature`) and the fuel's `burnt_result`, if any, at the fuel rate. Fuels are the non-hidden items whose `fuel_category` is in the boiler's `fuel_categories` (default `chemical`) with a positive `fuel_value`, or the non-hidden fluids with a `fuel_value` for a fluid-burning boiler.
 - **Heat exchangers.** A `boiler` whose `energy_source` is `heat` gets one recipe, `power:<machine>:power:heat`, with the same formulas as a boiler: the heat "fuel" has 1000 kJ per unit and effectivity 1, so heat per second = `energy_consumption` / 1000 (MW). Ingredients are water then heat (heat last); the product is steam at the exchanger's `target_temperature`. The machine type is `boiler`.
 - **Reactors.** One recipe per fuel with the boiler's fuel selection (burner categories, or burning fluids): fuel per second = `consumption` / (fuel value x burner `effectivity`); products are heat at `consumption` / 1000 and the fuel's `burnt_result` at the fuel rate (reactors accept a burnt-result fuel only with a burnt inventory). The recipes assume a reactor **without neighbours**: a reactor with N working neighbours makes (1 + `neighbourBonus` x N) times the heat on the same fuel. `Machine.neighbourBonus` (`neighbour_bonus`, engine default 1, emitted only when > 0) is applied per row through `GameRecipeNode.neighbourCount`.
-- **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the solver ignores it). A missing `heat_capacity` counts as 1 kJ.
+- **Fluid generators.** Per input fluid: usage = `fluid_usage_per_tick` x 60; energy per unit = `heat_capacity` x (T - fluid `default_temperature`) with T = `maximum_temperature` (else the fluid's `max_temperature`), or the fuel value for a burning generator; full output = usage x energy per unit x `effectivity`. Output is min(full, `max_power_output`); consumption drops to cap / (energy per unit x effectivity) only when `scale_fluid_usage` is set, otherwise the full usage. The steam ingredient carries `minimumTemperature` T (the LP ignores it; the `temperature-mismatch` warning compares it with the boiler steam). A missing `heat_capacity` counts as 1 kJ.
 - **Burner generators.** Per fuel: fuel per second = `max_power_output` / (fuel value x burner `effectivity`), product electricity at `max_power_output`, plus any burnt result.
 - **Solar panels.** No ingredients; electricity = `production` x 0.7 (the Nauvis day/night average, no storage).
 - **Electricity units.** `max_power_output` given in joules is energy per tick (x 60). Electricity amounts are in MJ per recipe second, so a recipe's electricity product equals the building's MW.
