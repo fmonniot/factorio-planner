@@ -493,9 +493,18 @@ describe('power recipes', () => {
     d.recipes['power:steam-engine:steam'] = {
       ...makeRecipe('power:steam-engine:steam', 'power:electricity'), category: 'power:steam-engine', power: true,
     }
+    d.items['power:heat'] = { id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '' }
+    d.recipes['power:reactor:fuel'] = {
+      ...makeRecipe('power:reactor:fuel', 'power:heat'), category: 'power:reactor', power: true,
+    }
     return d
   }
 
+  it('keeps the heat item and its reactor recipe', () => {
+    const d = makePowerData()
+    expect(computeHorizon(d, ['a']).itemIds!.has('power:heat')).toBe(true)
+    expect(availableRecipeIds(d, ['a'])!.has('power:reactor:fuel')).toBe(true)
+  })
   it('availableRecipeIds includes a power recipe no technology unlocks', () => {
     expect(availableRecipeIds(makePowerData(), ['a'])!.has('power:steam-engine:steam')).toBe(true)
   })

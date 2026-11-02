@@ -258,7 +258,7 @@ local function add(seen, list, kind, id)
 end
 
 local function add_ref(seen, list, ref)
-  -- `virtual` ids (the electricity pseudo-item) are not game prototypes.
+  -- `virtual` ids (the electricity and heat pseudo-items) are not game prototypes.
   if ref.type == "item" or ref.type == "fluid" then
     add(seen, list, ref.type, ref.id)
   end

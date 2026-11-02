@@ -4,7 +4,7 @@ import { Icon } from '../Icon'
 import { SegmentBar } from './SummarySlot'
 import { lookStyle, segmentLook } from './segmentLooks'
 import { fmtRate, fmtItemRateText } from './ItemTile'
-import { isElectricity } from '../../data/electricity'
+import { isEnergyItem } from '../../data/electricity'
 import { keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
@@ -59,8 +59,8 @@ export function SummaryDetailStrip({
   // The strip's height leaves room for three overview rows and a peek at the fourth.
   const { bodyRef: rowsRef, contentRef: rowsContentRef, hasMore: rowsHaveMore, onScroll: onRowsScroll } =
     useMoreBelow<HTMLDivElement, HTMLDivElement>()
-  // An electricity slot is shown in power units, unit included; the overview keeps its mixed totals.
-  const power = state !== 'overview' && slot !== undefined && isElectricity(slot.itemId)
+  // An electricity or heat slot is shown in power units, unit included; the overview keeps its mixed totals.
+  const power = state !== 'overview' && slot !== undefined && isEnergyItem(slot.itemId)
   const unit = power ? '' : rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => power ? fmtItemRateText(slot!.itemId, perMin / 60, rateUnit) : fmtRate(perMin / 60, rateUnit)
   const lookOf = (kind: SegmentKind | OverlayKind, blockId: string | undefined, limited?: boolean) =>

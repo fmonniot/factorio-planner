@@ -1,5 +1,5 @@
 import type { Item, ItemSourcingMode } from '../../data/types'
-import { isElectricity } from '../../data/electricity'
+import { ELECTRICITY_ITEM_ID, isEnergyItem } from '../../data/electricity'
 import { Icon } from '../Icon'
 import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { itemSourcingLabel } from './itemSourcing'
@@ -27,12 +27,12 @@ export function fmtPower(kw: number): { value: string; unit: string } {
 }
 
 /**
- * A rate of `itemId` as a value and a unit. Electricity (1 unit/s = 1 MW) is always
+ * A rate of `itemId` as a value and a unit. Electricity and heat (1 unit/s = 1 MW) are always
  * shown in power units, whatever the rate unit; everything else follows `unit`.
  */
 // eslint-disable-next-line react-refresh/only-export-components
 export function fmtItemRate(itemId: string | undefined, ratePerSec: number, unit: RateUnit): { value: string; unit: string } {
-  if (isElectricity(itemId)) return fmtPower(ratePerSec * 1000)
+  if (isEnergyItem(itemId)) return fmtPower(ratePerSec * 1000)
   return { value: fmtRate(ratePerSec, unit), unit: unit === 'min' ? '/m' : '/s' }
 }
 
@@ -43,10 +43,10 @@ export function fmtItemRateText(itemId: string | undefined, ratePerSec: number, 
   return r.value + r.unit
 }
 
-/** The unit a rate input for `itemId` is typed in: MW (rate unit 'sec') for electricity. */
+/** The unit a rate input for `itemId` is typed in: MW (rate unit 'sec') for electricity and heat. */
 // eslint-disable-next-line react-refresh/only-export-components
 export function inputRateUnit(itemId: string | undefined, unit: RateUnit): RateUnit {
-  return isElectricity(itemId) ? 'sec' : unit
+  return isEnergyItem(itemId) ? 'sec' : unit
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +86,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   const rate = fmtItemRate(item?.id, ratePerSec, unit)
   const label = isPower ? power!.value : rate.value
   const unitLabel = isPower ? power!.unit : rate.unit
-  const electricityItem = !isPower && isElectricity(item?.id)
+  const electricityItem = !isPower && item?.id === ELECTRICITY_ITEM_ID
 
   const baseTitle = title ?? item?.name
   const tileTitle = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle

@@ -236,8 +236,14 @@ describe("snapshot ids", function()
     s.blocks[1].rows[#s.blocks[1].rows + 1] = { kind = "power", product = { id = "electricity", type = "virtual" } }
     s.blocks[1].rows[1].inputs[1] = electricity
     s.blocks[1].rows[1].outputs[1] = electricity
+    local heat = { id = "heat", type = "virtual", rate = 5 }
+    s.blocks[1].products[#s.blocks[1].products + 1] = heat
+    s.blocks[1].imports[#s.blocks[1].imports + 1] = heat
+    s.blocks[1].rows[#s.blocks[1].rows + 1] = { kind = "power", product = { id = "heat", type = "virtual" } }
+    s.blocks[1].rows[2].inputs[1] = heat
     for _, key in ipairs(ids(s)) do
       assert.is_nil(string.find(key, "electricity", 1, true), key)
+      assert.is_nil(string.find(key, "heat", 1, true), key)
     end
   end)
 

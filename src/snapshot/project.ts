@@ -1,4 +1,4 @@
-import { ELECTRICITY_ITEM_ID } from '../data/electricity'
+import { ELECTRICITY_ITEM_ID, HEAT_ITEM_ID, isEnergyItem } from '../data/electricity'
 import { applyDefaultMachineOverrides, computeHorizon, resolveRowMachine } from '../data/horizon'
 import { syntheticRecipeKind } from '../data/syntheticRecipes'
 import type {
@@ -14,6 +14,7 @@ import type {
 } from '../data/types'
 import {
   SNAPSHOT_ELECTRICITY_ID,
+  SNAPSHOT_HEAT_ID,
   SNAPSHOT_VERSION,
   type Snapshot,
   type SnapshotBeacon,
@@ -46,10 +47,10 @@ function solvedValues(s: SolvedNode): Pick<SnapshotGameRow, 'machines' | 'machin
   return out
 }
 
-/** A row's solved item rates, three decimals, without the electricity item and without zero or unusable rates. */
+/** A row's solved item rates, three decimals, without electricity and heat and without zero or unusable rates. */
 function itemRates(rates: Record<string, number>, ref: (id: string) => SnapshotItemRef): SnapshotItemRate[] {
   return Object.entries(rates).flatMap(([id, r]) => {
-    const rounded = id === ELECTRICITY_ITEM_ID ? undefined : round3(r)
+    const rounded = isEnergyItem(id) ? undefined : round3(r)
     return rounded ? [{ ...ref(id), rate: rounded }] : []
   })
 }
@@ -85,8 +86,8 @@ const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
  * item id missing from the data set is sent as an `item` (the mod lists ids the game does not know).
  *
  * Ids the exporter invented never reach the snapshot: a row of a `mining:`, `offshore:` or
- * `power:` recipe carries its `kind` and `product` instead of a recipe id, the electricity
- * pseudo-item is the `virtual` item `electricity`.
+ * `power:` recipe carries its `kind` and `product` instead of a recipe id, electricity and
+ * heat are the `virtual` items `electricity` and `heat`.
  *
  * Rows mirror the plan. A row without a solved node (every row of a block whose solve failed, or a
  * row the solve skipped) keeps its ids and omits the solved values, as does a value that is not a
@@ -98,7 +99,7 @@ const EMPTY_RESULT: SolverResult = { nodes: [], unsatisfied: [], warnings: [] }
  * draw them.
  *
  * A row also carries what the in-game table needs: its solved item rates (`inputs`, `outputs`, without
- * electricity), the machine's modules and its beacon, and the sub-factory it sits in (`group`, an index
+ * electricity and heat), the machine's modules and its beacon, and the sub-factory it sits in (`group`, an index
  * into the block's `groups`, which lists every sub-plan holding rows at any depth, parents first).
  */
 export function projectSnapshot(
@@ -110,7 +111,9 @@ export function projectSnapshot(
   const horizon = computeHorizon(gameData, state.horizonTechnologyIds)
   const defaultMachines = applyDefaultMachineOverrides(gameData, horizon.machineIds, horizon.defaultMachines, state.defaultMachineOverrides)
   const ref = (id: string): SnapshotItemRef =>
-    id === ELECTRICITY_ITEM_ID ? { id: SNAPSHOT_ELECTRICITY_ID, type: 'virtual' } : { id, type: gameData.items[id]?.type ?? 'item' }
+    id === ELECTRICITY_ITEM_ID ? { id: SNAPSHOT_ELECTRICITY_ID, type: 'virtual' }
+      : id === HEAT_ITEM_ID ? { id: SNAPSHOT_HEAT_ID, type: 'virtual' }
+      : { id, type: gameData.items[id]?.type ?? 'item' }
   const withRate = (id: string, r: number): SnapshotItemRate => ({ ...ref(id), rate: rate3(r) })
 
   /** What other blocks request of `blockId`, by item (requested flows only). */

@@ -492,8 +492,8 @@ describe('power generation on the real Seablock data', () => {
   const powerRecipes = Object.values(seablock.recipes).filter(r => r.power)
 
   it('exports the power recipes with one zero-draw machine each', () => {
-    // Changes on re-export: 70 burner-boiler + 16 oil-boiler + 8 generator + 9 solar-panel recipes.
-    expect(powerRecipes).toHaveLength(103)
+    // Changes on re-export: 70 burner-boiler + 16 oil-boiler + 8 generator + 9 solar-panel + 4 heat-exchanger + 44 reactor recipes.
+    expect(powerRecipes).toHaveLength(151)
     for (const r of powerRecipes) {
       expect(r.madeIn, `${r.id} madeIn`).toHaveLength(1)
       const machine = seablock.machines[r.madeIn[0]]
@@ -511,6 +511,28 @@ describe('power generation on the real Seablock data', () => {
     expect(electricity.name).toBe('Electricity')
     expect(seablock.itemSubgroups[electricity.subgroup].group).toBe('power:power')
     expect(seablock.itemGroups['power:power'].name).toBe('Power')
+  })
+
+  it('puts the heat item in the Power group and exports the reactors', () => {
+    const heat = seablock.items['power:heat']
+    expect(heat.name).toBe('Heat')
+    expect(seablock.itemSubgroups[heat.subgroup].group).toBe('power:power')
+    const reactors = Object.values(seablock.machines).filter(m => m.type === 'reactor')
+    expect(reactors).toHaveLength(8)
+    expect(seablock.machines['nuclear-reactor'].neighbourBonus).toBe(1)
+    expect(seablock.machines['angels-burner-reactor'].neighbourBonus).toBeUndefined()
+  })
+
+  it('plans 10 MW with steam engines on heat exchangers and nuclear reactors', () => {
+    const recipeIds = ['power:steam-engine:steam', 'power:heat-exchanger:power:heat', 'power:nuclear-reactor:uranium-fuel-cell']
+    const plan = makePlan([['power:electricity', 600]], recipeIds)
+    const r = solve(plan, seablock)
+    expect(nodeOf(r, 'power:steam-engine:steam').machineCountExact).toBeCloseTo(11.111, 3)
+    expect(nodeOf(r, 'power:heat-exchanger:power:heat').machineCountExact).toBeCloseTo(2.778, 3)
+    expect(nodeOf(r, 'power:nuclear-reactor:uranium-fuel-cell').machineCountExact).toBeCloseTo(20 / 54, 3)
+    expect(unsatisfiedRate(r, 'uranium-fuel-cell')).toBeCloseTo(0.6, 3)
+    expect(unsatisfiedRate(r, 'water')).toBeCloseTo(20000, 3)
+    expectSane(r, plan, 'power')
   })
 
   it('plans 10 MW with steam engines on boilers burning solid fuel', () => {

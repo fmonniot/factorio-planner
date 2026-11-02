@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { RateInput } from './RateInput'
-import { isElectricity } from '../../data/electricity'
+import { isEnergyItem } from '../../data/electricity'
 import type { RateUnit } from '../../store/uiStore'
 
 // ---------------------------------------------------------------------------
@@ -14,7 +14,7 @@ interface ConnectionLimitEditorProps {
   y: number
   /** Current limit in the display unit; '' when there is none. */
   initial: string
-  /** The limited item: electricity is limited in MW. */
+  /** The limited item: electricity and heat are limited in MW. */
   itemId?: string
   rateUnit: RateUnit
   /** Receives items/min, or undefined when the field was emptied. */
@@ -75,7 +75,7 @@ export function ConnectionLimitEditor({ x, y, initial, itemId, rateUnit, onCommi
         onCommit={onCommit}
         onStop={onClose}
       />
-      <span>{isElectricity(itemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
+      <span>{isEnergyItem(itemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
     </div>,
     document.body,
   )

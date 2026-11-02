@@ -25,6 +25,7 @@ function makeGameData(): GameData {
       plate: item('plate', 'item'),
       steam: item('steam', 'fluid'),
       'power:electricity': item('power:electricity', 'fluid'),
+      'power:heat': item('power:heat', 'fluid'),
       'furnace-item': { ...item('furnace-item', 'item'), placeResult: 'furnace' },
       'furnace2-item': { ...item('furnace2-item', 'item'), placeResult: 'furnace2' },
     },
@@ -35,6 +36,7 @@ function makeGameData(): GameData {
       'make-furnace2': { ...recipe('make-furnace2', 'crafting'), products: [{ itemId: 'furnace2-item', type: 'item', amount: 1 }] },
       'offshore:steam': { ...recipe('offshore:steam', 'offshore:steam'), products: [{ itemId: 'steam', type: 'fluid', amount: 60 }] },
       'power:solar': { ...recipe('power:solar', 'power:solar'), products: [{ itemId: 'power:electricity', type: 'fluid', amount: 0.06 }] },
+      'power:r:fuel': { ...recipe('power:r:fuel', 'power:r'), products: [{ itemId: 'power:heat', type: 'fluid', amount: 10.8 }], mainProduct: 'power:heat' },
       'mining:ore': { ...recipe('mining:ore', 'mining:basic'), products: [{ itemId: 'plate', type: 'item', amount: 1 }] },
     },
     machines: { furnace: machine('furnace', 'smelting'), furnace2: machine('furnace2', 'smelting'), asm: machine('asm', 'crafting') },
@@ -300,6 +302,19 @@ describe('projectSnapshot', () => {
     expect(JSON.stringify(s)).not.toMatch(/"(mining|offshore|power):/)
   })
 
+  it('sends heat as the virtual item `heat`, in rows, products and imports', () => {
+    const root = plan('root', 'Main', [rowNode('n1', 'power:r:fuel', 'reactor')])
+    const a = makeBlock('a', { rootPlan: root, products: [{ id: 'p', itemId: 'power:heat', extraRate: 600 }] })
+    const s = project([a, makeBlock('b')], solveOf({
+      results: { a: result({ nodes: [solved('n1')], unsatisfied: [{ itemId: 'power:heat', rate: 1 }] }) },
+    }))
+    const heat = { id: 'heat', type: 'virtual' }
+    expect(s.blocks[0].rows[0]).toMatchObject({ kind: 'power', product: heat })
+    expect(s.blocks[0].products).toEqual([{ ...heat, rate: 600 }])
+    expect(s.blocks[0].imports).toEqual([{ ...heat, rate: 1 }])
+    expect(JSON.stringify(s)).not.toContain('power:')
+  })
+
   describe('item rates', () => {
     const rowsOf = (node: SolvedNode | undefined) => {
       const root = plan('root', 'Main', [rowNode('n1', 'smelt')])
@@ -342,6 +357,14 @@ describe('projectSnapshot', () => {
       expect(s.blocks[0].rows[1]).toMatchObject({ inputs: [{ id: 'plate', type: 'item', rate: 2 }], outputs: [{ id: 'steam', type: 'fluid', rate: 1 }] })
       // The power row's own `product` is the virtual electricity item; no rate list names it.
       expect(JSON.stringify(s.blocks[0].rows.flatMap(r => [...(r.inputs ?? []), ...(r.outputs ?? [])]))).not.toContain('electricity')
+    })
+
+    it('leaves heat out', () => {
+      const root = plan('root', 'Main', [rowNode('n1', 'craft')])
+      const s = project([makeBlock('a', { rootPlan: root })], solveOf({
+        results: { a: result({ nodes: [solved('n1', { inputRates: { 'power:heat': 60, steam: 1 } })] }) },
+      }))
+      expect(s.blocks[0].rows[0].inputs).toEqual([{ id: 'steam', type: 'fluid', rate: 1 }])
     })
   })
 

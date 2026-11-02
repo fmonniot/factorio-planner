@@ -53,6 +53,41 @@ function powerFixture() {
   return data
 }
 
+/** The power fixture plus the heat item, a heat exchanger, a nuclear reactor and their recipes. */
+function heatFixture() {
+  const data = powerFixture()
+  data.items['power:heat'] = {
+    id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '', hidden: false, subgroup: 'power:electricity', order: 'b',
+  }
+  for (const [id, name, order] of [['uranium-fuel-cell', 'Uranium fuel cell', 'x4'], ['depleted-uranium-fuel-cell', 'Depleted uranium fuel cell', 'x5']]) {
+    data.items[id] = { id, name, type: 'item', iconPath: '', hidden: false, subgroup: 'intermediate', order }
+  }
+  data.itemSubgroups['power:reactors'] = { id: 'power:reactors', group: 'power:power', order: 'f' }
+  const machine = (id: string, name: string, type: string, extra: object = {}) => ({
+    id, name, type, craftingSpeed: 1, energyUsageKw: 0, energyType: 'void', drainKw: 0, moduleSlots: 0,
+    allowedEffects: [], craftingCategories: [`power:${id}`], iconPath: '', hidden: false, ...extra,
+  })
+  data.machines['heat-exchanger'] = machine('heat-exchanger', 'Heat exchanger', 'boiler')
+  data.machines['nuclear-reactor'] = machine('nuclear-reactor', 'Nuclear reactor', 'reactor', { neighbourBonus: 1 })
+  const recipe = (id: string, name: string, category: string, subgroup: string, ingredients: object[], products: object[], mainProduct: string) => ({
+    id, name, category, craftingTime: 1, ingredients, products, madeIn: [category.slice('power:'.length)],
+    allowProductivity: false, hidden: false, mainProduct, subgroup, order: '', power: true,
+  })
+  data.recipes['power:heat-exchanger:power:heat'] = recipe(
+    'power:heat-exchanger:power:heat', 'Heat exchanger (Heat)', 'power:heat-exchanger', 'power:boilers',
+    [{ itemId: 'water', type: 'fluid', amount: 120 }, { itemId: 'power:heat', type: 'fluid', amount: 7.2 }],
+    [{ itemId: 'steam', type: 'fluid', amount: 120 }], 'steam',
+  )
+  data.recipes['power:nuclear-reactor:uranium-fuel-cell'] = recipe(
+    'power:nuclear-reactor:uranium-fuel-cell', 'Nuclear reactor (Uranium fuel cell)', 'power:nuclear-reactor', 'power:reactors',
+    [{ itemId: 'uranium-fuel-cell', type: 'item', amount: 0.0054 }],
+    [{ itemId: 'power:heat', type: 'fluid', amount: 10.8 }, { itemId: 'depleted-uranium-fuel-cell', type: 'item', amount: 0.0054 }],
+    'power:heat',
+  )
+  for (const m of ['heat-exchanger', 'nuclear-reactor']) data.defaultMachines[`power:${m}`] = m
+  return data
+}
+
 async function upload(page: Page, data: unknown) {
   await page.locator('input[type="file"]').setInputFiles({
     name: 'game-data-power.json',
@@ -174,5 +209,60 @@ test.describe('Power generation', () => {
       els => els.map(e => e.getAttribute('data-item-id') ?? ''),
     )
     expect(itemIds).toContain('power:electricity')
+  })
+})
+
+test.describe('Heat', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/')
+    await upload(page, heatFixture())
+  })
+
+  test('10.8 MW of steam engines on heat exchangers and nuclear reactors', async ({ page }) => {
+    await addElectricityGoal(page, '10.8')
+    await addRecipe(page, 'power:steam-engine:steam')
+    const rows = page.locator('main table tbody tr')
+    await rows.first().locator('button[title^="Steam ("]').first().click()
+    await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:heat-exchanger:power:heat"]').click()
+    await expect(rows).toHaveCount(2)
+    await expect(rows.nth(1).getByTitle('Heat exchanger', { exact: true })).toHaveText(/^\??3$/)
+    const heat = slot(page, 'Ingredients', 'Heat')
+    await expect(heat).toHaveAccessibleName('Heat, 21.6 MW')
+    await expect(heat).toContainText('21.6MW')
+
+    await rows.nth(1).locator('button[title="Heat — Find producer recipe"]').click()
+    await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:nuclear-reactor:uranium-fuel-cell"]').click()
+    await expect(rows).toHaveCount(3)
+    await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)
+    await expect(slot(page, 'Ingredients', 'Uranium fuel cell')).toHaveAccessibleName('Uranium fuel cell, 0.65 per minute')
+    await expect(slot(page, 'Ingredients', 'Heat')).toHaveCount(0)
+  })
+
+  test('heat is typed in MW and stays in MW per second', async ({ page }) => {
+    const overlay = page.locator('.fixed.inset-0')
+    await page.getByTitle('Add product').click()
+    await expect(overlay.getByText('/min (MW for Electricity and Heat)')).toBeVisible()
+    await overlay.getByLabel('Amount').fill('21.6')
+    await overlay.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
+    await overlay.locator('[data-testid="item-slot"][data-item-id="power:heat"]').click()
+    await expect(overlay).not.toBeVisible()
+    await addRecipe(page, 'power:nuclear-reactor:uranium-fuel-cell')
+    await expect(slot(page, 'Products', 'Heat')).toHaveAccessibleName('Heat, 21.6 MW')
+
+    const menu = await openAppMenu(page)
+    await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+    await expect(slot(page, 'Products', 'Heat')).toContainText('21.6MW')
+  })
+
+  test('heat and reactor recipes ignore the research horizon', async ({ page }) => {
+    await openHorizonTree(page)
+    await page.locator('[data-tech-id="electronics"]').click()
+    await closeHorizonTree(page)
+    await page.getByTitle('Add product').click()
+    await page.locator('[data-testid="item-group-tab"][data-group-id="power:power"]').click()
+    const itemIds = await page.locator('[data-testid="item-slot"]').evaluateAll(
+      els => els.map(e => e.getAttribute('data-item-id') ?? ''),
+    )
+    expect(itemIds).toContain('power:heat')
   })
 })

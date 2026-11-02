@@ -2,7 +2,7 @@ import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { FLOW_TOLERANCE } from '../../solver/index'
 import { fmtPower } from './ItemTile'
-import { isElectricity } from '../../data/electricity'
+import { isEnergyItem } from '../../data/electricity'
 import { possessive } from './productChangeText'
 import type { ByproductRow, IngredientRow } from './summaryRows'
 
@@ -118,11 +118,11 @@ export interface OverviewRow {
 
 /**
  * Whether a gap (items/min) survives the display rounding, so "short by 0.00/m" never shows.
- * Electricity is shown in W/kW/MW whatever the rate unit, so it is rounded the same way
+ * Electricity and heat are shown in W/kW/MW whatever the rate unit, so it is rounded the same way
  * and the answer does not depend on the toggle.
  */
 function visibleGap(gapPerMin: number, unit: RateUnit, itemId?: string): boolean {
-  if (isElectricity(itemId)) return parseFloat(fmtPower(gapPerMin / 60 * 1000).value) > 0
+  if (isEnergyItem(itemId)) return parseFloat(fmtPower(gapPerMin / 60 * 1000).value) > 0
   const v = unit === 'min' ? gapPerMin : gapPerMin / 60
   return parseFloat(v.toFixed(2)) > 0
 }

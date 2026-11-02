@@ -86,7 +86,7 @@ export const RecipeSchema = z.object({
   order: z.string().default(''),
   /** True for a recipe the exporter makes from a resource (mining drill) or an offshore pump. Always inside the research horizon. */
   extraction: z.boolean().optional(),
-  /** True for a recipe the exporter makes from a boiler, generator, burner generator or solar panel. Always inside the research horizon (its machine is gated). */
+  /** True for a recipe the exporter makes from a boiler (or heat exchanger), generator, burner generator, reactor or solar panel. Always inside the research horizon (its machine is gated). */
   power: z.boolean().optional(),
 })
 
@@ -115,12 +115,15 @@ export const MachineSchema = z.object({
   id: z.string(),
   name: z.string(),
   // For 'mining-drill' and 'offshore-pump', craftingSpeed is the mining or pumping speed.
-  // Generation machines ('boiler', 'generator', 'burner-generator', 'solar-panel') have speed 1 and no power draw:
+  // Generation machines ('boiler', 'generator', 'burner-generator', 'reactor', 'solar-panel') have speed 1 and no power draw:
   // their energy is the recipe.
   type: z.enum([
     'assembling-machine', 'furnace', 'rocket-silo', 'mining-drill', 'offshore-pump',
-    'boiler', 'generator', 'burner-generator', 'solar-panel',
+    'boiler', 'generator', 'burner-generator', 'reactor', 'solar-panel',
   ]),
+  // Reactors: `neighbour_bonus`, extra heat per adjacent working reactor (1 = +100 %); informational,
+  // recipes assume no neighbours; absent = none.
+  neighbourBonus: z.number().nonnegative().optional(),
   // Some older exports omit this field. Default to 1 so they still load;
   // re-export to get real values.
   craftingSpeed: z.number().positive().default(1),

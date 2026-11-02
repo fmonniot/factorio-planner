@@ -270,6 +270,36 @@ describe('FactorySummary — electricity', () => {
   })
 })
 
+describe('FactorySummary — heat', () => {
+  const heat = { id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '', hidden: false }
+
+  beforeEach(() => {
+    setupStore([{ id: 'g1', itemId: 'power:heat', extraRate: 1296 }])
+    useGameDataStore.setState({
+      status: {
+        type: 'loaded', sourceId: 'test',
+        gameData: { ...mockGameData, items: { ...mockGameData.items, 'power:heat': heat } } as unknown as GameData,
+      },
+    })
+    useSolverStore.setState({
+      lastResult: {
+        nodes: [{
+          recipeNodeId: 'n1', inputRates: {}, outputRates: { 'power:heat': 1296 },
+          throughput: 1, machineCountExact: 2, machineCountCeil: 2, powerKw: 0,
+        }],
+        unsatisfied: [],
+        warnings: [],
+      },
+    })
+  })
+
+  it.each(['min', 'sec'] as const)('names the slot in power units in /%s', unit => {
+    useUiStore.setState({ rateUnit: unit })
+    render(<FactorySummary />)
+    expect(screen.getByRole('button', { name: 'Heat, 21.6 MW' })).toBeInTheDocument()
+  })
+})
+
 describe('FactorySummary — extra output and actual', () => {
   it('shows the extra output with title "Extra output" once the slot is selected', () => {
     render(<FactorySummary />)

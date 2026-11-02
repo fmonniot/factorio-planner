@@ -6,7 +6,7 @@ import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { ItemTile, fmtRate, fmtItemRateText, inputRateUnit } from './ItemTile'
-import { isElectricity } from '../../data/electricity'
+import { isEnergyItem } from '../../data/electricity'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
 import { BeaconCell } from './BeaconPopover'
@@ -679,7 +679,7 @@ export function RecipeRow({
                     onChange={e => handlePinnedRateChange(e.target.value)}
                     className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
                   />
-                  <span className="text-gray-600 text-[10px]">{isElectricity(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
+                  <span className="text-gray-600 text-[10px]">{isEnergyItem(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
                 </div>
               )
             }

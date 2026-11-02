@@ -352,6 +352,17 @@ describe('parseGameData — power generation', () => {
     expect(data.recipes['power:steam-engine:steam'].power).toBe(true)
   })
 
+  it('keeps a reactor machine and its neighbourBonus', () => {
+    const gd = minimalGameData() as unknown as Record<string, Record<string, unknown>>
+    gd.machines['nuclear-reactor'] = {
+      ...minimalMachine, id: 'nuclear-reactor', type: 'reactor', energyType: 'void', energyUsageKw: 0,
+      craftingCategories: ['power:nuclear-reactor'], neighbourBonus: 1,
+    }
+    const data = parseGameData(gd)
+    expect(data.machines['nuclear-reactor']).toMatchObject({ type: 'reactor', neighbourBonus: 1 })
+    expect(parseGameData(minimalGameData()).machines['electric-furnace'].neighbourBonus).toBeUndefined()
+  })
+
   it('leaves power undefined on a recipe without the flag', () => {
     const data = parseGameData(minimalGameData())
     expect(data.recipes['iron-plate-recipe'].power).toBeUndefined()
