@@ -2,6 +2,7 @@ import solver, { type SolveResult } from 'javascript-lp-solver'
 import type {
   GameData,
   GameRecipeNode,
+  Ingredient,
   Recipe,
   SolvedArea,
   SolvedNode,
@@ -9,7 +10,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { buildClassifiedSystem, rowProductAmount, type ClassifiedSystem } from './build'
+import { buildClassifiedSystem, rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -180,7 +181,15 @@ function buildColumnSystem(
   goalsMap: Map<string, number>,
 ): ClassifiedSystem {
   // Productivity cannot change the sign of a coefficient, so this equals a per-column classification.
-  const { classification } = buildClassifiedSystem(gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap)
+  // A burner column's fuel counts as a consumption (only the sign matters), so an in-plan fuel is an
+  // intermediate, not a byproduct.
+  const fuels = new Map<string, Ingredient[]>()
+  for (const col of columns) {
+    if (col.effects.fuel) fuels.set(col.node.recipeId, [...(fuels.get(col.node.recipeId) ?? []), col.effects.fuel])
+  }
+  const { classification } = buildClassifiedSystem(
+    gameData, [...new Set(columns.map(c => c.node.recipeId))], goalsMap, undefined, undefined, fuels,
+  )
   const S = new Map<string, Map<string, number>>()
   function addCoeff(itemId: string, columnId: string, delta: number) {
     if (!S.has(itemId)) S.set(itemId, new Map())
@@ -193,7 +202,7 @@ function buildColumnSystem(
       const amount = rowProductAmount(prod, col.effects.productivityBonus, col.effects.heatBonus)
       if (amount > 0) addCoeff(prod.itemId, col.id, amount)
     }
-    for (const ing of recipe.ingredients) {
+    for (const ing of rowIngredients(recipe, col.effects)) {
       if (ing.amount > 0) addCoeff(ing.itemId, col.id, -ing.amount)
     }
   }
@@ -477,7 +486,7 @@ export function solveAreaBlock(
   const noImportItems = new Set(plan.noImportItems ?? [])
   for (const col of columns) {
     if (!col.node.byproductConsumer || !col.recipe) continue
-    for (const ing of col.recipe.ingredients) {
+    for (const ing of rowIngredients(col.recipe, col.effects)) {
       noImportItems.add(ing.itemId)
     }
   }

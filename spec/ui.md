@@ -773,6 +773,7 @@ The popover closes on Escape or a click outside.
   button (Add recipe). The Ingredients header also shows the block's total power draw
   (⚡, auto-scaled W / kW / MW / GW, right-aligned): the sum of every row's power draw, including rows in
   collapsed sub-plans (which have no tile of their own), hidden when it is zero, beacon power not included.
+  A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing to the total.
 - In a block with areas, the Recipe header also carries a small [segmented control](#segmented-control)
   named "Table view" with two options, **Tree** and **By recipe** (`aria-pressed`), that switches
   between the tree and the [by-recipe view](#by-recipe-view). The choice is global, not per block,
@@ -917,7 +918,7 @@ time.
 
 **Ingredients cell.** Every input with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
-same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. Product and byproduct tiles show the same orange badge, and their title adds it (e.g. "Steam (165°C)"; a multi-output byproduct reads "Steam (165°C) — Set as primary…"), only when the recipe sets an explicit `temperature` on that product (a fluid at its default temperature shows none); the by-recipe group row does the same for its product, byproduct and ingredient tiles. The solver reads the bounds only for the `temperature-mismatch` warning; the summary, goals, item picker and block graph do not show temperatures. A ⚡ tile at the end shows the row's power draw (a power generation row draws nothing, so it has none: its output is the electricity product tile, in power units)
+same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. Product and byproduct tiles show the same orange badge, and their title adds it (e.g. "Steam (165°C)"; a multi-output byproduct reads "Steam (165°C) — Set as primary…"), only when the recipe sets an explicit `temperature` on that product (a fluid at its default temperature shows none); the by-recipe group row does the same for its product, byproduct and ingredient tiles. The solver reads the bounds only for the `temperature-mismatch` warning; the summary, goals, item picker and block graph do not show temperatures. A burner row's fuel is one of these inputs: its tile is marked `data-fuel="true"` and titled "Fuel: <name> — Find producer recipe" (no other badge), and the row has no ⚡ tile. A ⚡ tile at the end shows the row's power draw (a power generation row, or a burner row with fuel, draws nothing, so it has none: its output is the electricity product tile, in power units)
 (auto-scaled W / kW / MW / GW) when it is above zero. Right-clicking an ingredient tile opens the [sourcing menu](#item-chip-sourcing-menu); the power tile has none. The Ingredients header total sums these draws over every row, including rows in collapsed sub-plans.
 
 #### Item chip sourcing menu
@@ -1083,6 +1084,13 @@ The same component in recipes mode (`source="recipes"`).
   swaps the row's recipe and resets its machine, modules, beacon, pin and other
   settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel
   change goes through **Alternate recipe**.
+- **Fuel** (only when the row's machine is a burner, `energyType: 'burner'`) — the fuel the row burns
+  (`fuel-button`: icon, name, value in MJ or kJ), resolved with `resolveRowFuel`. Clicking it lists
+  **Default** (`fuel-default`, labelled "Default (<fuel name>)": the lowest-value accepted fuel) and the
+  machine's accepted fuels inside the research horizon (`fuel-option`, `data-item-id`, lowest value first).
+  Choosing one stores it as the row's `fuelItemId`, **Default** clears it; both are undoable. An effective fuel outside
+  the horizon carries the "Beyond research horizon" marker (`beyond-horizon`) and is not listed. A burner whose data set
+  has no fuel data shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw.
 - **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
   a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
   **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a
@@ -1118,7 +1126,7 @@ The same component in recipes mode (`source="recipes"`).
   machine's allowed effects, and with productivity zeroed if the recipe disallows
   it). Quality is listed only when relevant.
 - **Apply to every row of this recipe (N)** (footer; only when the active block has N > 1
-  rows of the recipe, in any area) — copies this row's machine and modules together
+  rows of the recipe, in any area) — copies this row's machine, fuel and modules together
   (including "Default", which clears the machine) to every other row of the recipe, as one
   undoable command. The modal stays open; when every other row already matches, nothing
   happens and no history entry is recorded.

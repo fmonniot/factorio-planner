@@ -1539,6 +1539,31 @@ describe('RecipeRow in a block with areas', () => {
   })
 })
 
+describe('RecipeRow — burner fuel', () => {
+  const smeltNode: GameRecipeNode = {
+    kind: 'game-recipe', id: 'node-f', recipeId: 'iron-plate', modules: [], byproductPolicy: {},
+  }
+  const burning: SolvedNode = {
+    ...solvedNode, recipeNodeId: 'node-f', inputRates: { 'iron-ore': 120, coal: 2.7 }, powerKw: 0, fuelItemId: 'coal',
+  }
+
+  it('marks the fuel among the ingredients and shows no electricity tile', () => {
+    renderRow({ planNode: smeltNode, solvedNode: burning, onIngredientClick: () => {} })
+    const fuel = document.querySelector('[data-fuel="true"]')
+    expect(fuel).not.toBeNull()
+    expect(fuel).toHaveAttribute('data-variant', 'ingredient')
+    expect(fuel).toHaveAttribute('title', 'Fuel: coal — Find producer recipe')
+    expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
+    expect(document.querySelector('[data-variant="electricity"]')).toBeNull()
+  })
+
+  it('has no fuel marker for a row without fuel', () => {
+    renderRow({ planNode: smeltNode, solvedNode })
+    expect(document.querySelector('[data-fuel]')).toBeNull()
+    expect(document.querySelector('[data-variant="electricity"]')).not.toBeNull()
+  })
+})
+
 describe('RecipeRow — reactor neighbour count', () => {
   it('opens the Edit machine modal with the stored neighbour count', () => {
     const gameData = {

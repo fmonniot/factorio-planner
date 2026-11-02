@@ -1,4 +1,4 @@
-import type { GameData, RecipeProduct } from '../data/types'
+import type { GameData, Ingredient, Recipe, RecipeProduct } from '../data/types'
 import { HEAT_ITEM_ID } from '../data/electricity'
 
 // ---------------------------------------------------------------------------
@@ -61,6 +61,11 @@ export function rowProductAmount(
   return prod.itemId === HEAT_ITEM_ID ? amount * (1 + heatBonus) : amount
 }
 
+/** A row's ingredients: the recipe's plus the fuel a burner row burns (per execution). */
+export function rowIngredients(recipe: Recipe, effects: { fuel?: Ingredient } | undefined): Ingredient[] {
+  return effects?.fuel ? [...recipe.ingredients, effects.fuel] : recipe.ingredients
+}
+
 /**
  * Build the net stoichiometry map and classify items for the LP.
  */
@@ -70,6 +75,8 @@ export function buildClassifiedSystem(
   goalsMap: Map<string, number>,
   productivityMap: Map<string, number> = new Map(),
   heatBonusMap: Map<string, number> = new Map(),
+  /** Per recipe: ingredients that are not the recipe's own (a burner row's fuel). */
+  extraIngredients: Map<string, Ingredient[]> = new Map(),
 ): ClassifiedSystem {
   const producers = new Map<string, Set<string>>() // itemId → recipeIds that produce it
   const consumers = new Map<string, Set<string>>() // itemId → recipeIds that consume it
@@ -96,7 +103,7 @@ export function buildClassifiedSystem(
       }
     }
 
-    for (const ing of recipe.ingredients) {
+    for (const ing of [...recipe.ingredients, ...(extraIngredients.get(recipeId) ?? [])]) {
       if (ing.amount > 0) {
         addCoeff(ing.itemId, recipeId, -ing.amount)
         if (!consumers.has(ing.itemId)) consumers.set(ing.itemId, new Set())

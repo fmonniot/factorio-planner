@@ -619,3 +619,116 @@ describe('EditMachineModal — neighbours', () => {
     expect(screen.queryByTestId('neighbour-section')).toBeNull()
   })
 })
+
+describe('EditMachineModal — fuel', () => {
+  function fuelItem(id: string, fuelValueKj: number): GameData['items'][string] {
+    return { ...item(id), fuelValueKj, fuelCategory: 'chemical' }
+  }
+
+  function burnerData(): GameData {
+    const gd = makeGameData()
+    gd.items = {
+      ...gd.items,
+      furnace: item('furnace', 'furnace'),
+      wood: fuelItem('wood', 2000),
+      coal: fuelItem('coal', 4000),
+      'solid-fuel': fuelItem('solid-fuel', 12000),
+    }
+    gd.machines.furnace = {
+      ...machine('furnace', 'Furnace', 1), type: 'furnace', energyType: 'burner', energyUsageKw: 90,
+      craftingCategories: ['smelting'], fuelCategories: ['chemical'], moduleSlots: 0,
+    }
+    gd.recipes.smelt = { ...recipe('smelt', 'Smelt'), category: 'smelting', madeIn: ['furnace'] }
+    gd.recipes['r-furnace'] = producer('r-furnace', 'furnace')
+    gd.recipes['r-wood'] = producer('r-wood', 'wood')
+    gd.recipes['r-coal'] = producer('r-coal', 'coal')
+    gd.recipes['r-solid-fuel'] = producer('r-solid-fuel', 'solid-fuel')
+    gd.defaultMachines.smelting = 'furnace'
+    gd.technologies.fire = {
+      id: 'fire', name: 'Fire', prerequisites: [],
+      unlockedRecipes: ['smelt', 'r-furnace', 'r-wood', 'r-coal'], iconPath: '',
+    }
+    gd.technologies.chem = { id: 'chem', name: 'Chem', prerequisites: [], unlockedRecipes: ['r-solid-fuel'], iconPath: '' }
+    return gd
+  }
+
+  function renderBurner(fuelItemId?: string, gameData = burnerData(), rows: GameRecipeNode[] = []) {
+    const block = makeEmptyBlock('Test')
+    const row: GameRecipeNode = {
+      kind: 'game-recipe', id: 'n1', recipeId: 'smelt', modules: [], byproductPolicy: {},
+      ...(fuelItemId !== undefined && { fuelItemId }),
+    }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [row, ...rows] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    render(
+      <EditMachineModal
+        nodeId="n1"
+        recipeId="smelt"
+        recipeCategory="smelting"
+        machineId={undefined}
+        machineCountCeil={1}
+        modules={[]}
+        fuelItemId={fuelItemId}
+        gameData={gameData}
+        onClose={() => {}}
+      />,
+    )
+  }
+  const fuelOptionIds = () => screen.queryAllByTestId('fuel-option').map(e => e.getAttribute('data-item-id'))
+  const openFuel = () => fireEvent.click(screen.getByTestId('fuel-button'))
+  const storedFuel = () => (useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode).fuelItemId
+
+  it('has no Fuel section for an electric machine', () => {
+    renderModal(makeGameData())
+    expect(screen.queryByTestId('fuel-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('no-fuel-data')).not.toBeInTheDocument()
+  })
+
+  it('shows the default fuel and its value, and lists every accepted fuel without a horizon', () => {
+    renderBurner()
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('wood')
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('2 MJ')
+    openFuel()
+    expect(fuelOptionIds()).toEqual(['wood', 'coal', 'solid-fuel'])
+    expect(screen.getByTestId('fuel-default')).toHaveTextContent('Default (wood)')
+  })
+
+  it('lists only fuels within the horizon and flags an effective fuel beyond it', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['fire'] })
+    renderBurner('solid-fuel')
+    expect(screen.getByTestId('beyond-horizon')).toBeInTheDocument()
+    openFuel()
+    expect(fuelOptionIds()).toEqual(['wood', 'coal'])
+  })
+
+  it('choosing a fuel stores it and "Default" clears it', () => {
+    renderBurner()
+    openFuel()
+    fireEvent.click(screen.getByText('coal', { selector: 'span' }))
+    expect(storedFuel()).toBe('coal')
+    openFuel()
+    fireEvent.click(screen.getByTestId('fuel-default'))
+    expect(storedFuel()).toBeUndefined()
+  })
+
+  it('says so for a burner without fuel data', () => {
+    const gd = burnerData()
+    delete gd.machines.furnace.fuelCategories
+    renderBurner(undefined, gd)
+    expect(screen.getByTestId('no-fuel-data')).toHaveTextContent('No fuel data in this data set')
+    expect(screen.queryByTestId('fuel-button')).not.toBeInTheDocument()
+  })
+
+  it('"Apply to every row of this recipe" copies the fuel', () => {
+    renderBurner('coal', burnerData(), [
+      { kind: 'game-recipe', id: 'n2', recipeId: 'smelt', modules: [], byproductPolicy: {} },
+    ])
+    fireEvent.click(screen.getByRole('button', { name: /Apply to every row of this recipe/ }))
+    const nodes = useBlockStore.getState().blocks[0].rootPlan.nodes as GameRecipeNode[]
+    expect(nodes.find(n => n.id === 'n2')!.fuelItemId).toBe('coal')
+  })
+})

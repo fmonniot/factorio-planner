@@ -13,8 +13,8 @@
  * Kept free of side effects so unit tests can import it.
  */
 
-import { luaList } from './technologies.js'
 import { parseEnergyKj, parsePowerKw } from './energy.js'
+import { fuelCategories } from './fuel.js'
 
 /** Must equal ELECTRICITY_ITEM_ID in src/data/electricity.ts. */
 export const ELECTRICITY_ITEM_ID = 'power:electricity'
@@ -77,14 +77,6 @@ export function parsePowerRecipeId(id) {
 }
 
 const heatCapacityKj = (fluid) => parseEnergyKj(fluid?.heat_capacity) || DEFAULT_HEAT_CAPACITY_KJ
-
-/** Fuel categories a burner energy source accepts. */
-function fuelCategories(source) {
-  const list = luaList(source?.fuel_categories)
-  if (list.length > 0) return list
-  if (typeof source?.fuel_category === 'string') return [source.fuel_category]
-  return ['chemical']
-}
 
 /** `{ [key]: value }` when `value` is a finite number, else `{}`, for spreading into an object. */
 const ifFinite = (key, value) => (Number.isFinite(value) ? { [key]: value } : {})

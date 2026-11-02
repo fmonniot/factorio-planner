@@ -647,6 +647,7 @@ export function RecipeRow({
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             modules={planNode.modules}
             neighbourCount={planNode.neighbourCount}
+            fuelItemId={planNode.fuelItemId}
             gameData={gameData}
             onClose={() => setEditMachineOpen(false)}
           />
@@ -774,17 +775,21 @@ export function RecipeRow({
               const itemName = gameData.items[itemId]?.name ?? itemId
               const temp = temperatureLabels[itemId]
               const label = temp ? `${itemName} (${temp})` : itemName
+              const isFuel = itemId === solvedNode?.fuelItemId
               return (
                 <ItemTile
                   key={itemId}
                   item={gameData.items[itemId]}
                   ratePerSec={ratePerMin / 60}
                   variant="ingredient"
+                  fuel={isFuel}
                   onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
                   onContextMenu={e => openItemMenu(e, itemId, false)}
                   sourcing={activeBlock?.itemSourcing[itemId]}
                   temperature={temp}
-                  title={onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
+                  title={isFuel
+                    ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
+                    : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
                 />
               )
             })}

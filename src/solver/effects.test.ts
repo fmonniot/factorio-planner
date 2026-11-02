@@ -302,3 +302,84 @@ describe('rowProductAmount', () => {
     expect(rowProductAmount({ ...heat, amount: 2 }, 0.5, 1)).toBeCloseTo(6)
   })
 })
+
+// ---------------------------------------------------------------------------
+// Burner fuel
+// ---------------------------------------------------------------------------
+
+describe('computeNodeEffects — burner fuel', () => {
+  const FUEL_MODULE: GameData['modules'][string] = {
+    id: 'fuel-module',
+    name: 'fuel-module',
+    iconPath: '',
+    category: 'speed',
+    tier: 1,
+    effects: { speed: 0.2, consumption: 0.5, productivity: 0, quality: 0 },
+    limitation: [],
+    limitationBlacklist: [],
+  }
+
+  function burnerGameData(machineOverrides: Partial<Machine> = {}): GameData {
+    const smelt = { ...recipe(false), id: 'smelt', category: 'smelting', craftingTime: 3.2 }
+    const gd = makeGameData({ smelt }, { 'fuel-module': FUEL_MODULE })
+    const item = (id: string, extra = {}) => ({ id, name: id, type: 'item' as const, iconPath: '', hidden: false, subgroup: '', order: '', ...extra })
+    gd.items = {
+      coal: item('coal', { fuelValueKj: 4000, fuelCategory: 'chemical' }),
+      'solid-fuel': item('solid-fuel', { fuelValueKj: 12000, fuelCategory: 'chemical' }),
+    }
+    gd.machines = {
+      'stone-furnace': machine({
+        id: 'stone-furnace', type: 'furnace', energyUsageKw: 90, energyType: 'burner', drainKw: 0,
+        craftingCategories: ['smelting'], fuelCategories: ['chemical'], ...machineOverrides,
+      }),
+    }
+    gd.defaultMachines = { smelting: 'stone-furnace' }
+    return gd
+  }
+
+  const smeltNode = (extra: Partial<GameRecipeNode> = {}): GameRecipeNode => ({ ...node('n1', 'smelt'), ...extra })
+
+  it('burns power x crafting time / fuel energy per execution', () => {
+    // 90 kW x 3.2 s / 4000 kJ
+    const fx = computeNodeEffects(smeltNode(), burnerGameData())
+    expect(fx.fuel).toEqual({ itemId: 'coal', type: 'item', amount: 0.072 })
+  })
+
+  it('scales with speed and consumption bonuses', () => {
+    // 90 x 1.5 x 3.2 / 1.2 / 4000
+    const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 1 }] }), burnerGameData())
+    expect(fx.fuel?.amount).toBeCloseTo(0.09)
+  })
+
+  it('divides by the effectivity', () => {
+    const fx = computeNodeEffects(smeltNode(), burnerGameData({ effectivity: 0.5 }))
+    expect(fx.fuel?.amount).toBeCloseTo(0.144)
+  })
+
+  it('uses the crafting speed of the machine', () => {
+    const fx = computeNodeEffects(smeltNode(), burnerGameData({ craftingSpeed: 2 }))
+    expect(fx.fuel?.amount).toBeCloseTo(0.036)
+  })
+
+  it('burns the chosen fuel, and the default when the choice is not accepted', () => {
+    const gd = burnerGameData()
+    expect(computeNodeEffects(smeltNode({ fuelItemId: 'solid-fuel' }), gd).fuel)
+      .toEqual({ itemId: 'solid-fuel', type: 'item', amount: 0.024 })
+    expect(computeNodeEffects(smeltNode({ fuelItemId: 'plate' }), gd).fuel?.itemId).toBe('coal')
+  })
+
+  it('uses the machine chosen on the row', () => {
+    const gd = burnerGameData()
+    gd.machines['steel-furnace'] = { ...gd.machines['stone-furnace'], id: 'steel-furnace', craftingSpeed: 2 }
+    expect(computeNodeEffects(smeltNode({ machineId: 'steel-furnace' }), gd).fuel?.amount).toBeCloseTo(0.036)
+  })
+
+  it('is undefined for an electric machine, a burner without fuel data and an unknown recipe', () => {
+    expect(computeNodeEffects(smeltNode(), burnerGameData({ energyType: 'electric' })).fuel).toBeUndefined()
+    expect(computeNodeEffects(smeltNode(), burnerGameData({ fuelCategories: undefined })).fuel).toBeUndefined()
+    expect(computeNodeEffects(smeltNode({ recipeId: 'missing' }), burnerGameData()).fuel).toBeUndefined()
+    const noItems = burnerGameData()
+    noItems.items = {}
+    expect(computeNodeEffects(smeltNode(), noItems).fuel).toBeUndefined()
+  })
+})

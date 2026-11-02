@@ -62,12 +62,17 @@ interface Item {
   placeResult?: string  // id of the machine or beacon this item places (prototype `place_result`)
   defaultTemperature?: number  // fluids: prototype `default_temperature`
   maxTemperature?: number      // fluids: prototype `max_temperature`; equals defaultTemperature when the prototype omits it
+  fuelValueKj?: number         // items: prototype `fuel_value` in kJ per item (> 0); absent = not a fuel
+  fuelCategory?: string        // items: prototype `fuel_category`; set together with fuelValueKj
+  burntResult?: string         // items: prototype `burnt_result`; such a fuel is never offered to a row
 }
 ```
 
 `placeResult` is set only when it names a machine or beacon in the bundle; the
 research horizon uses it to gate machines and beacons (see
 [Technology](#technology)). Several items can place the same entity.
+
+Item fuels carry `fuelValueKj` and `fuelCategory` together (fluid fuels and `burns_fluid` energy sources are not exported as fields). A burner row burns an item whose `fuelCategory` is in the machine's `fuelCategories`; see [Burner fuel](#burner-fuel) in the solver spec.
 
 Fluids carry `defaultTemperature` and `maxTemperature` together (bundles exported before they existed have neither). `power:electricity` and `power:heat` have none (heat's temperatures live on the recipes that make and take it). The solver does not use them; only the `temperature-mismatch` warning reads them (see [spec/solver.md](solver.md#warnings-and-unsatisfied-items)).
 
@@ -186,6 +191,8 @@ interface Machine {
   iconPath: string
   hidden: boolean                // default false
   neighbourBonus?: number        // reactors only: extra heat per adjacent working reactor (1 = +100 %); recipes assume no neighbours, the row's `neighbourCount` scales the heat
+  fuelCategories?: string[]      // burner crafting machines and drills: fuel categories the energy source accepts; absent = no fuel data
+  effectivity?: number           // burner machines: `energy_source.effectivity` (> 0); absent = 1
 }
 
 type EffectName = 'speed' | 'productivity' | 'consumption' | 'pollution' | 'quality'
@@ -382,8 +389,7 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
 - `fluidbox_index` (physical fluid port routing) and `ignored_by_stats`
   (production-statistics display flag) are dropped; neither affects flow rates.
 - `allow_decomposition` (recycling) is not exported.
-- Fuel data (`fuel_value`, `fuel_category`, burner `effectivity`, fluid `heat_capacity`) is read only to build power recipes; it is not exported as fields, and burner
-  machines only report `energyUsageKw`.
+- Item fuel data (`fuel_value`, `fuel_category`, `burnt_result`) and burner `fuel_categories` / `effectivity` of crafting machines are exported as the optional fields above; fluid `heat_capacity` and fluid fuels (`burns_fluid`) are read only to build power recipes. Burnt results are not modelled as outputs of a burner row.
 - Heat pipes (transport only), void or electric reactors, `electric-energy-interface` entities (wind turbines, Stirling engines), accumulators and fusion equipment are not exported. Heat pipe tiers are not modelled either: a pipe's `max_temperature` can cap the heat between a reactor and an exchanger, but only the reactor's own maximum is compared with the exchanger's minimum.
 - `place_result` is kept only as `Item.placeResult`, and only when it names an
   exported machine (drills and pumps included) or beacon; other entities are not recorded.
@@ -410,6 +416,7 @@ Things to keep in mind when reading a bundle:
 - A bundle may lack extraction data: it then has no mining or pumping recipes, and ores and pumped fluids are raw inputs as before. `node scripts/build-game-data.js --patch-extraction` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the generated categories.
 - A bundle may lack power data: it then has no `power:electricity` or `power:heat` item and no generation recipes. `node scripts/build-game-data.js --patch-power` adds them to an existing bundle (same mod-set check; safe to re-run), and refreshes `placeResult` and the default machines of the `power:` categories. Seablock has it; Nullius does not yet.
 - A bundle may lack temperature data: fluid items then have no `defaultTemperature` / `maxTemperature` and products no `temperature`, and consumers treat the temperature as unknown. `node scripts/build-game-data.js --patch-temperatures` adds it (same mod-set check; safe to re-run). Seablock has it; Nullius does not yet.
+- A bundle may lack fuel data: items then have no `fuelValueKj` / `fuelCategory` / `burntResult` and burner machines no `fuelCategories` / `effectivity`, and a burner row keeps drawing power as before (no fuel ingredient). `node scripts/build-game-data.js --patch-fuel` adds it (same mod-set check; safe to re-run; it exits without writing when the bundle has burner machines but the dump has no fuel items). Neither bundle has it yet.
 - Fluid resources (crude oil and similar) are exported at a fixed 100 % yield; the yield of the resource entity is not modelled. A resource that needs a fluid (`required_fluid`) consumes `fluid_amount / 10` per mining cycle, as the game does.
 - A bundle may lack technology data (`technologies` and `startingRecipes` then
   default to empty and the horizon feature is hidden). `node
@@ -625,6 +632,7 @@ interface GameRecipeNode {
   beaconConfig?: BeaconConfig
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute
   neighbourCount?: number       // reactor rows: average adjacent working reactors; > 0 (0 → undefined)
+  fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
   byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
@@ -645,6 +653,7 @@ interface SubPlanNode {
   shows and edits the primary product's rate and converts with that product's
   items per run.
 - **`neighbourCount`.** Reactor rows: the average number of adjacent working reactors per reactor (fractional allowed). The heat product is multiplied by `1 + Machine.neighbourBonus × neighbourCount`; ignored when the row's machine has no `neighbourBonus`. The preprocess coerces `0` to `undefined`; negatives fail to load. Optional, so older plans load unchanged. See [solver.md](solver.md#machine-count-and-power).
+- **`fuelItemId`.** Burner rows: the item the machine burns. An id the row's machine does not accept (unknown, hidden, wrong category, burnt result, not a fuel) is ignored, so the row burns the machine's default fuel (the lowest `fuelValueKj`, then id); the id is kept, so changing the machine does not clear it. Optional, so older plans load unchanged. See [solver.md](solver.md#burner-fuel).
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Override of the recipe's main product: it decides which

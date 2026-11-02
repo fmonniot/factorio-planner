@@ -44,6 +44,12 @@ export const ItemSchema = z.object({
   defaultTemperature: z.number().optional(),
   /** Fluids: prototype `max_temperature` (equal to `defaultTemperature` when the prototype omits it). */
   maxTemperature: z.number().optional(),
+  /** Burner fuel: prototype `fuel_value` in kJ per item; absent = not a fuel (or a bundle exported before fuel data). */
+  fuelValueKj: z.number().positive().optional(),
+  /** Burner fuel: prototype `fuel_category`, matched against `Machine.fuelCategories`. */
+  fuelCategory: z.string().optional(),
+  /** Burner fuel: prototype `burnt_result`. A fuel with one is never offered (its burnt output is not modelled). */
+  burntResult: z.string().optional(),
 })
 
 export const IngredientSchema = z.object({
@@ -130,6 +136,11 @@ export const MachineSchema = z.object({
   energyUsageKw: z.number().nonnegative(),
   energyType: z.enum(['electric', 'burner', 'heat', 'void']),
   drainKw: z.number().nonnegative(),
+  // Burner machines: fuel categories the energy source accepts; absent = no fuel data (the row keeps its
+  // electricity-style power draw).
+  fuelCategories: z.array(z.string()).optional(),
+  // Burner machines: energy_source.effectivity (fuel burnt = energy used / effectivity); absent = 1.
+  effectivity: z.number().positive().optional(),
   moduleSlots: z.number().int().nonnegative(),
   allowedEffects: z.array(EffectNameSchema),
   craftingCategories: z.array(z.string()),
@@ -242,6 +253,9 @@ export const GameRecipeNodeSchema = z.object({
   byproductPolicy: z.record(z.string(), z.enum(['discard', 'feed-back'])),
   primaryProduct: z.string().optional(),
   byproductConsumer: z.boolean().optional(),
+  // Burner rows: the fuel item burnt. An id the machine does not accept is ignored (kept, like
+  // defaultMachineOverrides); absent = the lowest-value accepted fuel (see src/data/fuel.ts).
+  fuelItemId: z.string().optional(),
 })
 
 export const SubPlanNodeSchema = z.object({

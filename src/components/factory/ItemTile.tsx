@@ -68,6 +68,8 @@ interface ItemTileProps {
   temperature?: string
   /** The block's sourcing mode for this item, when not the default; shown as a small letter badge. */
   sourcing?: ItemSourcingMode
+  /** The tile is the fuel a burner row burns: marked with `data-fuel` (the caller words the title). */
+  fuel?: boolean
 }
 
 const variantClasses: Record<ItemTileVariant, string> = {
@@ -77,7 +79,7 @@ const variantClasses: Record<ItemTileVariant, string> = {
   electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
 }
 
-export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature, sourcing }: ItemTileProps) {
+export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature, sourcing, fuel }: ItemTileProps) {
   const unit = useUiStore(s => s.rateUnit)
   const cls = variantClasses[variant]
 
@@ -141,6 +143,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
         onContextMenu={onContextMenu}
         title={tileTitle}
         data-variant={variant}
+        data-fuel={fuel ? 'true' : undefined}
         className={`${baseClass} hover:brightness-125 cursor-pointer`}
       >
         {inner}
@@ -149,7 +152,7 @@ export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, ti
   }
 
   return (
-    <span title={tileTitle} data-variant={variant} onContextMenu={onContextMenu} className={baseClass}>
+    <span title={tileTitle} data-variant={variant} data-fuel={fuel ? 'true' : undefined} onContextMenu={onContextMenu} className={baseClass}>
       {inner}
     </span>
   )

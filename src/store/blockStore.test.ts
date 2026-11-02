@@ -1691,6 +1691,7 @@ describe('buildRowAlsoIn', () => {
   function setup(): string {
     const src = gameRow('src', 'electrolysis', {
       machineId: 'm2',
+      fuelItemId: 'coal',
       modules: [{ moduleId: 'speed', count: 2 }],
       beaconConfig: { ...beacon },
       pinnedRate: 10,
@@ -1716,6 +1717,7 @@ describe('buildRowAlsoIn', () => {
       id,
       recipeId: 'electrolysis',
       machineId: 'm2',
+      fuelItemId: 'coal',
       modules: [{ moduleId: 'speed', count: 2 }],
       beaconConfig: beacon,
       neighbourCount: 2,
@@ -1903,6 +1905,64 @@ describe('updateNodeNeighbourCount', () => {
     expect(rowIn('root', 'r2').neighbourCount).toBeUndefined()
     useBlockStore.getState().updateNodeRecipe('r1', 'other')
     expect(count()).toBeUndefined()
+  })
+})
+
+describe('updateNodeFuel', () => {
+  function setup(extra: Partial<GameRecipeNode> = {}): string {
+    return loadRoot(planOf('root', [gameRow('r1', 'smelt', extra), gameRow('r2', 'smelt')]))
+  }
+  const fuel = (id = 'r1') => rowIn('root', id).fuelItemId
+  const undoDepth = (blockId: string) => useBlockStore.getState().history[blockId]?.undoStack.length ?? 0
+
+  it('sets the fuel, undoes to undefined and redoes', () => {
+    setup()
+    useBlockStore.getState().updateNodeFuel('r1', 'coal')
+    expect(fuel()).toBe('coal')
+    expect(fuel('r2')).toBeUndefined()
+    useBlockStore.getState().undo()
+    expect(fuel()).toBeUndefined()
+    useBlockStore.getState().redo()
+    expect(fuel()).toBe('coal')
+  })
+
+  it('clears the choice with undefined, undoably', () => {
+    setup({ fuelItemId: 'coal' })
+    useBlockStore.getState().updateNodeFuel('r1', undefined)
+    expect(fuel()).toBeUndefined()
+    useBlockStore.getState().undo()
+    expect(fuel()).toBe('coal')
+  })
+
+  it('adds no history entry when the value is unchanged', () => {
+    const blockId = setup({ fuelItemId: 'coal' })
+    useBlockStore.getState().updateNodeFuel('r1', 'coal')
+    useBlockStore.getState().updateNodeFuel('r2', undefined)
+    expect(undoDepth(blockId)).toBe(0)
+  })
+
+  it('is kept when the machine changes', () => {
+    setup({ fuelItemId: 'coal' })
+    useBlockStore.getState().updateNodeMachine('r1', 'steel-furnace')
+    expect(fuel()).toBe('coal')
+  })
+
+  it('is copied by "apply to every row", which then skips rows that already match', () => {
+    const blockId = setup({ fuelItemId: 'coal' })
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    expect(fuel('r2')).toBe('coal')
+    expect(undoDepth(blockId)).toBe(1)
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    expect(undoDepth(blockId)).toBe(1)
+    useBlockStore.getState().undo()
+    expect(fuel('r2')).toBeUndefined()
+  })
+
+  it('"apply to every row" also clears the fuel of the other rows when the source has none', () => {
+    setup()
+    useBlockStore.getState().updateNodeFuel('r2', 'wood')
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'machine')
+    expect(fuel('r2')).toBeUndefined()
   })
 })
 

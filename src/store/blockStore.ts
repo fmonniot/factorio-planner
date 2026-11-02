@@ -342,15 +342,17 @@ export interface BlockStoreState {
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
-  /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, modules, beacon, neighbour count, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
+  /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, fuel, modules, beacon, neighbour count, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
   buildRowAlsoIn: (nodeId: string, areaId: string) => string | undefined
-  /** Copy row `nodeId`'s machine and modules ('machine') or its beacon ('beacon') to every other row of the same recipe in the active block, as one undoable command. No-op when no other row differs. */
+  /** Copy row `nodeId`'s machine, fuel and modules ('machine') or its beacon ('beacon') to every other row of the same recipe in the active block, as one undoable command. No-op when no other row differs. */
   applyRowSettingsToRecipe: (nodeId: string, what: 'machine' | 'beacon') => void
   removeNode: (nodeId: string) => void
   moveNodeUp: (nodeId: string) => void
   moveNodeDown: (nodeId: string) => void
   moveNode: (nodeId: string, targetSubPlanId: string, targetIndex: number) => void
   updateNodeMachine: (nodeId: string, machineId: string | undefined) => void
+  /** Set a burner row's fuel item; undefined restores the default (lowest-value accepted fuel). Undoable; no-op when unchanged. */
+  updateNodeFuel: (nodeId: string, fuelItemId: string | undefined) => void
   updateNodeModules: (nodeId: string, modules: ModuleConfig[]) => void
   updateNodeBeacon: (nodeId: string, beacon: BeaconConfig | undefined) => void
   updateNodePinnedRate: (nodeId: string, rate: number | undefined) => void
@@ -457,12 +459,12 @@ function addNodeCommand(node: RecipeNode, subPlanId: string): Command {
   }
 }
 
-type RowSettings = Pick<GameRecipeNode, 'machineId' | 'modules' | 'beaconConfig'>
+type RowSettings = Pick<GameRecipeNode, 'machineId' | 'fuelItemId' | 'modules' | 'beaconConfig'>
 
 /** The settings a row shares with the others of its recipe: machine and modules, or the beacon (cloned). */
 function pickSettings(n: GameRecipeNode, what: 'machine' | 'beacon'): Partial<RowSettings> {
   return what === 'machine'
-    ? { machineId: n.machineId, modules: structuredClone(n.modules) }
+    ? { machineId: n.machineId, fuelItemId: n.fuelItemId, modules: structuredClone(n.modules) }
     : { beaconConfig: structuredClone(n.beaconConfig) }
 }
 
@@ -478,7 +480,7 @@ function withSettings(n: GameRecipeNode, settings: Partial<RowSettings>): GameRe
 
 function sameSettings(a: GameRecipeNode, b: GameRecipeNode, what: 'machine' | 'beacon'): boolean {
   return what === 'machine'
-    ? a.machineId === b.machineId && deepEqual(a.modules, b.modules)
+    ? a.machineId === b.machineId && a.fuelItemId === b.fuelItemId && deepEqual(a.modules, b.modules)
     : deepEqual(a.beaconConfig ?? null, b.beaconConfig ?? null)
 }
 
@@ -926,6 +928,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         id: crypto.randomUUID(),
         recipeId: src.recipeId,
         ...(src.machineId !== undefined && { machineId: src.machineId }),
+        ...(src.fuelItemId !== undefined && { fuelItemId: src.fuelItemId }),
         modules: structuredClone(src.modules),
         ...(src.beaconConfig && { beaconConfig: structuredClone(src.beaconConfig) }),
         ...(src.neighbourCount !== undefined && { neighbourCount: src.neighbourCount }),
@@ -1201,6 +1204,22 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? { ...n, pinnedRate } : n,
         n => n.kind === 'game-recipe' ? { ...n, pinnedRate: oldPinned } : n,
+      )
+      return cmd ? applyCommand(state, cmd) : state
+    }),
+
+  updateNodeFuel: (nodeId, fuelItemId) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const subPlan = findSubPlanContainingNode(block.rootPlan, nodeId)
+      const old = subPlan?.nodes.find(n => n.id === nodeId)
+      if (!old || old.kind !== 'game-recipe') return state
+      const oldFuel = old.fuelItemId
+      if (fuelItemId === oldFuel) return state
+      const cmd = nodeCommand(block, nodeId,
+        n => n.kind === 'game-recipe' ? { ...n, fuelItemId } : n,
+        n => n.kind === 'game-recipe' ? { ...n, fuelItemId: oldFuel } : n,
       )
       return cmd ? applyCommand(state, cmd) : state
     }),
