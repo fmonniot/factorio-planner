@@ -471,6 +471,34 @@ describe('EditMachineModal — neighbours', () => {
     expect(screen.getByText(/\+25 % heat/)).toBeInTheDocument()
   })
 
+  it('re-syncs the field when the stored count changes under the modal', () => {
+    const gameData = reactorData()
+    const props = {
+      nodeId: 'n1', recipeId: 'power:reactor:fuel', recipeCategory: 'power:reactor', machineId: undefined,
+      machineCountCeil: 1, modules: [], gameData, onClose: () => {},
+    }
+    const block = makeEmptyBlock('Test')
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 3 }] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    const { rerender } = render(<EditMachineModal {...props} neighbourCount={3} />)
+    expect(input().value).toBe('3')
+    expect(multiplier()).toBe('Heat ×4')
+    rerender(<EditMachineModal {...props} neighbourCount={undefined} />)
+    expect(input().value).toBe('0')
+    expect(multiplier()).toBe('Heat ×1')
+  })
+
+  it('does not clobber in-progress text that matches the stored count', () => {
+    renderReactor()
+    fireEvent.change(input(), { target: { value: '2.' } })
+    expect(stored()).toBe(2)
+    expect(input().value).toBe('2.')
+  })
+
   it('is absent for a machine without a neighbour bonus', () => {
     renderReactor(undefined, 1, 'plate')
     expect(screen.queryByTestId('neighbour-section')).toBeNull()

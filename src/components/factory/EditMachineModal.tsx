@@ -152,6 +152,13 @@ export function EditMachineModal({
   const [showMachinePicker, setShowMachinePicker] = useState(false)
   const [addModuleId, setAddModuleId] = useState('')
   const [neighbourText, setNeighbourText] = useState(() => String(neighbourCount ?? 0))
+  // Re-sync the field when the stored count changes under us (e.g. a recipe switch
+  // drops it), but not while the text already parses to the new value ("2." stays).
+  const [prevNeighbourCount, setPrevNeighbourCount] = useState(neighbourCount)
+  if (prevNeighbourCount !== neighbourCount) {
+    setPrevNeighbourCount(neighbourCount)
+    if (parseFloat(neighbourText) !== (neighbourCount ?? 0)) setNeighbourText(String(neighbourCount ?? 0))
+  }
 
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
   const { machine } = row

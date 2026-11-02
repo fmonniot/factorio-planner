@@ -27,6 +27,8 @@ import {
   type AreaView,
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
+import { rowProductAmount } from '../../solver/build'
+import { neighbourHeatBonus } from '../../solver/effects'
 import { hasProduct } from '../../solver/blockGraph'
 import { itemSourcingActions } from './itemSourcing'
 import { countSubPlanContents } from './subPlanContents'
@@ -56,12 +58,13 @@ export function primaryItemPerRun(
   recipe: GameData['recipes'][string],
   primaryItemId: string | undefined,
   solvedNode: SolvedNode | undefined,
+  heatBonus = 0,
 ): number {
   const solved = solvedPrimaryPerRun(primaryItemId, solvedNode)
   if (solved !== undefined) return solved
   const declared = recipe.products
     .filter(p => p.itemId === primaryItemId)
-    .reduce((sum, p) => sum + (p.amount ?? 0) * (p.probability ?? 1), 0)
+    .reduce((sum, p) => sum + rowProductAmount(p, 0, heatBonus), 0)
   return declared > 0 ? declared : 1
 }
 
@@ -426,7 +429,7 @@ export function RecipeRow({
   const primaryItemId = dedicatedProduct(planNode, recipe)
   const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
   if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
-  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined)
+  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined, neighbourHeatBonus(planNode, gameData))
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
