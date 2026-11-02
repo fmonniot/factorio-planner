@@ -1,7 +1,5 @@
 import type { GameData, Recipe, SolverWarning } from '../../data/types'
-import { UNBOUNDED_TEMPERATURE, isBound } from '../../data/temperature'
-
-export { UNBOUNDED_TEMPERATURE }
+import { isBound } from '../../data/temperature'
 
 /** "95", "26.5", "-10": at most 1 decimal, trailing ".0" stripped, -0 shown as "0". */
 export function fmtTemperatureValue(value: number): string {
@@ -35,7 +33,7 @@ export function ingredientTemperatureLabels(recipe: Recipe): Record<string, stri
 export function productTemperatureLabels(recipe: Recipe): Record<string, string> {
   const perItem: Record<string, string[]> = {}
   for (const p of recipe.products) {
-    const label = isBound(p.temperature) ? fmtTemperatureRange(p.temperature, p.temperature) : undefined
+    const label = fmtTemperatureRange(p.temperature, p.temperature)
     if (label === undefined) continue
     const labels = (perItem[p.itemId] ??= [])
     if (!labels.includes(label)) labels.push(label)
@@ -43,7 +41,7 @@ export function productTemperatureLabels(recipe: Recipe): Record<string, string>
   return Object.fromEntries(Object.entries(perItem).map(([id, labels]) => [id, labels.join(', ')]))
 }
 
-/** Sentence for a `temperature-mismatch` warning, e.g. "Steam Turbine (Steam) needs Steam at ≥465°C, but this block only makes it at 165°C." */
+/** Sentence for a `temperature-mismatch` warning, e.g. "Steam Turbine (Steam) needs Steam at ≥465°C, but it is only supplied at 165°C." */
 export function fmtTemperatureWarning(
   w: Extract<SolverWarning, { type: 'temperature-mismatch' }>,
   gameData: GameData,
@@ -52,10 +50,5 @@ export function fmtTemperatureWarning(
   const item = gameData.items[w.itemId]?.name ?? w.itemId
   const need = fmtTemperatureRange(w.minimum, w.maximum) ?? ''
   const supplied = w.supplied.map(t => `${fmtTemperatureValue(t)}°C`).join(', ')
-  const fluid = gameData.items[w.itemId]
-  const isDefault =
-    w.supplied.length === 1 &&
-    fluid?.defaultTemperature !== undefined &&
-    fluid.defaultTemperature === w.supplied[0]
-  return `${recipe} needs ${item} at ${need}, but this block only makes it at ${supplied}${isDefault ? " (its default)" : ''}.`
+  return `${recipe} needs ${item} at ${need}, but it is only supplied at ${supplied}.`
 }

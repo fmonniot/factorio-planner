@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { solveAll } from './index'
+import { temperatureWarnings } from './temperature'
 import { createSolveCache } from './solveCache'
-import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolverWarning } from '../data/types'
+import type { Block, ConnectionFlow, GameData, GameRecipeNode, Product, RecipeNode, SolverResult, SolverWarning } from '../data/types'
 
 type GameRecipe = GameData['recipes'][string]
 
@@ -132,6 +133,52 @@ describe('temperature-mismatch warning', () => {
     expect(w[0].supplied).toEqual([165])
   })
 
+})
+
+/**
+ * The solver only offers a block's own net output, so a source that both makes a fluid and hands on
+ * what it received cannot be built from real blocks; these call `temperatureWarnings` with hand-made results.
+ */
+describe('temperatureWarnings on connections', () => {
+  const gd = gameData([boiler('b165', 165), boiler('b500', 500), generator('turbine', 465)], STEAM_ITEMS())
+  const solved = (id: string, outputs: Record<string, number>, inputs: Record<string, number> = {}, unsatisfied: SolverResult['unsatisfied'] = []): SolverResult => ({
+    nodes: [{ recipeNodeId: id, inputRates: inputs, outputRates: outputs, throughput: 1, machineCountExact: 0, machineCountCeil: 0, powerKw: 0 }],
+    unsatisfied,
+    warnings: [],
+  })
+  const flow = (id: string, from: string, to: string): ConnectionFlow => ({
+    connectionId: id, fromBlockId: from, toBlockId: to, itemId: 'steam', available: 40, capped: false, rate: 40, status: 'ok', kind: 'take',
+  })
+  const blocks = ['A', 'B', 'C'].map(id => block(id, []))
+  const recipes = (m: Record<string, string>) => new Map(Object.entries(m).map(([block, r]) => [block, new Map([[block.toLowerCase(), r]])]))
+
+  it('warns when the source makes the fluid only below the bound', () => {
+    const results = { A: solved('b', { steam: 40 }), B: solved('b', { steam: 40 }), C: solved('c', { electricity: 1 }, { steam: 40 }) }
+    const out = temperatureWarnings(blocks, results, [flow('c1', 'B', 'C')], gd, recipes({ A: 'b500', B: 'b165', C: 'turbine' }))
+    expect(out.get('C'), 'warned').toHaveLength(1)
+  })
+
+  it('stays silent when the source also receives the fluid over a connection', () => {
+    const results = { A: solved('a', { steam: 60 }), B: solved('b', { steam: 100 }), C: solved('c', { electricity: 1 }, { steam: 40 }) }
+    const flows = [flow('c1', 'A', 'B'), flow('c2', 'B', 'C')]
+    const out = temperatureWarnings(blocks, results, flows, gd, recipes({ A: 'b500', B: 'b165', C: 'turbine' }))
+    expect(out.has('C'), 'B may forward A steam at 500°C').toBe(false)
+  })
+
+  it('stays silent when the source also imports the fluid', () => {
+    const results = { A: solved('a', {}), B: { ...solved('b', { steam: 100 }), unsatisfied: [{ itemId: 'steam', rate: 20 }] }, C: solved('c', { electricity: 1 }, { steam: 40 }) }
+    const out = temperatureWarnings(blocks, results, [flow('c2', 'B', 'C')], gd, recipes({ A: 'b500', B: 'b165', C: 'turbine' }))
+    expect(out.has('C'), 'imported steam has an unknown temperature').toBe(false)
+  })
+
+  it('stays silent when the source has no producer of the fluid', () => {
+    const results = { A: solved('a', { widget: 1 }), B: solved('b', { widget: 1 }), C: solved('c', { electricity: 1 }, { steam: 40 }) }
+    const out = temperatureWarnings(blocks, results, [flow('c2', 'B', 'C')], gd, recipes({ A: 'b500', B: 'b165', C: 'turbine' }))
+    expect(out.has('C'), 'no producer').toBe(false)
+  })
+})
+
+describe('temperature-mismatch warning (more)', () => {
   it('stays silent when the connection carries nothing', () => {
     const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
     const steamGoal: Product[] = [{ id: 'gs', itemId: 'steam', extraRate: 60 }]

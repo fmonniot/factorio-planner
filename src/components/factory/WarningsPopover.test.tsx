@@ -186,7 +186,7 @@ describe('WarningsPopover — temperature-mismatch', () => {
 
   it('shows the title, the need and the supplied temperature', () => {
     expect(screen.getByText(/Fluid temperature does not fit/)).toBeInTheDocument()
-    expect(screen.getByText('Steam Turbine needs Steam at ≥465°C, but this block only makes it at 165°C.')).toBeInTheDocument()
+    expect(screen.getByText('Steam Turbine needs Steam at ≥465°C, but it is only supplied at 165°C.')).toBeInTheDocument()
   })
 
   it('hints at a boiler or a connected block', () => {

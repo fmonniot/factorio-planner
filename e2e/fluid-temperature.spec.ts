@@ -19,8 +19,8 @@ test('ingredient tiles show the temperature a recipe requires', async ({ page })
   const steam = page.locator('main button[title^="Steam (125–165°C)"]')
   await expect(steam).toContainText('125–165°C')
 
-  // Three ingredient badges, plus the explicit temperatures of the recipes' own products.
-  await expect(page.locator('main td [data-testid="item-tile-temperature"]')).not.toHaveCount(0)
+  // Three ingredient badges (the tiles that offer "Find producer recipe") and two product badges (the recipes' explicit temperatures): five in all.
+  await expect(page.locator('main td [data-testid="item-tile-temperature"]')).toHaveCount(5)
   await expect(page.locator('main button[title*="°C) — Find producer recipe"] [data-testid="item-tile-temperature"]')).toHaveCount(3)
 })
 

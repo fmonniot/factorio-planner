@@ -18,7 +18,7 @@ import type {
 import { blockAreas, solveAreaBlock } from './areas'
 import { buildClassifiedSystem } from './build'
 import { solveLP } from './solve'
-import { temperatureWarnings } from './temperature'
+import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
@@ -1163,14 +1163,16 @@ export function solveAll(
     }
   }
 
-  const recipeIdOfNode = new Map<string, Map<string, string>>()
-  for (const b of blocks) {
-    const recipes = new Map<string, string>()
-    for (const n of flattenBlock(b).nodes) if (n.kind === 'game-recipe') recipes.set(n.id, n.recipeId)
-    recipeIdOfNode.set(b.id, recipes)
-  }
-  for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode)) {
-    results[id] = withExtraWarnings(results[id], list)
+  if (hasTemperatureData(gameData)) {
+    const recipeIdOfNode = new Map<string, Map<string, string>>()
+    for (const b of blocks) {
+      const recipes = new Map<string, string>()
+      for (const n of flattenBlock(b).nodes) if (n.kind === 'game-recipe') recipes.set(n.id, n.recipeId)
+      recipeIdOfNode.set(b.id, recipes)
+    }
+    for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode)) {
+      results[id] = withExtraWarnings(results[id], list)
+    }
   }
 
   cache?.retain(blockIds)

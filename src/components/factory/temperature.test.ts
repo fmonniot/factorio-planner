@@ -112,12 +112,7 @@ describe('fmtTemperatureWarning', () => {
 
   it('names the need and the single supplied temperature', () => {
     expect(fmtTemperatureWarning({ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [165], minimum: 465 }, gd))
-      .toBe('Steam Turbine needs Steam at ≥465°C, but this block only makes it at 165°C.')
-  })
-
-  it('says so when the supplied temperature is the fluid default', () => {
-    expect(fmtTemperatureWarning({ type: 'temperature-mismatch', recipeId: 'turbine', itemId: 'steam', supplied: [15], minimum: 165 }, gd))
-      .toContain('15°C (its default)')
+      .toBe('Steam Turbine needs Steam at ≥465°C, but it is only supplied at 165°C.')
   })
 
   it('joins several supplied temperatures', () => {

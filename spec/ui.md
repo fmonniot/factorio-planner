@@ -756,7 +756,7 @@ explanation naming the items or recipes involved, and a hint:
 | `overconstrained` | Recipe network can't fully balance |
 | `loop-not-converged` | Loop between blocks did not settle — amber; names the blocks around the loop and the rounds run, with the hint to remove one of the loop's connections or set a limit on one |
 | `request-loop-not-converged` | Requests around a loop do not settle — amber; names the blocks around the loop and the demand rounds run, says the requests that close the loop only take what is left over, with the hint to set a limit on one of the loop's requests or remove one |
-| `temperature-mismatch` | Fluid temperature does not fit — amber; "Steam Turbine (Steam) needs Steam at ≥465°C, but this block only makes it at 165°C." (several supplied temperatures are comma-separated; "(its default)" follows a single temperature that is the fluid's default), with the hint to use a boiler or recipe whose output is in range or connect a block that makes it at the right temperature |
+| `temperature-mismatch` | Fluid temperature does not fit — amber; "Steam Turbine (Steam) needs Steam at ≥465°C, but it is only supplied at 165°C." (several supplied temperatures are comma-separated), with the hint to use a boiler or recipe whose output is in range or connect a block that makes it at the right temperature |
 
 The popover closes on Escape or a click outside.
 
