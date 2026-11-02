@@ -410,7 +410,7 @@ export function EditMachineModal({
                 Heat ×{fmtMultiplier(1 + neighbourBonus * shownNeighbours)}
               </span>
             </div>
-            <p className="text-[10px] text-gray-500 mt-1">
+            <p className="text-[10px] text-gray-500 mt-1 whitespace-normal">
               Average working reactors next to each reactor. Each one adds +{Math.round(neighbourBonus * 100)} % heat on the same fuel, so you need fewer reactors.
             </p>
           </div>

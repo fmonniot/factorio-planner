@@ -272,6 +272,9 @@ test.describe('Heat', () => {
     await reactor.click()
     const count = page.getByLabel('Neighbouring reactors')
     await expect(count).toHaveValue('0')
+    // The hint wraps inside the modal instead of running off its right edge.
+    const hint = page.getByTestId('neighbour-section').locator('p')
+    expect((await hint.boundingBox())!.height).toBeGreaterThan(20)
     await count.fill('3')
     await expect(page.getByTestId('neighbour-multiplier')).toHaveText('Heat ×4')
     await expect(page.getByText('×1 machines')).toBeVisible()
