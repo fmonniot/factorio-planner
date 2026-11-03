@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { parseEnergyKj, parsePowerKw } from '../energy.js'
+import { parseEnergyKj, parsePowerKw, inferEnergyType } from '../energy.js'
 
 describe('parseEnergyKj', () => {
   it('reads joule strings with SI prefixes', () => {
@@ -34,5 +34,20 @@ describe('parsePowerKw', () => {
 
   it('returns 0 for missing values', () => {
     expect(parsePowerKw(undefined)).toBe(0)
+  })
+})
+
+describe('inferEnergyType', () => {
+  it('maps the energy source types', () => {
+    expect(inferEnergyType({ energy_source: { type: 'electric' } })).toBe('electric')
+    expect(inferEnergyType({ energy_source: { type: 'burner' } })).toBe('burner')
+    expect(inferEnergyType({ energy_source: { type: 'heat' } })).toBe('heat')
+  })
+
+  it('tells a fluid source that burns fluid from one that does not', () => {
+    expect(inferEnergyType({ energy_source: { type: 'fluid', burns_fluid: true } })).toBe('fluid-burner')
+    expect(inferEnergyType({ energy_source: { type: 'fluid', burns_fluid: false } })).toBe('void')
+    expect(inferEnergyType({ energy_source: { type: 'fluid' } })).toBe('void')
+    expect(inferEnergyType({})).toBe('void')
   })
 })

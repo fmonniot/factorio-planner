@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { itemFuel, burnerFuel, attachFuel, fuelOverlaps } from '../fuel.js'
+import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from '../fuel.js'
 
 // Each call returns fresh objects.
 function makeItems() {
@@ -83,7 +83,7 @@ describe('attachFuel', () => {
     expect(out.items.oil).toBe(items.oil)
     expect(out.machines.furnace).toMatchObject({ fuelCategories: ['chemical'], effectivity: 0.5 })
     expect(out.machines.asm).toBe(machines.asm)
-    expect(out.counts).toEqual({ items: 1, machines: 1 })
+    expect(out.counts).toEqual({ items: 1, machines: 1, fluids: 0, fluidMachines: 0 })
   })
 
   it('reports burner machines missing from the dump', () => {
@@ -127,5 +127,110 @@ describe('fuelOverlaps', () => {
     expect(fuelOverlaps(out.items, makeMachines())).toBe(false)
     const nuclear = { furnace: { ...out.machines.furnace, fuelCategories: ['nuclear'] } }
     expect(fuelOverlaps(out.items, nuclear)).toBe(false)
+  })
+})
+
+function makeFluidRaw() {
+  return {
+    ...makeRaw(),
+    fluid: {
+      oil: { name: 'oil', fuel_value: '300kJ' },
+      water: { name: 'water' },
+    },
+    furnace: {
+      ...makeRaw().furnace,
+      'fluid-furnace': { name: 'fluid-furnace', energy_source: { type: 'fluid', burns_fluid: true, effectivity: 0.5 } },
+    },
+    'assembling-machine': {
+      asm: { name: 'asm', energy_source: { type: 'electric' } },
+      steamer: { name: 'steamer', energy_source: { type: 'fluid', burns_fluid: false } },
+    },
+  }
+}
+
+function makeFluidBundle() {
+  return {
+    items: { ...makeItems(), water: { id: 'water', name: 'Water', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '' } },
+    machines: {
+      ...makeMachines(),
+      'fluid-furnace': { id: 'fluid-furnace', type: 'furnace', energyType: 'void', energyUsageKw: 90 },
+      steamer: { id: 'steamer', type: 'assembling-machine', energyType: 'void', energyUsageKw: 90 },
+      boiler: { id: 'boiler', type: 'furnace', energyType: 'void', energyUsageKw: 0 },
+    },
+  }
+}
+
+describe('fluidFuel', () => {
+  it('parses the fuel value to kJ per unit', () => {
+    expect(fluidFuel({ fuel_value: '1.5MJ' })).toEqual({ fuelValueKj: 1500 })
+  })
+
+  it('is empty without a positive fuel value', () => {
+    expect(fluidFuel({ name: 'water' })).toEqual({})
+    expect(fluidFuel({ fuel_value: '0J' })).toEqual({})
+    expect(fluidFuel(undefined)).toEqual({})
+  })
+})
+
+describe('burnerFuel with a fluid source', () => {
+  it('reads effectivity and the filter fluid', () => {
+    const source = { type: 'fluid', burns_fluid: true, effectivity: 0.5, fluid_box: { filter: 'oil' } }
+    expect(burnerFuel({ energy_source: source })).toEqual({ effectivity: 0.5, fuelFluid: 'oil' })
+  })
+
+  it('has no fuelFluid without a filter, and effectivity defaults to 1', () => {
+    expect(burnerFuel({ energy_source: { type: 'fluid', burns_fluid: true, fluid_box: { filter: '' } } }))
+      .toEqual({ effectivity: 1 })
+  })
+
+  it('is empty for a fluid source that does not burn', () => {
+    expect(burnerFuel({ energy_source: { type: 'fluid', burns_fluid: false } })).toEqual({})
+    expect(burnerFuel({ energy_source: { type: 'fluid' } })).toEqual({})
+  })
+})
+
+describe('attachFuel with fluid burners', () => {
+  it('sets fluid fuel values and turns a void burning machine into a fluid-burner', () => {
+    const bundle = makeFluidBundle()
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.items.oil).toMatchObject({ fuelValueKj: 300 })
+    expect(out.items.water).toBe(bundle.items.water)
+    expect(out.machines['fluid-furnace']).toMatchObject({ energyType: 'fluid-burner', effectivity: 0.5 })
+    expect(out.machines['fluid-furnace']).not.toHaveProperty('fuelCategories')
+    expect(out.machines.steamer).toBe(bundle.machines.steamer)
+    expect(out.machines.boiler).toBe(bundle.machines.boiler)
+    expect(out.counts).toMatchObject({ fluids: 1, fluidMachines: 1 })
+    expect(out.missingMachines).toEqual(['gone'])
+  })
+
+  it('is idempotent and keeps references when unchanged', () => {
+    const bundle = makeFluidBundle()
+    const once = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    const twice = attachFuel(once.items, once.machines, makeFluidRaw(), ['item'])
+    expect(twice.items).toEqual(once.items)
+    expect(twice.machines).toEqual(once.machines)
+    expect(twice.items.oil).toBe(once.items.oil)
+  })
+
+  it('drops a stale fluid fuel value', () => {
+    const bundle = makeFluidBundle()
+    bundle.items.water = { ...bundle.items.water, fuelValueKj: 10 }
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.items.water).not.toHaveProperty('fuelValueKj')
+  })
+
+  it('never touches an electric machine', () => {
+    const bundle = makeFluidBundle()
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.machines.asm).toBe(bundle.machines.asm)
+  })
+})
+
+describe('fuelOverlaps with fluids', () => {
+  it('is true for a fluid-burner and a fluid fuel, false without a fluid fuel', () => {
+    const bundle = makeFluidBundle()
+    const out = attachFuel(bundle.items, { 'fluid-furnace': bundle.machines['fluid-furnace'] }, makeFluidRaw(), ['item'])
+    expect(fuelOverlaps(out.items, out.machines)).toBe(true)
+    expect(fuelOverlaps(bundle.items, out.machines)).toBe(false)
   })
 })

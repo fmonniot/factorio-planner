@@ -1087,13 +1087,13 @@ The same component in recipes mode (`source="recipes"`).
   are one expandable entry (`alt-recipe-group`, `data-machine-id`, "(N recipes)", one open at a time; expanding scrolls the fuels into view inside the short list)
   listing its fuels (`alt-recipe-fuel`, with the fuel's icon and, for item fuels, its value); a machine
   left with a single other fuel is a plain `alt-recipe` entry.
-- **Fuel** (only when the row's machine is a burner, `energyType: 'burner'`) — the fuel the row burns
+- **Fuel** (only when the row's machine burns fuel, `energyType: 'burner'` or `'fluid-burner'`; a fluid-burner lists fluids) — the fuel the row burns
   (`fuel-button`: icon, name, value in MJ or kJ), resolved with `resolveRowFuel`. Clicking it lists
   **Default** (`fuel-default`, labelled "Default (<fuel name>)": the lowest-value accepted fuel) and the
   machine's accepted fuels inside the research horizon (`fuel-option`, `data-item-id`, lowest value first).
   Choosing one stores it as the row's `fuelItemId`, **Default** clears it; both are undoable. An effective fuel outside
   the horizon carries the "Beyond research horizon" marker (`beyond-horizon`) and is not listed. A burner whose data set
-  has no fuel data shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw; a machine with fuel categories whose every accepted fuel is excluded (burnt result, hidden) shows "No usable fuel for this machine" in the same slot.
+  has no fuel data (for a fluid-burner: no fluid with a fuel value) shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw; a machine with fuel categories whose every accepted fuel is excluded (burnt result, hidden) shows "No usable fuel for this machine" in the same slot, as does a fluid-burner whose data set has fluid fuels but none the machine accepts.
 - **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
   a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
   **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a

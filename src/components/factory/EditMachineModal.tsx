@@ -4,7 +4,7 @@ import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
-import { acceptedFuels, defaultFuel, resolveRowFuel } from '../../data/fuel'
+import { acceptedFuels, burnsFuel, defaultFuel, resolveRowFuel } from '../../data/fuel'
 import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../../data/powerFuelGroups'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
@@ -257,12 +257,15 @@ export function EditMachineModal({
   const defaultRowCount = defaultRowCounts.get(recipeCategory) ?? 0
 
   // Fuel (burner machines): the explicit choice or the default, and the accepted fuels within the horizon.
-  const isBurner = machine?.energyType === 'burner'
+  const isBurner = burnsFuel(machine)
   const fuel = resolveRowFuel(gameData, machine, fuelItemId)
   const fuelDefault = machine ? defaultFuel(gameData, machine) : undefined
   const fuelOptions = machine ? acceptedFuels(gameData, machine).filter(f => withinHorizon(horizon.itemIds, f.id)) : []
   // A machine with fuel categories whose every accepted fuel is filtered out (burnt result, hidden) is not "no data".
-  const hasFuelCategories = (machine?.fuelCategories?.length ?? 0) > 0
+  // For a fluid burner, "data" means some fluid of the data set has a fuel value.
+  const hasFuelData = (machine?.fuelCategories?.length ?? 0) > 0
+    || (machine?.energyType === 'fluid-burner'
+      && Object.values(gameData.items).some(i => i.type === 'fluid' && (i.fuelValueKj ?? 0) > 0))
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
@@ -522,7 +525,7 @@ export function EditMachineModal({
               </>
             ) : (
               <div data-testid="no-fuel-data" className="px-2 py-1.5 text-xs text-gray-500 italic">
-                {hasFuelCategories ? 'No usable fuel for this machine' : 'No fuel data in this data set'}
+                {hasFuelData ? 'No usable fuel for this machine' : 'No fuel data in this data set'}
               </div>
             )}
           </div>

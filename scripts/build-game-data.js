@@ -73,8 +73,10 @@
  *     --output public/data/kompetenz-seablock/game-data.json
  *
  * Fuel patch mode: write the burner fuel data into an existing bundle (same
- * mod-set check): `fuelValueKj` / `fuelCategory` / `burntResult` on the items
- * and `fuelCategories` / `effectivity` on the burner machines. Icons, names
+ * mod-set check): `fuelValueKj` / `fuelCategory` / `burntResult` on the items,
+ * `fuelValueKj` on the fluids, `fuelCategories` / `effectivity` on the burner
+ * machines and `fluid-burner` / `effectivity` / `fuelFluid` on the machines
+ * burning fluid. Icons, names
  * and recipes are not touched. Safe to re-run. Exits without writing when the
  * bundle has burner machines but the dump yields no fuel items:
  *   node scripts/build-game-data.js --patch-fuel \
@@ -96,7 +98,7 @@ import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compo
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
-import { itemFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
+import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
 import { parseEnergyKw, inferEnergyType } from './energy.js'
 import { ALL_EFFECTS, computeDefaultMachines, exportExtraction, isExtractionCategory } from './extraction.js'
@@ -465,6 +467,7 @@ async function exportItems(raw, locale, resolveIcon) {
       subgroup: proto.subgroup ?? '',
       order:    proto.order ?? '',
       ...fluidTemperatures(proto),
+      ...fluidFuel(proto),
     }
   }
 
@@ -1039,6 +1042,7 @@ if (args.patchFuel) {
   writeFileSync(outputPath, JSON.stringify({ ...existing, items: fuel.items, machines: fuel.machines }, null, 2))
   process.stderr.write(
     `[build-game-data] Patched ${outputPath}: fuelItems=${fuel.counts.items} burnerMachines=${fuel.counts.machines} ` +
+    `fluids=${fuel.counts.fluids} fluidBurners=${fuel.counts.fluidMachines} ` +
     `missing=${fuel.missingMachines.length}\n`
   )
   process.exit(0)
