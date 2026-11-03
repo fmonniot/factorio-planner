@@ -62,5 +62,7 @@ export function inferEnergyType(proto) {
   if (t === 'electric') return 'electric'
   if (t === 'burner')   return 'burner'
   if (t === 'heat')     return 'heat'
+  // A crafting machine (or drill) that burns fluid from its fluid box; other fluid sources stay 'void'.
+  if (t === 'fluid' && proto.energy_source?.burns_fluid) return 'fluid-burner'
   return 'void'
 }

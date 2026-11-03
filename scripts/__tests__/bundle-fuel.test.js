@@ -20,7 +20,9 @@ describe('bundled burner fuel', () => {
       for (const item of Object.values(bundle.items)) {
         const hasValue = 'fuelValueKj' in item
         if (item.type !== 'item') {
-          expect(hasValue || 'fuelCategory' in item, `${item.id} is not an item`).toBe(false)
+          // Fluids may carry a fuel value (kJ per unit), never a category or burnt result.
+          if (hasValue) expect(item.fuelValueKj, `${item.id} value`).toBeGreaterThan(0)
+          expect('fuelCategory' in item || 'burntResult' in item, `${item.id} is not an item`).toBe(false)
           continue
         }
         expect('fuelCategory' in item, `${item.id} pair`).toBe(hasValue)
@@ -28,10 +30,12 @@ describe('bundled burner fuel', () => {
         if ('burntResult' in item) expect(hasValue, `${item.id} burnt result`).toBe(true)
       }
       for (const machine of Object.values(bundle.machines)) {
-        if (machine.energyType !== 'burner') {
-          expect(machine, machine.id).not.toHaveProperty('fuelCategories')
+        if (machine.energyType !== 'burner') expect(machine, machine.id).not.toHaveProperty('fuelCategories')
+        if (machine.energyType !== 'burner' && machine.energyType !== 'fluid-burner') {
           expect(machine, machine.id).not.toHaveProperty('effectivity')
         }
+        if (machine.energyType !== 'fluid-burner') expect(machine, machine.id).not.toHaveProperty('fuelFluid')
+        if ('fuelFluid' in machine) expect(bundle.items[machine.fuelFluid]?.type, machine.id).toBe('fluid')
         if ('fuelCategories' in machine) expect(machine.fuelCategories.length, machine.id).toBeGreaterThan(0)
       }
     })

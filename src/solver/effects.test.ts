@@ -396,4 +396,41 @@ describe('computeNodeEffects — burner fuel', () => {
     noItems.items = {}
     expect(computeNodeEffects(smeltNode(), noItems).fuel).toBeUndefined()
   })
+  describe('fluid burners', () => {
+    function fluidGameData(machineOverrides: Partial<Machine> = {}): GameData {
+      const gd = burnerGameData({ energyType: 'fluid-burner', fuelCategories: undefined, ...machineOverrides })
+      gd.items = {
+        ...gd.items,
+        crude: { id: 'crude', name: 'crude', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj: 300 },
+      }
+      return gd
+    }
+
+    it('burns a fluid fuel per unit', () => {
+      // 90 kW x 3.2 s / 300 kJ per unit
+      expect(computeNodeEffects(smeltNode(), fluidGameData()).fuel)
+        .toEqual({ itemId: 'crude', type: 'fluid', amount: 0.96 })
+    })
+
+    it('divides by the effectivity', () => {
+      expect(computeNodeEffects(smeltNode(), fluidGameData({ effectivity: 0.5 })).fuel?.amount).toBeCloseTo(1.92)
+    })
+
+    it('keeps burning 20 % of the fuel at the consumption floor', () => {
+      const gd = fluidGameData()
+      gd.modules['fuel-module'] = { ...gd.modules['fuel-module'], effects: { consumption: -0.5 } }
+      const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 2 }] }), gd)
+      expect(fx.fuel?.amount).toBeCloseTo(90 * 0.2 * 3.2 / 300)
+    })
+
+    it('scales with speed and consumption modules', () => {
+      const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 1 }] }), fluidGameData())
+      expect(fx.fuel?.amount).toBeCloseTo(90 * 1.5 * 3.2 / 1.2 / 300)
+    })
+
+    it('is undefined without an accepted fluid or for a void machine', () => {
+      expect(computeNodeEffects(smeltNode(), fluidGameData({ fuelFluid: 'water' })).fuel).toBeUndefined()
+      expect(computeNodeEffects(smeltNode(), fluidGameData({ energyType: 'void' })).fuel).toBeUndefined()
+    })
+  })
 })

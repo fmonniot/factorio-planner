@@ -730,6 +730,46 @@ describe('EditMachineModal — fuel', () => {
     expect(screen.queryByTestId('fuel-button')).not.toBeInTheDocument()
   })
 
+  function fluidBurnerData(withValues = true): GameData {
+    const gd = burnerData()
+    gd.machines.furnace = { ...gd.machines.furnace, energyType: 'fluid-burner', fuelCategories: undefined }
+    const fluid = (id: string, kj?: number) =>
+      ({ ...item(id, id), type: 'fluid' as const, ...(withValues && kj !== undefined ? { fuelValueKj: kj } : {}) })
+    gd.items.crude = fluid('crude', 100)
+    gd.items['heavy-oil'] = fluid('heavy-oil', 300)
+    gd.items.water = fluid('water')
+    return gd
+  }
+
+  it('a fluid burner shows the lowest-value fluid and lists fluids only', () => {
+    renderBurner(undefined, fluidBurnerData())
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('crude')
+    openFuel()
+    expect(fuelOptionIds()).toEqual(['crude', 'heavy-oil'])
+  })
+
+  it('choosing a fluid stores it and "Default" clears it', () => {
+    renderBurner(undefined, fluidBurnerData())
+    openFuel()
+    fireEvent.click(screen.getByText('heavy-oil', { selector: 'span' }))
+    expect(storedFuel()).toBe('heavy-oil')
+    openFuel()
+    fireEvent.click(screen.getByTestId('fuel-default'))
+    expect(storedFuel()).toBeUndefined()
+  })
+
+  it('a fluid burner in a data set without fluid fuel values says there is no fuel data', () => {
+    renderBurner(undefined, fluidBurnerData(false))
+    expect(screen.getByTestId('no-fuel-data')).toHaveTextContent('No fuel data in this data set')
+  })
+
+  it('a fluid burner whose filter fluid has no value says no fuel is usable', () => {
+    const gd = fluidBurnerData()
+    gd.machines.furnace = { ...gd.machines.furnace, fuelFluid: 'water' }
+    renderBurner(undefined, gd)
+    expect(screen.getByTestId('no-fuel-data')).toHaveTextContent('No usable fuel for this machine')
+  })
+
   it('"Apply to every row of this recipe" copies the fuel', () => {
     renderBurner('coal', burnerData(), [
       { kind: 'game-recipe', id: 'n2', recipeId: 'smelt', modules: [], byproductPolicy: {} },

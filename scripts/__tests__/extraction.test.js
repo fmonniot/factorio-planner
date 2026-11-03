@@ -185,6 +185,17 @@ describe('exportExtraction — drills', () => {
     expect(machines['burner-drill'].craftingCategories).toEqual(['mining:basic-solid'])
   })
 
+  it('keeps the real kW of a fluid-burning drill and types it fluid-burner', async () => {
+    const raw = makeRaw()
+    raw['mining-drill']['fluid-drill'] = {
+      name: 'fluid-drill', mining_speed: 1, resource_categories: ['basic-solid'], energy_usage: '200kW',
+      energy_source: { type: 'fluid', burns_fluid: true, effectivity: 0.5, fluid_box: { filter: 'oil' } },
+    }
+    const { machines } = await exportExtraction(raw, makeOpts())
+    // Like a burner drill it keeps its kW: in a bundle without fluid fuel data it draws that power (intended).
+    expect(machines['fluid-drill']).toMatchObject({ energyType: 'fluid-burner', energyUsageKw: 200, effectivity: 0.5, fuelFluid: 'oil' })
+  })
+
   it('does not export a drill that mines nothing', async () => {
     const { machines } = await exportExtraction(makeRaw(), makeOpts())
     expect(machines).not.toHaveProperty('unused-drill')

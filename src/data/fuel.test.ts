@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { acceptedFuels, defaultFuel, resolveRowFuel } from './fuel'
+import { acceptedFuels, burnsFuel, defaultFuel, hasFuelData, resolveRowFuel } from './fuel'
 import type { GameData, Item, Machine } from './types'
 
 function item(id: string, extra: Partial<Item> = {}): Item {
@@ -14,6 +14,10 @@ function burner(extra: Partial<Machine> = {}): Machine {
   }
 }
 
+function fluidBurner(extra: Partial<Machine> = {}): Machine {
+  return burner({ id: 'fluid-furnace', energyType: 'fluid-burner', fuelCategories: undefined, ...extra })
+}
+
 function makeGameData(): GameData {
   const items = [
     item('wood', { fuelValueKj: 2000, fuelCategory: 'chemical' }),
@@ -25,6 +29,9 @@ function makeGameData(): GameData {
     item('burnt-fuel', { fuelValueKj: 500, fuelCategory: 'chemical', burntResult: 'ash' }),
     item('plate'),
     item('fuel-oil', { type: 'fluid' }),
+    item('crude', { type: 'fluid', fuelValueKj: 100 }),
+    item('oil', { type: 'fluid', fuelValueKj: 300 }),
+    item('hidden-gas', { type: 'fluid', fuelValueKj: 50, hidden: true }),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -97,5 +104,66 @@ describe('acceptedFuels cache', () => {
     expect(acceptedFuels(gd, gd.machines.furnace).map(i => i.id)).toContain('coal')
     expect(acceptedFuels(gd, burner({ fuelCategories: ['nuclear'] })).map(i => i.id)).toEqual(['uranium'])
     expect(acceptedFuels(gd, gd.machines.furnace)).not.toContainEqual(expect.objectContaining({ id: 'uranium' }))
+  })
+})
+
+describe('fluid burners', () => {
+  it('burnsFuel is true for burners and fluid burners only', () => {
+    expect(burnsFuel(burner())).toBe(true)
+    expect(burnsFuel(fluidBurner())).toBe(true)
+    expect(burnsFuel(burner({ energyType: 'void' }))).toBe(false)
+    expect(burnsFuel(undefined)).toBe(false)
+  })
+
+  it('accepts visible fluids with a fuel value, lowest value first, default the lowest', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, fluidBurner()).map(i => i.id)).toEqual(['crude', 'oil'])
+    expect(defaultFuel(gd, fluidBurner())?.id).toBe('crude')
+  })
+
+  it('is narrowed to the filter fluid', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'oil' })).map(i => i.id)).toEqual(['oil'])
+    expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'fuel-oil' }))).toEqual([])
+  })
+
+  it('accepts a hidden fluid named by the filter, but never offers hidden fluids unfiltered', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'hidden-gas' })).map(i => i.id)).toEqual(['hidden-gas'])
+    expect(acceptedFuels(gd, fluidBurner()).map(i => i.id)).not.toContain('hidden-gas')
+    expect(defaultFuel(gd, fluidBurner({ fuelFluid: 'hidden-gas' }))?.id).toBe('hidden-gas')
+  })
+
+  const onlyHiddenFor = (gd: ReturnType<typeof makeGameData>) => ({ ...gd, items: { 'hidden-gas': gd.items['hidden-gas'] } })
+  it('hasFuelData follows the accepted fluids, not every fluid of the data set', () => {
+    const gd = makeGameData()
+    expect(hasFuelData(gd, fluidBurner())).toBe(true)
+    expect(hasFuelData(gd, fluidBurner({ fuelFluid: 'fuel-oil' }))).toBe(true) // data exists, the filter fluid is just no fuel
+    expect(hasFuelData(onlyHiddenFor(gd), fluidBurner({ fuelFluid: 'hidden-gas' }))).toBe(true)
+    const onlyHidden = { ...gd, items: { 'hidden-gas': gd.items['hidden-gas'] } }
+    expect(hasFuelData(onlyHidden, fluidBurner())).toBe(false)
+    expect(hasFuelData(gd, burner())).toBe(true)
+    expect(hasFuelData(gd, burner({ fuelCategories: undefined }))).toBe(false)
+    expect(hasFuelData(gd, undefined)).toBe(false)
+  })
+
+  it('offers nothing without fluid fuel values or for a void machine', () => {
+    const gd = makeGameData()
+    const bare = { ...gd, items: Object.fromEntries(Object.entries(gd.items).filter(([, i]) => i.type === 'item')) }
+    expect(acceptedFuels(bare, fluidBurner())).toEqual([])
+    expect(acceptedFuels(gd, burner({ energyType: 'void' }))).toEqual([])
+  })
+
+  it('does not leak items to fluid burners or fluids to burners', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, fluidBurner()).every(i => i.type === 'fluid')).toBe(true)
+    expect(acceptedFuels(gd, gd.machines.furnace).every(i => i.type === 'item')).toBe(true)
+  })
+
+  it('resolveRowFuel honours a valid fluid id and falls back for an item id', () => {
+    const gd = makeGameData()
+    expect(resolveRowFuel(gd, fluidBurner(), 'oil')?.id).toBe('oil')
+    expect(resolveRowFuel(gd, fluidBurner(), 'coal')?.id).toBe('crude')
+    expect(resolveRowFuel(gd, fluidBurner(), 'hidden-gas')?.id).toBe('crude')
   })
 })

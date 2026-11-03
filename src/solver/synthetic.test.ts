@@ -123,6 +123,15 @@ function furnace(id: string, craftingSpeed: number): Machine {
   }
 }
 
+function fuelFluid(id: string, fuelValueKj: number): GameData['items'][string] {
+  return { id, name: id, type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj }
+}
+
+// A furnace burning fluid: 90 kW, speed 1, any fluid with a fuel value.
+function fluidFurnace(): Machine {
+  return { ...furnace('fluid-furnace', 1), energyType: 'fluid-burner', fuelCategories: undefined }
+}
+
 function makeGameData(): GameData {
   const rs = recipes()
   const categories = [...new Set(rs.map(r => r.category))]
@@ -133,11 +142,14 @@ function makeGameData(): GameData {
     items: {
       coal: fuelItem('coal', 4000),
       'solid-fuel': fuelItem('solid-fuel', 12000),
+      'fuel-gas': fuelFluid('fuel-gas', 300),
+      'heavy-fuel': fuelFluid('heavy-fuel', 1200),
     },
     machines: {
       ...Object.fromEntries(categories.map(c => [`machine-${c}`, speedOneMachine(c)])),
       'stone-furnace': furnace('stone-furnace', 1),
       'steel-furnace': furnace('steel-furnace', 2),
+      'fluid-furnace': fluidFurnace(),
     },
     modules: {
       'productivity-module-3': {
@@ -430,6 +442,25 @@ describe('solver synthetic cases', () => {
       const n = nodeOf(r, 'iron-plate')
       expect(n.machineCountExact).toBeCloseTo(2.667, 3)
       expect(n.inputRates['coal']).toBeCloseTo(5.4, 3)
+    })
+
+    it('10d: a fluid-burning furnace burns the default (lowest-value) fluid per unit, no power draw', () => {
+      const r = run(plates, ['iron-plate'], {}, { 'iron-plate': { machineId: 'fluid-furnace' } })
+      const n = nodeOf(r, 'iron-plate')
+      expect(n.machineCountExact).toBeCloseTo(3.2, 3)
+      expect(n.inputRates['fuel-gas']).toBeCloseTo(57.6, 3)
+      expect(n.fuelItemId).toBe('fuel-gas')
+      expect(n.powerKw).toBe(0)
+      expect(unsatisfiedRate(r, 'fuel-gas')).toBeCloseTo(57.6, 3)
+      expect(r.warnings).toEqual([])
+    })
+
+    it('10d: an explicit fluid choice is burnt instead', () => {
+      const r = run(plates, ['iron-plate'], {}, { 'iron-plate': { machineId: 'fluid-furnace', fuelItemId: 'heavy-fuel' } })
+      const n = nodeOf(r, 'iron-plate')
+      expect(n.inputRates['heavy-fuel']).toBeCloseTo(14.4, 3)
+      expect(unsatisfiedRate(r, 'heavy-fuel')).toBeCloseTo(14.4, 3)
+      expect(unsatisfiedRate(r, 'fuel-gas')).toBeUndefined()
     })
   })
 

@@ -120,7 +120,7 @@ function nodeFuel(node: GameRecipeNode, gameData: GameData, effects: NodeEffects
     / (machine.craftingSpeed * (1 + effects.speedBonus))
     / (item.fuelValueKj * (machine.effectivity ?? 1))
   if (!Number.isFinite(amount) || amount <= 0) return undefined
-  return { itemId: item.id, type: 'item', amount }
+  return { itemId: item.id, type: item.type, amount }
 }
 
 /**
