@@ -371,7 +371,6 @@ function areaFlows(
   areas: SolverArea[],
   dedicatedIn: { area: number; itemId: string; rate: number }[],
 ): { areas: SolvedArea[]; routes: AreaRoute[] } {
-  const areaOf = new Map(columns.map(c => [c.id, c.area]))
   const colById = new Map(columns.map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
@@ -387,7 +386,7 @@ function areaFlows(
     let blockConsumed = 0
     for (const [colId, coeff] of rowS) {
       const flow = coeff * (throughput.get(colId) ?? 0)
-      const a = areaOf.get(colId)!
+      const a = colById.get(colId)!.area
       net[a] += flow
       blockNet += flow
       const dedicated = colById.get(colId)?.dedicated === itemId
@@ -408,7 +407,7 @@ function areaFlows(
       const tol = surplusTolerance(Math.max(produced[a], consumed[a]))
       if (net[a] > tol) {
         solved[a].sends.push({ itemId, rate: net[a], boundary: blockNet > blockTol })
-        senders.push({ area: a, rate: net[a], other: other[a] })
+        senders.push({ area: a, rate: net[a], other: other[a], tol })
       } else if (net[a] < -tol) {
         solved[a].receives.push({ itemId, rate: -net[a], boundary: blockNet < -blockTol })
         receivers.push({
@@ -416,13 +415,11 @@ function areaFlows(
           rate: -net[a],
           restricted: restricted[a],
           dedicatedIn: dedicatedInOf.get(`${a}\u0000${itemId}`) ?? 0,
+          tol,
         })
       }
     }
-    // The tolerance of the matrix's outside columns (`blockMatrix`): gross sends and receives.
-    const pos = senders.reduce((n, x) => n + x.rate, 0)
-    const neg = receivers.reduce((n, x) => n + x.rate, 0)
-    for (const r of itemRoutes(senders, receivers, surplusTolerance(Math.max(pos, neg)))) {
+    for (const r of itemRoutes(senders, receivers)) {
       routes.push({
         itemId,
         ...(r.from !== undefined ? { from: areas[r.from].id } : {}),

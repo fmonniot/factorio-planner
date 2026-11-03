@@ -22,7 +22,7 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, outsideResidual, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -70,7 +70,7 @@ function productGoals(products: Product[], requested?: Map<string, number>): Sol
 
 export { receivesItem }
 
-export { FLOW_TOLERANCE, surplusTolerance }
+export { FLOW_TOLERANCE, surplusTolerance, outsideResidual }
 
 /**
  * What a source's remaining output `left` of an item offers one connection. `pending` is what

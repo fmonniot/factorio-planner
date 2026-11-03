@@ -31,7 +31,7 @@ export interface BlockAreaMatrixProps {
 }
 
 /** Appended to the counterpart tooltips: how the solver pairs senders and receivers. */
-const RULE = 'Where several areas could supply it, the one higher in the table does first.'
+const RULE = 'Areas higher in the table supply first; an area with its own row for the item is served before the others.'
 
 const SEND = 'bg-sky-400/15 text-sky-300'
 const RECEIVE = 'bg-orange-400/15 text-orange-300'

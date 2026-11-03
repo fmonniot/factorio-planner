@@ -159,7 +159,7 @@ describe('PlanAreasModal', () => {
     const counterpart = table('Alpha').querySelector('tr[data-item-id="h2"] td[data-col="A-root"]')!
     expect(counterpart).toHaveAttribute('data-counterpart', 'true')
     const tip = counterpart.querySelector('[title]')?.getAttribute('title') ?? counterpart.getAttribute('title') ?? ''
-    expect(tip).toContain('Where several areas could supply it, the one higher in the table does first.')
+    expect(tip).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
     expect(tip).not.toContain('allocated')
     fireEvent.click(within(panel).getByRole('button', { name: 'Stop focusing Plastics' }))
     expect(screen.queryByRole('complementary')).toBeNull()

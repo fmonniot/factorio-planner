@@ -1,6 +1,6 @@
 import type { Block, GameData, SolverResult, SubPlan } from '../../data/types'
 import { placingItemIds } from '../../data/horizon'
-import { surplusTolerance } from '../../solver/index'
+import { outsideResidual } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
 import { areaName } from '../../data/subPlanTree'
 
@@ -175,10 +175,7 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
       if (v > 0) pos += v
       else neg -= v
     }
-    const s = pos - neg
-    const tol = surplusTolerance(Math.max(pos, neg))
-    const fromOutside = s < -tol ? -s : 0
-    const toOutside = s > tol ? s : 0
+    const { fromOutside, toOutside } = outsideResidual(pos, neg)
     rows.push({
       itemId,
       name: gameData.items[itemId]?.name ?? itemId,

@@ -3,9 +3,14 @@
 // from whom; this fixed rule pairs the rest (see spec/solver.md, "Areas"). Pure, no LP.
 // ---------------------------------------------------------------------------
 
-/** `other` = the part of `rate` that rows not dedicated to the item make (min(rate, their gross output)). */
-export interface RouteSender { area: number; rate: number; other: number }
-export interface RouteReceiver { area: number; rate: number; restricted: boolean; dedicatedIn: number }
+import { outsideResidual } from './blockResult'
+
+/**
+ * `other` = the part of `rate` that rows not dedicated to the item make (min(rate, their gross
+ * output)); the rest is the dedicated part. `tol` is the area's own surplus tolerance.
+ */
+export interface RouteSender { area: number; rate: number; other: number; tol: number }
+export interface RouteReceiver { area: number; rate: number; restricted: boolean; dedicatedIn: number; tol: number }
 /** An absent end is outside the block; `from` and `to` are area indices. */
 export interface ItemRoute { from?: number; to?: number; rate: number }
 
@@ -16,16 +21,16 @@ interface Source { area: number | undefined; ded: number; oth: number }
  * for the item) takes `dedicatedIn` from other areas' dedicated output, the rest from other output
  * and the outside import; unrestricted receivers and the outside take what is left. A restricted
  * receiver still short at the end takes whatever remains (the LP kept circulation or is infeasible).
- * `tol` is the block's surplus tolerance; legs at or below it are dropped.
+ * The outside figures are the matrix's (`outsideResidual`). Legs at or below the smallest area
+ * tolerance are dropped, so no area's whole send can vanish from the routes.
  */
-export function itemRoutes(senders: RouteSender[], receivers: RouteReceiver[], tol: number): ItemRoute[] {
+export function itemRoutes(senders: RouteSender[], receivers: RouteReceiver[]): ItemRoute[] {
   let pos = 0
   let neg = 0
   for (const s of senders) pos += s.rate
   for (const r of receivers) neg += r.rate
-  const s = pos - neg
-  const fromOutside = s < -tol ? -s : 0
-  const toOutside = s > tol ? s : 0
+  const { fromOutside, toOutside } = outsideResidual(pos, neg)
+  const tol = Math.min(...senders.map(x => x.tol), ...receivers.map(x => x.tol))
 
   const sources: Source[] = senders.map(x => {
     const oth = Math.min(x.rate, Math.max(0, x.other))
