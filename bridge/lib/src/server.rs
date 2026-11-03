@@ -329,6 +329,10 @@ impl Queue {
 }
 
 impl Transport for Queue {
+    fn game_port(&self) -> Option<u16> {
+        Some(self.game.port())
+    }
+
     fn send(&mut self, datagram: &[u8]) -> io::Result<()> {
         self.socket.send_to(datagram, self.game).map(|_| ())
     }

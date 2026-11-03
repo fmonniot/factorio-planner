@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { initialConnectionState, reduce, type ConnectionEvent } from './connection'
-import { BRIDGE_COMMAND, GAME_LAUNCH_OPTION, troubleshootSteps } from './troubleshoot'
+import { BRIDGE_COMMAND, troubleshootSteps } from './troubleshoot'
 
 const status = (extra: object = {}, protocol = 1) =>
   JSON.stringify({ type: 'status', protocol, bridge: '0.1.0', mod: { link: 'none' }, ...extra })
@@ -45,8 +45,19 @@ describe('troubleshootSteps', () => {
   it('moves on to the game once the bridge runs, with the launch option', () => {
     const [bridge, game, plan] = troubleshootSteps(opened({ type: 'text', data: status() }))
     expect(bridge).toMatchObject({ tone: 'ok', state: 'Running' })
-    expect(game).toMatchObject({ tone: 'warn', code: GAME_LAUNCH_OPTION })
+    expect(game).toMatchObject({ tone: 'warn', code: '--enable-lua-udp 34198' })
     expect(plan.tone).toBe('idle')
+  })
+
+  it('shows the port the bridge reports in the launch option', () => {
+    const [, game] = troubleshootSteps(opened({ type: 'text', data: status({ gamePort: 40000 }) }))
+    expect(game.code).toBe('--enable-lua-udp 40000')
+  })
+
+  it('does not name a launch option for a status it cannot read', () => {
+    const [bridge, game] = troubleshootSteps(opened({ type: 'text', data: status({ mod: 'oops' }) }))
+    expect(bridge.tone).toBe('error')
+    expect(game.code).toBeUndefined()
   })
 
   it('blames the game for a quiet game and for a mod mismatch', () => {

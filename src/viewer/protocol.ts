@@ -10,6 +10,9 @@ import type { Snapshot } from '../snapshot/schema'
 /** Written `FP01` on the wire. Two versions are compatible only if they are equal. */
 export const PROTOCOL_VERSION = 1
 
+/** The bridge's `--game-port` default: the port shown until a status says otherwise, or when the bridge predates `gamePort`. */
+export const DEFAULT_GAME_PORT = 34198
+
 /** The bridge address offered by default; the README and the bridge's `--help` give the same one. */
 export const DEFAULT_BRIDGE_URL = 'ws://127.0.0.1:34199/'
 
@@ -79,6 +82,8 @@ const StatusSchema = z.object({
   type: z.literal('status'),
   protocol: z.number(),
   bridge: z.string().optional(),
+  // Only a hint for the launch option: a value of the wrong type must not make the whole status unreadable.
+  gamePort: z.number().optional().catch(undefined),
   newest: z.string().optional(),
   mod: ModSchema.optional(),
   transfer: TransferSchema.optional(),

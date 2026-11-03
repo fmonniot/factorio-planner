@@ -270,6 +270,31 @@ test.describe('In-game viewer in the workspace menu', () => {
     await expect(troubleshootDialog(page)).toBeHidden()
   })
 
+  test('Troubleshoot shows the game port the bridge reports', async ({ page }) => {
+    const custom = await startFakeBridge(fixtureMessage('status-game-port'))
+    try {
+      await openApp(page)
+      await switchOn(page, custom)
+      await expectBadge(page, 'Bridge, no game')
+      const game = (await openTroubleshoot(page)).getByTestId('troubleshoot-game')
+      await expect(game).toContainText('--enable-lua-udp 40000')
+      await expect(game).not.toContainText('34198')
+    } finally {
+      await custom.stop()
+    }
+  })
+
+  test('Troubleshoot falls back to 34198 for a bridge that does not report a port', async ({ page }) => {
+    bridge.initialStatus = { type: 'status', protocol: 1, bridge: '0.1.0', mod: { link: 'none' } }
+    await openApp(page)
+    await switchOn(page, bridge)
+    const game = (await openTroubleshoot(page)).getByTestId('troubleshoot-game')
+    await expect(game).toContainText('--enable-lua-udp 34198')
+
+    bridge.broadcast({ ...NO_GAME, gamePort: 41000 })
+    await expect(game).toContainText('--enable-lua-udp 41000')
+  })
+
   test('changing the address while connected reconnects to the new bridge', async ({ page }) => {
     const other = await startFakeBridge(NO_GAME)
     try {

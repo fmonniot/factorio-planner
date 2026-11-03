@@ -149,6 +149,7 @@ pub struct Bridge {
     out: VecDeque<Vec<u8>>,
     last_status: Option<Status>,
     quiet_after: Duration,
+    game_port: u16,
 }
 
 impl Bridge {
@@ -184,6 +185,7 @@ impl Bridge {
             out: VecDeque::new(),
             last_status: None,
             quiet_after: QUIET_AFTER,
+            game_port: crate::cli::DEFAULT_GAME_PORT,
         };
         bridge.send_scheduled_ping(now);
         bridge
@@ -193,6 +195,12 @@ impl Bridge {
     /// that long; the release bridge keeps the protocol's value.
     pub fn set_quiet_after(&mut self, quiet_after: Duration) {
         self.quiet_after = quiet_after;
+    }
+
+    /// States the UDP port the game is reached on, for the `status` message. The transport owns the socket, so the caller
+    /// that pairs a `Bridge` with a transport keeps the two equal. Defaults to the bridge's default game port.
+    pub fn set_game_port(&mut self, game_port: u16) {
+        self.game_port = game_port;
     }
 
     // -----------------------------------------------------------------------------------------
@@ -634,6 +642,7 @@ impl Bridge {
         Status {
             protocol: PROTOCOL_VERSION,
             bridge: self.version.clone(),
+            game_port: self.game_port,
             newest: self.newest,
             module: ModStatus {
                 link,
