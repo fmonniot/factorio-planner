@@ -1,4 +1,4 @@
-import { badgeFor, transferText, type BadgeTone, type ConnectionState } from './connection'
+import { badgeFor, gameLaunchOption, transferText, type BadgeTone, type ConnectionState } from './connection'
 
 // ---------------------------------------------------------------------------
 // The Troubleshoot dialog's diagnosis: three things have to be true, in this order (the bridge
@@ -37,10 +37,6 @@ const RUNNING: Part = { tone: 'ok', state: 'Running' }
 
 /** The command that starts the bridge, as the README gives it. */
 export const BRIDGE_COMMAND = 'factorio-planner-bridge'
-/** The UDP port the game listens on by default, which is also the bridge's `--game-port` default. */
-export const GAME_PORT = 34198
-/** The launch option that lets the game receive the bridge's datagrams: the flag takes the port. */
-export const GAME_LAUNCH_OPTION = `--enable-lua-udp ${GAME_PORT}`
 
 export function troubleshootSteps(state: ConnectionState): TroubleshootStep[] {
   const badge = badgeFor(state)
@@ -70,7 +66,7 @@ export function troubleshootSteps(state: ConnectionState): TroubleshootStep[] {
       case 'no-game':
         return [
           RUNNING,
-          { tone: 'warn', state: 'No game answered', detail: 'Start Factorio with the viewer mod enabled and this launch option.', code: GAME_LAUNCH_OPTION },
+          { tone: 'warn', state: 'No game answered', detail: 'Start Factorio with the viewer mod enabled and this launch option.', code: gameLaunchOption(state.status) },
           WAITING,
         ]
       case 'game-quiet':

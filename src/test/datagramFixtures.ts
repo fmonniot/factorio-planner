@@ -962,10 +962,11 @@ function buildMessages(snapshots: Record<string, Snapshot>): { protocol: number;
   json('announce', 'planner', 'announce', { type: 'announce', protocol: 1, id: newer }, { protocol: 1, id: newer })
 
   const status = (name: string, over: object): void => {
-    const value = { type: 'status', protocol: 1, bridge: '0.1.0', ...over }
+    const value = { type: 'status', protocol: 1, bridge: '0.1.0', gamePort: 34198, ...over }
     json(name, 'bridge', 'status', value, value as Record<string, unknown>)
   }
   status('status-no-mod', { mod: { link: 'none' } })
+  status('status-game-port', { gamePort: 40000, mod: { link: 'none' } })
   status('status-waiting', { newest: id, mod: { link: 'none' }, transfer: { id, state: 'waiting', sent: 0, count: 1 } })
   status('status-sending', {
     newest: newer,

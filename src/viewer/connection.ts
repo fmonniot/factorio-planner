@@ -1,4 +1,5 @@
 import {
+  DEFAULT_GAME_PORT,
   MAX_SNAPSHOT_BYTES,
   PROTOCOL_VERSION,
   describeBridgeError,
@@ -336,6 +337,13 @@ export interface Badge {
 const BLOCK_HINT =
   'If the bridge is running, the browser or an extension may be blocking the connection: Chrome and Firefox ask for permission to connect to devices on your network, content blockers such as uBlock can block it, and Safari, which is not supported, was measured timing out on the hosted https page.'
 
+/** The launch option that lets the game receive the bridge's datagrams: the port the bridge reports, else the default. */
+export function gameLaunchOption(status: BridgeStatus | undefined): string {
+  const p = status?.gamePort
+  const port = p !== undefined && Number.isInteger(p) && p >= 1 && p <= 65535 ? p : DEFAULT_GAME_PORT
+  return `--enable-lua-udp ${port}`
+}
+
 /** The delivery of the newest snapshot, in a few words (empty when the bridge holds none). */
 export function transferText(status: BridgeStatus | undefined): string {
   const t = status?.transfer
@@ -409,7 +417,7 @@ export function badgeFor(state: ConnectionState): Badge {
       const mod = status.mod
       const link = mod?.link ?? 'none'
       if (link === 'none') {
-        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', short: 'No game', detail: 'The bridge is running but no game has answered it. Start Factorio with --enable-lua-udp 34198 and the mod enabled.' }
+        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', short: 'No game', detail: `The bridge is running but no game has answered it. Start Factorio with ${gameLaunchOption(status)} and the mod enabled.` }
       }
       if (link === 'mismatch') {
         return { kind: 'mod-mismatch', tone: 'error', label: 'Mod version mismatch', short: 'Mismatch', detail: 'The mod and the bridge speak different protocol versions. Update the mod and the bridge together.' }

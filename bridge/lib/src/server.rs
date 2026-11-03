@@ -347,6 +347,7 @@ impl Session {
     fn new(queue: Queue, quiet_after: Duration) -> Self {
         let mut bridge = Bridge::new(Instant::now());
         bridge.set_quiet_after(quiet_after);
+        bridge.set_game_port(queue.game.port());
         Self {
             driver: Driver::new(bridge, queue),
             planners: HashMap::new(),

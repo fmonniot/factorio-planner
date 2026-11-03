@@ -216,11 +216,47 @@ fn an_allowed_origin_connects_and_the_first_message_is_the_status() {
         assert_eq!(first["type"], "status");
         assert_eq!(first["protocol"], 1);
         assert_eq!(first["bridge"], env!("CARGO_PKG_VERSION"));
+        assert_eq!(first["gamePort"], rig.fake.game_addr().port());
         assert!(
             first.get("transfer").is_none() && first.get("newest").is_none(),
             "{first}"
         );
     }
+}
+
+#[test]
+fn the_status_names_the_port_the_bridge_sends_to_also_after_a_restart() {
+    let mut rig = Rig::start();
+    let port = rig.fake.game_addr().port();
+    let mut client = rig.planner();
+    assert_eq!(rig.next(&mut client)["gamePort"], port);
+    rig.restart();
+    let mut again = rig.planner();
+    assert_eq!(rig.next(&mut again)["gamePort"], port);
+}
+
+#[test]
+fn the_session_reports_the_configured_game_port_without_any_test_hook() {
+    // No `set_game_port` on the server: the port comes from the config alone.
+    let server = Server::bind(&config(0, 40123)).expect("bind");
+    let port = server.port();
+    let handle = server.shutdown_handle();
+    let thread = thread::spawn(move || server.run());
+
+    let mut request = format!("ws://127.0.0.1:{port}/").into_client_request().unwrap();
+    request.headers_mut().insert("Origin", ORIGIN.parse().unwrap());
+    let stream = TcpStream::connect(("127.0.0.1", port)).unwrap();
+    let (mut socket, _) = tungstenite::client(request, stream).expect("handshake");
+    let first = match socket.read().expect("the first message") {
+        Message::Text(text) => serde_json::from_str::<Value>(text.as_str()).unwrap(),
+        other => panic!("expected text, got {other:?}"),
+    };
+    assert_eq!(first["type"], "status");
+    assert_eq!(first["gamePort"], 40123);
+
+    drop(socket);
+    handle.shutdown();
+    thread.join().unwrap().unwrap();
 }
 
 #[test]

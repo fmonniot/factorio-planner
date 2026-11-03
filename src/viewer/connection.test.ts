@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   badgeFor,
   canSend,
+  gameLaunchOption,
   initialConnectionState,
   notices,
   reduce,
@@ -311,6 +312,29 @@ describe('step 6: retry', () => {
     for (let i = 0; i < 3; i++) events.push({ type: 'closed' }, { type: 'retry' }, { type: 'opened' }, text(status()))
     const { actions } = run(connect(text(status()), { type: 'solved', plan: A }, { type: 'send' }, text(error('bad-envelope')), ...events))
     expect(kinds(actions).filter(k => k.startsWith('sendSnapshot'))).toEqual([`sendSnapshot:${A.id}`])
+  })
+})
+
+describe('the game launch option', () => {
+  const withPort = (gamePort: unknown) => ({ protocol: 1, gamePort }) as Parameters<typeof gameLaunchOption>[0]
+
+  it('uses the reported port, else 34198', () => {
+    expect(gameLaunchOption(undefined)).toBe('--enable-lua-udp 34198')
+    expect(gameLaunchOption({ type: 'status', protocol: 1 })).toBe('--enable-lua-udp 34198')
+    expect(gameLaunchOption(withPort(40000))).toBe('--enable-lua-udp 40000')
+  })
+
+  it('ignores a port that cannot be one', () => {
+    for (const bad of [0, 70000, 1.5, NaN]) expect(gameLaunchOption(withPort(bad))).toBe('--enable-lua-udp 34198')
+  })
+
+  it('shows up in the no-game badge, and goes with the status when the socket closes', () => {
+    const open = run(connect(text(status({ gamePort: 40000 }))))
+    expect(badgeFor(open.state).detail).toContain('--enable-lua-udp 40000')
+    expect(badgeFor(run(connect(text(status()))).state).detail).toContain('--enable-lua-udp 34198')
+    const closed = run([{ type: 'closed' }], open.state).state
+    expect(closed.status).toBeUndefined()
+    expect(gameLaunchOption(closed.status)).toBe('--enable-lua-udp 34198')
   })
 })
 

@@ -127,6 +127,21 @@ fn the_first_ping_leaves_at_start_and_names_no_snapshot() {
 }
 
 #[test]
+fn status_reports_the_game_port_and_defaults_to_34198() {
+    let mut rig = Rig::new();
+    assert_eq!(rig.bridge.status(rig.clock.now).game_port, 34198);
+    rig.bridge.set_game_port(40000);
+    assert_eq!(rig.bridge.status(rig.clock.now).game_port, 40000);
+
+    assert!(rig.bridge.poll_status(rig.clock.now).is_some());
+    assert!(rig.bridge.poll_status(rig.clock.now).is_none(), "unchanged");
+    rig.bridge.set_game_port(40001);
+    let status = rig.bridge.poll_status(rig.clock.now).expect("a new port is a change");
+    assert_eq!(status.game_port, 40001);
+    assert!(rig.bridge.poll_status(rig.clock.now).is_none());
+}
+
+#[test]
 fn a_mod_that_keeps_answering_is_pinged_every_five_seconds() {
     let mut rig = Rig::new();
     let mut pings = 0;

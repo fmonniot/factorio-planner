@@ -75,6 +75,9 @@ pub struct Status {
     pub protocol: u8,
     /// The bridge's release version, for display.
     pub bridge: String,
+    /// The UDP port the bridge sends to, the one the game must be launched with (`--enable-lua-udp`).
+    #[serde(rename = "gamePort")]
+    pub game_port: u16,
     /// The id set by the last `snapshot` or `announce`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub newest: Option<SnapshotId>,

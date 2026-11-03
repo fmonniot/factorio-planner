@@ -74,13 +74,20 @@ describe('messages from the bridge', () => {
   it.each(statuses.map(m => [m.name, m] as const))('reads %s', (_name, m) => {
     const parsed = parseBridgeMessage(new TextDecoder().decode(fromHex(m.hex)))
     expect(parsed?.kind).toBe('status')
-    if (parsed?.kind === 'status') expect(parsed.status).toMatchObject({ protocol: m.fields.protocol, mod: m.fields.mod })
+    if (parsed?.kind === 'status') expect(parsed.status).toMatchObject({ protocol: m.fields.protocol, gamePort: m.fields.gamePort, mod: m.fields.mod })
   })
 
   it.each(errors.map(m => [m.name, m] as const))('reads %s and describes it', (_name, m) => {
     const parsed = parseBridgeMessage(new TextDecoder().decode(fromHex(m.hex)))
     expect(parsed).toEqual({ kind: 'error', code: m.fields.code })
     expect(describeBridgeError(parsed && parsed.kind === 'error' ? parsed.code : '')).not.toMatch(/reported an error/)
+  })
+
+  it('keeps the game port of a status, and reads one without', () => {
+    const parsed = parseBridgeMessage('{"type":"status","protocol":1,"gamePort":40000}')
+    expect(parsed?.kind === 'status' && parsed.status.gamePort).toBe(40000)
+    expect(parseBridgeMessage('{"type":"status","protocol":1}')?.kind).toBe('status')
+    expect(parseBridgeMessage('{"type":"status","protocol":1,"gamePort":"x"}')).toEqual({ kind: 'unreadable-status' })
   })
 
   it('drops what it cannot read', () => {

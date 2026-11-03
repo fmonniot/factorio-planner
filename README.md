@@ -95,7 +95,7 @@ ln -s "$PWD/mod" "$HOME/.factorio/mods/factorio-planner-viewer"
 
 Enable **Factorio Planner Viewer** in the game's Mods menu. Its `spec/` and `tools/` folders are ignored by the game. The mod's only prototype is the sprite of its button; it changes no entities.
 
-**3. Launch Factorio with the UDP option.** Add `--enable-lua-udp 34198` to the launch options. In Steam: right-click Factorio, Properties, General, Launch Options. Without Steam, add it to the command line or the shortcut. The number is the port the game listens on and must equal the bridge's `--game-port`. The game only opens that socket when the option is present; without it the viewer window shows **Disconnected**.
+**3. Launch Factorio with the UDP option.** Add `--enable-lua-udp 34198` to the launch options. In Steam: right-click Factorio, Properties, General, Launch Options. Without Steam, add it to the command line or the shortcut. The number is the port the game listens on and must equal the bridge's `--game-port`. The game only opens that socket when the option is present; without it the viewer window shows **Disconnected**. The planner's Troubleshoot dialog shows this launch option with the port the running bridge uses.
 
 **4. Connect the planner.** In the workspace menu, open **In-game viewer**, turn on **Connect to the bridge** and load a save. When the browser asks for permission to reach devices on your local network, allow it. **Troubleshoot…** in the same menu names the first step that is not working.
 

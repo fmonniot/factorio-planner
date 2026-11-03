@@ -38,13 +38,13 @@ Where a field has no snapshot to name, it holds sixteen dashes: `---------------
 
 ### Protocol version
 
-`PROTOCOL_VERSION` is `1`, written `FP01` on the wire. It is separate from the snapshot's `v`: the protocol version covers this document, and `v` covers the JSON inside. Two versions are compatible only if they are equal; there is no range and no negotiation.
+`PROTOCOL_VERSION` is `1`, written `FP01` on the wire. It is separate from the snapshot's `v`: the protocol version covers this document, and `v` covers the JSON inside. Two versions are compatible only if they are equal; there is no range and no negotiation. Any change an older reader would misread bumps the version; adding a `status` field that a reader ignores when it does not know it is not such a change.
 
 ### Ports
 
 | What | Default | Set by |
 |---|---|---|
-| Game UDP port | `34198` | `--enable-lua-udp` on the game; a flag on the bridge |
+| Game UDP port | `34198` | `--enable-lua-udp` on the game; a flag on the bridge, which reports its value in `status` |
 | Bridge UDP port | `34199` | A flag on the bridge; the mod's runtime-global setting |
 | Bridge WebSocket port | `34199`, TCP | The same bridge flag: one number for both |
 
@@ -146,7 +146,7 @@ The frame length must equal 32 plus the length field. The length must be between
 The bridge's whole state, as one object. It is sent once on connection, before anything else, and again whenever a field changes. A planner only ever needs the latest one.
 
 ```
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"sending","sent":24,"count":29}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"sending","sent":24,"count":29}}
 ```
 
 | Field | Presence | Meaning |
@@ -154,6 +154,7 @@ The bridge's whole state, as one object. It is sent once on connection, before a
 | `type` | always | `status` |
 | `protocol` | always | The bridge's `PROTOCOL_VERSION`, as a number |
 | `bridge` | always | The bridge's release version, for display |
+| `gamePort` | always | The UDP port the bridge sends to; the planner shows it as the game's launch option, `--enable-lua-udp <port>` |
 | `newest` | when known | The id set by the last `snapshot` or `announce` |
 | `mod.link` | always | See below |
 | `mod.protocol` | once heard | The version in the last `hello` |
@@ -165,6 +166,8 @@ The bridge's whole state, as one object. It is sent once on connection, before a
 | `transfer.sent` | with `transfer` | Chunks sent at least once; changes when a window ends |
 | `transfer.count` | with `transfer` | Its chunk count |
 | `transfer.reason` | when `rejected` or `failed` | The mod's reason word, or `no-progress` |
+
+`gamePort` was added without a protocol version bump: a planner ignores fields it does not know, so an older planner keeps showing `34198`, and a planner that reads a `status` without `gamePort` (an older bridge) treats it as `34198`.
 
 `mod.link` is one of:
 
@@ -182,14 +185,15 @@ The bridge's whole state, as one object. It is sent once on connection, before a
 - `rejected`: the mod refused it, and `reason` says why.
 - `failed`: the bridge gave up after `NO_PROGRESS_LIMIT` attempts.
 
-Examples: no game yet; a delivered snapshot with two unknown ids; a transfer stalled by a pause; a refused snapshot; a bridge and a mod of different versions.
+Examples: no game yet; no game yet, on a bridge started with another `--game-port`; a delivered snapshot with two unknown ids; a transfer stalled by a pause; a refused snapshot; a bridge and a mod of different versions.
 
 ```
-{"type":"status","protocol":1,"bridge":"0.1.0","mod":{"link":"none"}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"b50eac1dfa0cae79","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":2},"transfer":{"id":"b50eac1dfa0cae79","state":"delivered","sent":1,"count":1}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"quiet","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"stalled","sent":24,"count":29}}
-{"type":"status","protocol":1,"bridge":"0.1.0","newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"rejected","sent":29,"count":29,"reason":"json"}}
-{"type":"status","protocol":1,"bridge":"0.1.0","mod":{"link":"mismatch","protocol":2}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"mod":{"link":"none"}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":40000,"mod":{"link":"none"}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"newest":"b50eac1dfa0cae79","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":2},"transfer":{"id":"b50eac1dfa0cae79","state":"delivered","sent":1,"count":1}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"newest":"8a7dc7be68ce742c","mod":{"link":"quiet","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"stalled","sent":24,"count":29}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"newest":"8a7dc7be68ce742c","mod":{"link":"connected","protocol":1,"stored":"b50eac1dfa0cae79","unknownIds":0},"transfer":{"id":"8a7dc7be68ce742c","state":"rejected","sent":29,"count":29,"reason":"json"}}
+{"type":"status","protocol":1,"bridge":"0.1.0","gamePort":34198,"mod":{"link":"mismatch","protocol":2}}
 ```
 
 ### `error`
@@ -209,7 +213,7 @@ An `error` goes only to the connection that sent the offending frame. The bridge
 
 ### What the planner does
 
-1. On open, it waits for the first `status` and compares `protocol` with its own. If they differ it shows that the bridge and the planner must be updated together, sends nothing, and keeps the socket open.
+1. On open, it waits for the first `status` and compares `protocol` with its own. If they differ it shows that the bridge and the planner must be updated together, sends nothing, and keeps the socket open. The launch option it shows for the game (`--enable-lua-udp <port>`) takes its port from `gamePort`, and is `34198` before the first `status` or when the field is missing.
 2. **Restore, but only onto an empty bridge.** If it has sent a snapshot since the page loaded and the first `status` shows that the bridge holds nothing (no `transfer` and no `newest`), it sends those same bytes again. It keeps the last bytes it sent for this purpose. This restores a restarted bridge. If the first `status` shows anything held, it sends nothing: with two planners connected, the bridge may hold a newer snapshot sent from the other one, and an older one must not replace it unasked. Only the first `status` after a connection decides this; later ones never trigger a restore.
 3. It sends `announce` with the current plan's id, unless the bridge now holds exactly that plan: the restore in step 2 just sent those bytes, or the first `status` already reports that id as `newest`. A bridge that holds something else (for example a plan another planner sent) is therefore told which plan is current. A plan from before the connection was switched off is not announced; the planner builds a fresh one after switching on.
 4. After each solve it computes the id of the new snapshot and sends either `snapshot` (auto-send, or the Send action) or `announce`. **Before sending a `snapshot` it checks the size.** Above `MAX_SNAPSHOT_BYTES` it sends no `snapshot`, tells the player that the plan is too large for the in-game viewer, and sends `announce` instead, so the mod still shows `Stale`.
