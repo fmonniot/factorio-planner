@@ -1035,6 +1035,11 @@ if (args.patchFuel) {
     process.stderr.write('[build-game-data] the dump has no fuel items although the bundle has burner machines; wrong dump? Nothing written.\n')
     process.exit(1)
   }
+  const bundleHasFluidBurners = Object.values(existing.machines).some(m => m.energyType === 'fluid-burner')
+  if (bundleHasFluidBurners && fuel.counts.fluids === 0) {
+    process.stderr.write('[build-game-data] the dump has no fuel fluids although the bundle has fluid-burning machines; wrong dump? Nothing written.\n')
+    process.exit(1)
+  }
   if (bundleHasBurners && !fuelOverlaps(fuel.items, fuel.machines)) {
     process.stderr.write('[build-game-data] no burner machine of the dump accepts a fuel item of the dump (missing machines or no shared fuel category); wrong dump? Nothing written.\n')
     process.exit(1)

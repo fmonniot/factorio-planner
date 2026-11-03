@@ -9,7 +9,7 @@
  */
 
 import { luaList } from './technologies.js'
-import { parseEnergyKj } from './energy.js'
+import { parseEnergyKj, inferEnergyType } from './energy.js'
 
 /** Prototype tables a bundle machine can come from. */
 export const MACHINE_PROTO_TYPES = [
@@ -118,15 +118,16 @@ export function attachFuel(items, machines, raw, itemSubtypes) {
   let machineCount = 0
   let fluidMachineCount = 0
   for (const [id, machine] of Object.entries(machines)) {
-    const candidate = machine.energyType === 'burner' || machine.energyType === 'fluid-burner'
-      || (machine.energyType === 'void' && machine.energyUsageKw > 0)
+    // A 'void' machine may burn fluid whatever its kW (the extraction export zeroes it). Power-generation
+    // machines (also 'void', 0 kW) stay out because their prototypes are not in MACHINE_PROTO_TYPES.
+    const candidate = machine.energyType === 'burner' || machine.energyType === 'fluid-burner' || machine.energyType === 'void'
     if (!candidate) {
       outMachines[id] = machine
       continue
     }
     const proto = MACHINE_PROTO_TYPES.map(t => raw[t]).find(t => t && Object.hasOwn(t, id))?.[id]
     if (!proto) {
-      if (machine.energyType === 'burner') missingMachines.push(id)
+      if (machine.energyType === 'burner' || machine.energyType === 'fluid-burner') missingMachines.push(id)
       outMachines[id] = machine
       continue
     }
@@ -139,6 +140,9 @@ export function attachFuel(items, machines, raw, itemSubtypes) {
       outMachines[id] = { ...without(machine, FUEL_MACHINE_KEYS), ...fuel, energyType: 'fluid-burner' }
     } else if (machine.energyType === 'burner') {
       outMachines[id] = without(machine, FUEL_MACHINE_KEYS)
+    } else if (machine.energyType === 'fluid-burner') {
+      // The prototype no longer burns fluid: back to whatever its source is, without stale fuel fields.
+      outMachines[id] = { ...without(machine, FUEL_MACHINE_KEYS), energyType: inferEnergyType(proto) }
     } else {
       outMachines[id] = machine
     }

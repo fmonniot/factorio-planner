@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { acceptedFuels, burnsFuel, defaultFuel, resolveRowFuel } from './fuel'
+import { acceptedFuels, burnsFuel, defaultFuel, hasFuelData, resolveRowFuel } from './fuel'
 import type { GameData, Item, Machine } from './types'
 
 function item(id: string, extra: Partial<Item> = {}): Item {
@@ -125,6 +125,26 @@ describe('fluid burners', () => {
     const gd = makeGameData()
     expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'oil' })).map(i => i.id)).toEqual(['oil'])
     expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'fuel-oil' }))).toEqual([])
+  })
+
+  it('accepts a hidden fluid named by the filter, but never offers hidden fluids unfiltered', () => {
+    const gd = makeGameData()
+    expect(acceptedFuels(gd, fluidBurner({ fuelFluid: 'hidden-gas' })).map(i => i.id)).toEqual(['hidden-gas'])
+    expect(acceptedFuels(gd, fluidBurner()).map(i => i.id)).not.toContain('hidden-gas')
+    expect(defaultFuel(gd, fluidBurner({ fuelFluid: 'hidden-gas' }))?.id).toBe('hidden-gas')
+  })
+
+  const onlyHiddenFor = (gd: ReturnType<typeof makeGameData>) => ({ ...gd, items: { 'hidden-gas': gd.items['hidden-gas'] } })
+  it('hasFuelData follows the accepted fluids, not every fluid of the data set', () => {
+    const gd = makeGameData()
+    expect(hasFuelData(gd, fluidBurner())).toBe(true)
+    expect(hasFuelData(gd, fluidBurner({ fuelFluid: 'fuel-oil' }))).toBe(true) // data exists, the filter fluid is just no fuel
+    expect(hasFuelData(onlyHiddenFor(gd), fluidBurner({ fuelFluid: 'hidden-gas' }))).toBe(true)
+    const onlyHidden = { ...gd, items: { 'hidden-gas': gd.items['hidden-gas'] } }
+    expect(hasFuelData(onlyHidden, fluidBurner())).toBe(false)
+    expect(hasFuelData(gd, burner())).toBe(true)
+    expect(hasFuelData(gd, burner({ fuelCategories: undefined }))).toBe(false)
+    expect(hasFuelData(gd, undefined)).toBe(false)
   })
 
   it('offers nothing without fluid fuel values or for a void machine', () => {

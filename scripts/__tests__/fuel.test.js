@@ -219,6 +219,31 @@ describe('attachFuel with fluid burners', () => {
     expect(out.items.water).not.toHaveProperty('fuelValueKj')
   })
 
+  it('reclassifies a void fluid-burning machine with 0 kW (older drills)', () => {
+    const bundle = makeFluidBundle()
+    bundle.machines['fluid-furnace'] = { ...bundle.machines['fluid-furnace'], energyUsageKw: 0 }
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.machines['fluid-furnace']).toMatchObject({ energyType: 'fluid-burner', effectivity: 0.5 })
+    expect(out.machines.boiler).toBe(bundle.machines.boiler)
+  })
+
+  it('demotes a fluid-burner whose prototype no longer burns fluid, dropping its fuel fields', () => {
+    const bundle = makeFluidBundle()
+    bundle.machines.steamer = { ...bundle.machines.steamer, energyType: 'fluid-burner', effectivity: 0.5, fuelFluid: 'oil' }
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.machines.steamer.energyType).toBe('void')
+    expect(out.machines.steamer).not.toHaveProperty('effectivity')
+    expect(out.machines.steamer).not.toHaveProperty('fuelFluid')
+  })
+
+  it('reports a fluid-burner missing from the dump', () => {
+    const bundle = makeFluidBundle()
+    bundle.machines.lost = { id: 'lost', type: 'furnace', energyType: 'fluid-burner', effectivity: 1 }
+    const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
+    expect(out.missingMachines).toContain('lost')
+    expect(out.machines.lost).toBe(bundle.machines.lost)
+  })
+
   it('never touches an electric machine', () => {
     const bundle = makeFluidBundle()
     const out = attachFuel(bundle.items, bundle.machines, makeFluidRaw(), ['item'])
