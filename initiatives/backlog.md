@@ -54,7 +54,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Burnt results of fuels.** A fuel with a `burnt_result` is never offered. Model the burnt item as an output of the burner row.
 - [ ] **Fluid-burning crafting machines.** Only item fuels are modelled; `burns_fluid` energy sources of crafting machines still draw ⚡.
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
-- [ ] **Energy consumption floor.** The game clamps the energy-consumption effect at −80 %; neither the power draw nor the burner fuel applies the floor.
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.
 - [ ] **Beacon power.** Beacon energy is not counted in a row's power (spec/solver.md); needed for self-powering blocks.
 - [ ] **Optimization mode.** Minimize machines or power through the LP objective.
