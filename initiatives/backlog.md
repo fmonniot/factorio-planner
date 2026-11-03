@@ -52,7 +52,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Accumulators and solar at night.** Solar recipes use 70 % of peak (the Nauvis average) and assume nothing about storage. Add an accumulator ratio per panel, or a note.
 - [ ] **Plan-wide default fuel.** A burner row without a choice burns the lowest-value accepted fuel, whatever the research horizon. Let the plan set a default per fuel category, and make the default horizon-aware (the best fuel inside the horizon).
 - [ ] **Burnt results of fuels.** A fuel with a `burnt_result` is never offered. Model the burnt item as an output of the burner row.
-- [ ] **Fluid fuel data in the bundles.** Fluid-burning crafting machines are modelled, but neither bundle has fluid `fuelValueKj` or `fluid-burner` machines (Seablock `bob-fluid-*-furnace`, Nullius combustion chambers and chimneys), so their rows keep ⚡. Run `--patch-fuel` with a dump to fill them.
+- [ ] **Fluid fuel data for the Nullius bundle.** Fluid-burning crafting machines are modelled and the Seablock bundle has the data, but the Nullius bundle has no fluid `fuelValueKj` or `fluid-burner` machines (combustion chambers, chimneys), so their rows keep ⚡. Run `--patch-fuel` with a Nullius dump to fill them (it also has no item fuel data, see the Nullius re-dump item).
 - [ ] **Fluid-burning non-crafting machines.** Drills and pumps with a `burns_fluid` source are exported as `fluid-burner` but have no UI or tests.
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.

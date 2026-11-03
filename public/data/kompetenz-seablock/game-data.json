@@ -32278,7 +32278,8 @@
       "subgroup": "angels-petrochem-raw-fluids",
       "order": "bb",
       "defaultTemperature": 25,
-      "maxTemperature": 25
+      "maxTemperature": 25,
+      "fuelValueKj": 500
     },
     "heavy-oil": {
       "id": "heavy-oil",
@@ -32509,7 +32510,8 @@
       "subgroup": "angels-petrochem-carbon-fluids",
       "order": "dac",
       "defaultTemperature": 25,
-      "maxTemperature": 100
+      "maxTemperature": 100,
+      "fuelValueKj": 300
     },
     "bob-heavy-water": {
       "id": "bob-heavy-water",
@@ -32641,7 +32643,8 @@
       "subgroup": "fluid",
       "order": "a[fluid]-g[hydrazine]",
       "defaultTemperature": 15,
-      "maxTemperature": 100
+      "maxTemperature": 100,
+      "fuelValueKj": 340
     },
     "bob-hydrogen-peroxide": {
       "id": "bob-hydrogen-peroxide",
@@ -32740,7 +32743,8 @@
       "subgroup": "fluid",
       "order": "a[fluid]-g[glycerol]",
       "defaultTemperature": 25,
-      "maxTemperature": 100
+      "maxTemperature": 100,
+      "fuelValueKj": 730
     },
     "angels-thermal-water": {
       "id": "angels-thermal-water",
@@ -33158,7 +33162,8 @@
       "subgroup": "angels-petrochem-carbon-fluids",
       "order": "ba",
       "defaultTemperature": 0,
-      "maxTemperature": 0
+      "maxTemperature": 0,
+      "fuelValueKj": 500
     },
     "angels-gas-ethane": {
       "id": "angels-gas-ethane",
@@ -33202,7 +33207,8 @@
       "subgroup": "angels-petrochem-carbon-fluids",
       "order": "dba",
       "defaultTemperature": 0,
-      "maxTemperature": 0
+      "maxTemperature": 0,
+      "fuelValueKj": 500
     },
     "angels-liquid-mineral-oil": {
       "id": "angels-liquid-mineral-oil",
@@ -33224,7 +33230,8 @@
       "subgroup": "angels-petrochem-carbon-fluids",
       "order": "daa",
       "defaultTemperature": 0,
-      "maxTemperature": 0
+      "maxTemperature": 0,
+      "fuelValueKj": 1000
     },
     "angels-gas-methanol": {
       "id": "angels-gas-methanol",
@@ -142389,7 +142396,7 @@
       "type": "assembling-machine",
       "craftingSpeed": 2,
       "energyUsageKw": 90,
-      "energyType": "void",
+      "energyType": "fluid-burner",
       "drainKw": 0,
       "moduleSlots": 0,
       "allowedEffects": [],
@@ -142398,7 +142405,8 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-fluid-mixing-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "effectivity": 1
     },
     "bob-fluid-chemical-furnace": {
       "id": "bob-fluid-chemical-furnace",
@@ -142406,7 +142414,7 @@
       "type": "assembling-machine",
       "craftingSpeed": 2,
       "energyUsageKw": 90,
-      "energyType": "void",
+      "energyType": "fluid-burner",
       "drainKw": 0,
       "moduleSlots": 0,
       "allowedEffects": [],
@@ -142414,7 +142422,8 @@
         "bob-chemical-furnace"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-fluid-chemical-furnace.png",
-      "hidden": true
+      "hidden": true,
+      "effectivity": 1
     },
     "bob-centrifuge-2": {
       "id": "bob-centrifuge-2",
@@ -145522,7 +145531,7 @@
       "type": "furnace",
       "craftingSpeed": 2,
       "energyUsageKw": 90,
-      "energyType": "void",
+      "energyType": "fluid-burner",
       "drainKw": 0,
       "moduleSlots": 0,
       "allowedEffects": [
@@ -145534,7 +145543,8 @@
         "smelting"
       ],
       "iconPath": "/data/kompetenz-seablock/icons/bob-fluid-furnace.png",
-      "hidden": false
+      "hidden": false,
+      "effectivity": 1
     },
     "angels-clarifier": {
       "id": "angels-clarifier",
