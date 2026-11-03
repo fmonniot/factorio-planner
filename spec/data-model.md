@@ -455,9 +455,21 @@ memory. Duplicating or importing a plan runs it through `clonePlan` (`src/store/
 gives every block, sub-plan, node, product and connection a fresh id so two plans never share ids
 (solver results and undo history are keyed by block id).
 
-Known limitations: the index is written whole from the tab's memory and `storage` events are not
-observed, so with several tabs open the last write wins and may drop plans another tab created (their
-plan keys remain, but no index lists them; see the backlog). A migrated old plan is copied as-is, without
+With several tabs open, every plan action re-reads the stored index and merges it into the tab's list
+before acting, and a `storage` event on the index key triggers the same merge: the stored list, order
+and names win (plans another tab created appear, plans it deleted disappear). Each tab keeps its own
+active plan; the stored `activePlanId` is that of the last tab that switched, and renaming or deleting
+another plan leaves it alone. A tab whose active plan was deleted elsewhere switches to the next (else
+previous) plan; edits are autosaved, and the autosave syncs first so it never recreates the deleted
+plan's key. The sync only runs while the data set is loaded and matches the tab's list. Plans that
+storage refused to list (quota exceeded) stay in this tab's memory until a later index write succeeds,
+and are not treated as deleted elsewhere. An unreadable index is only recovered at activation; a
+removed custom-upload index means another tab replaced the upload, and this tab then stops writing that
+data set's keys. Limitations: a plan deleted here while storage refuses the index write reappears at
+the next sync, and work in a memory-only plan is lost if the tab closes before a write succeeds.
+
+Known limitations: the same plan open in two tabs is last write wins, and `storage` events on plan keys
+are not observed. A migrated old plan is copied as-is, without
 fresh ids; if two copies of the same old plan are adopted (for example an older app version rewrote the
 old key after migration), they share block ids, and switching between them may show the other's solver
 results until the next solve lands (the debounced solve replaces them; undo history is cleared on every

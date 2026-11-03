@@ -119,6 +119,9 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
 - Creating, duplicating and switching save the current plan first, so nothing is lost, and
   clear the undo history. The active plan is remembered per data set and restored on the next
   visit; each data set has its own list. See [Game data set](#game-data-set) for storage.
+- **Several tabs.** Plans created, renamed or deleted in another tab show up in the list without
+  a reload; each tab keeps its own active plan, unless another tab deleted it, in which case the
+  tab switches to the neighbouring plan. Editing the same plan in two tabs is last write wins.
 
 ### Block tabs
 
@@ -648,7 +651,8 @@ rewrite fails (quota full, storage blocked) the normalised id is still used.
 to the active one; switching tabs alone does not save). A stored plan that fails validation is not
 overwritten: its raw value is first copied to `<planKey>:corrupt`, and the plan starts empty (it stays in
 the list). An unreadable index is moved to `<indexKey>:corrupt` and rebuilt from the plan keys found
-(named "Plan 1", "Plan 2", …).
+(named "Plan 1", "Plan 2", …). Tabs share the index and merge each other's changes (see
+[data-model.md](data-model.md)).
 
 **Migration.** Older versions kept one plan per data set under
 `factorio-planner:app-state:<sourceId>`. When such a key exists at activation it is copied unchanged into

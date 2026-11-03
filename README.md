@@ -61,7 +61,7 @@ The **In-game viewer** entry of the workspace menu connects the planner to the i
 
 ### Saving and sharing
 
-Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the workspace menu at the right of the top bar lists them and switches between them, with tiles to create, rename, duplicate and delete, and switching data sets brings back that data set's active plan. **Export plan**, in the same menu, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears if it was exported for another data set or uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
+Your plans are saved in your browser's local storage as you work. Each game data set has its own list of plans: the workspace menu at the right of the top bar lists them and switches between them, with tiles to create, rename, duplicate and delete, and switching data sets brings back that data set's active plan. Several tabs can be open at once: plan list changes show up in every tab, but editing the same plan in two tabs keeps only the last save. **Export plan**, in the same menu, downloads the active plan as JSON, and **Import plan…** adds such a file as a new plan (a warning appears if it was exported for another data set or uses recipes or items the loaded data set lacks). Sharing a plan by URL is not built yet. See the [backlog](initiatives/backlog.md).
 
 ## Setting up the in-game viewer
 

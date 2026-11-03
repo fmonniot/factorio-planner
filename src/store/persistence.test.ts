@@ -13,6 +13,7 @@ import {
   duplicatePlan,
   renamePlan,
   deletePlan,
+  syncPlanIndex,
   nextPlanName,
   planNameFromFileName,
   exportFileName,
@@ -654,6 +655,321 @@ describe('plan actions', () => {
       expect(deletePlan(id).type).toBe('error')
     }
     expect(names()).toEqual(['Plan 1'])
+  })
+})
+
+describe('multiple tabs', () => {
+  let unsub: () => void
+  beforeEach(() => {
+    unsub = initAppStatePersistence()
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+  })
+  afterEach(() => { unsub() })
+
+  const index = () => usePlansStore.getState().index!
+  const names = () => index().plans.map(p => p.name)
+  const activeName = () => index().plans.find(p => p.id === index().activePlanId)!.name
+  const idOf = (name: string) => index().plans.find(p => p.name === name)!.id
+
+  /** Stand in for another tab: rewrite the stored index from the current one. */
+  function otherTabIndex(mutate: (stored: PlanIndex) => PlanIndex): void {
+    store[planIndexKey('nullius')] = JSON.stringify(mutate(structuredClone(readIndex('nullius'))))
+  }
+  /** Another tab appends a plan with its own stored content. */
+  function otherTabCreates(id: string, name: string): void {
+    otherTabIndex(s => ({ ...s, plans: [...s.plans, { id, name }] }))
+    store[planKey('nullius', id)] = JSON.stringify(selectAppState(useBlockStore.getState()))
+  }
+  /** Another tab deletes a plan (and its key). */
+  function otherTabDeletes(id: string): void {
+    otherTabIndex(s => ({ ...s, plans: s.plans.filter(p => p.id !== id) }))
+    delete store[planKey('nullius', id)]
+  }
+
+  it('keeps a plan another tab created when this tab renames', () => {
+    otherTabCreates('x', 'Plan 2')
+    expect(renamePlan(index().activePlanId, 'A')).toEqual({ type: 'ok' })
+    expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['A', 'Plan 2'])
+    expect(names()).toEqual(['A', 'Plan 2'])
+  })
+
+  it('createPlan after another tab created a plan lists both, the new one last and active', () => {
+    otherTabCreates('x', 'Plan 2')
+    createPlan()
+    expect(names()).toEqual(['Plan 1', 'Plan 2', 'Plan 3'])
+    expect(activeName()).toBe('Plan 3')
+    expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['Plan 1', 'Plan 2', 'Plan 3'])
+  })
+
+  it('honours a plan another tab deleted', () => {
+    otherTabCreates('x', 'Plan 2')
+    syncPlanIndex()
+    otherTabDeletes('x')
+    expect(renamePlan('x', 'Nope')).toEqual({ type: 'error', message: expect.stringContaining('no longer exists') })
+    createPlan()
+    expect(readIndex('nullius').plans.map(p => p.id)).not.toContain('x')
+    expect(names()).toEqual(['Plan 1', 'Plan 2'])
+  })
+
+  it('keeps the stored order, and duplicate inserts after the active entry of the merged list', () => {
+    const first = index().activePlanId
+    otherTabCreates('x', 'Plan 2')
+    otherTabCreates('y', 'Plan 3')
+    syncPlanIndex()
+    expect(index().plans.map(p => p.id)).toEqual([first, 'x', 'y'])
+    duplicatePlan()
+    expect(names()).toEqual(['Plan 1', 'Plan 1 (copy)', 'Plan 2', 'Plan 3'])
+  })
+
+  it('keeps the active plan per tab and the stored one when renaming', () => {
+    const mine = index().activePlanId
+    otherTabCreates('x', 'Plan 2')
+    otherTabIndex(s => ({ ...s, activePlanId: 'x' }))
+    const blocks = useBlockStore.getState().blocks
+    syncPlanIndex()
+    expect(index().activePlanId).toBe(mine)
+    expect(useBlockStore.getState().blocks, 'block store untouched').toBe(blocks)
+    renamePlan('x', 'Other')
+    expect(readIndex('nullius').activePlanId, 'rename keeps the stored active plan').toBe('x')
+    expect(index().activePlanId).toBe(mine)
+    switchPlan('x')
+    expect(readIndex('nullius').activePlanId).toBe('x')
+    switchPlan(mine)
+    expect(readIndex('nullius').activePlanId).toBe(mine)
+  })
+
+  it('switches to the next plan when another tab deleted the active one, without rewriting its key', () => {
+    createPlan()
+    createPlan()
+    const middle = idOf('Plan 2')
+    switchPlan(middle)
+    const next = idOf('Plan 3')
+    const stored = JSON.parse(store[planKey('nullius', next)]) as AppState
+    const block = makeEmptyBlock('From next')
+    store[planKey('nullius', next)] = JSON.stringify({ ...stored, blocks: [block], activeBlockId: block.id })
+    otherTabDeletes(middle)
+    syncPlanIndex()
+    expect(activeName()).toBe('Plan 3')
+    expect(useBlockStore.getState().blocks[0].name).toBe('From next')
+    expect(store[planKey('nullius', middle)], 'deleted key not recreated').toBeUndefined()
+  })
+
+  it('falls back to the previous plan when the deleted active plan was last', () => {
+    createPlan()
+    const last = index().activePlanId
+    otherTabDeletes(last)
+    syncPlanIndex()
+    expect(activeName()).toBe('Plan 1')
+    expect(store[planKey('nullius', last)]).toBeUndefined()
+  })
+
+  it('shows a rename from another tab and leaves the loaded plan alone', () => {
+    const blocks = useBlockStore.getState().blocks
+    otherTabIndex(s => ({ ...s, plans: s.plans.map(p => ({ ...p, name: 'Renamed' })) }))
+    syncPlanIndex()
+    expect(names()).toEqual(['Renamed'])
+    expect(useBlockStore.getState().blocks).toBe(blocks)
+  })
+
+  describe('guards', () => {
+    it('ignores an unparsable stored index without quarantining it', () => {
+      store[planIndexKey('nullius')] = '{nope'
+      syncPlanIndex()
+      expect(names()).toEqual(['Plan 1'])
+      expect(Object.keys(store).some(k => k.endsWith(':corrupt'))).toBe(false)
+    })
+
+    it('ignores a removed index', () => {
+      delete store[planIndexKey('nullius')]
+      syncPlanIndex()
+      expect(names()).toEqual(['Plan 1'])
+      expect(store[planIndexKey('nullius')]).toBeUndefined()
+    })
+
+    it('does nothing while game data is loading', () => {
+      otherTabCreates('x', 'Plan 2')
+      useGameDataStore.setState({ status: { type: 'loading' } as never })
+      syncPlanIndex()
+      expect(names()).toEqual(['Plan 1'])
+    })
+
+    it('does not touch the plans store when nothing changed', () => {
+      const listener = vi.fn()
+      const off = usePlansStore.subscribe(listener)
+      syncPlanIndex()
+      off()
+      expect(listener).not.toHaveBeenCalled()
+    })
+  })
+
+  it('adopts a fresh "Plan 1" after another tab deleted everything', () => {
+    const old = index().activePlanId
+    const block = makeEmptyBlock('Fresh')
+    store[planIndexKey('nullius')] = JSON.stringify({ activePlanId: 'n', plans: [{ id: 'n', name: 'Plan 1' }] })
+    store[planKey('nullius', 'n')] = JSON.stringify({ blocks: [block], activeBlockId: block.id })
+    delete store[planKey('nullius', old)]
+    syncPlanIndex()
+    expect(index().plans.map(p => p.id)).toEqual(['n'])
+    expect(useBlockStore.getState().blocks[0].name).toBe('Fresh')
+  })
+
+  /** Make storage refuse writes to the index key (quota exceeded) until the returned function is called. */
+  function refuseIndexWrites(): () => void {
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      if (key.startsWith('factorio-planner:plan-index:')) throw new DOMException('full', 'QuotaExceededError')
+      store[key] = value
+    })
+    return () => localStorageMock.setItem.mockImplementation((key: string, value: string) => { store[key] = value })
+  }
+
+  describe('memory-only plans', () => {
+    it('keeps a plan whose index write was refused, and lists it once a write succeeds', () => {
+      const allow = refuseIndexWrites()
+      createPlan()
+      const created = index().activePlanId
+      expect(readIndex('nullius').plans.map(p => p.id)).not.toContain(created)
+      syncPlanIndex()
+      expect(index().activePlanId, 'still on the new plan').toBe(created)
+      expect(names()).toEqual(['Plan 1', 'Plan 2'])
+      allow()
+      renamePlan(created, 'Kept')
+      expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['Plan 1', 'Kept'])
+      otherTabDeletes(created)
+      syncPlanIndex()
+      expect(index().activePlanId, 'now a normal stored plan: deleted elsewhere').not.toBe(created)
+    })
+
+    it('keeps the replacement "Plan 1" of a refused deletePlan', () => {
+      const only = index().activePlanId
+      const allow = refuseIndexWrites()
+      deletePlan(only)
+      const replacement = index().activePlanId
+      expect(replacement).not.toBe(only)
+      syncPlanIndex()
+      expect(index().activePlanId).toBe(replacement)
+      allow()
+    })
+
+    it('keeps a migrated legacy plan that could only be kept in memory', () => {
+      unsub()
+      localStorageMock.clear()
+      store[planIndexKey('nullius')] = JSON.stringify({ activePlanId: 'p1', plans: [{ id: 'p1', name: 'P1' }] })
+      store[planKey('nullius', 'p1')] = JSON.stringify(selectAppState(useBlockStore.getState()))
+      storePlan('nullius', 'Legacy')
+      usePlansStore.setState({ sourceId: null, index: null })
+      useGameDataStore.setState({ status: { type: 'empty' } })
+      unsub = initAppStatePersistence()
+      const allow = refuseIndexWrites()
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      allow()
+      expect(names()).toEqual(['P1', 'Plan 2'])
+      const migrated = index().activePlanId
+      syncPlanIndex()
+      expect(index().activePlanId).toBe(migrated)
+      expect(useBlockStore.getState().blocks[0].name).toBe('Legacy')
+    })
+  })
+
+  describe('stale tab', () => {
+    it('does not recreate a plan key deleted elsewhere when autosaving', () => {
+      createPlan()
+      const gone = index().activePlanId
+      otherTabDeletes(gone)
+      useBlockStore.setState({ blocks: [makeEmptyBlock('Edited')] })
+      expect(store[planKey('nullius', gone)], 'no orphan key').toBeUndefined()
+      expect(index().activePlanId).not.toBe(gone)
+    })
+
+    it('catches up when game data finishes re-loading for the same data set', () => {
+      createPlan()
+      const gone = index().activePlanId
+      useGameDataStore.setState({ status: { type: 'loading' } as never })
+      otherTabDeletes(gone)
+      syncPlanIndex()
+      expect(index().activePlanId, 'skipped while loading').toBe(gone)
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      expect(index().activePlanId).not.toBe(gone)
+    })
+
+    it('does not sync under an error status', () => {
+      otherTabCreates('x', 'Plan 2')
+      useGameDataStore.setState({ status: { type: 'error' } as never })
+      expect(syncPlanIndex()).toBeNull()
+      expect(names()).toEqual(['Plan 1'])
+    })
+
+    it('duplicatePlan refuses when the active plan was deleted elsewhere', () => {
+      createPlan()
+      const gone = index().activePlanId
+      otherTabDeletes(gone)
+      expect(duplicatePlan()).toEqual({ type: 'error', message: expect.stringContaining('no longer exists') })
+      expect(names()).toEqual(['Plan 1'])
+    })
+
+    it('switchPlan records the choice when the sync already moved onto that plan', () => {
+      createPlan()
+      const gone = index().activePlanId
+      const first = idOf('Plan 1')
+      otherTabDeletes(gone)
+      otherTabIndex(s => ({ ...s, activePlanId: 'other' }))
+      expect(switchPlan(first)).toEqual({ type: 'ok' })
+      expect(readIndex('nullius').activePlanId).toBe(first)
+    })
+  })
+
+  describe('custom upload removed by another tab', () => {
+    it('does not write the index or plan keys back', () => {
+      unsub()
+      usePlansStore.setState({ sourceId: null, index: null })
+      useGameDataStore.setState({ status: { type: 'empty' } })
+      unsub = initAppStatePersistence()
+      useGameDataStore.setState({ status: loadedStatus('custom:x') })
+      const id = index().activePlanId
+      removeCustomPlans()
+      expect(createPlan()).toEqual({ type: 'ok' })
+      useBlockStore.setState({ blocks: [makeEmptyBlock('Edited')] })
+      expect(Object.keys(store).filter(k => k.includes('custom:x'))).toEqual([])
+      expect(store[planKey('custom:x', id)]).toBeUndefined()
+    })
+  })
+
+  describe('storage listener', () => {
+    type Handler = (e: { storageArea: unknown; key: string | null }) => void
+    const original = (globalThis as { window?: unknown }).window
+    let handler: Handler
+    let add: ReturnType<typeof vi.fn>
+    let remove: ReturnType<typeof vi.fn>
+    let off: () => void
+
+    beforeEach(() => {
+      unsub()
+      add = vi.fn((_type: string, h: Handler) => { handler = h })
+      remove = vi.fn()
+      ;(globalThis as { window?: unknown }).window = { addEventListener: add, removeEventListener: remove }
+      usePlansStore.setState({ sourceId: null, index: null })
+      off = initAppStatePersistence()
+      unsub = off
+    })
+    afterEach(() => {
+      if (original === undefined) delete (globalThis as { window?: unknown }).window
+      else (globalThis as { window?: unknown }).window = original
+    })
+
+    it('registers on init and unregisters on cleanup', () => {
+      expect(add).toHaveBeenCalledWith('storage', expect.any(Function))
+      off()
+      expect(remove).toHaveBeenCalledWith('storage', handler)
+    })
+
+    it('merges on an event for the index key only', () => {
+      otherTabCreates('x', 'Plan 2')
+      handler({ storageArea: localStorageMock, key: planIndexKey('seablock') })
+      handler({ storageArea: localStorageMock, key: null })
+      handler({ storageArea: {}, key: planIndexKey('nullius') })
+      expect(names()).toEqual(['Plan 1'])
+      handler({ storageArea: localStorageMock, key: planIndexKey('nullius') })
+      expect(names()).toEqual(['Plan 1', 'Plan 2'])
+    })
   })
 })
 

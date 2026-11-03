@@ -4,7 +4,10 @@ import type { PlanEntry, PlanIndex } from '../data/types'
 export interface PlansState {
   /** Normalised id of the data set whose plans are listed; null until one is active. */
   sourceId: string | null
-  /** That data set's plans and its active plan; null until a data set is active. */
+  /**
+   * That data set's plans and this tab's active plan; null until a data set is active.
+   * The list is kept in step with the stored one when other tabs change it.
+   */
   index: PlanIndex | null
 }
 
