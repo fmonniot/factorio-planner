@@ -813,6 +813,126 @@ describe('multiple tabs', () => {
     expect(useBlockStore.getState().blocks[0].name).toBe('Fresh')
   })
 
+  /** Make storage refuse writes to the index key (quota exceeded) until the returned function is called. */
+  function refuseIndexWrites(): () => void {
+    localStorageMock.setItem.mockImplementation((key: string, value: string) => {
+      if (key.startsWith('factorio-planner:plan-index:')) throw new DOMException('full', 'QuotaExceededError')
+      store[key] = value
+    })
+    return () => localStorageMock.setItem.mockImplementation((key: string, value: string) => { store[key] = value })
+  }
+
+  describe('memory-only plans', () => {
+    it('keeps a plan whose index write was refused, and lists it once a write succeeds', () => {
+      const allow = refuseIndexWrites()
+      createPlan()
+      const created = index().activePlanId
+      expect(readIndex('nullius').plans.map(p => p.id)).not.toContain(created)
+      syncPlanIndex()
+      expect(index().activePlanId, 'still on the new plan').toBe(created)
+      expect(names()).toEqual(['Plan 1', 'Plan 2'])
+      allow()
+      renamePlan(created, 'Kept')
+      expect(readIndex('nullius').plans.map(p => p.name)).toEqual(['Plan 1', 'Kept'])
+      otherTabDeletes(created)
+      syncPlanIndex()
+      expect(index().activePlanId, 'now a normal stored plan: deleted elsewhere').not.toBe(created)
+    })
+
+    it('keeps the replacement "Plan 1" of a refused deletePlan', () => {
+      const only = index().activePlanId
+      const allow = refuseIndexWrites()
+      deletePlan(only)
+      const replacement = index().activePlanId
+      expect(replacement).not.toBe(only)
+      syncPlanIndex()
+      expect(index().activePlanId).toBe(replacement)
+      allow()
+    })
+
+    it('keeps a migrated legacy plan that could only be kept in memory', () => {
+      unsub()
+      localStorageMock.clear()
+      store[planIndexKey('nullius')] = JSON.stringify({ activePlanId: 'p1', plans: [{ id: 'p1', name: 'P1' }] })
+      store[planKey('nullius', 'p1')] = JSON.stringify(selectAppState(useBlockStore.getState()))
+      storePlan('nullius', 'Legacy')
+      usePlansStore.setState({ sourceId: null, index: null })
+      useGameDataStore.setState({ status: { type: 'empty' } })
+      unsub = initAppStatePersistence()
+      const allow = refuseIndexWrites()
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      allow()
+      expect(names()).toEqual(['P1', 'Plan 2'])
+      const migrated = index().activePlanId
+      syncPlanIndex()
+      expect(index().activePlanId).toBe(migrated)
+      expect(useBlockStore.getState().blocks[0].name).toBe('Legacy')
+    })
+  })
+
+  describe('stale tab', () => {
+    it('does not recreate a plan key deleted elsewhere when autosaving', () => {
+      createPlan()
+      const gone = index().activePlanId
+      otherTabDeletes(gone)
+      useBlockStore.setState({ blocks: [makeEmptyBlock('Edited')] })
+      expect(store[planKey('nullius', gone)], 'no orphan key').toBeUndefined()
+      expect(index().activePlanId).not.toBe(gone)
+    })
+
+    it('catches up when game data finishes re-loading for the same data set', () => {
+      createPlan()
+      const gone = index().activePlanId
+      useGameDataStore.setState({ status: { type: 'loading' } as never })
+      otherTabDeletes(gone)
+      syncPlanIndex()
+      expect(index().activePlanId, 'skipped while loading').toBe(gone)
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      expect(index().activePlanId).not.toBe(gone)
+    })
+
+    it('does not sync under an error status', () => {
+      otherTabCreates('x', 'Plan 2')
+      useGameDataStore.setState({ status: { type: 'error' } as never })
+      expect(syncPlanIndex()).toBeNull()
+      expect(names()).toEqual(['Plan 1'])
+    })
+
+    it('duplicatePlan refuses when the active plan was deleted elsewhere', () => {
+      createPlan()
+      const gone = index().activePlanId
+      otherTabDeletes(gone)
+      expect(duplicatePlan()).toEqual({ type: 'error', message: expect.stringContaining('no longer exists') })
+      expect(names()).toEqual(['Plan 1'])
+    })
+
+    it('switchPlan records the choice when the sync already moved onto that plan', () => {
+      createPlan()
+      const gone = index().activePlanId
+      const first = idOf('Plan 1')
+      otherTabDeletes(gone)
+      otherTabIndex(s => ({ ...s, activePlanId: 'other' }))
+      expect(switchPlan(first)).toEqual({ type: 'ok' })
+      expect(readIndex('nullius').activePlanId).toBe(first)
+    })
+  })
+
+  describe('custom upload removed by another tab', () => {
+    it('does not write the index or plan keys back', () => {
+      unsub()
+      usePlansStore.setState({ sourceId: null, index: null })
+      useGameDataStore.setState({ status: { type: 'empty' } })
+      unsub = initAppStatePersistence()
+      useGameDataStore.setState({ status: loadedStatus('custom:x') })
+      const id = index().activePlanId
+      removeCustomPlans()
+      expect(createPlan()).toEqual({ type: 'ok' })
+      useBlockStore.setState({ blocks: [makeEmptyBlock('Edited')] })
+      expect(Object.keys(store).filter(k => k.includes('custom:x'))).toEqual([])
+      expect(store[planKey('custom:x', id)]).toBeUndefined()
+    })
+  })
+
   describe('storage listener', () => {
     type Handler = (e: { storageArea: unknown; key: string | null }) => void
     const original = (globalThis as { window?: unknown }).window

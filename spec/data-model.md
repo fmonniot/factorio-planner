@@ -460,7 +460,13 @@ before acting, and a `storage` event on the index key triggers the same merge: t
 and names win (plans another tab created appear, plans it deleted disappear). Each tab keeps its own
 active plan; the stored `activePlanId` is that of the last tab that switched, and renaming or deleting
 another plan leaves it alone. A tab whose active plan was deleted elsewhere switches to the next (else
-previous) plan, dropping unsaved edits. An unreadable or removed index is only handled at activation.
+previous) plan; edits are autosaved, and the autosave syncs first so it never recreates the deleted
+plan's key. The sync only runs while the data set is loaded and matches the tab's list. Plans that
+storage refused to list (quota exceeded) stay in this tab's memory until a later index write succeeds,
+and are not treated as deleted elsewhere. An unreadable index is only recovered at activation; a
+removed custom-upload index means another tab replaced the upload, and this tab then stops writing that
+data set's keys. Limitations: a plan deleted here while storage refuses the index write reappears at
+the next sync, and work in a memory-only plan is lost if the tab closes before a write succeeds.
 
 Known limitations: the same plan open in two tabs is last write wins, and `storage` events on plan keys
 are not observed. A migrated old plan is copied as-is, without
