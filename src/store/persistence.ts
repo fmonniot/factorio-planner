@@ -12,7 +12,9 @@ import type { AppState, GameData, PlanDataSetStamp, PlanEntry, PlanIndex, SubPla
 // Each data set holds several plans: an index key (plan names and the active
 // plan) plus one key per plan. The key the autosave writes to is derived from
 // usePlansStore, so switching plans means moving the active plan id there
-// before the block store is replaced.
+// before the block store is replaced. Several tabs share the index: every plan
+// action first merges the stored list into the tab's (syncPlanIndex), and the
+// stored active plan id is the last tab's that switched.
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -225,12 +227,15 @@ function freshEntry(name: string): PlanEntry {
   return { id: crypto.randomUUID(), name }
 }
 
-/** Write the in-memory index; false when storage refused it. */
-function writeIndex(): boolean {
+/**
+ * Write the in-memory plan list; false when storage refused it. `activeHint`
+ * replaces the stored active plan id (the list itself is always this tab's).
+ */
+function writeIndex(activeHint?: string): boolean {
   const { sourceId, index } = usePlansStore.getState()
   if (sourceId === null || index === null) return false
   try {
-    localStorage.setItem(planIndexKey(sourceId), JSON.stringify(index))
+    localStorage.setItem(planIndexKey(sourceId), JSON.stringify(activeHint === undefined ? index : { ...index, activePlanId: activeHint }))
     return true
   } catch {
     return false
@@ -261,6 +266,16 @@ function recoverIndex(sourceId: string): PlanIndex | null {
   return normalizeIndex({ activePlanId: '', plans: ids.map((id, i) => ({ id, name: `Plan ${i + 1}` })) })
 }
 
+/** Parse and normalise a stored index; null when it is unreadable or lists no plan. */
+function parseStoredIndex(raw: string): PlanIndex | null {
+  try {
+    return normalizeIndex(parsePlanIndex(JSON.parse(raw) as unknown))
+  } catch (err) {
+    if (!(err instanceof SyntaxError || err instanceof AppStateLoadError)) throw err
+    return null
+  }
+}
+
 /** The stored index of a data set; null when there is none (an unreadable one is quarantined and rebuilt from the plan keys). */
 function readIndex(sourceId: string): PlanIndex | null {
   const key = planIndexKey(sourceId)
@@ -271,12 +286,8 @@ function readIndex(sourceId: string): PlanIndex | null {
     return null // localStorage unavailable: nothing to restore or protect.
   }
   if (raw === null) return null
-  try {
-    const index = normalizeIndex(parsePlanIndex(JSON.parse(raw) as unknown))
-    if (index) return index
-  } catch (err) {
-    if (!(err instanceof SyntaxError || err instanceof AppStateLoadError)) throw err
-  }
+  const index = parseStoredIndex(raw)
+  if (index) return index
   quarantine(key, raw)
   return recoverIndex(sourceId)
 }
@@ -424,16 +435,73 @@ function guardActive(sourceId?: string): LoadAppStateResult | null {
   return null
 }
 
+/**
+ * Merge the plan list stored by other tabs into this tab's. The stored list
+ * (membership, order, names) wins, so a plan missing from it was deleted
+ * elsewhere. The active plan is per tab: it only changes when another tab
+ * deleted it, and then the next (else previous) surviving plan is loaded
+ * without saving the deleted one. Does nothing without a readable stored
+ * index (an unreadable one is only recovered at activation) or while game
+ * data is loading, and never writes the index.
+ */
+export function syncPlanIndex(): void {
+  const { sourceId, index } = usePlansStore.getState()
+  if (sourceId === null || index === null) return
+  if (useGameDataStore.getState().status.type === 'loading') return
+  let raw: string | null
+  try {
+    raw = localStorage.getItem(planIndexKey(sourceId))
+  } catch {
+    return
+  }
+  if (raw === null) return
+  const stored = parseStoredIndex(raw)
+  if (stored === null) return
+
+  const listed = new Set(stored.plans.map(p => p.id))
+  const activeDeleted = !listed.has(index.activePlanId)
+  let activePlanId = index.activePlanId
+  if (activeDeleted) {
+    const at = index.plans.findIndex(p => p.id === activePlanId)
+    const around = [...index.plans.slice(at + 1), ...index.plans.slice(0, at).reverse()]
+    activePlanId = (around.find(p => listed.has(p.id)) ?? stored.plans[0]).id
+  }
+  const unchanged =
+    !activeDeleted &&
+    stored.plans.length === index.plans.length &&
+    stored.plans.every((p, i) => p.id === index.plans[i].id && p.name === index.plans[i].name)
+  if (unchanged) return
+  usePlansStore.setState({ index: { plans: stored.plans, activePlanId } })
+  if (activeDeleted) loadActivePlan()
+}
+
+/** The plan list after merging what other tabs stored. */
 function currentIndex(): PlanIndex {
+  syncPlanIndex()
   const { index } = usePlansStore.getState()
   if (index === null) throw new Error('No plan list is active')
   return index
 }
 
-/** Make `plans` the plan list, `activePlanId` the active plan, and persist it. */
-function setIndex(plans: PlanEntry[], activePlanId: string): void {
+/**
+ * Make `plans` the plan list and `activePlanId` this tab's active plan, and
+ * persist it. The stored active plan id is the last tab's that switched, so
+ * it is kept (when still listed) unless `activeChanged`.
+ */
+function commitIndex(plans: PlanEntry[], activePlanId: string, activeChanged: boolean): void {
+  let hint: string | undefined
+  if (!activeChanged) {
+    const { sourceId } = usePlansStore.getState()
+    try {
+      const raw = sourceId === null ? null : localStorage.getItem(planIndexKey(sourceId))
+      const stored = raw === null ? null : parseStoredIndex(raw)
+      if (stored && plans.some(p => p.id === stored.activePlanId)) hint = stored.activePlanId
+    } catch {
+      // localStorage unavailable — write this tab's active plan.
+    }
+  }
   usePlansStore.setState({ index: { plans, activePlanId } })
-  writeIndex()
+  writeIndex(hint)
 }
 
 /** Switch to another plan of the active data set. */
@@ -444,7 +512,7 @@ export function switchPlan(planId: string): LoadAppStateResult {
   if (planId === index.activePlanId) return { type: 'ok' }
   if (!index.plans.some(p => p.id === planId)) return { type: 'error', message: 'That plan no longer exists.' }
   saveAppState()
-  setIndex(index.plans, planId)
+  commitIndex(index.plans, planId, true)
   loadActivePlan()
   return { type: 'ok' }
 }
@@ -456,7 +524,7 @@ export function createPlan(): LoadAppStateResult {
   const index = currentIndex()
   saveAppState()
   const entry = freshEntry(nextPlanName(index))
-  setIndex([...index.plans, entry], entry.id)
+  commitIndex([...index.plans, entry], entry.id, true)
   resetToEmptyPlan()
   return { type: 'ok' }
 }
@@ -470,7 +538,7 @@ export function duplicatePlan(): LoadAppStateResult {
   const copy = clonePlan(selectAppState(useBlockStore.getState()))
   const at = index.plans.findIndex(p => p.id === index.activePlanId)
   const entry = freshEntry(`${index.plans[at].name} (copy)`.slice(0, PLAN_NAME_MAX_LENGTH))
-  setIndex([...index.plans.slice(0, at + 1), entry, ...index.plans.slice(at + 1)], entry.id)
+  commitIndex([...index.plans.slice(0, at + 1), entry, ...index.plans.slice(at + 1)], entry.id, true)
   useBlockStore.getState().setAppState(copy)
   return { type: 'ok' }
 }
@@ -483,7 +551,7 @@ export function renamePlan(planId: string, name: string): LoadAppStateResult {
   const trimmed = name.trim().slice(0, PLAN_NAME_MAX_LENGTH).trim()
   if (trimmed === '') return { type: 'error', message: 'A plan needs a name.' }
   if (!index.plans.some(p => p.id === planId)) return { type: 'error', message: 'That plan no longer exists.' }
-  setIndex(index.plans.map(p => (p.id === planId ? { ...p, name: trimmed } : p)), index.activePlanId)
+  commitIndex(index.plans.map(p => (p.id === planId ? { ...p, name: trimmed } : p)), index.activePlanId, false)
   return { type: 'ok' }
 }
 
@@ -507,7 +575,7 @@ export function deletePlan(planId: string): LoadAppStateResult {
   if (plans.length === 0) plans = [freshEntry('Plan 1')]
   const wasActive = planId === index.activePlanId
   const activePlanId = wasActive ? (plans[at] ?? plans[at - 1] ?? plans[0]).id : index.activePlanId
-  setIndex(plans, activePlanId)
+  commitIndex(plans, activePlanId, wasActive)
   if (wasActive) loadActivePlan()
   return { type: 'ok' }
 }
@@ -523,7 +591,7 @@ export function importPlanAsNew(appState: AppState, sourceId: string, fileName: 
   const index = currentIndex()
   saveAppState()
   const entry = freshEntry(planNameFromFileName(fileName) || nextPlanName(index))
-  setIndex([...index.plans, entry], entry.id)
+  commitIndex([...index.plans, entry], entry.id, true)
   useBlockStore.getState().setAppState(clonePlan(appState))
   return { type: 'ok' }
 }
@@ -535,7 +603,8 @@ export function importPlanAsNew(appState: AppState, sourceId: string, fileName: 
 /**
  * Subscribe to block store changes and auto-save to localStorage on each
  * change, and swap the active plan list whenever a different data set finishes
- * loading. Returns an unsubscribe function for cleanup.
+ * loading, and merge the plan list other tabs write (`storage` events on the
+ * index key). Returns an unsubscribe function for cleanup.
  *
  * Call this once at app startup. No plan is loaded until game data is.
  */
@@ -555,9 +624,16 @@ export function initAppStatePersistence(): () => void {
   const { status } = useGameDataStore.getState()
   if (status.type === 'loaded') activateDataSet(status.sourceId)
 
+  const onStorage = (e: StorageEvent) => {
+    const { sourceId } = usePlansStore.getState()
+    if (sourceId !== null && e.storageArea === localStorage && e.key === planIndexKey(sourceId)) syncPlanIndex()
+  }
+  if (typeof window !== 'undefined') window.addEventListener('storage', onStorage)
+
   return () => {
     unsubBlocks()
     unsubGameData()
+    if (typeof window !== 'undefined') window.removeEventListener('storage', onStorage)
     usePlansStore.setState({ sourceId: null, index: null })
   }
 }

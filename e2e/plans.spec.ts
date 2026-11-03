@@ -4,7 +4,7 @@ import { selectDataset } from './support/appMenu'
 import { loadPlanFixture } from './support/loadPlan'
 import { pane } from './support/summary'
 import {
-  planTrigger, planNames, switchToPlan, renameActivePlan, runPlanAction, deleteActivePlan,
+  planTrigger, planNames, expectPlanNames, switchToPlan, renameActivePlan, runPlanAction, deleteActivePlan,
 } from './support/planMenu'
 
 /** Add a goal of `amount` for the first item in the picker. */
@@ -100,4 +100,39 @@ test('a plan stored in the old single-plan shape is migrated', async ({ page }) 
   const keys = await page.evaluate(() => Object.keys(localStorage))
   expect(keys).not.toContain('factorio-planner:app-state:nullius')
   expect(keys.some(k => k.startsWith('factorio-planner:plan-index:nullius'))).toBe(true)
+})
+
+test.describe('two tabs', () => {
+  test('plan list changes reach the other tab and active plans stay per tab', async ({ page, context }) => {
+    await page.goto('/')
+    await page.evaluate(() => localStorage.clear())
+    await page.reload()
+    await selectDataset(page, 'Nullius')
+    await expectPlan(page, 'Plan 1')
+    const other = await context.newPage()
+    await other.goto('/')
+    await expectPlan(other, 'Plan 1')
+
+    await runPlanAction(page, 'New plan')
+    await expectPlan(page, 'Plan 2')
+    await expectPlanNames(other, ['Plan 1', 'Plan 2'])
+    await expectPlan(other, 'Plan 1')
+
+    await renameActivePlan(other, 'Mine')
+    await page.reload()
+    await expectPlanNames(page, ['Mine', 'Plan 2'])
+
+    await deleteActivePlan(page)
+    await expectPlan(page, 'Mine')
+    await expectPlanNames(other, ['Mine'])
+    await expectPlan(other, 'Mine')
+    await runPlanAction(other, 'New plan')
+    await expectPlan(other, 'Plan 2')
+    await expectPlanNames(page, ['Mine', 'Plan 2'])
+
+    await switchToPlan(page, 'Plan 2')
+    await deleteActivePlan(page)
+    await expectPlan(page, 'Mine')
+    await expectPlan(other, 'Mine')
+  })
 })

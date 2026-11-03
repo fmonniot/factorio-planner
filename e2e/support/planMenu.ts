@@ -16,6 +16,9 @@ export async function planNames(page: Page): Promise<string[]> {
   return names.map(n => n.replace('✓', '').trim())
 }
 
+/** Wait until the plan names match (for changes made by another tab). */
+export const expectPlanNames = (page: Page, names: string[]) => expect.poll(() => planNames(page)).toEqual(names)
+
 export async function switchToPlan(page: Page, name: string): Promise<void> {
   const menu = await openPlanMenu(page)
   await menu.getByRole('menuitemradio', { name, exact: true }).click()
