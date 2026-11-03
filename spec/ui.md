@@ -270,7 +270,7 @@ one is what it exports, and a residual within the solver's surplus tolerance is 
 nothing. Each row carries `data-item-id`, each cell `data-col` (the area id, or
 `from-outside` / `to-outside`), `data-rate` (items/min, signed) and `data-sign`.
 Columns are in **Flow order** (senders left of receivers: a greedy ordering of the
-allocated area-to-area flows, ties and cycles resolved in table order) or **Table order**.
+the solver's area-to-area routes, ties and cycles resolved in table order) or **Table order**.
 Each area header is a button (`aria-pressed`, title "Focus <area>") with the name and its
 number of recipe rows.
 
@@ -309,14 +309,7 @@ sub-factory row (expanding the sub-factories above it and flashing it, as **Go t
 in…** does; the area row itself is not expanded), then closes the modal; for "Top level"
 it only switches the block.
 
-**Counterpart figures are an allocation.** The solver has pools per item and no routes
-between areas, so who sends how much to whom is not known. For display, each sender's
-output is split between the receivers pro rata to what each receives (the outside is a
-sender for what the block imports and a receiver for what it exports): the sender `s`
-gives receiver `t` the amount `send(s) × receive(t) / Σ receive`. Per sender the parts
-add up to what it sends. The tooltips of counterpart cells say so, and the Flow order
-uses the same allocation. The figures are an allocation for display; the solver has no
-routes between areas.
+**Counterpart figures are the solver's routes.** They come from `SolverResult.areaRoutes`, kept per row in `MatrixRow.pairs` (an absent end is the outside). The totals and the permissions are exact: per sender the parts add up to what it sends, and an area with its own row for an item is not handed another area's dedicated output beyond its allowed shortfall. Where the solver is indifferent between suppliers, the area higher in the table supplies first. The tooltips of counterpart cells state that rule, and the Flow order uses the same routes.
 
 **All blocks** (`AllBlocksMatrix.tsx`, built by `planAreaMatrix.ts`). Items are rows and
 each block is a column group. Under **Only items that cross a block boundary** (on by

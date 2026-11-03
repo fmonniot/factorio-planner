@@ -83,12 +83,22 @@ export interface SolvedArea {
   sends: AreaFlow[]
 }
 
+/** Items/min of one item from one party to another in a block with areas; an absent end is outside the block. */
+export interface AreaRoute {
+  itemId: string
+  from?: string
+  to?: string
+  rate: number
+}
+
 export interface SolverResult {
   nodes: SolvedNode[]
   unsatisfied: UnsatisfiedItem[]
   warnings: SolverWarning[]
   /** Present only when the block has a separate area, in table order (the root first). */
   areas?: SolvedArea[]
+  /** Present exactly when `areas` is; sorted by item id, sender rank, receiver rank (outside last). */
+  areaRoutes?: AreaRoute[]
 }
 
 // ---------------------------------------------------------------------------

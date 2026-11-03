@@ -30,6 +30,9 @@ export interface BlockAreaMatrixProps {
   onOpenArea: (area: MatrixArea) => void
 }
 
+/** Appended to the counterpart tooltips: how the solver pairs senders and receivers. */
+const RULE = 'Where several areas could supply it, the one higher in the table does first.'
+
 const SEND = 'bg-sky-400/15 text-sky-300'
 const RECEIVE = 'bg-orange-400/15 text-orange-300'
 const OUTSIDE_COL = 'border-x border-dashed border-gray-600'
@@ -107,7 +110,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const hiddenCount = focus ? matrix.areas.length - 1 - focus.tradingAreaIds.length : 0
   const items = gameData.items
 
-  /** What a cell shows: the area's signed net, or in counterpart mode the allocated part with the focus. */
+  /** What a cell shows: the area's signed net, or in counterpart mode the part that goes between it and the focus. */
   function cellValue(row: MatrixRow, areaId: string): { text: string; kind: 'send' | 'receive'; counterpart: boolean; title?: string } | null {
     const v = row.cells[areaId] ?? 0
     if (counterpartMode && focus && areaId !== focus.areaId) {
@@ -123,8 +126,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
         kind: sends ? 'send' : 'receive',
         counterpart: true,
         title: sends
-          ? `${area} sends ${per} of ${item} to ${focusedArea!.name} (allocated in proportion to what each area sends)`
-          : `${focusedArea!.name} sends ${per} of ${item} to ${area} (allocated in proportion to what each area takes)`,
+          ? `${area} sends ${per} of ${item} to ${focusedArea!.name}. ${RULE}`
+          : `${focusedArea!.name} sends ${per} of ${item} to ${area}. ${RULE}`,
       }
     }
     if (v === 0) return null
@@ -450,7 +453,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
       </section>
 
       <p className="text-[11px] text-gray-500">
-        Counterpart cells read {'“'}13.8 {'→'}{'”'}: the part of that area{'’'}s output allocated to the focused area.
+        Counterpart cells read {'“'}13.8 {'→'}{'”'}: the part of that area{'’'}s output that goes to the focused area.
       </p>
     </aside>
   )

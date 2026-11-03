@@ -252,6 +252,16 @@ describe('solver on the real Nullius data', () => {
     expect(nodeOf(r, 'electrolysis-compression').throughput).toBeGreaterThan(0)
     const received = r.areas!.find(a => a.areaId === 'compression')!.receives
     expect(received.find(f => f.itemId === 'nullius-hydrogen')).toBeUndefined()
+    // Nobody trades hydrogen: each area imports its own steam and ships its products out of the block.
+    const routes = r.areaRoutes!
+    expect(routes.find(x => x.itemId === 'nullius-steam' && x.to === 'compression')).toMatchObject({ rate: expect.closeTo(2400, 4) })
+    expect(routes.every(x => x.from === undefined || x.to === undefined)).toBe(true)
+    for (const a of r.areas!) {
+      for (const f of [...a.sends, ...a.receives]) {
+        const mine = routes.filter(x => x.itemId === f.itemId && (a.sends.includes(f) ? x.from : x.to) === a.areaId)
+        expect(mine.reduce((n, x) => n + x.rate, 0)).toBeCloseTo(f.rate, 4)
+      }
+    }
   })
 })
 

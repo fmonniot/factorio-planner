@@ -10,8 +10,8 @@ import { areaName } from '../../data/subPlanTree'
 // which is exactly what the solver reports per area (`SolvedArea.sends/receives`); the outside
 // columns are the residual that balances the row.
 //
-// Who sends to whom is NOT known to the solver (its pools are per item), so `rowPairs` allocates
-// each sender's output to the receivers pro rata. It is an allocation for display only.
+// Who sends to whom comes from the solver's routes (`SolverResult.areaRoutes`), kept per row in
+// `MatrixRow.pairs`.
 // ---------------------------------------------------------------------------
 
 /** Party id of the block boundary in pair flows. */
@@ -50,6 +50,8 @@ export interface MatrixRow {
   toOutside: number
   /** Σ sends + fromOutside (= Σ receives + toOutside) */
   total: number
+  /** the solver's routes of this item, outside as OUTSIDE; empty when the result has none */
+  pairs: PairFlow[]
 }
 
 export interface BlockMatrix {
@@ -158,6 +160,13 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
     for (const f of a.receives) add(f.itemId, a.areaId, -f.rate)
   }
 
+  const pairsOf = new Map<string, PairFlow[]>()
+  for (const r of result.areaRoutes ?? []) {
+    const list = pairsOf.get(r.itemId) ?? []
+    list.push({ from: r.from ?? OUTSIDE, to: r.to ?? OUTSIDE, rate: r.rate })
+    pairsOf.set(r.itemId, list)
+  }
+
   const rows: MatrixRow[] = []
   for (const [itemId, cells] of cellsOf) {
     let pos = 0
@@ -178,35 +187,11 @@ export function blockMatrix(block: Block, result: SolverResult, gameData: GameDa
       fromOutside,
       toOutside,
       total: pos + fromOutside,
+      pairs: pairsOf.get(itemId) ?? [],
     })
   }
   rows.sort(byTotalThenName)
   return { blockId: block.id, blockName: block.name, color: block.color, areas, rows }
-}
-
-/**
- * Who sends how much to whom, allocated pro rata: a sender's output is split over the receivers in
- * proportion to what each takes. The outside is a sender (`fromOutside`) and a receiver (`toOutside`).
- */
-export function rowPairs(row: MatrixRow): PairFlow[] {
-  const sources: [string, number][] = []
-  const sinks: [string, number][] = []
-  for (const [id, v] of Object.entries(row.cells)) {
-    if (v > 0) sources.push([id, v])
-    else if (v < 0) sinks.push([id, -v])
-  }
-  if (row.fromOutside > 0) sources.push([OUTSIDE, row.fromOutside])
-  if (row.toOutside > 0) sinks.push([OUTSIDE, row.toOutside])
-  const T = sinks.reduce((n, [, v]) => n + v, 0)
-  if (T <= 0) return []
-  const pairs: PairFlow[] = []
-  for (const [from, src] of sources) {
-    for (const [to, sink] of sinks) {
-      const rate = (src * sink) / T
-      if (rate > 1e-9) pairs.push({ from, to, rate })
-    }
-  }
-  return pairs
 }
 
 /** Area ids ordered so that flows mostly go left to right (a greedy feedback-arc ordering). */
@@ -215,7 +200,7 @@ export function flowOrder(m: BlockMatrix): string[] {
   const w = new Map<string, number>()
   const key = (a: string, b: string) => `${a}\u0000${b}`
   for (const row of m.rows) {
-    for (const p of rowPairs(row)) {
+    for (const p of row.pairs) {
       if (p.from === OUTSIDE || p.to === OUTSIDE) continue
       w.set(key(p.from, p.to), (w.get(key(p.from, p.to)) ?? 0) + p.rate)
     }
@@ -294,14 +279,14 @@ export interface FocusView {
   areaId: string
   /** the rows where the area has a cell */
   rows: MatrixRow[]
-  /** itemId -> partyId -> rate (allocated) between the focus and that party, either direction */
+  /** itemId -> partyId -> rate (from the solver's routes) between the focus and that party, either direction */
   counterpart: Record<string, Record<string, number>>
   tradingAreaIds: string[]
   /** `inRate` is what the party sends the focus, `outRate` what the focus sends the party */
   trades: { partyId: string; items: number; inRate: number; outRate: number }[]
 }
 
-/** What one area trades: its rows, the allocated counterpart of each, and who it trades with. */
+/** What one area trades: its rows, the counterpart of each, and who it trades with. */
 export function focusArea(m: BlockMatrix, areaId: string): FocusView {
   const rows = m.rows.filter(r => (r.cells[areaId] ?? 0) !== 0)
   const counterpart: Record<string, Record<string, number>> = {}
@@ -313,7 +298,7 @@ export function focusArea(m: BlockMatrix, areaId: string): FocusView {
   }
   for (const row of rows) {
     const per: Record<string, number> = {}
-    for (const p of rowPairs(row)) {
+    for (const p of row.pairs) {
       if (p.from === areaId) {
         per[p.to] = (per[p.to] ?? 0) + p.rate
         const t = entry(p.to)

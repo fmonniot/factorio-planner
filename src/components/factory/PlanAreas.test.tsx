@@ -51,6 +51,10 @@ const areasResult = (id: string, extra: string[] = []): SolverResult => ({
     { areaId: `${id}-root`, receives: [], sends: [flow('h2'), ...extra.map(e => flow(e, 5))] },
     { areaId: `${id}-p`, receives: [flow('h2'), ...extra.map(e => flow(e, 5))], sends: [] },
   ],
+  areaRoutes: [
+    { itemId: 'h2', from: `${id}-root`, to: `${id}-p`, rate: 60 },
+    ...extra.map(e => ({ itemId: e, from: `${id}-root`, to: `${id}-p`, rate: 5 })),
+  ],
 })
 
 function setup(withAreas = true, extra: string[] = []) {
@@ -152,7 +156,11 @@ describe('PlanAreasModal', () => {
     expect(header).toHaveAttribute('aria-pressed', 'true')
     const panel = screen.getByRole('complementary', { name: 'Plastics' })
     expect(within(panel).getByText(/Area in Alpha/)).toBeInTheDocument()
-    expect(table('Alpha').querySelector('tr[data-item-id="h2"] td[data-col="A-root"]')).toHaveAttribute('data-counterpart', 'true')
+    const counterpart = table('Alpha').querySelector('tr[data-item-id="h2"] td[data-col="A-root"]')!
+    expect(counterpart).toHaveAttribute('data-counterpart', 'true')
+    const tip = counterpart.querySelector('[title]')?.getAttribute('title') ?? counterpart.getAttribute('title') ?? ''
+    expect(tip).toContain('Where several areas could supply it, the one higher in the table does first.')
+    expect(tip).not.toContain('allocated')
     fireEvent.click(within(panel).getByRole('button', { name: 'Stop focusing Plastics' }))
     expect(screen.queryByRole('complementary')).toBeNull()
   })
