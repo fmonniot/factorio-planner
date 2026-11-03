@@ -216,7 +216,9 @@ test.describe('Power generation', () => {
       els => els.map(e => e.getAttribute('data-recipe-id') ?? ''),
     )
     expect(recipeIds).toContain('power:steam-engine:steam')
-    await expect(page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]')).toBeVisible()
+    const boilerGroup = page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]')
+    await expect(boilerGroup).toBeVisible()
+    await expect(boilerGroup).toHaveAttribute('data-recipe-count', '3')
     await page.getByRole('button', { name: 'Close' }).click()
 
     await page.getByTitle('Add product').click()

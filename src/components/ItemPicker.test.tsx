@@ -556,6 +556,50 @@ describe('ItemPicker — fuel groups', () => {
     expect(groupSlot('boiler')).toBeDefined()
   })
 
+  it('clears the hover when a search closes the fuel view under a hovered fuel', () => {
+    renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    fireEvent.mouseEnter(screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')!)
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    search('Boiler (Wood)')
+    expect(screen.queryByTestId('recipe-fuel-view')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('recipe-detail-panel')).not.toBeInTheDocument()
+  })
+
+  it('keeps one reachable group when a machine spans several subgroups', () => {
+    const data = fixtureWithBoilerFuels()
+    data.recipes['power:boiler:wood'].subgroup = 'power:generators'
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    renderPower()
+    expect(screen.getAllByTestId('recipe-group-slot').filter(s => s.getAttribute('data-machine-id') === 'boiler')).toHaveLength(1)
+    expect(groupSlot('boiler')).toHaveAttribute('data-recipe-count', '3')
+    fireEvent.click(groupSlot('boiler')!)
+    expect(within(screen.getByTestId('recipe-fuel-grid')).getAllByTestId('recipe-slot')).toHaveLength(3)
+  })
+
+  it('focuses Back in the fuel view and lets Escape step back instead of closing', () => {
+    const { onClose } = renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    expect(screen.getByTestId('recipe-fuel-back')).toHaveFocus()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('recipe-fuel-view')).not.toBeInTheDocument()
+    expect(groupSlot('boiler')).toBeDefined()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('names a fuel without an icon in text instead of showing the machine icon', () => {
+    const data = fixtureWithBoilerFuels()
+    data.items['wood'].iconPath = ''
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    const wood = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')!
+    expect(wood.querySelector('img')).toBeNull()
+    expect(wood).toHaveTextContent('Wood')
+  })
+
   it('opening a group clears a stale hover', () => {
     renderPower()
     fireEvent.mouseEnter(screen.getByTestId('recipe-slot'))

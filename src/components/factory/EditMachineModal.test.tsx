@@ -814,6 +814,15 @@ describe('EditMachineModal — per-fuel power recipes in the Alternate recipe li
       .toEqual(['power:boiler-2:coal', 'power:boiler-2:wood'])
   })
 
+  it('labels a group with a neutral recipe count and scrolls the expanded fuels into view', () => {
+    const scroll = vi.fn()
+    Element.prototype.scrollIntoView = scroll
+    renderBoiler()
+    expect(groupCount('boiler')).toHaveTextContent('(2 recipes)')
+    fireEvent.click(groupCount('boiler')!)
+    expect(scroll).toHaveBeenCalledWith({ block: 'nearest' })
+  })
+
   it('switches the row to the chosen fuel, resets its machine and modules, and closes the popup', () => {
     renderBoiler()
     fireEvent.click(groupCount('boiler')!)

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -65,6 +65,11 @@ function AlternateRecipeList({ entries, gameData, onSelect }: {
   onSelect: (recipeId: string) => void
 }) {
   const [openMachineId, setOpenMachineId] = useState<string | null>(null)
+  const openRef = useRef<HTMLDivElement>(null)
+  // The list sits inside a short scroll area: bring the expanded fuels into view.
+  useEffect(() => {
+    if (openMachineId) openRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [openMachineId])
   return (
     <>
       {entries.map(e => {
@@ -98,11 +103,11 @@ function AlternateRecipeList({ entries, gameData, onSelect }: {
                 <Icon iconPath={machine.iconPath} alt={machine.name} className="w-5 h-5 object-contain shrink-0" />
               )}
               <span className="flex-1">{machine?.name ?? e.machineId}</span>
-              <span className="text-gray-500">({e.recipes.length} fuels)</span>
+              <span className="text-gray-500">({e.recipes.length} recipes)</span>
               <span className="text-gray-500">{open ? '▾' : '▸'}</span>
             </button>
             {open && (
-              <div className="ml-3 border-l border-gray-700 pl-1">
+              <div ref={openRef} className="ml-3 border-l border-gray-700 pl-1">
                 {e.recipes.map(r => {
                   const fuel = gameData.items[powerInputItemId(r) ?? '']
                   return (

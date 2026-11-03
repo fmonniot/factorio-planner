@@ -177,21 +177,23 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
 // ---------------------------------------------------------------------------
 
 function PickerFrame({
-  onClose, sidePanel, children, width = 'w-[32rem]',
+  onClose, onEscape, sidePanel, children, width = 'w-[32rem]',
 }: {
   onClose: () => void
+  /** Escape steps back instead of closing (a drill-in view is open). */
+  onEscape?: () => void
   sidePanel?: React.ReactNode
   children: React.ReactNode
   width?: string
 }) {
-  // Close on Escape.
+  // Close on Escape (or step back one level when the caller has a drill-in view open).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key === 'Escape') (onEscape ?? onClose)()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose])
+  }, [onClose, onEscape])
 
   return (
     <div
@@ -235,6 +237,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   // The machine whose fuels are listed in place of the groups (the drill-in fuel view).
   const [openMachineId, setOpenMachineId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
+  const backRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
@@ -291,15 +294,21 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
     for (const arr of bySubgroup.values()) {
       arr.sort((a, b) => (a.order || a.name).localeCompare(b.order || b.name))
     }
+    const sortedBuckets = [...bySubgroup.entries()].sort((a, b) => {
+      const aOrder = subgroups[a[0]]?.order ?? a[0]
+      const bOrder = subgroups[b[0]]?.order ?? b[0]
+      return aOrder.localeCompare(bOrder)
+    })
     // Power recipes of one machine (one per fuel) collapse into a fuel group; this runs after filtering,
-    // so a search or item filter that leaves a single fuel gives a plain slot.
-    return [...bySubgroup.entries()]
-      .sort((a, b) => {
-        const aOrder = subgroups[a[0]]?.order ?? a[0]
-        const bOrder = subgroups[b[0]]?.order ?? b[0]
-        return aOrder.localeCompare(bOrder)
-      })
-      .map(([sgId, recipes]): [string, RecipeEntry[]] => [sgId, groupPowerRecipes(recipes)])
+    // so a search or item filter that leaves a single fuel gives a plain slot. It runs over the whole tab,
+    // not per subgroup, so a machine whose recipes span subgroups still has one group; the group sits in
+    // the subgroup of its first recipe.
+    const keyOf = (r: Recipe) => r.subgroup || r.category || '(none)'
+    const rows = new Map<string, RecipeEntry[]>(sortedBuckets.map(([sgId]) => [sgId, []]))
+    for (const e of groupPowerRecipes(sortedBuckets.flatMap(([, recipes]) => recipes))) {
+      rows.get(keyOf(e.kind === 'recipe' ? e.recipe : e.recipes[0]))?.push(e)
+    }
+    return sortedBuckets.map(([sgId]): [string, RecipeEntry[]] => [sgId, rows.get(sgId) ?? []]).filter(([, es]) => es.length > 0)
   }, [filteredRecipes, selectedGroupId, gameData])
 
   // The fuel group being browsed; undefined once a search or tab change leaves fewer than two fuels of it.
@@ -309,7 +318,13 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       )
     : undefined
   // Drop a stale choice so that clearing the search does not reopen the fuel view by surprise.
-  if (openMachineId && !openGroup) setOpenMachineId(null)
+  // The button that was hovered unmounts without a mouseleave, so the hover goes too.
+  if (openMachineId && !openGroup) { setOpenMachineId(null); setHoveredRecipeId(null) }
+
+  // The fuel view unmounts the focused group slot; put focus on Back so Escape and Tab stay in the picker.
+  useEffect(() => { if (openGroup) backRef.current?.focus() }, [openGroup?.machineId]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function closeFuelView() { setHoveredRecipeId(null); setOpenMachineId(null) }
 
   const subtitle = consumesItemId
     ? `Choose a recipe that consumes '${gameData.items[consumesItemId]?.name ?? consumesItemId}'`
@@ -330,7 +345,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
     const machine = r.power ? gameData.machines[r.madeIn[0]] : undefined
     const inputItem = gameData.items[powerInputItemId(r) ?? '']
     // In the fuel view every slot is the same machine, so the fuel is the icon and there is no badge.
-    const mainIcon = opts?.fuelView && inputItem?.iconPath ? inputItem : machine?.iconPath ? machine : product
+    const mainIcon = opts?.fuelView ? inputItem : machine?.iconPath ? machine : product
     const badgeItem = opts?.fuelView ? undefined : inputItem
     // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
     const beyond = !!available && !r.hidden && !available.has(r.id)
@@ -360,7 +375,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       >
         {mainIcon?.iconPath
           ? <Icon iconPath={mainIcon.iconPath} alt={mainIcon.name} className="w-7 h-7 object-contain" />
-          : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
+          : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{(opts?.fuelView ? inputItem?.name ?? r.name : r.name).slice(0, 8)}</span>
         }
         {badgeItem?.iconPath && (
           <Icon
@@ -390,7 +405,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
         data-beyond-horizon={beyond ? 'true' : undefined}
         data-in-area={present ? 'true' : undefined}
         disabled={present}
-        title={present ? `${machineName} (already in ${presentRecipes?.where})` : `${machineName} (${g.recipes.length} fuels)`}
+        title={present ? `${machineName} (already in ${presentRecipes?.where})` : `${machineName} (${g.recipes.length} recipes)`}
         onClick={() => { setHoveredRecipeId(null); setOpenMachineId(g.machineId) }}
         className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
           present
@@ -419,13 +434,14 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
         <div className="flex items-center gap-2">
           <button
             type="button"
+            ref={backRef}
             data-testid="recipe-fuel-back"
-            onClick={() => { setHoveredRecipeId(null); setOpenMachineId(null) }}
+            onClick={closeFuelView}
             className="px-2 py-1 rounded text-xs text-gray-300 bg-gray-800 hover:bg-gray-700"
           >← Back</button>
           {machine?.iconPath && <Icon iconPath={machine.iconPath} alt={machine.name} className="w-6 h-6 object-contain" />}
           <span className="text-sm text-gray-200">{machine?.name ?? g.machineId}</span>
-          <span className="text-sm text-gray-500">Choose a fuel ({g.recipes.length})</span>
+          <span className="text-sm text-gray-500">Choose a recipe ({g.recipes.length})</span>
         </div>
         <div data-testid="recipe-fuel-grid" className="grid grid-cols-10 gap-1">
           {g.recipes.map(r => renderRecipeSlot(r, { fuelView: true }))}
@@ -435,7 +451,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   }
 
   return (
-    <PickerFrame onClose={onClose} sidePanel={sidePanel}>
+    <PickerFrame onClose={onClose} onEscape={openGroup ? closeFuelView : undefined} sidePanel={sidePanel}>
       {/* Header: title + search + close */}
       <div className="p-3 border-b border-gray-700 flex items-center gap-3">
         <h2 className="text-lg font-semibold text-amber-200 shrink-0">Add recipe</h2>
