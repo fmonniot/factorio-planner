@@ -40,6 +40,15 @@ function powerFixture() {
     [{ itemId: 'water', type: 'fluid', amount: 60 }, { itemId: 'coal', type: 'item', amount: 0.45 }],
     [{ itemId: 'steam', type: 'fluid', amount: 60 }], 'steam',
   )
+  // Two more fuels, so the boiler has several recipes and the pickers collapse them into one entry.
+  for (const [id, name, amount] of [['wood', 'Wood', 0.9], ['solid-fuel', 'Solid fuel', 0.3]] as const) {
+    data.items[id] = { id, name, type: 'item', iconPath: '', hidden: false, subgroup: 'intermediate', order: `x-${id}` }
+    data.recipes[`power:boiler:${id}`] = recipe(
+      `power:boiler:${id}`, `Boiler (${name})`, 'power:boiler', 'power:boilers',
+      [{ itemId: 'water', type: 'fluid', amount: 60 }, { itemId: id, type: 'item', amount }],
+      [{ itemId: 'steam', type: 'fluid', amount: 60 }], 'steam',
+    )
+  }
   data.recipes['power:steam-engine:steam'] = recipe(
     'power:steam-engine:steam', 'Steam engine (Steam)', 'power:steam-engine', 'power:generators',
     [{ itemId: 'steam', type: 'fluid', amount: 30, minimumTemperature: 165 }],
@@ -113,6 +122,12 @@ async function addRecipe(page: Page, recipeId: string) {
   await page.locator(`[data-testid="recipe-slot"][data-recipe-id="${recipeId}"]`).click()
 }
 
+/** In the open recipe picker (Power tab), open the boiler's fuel view and pick the recipe for `recipeId`. */
+async function pickBoilerFuel(page: Page, recipeId: string) {
+  await page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]').click()
+  await page.locator(`[data-testid="recipe-slot"][data-recipe-id="${recipeId}"]`).click()
+}
+
 /** Every `pinnedRate` in the plans saved in localStorage. */
 async function storedPinnedRates(page: Page): Promise<number[]> {
   return page.evaluate(() => {
@@ -155,7 +170,7 @@ test.describe('Power generation', () => {
     await expect(page.getByTestId('block-power-total')).toHaveCount(0)
 
     await engine.locator('button[title^="Steam ("]').first().click()
-    await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:boiler:coal"]').click()
+    await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(rows).toHaveCount(2)
     await expect(rows.nth(1).getByTitle('Boiler', { exact: true })).toHaveText(/^\??6$/)
     await expect(slot(page, 'Ingredients', 'Coal')).toHaveAccessibleName('Coal, 150 per minute')
@@ -166,7 +181,7 @@ test.describe('Power generation', () => {
     await addRecipe(page, 'power:steam-engine:steam')
     const engine = page.locator('main table tbody tr').first()
     await engine.locator('button[title^="Steam ("]').first().click()
-    await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:boiler:coal"]').click()
+    await pickBoilerFuel(page, 'power:boiler:coal')
 
     const menu = await openAppMenu(page)
     await menu.getByRole('menuitemradio', { name: '/sec' }).click()
@@ -201,6 +216,9 @@ test.describe('Power generation', () => {
       els => els.map(e => e.getAttribute('data-recipe-id') ?? ''),
     )
     expect(recipeIds).toContain('power:steam-engine:steam')
+    const boilerGroup = page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]')
+    await expect(boilerGroup).toBeVisible()
+    await expect(boilerGroup).toHaveAttribute('data-recipe-count', '3')
     await page.getByRole('button', { name: 'Close' }).click()
 
     await page.getByTitle('Add product').click()
@@ -209,6 +227,49 @@ test.describe('Power generation', () => {
       els => els.map(e => e.getAttribute('data-item-id') ?? ''),
     )
     expect(itemIds).toContain('power:electricity')
+  })
+
+  test('a multi-fuel boiler is one picker slot that opens its fuels', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await page.locator('[data-testid="recipe-group-tab"][data-group-id="power:power"]').click()
+    const group = page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]')
+    await expect(group).toHaveCount(1)
+    await expect(group.getByTestId('recipe-group-count')).toHaveText('3')
+    await expect(page.locator('[data-testid="recipe-slot"][data-recipe-id^="power:boiler:"]')).toHaveCount(0)
+
+    await group.click()
+    await expect(page.getByTestId('recipe-fuel-grid').getByTestId('recipe-slot')).toHaveCount(3)
+    await page.getByTestId('recipe-fuel-back').click()
+    await expect(group).toBeVisible()
+    await expect(page.getByTestId('recipe-fuel-grid')).toHaveCount(0)
+  })
+
+  test('searching for one fuel gives a plain slot that adds the row', async ({ page }) => {
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    await page.getByPlaceholder('Search…').fill('Boiler (Wood)')
+    await expect(page.getByTestId('recipe-group-slot')).toHaveCount(0)
+    await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:boiler:wood"]').click()
+    await expect(page.locator('main table tbody tr')).toHaveCount(1)
+  })
+
+  test('the Edit machine modal swaps a boiler fuel from a collapsed Alternate recipe group', async ({ page }) => {
+    await addElectricityGoal(page, '10')
+    await addRecipe(page, 'power:steam-engine:steam')
+    const rows = page.locator('main table tbody tr')
+    await rows.first().locator('button[title^="Steam ("]').first().click()
+    await pickBoilerFuel(page, 'power:boiler:coal')
+    await expect(slot(page, 'Ingredients', 'Coal')).toBeVisible()
+
+    await rows.nth(1).getByTitle('Boiler', { exact: true }).click()
+    await page.getByText(/machines$/).click()
+    const group = page.locator('[data-testid="alt-recipe-group"][data-machine-id="boiler"]')
+    await expect(group).toHaveAttribute('data-recipe-count', '2')
+    await group.click()
+    await page.locator('[data-testid="alt-recipe-fuel"][data-recipe-id="power:boiler:wood"]').click()
+    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+
+    await expect(slot(page, 'Ingredients', 'Wood')).toBeVisible()
+    await expect(slot(page, 'Ingredients', 'Coal')).toHaveCount(0)
   })
 })
 
