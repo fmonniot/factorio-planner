@@ -336,6 +336,16 @@ describe('the game launch option', () => {
     expect(closed.status).toBeUndefined()
     expect(gameLaunchOption(closed.status)).toBe('--enable-lua-udp 34198')
   })
+
+  it('remembers the reported port across a reconnect and a mistyped port', () => {
+    const open = run(connect(text(status({ gamePort: 40000 }))))
+    expect(open.state.gamePort).toBe(40000)
+    const closed = run([{ type: 'closed' }], open.state).state
+    expect(gameLaunchOption(closed.status, closed.gamePort)).toBe('--enable-lua-udp 40000')
+    const reopened = run([{ type: 'retry' }, { type: 'opened' }, text(status({ gamePort: 'x' }))], closed).state
+    expect(reopened.gamePort).toBe(40000)
+    expect(badgeFor(reopened).detail).toContain('--enable-lua-udp 40000')
+  })
 })
 
 describe('a status that cannot be read', () => {

@@ -329,6 +329,10 @@ impl Queue {
 }
 
 impl Transport for Queue {
+    fn game_port(&self) -> Option<u16> {
+        Some(self.game.port())
+    }
+
     fn send(&mut self, datagram: &[u8]) -> io::Result<()> {
         self.socket.send_to(datagram, self.game).map(|_| ())
     }
@@ -347,7 +351,6 @@ impl Session {
     fn new(queue: Queue, quiet_after: Duration) -> Self {
         let mut bridge = Bridge::new(Instant::now());
         bridge.set_quiet_after(quiet_after);
-        bridge.set_game_port(queue.game.port());
         Self {
             driver: Driver::new(bridge, queue),
             planners: HashMap::new(),

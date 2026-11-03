@@ -25,6 +25,12 @@ pub trait Transport {
     /// # Errors
     /// An I/O error that ends the session.
     fn recv(&mut self) -> io::Result<Option<Vec<u8>>>;
+
+    /// The UDP port datagrams go to, if the transport has one. The driver copies it into the bridge's `status`, so the
+    /// port the bridge advertises is the one it sends to. A transport with no port keeps what the bridge was given.
+    fn game_port(&self) -> Option<u16> {
+        None
+    }
 }
 
 /// What a call to the driver changed.
@@ -106,6 +112,9 @@ impl<T: Transport> Driver<T> {
     }
 
     fn flush(&mut self, now: Instant) -> Step {
+        if let Some(port) = self.transport.game_port() {
+            self.bridge.set_game_port(port);
+        }
         let mut sent = 0;
         while let Some(datagram) = self.bridge.poll_transmit() {
             sent += 1;
@@ -233,6 +242,10 @@ impl Transport for UdpTransport {
     fn recv(&mut self) -> io::Result<Option<Vec<u8>>> {
         self.recv_inner()
     }
+
+    fn game_port(&self) -> Option<u16> {
+        Some(self.game.port())
+    }
 }
 
 #[cfg(test)]
@@ -268,5 +281,15 @@ mod tests {
         let started = Instant::now();
         assert_eq!(transport.recv().unwrap(), None);
         assert!(started.elapsed() < Duration::from_millis(500));
+    }
+
+    #[test]
+    fn the_status_advertises_the_port_the_transport_sends_to() {
+        let transport = UdpTransport::bind(0, 40000).unwrap();
+        let mut driver = Driver::new(Bridge::new(Instant::now()), transport);
+        let step = driver.step(Instant::now()).unwrap();
+        assert_eq!(step.status.unwrap().game_port, 40000);
+        driver.transport_mut().set_game_port(40001);
+        assert_eq!(driver.step(Instant::now()).unwrap().status.unwrap().game_port, 40001);
     }
 }

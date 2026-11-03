@@ -82,7 +82,8 @@ const StatusSchema = z.object({
   type: z.literal('status'),
   protocol: z.number(),
   bridge: z.string().optional(),
-  gamePort: z.number().optional(),
+  // Only a hint for the launch option: a value of the wrong type must not make the whole status unreadable.
+  gamePort: z.number().optional().catch(undefined),
   newest: z.string().optional(),
   mod: ModSchema.optional(),
   transfer: TransferSchema.optional(),

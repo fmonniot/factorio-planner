@@ -58,6 +58,8 @@ export interface ConnectionState {
   status?: BridgeStatus
   /** The first `status` of this socket has been handled (steps 1 to 3 run once per connection). */
   firstStatusSeen: boolean
+  /** The last valid `gamePort` a bridge reported. Kept across reconnects, so the launch option does not flip to the default meanwhile. */
+  gamePort?: number
   /** Set from the first `status`: the bridge's protocol version when it differs from ours. */
   protocolMismatch?: number
   autoSend: boolean
@@ -169,7 +171,7 @@ function deliver(state: ConnectionState, plan: PlanSnapshot, wantSnapshot: boole
 
 /** Steps 1 to 3, on the first `status` of a socket. */
 function firstStatus(state: ConnectionState, status: BridgeStatus): Transition {
-  const seen = { ...state, status, firstStatusSeen: true, statusUnreadable: false }
+  const seen = { ...state, status, gamePort: validPort(status.gamePort) ?? state.gamePort, firstStatusSeen: true, statusUnreadable: false }
   // Step 1: another protocol version. Send nothing and keep the socket open.
   if (status.protocol !== PROTOCOL_VERSION) return { state: { ...seen, protocolMismatch: status.protocol }, actions: [] }
 
@@ -262,7 +264,7 @@ export function reduce(state: ConnectionState, event: ConnectionEvent): Transiti
       if (message.kind === 'status') {
         // Only the first status after a connection runs steps 1 to 3; later ones never restore.
         if (!state.firstStatusSeen) return firstStatus(state, message.status)
-        return { state: { ...state, status: message.status, statusUnreadable: false }, actions: [] }
+        return { state: { ...state, status: message.status, gamePort: validPort(message.status.gamePort) ?? state.gamePort, statusUnreadable: false }, actions: [] }
       }
       // Step 5: show the code; an error answers the most recent frame, so forget refused snapshot bytes.
       const aboutSnapshot = state.lastFrame === 'snapshot' || state.lastFramePaired
@@ -337,10 +339,12 @@ export interface Badge {
 const BLOCK_HINT =
   'If the bridge is running, the browser or an extension may be blocking the connection: Chrome and Firefox ask for permission to connect to devices on your network, content blockers such as uBlock can block it, and Safari, which is not supported, was measured timing out on the hosted https page.'
 
+const validPort = (p: number | undefined): number | undefined =>
+  p !== undefined && Number.isInteger(p) && p >= 1 && p <= 65535 ? p : undefined
+
 /** The launch option that lets the game receive the bridge's datagrams: the port the bridge reports, else the default. */
-export function gameLaunchOption(status: BridgeStatus | undefined): string {
-  const p = status?.gamePort
-  const port = p !== undefined && Number.isInteger(p) && p >= 1 && p <= 65535 ? p : DEFAULT_GAME_PORT
+export function gameLaunchOption(status: BridgeStatus | undefined, remembered?: number): string {
+  const port = validPort(status?.gamePort) ?? validPort(remembered) ?? DEFAULT_GAME_PORT
   return `--enable-lua-udp ${port}`
 }
 
@@ -417,7 +421,7 @@ export function badgeFor(state: ConnectionState): Badge {
       const mod = status.mod
       const link = mod?.link ?? 'none'
       if (link === 'none') {
-        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', short: 'No game', detail: `The bridge is running but no game has answered it. Start Factorio with ${gameLaunchOption(status)} and the mod enabled.` }
+        return { kind: 'no-game', tone: 'warn', label: 'Bridge, no game', short: 'No game', detail: `The bridge is running but no game has answered it. Start Factorio with ${gameLaunchOption(status, state.gamePort)} and the mod enabled.` }
       }
       if (link === 'mismatch') {
         return { kind: 'mod-mismatch', tone: 'error', label: 'Mod version mismatch', short: 'Mismatch', detail: 'The mod and the bridge speak different protocol versions. Update the mod and the bridge together.' }

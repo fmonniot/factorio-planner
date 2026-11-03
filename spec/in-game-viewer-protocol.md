@@ -154,7 +154,7 @@ The bridge's whole state, as one object. It is sent once on connection, before a
 | `type` | always | `status` |
 | `protocol` | always | The bridge's `PROTOCOL_VERSION`, as a number |
 | `bridge` | always | The bridge's release version, for display |
-| `gamePort` | always | The UDP port the bridge sends to; the planner shows it as the game's launch option, `--enable-lua-udp <port>` |
+| `gamePort` | always (a planner tolerates its absence) | The UDP port the bridge sends to; the planner shows it as the game's launch option, `--enable-lua-udp <port>` |
 | `newest` | when known | The id set by the last `snapshot` or `announce` |
 | `mod.link` | always | See below |
 | `mod.protocol` | once heard | The version in the last `hello` |
@@ -167,7 +167,7 @@ The bridge's whole state, as one object. It is sent once on connection, before a
 | `transfer.count` | with `transfer` | Its chunk count |
 | `transfer.reason` | when `rejected` or `failed` | The mod's reason word, or `no-progress` |
 
-`gamePort` was added without a protocol version bump: a planner ignores fields it does not know, so an older planner keeps showing `34198`, and a planner that reads a `status` without `gamePort` (an older bridge) treats it as `34198`.
+`gamePort` was added without a protocol version bump: a planner ignores fields it does not know, so an older planner keeps showing `34198`, and a planner that reads a `status` without `gamePort` (an older bridge) treats it as `34198`. A planner also ignores a `gamePort` that is not a port number, and keeps showing the last valid one it was given (across a reconnect) rather than the default.
 
 `mod.link` is one of:
 

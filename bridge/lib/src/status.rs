@@ -68,6 +68,10 @@ pub struct TransferStatus {
     pub reason: Option<String>,
 }
 
+fn default_game_port() -> u16 {
+    crate::cli::DEFAULT_GAME_PORT
+}
+
 /// The `status` message. It is sent once on connection and again whenever a field changes.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Status {
@@ -76,7 +80,7 @@ pub struct Status {
     /// The bridge's release version, for display.
     pub bridge: String,
     /// The UDP port the bridge sends to, the one the game must be launched with (`--enable-lua-udp`).
-    #[serde(rename = "gamePort")]
+    #[serde(rename = "gamePort", default = "default_game_port")]
     pub game_port: u16,
     /// The id set by the last `snapshot` or `announce`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -106,5 +110,17 @@ impl Status {
             status: self,
         })
         .expect("a status always serializes")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Status;
+
+    #[test]
+    fn a_status_without_a_game_port_reads_as_the_default() {
+        let status: Status =
+            serde_json::from_str(r#"{"type":"status","protocol":1,"bridge":"0.1.0","mod":{"link":"none"}}"#).unwrap();
+        assert_eq!(status.game_port, 34198);
     }
 }

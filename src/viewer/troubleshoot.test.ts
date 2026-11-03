@@ -55,7 +55,7 @@ describe('troubleshootSteps', () => {
   })
 
   it('does not name a launch option for a status it cannot read', () => {
-    const [bridge, game] = troubleshootSteps(opened({ type: 'text', data: status({ gamePort: 'x' }) }))
+    const [bridge, game] = troubleshootSteps(opened({ type: 'text', data: status({ mod: 'oops' }) }))
     expect(bridge.tone).toBe('error')
     expect(game.code).toBeUndefined()
   })

@@ -66,7 +66,7 @@ export function troubleshootSteps(state: ConnectionState): TroubleshootStep[] {
       case 'no-game':
         return [
           RUNNING,
-          { tone: 'warn', state: 'No game answered', detail: 'Start Factorio with the viewer mod enabled and this launch option.', code: gameLaunchOption(state.status) },
+          { tone: 'warn', state: 'No game answered', detail: 'Start Factorio with the viewer mod enabled and this launch option.', code: gameLaunchOption(state.status, state.gamePort) },
           WAITING,
         ]
       case 'game-quiet':

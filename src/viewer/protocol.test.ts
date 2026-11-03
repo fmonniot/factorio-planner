@@ -87,7 +87,12 @@ describe('messages from the bridge', () => {
     const parsed = parseBridgeMessage('{"type":"status","protocol":1,"gamePort":40000}')
     expect(parsed?.kind === 'status' && parsed.status.gamePort).toBe(40000)
     expect(parseBridgeMessage('{"type":"status","protocol":1}')?.kind).toBe('status')
-    expect(parseBridgeMessage('{"type":"status","protocol":1,"gamePort":"x"}')).toEqual({ kind: 'unreadable-status' })
+    // A mistyped port is only a hint: the rest of the status stays readable.
+    for (const bad of ['"x"', 'null']) {
+      const odd = parseBridgeMessage(`{"type":"status","protocol":1,"gamePort":${bad}}`)
+      expect(odd?.kind).toBe('status')
+      expect(odd?.kind === 'status' && odd.status.gamePort).toBeUndefined()
+    }
   })
 
   it('drops what it cannot read', () => {
