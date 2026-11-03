@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { acceptedFuels, defaultFuel, resolveRowFuel } from '../../data/fuel'
+import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../../data/powerFuelGroups'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
@@ -55,6 +56,80 @@ export function applyRecipeConstraints(
 /** "4 MJ" for a fuel value in kJ. */
 function fmtFuelValue(kj: number): string {
   return kj >= 1000 ? `${+(kj / 1000).toPrecision(4)} MJ` : `${+kj.toPrecision(4)} kJ`
+}
+
+/** The Alternate recipe list: plain recipes, and one expandable entry per machine with several power (per-fuel) recipes. */
+function AlternateRecipeList({ entries, gameData, onSelect }: {
+  entries: RecipeEntry[]
+  gameData: GameData
+  onSelect: (recipeId: string) => void
+}) {
+  const [openMachineId, setOpenMachineId] = useState<string | null>(null)
+  return (
+    <>
+      {entries.map(e => {
+        if (e.kind === 'recipe') {
+          return (
+            <button
+              key={e.recipe.id}
+              data-testid="alt-recipe"
+              data-recipe-id={e.recipe.id}
+              onClick={() => onSelect(e.recipe.id)}
+              className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300"
+            >
+              {e.recipe.name}
+            </button>
+          )
+        }
+        const machine = gameData.machines[e.machineId]
+        const open = openMachineId === e.machineId
+        return (
+          <div key={`group:${e.machineId}`}>
+            <button
+              type="button"
+              data-testid="alt-recipe-group"
+              data-machine-id={e.machineId}
+              data-recipe-count={e.recipes.length}
+              aria-expanded={open}
+              onClick={() => setOpenMachineId(open ? null : e.machineId)}
+              className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300 flex items-center gap-1.5"
+            >
+              {machine?.iconPath && (
+                <Icon iconPath={machine.iconPath} alt={machine.name} className="w-5 h-5 object-contain shrink-0" />
+              )}
+              <span className="flex-1">{machine?.name ?? e.machineId}</span>
+              <span className="text-gray-500">({e.recipes.length} fuels)</span>
+              <span className="text-gray-500">{open ? '▾' : '▸'}</span>
+            </button>
+            {open && (
+              <div className="ml-3 border-l border-gray-700 pl-1">
+                {e.recipes.map(r => {
+                  const fuel = gameData.items[powerInputItemId(r) ?? '']
+                  return (
+                    <button
+                      key={r.id}
+                      data-testid="alt-recipe-fuel"
+                      data-recipe-id={r.id}
+                      onClick={() => onSelect(r.id)}
+                      className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300 flex items-center gap-1.5"
+                    >
+                      {fuel?.iconPath && (
+                        <Icon iconPath={fuel.iconPath} alt={fuel.name} className="w-5 h-5 object-contain shrink-0" />
+                      )}
+                      <span className="flex-1">{fuel?.name ?? powerInputItemId(r) ?? r.name}</span>
+                      {fuel?.type === 'item' && fuel.fuelValueKj !== undefined && (
+                        <span className="text-gray-500">{fmtFuelValue(fuel.fuelValueKj)}</span>
+                      )}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )
+      })}
+    </>
+  )
 }
 
 function fmtEffect(value: number): string {
@@ -186,12 +261,17 @@ export function EditMachineModal({
 
   // Alternate recipes
   const primaryItemId = recipe?.mainProduct ?? recipe?.products[0]?.itemId
-  const altRecipes = primaryItemId
-    ? Object.values(gameData.recipes).filter(
-        r => !r.hidden && r.id !== recipeId && r.products.some(p => p.itemId === primaryItemId) &&
-          (available === null || available.has(r.id))
-      )
-    : []
+  const altRecipes = useMemo(
+    () => primaryItemId
+      ? Object.values(gameData.recipes).filter(
+          r => !r.hidden && r.id !== recipeId && r.products.some(p => p.itemId === primaryItemId) &&
+            (available === null || available.has(r.id))
+        )
+      : [],
+    [gameData, primaryItemId, recipeId, available],
+  )
+  // A machine's per-fuel power recipes collapse into one expandable entry.
+  const altEntries = useMemo(() => groupPowerRecipes(altRecipes), [altRecipes])
 
   // Allowed modules for this machine + recipe
   const allowedModules = Object.values(gameData.modules).filter(
@@ -371,15 +451,7 @@ export function EditMachineModal({
               {altRecipes.length > 0 && (
                 <>
                   <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
-                  {altRecipes.map(r => (
-                    <button
-                      key={r.id}
-                      onClick={() => selectRecipe(r.id)}
-                      className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300"
-                    >
-                      {r.name}
-                    </button>
-                  ))}
+                  <AlternateRecipeList entries={altEntries} gameData={gameData} onSelect={selectRecipe} />
                 </>
               )}
             </div>

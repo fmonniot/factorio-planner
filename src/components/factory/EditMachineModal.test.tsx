@@ -739,3 +739,97 @@ describe('EditMachineModal — fuel', () => {
     expect(nodes.find(n => n.id === 'n2')!.fuelItemId).toBe('coal')
   })
 })
+
+describe('EditMachineModal — per-fuel power recipes in the Alternate recipe list', () => {
+  function boilerMachine(id: string, name: string): GameData['machines'][string] {
+    return {
+      id, name, type: 'boiler', craftingSpeed: 1, energyUsageKw: 0, energyType: 'void', drainKw: 0,
+      moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:boiler'], iconPath: '', hidden: false,
+    }
+  }
+  function powerRecipe(machineId: string, fuel: string, name: string): GameData['recipes'][string] {
+    return {
+      id: `power:${machineId}:${fuel}`, name, category: 'power:boiler', craftingTime: 1,
+      ingredients: [{ itemId: 'water', type: 'fluid', amount: 60 }, { itemId: fuel, type: 'item', amount: 0.01 }],
+      products: [{ itemId: 'steam', type: 'fluid', amount: 60 }],
+      madeIn: [machineId], allowProductivity: false, hidden: false, mainProduct: 'steam',
+      subgroup: '', order: '', power: true,
+    }
+  }
+  function boilerData(): GameData {
+    const gd = makeGameData()
+    gd.items.steam = { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '' }
+    gd.items.coal = { ...item('coal'), name: 'Coal', fuelValueKj: 4000 }
+    gd.items.wood = { ...item('wood'), name: 'Wood', fuelValueKj: 2000 }
+    gd.items.oil = { ...item('oil'), name: 'Oil' }
+    gd.machines.boiler = boilerMachine('boiler', 'Boiler')
+    gd.machines['boiler-2'] = boilerMachine('boiler-2', 'Boiler 2')
+    for (const [m, label] of [['boiler', 'Boiler'], ['boiler-2', 'Boiler 2']]) {
+      for (const [fuel, fuelName] of [['coal', 'Coal'], ['wood', 'Wood'], ['oil', 'Oil']]) {
+        if (m === 'boiler-2' && fuel === 'oil') continue
+        gd.recipes[`power:${m}:${fuel}`] = powerRecipe(m, fuel, `${label} (${fuelName})`)
+      }
+    }
+    gd.recipes['steam-vent'] = {
+      ...recipe('steam-vent', 'Steam vent'), products: [{ itemId: 'steam', type: 'fluid', amount: 1 }], madeIn: ['assembler'],
+    }
+    gd.defaultMachines['power:boiler'] = 'boiler'
+    return gd
+  }
+
+  function renderBoiler(gameData = boilerData(), recipeId = 'power:boiler:coal', onClose = () => {}) {
+    const block = makeEmptyBlock('Test')
+    const row: GameRecipeNode = {
+      kind: 'game-recipe', id: 'n1', recipeId, machineId: 'boiler', modules: [{ moduleId: 'speed', count: 1 }], byproductPolicy: {},
+    }
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [row] } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+    renderModal(gameData, { recipeId, recipeCategory: 'power:boiler', machineId: 'boiler', onClose })
+  }
+  const groupCount = (machineId: string) =>
+    screen.getAllByTestId('alt-recipe-group').find(g => g.getAttribute('data-machine-id') === machineId)
+  const node = () => useBlockStore.getState().blocks[0].rootPlan.nodes[0] as GameRecipeNode
+
+  it('shows one group per machine, with the current recipe excluded, and other recipes plain', () => {
+    renderBoiler()
+    expect(groupCount('boiler')).toHaveAttribute('data-recipe-count', '2')
+    expect(groupCount('boiler-2')).toHaveAttribute('data-recipe-count', '2')
+    expect(screen.getAllByTestId('alt-recipe').map(e => e.getAttribute('data-recipe-id'))).toEqual(['steam-vent'])
+    expect(screen.queryByTestId('alt-recipe-fuel')).not.toBeInTheDocument()
+  })
+
+  it('expands a group into its fuels, one group at a time', () => {
+    renderBoiler()
+    fireEvent.click(groupCount('boiler')!)
+    expect(groupCount('boiler')).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getAllByTestId('alt-recipe-fuel').map(e => e.getAttribute('data-recipe-id')))
+      .toEqual(['power:boiler:wood', 'power:boiler:oil'])
+    expect(screen.getAllByTestId('alt-recipe-fuel')[0]).toHaveTextContent('2 MJ')
+    fireEvent.click(groupCount('boiler-2')!)
+    expect(groupCount('boiler')).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getAllByTestId('alt-recipe-fuel').map(e => e.getAttribute('data-recipe-id')))
+      .toEqual(['power:boiler-2:coal', 'power:boiler-2:wood'])
+  })
+
+  it('switches the row to the chosen fuel, resets its machine and modules, and closes the popup', () => {
+    renderBoiler()
+    fireEvent.click(groupCount('boiler')!)
+    fireEvent.click(screen.getAllByTestId('alt-recipe-fuel').find(e => e.getAttribute('data-recipe-id') === 'power:boiler:wood')!)
+    expect(node().recipeId).toBe('power:boiler:wood')
+    expect(node().machineId).toBeUndefined()
+    expect(node().modules).toEqual([])
+    expect(screen.queryByTestId('alt-recipe-group')).not.toBeInTheDocument()
+  })
+
+  it('shows a single remaining fuel of the machine as a plain alternate recipe', () => {
+    const gd = boilerData()
+    delete gd.recipes['power:boiler:oil']
+    renderBoiler(gd)
+    const plain = screen.getAllByTestId('alt-recipe').find(e => e.getAttribute('data-recipe-id') === 'power:boiler:wood')!
+    expect(plain).toHaveTextContent('Boiler (Wood)')
+    expect(groupCount('boiler')).toBeUndefined()
+  })
+})

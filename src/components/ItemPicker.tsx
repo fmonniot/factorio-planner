@@ -7,6 +7,7 @@ import { TechIcon } from './TechIcon'
 import { recipeUnlock } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
+import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../data/powerFuelGroups'
 import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
 import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
@@ -231,6 +232,8 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   const [showBeyondHorizon, setShowBeyondHorizon] = useState(false)
   const [hoveredRecipeId, setHoveredRecipeId] = useState<string | null>(null)
   const [pinnedGroupId, setPinnedGroupId] = useState<string | null>(null)
+  // The machine whose fuels are listed in place of the groups (the drill-in fuel view).
+  const [openMachineId, setOpenMachineId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
@@ -288,13 +291,25 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
     for (const arr of bySubgroup.values()) {
       arr.sort((a, b) => (a.order || a.name).localeCompare(b.order || b.name))
     }
+    // Power recipes of one machine (one per fuel) collapse into a fuel group; this runs after filtering,
+    // so a search or item filter that leaves a single fuel gives a plain slot.
     return [...bySubgroup.entries()]
       .sort((a, b) => {
         const aOrder = subgroups[a[0]]?.order ?? a[0]
         const bOrder = subgroups[b[0]]?.order ?? b[0]
         return aOrder.localeCompare(bOrder)
       })
+      .map(([sgId, recipes]): [string, RecipeEntry[]] => [sgId, groupPowerRecipes(recipes)])
   }, [filteredRecipes, selectedGroupId, gameData])
+
+  // The fuel group being browsed; undefined once a search or tab change leaves fewer than two fuels of it.
+  const openGroup = openMachineId
+    ? subgroupRows.flatMap(([, entries]) => entries).find(
+        (e): e is Extract<RecipeEntry, { kind: 'fuel-group' }> => e.kind === 'fuel-group' && e.machineId === openMachineId,
+      )
+    : undefined
+  // Drop a stale choice so that clearing the search does not reopen the fuel view by surprise.
+  if (openMachineId && !openGroup) setOpenMachineId(null)
 
   const subtitle = consumesItemId
     ? `Choose a recipe that consumes '${gameData.items[consumesItemId]?.name ?? consumesItemId}'`
@@ -308,6 +323,116 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 
   // Skip the tab strip when there's no choice to make (zero or one group).
   const showTabs = visibleGroups.length > 1
+
+  function renderRecipeSlot(r: Recipe, opts?: { fuelView?: boolean }) {
+    const product = recipeIconItem(gameData, r)
+    // A power recipe shows its machine; its last ingredient (the fuel, or the steam) is the badge.
+    const machine = r.power ? gameData.machines[r.madeIn[0]] : undefined
+    const inputItem = gameData.items[powerInputItemId(r) ?? '']
+    // In the fuel view every slot is the same machine, so the fuel is the icon and there is no badge.
+    const mainIcon = opts?.fuelView && inputItem?.iconPath ? inputItem : machine?.iconPath ? machine : product
+    const badgeItem = opts?.fuelView ? undefined : inputItem
+    // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
+    const beyond = !!available && !r.hidden && !available.has(r.id)
+    const present = presentRecipes?.ids.has(r.id) === true
+    return (
+      <button
+        key={r.id}
+        type="button"
+        data-testid="recipe-slot"
+        data-recipe-id={r.id}
+        data-beyond-horizon={beyond ? 'true' : undefined}
+        data-in-area={present ? 'true' : undefined}
+        disabled={present}
+        title={present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name}
+        onClick={() => { onSelect(r.id); onClose() }}
+        onMouseEnter={() => setHoveredRecipeId(r.id)}
+        onMouseLeave={() => setHoveredRecipeId(null)}
+        onFocus={() => setHoveredRecipeId(r.id)}
+        onBlur={() => setHoveredRecipeId(null)}
+        className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
+          present
+            ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
+            : beyond
+            ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
+            : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
+        }`}
+      >
+        {mainIcon?.iconPath
+          ? <Icon iconPath={mainIcon.iconPath} alt={mainIcon.name} className="w-7 h-7 object-contain" />
+          : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
+        }
+        {badgeItem?.iconPath && (
+          <Icon
+            iconPath={badgeItem.iconPath}
+            alt=""
+            data-testid="recipe-slot-badge"
+            className="absolute right-0 bottom-0 w-3.5 h-3.5 object-contain"
+          />
+        )}
+      </button>
+    )
+  }
+
+  // One slot for all the fuels of a boiler, generator or reactor; it opens the fuel view. No detail panel.
+  function renderGroupSlot(g: Extract<RecipeEntry, { kind: 'fuel-group' }>) {
+    const machine = gameData.machines[g.machineId]
+    const machineName = machine?.name ?? g.machineId
+    const present = g.recipes.every(r => presentRecipes?.ids.has(r.id) === true)
+    const beyond = !!available && g.recipes.every(r => !r.hidden && !available.has(r.id))
+    return (
+      <button
+        key={`group:${g.machineId}`}
+        type="button"
+        data-testid="recipe-group-slot"
+        data-machine-id={g.machineId}
+        data-recipe-count={g.recipes.length}
+        data-beyond-horizon={beyond ? 'true' : undefined}
+        data-in-area={present ? 'true' : undefined}
+        disabled={present}
+        title={present ? `${machineName} (already in ${presentRecipes?.where})` : `${machineName} (${g.recipes.length} fuels)`}
+        onClick={() => { setHoveredRecipeId(null); setOpenMachineId(g.machineId) }}
+        className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
+          present
+            ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
+            : beyond
+            ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
+            : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
+        }`}
+      >
+        {machine?.iconPath
+          ? <Icon iconPath={machine.iconPath} alt={machine.name} className="w-7 h-7 object-contain" />
+          : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{machineName.slice(0, 8)}</span>
+        }
+        <span
+          data-testid="recipe-group-count"
+          className="absolute right-0 bottom-0 min-w-3.5 px-0.5 rounded-tl bg-gray-900/90 text-[10px] leading-tight text-amber-200 text-center"
+        >{g.recipes.length}</span>
+      </button>
+    )
+  }
+
+  function renderFuelView(g: Extract<RecipeEntry, { kind: 'fuel-group' }>) {
+    const machine = gameData.machines[g.machineId]
+    return (
+      <div data-testid="recipe-fuel-view" className="space-y-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            data-testid="recipe-fuel-back"
+            onClick={() => { setHoveredRecipeId(null); setOpenMachineId(null) }}
+            className="px-2 py-1 rounded text-xs text-gray-300 bg-gray-800 hover:bg-gray-700"
+          >← Back</button>
+          {machine?.iconPath && <Icon iconPath={machine.iconPath} alt={machine.name} className="w-6 h-6 object-contain" />}
+          <span className="text-sm text-gray-200">{machine?.name ?? g.machineId}</span>
+          <span className="text-sm text-gray-500">Choose a fuel ({g.recipes.length})</span>
+        </div>
+        <div data-testid="recipe-fuel-grid" className="grid grid-cols-10 gap-1">
+          {g.recipes.map(r => renderRecipeSlot(r, { fuelView: true }))}
+        </div>
+      </div>
+    )
+  }
 
   return (
     <PickerFrame onClose={onClose} sidePanel={sidePanel}>
@@ -371,7 +496,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
                 data-group-id={g.id}
                 data-active={active || undefined}
                 title={g.name}
-                onClick={() => setPinnedGroupId(g.id)}
+                onClick={() => { setPinnedGroupId(g.id); setHoveredRecipeId(null); setOpenMachineId(null) }}
                 className={`p-1 rounded border ${active ? 'bg-amber-900/40 border-amber-600' : 'bg-gray-800 border-gray-700 hover:bg-gray-700'}`}
               >
                 {g.iconPath
@@ -393,60 +518,14 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
               : 'No recipes match'}
           </div>
         )}
-        {subgroupRows.map(([sgId, recipes]) => (
+        {openGroup ? renderFuelView(openGroup) : subgroupRows.map(([sgId, entries]) => (
           <div
             key={sgId}
             data-testid="recipe-subgroup-row"
             data-subgroup={sgId}
             className="grid grid-cols-10 gap-1"
           >
-            {recipes.map(r => {
-              const product = recipeIconItem(gameData, r)
-              // A power recipe shows its machine; its last ingredient (the fuel, or the steam) is the badge.
-              const machine = r.power ? gameData.machines[r.madeIn[0]] : undefined
-              const mainIcon = machine?.iconPath ? machine : product
-              const badgeItem = r.power ? gameData.items[r.ingredients.at(-1)?.itemId ?? ''] : undefined
-              // Revealed by the "Beyond research horizon" checkbox; hidden recipes are exempt from the horizon.
-              const beyond = !!available && !r.hidden && !available.has(r.id)
-              const present = presentRecipes?.ids.has(r.id) === true
-              return (
-                <button
-                  key={r.id}
-                  type="button"
-                  data-testid="recipe-slot"
-                  data-recipe-id={r.id}
-                  data-beyond-horizon={beyond ? 'true' : undefined}
-                  data-in-area={present ? 'true' : undefined}
-                  disabled={present}
-                  title={present ? `${r.name} (already in ${presentRecipes.where})` : beyond ? `${r.name} (beyond research horizon)` : r.name}
-                  onClick={() => { onSelect(r.id); onClose() }}
-                  onMouseEnter={() => setHoveredRecipeId(r.id)}
-                  onMouseLeave={() => setHoveredRecipeId(null)}
-                  onFocus={() => setHoveredRecipeId(r.id)}
-                  onBlur={() => setHoveredRecipeId(null)}
-                  className={`relative aspect-square flex items-center justify-center border rounded outline-none focus:ring-1 focus:ring-blue-500 ${
-                    present
-                      ? 'bg-gray-800/60 border-gray-700 opacity-40 cursor-not-allowed'
-                      : beyond
-                      ? 'bg-gray-800/60 border-gray-700 opacity-70 hover:opacity-100'
-                      : 'bg-green-900/40 hover:bg-green-700/60 border-green-800/60'
-                  }`}
-                >
-                  {mainIcon?.iconPath
-                    ? <Icon iconPath={mainIcon.iconPath} alt={mainIcon.name} className="w-7 h-7 object-contain" />
-                    : <span className="text-[10px] text-gray-400 leading-tight text-center px-0.5 break-words">{r.name.slice(0, 8)}</span>
-                  }
-                  {badgeItem?.iconPath && (
-                    <Icon
-                      iconPath={badgeItem.iconPath}
-                      alt=""
-                      data-testid="recipe-slot-badge"
-                      className="absolute right-0 bottom-0 w-3.5 h-3.5 object-contain"
-                    />
-                  )}
-                </button>
-              )
-            })}
+            {entries.map(e => e.kind === 'recipe' ? renderRecipeSlot(e.recipe) : renderGroupSlot(e))}
           </div>
         ))}
       </div>

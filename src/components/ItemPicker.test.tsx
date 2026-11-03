@@ -3,7 +3,7 @@ import { render, screen, fireEvent, within, cleanup } from '@testing-library/rea
 import { ItemPicker } from './ItemPicker'
 import { useGameDataStore } from '../store/gameDataStore'
 import { useBlockStore } from '../store/blockStore'
-import type { GameData } from '../data/types'
+import type { GameData, Recipe } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Fixture — a small but realistic GameData with recipes across two subgroups,
@@ -451,6 +451,186 @@ describe('ItemPicker — power generation', () => {
     expect(within(slot).getByTestId('recipe-slot-badge')).toHaveAttribute('src', expect.stringContaining('coal.png'))
     fireEvent.mouseEnter(slot)
     expect(screen.getByTestId('recipe-detail-panel')).toHaveTextContent('0.0015 ×')
+  })
+})
+
+/** The power fixture with a three-fuel boiler, a two-fuel boiler-2, a one-recipe engine and a two-fuel reactor. */
+function fixtureWithBoilerFuels(): GameData {
+  const data = fixtureWithPower()
+  delete data.recipes['power:boiler:nuclear']
+  data.itemSubgroups['power:generators'] = { id: 'power:generators', group: 'power:power', order: 'c' }
+  data.items['steam'] = { id: 'steam', name: 'Steam', type: 'fluid', iconPath: '/icons/steam.png', hidden: false, subgroup: 'fluid', order: 'b' }
+  data.items['wood'] = { id: 'wood', name: 'Wood', type: 'item', iconPath: '/icons/wood.png', hidden: false, subgroup: 'raw-material', order: 'e' }
+  data.items['solid-fuel'] = { id: 'solid-fuel', name: 'Solid fuel', type: 'item', iconPath: '/icons/solid-fuel.png', hidden: false, subgroup: 'raw-material', order: 'f' }
+  data.items['uranium'] = { id: 'uranium', name: 'Uranium', type: 'item', iconPath: '/icons/uranium.png', hidden: false, subgroup: 'raw-material', order: 'g' }
+  data.items['mox'] = { id: 'mox', name: 'MOX', type: 'item', iconPath: '/icons/mox.png', hidden: false, subgroup: 'raw-material', order: 'h' }
+  for (const [id, name, icon] of [['boiler-2', 'Boiler 2', '/icons/boiler-2.png'], ['steam-engine', 'Steam engine', '/icons/engine.png'], ['reactor', 'Reactor', '/icons/reactor.png']]) {
+    data.machines[id] = { ...data.machines['boiler'], id, name, iconPath: icon }
+  }
+  const power = (machine: string, label: string, fuel: string, fuelName: string, output: string, subgroup: string, input = 'water'): Recipe => ({
+    id: `power:${machine}:${fuel}`, name: `${label} (${fuelName})`, category: `power:${machine}`, craftingTime: 1,
+    ingredients: [{ itemId: input, type: input === 'water' ? 'fluid' : 'item', amount: 60 }, { itemId: fuel, type: 'item', amount: 0.01 }],
+    products: [{ itemId: output, type: 'fluid', amount: 60 }],
+    madeIn: [machine], allowProductivity: false, hidden: false, mainProduct: output, subgroup, order: fuel, power: true,
+  })
+  for (const r of [
+    power('boiler', 'Boiler', 'coal', 'Coal', 'steam', 'power:boilers'),
+    power('boiler', 'Boiler', 'wood', 'Wood', 'steam', 'power:boilers'),
+    power('boiler', 'Boiler', 'solid-fuel', 'Solid fuel', 'steam', 'power:boilers'),
+    power('boiler-2', 'Boiler 2', 'coal', 'Coal', 'steam', 'power:boilers'),
+    power('boiler-2', 'Boiler 2', 'wood', 'Wood', 'steam', 'power:boilers'),
+    power('reactor', 'Reactor', 'uranium', 'Uranium', 'power:heat', 'power:boilers'),
+    power('reactor', 'Reactor', 'mox', 'MOX', 'power:heat', 'power:boilers'),
+  ]) data.recipes[r.id] = r
+  data.recipes['power:steam-engine:steam'] = {
+    id: 'power:steam-engine:steam', name: 'Steam engine (Steam)', category: 'power:steam-engine', craftingTime: 1,
+    ingredients: [{ itemId: 'steam', type: 'fluid', amount: 30 }],
+    products: [{ itemId: 'power:electricity', type: 'fluid', amount: 900 }],
+    madeIn: ['steam-engine'], allowProductivity: false, hidden: false, mainProduct: 'power:electricity',
+    subgroup: 'power:generators', order: 'a', power: true,
+  }
+  return data
+}
+
+describe('ItemPicker — fuel groups', () => {
+  const BOILER_IDS = ['power:boiler:coal', 'power:boiler:wood', 'power:boiler:solid-fuel']
+
+  function renderPower(props: Partial<React.ComponentProps<typeof ItemPicker>> = {}, onSelect = vi.fn(), onClose = vi.fn()) {
+    render(<ItemPicker source="recipes" onSelect={onSelect} onClose={onClose} {...props as object} />)
+    fireEvent.click(screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    return { onSelect, onClose }
+  }
+  const groupSlot = (machineId: string) =>
+    screen.queryAllByTestId('recipe-group-slot').find(s => s.getAttribute('data-machine-id') === machineId)
+  const slotIds = () => screen.queryAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id'))
+  const search = (q: string) => fireEvent.change(screen.getByPlaceholderText('Search…'), { target: { value: q } })
+
+  beforeEach(() => {
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithBoilerFuels(), sourceId: 'test' } })
+  })
+
+  it('shows one group slot per machine instead of one slot per fuel', () => {
+    renderPower()
+    const boiler = groupSlot('boiler')!
+    expect(boiler).toHaveAttribute('data-recipe-count', '3')
+    expect(within(boiler).getByTestId('recipe-group-count')).toHaveTextContent('3')
+    expect(boiler.querySelector('img')).toHaveAttribute('alt', 'Boiler')
+    expect(groupSlot('boiler-2')).toHaveAttribute('data-recipe-count', '2')
+    expect(groupSlot('reactor')).toHaveAttribute('data-recipe-count', '2')
+    expect(slotIds().filter(id => id?.startsWith('power:boiler:'))).toEqual([])
+    expect(slotIds()).toContain('power:steam-engine:steam')
+  })
+
+  it('opens a fuel view with one fuel-icon slot per fuel and no badge', () => {
+    const { onSelect } = renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    const grid = screen.getByTestId('recipe-fuel-grid')
+    expect(within(grid).getAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id')).sort()).toEqual([...BOILER_IDS].sort())
+    const wood = within(grid).getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')!
+    expect(wood.querySelector('img')).toHaveAttribute('alt', 'Wood')
+    expect(within(grid).queryByTestId('recipe-slot-badge')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('recipe-group-slot')).not.toBeInTheDocument()
+    expect(onSelect).not.toHaveBeenCalled()
+  })
+
+  it('shows the detail panel on a fuel and selects it on click', () => {
+    const { onSelect, onClose } = renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    const wood = screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')!
+    fireEvent.mouseEnter(wood)
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    fireEvent.click(wood)
+    expect(onSelect).toHaveBeenCalledTimes(1)
+    expect(onSelect).toHaveBeenCalledWith('power:boiler:wood')
+    expect(onClose).toHaveBeenCalledTimes(1)
+  })
+
+  it('goes back to the groups and clears the detail panel', () => {
+    renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    fireEvent.mouseEnter(screen.getAllByTestId('recipe-slot')[0])
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('recipe-fuel-back'))
+    expect(screen.queryByTestId('recipe-detail-panel')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('recipe-fuel-grid')).not.toBeInTheDocument()
+    expect(groupSlot('boiler')).toBeDefined()
+  })
+
+  it('opening a group clears a stale hover', () => {
+    renderPower()
+    fireEvent.mouseEnter(screen.getByTestId('recipe-slot'))
+    expect(screen.getByTestId('recipe-detail-panel')).toBeInTheDocument()
+    fireEvent.click(groupSlot('boiler')!)
+    expect(screen.queryByTestId('recipe-detail-panel')).not.toBeInTheDocument()
+  })
+
+  it('searches per-fuel recipe names: one match is a plain slot, a machine name still groups', () => {
+    renderPower()
+    search('Wood')
+    expect(slotIds().sort()).toEqual(['power:boiler-2:wood', 'power:boiler:wood'])
+    expect(screen.queryByTestId('recipe-group-slot')).not.toBeInTheDocument()
+    search('Boiler (Wood)')
+    expect(slotIds()).toEqual(['power:boiler:wood'])
+    expect(screen.queryByTestId('recipe-group-slot')).not.toBeInTheDocument()
+    search('Boiler 2')
+    expect(groupSlot('boiler-2')).toHaveAttribute('data-recipe-count', '2')
+  })
+
+  it('falls back to the plain list when a search leaves one fuel, and does not reopen on clearing it', () => {
+    renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    search('Boiler (Wood)')
+    expect(screen.queryByTestId('recipe-fuel-grid')).not.toBeInTheDocument()
+    expect(slotIds()).toEqual(['power:boiler:wood'])
+    search('')
+    expect(screen.queryByTestId('recipe-fuel-grid')).not.toBeInTheDocument()
+    expect(groupSlot('boiler')).toBeDefined()
+  })
+
+  it('groups after the item filter', () => {
+    render(<ItemPicker source="recipes" filterByItemId="steam" onSelect={() => {}} onClose={() => {}} />)
+    expect(groupSlot('boiler')).toHaveAttribute('data-recipe-count', '3')
+    expect(groupSlot('boiler-2')).toHaveAttribute('data-recipe-count', '2')
+    expect(slotIds()).toEqual([])
+  })
+
+  it('keeps a single remaining recipe plain under a consumer filter', () => {
+    render(<ItemPicker source="recipes" consumesItemId="steam" onSelect={() => {}} onClose={() => {}} />)
+    expect(slotIds()).toEqual(['power:steam-engine:steam'])
+    expect(screen.queryByTestId('recipe-group-slot')).not.toBeInTheDocument()
+  })
+
+  it('disables a group only when every fuel is already in the area', () => {
+    renderPower({ presentRecipes: { ids: new Set(BOILER_IDS), where: 'this area' } })
+    expect(groupSlot('boiler')).toBeDisabled()
+    expect(groupSlot('boiler')).toHaveAttribute('data-in-area', 'true')
+    expect(groupSlot('boiler-2')).toBeEnabled()
+  })
+
+  it('opens a partly present group and disables only the fuel already there', () => {
+    renderPower({ presentRecipes: { ids: new Set(['power:boiler:coal']), where: 'this area' } })
+    expect(groupSlot('boiler')).toBeEnabled()
+    fireEvent.click(groupSlot('boiler')!)
+    const slots = screen.getAllByTestId('recipe-slot')
+    expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:coal')).toBeDisabled()
+    expect(slots.find(s => s.getAttribute('data-recipe-id') === 'power:boiler:wood')).toBeEnabled()
+  })
+
+  it('closes the fuel view when the tab changes', () => {
+    renderPower()
+    fireEvent.click(groupSlot('boiler')!)
+    const tabs = screen.getAllByTestId('recipe-group-tab')
+    fireEvent.click(tabs.find(t => t.getAttribute('data-group-id') !== 'power:power')!)
+    fireEvent.click(tabs.find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    expect(screen.queryByTestId('recipe-fuel-grid')).not.toBeInTheDocument()
+    expect(groupSlot('boiler')).toBeDefined()
+  })
+
+  it('groups reactor fuels the same way', () => {
+    renderPower()
+    fireEvent.click(groupSlot('reactor')!)
+    expect(screen.getAllByTestId('recipe-slot').map(s => s.getAttribute('data-recipe-id')).sort())
+      .toEqual(['power:reactor:mox', 'power:reactor:uranium'])
   })
 })
 
