@@ -838,6 +838,28 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     expect(screen.queryByTestId('recipe-unlock-tech')).toBeNull()
   })
 
+  it('says a power recipe beyond the horizon needs its fuel', () => {
+    const data = fixtureWithPower()
+    data.technologies = {
+      boiling: { id: 'boiling', name: 'Boiling', prerequisites: [], unlockedRecipes: ['boil-water'], iconPath: '' },
+      coal: { id: 'coal', name: 'Coal', prerequisites: [], unlockedRecipes: ['make-coal'], iconPath: '' },
+    }
+    data.startingRecipes = []
+    data.recipes['make-coal'] = {
+      ...data.recipes['boil-water'], id: 'make-coal', name: 'Make coal', ingredients: [],
+      products: [{ itemId: 'coal', type: 'item', amount: 1 }], subgroup: 'intermediate',
+    }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    useBlockStore.setState({ horizonTechnologyIds: ['boiling'] })
+    render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)
+    fireEvent.click(screen.getByLabelText(/Beyond research horizon/, { selector: 'input' }))
+    fireEvent.click(screen.getAllByTestId('recipe-group-tab').find(t => t.getAttribute('data-group-id') === 'power:power')!)
+    fireEvent.mouseEnter(screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'power:boiler:nuclear')!)
+    const unlock = screen.getByTestId('recipe-unlock')
+    expect(unlock.dataset.unlockKind).toBe('fuel')
+    expect(unlock).toHaveTextContent('Needs Coal, not yet available')
+  })
+
   it('lists several technologies, fewest pack types first, with a formula count', () => {
     const data = fixtureWithTechnologies()
     data.technologies.smelting.cost = structuredClone(packs1)

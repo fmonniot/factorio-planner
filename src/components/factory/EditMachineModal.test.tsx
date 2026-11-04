@@ -873,6 +873,18 @@ describe('EditMachineModal — per-fuel power recipes in the Alternate recipe li
     expect(screen.queryByTestId('alt-recipe-group')).not.toBeInTheDocument()
   })
 
+  it('lists a fuel beyond the horizon, flagged, so a row on another fuel can still pick it', () => {
+    const gd = boilerData()
+    gd.recipes['r-oil'] = producer('r-oil', 'oil')
+    gd.technologies.fuel = { id: 'fuel', name: 'Fuel', prerequisites: [], unlockedRecipes: ['r-oil'], iconPath: '' }
+    useBlockStore.setState({ horizonTechnologyIds: ['base'] })
+    renderBoiler(gd, 'power:boiler:coal')
+    fireEvent.click(groupCount('boiler')!)
+    const oil = screen.getAllByTestId('alt-recipe-fuel').find(e => e.getAttribute('data-recipe-id') === 'power:boiler:oil')!
+    expect(oil).toHaveAttribute('data-beyond-horizon', 'true')
+    expect(within(oil).getByTestId('beyond-horizon')).toBeInTheDocument()
+  })
+
   it('shows a single remaining fuel of the machine as a plain alternate recipe', () => {
     const gd = boilerData()
     delete gd.recipes['power:boiler:oil']

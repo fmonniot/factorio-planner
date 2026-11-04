@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { GameData, ModuleConfig } from '../../data/types'
+import type { GameData, ModuleConfig, Recipe } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../store/horizon'
@@ -58,14 +58,21 @@ function fmtFuelValue(kj: number): string {
   return kj >= 1000 ? `${+(kj / 1000).toPrecision(4)} MJ` : `${+kj.toPrecision(4)} kJ`
 }
 
+function BeyondTag() {
+  return <span data-testid="beyond-horizon" className="ml-1 text-[10px] text-amber-400">Beyond research horizon</span>
+}
+
 /** The Alternate recipe list: plain recipes, and one expandable entry per machine with several power (per-fuel) recipes. */
-function AlternateRecipeList({ entries, gameData, onSelect }: {
+function AlternateRecipeList({ entries, gameData, available, onSelect }: {
   entries: RecipeEntry[]
   gameData: GameData
+  /** Recipes inside the research horizon; null = no limit. Power recipes beyond it are listed and flagged. */
+  available: ReadonlySet<string> | null
   onSelect: (recipeId: string) => void
 }) {
   const [openMachineId, setOpenMachineId] = useState<string | null>(null)
   const openRef = useRef<HTMLDivElement>(null)
+  const isBeyond = (r: Recipe) => !!available && !available.has(r.id)
   // The list sits inside a short scroll area: bring the expanded fuels into view.
   useEffect(() => {
     if (openMachineId) openRef.current?.scrollIntoView?.({ block: 'nearest' })
@@ -83,6 +90,7 @@ function AlternateRecipeList({ entries, gameData, onSelect }: {
               className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300"
             >
               {e.recipe.name}
+              {isBeyond(e.recipe) && <BeyondTag />}
             </button>
           )
         }
@@ -115,13 +123,14 @@ function AlternateRecipeList({ entries, gameData, onSelect }: {
                       key={r.id}
                       data-testid="alt-recipe-fuel"
                       data-recipe-id={r.id}
+                      data-beyond-horizon={isBeyond(r) ? 'true' : undefined}
                       onClick={() => onSelect(r.id)}
                       className="w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 text-gray-300 flex items-center gap-1.5"
                     >
                       {fuel?.iconPath && (
                         <Icon iconPath={fuel.iconPath} alt={fuel.name} className="w-5 h-5 object-contain shrink-0" />
                       )}
-                      <span className="flex-1">{fuel?.name ?? powerInputItemId(r) ?? r.name}</span>
+                      <span className="flex-1">{fuel?.name ?? powerInputItemId(r) ?? r.name}{isBeyond(r) && <BeyondTag />}</span>
                       {fuel?.type === 'item' && fuel.fuelValueKj !== undefined && (
                         <span className="text-gray-500">{fmtFuelValue(fuel.fuelValueKj)}</span>
                       )}
@@ -270,7 +279,7 @@ export function EditMachineModal({
     () => primaryItemId
       ? Object.values(gameData.recipes).filter(
           r => !r.hidden && r.id !== recipeId && r.products.some(p => p.itemId === primaryItemId) &&
-            (available === null || available.has(r.id))
+            (available === null || r.power || available.has(r.id))
         )
       : [],
     [gameData, primaryItemId, recipeId, available],
@@ -456,7 +465,7 @@ export function EditMachineModal({
               {altRecipes.length > 0 && (
                 <>
                   <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
-                  <AlternateRecipeList entries={altEntries} gameData={gameData} onSelect={selectRecipe} />
+                  <AlternateRecipeList entries={altEntries} gameData={gameData} available={available} onSelect={selectRecipe} />
                 </>
               )}
             </div>
