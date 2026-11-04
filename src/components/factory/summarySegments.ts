@@ -1,6 +1,6 @@
 import type { ConnectionFlow, Product } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { FLOW_TOLERANCE } from '../../solver/index'
+import { FLOW_TOLERANCE, surplusTolerance } from '../../solver/index'
 import { fmtPower } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
 import { possessive } from './productChangeText'
@@ -129,11 +129,11 @@ function visibleGap(gapPerMin: number, unit: RateUnit, itemId?: string): boolean
 
 // A shortfall only counts when it survives the display rounding.
 export function isShortfall(target: number, actual: number, unit: RateUnit, itemId?: string): boolean {
-  return actual < target - FLOW_TOLERANCE && visibleGap(target - actual, unit, itemId)
+  return actual < target - surplusTolerance(Math.max(target, actual)) && visibleGap(target - actual, unit, itemId)
 }
 
 export function differsFromTarget(target: number, actual: number, unit: RateUnit, itemId?: string): boolean {
-  return Math.abs(actual - target) > FLOW_TOLERANCE && visibleGap(Math.abs(target - actual), unit, itemId)
+  return Math.abs(actual - target) > surplusTolerance(Math.max(target, actual)) && visibleGap(Math.abs(target - actual), unit, itemId)
 }
 
 function exportSegments(exports: ConnectionFlow[]): Segment[] {
@@ -213,7 +213,7 @@ export function productSlot(
 
   const segments = exportSegments(exports)
   const kept = Math.max(0, actualPerMin - sum(segments))
-  if (kept > FLOW_TOLERANCE) segments.push({ key: 'kept', kind: 'kept', amount: kept })
+  if (kept > surplusTolerance(actualPerMin)) segments.push({ key: 'kept', kind: 'kept', amount: kept })
   const short = asked && isShortfall(required, actualPerMin, unit, product.itemId)
   if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
   const scale = Math.max(required, sum(segments))
@@ -226,9 +226,9 @@ export function productSlot(
     // Only requesters the source left wanting: `limited` means the consumer took everything on
     // offer and still imports the item. One under-served for another reason (it took the item
     // from another block first, so it drew less than it asked) is `ok` or `unused`, not blamed.
-    const blockIds = requestPart > FLOW_TOLERANCE
+    const blockIds = requestPart > surplusTolerance(Math.max(required, actualPerMin))
       ? requests
-          .filter(f => f.status === 'limited' && f.rate < (f.requested ?? 0) - FLOW_TOLERANCE)
+          .filter(f => f.status === 'limited' && f.rate < (f.requested ?? 0) - surplusTolerance(f.requested ?? 0))
           .map(f => f.toBlockId)
       : []
     shortFrom = { extra: extraPart, requests: requestPart, blockIds }
@@ -453,14 +453,14 @@ export function keyEntryText(
       if (requestedRate === undefined) return plain
       const name = `${blockName ?? GONE}${entry.loop ? ' ↻' : ''}`
       // Beyond its ask a request can also draw what nobody holds: the label states the ask.
-      return amount >= requestedRate - FLOW_TOLERANCE
+      return amount >= requestedRate - surplusTolerance(requestedRate)
         ? { label: `${name} requests`, amount: fmt(requestedRate) }
         : { label: `${name}:`, amount: fmt(amount), note: `of ${fmt(requestedRate)} requested` }
     }
     case 'kept':
       // What is left can exceed the extra (a requester drew less than it asked), and a product
       // may have no extra: both read as plain "Left" rather than an over-filled extra.
-      return product.extra !== undefined && amount <= product.extra + FLOW_TOLERANCE
+      return product.extra !== undefined && amount <= product.extra + surplusTolerance(product.extra)
         ? { label: 'Extra:', amount: fmt(amount), note: `of ${fmt(product.extra)}` }
         : plain
     case 'short': {

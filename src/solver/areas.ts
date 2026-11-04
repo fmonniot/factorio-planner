@@ -19,6 +19,7 @@ import {
   blockDiagnostics,
   byproductsFirstSet,
   itemsWithSourcing,
+  itemGrossFlow,
   solvedNodeOf,
   surplusTolerance,
   zeroNode,
@@ -546,13 +547,15 @@ export function solveAreaBlock(
   for (const [itemId, cap] of totalCaps) {
     if (!system.classification.intermediates.has(itemId)) continue
     const residual = lp.slack.get(itemId) ?? 0
+    // Noise floor at the item's pass-1 scale (read before `lp` is reassigned).
+    const tol = surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput))
     if (firstItems.has(itemId)) {
-      if (residual > FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+      if (residual > tol) pass2NoImport.delete(itemId)
       continue
     }
-    if (residual > FLOW_TOLERANCE) {
+    if (residual > tol) {
       pass2Caps.set(itemId, Math.min(cap, residual))
-      if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+      if (cap < residual - tol) pass2NoImport.delete(itemId)
     }
   }
   if (pass2Caps.size > 0) {

@@ -1,5 +1,5 @@
 import { closesLoop, hasProduct } from '../solver/blockGraph'
-import { netBalance, receivesItem, FLOW_TOLERANCE } from '../solver/index'
+import { grossFlow, netBalance, receivesItem, surplusTolerance } from '../solver/index'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -31,7 +31,10 @@ export function offeredRate(
     .filter(f => f.fromBlockId === sourceId && f.itemId === itemId)
     .reduce((sum, f) => sum + f.rate, 0)
   // Never negative: in a loop that did not settle, flows can add up to more than the source's last offer.
-  return Math.max(0, (netBalance(results[sourceId]?.nodes ?? []).get(itemId) ?? 0) - taken)
+  // What is left within the noise of the item's flow counts as nothing.
+  const nodes = results[sourceId]?.nodes ?? []
+  const rest = (netBalance(nodes).get(itemId) ?? 0) - taken
+  return rest > surplusTolerance(grossFlow(nodes).get(itemId) ?? 0) ? rest : 0
 }
 
 export interface TakeCandidate {
@@ -54,7 +57,7 @@ export function takeCandidates(
   return blocks
     .filter(b => canConnect(blocks, target, itemId, b.id) && !hasProduct(b, itemId))
     .map(block => ({ block, offered: offeredRate(block.id, itemId, results, flows) }))
-    .filter(({ offered }) => offered > FLOW_TOLERANCE)
+    .filter(({ offered }) => offered > 0)
     .map(({ block, offered }) => ({ block, offered, closesLoop: closesLoop(blocks, block.id, targetId) }))
 }
 
@@ -138,13 +141,14 @@ export function connectableItems(
   const result = results[targetId]
   if (!target || !result) return []
   const items: ItemCandidate[] = []
+  const gross = grossFlow(result.nodes)
   for (const u of result.unsatisfied) {
-    if (u.rate <= FLOW_TOLERANCE) continue
+    if (u.rate <= surplusTolerance(gross.get(u.itemId) ?? 0)) continue
     if (!canConnect(blocks, target, u.itemId, sourceId)) continue
     const offered = offeredRate(sourceId, u.itemId, results, flows)
     const source = blocks.find(b => b.id === sourceId)
     const request = !!source && hasProduct(source, u.itemId)
-    if (!request && offered <= FLOW_TOLERANCE) continue
+    if (!request && offered <= 0) continue
     const blocker = request ? requestBlocker(blocks, u.itemId, sourceId) : undefined
     items.push({ itemId: u.itemId, offered, needed: u.rate, request, ...(blocker ? { blocker } : {}) })
   }

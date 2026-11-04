@@ -22,7 +22,7 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, outsideResidual, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, itemGrossFlow, outsideResidual, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -286,14 +286,16 @@ export function solveBlock(
   for (const [itemId, cap] of totalCaps) {
     if (!system.classification.intermediates.has(itemId)) continue
     const residual = lp.slack.get(itemId) ?? 0
+    // Noise floor at the item's pass-1 scale (read before `lp` is reassigned).
+    const tol = surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput))
     if (firstItems.has(itemId)) {
       // Already supplied in pass 1 up to its offer: stays unlocked only if something is left.
-      if (residual > FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+      if (residual > tol) pass2NoImport.delete(itemId)
       continue
     }
-    if (residual > FLOW_TOLERANCE) {
+    if (residual > tol) {
       pass2Caps.set(itemId, Math.min(cap, residual))
-      if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
+      if (cap < residual - tol) pass2NoImport.delete(itemId)
     }
   }
   if (pass2Caps.size > 0) {
@@ -440,9 +442,9 @@ function solveStep(
         info && 'requested' in info
           ? // The limit bounded the flow only if it cut the request and the source could have met it.
             c.maxRate !== undefined &&
-            info.requested >= c.maxRate - FLOW_TOLERANCE &&
-            sourceOffer >= c.maxRate - FLOW_TOLERANCE
-          : c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE
+            info.requested >= c.maxRate - surplusTolerance(c.maxRate) &&
+            sourceOffer >= c.maxRate - surplusTolerance(c.maxRate)
+          : c.maxRate !== undefined && c.maxRate < sourceOffer - surplusTolerance(sourceOffer)
       if (limitBinds) capped.add(c.id)
       seen.add(key)
       active.push(c)
@@ -516,7 +518,7 @@ function solveStep(
     const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
     const status: ConnectionFlowStatus =
       duplicates.has(c.id) ? 'unused'
-      : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
+      : importsItem && rate >= offer - surplusTolerance(offer) ? 'limited'
       : rate <= FLOW_TOLERANCE ? 'unused'
       : 'ok'
     flows.push({
@@ -536,8 +538,9 @@ function solveStep(
   }
 
   const offers: Offers = new Map()
+  const gross = grossFlow(result.nodes)
   for (const [itemId, net] of netBalance(result.nodes)) {
-    if (net > FLOW_TOLERANCE) offers.set(itemId, net)
+    if (net > surplusTolerance(gross.get(itemId) ?? 0)) offers.set(itemId, net)
   }
   return { result, error, flows, offers }
 }
@@ -686,9 +689,10 @@ function applyTakeCredits(
 /** What a source with solved `nodes` has left per item after the amounts requested of it. */
 function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined): Offers {
   const left: Offers = new Map()
+  const gross = grossFlow(nodes)
   for (const [itemId, net] of netBalance(nodes)) {
     const rest = net - (requestedOfSource?.get(itemId) ?? 0)
-    if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
+    if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
   }
   return left
 }
@@ -1132,7 +1136,7 @@ export function solveAll(
         for (const [itemId, offer] of step.offers) {
           const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
           const rest = offer - drawn
-          if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
+          if (rest > surplusTolerance(offer)) left.set(itemId, rest)
         }
         rem.set(m.id, left)
         steps.set(m.id, step)

@@ -45,9 +45,25 @@ const SURPLUS_TOLERANCE = 1e-6
 /** Fraction of an item's gross flow added to the surplus tolerance, so LP rounding noise at large flows is not reported. */
 const SURPLUS_REL_TOLERANCE = 1e-8
 
-/** Smallest net surplus of an item reported as `overconstrained`, given its gross flow (the larger of produced and consumed). */
+/**
+ * Noise floor of any difference of flows of the given scale (an item's gross flow, the larger of
+ * produced and consumed, or the larger operand of the comparison): the smallest surplus, residual
+ * or gap worth reporting. Equals `FLOW_TOLERANCE` for scales up to 100/min.
+ */
 export function surplusTolerance(grossFlow: number): number {
   return Math.max(SURPLUS_TOLERANCE, SURPLUS_REL_TOLERANCE * grossFlow)
+}
+
+/** Larger of produced and consumed of one item over the columns, from an `S` row and the throughputs. */
+export function itemGrossFlow(row: Map<string, number> | undefined, throughput: Map<string, number>): number {
+  let produced = 0
+  let consumed = 0
+  for (const [recipeId, coeff] of row ?? []) {
+    const flow = coeff * (throughput.get(recipeId) ?? 0)
+    if (flow > 0) produced += flow
+    else consumed -= flow
+  }
+  return Math.max(produced, consumed)
 }
 
 /**
@@ -219,7 +235,7 @@ export function blockDiagnostics(args: {
     const fromSupply = Math.min(totalConsumption, totalCaps.get(itemId) ?? 0)
     if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
     const imported = totalConsumption - fromSupply
-    if (fromSupply === 0 || imported > FLOW_TOLERANCE) {
+    if (fromSupply === 0 || imported > surplusTolerance(totalConsumption)) {
       rawConsumption.push({ itemId, rate: imported })
     }
   }
@@ -229,8 +245,9 @@ export function blockDiagnostics(args: {
   for (const itemId of totalCaps.keys()) {
     if (!system.classification.intermediates.has(itemId)) continue
     const deficit = Math.max(0, -(itemSurplus.get(itemId) ?? 0))
-    const fromSupply = Math.min(supply.get(itemId) ?? 0, deficit)
-    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
+    if (deficit <= surplusTolerance(itemGross.get(itemId) ?? 0)) continue
+    const taken = Math.min(supply.get(itemId) ?? 0, deficit)
+    if (taken > 0) received.set(itemId, taken)
   }
 
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.

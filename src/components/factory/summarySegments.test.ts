@@ -520,3 +520,30 @@ describe('keyEntryText', () => {
     expect(join(p.seg('to:B'), 'B', p.product)).toBe('→ B 5.0')
   })
 })
+
+describe('large flows', () => {
+  it('ignores a gap within the noise of a huge flow', () => {
+    expect(isShortfall(1e9, 1e9 - 5, 'min')).toBe(false)
+    expect(differsFromTarget(1e9, 1e9 - 5, 'min')).toBe(false)
+  })
+
+  it('reports a gap beyond that noise', () => {
+    expect(isShortfall(1e9, 1e9 - 50, 'min')).toBe(true)
+    expect(differsFromTarget(1e9, 1e9 - 50, 'min')).toBe(true)
+  })
+
+  it('keeps small-flow behaviour', () => {
+    expect(isShortfall(600, 599.99, 'min')).toBe(true)
+    expect(differsFromTarget(600, 599.99, 'min')).toBe(true)
+  })
+
+  it('shows no kept segment for noise left after the exports of a huge flow', () => {
+    const slot = productSlot(noExtra(), 1e9, [flow({ rate: 1e9 - 5 })], 'min')
+    expect(slot.segments.some(s => s.kind === 'kept')).toBe(false)
+  })
+
+  it('shows the same kept rest at a small flow', () => {
+    const slot = productSlot(noExtra(), 100, [flow({ rate: 99 })], 'min')
+    expect(slot.segments.find(s => s.kind === 'kept')?.amount).toBeCloseTo(1, 9)
+  })
+})

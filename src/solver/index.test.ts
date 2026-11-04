@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { solve, solveBlock, solveAll, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
+import { itemGrossFlow } from './blockResult'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -2138,5 +2139,46 @@ describe('solve — burner fuel', () => {
     expect(rate(r.unsatisfied, 'coal')).toBe(0)
     const received = r.areas!.find(a => a.areaId === 'root')!.receives.find(f => f.itemId === 'coal')
     expect(received?.rate).toBeCloseTo(2.7, 4)
+  })
+})
+
+describe('itemGrossFlow', () => {
+  const throughput = new Map([['mk', 10], ['use', 4]])
+  it('is the larger of produced and consumed', () => {
+    expect(itemGrossFlow(new Map([['mk', 2], ['use', -1]]), throughput)).toBe(20)
+    expect(itemGrossFlow(new Map([['mk', 1], ['use', -3]]), throughput)).toBe(12)
+  })
+
+  it('is 0 without a row', () => {
+    expect(itemGrossFlow(undefined, throughput)).toBe(0)
+  })
+})
+
+describe('solveAll — offers at large flows', () => {
+  const data = () => makeGameData({
+    recipes: {
+      mk: recipe('mk', 1, [], [product('b', 1)]),
+      use: recipe('use', 1, [{ itemId: 'b', type: 'item', amount: 1 }], [product('c', 1)]),
+    },
+  })
+  const cGoal = (id: string): Product[] => [{ id, itemId: 'c', extraRate: 1 }]
+  const block = (id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = []): Block =>
+    ({ ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections })
+  // A makes `made` of b and uses `used` of it; B takes b from A for its own goal.
+  const flowFromA = (made: number, used: number) => solveAll([
+    block('A', cGoal('ga'), [pinned('n1', 'mk', made), pinned('n2', 'use', used)]),
+    block('B', cGoal('gb'), [planNode('n3', 'use')], [{ id: 'c1', itemId: 'b', fromBlockId: 'A' }]),
+  ], data()).flows.find(f => f.connectionId === 'c1')
+
+  it('offers no noise-sized rest of a huge flow', () => {
+    expect(flowFromA(1e9, 1e9 - 5)?.available ?? 0).toBe(0)
+  })
+
+  it('offers the same rest at a small flow', () => {
+    expect(flowFromA(100, 99)?.available).toBeCloseTo(1, 6)
+  })
+
+  it('keeps a genuine large offer', () => {
+    expect(flowFromA(1e9, 1)?.available).toBeGreaterThan(1)
   })
 })

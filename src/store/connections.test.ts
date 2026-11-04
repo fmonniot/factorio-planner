@@ -79,6 +79,15 @@ describe('offeredRate', () => {
   it('is 0 without a result', () => {
     expect(offeredRate('S', 'plate', {}, [])).toBe(0)
   })
+
+  it('treats a rest within the noise of a huge flow as nothing', () => {
+    expect(offeredRate('S', 'plate', { S: result({ plate: 1e9 }) }, [flow({ rate: 1e9 - 5 })])).toBe(0)
+  })
+
+  it('keeps the same rest at a small flow', () => {
+    expect(offeredRate('S', 'plate', { S: result({ plate: 100 }) }, [flow({ rate: 99 })])).toBeCloseTo(1, 9)
+    expect(offeredRate('S', 'plate', { S: result({ plate: 100 }) }, [flow({ rate: 99.999 })])).toBeCloseTo(0.001, 9)
+  })
 })
 
 describe('takeCandidates', () => {
@@ -180,6 +189,14 @@ describe('connectableItems', () => {
     expect(connectableItems(blocks, 'S', 'T', results({ gear: 2, plate: 40 }), [])).toEqual([])
     const plain = [block('S'), block('T')]
     expect(connectableItems(plain, 'S', 'T', results({ plate: 1e-9 }), [])).toEqual([])
+  })
+
+  it('skips an import within the noise of the target\'s gross flow', () => {
+    const blocks = [block('S'), block('T')]
+    const big = { S: result({ plate: 100 }), T: result({ plate: 1e9 }, { plate: 5 }) }
+    expect(connectableItems(blocks, 'S', 'T', big, [])).toEqual([])
+    const small = { S: result({ plate: 100 }), T: result({ plate: 100 }, { plate: 5 }) }
+    expect(connectableItems(blocks, 'S', 'T', small, [])).toHaveLength(1)
   })
 
   it('lists items across a loop', () => {
