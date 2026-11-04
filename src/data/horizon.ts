@@ -23,8 +23,16 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
  * Whether the recipes `inside` offer an ingredient, kept incrementally (`admit` adds a recipe's
  * products). An item is offered when no non-hidden recipe makes it (or it is missing from the
  * bundle, so there is nothing to gate on) or one inside does; an ingredient with a temperature
- * bound further needs an inside product at an accepted temperature (unknown temperature is accepted).
- * `inside` is read at call time and not copied, so the caller may grow it alongside `admit`.
+ * bound further needs an inside product at an accepted temperature.
+ *
+ * Deliberately lenient: an unknown product temperature counts as accepted, so one inside producer
+ * of unknown temperature offers the ingredient even when the other producers have known
+ * temperatures that fail the bound; an ingredient missing from `gameData.items` skips the
+ * bound check altogether.
+ *
+ * `inside` is read once, when this is called, to seed the reachable products; recipes admitted
+ * afterwards must be passed to `admit`. The produced/reachable bookkeeping mirrors
+ * `availableItemIds` (hidden recipes ignored), which stays name-only: keep the two in step.
  */
 function offeredIngredients(
   gameData: GameData,
@@ -65,8 +73,9 @@ function offeredIngredients(
  * waits for rocket fuel. Chains (boiler -> steam engine, reactor -> heat exchanger)
  * are resolved by iterating to a fixed point; a cycle with no way in stays outside.
  * An ingredient with a temperature bound also needs an inside recipe making that item at an accepted
- * temperature (an unknown temperature is accepted). Returns null (= no limit)
- * when the data set has no technology data or no target is a known technology.
+ * temperature (an unknown temperature is accepted).
+ *
+ * Returns null (= no limit) when the data set has no technology data or no target is a known technology.
  */
 export function availableRecipeIds(gameData: GameData, targetIds: readonly string[]): Set<string> | null {
   if (!hasTechnologies(gameData)) return null
@@ -184,7 +193,7 @@ export function technologyUnlocks(
  * entirely: an item only hidden recipes produce counts as having no producer
  * (always offered), and a hidden recipe never rescues an item whose non-hidden
  * producers are all outside the horizon. Returns null (= no limit) when
- * `recipeIds` is null.
+ * `recipeIds` is null. Name-only; `offeredIngredients` applies the same rule with temperatures.
  */
 export function availableItemIds(gameData: GameData, recipeIds: ReadonlySet<string> | null): Set<string> | null {
   if (!recipeIds) return null
