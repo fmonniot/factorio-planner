@@ -15,14 +15,14 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { blockAreas, solveAreaBlock } from './areas'
+import { blockAreas, explicitMainProduct, solveAreaBlock } from './areas'
 import { buildClassifiedSystem, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -308,10 +308,23 @@ export function solveBlock(
     nodes.push(solvedNodeOf(planNode, recipe, throughput, effects, prodBonus, gameData))
   }
 
-  const { overconstrained, unsatisfied, received } = blockDiagnostics({
+  const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({
     goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
   })
   if (overconstrained) warnings.push(overconstrained)
+  const mainItemOfRecipe = new Map<string, string>()
+  for (const n of representatives) {
+    const r = gameData.recipes[n.recipeId]
+    const main = r ? explicitMainProduct(n, r) : undefined
+    if (main !== undefined) mainItemOfRecipe.set(n.recipeId, main)
+  }
+  // Pins that cannot be met make the flows meaningless for this check.
+  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
+    goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
+    fixed: new Set([...pinnedRates.keys(), ...bcRecipeIds]), noImportItems, recipeOf: id => id,
+    mainItemOf: id => mainItemOfRecipe.get(id),
+  })
+  if (coproductDriven) warnings.push(coproductDriven)
 
   return {
     result: { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] },

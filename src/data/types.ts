@@ -64,6 +64,12 @@ export type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  /**
+   * Recipes the solver runs mostly to make a co-product the block consumes. `throughput` and
+   * `needed` are executions/min summed over the recipe's rows: what it runs at, and what its other
+   * outputs would need. `itemIds` are the co-products that bind it.
+   */
+  | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }

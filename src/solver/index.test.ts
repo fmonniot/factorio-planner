@@ -2236,3 +2236,136 @@ describe('backOffersSettled', () => {
     expect(backOffersSettled(loop, members, offers(50, 10), offers(20, 10))).toBe(false)
   })
 })
+
+// ---------------------------------------------------------------------------
+// coproduct-driven warning
+// ---------------------------------------------------------------------------
+
+describe('solve — coproduct-driven warning', () => {
+  const maker = () => ({ ...recipe('maker', 1, [], [product('P', 1), product('W', 40)]), mainProduct: 'P' })
+  const gadget = (wPer: number) => recipe('gadget', 1, [{ itemId: 'P', type: 'item', amount: 1 }, { itemId: 'W', type: 'item', amount: wPer }], [product('gadget', 1)])
+  const sink = () => recipe('sink', 1, [{ itemId: 'W', type: 'item', amount: 6000 }], [product('junk', 1)])
+  const pump = () => recipe('pump', 1, [], [product('W', 1000)])
+  const gd = (wPer: number) => makeGameData({ recipes: { maker: maker(), gadget: gadget(wPer), sink: sink(), pump: pump() } })
+  const gadgetGoal = (): SolverGoal[] => [{ id: 'g', itemId: 'gadget', rate: 60 }]
+  const nodes = () => [planNode('n0', 'maker'), planNode('n1', 'gadget')]
+  const types = (r: ReturnType<typeof solve>) => r.warnings.map(w => w.type)
+  const tp = (r: ReturnType<typeof solve>, id: string) => r.nodes.find(n => n.recipeNodeId === id)?.throughput ?? 0
+
+  it('flags a recipe run for the co-product the block consumes', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes() }, gd(100))
+    expect(tp(r, 'n0')).toBeCloseTo(150, 3)
+    expect(tp(r, 'n1')).toBeCloseTo(60, 3)
+    const w = r.warnings.find(w => w.type === 'coproduct-driven')
+    expect(w?.type === 'coproduct-driven' && w.drivers).toHaveLength(1)
+    if (w?.type !== 'coproduct-driven') throw new Error('missing warning')
+    expect(w.drivers[0].recipeId).toBe('maker')
+    expect(w.drivers[0].itemIds).toEqual(['W'])
+    expect(w.drivers[0].throughput).toBeCloseTo(150, 3)
+    expect(w.drivers[0].needed).toBeCloseTo(60, 3)
+    expect(types(r).indexOf('coproduct-driven')).toBeGreaterThan(types(r).indexOf('overconstrained'))
+  })
+
+  it('flags a recipe whose product goal is overshot by the co-product demand', () => {
+    const r = solve(
+      { goals: [{ id: 'g1', itemId: 'P', rate: 60 }, { id: 'g2', itemId: 'junk', rate: 1 }], nodes: [planNode('n0', 'maker'), planNode('n1', 'sink')] },
+      gd(100),
+    )
+    expect(tp(r, 'n0')).toBeCloseTo(150, 3)
+    expect(tp(r, 'n1')).toBeCloseTo(1, 3)
+    expect(types(r)).not.toContain('overconstrained')
+    const w = r.warnings.find(w => w.type === 'coproduct-driven')
+    if (w?.type !== 'coproduct-driven') throw new Error('missing warning')
+    expect(w.drivers[0].itemIds).toEqual(['W'])
+    expect(w.drivers[0].needed).toBeCloseTo(60, 3)
+  })
+
+  it('is silent when another row supplies the co-product', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: [...nodes(), planNode('n2', 'pump')] }, gd(100))
+    expect(tp(r, 'n0')).toBeCloseTo(60, 3)
+    expect(tp(r, 'n2')).toBeCloseTo(3.6, 3)
+    expect(types(r)).not.toContain('overconstrained')
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the other outputs need most of the rate (80%)', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes() }, gd(50))
+    expect(tp(r, 'n0')).toBeCloseTo(75, 3)
+    expect(types(r)).toContain('overconstrained')
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent just above the ratio (53%)', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes() }, gd(75))
+    expect(tp(r, 'n0')).toBeCloseTo(112.5, 3)
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the co-product is in surplus', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes() }, gd(10))
+    expect(tp(r, 'n0')).toBeCloseTo(60, 3)
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('does not blame a pinned recipe', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: [pinned('n0', 'maker', 150), planNode('n1', 'gadget')] }, gd(100))
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the co-product is set to byproducts first', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), itemSourcing: { W: 'byproducts-first' } }, gd(100))
+    expect(tp(r, 'n0')).toBeCloseTo(60, 3)
+    expect(types(r)).not.toContain('overconstrained')
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('does not blame a byproduct consumer', () => {
+    const bc: RecipeNode = { ...planNode('n0', 'maker'), byproductConsumer: true }
+    const r = solve({ goals: gadgetGoal(), nodes: [bc, planNode('n1', 'gadget')] }, gd(100))
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the recipe names no main product', () => {
+    const noMain = { ...maker(), mainProduct: undefined }
+    const r = solve({ goals: gadgetGoal(), nodes: nodes() }, makeGameData({ recipes: { maker: noMain, gadget: gadget(100), sink: sink(), pump: pump() } }))
+    expect(tp(r, 'n0')).toBeCloseTo(150, 3)
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the co-product cannot be imported anyway', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), noImportItems: ['W'], itemSourcing: { W: 'byproducts-first' } }, gd(100))
+    expect(tp(r, 'n0')).toBeCloseTo(150, 3)
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the co-product is absorbed by a byproduct consumer', () => {
+    const bc: RecipeNode = { ...planNode('n2', 'sink'), byproductConsumer: true }
+    const r = solve({ goals: gadgetGoal(), nodes: [...nodes(), bc] }, gd(100))
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('is silent when the pins cannot be met', () => {
+    const r = solve({ goals: gadgetGoal(), nodes: [planNode('n0', 'maker'), pinned('n1', 'gadget', 10)] }, gd(100))
+    expect(types(r)).toContain('infeasible-pins')
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('shares a surplus between the recipes that make it', () => {
+    // Two makers of P, each run for its own co-product; P is in large surplus.
+    const a = { ...recipe('a', 1, [], [product('P', 10), product('W', 1)]), mainProduct: 'P' }
+    const c = { ...recipe('c', 1, [], [product('P', 10), product('X', 1)]), mainProduct: 'P' }
+    const use = recipe('use', 1, [
+      { itemId: 'W', type: 'item', amount: 1 }, { itemId: 'X', type: 'item', amount: 1 }, { itemId: 'P', type: 'item', amount: 0.2 },
+    ], [product('out', 1)])
+    const r = solve(
+      { goals: [{ id: 'g', itemId: 'out', rate: 60 }], nodes: [planNode('na', 'a'), planNode('nc', 'c'), planNode('nu', 'use')] },
+      makeGameData({ recipes: { a, c, use } }),
+    )
+    const w = r.warnings.find(w => w.type === 'coproduct-driven')
+    if (w?.type !== 'coproduct-driven') throw new Error('missing warning')
+    // The surplus of P is shared: together the recipes still need 12 / 10 = 1.2 executions for P.
+    expect(w.drivers).toHaveLength(2)
+    const total = w.drivers.reduce((sum, d) => sum + d.needed, 0)
+    expect(total).toBeCloseTo(1.2, 3)
+  })
+})
