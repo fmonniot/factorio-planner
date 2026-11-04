@@ -106,6 +106,7 @@ Same fixture and setup as above. Each click is a plain left click on the icon; a
 3. A very long plan (Seablock, tens of blocks, tens of rows): opening, selecting a block and ticking a checkbox do not stall the game visibly.
 4. A block name with rich-text brackets (for example `[item=iron-plate] smelting`) shows the icon, which is accepted; a name that opens a tag without closing it does not break the window.
 5. Locale: nothing in the window shows `Unknown key`.
+6. The rate unit button is the first thing in the title bar, left of the draggable area, captioned `/min`. Pressing it makes the item numbers on the slots one sixtieth of what they were, the caption `/s` and the item tooltips say "per second"; pressing it again restores `/min` and "per minute". Machine and beacon counts do not change. A second player in multiplayer has their own unit. Dragging still works from either side of the title, and the choice survives a save and load. The `/min` caption is white, fully readable (not clipped to `/m` or `...`) and the button does not stretch the title bar. In `/s`, a row with a very low rate (under 1 per minute) shows a number badge that is not `0`; note what it shows. A window left by an older version is replaced at the same position, in the player's unit.
 
 ### No effect on the game
 

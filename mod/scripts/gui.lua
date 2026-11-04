@@ -38,10 +38,12 @@ M.SPRITE = "fp-viewer-button"
 local LEGACY_BUTTON = "fp_viewer_button"
 M.WINDOW = "fp_viewer_window"
 M.CLOSE = "fp_viewer_close"
+M.RATE = "fp_viewer_rate_unit"
 local BAR = "fp_viewer_title_bar"
 local CONTENT = "fp_viewer_content"
 
 local RED = { r = 1, g = 0.4, b = 0.35 }
+local WHITE = { r = 1, g = 1, b = 1 }
 local ORANGE = { r = 1, g = 0.75, b = 0.3 }
 local GREY = { r = 0.6, g = 0.6, b = 0.6 }
 
@@ -246,6 +248,11 @@ function M.is_open(player)
   return player.gui.screen[M.WINDOW] ~= nil
 end
 
+-- The caption of the rate unit button.
+local function rate_caption(unit)
+  return unit == "sec" and "/s" or "/min"
+end
+
 -- Opens the window. With `ctx` (see M.update) its content is built before the
 -- window is shown.
 --
@@ -272,6 +279,33 @@ function M.open(player, ctx)
   local bar = window.add({ type = "flow", name = BAR, direction = "horizontal" })
   try_style(bar, "frame_header_flow")
   bar.drag_target = window
+  local rate = bar.add({
+    type = "button",
+    name = M.RATE,
+    caption = rate_caption(ctx and ctx.unit),
+    tooltip = { key("rate-unit-tooltip") },
+  })
+  try_style(rate, "frame_action_button")
+  -- That style is a fixed square, too small for a text caption: let it size to it.
+  pcall(function()
+    rate.style.minimal_width = 48
+    rate.style.horizontally_stretchable = false
+  end)
+  -- A button has a text color per state, and the style's own are dark: all of them
+  -- white, like the title. Each in its own pcall, so one the game refuses does not
+  -- skip the others.
+  for _, field in ipairs({
+    "font_color",
+    "hovered_font_color",
+    "clicked_font_color",
+    "selected_font_color",
+    "selected_hovered_font_color",
+    "selected_clicked_font_color",
+  }) do
+    pcall(function()
+      rate.style[field] = WHITE
+    end)
+  end
   drag_handle(bar)
   local title = bar.add({ type = "label", caption = { key("title") } })
   try_style(title, "frame_title")
@@ -405,20 +439,29 @@ local function slot(parent, spec)
   return b
 end
 
-local function rate_tooltip(ref)
-  return { "", ref_caption(ref), "\n", { key("tt-rate"), format.tooltip_number(ref.rate) } }
+-- The snapshot's rates are items per minute; unit "sec" only converts for display.
+local function rate_number(ref, unit)
+  if unit == "sec" then
+    return ref.rate / 60
+  end
+  return ref.rate
+end
+
+local function rate_tooltip(ref, unit)
+  local key_name = unit == "sec" and "tt-rate-sec" or "tt-rate"
+  return { "", ref_caption(ref), "\n", { key(key_name), format.tooltip_number(rate_number(ref, unit)) } }
 end
 
 -- A table of item buttons. Virtual refs (electricity, heat) are never drawn here: their
 -- rate is not an item count.
-local function add_items(parent, refs, style, gray, columns)
+local function add_items(parent, refs, style, gray, columns, unit)
   local t = parent.add({ type = "table", column_count = columns })
   for _, ref in ipairs(refs) do
     if not ref.virtual then
       slot(t, {
         sprite = sprite_of(ref.sprite, ref.missing),
-        number = ref.rate,
-        tooltip = rate_tooltip(ref),
+        number = rate_number(ref, unit),
+        tooltip = rate_tooltip(ref, unit),
         style = style,
         missing = ref.missing,
         gray = gray,
@@ -551,7 +594,7 @@ end
 -- A sub-factory is one line: its icon is the first of its net products, in the
 -- blue of the reference's floors, and a click on it opens the sub-factory. Its
 -- name, which has no room in the line, is in the icon's tooltip.
-local function add_group(t, block, entry, done, columns)
+local function add_group(t, block, entry, done, columns, unit)
   local checked = progress.all_done(done, block.key, entry.keys)
   local cell = first_cell(t)
   checkbox(cell, checked, format.tags(block.key, entry.key, format.TAG_CHECK), { key("tt-check-group") })
@@ -574,12 +617,12 @@ local function add_group(t, block, entry, done, columns)
   if block.has_beacon then
     t.add({ type = "empty-widget" })
   end
-  add_items(t, entry.products, SLOT, checked, columns.products)
-  add_items(t, entry.ingredients, SLOT_GREEN, checked, columns.ingredients)
+  add_items(t, entry.products, SLOT, checked, columns.products, unit)
+  add_items(t, entry.ingredients, SLOT_GREEN, checked, columns.ingredients, unit)
   add_pusher(t)
 end
 
-local function add_row(t, block, entry, done, columns)
+local function add_row(t, block, entry, done, columns, unit)
   local row = entry.row
   local built = progress.is_done(done, block.key, entry.key)
   local cell = first_cell(t)
@@ -589,8 +632,8 @@ local function add_row(t, block, entry, done, columns)
   if block.has_beacon then
     beacon_cell(t, block, entry, built)
   end
-  add_items(t, row.outputs, SLOT, built, columns.products)
-  add_items(t, row.inputs, SLOT_GREEN, built, columns.ingredients)
+  add_items(t, row.outputs, SLOT, built, columns.products, unit)
+  add_items(t, row.inputs, SLOT_GREEN, built, columns.ingredients, unit)
   add_pusher(t)
 end
 
@@ -636,7 +679,7 @@ end
 
 -- `entries` are the lines of the level shown: the block's top level or a
 -- sub-factory's own lines.
-local function fill_table(scroll, block, entries, done, window_width)
+local function fill_table(scroll, block, entries, done, window_width, unit)
   scroll.clear()
   if #entries == 0 then
     label(scroll, { key("none") }, GREY)
@@ -654,9 +697,9 @@ local function fill_table(scroll, block, entries, done, window_width)
   local item_cols = item_columns(block, entries, window_width)
   for _, entry in ipairs(entries) do
     if entry.type == "group" then
-      add_group(t, block, entry, done, item_cols)
+      add_group(t, block, entry, done, item_cols, unit)
     else
-      add_row(t, block, entry, done, item_cols)
+      add_row(t, block, entry, done, item_cols, unit)
     end
   end
 end
@@ -781,6 +824,8 @@ end
 --   only_table   = true when only the selection, the level or a tick changed: the
 --                  header and the drop-down are kept, the block's note, the level
 --                  button and the table redrawn
+--   unit         = "min" | "sec" | nil   the unit item rates are shown in (nil: "min");
+--                  the snapshot's rates are per minute, "sec" divides by 60
 --   reset_scroll = true to scroll the table back to the top (a new block or level)
 -- }
 function M.update(player, ctx)
@@ -797,13 +842,20 @@ function M.update(player, ctx)
   if window == nil then
     return
   end
-  if window[BAR] == nil then
+  if window[BAR] == nil or window[BAR][M.RATE] == nil then
     -- Left by an older version of the mod: no update fires for a mod whose version
     -- did not change, so the window is replaced here.
+    local location = window.location
     M.close(player)
     M.open(player, ctx)
+    local replaced = player.gui.screen[M.WINDOW]
+    if location ~= nil and replaced ~= nil then
+      replaced.location = location
+    end
     return
   end
+  local unit = ctx.unit == "sec" and "sec" or "min"
+  window[BAR][M.RATE].caption = rate_caption(unit)
   local content = window[CONTENT]
   if content == nil then
     content = window.add({ type = "flow", name = CONTENT, direction = "vertical" })
@@ -862,7 +914,8 @@ function M.update(player, ctx)
     block,
     level and level.entries or block.entries,
     ctx.done or {},
-    layout.window_width(screen_size(player).width)
+    layout.window_width(screen_size(player).width),
+    unit
   )
   if ctx.reset_scroll then
     scroll.scroll_to_top()

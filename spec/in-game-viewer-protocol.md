@@ -22,6 +22,8 @@ This document defines how a snapshot gets from the planner to the mod: the WebSo
 
 The snapshot is compact JSON (`JSON.stringify` of the projection) in UTF-8. The bytes are sent as they are: no base64, no compression, no checksum. Only the planner and the mod look inside them. To the bridge they are opaque.
 
+Every rate in a snapshot is in items per minute, and a row's `throughput` is in executions per minute. The snapshot carries no unit: it is fixed by this document. A mod that shows rates per second (its `/min` and `/s` toggle) converts for display only, by dividing by 60; nothing is sent back and the snapshot is unchanged.
+
 ### Snapshot id
 
 The planner computes it: the **first 16 lowercase hexadecimal characters of the SHA-256 of the snapshot bytes**, using `crypto.subtle.digest`, which both the HTTPS site and `http://localhost` can reach. For the `small` fixture that is `b50eac1dfa0cae79`.

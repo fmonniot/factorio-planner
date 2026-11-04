@@ -171,7 +171,9 @@ describe("scripts/gui.lua", function()
     local player = fake.players[1]
     gui.toggle(player)
     assert.is_true(gui.is_open(player))
-    assert.is_truthy(player.gui.screen[gui.WINDOW].children[1].children[4].name == gui.CLOSE)
+    local bar = player.gui.screen[gui.WINDOW].children[1]
+    assert.is_not_nil(bar[gui.CLOSE])
+    assert.is_not_nil(bar[gui.RATE])
     -- Decision 12: not player.opened, so paste mode and other windows work.
     assert.is_nil(player.opened)
     gui.toggle(player)
@@ -608,9 +610,29 @@ describe("scripts/gui.lua", function()
     local _, window = show(support.json_to_table(fixture_text("small")))
     local bar = window["fp_viewer_title_bar"]
     assert.are.equal("frame_header_flow", bar.style.name)
-    assert.are.equal("empty-widget", bar.children[1].type)
-    assert.are.equal("label", bar.children[2].type)
-    assert.are.equal("empty-widget", bar.children[3].type)
+    assert.are.equal("button", bar.children[1].type)
+    assert.are.equal(gui.RATE, bar.children[1].name)
+    assert.are.equal("empty-widget", bar.children[2].type)
+    assert.are.equal("label", bar.children[3].type)
+    assert.are.equal("empty-widget", bar.children[4].type)
+    assert.are.equal(gui.CLOSE, bar.children[5].name)
+  end)
+
+  it("sizes the rate button to its text caption", function()
+    local _, window = show(support.json_to_table(fixture_text("small")))
+    local rate = window["fp_viewer_title_bar"][gui.RATE]
+    assert.is_true((rate.style.minimal_width or 0) > 28)
+    for _, field in ipairs({
+      "font_color",
+      "hovered_font_color",
+      "clicked_font_color",
+      "selected_font_color",
+      "selected_hovered_font_color",
+      "selected_clicked_font_color",
+    }) do
+      assert.same({ r = 1, g = 1, b = 1 }, rate.style[field], field)
+    end
+    assert.is_false(rate.style.horizontally_stretchable)
   end)
 
   it("falls back on the base game's slots when flib is not there", function()
@@ -776,6 +798,113 @@ describe("control.lua", function()
     end
     return nil
   end
+
+  describe("the rate unit", function()
+    -- The item slots that carry a rate, as { number, tooltip text } in drawing order.
+    local function rates(window)
+      local out = {}
+      for _, b in ipairs(fake_game.find(window, function(e)
+        return e.type == "sprite-button" and e.tooltip ~= nil
+          and string.find(fake_game.flatten(e.tooltip), "tt-rate", 1, true) ~= nil
+      end)) do
+        out[#out + 1] = { number = b.number, tooltip = fake_game.flatten(b.tooltip) }
+      end
+      return out
+    end
+
+    local function rate_button(window)
+      return window["fp_viewer_title_bar"]["fp_viewer_rate_unit"]
+    end
+
+    local function machine_numbers(window)
+      local out = {}
+      for _, b in ipairs(tagged(window, "machine")) do
+        out[#out + 1] = b.number
+      end
+      return out
+    end
+
+    it("shows per minute with a /min button, then switches to per second and back", function()
+      deliver(fixture_text("small"))
+      local _, window = open_window()
+      local per_min = rates(window)
+      assert.is_true(#per_min > 0)
+      assert.are.equal("/min", rate_button(window).caption)
+      assert.is_truthy(string.find(per_min[1].tooltip, "tt-rate|", 1, true))
+      local machines = machine_numbers(window)
+
+      click(rate_button(window))
+      window = fake.players[1].gui.screen["fp_viewer_window"]
+      local per_sec = rates(window)
+      assert.are.equal(#per_min, #per_sec)
+      assert.are.equal("/s", rate_button(window).caption)
+      for i, r in ipairs(per_sec) do
+        assert.is_truthy(string.find(r.tooltip, "tt-rate-sec|", 1, true))
+        assert.are.near(per_min[i].number / 60, r.number, 1e-9)
+      end
+      assert.are.same(machines, machine_numbers(window))
+
+      click(rate_button(window))
+      window = fake.players[1].gui.screen["fp_viewer_window"]
+      assert.are.equal("/min", rate_button(window).caption)
+      assert.are.same(per_min, rates(window))
+    end)
+
+    it("keeps the unit per player", function()
+      deliver(fixture_text("small"))
+      local _, window = open_window()
+      fake.players[2] = fake_game.player(2, fake)
+      fake.handlers.on_player_created({ player_index = 2 })
+      local button = fake.players[2].gui.top.mod_gui_top_frame.mod_gui_inner_frame["fp_viewer_toggle"]
+      fake.handlers.on_gui_click({ element = button, player_index = 2 })
+      local window2 = fake.players[2].gui.screen["fp_viewer_window"]
+      local per_min = rates(window2)
+
+      click(rate_button(window))
+      assert.are.equal("sec", _G.storage.fp_viewer.unit[1])
+      assert.is_nil(_G.storage.fp_viewer.unit[2])
+      assert.are.equal("/s", rate_button(window).caption)
+      assert.are.equal("/min", rate_button(window2).caption)
+      assert.are.same(per_min, rates(window2))
+    end)
+
+    it("works in a save made before the unit existed", function()
+      deliver(fixture_text("small"))
+      _G.storage.fp_viewer.unit = nil
+      local _, window = open_window()
+      assert.are.equal("/min", rate_button(window).caption)
+      click(rate_button(window))
+      assert.are.equal("sec", _G.storage.fp_viewer.unit[1])
+    end)
+
+    it("replaces a window left by a version without the button", function()
+      deliver(fixture_text("small"))
+      local player, window = open_window()
+      click(rate_button(window))
+      window = player.gui.screen["fp_viewer_window"]
+      window.location = { 123, 45 }
+      window["fp_viewer_title_bar"]["fp_viewer_rate_unit"].destroy()
+      deliver(fixture_text("small"), "2222222222222222")
+      local replaced = player.gui.screen["fp_viewer_window"]
+      assert.is_not_nil(rate_button(replaced))
+      assert.are.equal("/s", rate_button(replaced).caption)
+      assert.are.same({ 123, 45 }, replaced.location)
+    end)
+
+    it("draws with the unit of the context, not one left by an earlier update", function()
+      deliver(fixture_text("small"))
+      local _, window = open_window()
+      click(rate_button(window))
+      local sec = rates(fake.players[1].gui.screen["fp_viewer_window"])
+      click(rate_button(fake.players[1].gui.screen["fp_viewer_window"]))
+      local min = rates(fake.players[1].gui.screen["fp_viewer_window"])
+      assert.are_not.same(sec, min)
+      -- A context with no unit draws per minute whatever was drawn before.
+      _G.storage.fp_viewer.unit[1] = "sec"
+      click(rate_button(fake.players[1].gui.screen["fp_viewer_window"]))
+      assert.are.same(min, rates(fake.players[1].gui.screen["fp_viewer_window"]))
+    end)
+  end)
 
   it("opens and closes the window with the button, which is lit while it is open", function()
     local player, window = open_window()
@@ -996,6 +1125,16 @@ describe("control.lua", function()
     assert.is_truthy(_G.storage.fp_viewer.selected[1])
     fake.handlers.on_player_removed({ player_index = 1 })
     assert.is_nil(_G.storage.fp_viewer.selected[1])
+  end)
+
+  it("drops a removed player's rate unit and keeps the others'", function()
+    deliver(fixture_text("small"))
+    local _, window = open_window()
+    click(window["fp_viewer_title_bar"]["fp_viewer_rate_unit"])
+    _G.storage.fp_viewer.unit[2] = "sec"
+    fake.handlers.on_player_removed({ player_index = 1 })
+    assert.is_nil(_G.storage.fp_viewer.unit[1])
+    assert.are.equal("sec", _G.storage.fp_viewer.unit[2])
   end)
 
   describe("the built checkboxes", function()
