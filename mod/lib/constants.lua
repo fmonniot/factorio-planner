@@ -20,11 +20,10 @@ M.MAX_SNAPSHOT_BYTES = 8000000
 M.MAX_REPORT_RANGES = 12
 M.MAX_UNKNOWN_IDS = 9999
 
--- The ports of spec/in-game-viewer-protocol.md "Ports": the bridge's default (the setting's default
--- is a literal in settings.lua, checked against this) and the game's own, which
--- `--enable-lua-udp` sets and the Disconnected text names.
+-- The bridge's default port of spec/in-game-viewer-protocol.md "Ports" (the setting's default
+-- is a literal in settings.lua, checked against this). The game's own port is not here: the mod
+-- cannot learn it, and the Disconnected text names the default only as a hint.
 M.DEFAULT_BRIDGE_PORT = 34199
-M.GAME_PORT = 34198
 
 M.POLL_TICKS = 10
 M.FLUSH_OFFSET = 2
