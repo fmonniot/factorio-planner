@@ -19,7 +19,6 @@
 -- Ids are drawn as sprites and rich text with the prototype's localised name. An
 -- id the running game lacks gets no sprite (a sprite path the game does not know
 -- raises): its button is red and its tooltip says so.
-local C = require("lib.constants")
 local format = require("lib.format")
 local layout = require("lib.layout")
 local progress = require("lib.progress")
@@ -335,9 +334,6 @@ end
 
 local function indicator_caption(indicator)
   local k = format.indicator_key(indicator)
-  if indicator == "disconnected" then
-    return { k, tostring(C.GAME_PORT) }
-  end
   return k and { k } or nil
 end
 
