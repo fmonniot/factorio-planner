@@ -1514,10 +1514,10 @@ describe('RecipeRow in a block with areas', () => {
       expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
     })
 
-    it('shows no chips on an expanded area', () => {
-      renderAreaHandle(areaOf([flow('water', 60)], []), { isExpanded: true })
-      expect(screen.queryByTestId('area-chips-in')).not.toBeInTheDocument()
-      expect(screen.queryByTestId('area-chips-out')).not.toBeInTheDocument()
+    it('keeps showing the chips on an expanded area', () => {
+      renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]), { isExpanded: true })
+      expect(screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')).not.toBeNull()
+      expect(screen.getByTestId('area-chips-out').querySelector('[data-item-id="hydrogen"]')).not.toBeNull()
     })
 
     it('shows no chips on an organising sub-factory', () => {

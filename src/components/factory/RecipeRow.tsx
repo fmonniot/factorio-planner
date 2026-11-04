@@ -306,7 +306,7 @@ export function RecipeRow({
       ? 'Every area already has a row of one of its recipes'
       : 'No area can take a copy of this subfactory'
 
-    const solvedArea = childPlan?.area === true && !isExpanded
+    const solvedArea = childPlan?.area === true
       ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
       : undefined
 

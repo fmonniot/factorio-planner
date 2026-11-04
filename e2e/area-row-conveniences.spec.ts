@@ -67,8 +67,11 @@ test('the badge, chips, primary-product tooltip and Go to row in… help to read
 
   await expect(row(page, COMP_ELEC)).toBeVisible()
   await expect(row(page, COMP_ELEC)).toHaveAttribute('data-highlighted', 'true')
-  await expect(group(page, 'Compression').getByTestId('area-chips-out')).toHaveCount(0)
-  await expect(group(page, 'Compression').getByTestId('area-chips-in')).toHaveCount(0)
+  // The area is expanded now and its row keeps showing what it sends.
+  await expect(
+    group(page, 'Compression').getByTestId('area-chips-out')
+      .locator('[data-item-id="nullius-compressed-hydrogen"][data-direction="sends"]'),
+  ).toHaveCount(1)
 })
 
 test('Build also in… copies the row to an area and Apply to every row sets its machine everywhere', async ({ page }) => {
