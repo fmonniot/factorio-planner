@@ -486,6 +486,13 @@ describe('extraction recipes', () => {
   })
 })
 
+function power2(id: string, ingredient: string, product: string): GameData['recipes'][string] {
+  return {
+    ...makeRecipe(id, product), category: 'power:x', power: true,
+    ingredients: [{ itemId: ingredient, type: 'item', amount: 1 }],
+  }
+}
+
 describe('power recipes', () => {
   function makePowerData(): GameData {
     const d = makeGameData()
@@ -513,6 +520,104 @@ describe('power recipes', () => {
   })
   it('recipeUnlock reports a power recipe as start', () => {
     expect(recipeUnlock(makePowerData(), 'power:steam-engine:steam')).toEqual({ kind: 'start' })
+  })
+
+  describe('fuel gating', () => {
+    function makeFuelData(): GameData {
+      const d = makeGameData()
+      d.technologies = { a: tech('a', [], []), b: tech('b', ['a'], ['r-rocket-fuel']) }
+      d.startingRecipes = []
+      for (const id of ['rocket-fuel', 'wood', 'steam', 'power:electricity']) d.items[id] = item(id)
+      d.recipes['r-rocket-fuel'] = makeRecipe('r-rocket-fuel', 'rocket-fuel')
+      const power = (id: string, ingredient: string | undefined, product: string): GameData['recipes'][string] => ({
+        ...makeRecipe(id, product),
+        category: 'power:x', power: true,
+        ingredients: ingredient ? [{ itemId: ingredient, type: 'item', amount: 1 }] : [],
+      })
+      d.recipes['power:boiler:rocket-fuel'] = power('power:boiler:rocket-fuel', 'rocket-fuel', 'steam')
+      d.recipes['power:boiler:wood'] = power('power:boiler:wood', 'wood', 'steam')
+      d.recipes['power:steam-engine:steam'] = power('power:steam-engine:steam', 'steam', 'power:electricity')
+      d.recipes['power:solar-panel'] = power('power:solar-panel', undefined, 'power:electricity')
+      d.recipes['mining:wood'] = { ...makeRecipe('mining:wood', 'wood'), extraction: true }
+      return d
+    }
+
+    it('excludes a power recipe whose fuel is only produced outside the horizon', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('power:boiler:rocket-fuel')).toBe(false)
+    })
+    it('includes it once a targeted technology unlocks the fuel recipe', () => {
+      expect(availableRecipeIds(makeFuelData(), ['b'])!.has('power:boiler:rocket-fuel')).toBe(true)
+    })
+    it('includes a power recipe whose fuel has no producer', () => {
+      const d = makeFuelData()
+      d.items['coal'] = item('coal')
+      d.recipes['power:boiler:coal'] = {
+        ...makeRecipe('power:boiler:coal', 'steam'), power: true,
+        ingredients: [{ itemId: 'coal', type: 'item', amount: 1 }],
+      }
+      expect(availableRecipeIds(d, ['a'])!.has('power:boiler:coal')).toBe(true)
+    })
+    it('gates a steam engine on its boiler recipe, which is itself gated on its fuel', () => {
+      const d = makeFuelData()
+      delete d.recipes['power:boiler:wood']
+      expect(availableRecipeIds(d, ['a'])!.has('power:steam-engine:steam')).toBe(false)
+      expect(availableRecipeIds(d, ['b'])!.has('power:steam-engine:steam')).toBe(true)
+      const withWood = makeFuelData()
+      expect(availableRecipeIds(withWood, ['a'])!.has('power:steam-engine:steam')).toBe(true)
+    })
+    it('includes a power recipe with no ingredients', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('power:solar-panel')).toBe(true)
+    })
+    it('keeps extraction recipes inside', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('mining:wood')).toBe(true)
+    })
+    it('gates on every ingredient, wherever the fuel sits in the list', () => {
+      const d = makeFuelData()
+      d.items.water = item('water')
+      const boiler = d.recipes['power:boiler:rocket-fuel']
+      boiler.ingredients = [{ itemId: 'rocket-fuel', type: 'item', amount: 1 }, { itemId: 'water', type: 'fluid', amount: 1 }]
+      expect(availableRecipeIds(d, ['a'])!.has('power:boiler:rocket-fuel')).toBe(false)
+      expect(availableRecipeIds(d, ['b'])!.has('power:boiler:rocket-fuel')).toBe(true)
+    })
+    it('does not gate on an ingredient missing from the items', () => {
+      const d = makeFuelData()
+      d.recipes['power:boiler:wood'].ingredients = [{ itemId: 'ghost', type: 'item', amount: 1 }]
+      expect(availableRecipeIds(d, ['a'])!.has('power:boiler:wood')).toBe(true)
+    })
+    it('resolves the heat chain: a reactor on a gated fuel gates its heat exchanger and turbine', () => {
+      const d = makeFuelData()
+      for (const id of ['power:heat', 'hot-steam']) d.items[id] = item(id)
+      d.recipes['power:reactor:rocket-fuel'] = power2('power:reactor:rocket-fuel', 'rocket-fuel', 'power:heat')
+      d.recipes['power:heat-exchanger:heat'] = power2('power:heat-exchanger:heat', 'power:heat', 'hot-steam')
+      d.recipes['power:turbine:hot-steam'] = power2('power:turbine:hot-steam', 'hot-steam', 'power:electricity')
+      const early = availableRecipeIds(d, ['a'])!
+      for (const id of ['power:reactor:rocket-fuel', 'power:heat-exchanger:heat', 'power:turbine:hot-steam']) expect(early.has(id)).toBe(false)
+      expect(computeHorizon(d, ['a']).itemIds!.has('power:heat')).toBe(false)
+      const later = availableRecipeIds(d, ['b'])!
+      for (const id of ['power:reactor:rocket-fuel', 'power:heat-exchanger:heat', 'power:turbine:hot-steam']) expect(later.has(id)).toBe(true)
+      expect(computeHorizon(d, ['b']).itemIds!.has('power:heat')).toBe(true)
+    })
+    it('leaves a cycle of power recipes with no way in outside the horizon', () => {
+      const d = makeFuelData()
+      for (const id of ['p', 'q']) d.items[id] = item(id)
+      d.recipes['power:x:p'] = power2('power:x:p', 'q', 'p')
+      d.recipes['power:x:q'] = power2('power:x:q', 'p', 'q')
+      const inside = availableRecipeIds(d, ['a'])!
+      expect(inside.has('power:x:p')).toBe(false)
+      expect(inside.has('power:x:q')).toBe(false)
+    })
+    it('returns null (no limit) without a known target technology', () => {
+      expect(availableRecipeIds(makeFuelData(), ['nope'])).toBeNull()
+      expect(computeHorizon(makeFuelData(), []).itemIds).toBeNull()
+    })
+    it('recipeUnlock names the missing fuel of a power recipe beyond the horizon', () => {
+      const d = makeFuelData()
+      const early = availableRecipeIds(d, ['a'])
+      expect(recipeUnlock(d, 'power:boiler:rocket-fuel', early)).toEqual({ kind: 'fuel', itemIds: ['rocket-fuel'] })
+      expect(recipeUnlock(d, 'power:boiler:wood', early)).toEqual({ kind: 'start' })
+      expect(recipeUnlock(d, 'power:boiler:rocket-fuel', availableRecipeIds(d, ['b']))).toEqual({ kind: 'start' })
+      expect(recipeUnlock(d, 'power:boiler:rocket-fuel')).toEqual({ kind: 'start' })
+    })
   })
 })
 

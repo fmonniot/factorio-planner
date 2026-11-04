@@ -49,6 +49,13 @@ function powerFixture() {
       [{ itemId: 'steam', type: 'fluid', amount: 60 }], 'steam',
     )
   }
+  // Solid fuel has a producer unlocked by a far-off technology, so its boiler recipe lies beyond an early horizon.
+  data.recipes['solid-fuel-synthesis'] = {
+    ...structuredClone(data.recipes['iron-plate']), id: 'solid-fuel-synthesis', name: 'Solid fuel synthesis',
+    ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+    products: [{ itemId: 'solid-fuel', type: 'item', amount: 1 }], mainProduct: undefined,
+  }
+  data.technologies['rocket-silo'].unlockedRecipes.push('solid-fuel-synthesis')
   data.recipes['power:steam-engine:steam'] = recipe(
     'power:steam-engine:steam', 'Steam engine (Steam)', 'power:steam-engine', 'power:generators',
     [{ itemId: 'steam', type: 'fluid', amount: 30, minimumTemperature: 165 }],
@@ -205,7 +212,7 @@ test.describe('Power generation', () => {
     await expect(panel).toHaveText(/^\??24$/)
   })
 
-  test('power recipes and electricity ignore the research horizon', async ({ page }) => {
+  test('power recipes stay inside the horizon unless their fuel is beyond it', async ({ page }) => {
     await openHorizonTree(page)
     await page.locator('[data-tech-id="electronics"]').click()
     await closeHorizonTree(page)
@@ -218,7 +225,8 @@ test.describe('Power generation', () => {
     expect(recipeIds).toContain('power:steam-engine:steam')
     const boilerGroup = page.locator('[data-testid="recipe-group-slot"][data-machine-id="boiler"]')
     await expect(boilerGroup).toBeVisible()
-    await expect(boilerGroup).toHaveAttribute('data-recipe-count', '3')
+    // Solid fuel is only produced by a recipe outside the horizon, so its boiler recipe is hidden.
+    await expect(boilerGroup).toHaveAttribute('data-recipe-count', '2')
     await page.getByRole('button', { name: 'Close' }).click()
 
     await page.getByTitle('Add product').click()
@@ -354,7 +362,7 @@ test.describe('Heat', () => {
     await expect(reactor).toHaveText(/^\??2$/)
   })
 
-  test('heat and reactor recipes ignore the research horizon', async ({ page }) => {
+  test('heat and reactor recipes stay inside the horizon when their inputs are', async ({ page }) => {
     await openHorizonTree(page)
     await page.locator('[data-tech-id="electronics"]').click()
     await closeHorizonTree(page)

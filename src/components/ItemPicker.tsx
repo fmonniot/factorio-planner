@@ -62,8 +62,10 @@ function ItemRow({
   )
 }
 
-function UnlockSection({ recipeId, gameData, bordered }: { recipeId: string; gameData: GameData; bordered: boolean }) {
-  const unlock = recipeUnlock(gameData, recipeId)
+function UnlockSection({ recipeId, gameData, bordered, inside }: {
+  recipeId: string; gameData: GameData; bordered: boolean; inside: ReadonlySet<string> | null
+}) {
+  const unlock = recipeUnlock(gameData, recipeId, inside)
   if (!unlock) return null
   return (
     <div
@@ -73,6 +75,11 @@ function UnlockSection({ recipeId, gameData, bordered }: { recipeId: string; gam
     >
       <div className="text-gray-200 font-bold mb-1">Unlocked by:</div>
       {unlock.kind === 'start' && <div className="py-1 text-gray-400">Available from the start</div>}
+      {unlock.kind === 'fuel' && (
+        <div className="py-1 text-gray-400">
+          Needs {unlock.itemIds.map(id => gameData.items[id]?.name ?? id).join(', ')}, not yet available
+        </div>
+      )}
       {unlock.kind === 'none' && (
         <div className="py-1 text-gray-400">No technology unlocks this recipe</div>
       )}
@@ -89,7 +96,7 @@ function UnlockSection({ recipeId, gameData, bordered }: { recipeId: string; gam
   )
 }
 
-function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData: GameData }) {
+function RecipeDetailPanel({ recipeId, gameData, inside }: { recipeId: string; gameData: GameData; inside: ReadonlySet<string> | null }) {
   const recipe = gameData.recipes[recipeId]
   if (!recipe) return null
 
@@ -167,7 +174,7 @@ function RecipeDetailPanel({ recipeId, gameData }: { recipeId: string; gameData:
       )}
 
       {/* Unlocked by */}
-      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={recipe.madeIn.length > 0} />
+      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={recipe.madeIn.length > 0} inside={inside} />
     </div>
   )
 }
@@ -333,7 +340,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       : 'Choose a recipe'
 
   const sidePanel = hoveredRecipeId
-    ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} />
+    ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} inside={available} />
     : null
 
   // Skip the tab strip when there's no choice to make (zero or one group).
