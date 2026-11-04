@@ -97,7 +97,7 @@ interface Recipe {
   mainProduct?: string | null
   subgroup: string           // default ''
   order: string              // default ''
-  extraction?: boolean        // set on mining and offshore-pump recipes; always inside the research horizon
+  extraction?: boolean        // set on mining and offshore-pump recipes; inside the research horizon only when its fuel, steam or heat input is
   power?: boolean             // set on boiler (and heat-exchanger), generator, burner-generator, reactor and solar-panel recipes; always inside the research horizon
 }
 
@@ -297,7 +297,7 @@ by a targeted technology or any of its prerequisites (followed transitively).
 Recipes that are neither starting recipes nor unlocked by any exported technology
 (for example ones only a script unlocks) are outside every horizon. The horizon
 applies only to non-hidden recipes: hidden recipes are not part of research
-progression and are shown whenever "Hidden recipes" is ticked. The recipe picker can also temporarily lift the horizon (its "Beyond research horizon" checkbox, picker-local and not persisted). Extraction and power recipes (`Recipe.extraction`, `Recipe.power`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. A generator placed by a script (no placing item, Nullius' turbine generators) is never gated, as for any machine with no known placing item. No targets,
+progression and are shown whenever "Hidden recipes" is ticked. The recipe picker can also temporarily lift the horizon (its "Beyond research horizon" checkbox, picker-local and not persisted). Extraction recipes (`Recipe.extraction`) need no research and are always inside the horizon; their drills and pumps are gated like any other machine, through the item that places them. A power recipe (`Recipe.power`) is inside the horizon when the item it takes (its last ingredient: fuel, steam or heat) is offered, that is has no non-hidden producer or one inside the horizon, so a boiler on rocket fuel waits for rocket fuel; chains (boiler then steam engine, reactor then heat exchanger) are resolved by iterating until nothing more is added, and a recipe with no ingredients (solar panel) is always inside. `recipeUnlock` still reports a power recipe as available at game start. A generator placed by a script (no placing item, Nullius' turbine generators) is never gated, as for any machine with no known placing item. No targets,
 or no technology data in the bundle, means no limit.
 
 An item is offered as a goal under a horizon if no recipe produces it or at least one non-hidden recipe producing it is inside the horizon.

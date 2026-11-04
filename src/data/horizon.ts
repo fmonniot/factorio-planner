@@ -1,3 +1,4 @@
+import { powerInputItemId } from './powerFuelGroups'
 import type { BeaconEntity, GameData, Machine, Recipe, Technology } from './types'
 
 export function hasTechnologies(gameData: GameData): boolean {
@@ -21,9 +22,12 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
 /**
  * Recipes offered under a research horizon: those available at game start plus
  * those unlocked by a targeted technology or one of its prerequisites, plus
- * extraction and power generation recipes, which need no research (their machines
- * are gated like any other). Returns null (= no limit) when the data set has no technology data or
- * no target is a known technology.
+ * extraction recipes, which need no research (their machines are gated like any
+ * other). A power generation recipe is inside when the fuel, steam or heat it takes
+ * (its last ingredient) is offered by the recipes already inside, so a boiler on
+ * rocket fuel waits for rocket fuel. Chains (boiler -> steam engine, reactor -> heat
+ * exchanger) are resolved by iterating to a fixed point. Returns null (= no limit)
+ * when the data set has no technology data or no target is a known technology.
  */
 export function availableRecipeIds(gameData: GameData, targetIds: readonly string[]): Set<string> | null {
   if (!hasTechnologies(gameData)) return null
@@ -33,12 +37,25 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   for (const id of closure) {
     for (const recipeId of gameData.technologies[id].unlockedRecipes) available.add(recipeId)
   }
-  for (const r of Object.values(gameData.recipes)) if (r.extraction || r.power) available.add(r.id)
+  const recipes = Object.values(gameData.recipes)
+  for (const r of recipes) if (r.extraction) available.add(r.id)
+  const pending = recipes.filter(r => r.power && !available.has(r.id))
+  for (let added = true; added && pending.length > 0;) {
+    added = false
+    const items = availableItemIds(gameData, available)!
+    for (let i = pending.length - 1; i >= 0; i--) {
+      const input = powerInputItemId(pending[i])
+      if (input !== undefined && input in gameData.items && !items.has(input)) continue
+      available.add(pending[i].id)
+      pending.splice(i, 1)
+      added = true
+    }
+  }
   return available
 }
 
 export type RecipeUnlock =
-  | { kind: 'start' }                                    // starting, extraction or power recipe
+  | { kind: 'start' }                                    // starting, extraction or power recipe (a power recipe may still lie beyond a horizon, see availableRecipeIds)
   | { kind: 'technologies'; technologies: Technology[] } // non-empty, sorted
   | { kind: 'none' }                                     // no exported technology unlocks it
 

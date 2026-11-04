@@ -514,6 +514,57 @@ describe('power recipes', () => {
   it('recipeUnlock reports a power recipe as start', () => {
     expect(recipeUnlock(makePowerData(), 'power:steam-engine:steam')).toEqual({ kind: 'start' })
   })
+
+  describe('fuel gating', () => {
+    function makeFuelData(): GameData {
+      const d = makeGameData()
+      d.technologies = { a: tech('a', [], []), b: tech('b', ['a'], ['r-rocket-fuel']) }
+      d.startingRecipes = []
+      for (const id of ['rocket-fuel', 'wood', 'steam', 'power:electricity']) d.items[id] = item(id)
+      d.recipes['r-rocket-fuel'] = makeRecipe('r-rocket-fuel', 'rocket-fuel')
+      const power = (id: string, ingredient: string | undefined, product: string): GameData['recipes'][string] => ({
+        ...makeRecipe(id, product),
+        category: 'power:x', power: true,
+        ingredients: ingredient ? [{ itemId: ingredient, type: 'item', amount: 1 }] : [],
+      })
+      d.recipes['power:boiler:rocket-fuel'] = power('power:boiler:rocket-fuel', 'rocket-fuel', 'steam')
+      d.recipes['power:boiler:wood'] = power('power:boiler:wood', 'wood', 'steam')
+      d.recipes['power:steam-engine:steam'] = power('power:steam-engine:steam', 'steam', 'power:electricity')
+      d.recipes['power:solar-panel'] = power('power:solar-panel', undefined, 'power:electricity')
+      d.recipes['mining:wood'] = { ...makeRecipe('mining:wood', 'wood'), extraction: true }
+      return d
+    }
+
+    it('excludes a power recipe whose fuel is only produced outside the horizon', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('power:boiler:rocket-fuel')).toBe(false)
+    })
+    it('includes it once a targeted technology unlocks the fuel recipe', () => {
+      expect(availableRecipeIds(makeFuelData(), ['b'])!.has('power:boiler:rocket-fuel')).toBe(true)
+    })
+    it('includes a power recipe whose fuel has no producer', () => {
+      const d = makeFuelData()
+      d.items['coal'] = item('coal')
+      d.recipes['power:boiler:coal'] = {
+        ...makeRecipe('power:boiler:coal', 'steam'), power: true,
+        ingredients: [{ itemId: 'coal', type: 'item', amount: 1 }],
+      }
+      expect(availableRecipeIds(d, ['a'])!.has('power:boiler:coal')).toBe(true)
+    })
+    it('gates a steam engine on its boiler recipe, which is itself gated on its fuel', () => {
+      const d = makeFuelData()
+      delete d.recipes['power:boiler:wood']
+      expect(availableRecipeIds(d, ['a'])!.has('power:steam-engine:steam')).toBe(false)
+      expect(availableRecipeIds(d, ['b'])!.has('power:steam-engine:steam')).toBe(true)
+      const withWood = makeFuelData()
+      expect(availableRecipeIds(withWood, ['a'])!.has('power:steam-engine:steam')).toBe(true)
+    })
+    it('includes a power recipe with no ingredients', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('power:solar-panel')).toBe(true)
+    })
+    it('keeps extraction recipes inside', () => {
+      expect(availableRecipeIds(makeFuelData(), ['a'])!.has('mining:wood')).toBe(true)
+    })
+  })
 })
 
 describe('recipeUnlock', () => {
