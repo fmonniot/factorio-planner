@@ -895,7 +895,7 @@ without a machine", `data-beyond-horizon`); a module is outside the horizon ("Ed
 (beyond research horizon)", `data-beyond-horizon`); or the modules outnumber the slots
 (`data-over-slots`, "Edit modules (more modules than slots)", or "Edit modules (this machine has
 no module slots)" for a real machine with 0 slots). The plan and the solver are untouched:
-the solver applies every configured module (except the productivity of a recipe that disallows it), so the flag is the only sign of an overfilled row.
+the solver applies every configured module (except the productivity of a recipe that disallows it and effects the machine's `allowedEffects` lacks), so the flag is the only sign of an overfilled row.
 
 **Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
 button creates one — the first non-hidden beacon type by name, the first module by
@@ -1149,7 +1149,7 @@ The same component in recipes mode (`source="recipes"`).
   slots and distribution efficiency into the config) and **Amount** (beacon
   count). When the data has no beacon entities, editable "Modules/beacon" and
   "Efficiency" fields appear instead.
-- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. When
+- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. "Recipe effects" applies the same rule as the solver (`effectAllowed`): an effect counts only when both the beacon entity's and the machine's `allowedEffects` include it; an unknown beacon or machine filters nothing. When
   the row has no machine within the horizon, a note says the row's machine count and
   power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
 - **Module** — the module placed in every beacon slot. Offered: modules inside the

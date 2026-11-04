@@ -16,6 +16,9 @@ import { resolveRowFuel } from '../data/fuel'
 //
 // Productivity is dropped (treated as zero) for a recipe with
 // `allowProductivity: false`, whatever modules or beacons are configured.
+// Each effect is also dropped when the machine's `allowedEffects` (machine and
+// beacon modules) or the beacon entity's `allowedEffects` (beacon modules) lacks
+// it. An unknown machine or beacon entity filters nothing.
 //
 // Productivity adjusts the stoichiometry matrix before solving (handled by
 // buildClassifiedSystem via productivityMap).
@@ -39,6 +42,15 @@ export interface NodeEffects {
   fuel?: Ingredient
 }
 
+/**
+ * Whether an effect counts: every known list of allowed effects includes it. An unknown entity
+ * (undefined list) filters nothing, as for legacy data; a known empty list allows nothing.
+ * Shared by the solver and the module / beacon modals so they cannot drift.
+ */
+export function effectAllowed(effect: string, ...lists: (readonly string[] | undefined)[]): boolean {
+  return lists.every(list => !list || list.includes(effect))
+}
+
 /** The machine a row runs on: its own choice, else the category default. */
 export function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefined {
   const recipe = gameData.recipes[node.recipeId]
@@ -59,7 +71,9 @@ export function neighbourHeatBonus(node: GameRecipeNode, gameData: GameData): nu
  * Compute the combined module + beacon effects for a single recipe node.
  * Returns zero for all bonuses if the node has no modules or beacons. The
  * productivity bonus is zero when the recipe disallows productivity (or is
- * unknown). The machine's `allowedEffects` is not checked here.
+ * unknown). Each effect is also dropped when the machine's `allowedEffects` (or,
+ * for beacon modules, the beacon entity's) does not include it; unknown entities
+ * filter nothing.
  *
  * @param node     - the recipe node from the plan
  * @param gameData - used to look up module effect values
@@ -69,26 +83,36 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
   let speedBonus = 0
   let consumptionBonus = 0
   const allowProductivity = gameData.recipes[node.recipeId]?.allowProductivity ?? false
+  const machineAllowed = rowMachine(node, gameData)?.allowedEffects
+
+  const allowed = effectAllowed
 
   // Machine module contributions (full effect per module).
   for (const mc of node.modules) {
     const mod = gameData.modules[mc.moduleId]
     if (!mod) continue
-    if (allowProductivity) productivityBonus += (mod.effects.productivity ?? 0) * mc.count
-    speedBonus        += (mod.effects.speed ?? 0) * mc.count
-    consumptionBonus  += (mod.effects.consumption ?? 0) * mc.count
+    if (allowProductivity && allowed('productivity', machineAllowed)) {
+      productivityBonus += (mod.effects.productivity ?? 0) * mc.count
+    }
+    if (allowed('speed', machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * mc.count
+    if (allowed('consumption', machineAllowed)) consumptionBonus += (mod.effects.consumption ?? 0) * mc.count
   }
 
-  // Beacon contributions.
+  // Beacon contributions: capped by both the beacon entity's and the machine's allowed effects.
   const beacon = node.beaconConfig
   if (beacon) {
     const mod = gameData.modules[beacon.moduleId]
     if (mod) {
+      const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined
       const multiplier =
         beacon.distributionEfficiency * beacon.modulesPerBeacon * beacon.beaconCount
-      if (allowProductivity) productivityBonus += (mod.effects.productivity ?? 0) * multiplier
-      speedBonus        += (mod.effects.speed ?? 0) * multiplier
-      consumptionBonus  += (mod.effects.consumption ?? 0) * multiplier
+      if (allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)) {
+        productivityBonus += (mod.effects.productivity ?? 0) * multiplier
+      }
+      if (allowed('speed', beaconAllowed, machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * multiplier
+      if (allowed('consumption', beaconAllowed, machineAllowed)) {
+        consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
+      }
     }
   }
 

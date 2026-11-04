@@ -201,6 +201,87 @@ describe('computeNodeEffects — beacon', () => {
   })
 })
 
+describe('computeNodeEffects — allowed effects', () => {
+  const beaconCfg = (beaconId?: string): NonNullable<GameRecipeNode['beaconConfig']> => ({
+    ...(beaconId ? { beaconId } : {}),
+    moduleId: 'productivity-module-3',
+    beaconCount: 1,
+    modulesPerBeacon: 2,
+    distributionEfficiency: 0.5,
+  })
+  const withEntities = (
+    machineEffects: Machine['allowedEffects'] | null,
+    beaconEffects: Machine['allowedEffects'] | null,
+  ): GameData => {
+    const gd = makeGameData(
+      { r1: recipe(true) },
+      { 'productivity-module-3': PROD3_MODULE, 'speed-module-3': SPEED3_MODULE },
+    )
+    if (machineEffects) {
+      gd.machines = { assembler: machine({ allowedEffects: machineEffects }) }
+      gd.defaultMachines = { crafting: 'assembler' }
+    }
+    if (beaconEffects) {
+      gd.beacons = {
+        beacon: {
+          id: 'beacon', name: 'beacon', iconPath: '', hidden: false, moduleSlots: 2,
+          distributionEfficiency: 0.5, allowedEffects: beaconEffects,
+        },
+      }
+    }
+    return gd
+  }
+
+  it('drops productivity but keeps speed when the machine does not allow productivity', () => {
+    const gd = withEntities(['speed', 'consumption'], null)
+    const n = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.speedBonus).toBeCloseTo(-0.6)
+    expect(fx.consumptionBonus).toBeCloseTo(3.2)
+  })
+
+  it('drops speed when the machine does not allow speed', () => {
+    const gd = withEntities(['productivity', 'consumption'], null)
+    const n = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }])
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.speedBonus).toBe(0)
+    expect(fx.consumptionBonus).toBeCloseTo(1.4)
+  })
+
+  it('drops beacon productivity when the beacon entity does not allow it, keeping speed', () => {
+    const gd = withEntities(null, ['speed', 'consumption'])
+    const n = node('n1', 'r1', [], beaconCfg('beacon'))
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.speedBonus).toBeCloseTo(-0.15)
+  })
+
+  it('drops a beacon effect the machine does not allow even if the beacon does', () => {
+    const gd = withEntities(['speed', 'consumption'], ['speed', 'consumption', 'productivity'])
+    const n = node('n1', 'r1', [], beaconCfg('beacon'))
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.speedBonus).toBeCloseTo(-0.15)
+  })
+
+  it('treats a known machine with an empty allowedEffects as allowing nothing', () => {
+    const gd = withEntities([], ['speed', 'consumption', 'productivity'])
+    const machineMods = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    expect(computeNodeEffects(machineMods, gd)).toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
+    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg('beacon')), gd))
+      .toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
+  })
+
+  it('filters nothing without a beaconId, with an unknown beaconId or with an unknown machine', () => {
+    const gd = withEntities(null, ['speed'])
+    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg()), gd).productivityBonus).toBeCloseTo(0.1)
+    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg('missing')), gd).productivityBonus).toBeCloseTo(0.1)
+    const m = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    expect(computeNodeEffects(m, gd).productivityBonus).toBeCloseTo(0.4)
+  })
+})
+
 // ---------------------------------------------------------------------------
 // computeMachineMetrics tests
 // ---------------------------------------------------------------------------
