@@ -262,6 +262,22 @@ describe('blockMakesItem', () => {
     }
     expect(blockMakesItem(makeBlock(makeSubPlan('Root', []), [ironProduct]), simpleGameData, 'iron-plate')).toBe(false)
   })
+
+  it('ignores a product with probability 0, as the solver does (it registers no producer)', () => {
+    const dud = recipe('dud', 1, [], [{ ...product('iron-plate', 1), probability: 0 }, product('slag', 1)])
+    const data = makeGameData({ recipes: { dud } })
+    const block = makeBlock(makeSubPlan('Root', [planNode('n1', 'dud')]), [ironProduct])
+    expect(blockMakesItem(block, data, 'iron-plate')).toBe(false)
+    expect(blockMakesItem(block, data, 'slag')).toBe(true)
+  })
+
+  it('is false for an item a row only consumes (ingredient or fuel)', () => {
+    const gear = recipe('gear', 1, [{ itemId: 'iron-plate', type: 'item', amount: 2 }], [product('gear', 1)])
+    const data = makeGameData({ recipes: { gear } })
+    const block = makeBlock(makeSubPlan('Root', [planNode('n1', 'gear')]), [])
+    expect(blockMakesItem(block, data, 'iron-plate')).toBe(false)
+    expect(blockMakesItem(block, data, 'gear')).toBe(true)
+  })
 })
 
 describe('solveBlock — own production first', () => {

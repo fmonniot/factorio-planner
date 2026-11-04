@@ -1,4 +1,5 @@
-import type { ItemSourcingMode } from '../../data/types'
+import type { Block, GameData, ItemSourcingMode } from '../../data/types'
+import { blockMakesItem } from '../../solver/index'
 import type { RowAction } from './RowActionsMenu'
 
 // ---------------------------------------------------------------------------
@@ -25,9 +26,16 @@ export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label:
 
 const ACTION_IDS = { own: 'sourcing-own', 'byproducts-first': 'sourcing-byproducts', 'connections-first': 'sourcing-connections' }
 
-/** Tooltip of the disabled "Forbid imports" on an item that no recipe row of the block makes. */
-export function noLockTitle(itemName: string): string {
-  return `No recipe in this block makes ${itemName}, so forbidding imports would change nothing. Add a recipe that makes it first.`
+/**
+ * Why "Forbid imports" is disabled for an item, or undefined when it is available. It is disabled when no
+ * recipe row of the block makes the item (raw in the block, no LP row: a lock would change nothing) and the
+ * item is not locked already (an existing lock can always be lifted).
+ */
+export function forbidImportsTitle(block: Block | undefined, gameData: GameData | undefined, itemId: string): string | undefined {
+  if (!block || !gameData || block.noImportItems.includes(itemId)) return undefined
+  if (blockMakesItem(block, gameData, itemId)) return undefined
+  const name = gameData.items[itemId]?.name ?? itemId
+  return `No recipe in this block makes ${name}, so forbidding imports would change nothing. Add a recipe that makes it first.`
 }
 
 /** Lower-case name of a mode, for tooltips. */

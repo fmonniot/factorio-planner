@@ -12,7 +12,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
-import { noLockTitle } from './itemSourcing'
+import { forbidImportsTitle } from './itemSourcing'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
@@ -24,7 +24,7 @@ import { presentRecipesFor } from './recipeAreas'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
-import { netBalance as computeNetBalance, grossFlow, blockMakesItem, FLOW_TOLERANCE } from '../../solver/index'
+import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
 
 // ---------------------------------------------------------------------------
 // ProductRates — a product's extra → actual in the detail strip, with inline edit for the extra
@@ -398,12 +398,11 @@ export function FactorySummary() {
               })
             }
             if (canConnect || slot.locked) {
+              const title = forbidImportsTitle(activeBlock, gameData, slot.itemId)
               actions.push({
                 label: slot.locked ? 'Allow imports' : 'Forbid imports',
                 onSelect: () => toggleNoImportItem(slot.itemId),
-                ...(!slot.locked && activeBlock && !blockMakesItem(activeBlock, gameData, slot.itemId)
-                  ? { disabled: true, title: noLockTitle(gameData.items[slot.itemId]?.name ?? slot.itemId) }
-                  : {}),
+                ...(title ? { disabled: true, title } : {}),
               })
             }
             return actions

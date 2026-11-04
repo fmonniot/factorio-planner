@@ -7,9 +7,8 @@ import { useUiStore } from '../../store/uiStore'
 import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../store/connections'
 import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
-import { blockMakesItem } from '../../solver/index'
 import { fmtItemRateText } from './ItemTile'
-import { itemSourcingActions, noLockTitle } from './itemSourcing'
+import { itemSourcingActions, forbidImportsTitle } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
@@ -83,8 +82,8 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   ) ?? false
   // Raw resources have no recipe, so a new block could never make them.
   const makeable = connectable && !!gameData && isMadeByAnyRecipe(gameData, itemId)
-  // No row of the block makes the item, so it is raw and a lock would change nothing (a lock already set can still be lifted).
-  const cannotForbid = !locked && !!activeBlock && !!gameData && !blockMakesItem(activeBlock, gameData, itemId)
+  // Forbid imports is disabled (with this reason) when no row of the block makes the item.
+  const forbidTitle = forbidImportsTitle(activeBlock, gameData, itemId)
   const mode = activeBlock?.itemSourcing[itemId]
 
   // A leftover mode on one of the block's own products is shown so it can be cleared (the other choices are disabled).
@@ -210,8 +209,8 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
       <button
         type="button"
         role="menuitem"
-        disabled={cannotForbid}
-        title={cannotForbid ? noLockTitle(itemName) : undefined}
+        disabled={!!forbidTitle}
+        title={forbidTitle}
         className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
         onClick={() => {
           toggleNoImportItem(itemId)

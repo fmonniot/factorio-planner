@@ -16,7 +16,7 @@ import type {
   SubPlan,
 } from '../data/types'
 import { blockAreas, solveAreaBlock } from './areas'
-import { buildClassifiedSystem, lockedIngredients } from './build'
+import { buildClassifiedSystem, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
@@ -54,8 +54,13 @@ export function flattenBlock(block: Block): SolverPlan {
  * forbid importing it; any other item is raw in the block and a lock on it changes nothing.
  */
 export function blockMakesItem(block: Block, gameData: GameData, itemId: string): boolean {
-  return flattenBlock(block).nodes.some(n =>
-    n.kind === 'game-recipe' && gameData.recipes[n.recipeId]?.products.some(p => p.itemId === itemId && p.amount > 0))
+  // Same test as buildClassifiedSystem: a product registers a producer only with an effective amount above 0
+  // (a probability of 0 does not). Bonuses are left out: they scale a positive amount but never change its sign.
+  const makes = (plan: SubPlan): boolean =>
+    plan.nodes.some(n => n.kind === 'game-recipe'
+      && gameData.recipes[n.recipeId]?.products.some(p => p.itemId === itemId && rowProductAmount(p) > 0))
+    || plan.subPlans.some(makes)
+  return makes(block.rootPlan)
 }
 
 /**
