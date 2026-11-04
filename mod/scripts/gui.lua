@@ -290,9 +290,22 @@ function M.open(player, ctx)
   pcall(function()
     rate.style.minimal_width = 48
     rate.style.horizontally_stretchable = false
-    -- The style's own text is dark: white reads on the title bar, like the title.
-    rate.style.font_color = WHITE
   end)
+  -- A button has a text color per state, and the style's own are dark: all of them
+  -- white, like the title. Each in its own pcall, so one the game refuses does not
+  -- skip the others.
+  for _, field in ipairs({
+    "font_color",
+    "hovered_font_color",
+    "clicked_font_color",
+    "selected_font_color",
+    "selected_hovered_font_color",
+    "selected_clicked_font_color",
+  }) do
+    pcall(function()
+      rate.style[field] = WHITE
+    end)
+  end
   drag_handle(bar)
   local title = bar.add({ type = "label", caption = { key("title") } })
   try_style(title, "frame_title")

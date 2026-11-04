@@ -622,7 +622,16 @@ describe("scripts/gui.lua", function()
     local _, window = show(support.json_to_table(fixture_text("small")))
     local rate = window["fp_viewer_title_bar"][gui.RATE]
     assert.is_true((rate.style.minimal_width or 0) > 28)
-    assert.same({ r = 1, g = 1, b = 1 }, rate.style.font_color)
+    for _, field in ipairs({
+      "font_color",
+      "hovered_font_color",
+      "clicked_font_color",
+      "selected_font_color",
+      "selected_hovered_font_color",
+      "selected_clicked_font_color",
+    }) do
+      assert.same({ r = 1, g = 1, b = 1 }, rate.style[field], field)
+    end
     assert.is_false(rate.style.horizontally_stretchable)
   end)
 
