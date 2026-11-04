@@ -1,5 +1,5 @@
 import { closesLoop, hasProduct } from '../solver/blockGraph'
-import { grossFlow, netBalance, receivesItem, surplusTolerance } from '../solver/index'
+import { grossFlow, receivesItem, surplusTolerance, FLOW_TOLERANCE } from '../solver/index'
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -31,10 +31,17 @@ export function offeredRate(
     .filter(f => f.fromBlockId === sourceId && f.itemId === itemId)
     .reduce((sum, f) => sum + f.rate, 0)
   // Never negative: in a loop that did not settle, flows can add up to more than the source's last offer.
-  // What is left within the noise of the item's flow counts as nothing.
-  const nodes = results[sourceId]?.nodes ?? []
-  const rest = (netBalance(nodes).get(itemId) ?? 0) - taken
-  return rest > surplusTolerance(grossFlow(nodes).get(itemId) ?? 0) ? rest : 0
+  // Like the solver's offers: a net output within the noise of the item's flow is no offer at all.
+  // What the deliveries leave of a real offer stays, as the solver re-checks nothing after them.
+  let produced = 0
+  let consumed = 0
+  for (const node of results[sourceId]?.nodes ?? []) {
+    produced += node.outputRates[itemId] ?? 0
+    consumed += node.inputRates[itemId] ?? 0
+  }
+  if (produced - consumed <= surplusTolerance(Math.max(produced, consumed))) return 0
+  const rest = produced - consumed - taken
+  return rest > FLOW_TOLERANCE ? rest : 0
 }
 
 export interface TakeCandidate {

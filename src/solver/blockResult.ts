@@ -67,6 +67,42 @@ export function itemGrossFlow(row: Map<string, number> | undefined, throughput: 
 }
 
 /**
+ * Pass 2 of the connection-fill solve, from the pass-1 residuals: the caps that let supply fill what
+ * the block's own recipes could not cover, and the locks that stay. A locked item whose offer is
+ * below its residual is unlocked, so the LP stays feasible. Whether to run pass 2 at all ignores
+ * residuals within `surplusTolerance` of the item's gross flow (LP noise), but once it runs every
+ * residual above the absolute `FLOW_TOLERANCE` is capped or unlocked, so a locked item is never
+ * left short by a residual the run did not cover. `run` is false when there is nothing to fill.
+ */
+export function pass2Plan(args: {
+  totalCaps: Map<string, number>
+  intermediates: Set<string>
+  firstItems: Set<string>
+  noImportItems: Set<string>
+  slack: Map<string, number>
+  S: Map<string, Map<string, number>>
+  throughput: Map<string, number>
+}): { run: boolean; caps: Map<string, number>; noImport: Set<string> } {
+  const caps = new Map<string, number>()
+  const noImport = new Set(args.noImportItems)
+  let run = false
+  for (const [itemId, cap] of args.totalCaps) {
+    if (!args.intermediates.has(itemId)) continue
+    const residual = args.slack.get(itemId) ?? 0
+    if (residual <= FLOW_TOLERANCE) continue
+    if (args.firstItems.has(itemId)) {
+      // Already supplied in pass 1 up to its offer: stays unlocked only if something is left.
+      noImport.delete(itemId)
+      continue
+    }
+    caps.set(itemId, Math.min(cap, residual))
+    if (cap < residual - FLOW_TOLERANCE) noImport.delete(itemId)
+    if (residual > surplusTolerance(itemGrossFlow(args.S.get(itemId), args.throughput))) run = true
+  }
+  return { run, caps, noImport }
+}
+
+/**
  * What a block takes from and gives to the outside for an item, from the gross rates areas send
  * and receive (net of each area's own rows): the residual, unless within `surplusTolerance`.
  */
@@ -171,16 +207,9 @@ export function blockDiagnostics(args: {
   const itemGross = new Map<string, number>()
   for (const [itemId, rowS] of system.S) {
     let net = 0
-    let produced = 0
-    let consumed = 0
-    for (const [recipeId, coeff] of rowS) {
-      const flow = coeff * (throughputMap.get(recipeId) ?? 0)
-      net += flow
-      if (flow > 0) produced += flow
-      else consumed -= flow
-    }
+    for (const [recipeId, coeff] of rowS) net += coeff * (throughputMap.get(recipeId) ?? 0)
     itemSurplus.set(itemId, net)
-    itemGross.set(itemId, Math.max(produced, consumed))
+    itemGross.set(itemId, itemGrossFlow(rowS, throughputMap))
   }
 
   // Detect overconstrained intermediates: positive net flow at LP optimum.
@@ -245,9 +274,10 @@ export function blockDiagnostics(args: {
   for (const itemId of totalCaps.keys()) {
     if (!system.classification.intermediates.has(itemId)) continue
     const deficit = Math.max(0, -(itemSurplus.get(itemId) ?? 0))
-    if (deficit <= surplusTolerance(itemGross.get(itemId) ?? 0)) continue
-    const taken = Math.min(supply.get(itemId) ?? 0, deficit)
-    if (taken > 0) received.set(itemId, taken)
+    // Charged whatever the LP used, even a deficit within the noise of the flow: the source's
+    // bookkeeping must match the supply the block actually drew.
+    const fromSupply = Math.min(supply.get(itemId) ?? 0, deficit)
+    if (fromSupply > FLOW_TOLERANCE) received.set(itemId, fromSupply)
   }
 
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
-import { itemGrossFlow } from './blockResult'
+import { solve, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
+import { itemGrossFlow, pass2Plan } from './blockResult'
+import type { LoopShape } from './blockGraph'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -2180,5 +2181,58 @@ describe('solveAll — offers at large flows', () => {
 
   it('keeps a genuine large offer', () => {
     expect(flowFromA(1e9, 1)?.available).toBeGreaterThan(1)
+  })
+})
+
+describe('pass2Plan', () => {
+  // Item `x` is made and used at `gross`/min in one column pair.
+  const plan = (over: { gross: number; residual: number; cap: number; locked?: boolean; other?: number }) => pass2Plan({
+    totalCaps: new Map([['x', over.cap], ['y', 1e6]]),
+    intermediates: new Set(['x', 'y']),
+    firstItems: new Set(),
+    noImportItems: new Set(over.locked === false ? [] : ['x']),
+    slack: new Map([['x', over.residual], ['y', over.other ?? 0]]),
+    S: new Map([['x', new Map([['mk', 1], ['use', -1]])], ['y', new Map([['mk', 1]])]]),
+    throughput: new Map([['mk', over.gross], ['use', over.gross]]),
+  })
+
+  it('does not run for a residual within the noise of the flow', () => {
+    expect(plan({ gross: 1e6, residual: 0.005, cap: 1e9 }).run).toBe(false)
+  })
+
+  it('runs at a small flow for any residual above FLOW_TOLERANCE', () => {
+    expect(plan({ gross: 10, residual: 1e-5, cap: 1e9 }).run).toBe(true)
+  })
+
+  it('caps a locked item with a noise-sized residual once another item forces pass 2', () => {
+    const p = plan({ gross: 1e6, residual: 0.005, cap: 1e9, other: 5 })
+    expect(p.run).toBe(true)
+    expect(p.caps.get('x')).toBeCloseTo(0.005, 9)
+    expect(p.noImport.has('x')).toBe(true)
+  })
+
+  it('unlocks an item whose offer falls short of its residual, even by less than the noise', () => {
+    const p = plan({ gross: 1e7, residual: 50, cap: 49.95 })
+    expect(p.run).toBe(true)
+    expect(p.caps.get('x')).toBeCloseTo(49.95, 9)
+    expect(p.noImport.has('x')).toBe(false)
+  })
+})
+
+describe('backOffersSettled', () => {
+  const loop = { backConnectionIds: ['c'] } as LoopShape
+  const members = [{ id: 'B', inputConnections: [{ id: 'c', fromBlockId: 'A', itemId: 'x' }] }] as unknown as Block[]
+  const offers = (net: number, tol: number) => new Map([['A', new Map([['x', { net, tol }]])]])
+
+  it('settles an offer hovering at the threshold', () => {
+    expect(backOffersSettled(loop, members, offers(10.0000001, 10), offers(9.9999999, 10))).toBe(true)
+  })
+
+  it('settles an offer that fell within the noise of the flow', () => {
+    expect(backOffersSettled(loop, members, offers(12, 10), offers(3, 10))).toBe(true)
+  })
+
+  it('does not settle a real change', () => {
+    expect(backOffersSettled(loop, members, offers(50, 10), offers(20, 10))).toBe(false)
   })
 })

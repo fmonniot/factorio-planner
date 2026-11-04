@@ -80,8 +80,13 @@ describe('offeredRate', () => {
     expect(offeredRate('S', 'plate', {}, [])).toBe(0)
   })
 
-  it('treats a rest within the noise of a huge flow as nothing', () => {
-    expect(offeredRate('S', 'plate', { S: result({ plate: 1e9 }) }, [flow({ rate: 1e9 - 5 })])).toBe(0)
+  it('treats a net output within the noise of a huge flow as no offer', () => {
+    const noisy: SolverResult = { ...result({ plate: 1e9 }), nodes: [{ ...result({ plate: 1e9 }).nodes[0], inputRates: { plate: 1e9 - 5 } }] }
+    expect(offeredRate('S', 'plate', { S: noisy }, [])).toBe(0)
+  })
+
+  it('keeps what deliveries leave of a real offer, as the solver does', () => {
+    expect(offeredRate('S', 'plate', { S: result({ plate: 1e9 }) }, [flow({ rate: 1e9 - 5 })])).toBeCloseTo(5, 6)
   })
 
   it('keeps the same rest at a small flow', () => {

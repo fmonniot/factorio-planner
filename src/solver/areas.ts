@@ -19,7 +19,7 @@ import {
   blockDiagnostics,
   byproductsFirstSet,
   itemsWithSourcing,
-  itemGrossFlow,
+  pass2Plan,
   solvedNodeOf,
   surplusTolerance,
   zeroNode,
@@ -542,26 +542,14 @@ export function solveAreaBlock(
   const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
   let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst)
 
-  const pass2Caps = new Map<string, number>()
-  const pass2NoImport = new Set(noImportItems)
-  for (const [itemId, cap] of totalCaps) {
-    if (!system.classification.intermediates.has(itemId)) continue
-    const residual = lp.slack.get(itemId) ?? 0
-    // Noise floor at the item's pass-1 scale (read before `lp` is reassigned).
-    const tol = surplusTolerance(itemGrossFlow(system.S.get(itemId), lp.throughput))
-    if (firstItems.has(itemId)) {
-      if (residual > tol) pass2NoImport.delete(itemId)
-      continue
-    }
-    if (residual > tol) {
-      pass2Caps.set(itemId, Math.min(cap, residual))
-      if (cap < residual - tol) pass2NoImport.delete(itemId)
-    }
-  }
-  if (pass2Caps.size > 0) {
+  const pass2 = pass2Plan({
+    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems,
+    slack: lp.slack, S: system.S, throughput: lp.throughput,
+  })
+  if (pass2.run) {
     lp = solveAreaLP(
-      system, columns, pinnedRates, bcColumns, pass2NoImport,
-      new Map([...firstCaps, ...pass2Caps]), firstItems, byproductsFirst,
+      system, columns, pinnedRates, bcColumns, pass2.noImport,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst,
     )
   }
 
