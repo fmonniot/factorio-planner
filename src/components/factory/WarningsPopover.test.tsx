@@ -5,7 +5,7 @@ import { useSolverStore } from '../../store/solverStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
-import type { GameData, GameRecipeNode, SolverResult, SubPlan } from '../../data/types'
+import type { GameData, GameRecipeNode, SolverResult, SolverWarning, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Minimal GameData with recipe and item names
@@ -198,6 +198,43 @@ describe('WarningsPopover — temperature-mismatch', () => {
     const pill = screen.getByTitle('Show solver warnings')
     expect(pill).toHaveTextContent('1 warning')
     expect(pill.className).toContain('text-yellow-300')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// coproduct-driven
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — coproduct-driven', () => {
+  function driven(recipeId: string, throughput: number, needed: number): SolverWarning {
+    return { type: 'coproduct-driven', drivers: [{ recipeId, itemIds: ['steam', 'oxygen'], throughput, needed }] }
+  }
+
+  it('shows the title, the co-products, the share, the hint and stays amber', () => {
+    setupWithWarnings({ warnings: [driven('boiler', 150, 60)] })
+    render(<WarningsPopover />)
+    openPopover()
+    const title = screen.getByText(/Recipe runs for its co-product/)
+    expect(title.className).toContain('text-yellow-400')
+    expect(screen.getByText(/"Boiler Recipe" runs mainly to make Steam, Oxygen as a co-product/)).toBeInTheDocument()
+    expect(screen.getByText(/about 40%/)).toBeInTheDocument()
+    expect(screen.getByText(/Byproducts first/)).toBeInTheDocument()
+    expect(screen.getByText(/pin the recipe/)).toBeInTheDocument()
+    expect(screen.getByTitle('Show solver warnings').className).toContain('text-yellow-300')
+  })
+
+  it.each([[0.5], [0]])('says "under 1%" for a need of %s', (needed) => {
+    setupWithWarnings({ warnings: [driven('boiler', 150, needed)] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/under 1%/)).toBeInTheDocument()
+  })
+
+  it('falls back to the raw id for an unknown recipe', () => {
+    setupWithWarnings({ warnings: [driven('mystery', 150, 60)] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/"mystery" runs mainly to make/)).toBeInTheDocument()
   })
 })
 

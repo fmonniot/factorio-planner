@@ -15,7 +15,7 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { blockAreas, solveAreaBlock } from './areas'
+import { blockAreas, dedicatedProduct, solveAreaBlock } from './areas'
 import { buildClassifiedSystem, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
@@ -308,10 +308,17 @@ export function solveBlock(
     nodes.push(solvedNodeOf(planNode, recipe, throughput, effects, prodBonus, gameData))
   }
 
-  const { overconstrained, unsatisfied, received } = blockDiagnostics({
+  const { overconstrained, coproductDriven, unsatisfied, received } = blockDiagnostics({
     goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
+    fixed: new Set([...pinnedRates.keys(), ...bcRecipeIds]), recipeOf: id => id,
+    mainItemOf: id => {
+      const n = representatives.find(r => r.recipeId === id)
+      const r = gameData.recipes[id]
+      return n && r ? dedicatedProduct(n, r) : undefined
+    },
   })
   if (overconstrained) warnings.push(overconstrained)
+  if (coproductDriven) warnings.push(coproductDriven)
 
   return {
     result: { nodes, unsatisfied, warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings] },

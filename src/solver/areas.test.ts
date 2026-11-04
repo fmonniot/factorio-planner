@@ -58,6 +58,9 @@ function gd(): GameData {
     recipe('reactor-run', [['fuel', 1]], [['power:heat', 10]], { category: 'rc' }),
     recipe('heat-use-a', [['power:heat', 10]], [['ha', 1]]),
     recipe('heat-use-b', [['power:heat', 10]], [['hb', 1]]),
+    // Co-product driven: co-maker makes cp and 40 cw per run; co-user needs 100 cw per cgadget.
+    recipe('co-maker', [], [['cp', 1], ['cw', 40]]),
+    recipe('co-user', [['cp', 1], ['cw', 100]], [['cgadget', 1]]),
   ]
   return {
     factorioVersion: '2.0.0',
@@ -706,5 +709,19 @@ describe('areas and R9 (blocks without areas)', () => {
     expect(lookup.mock.results[0].value).toBeDefined()
     solveAll(pair(true), data, cache)
     expect(lookup.mock.results[1].value).toBeUndefined()
+  })
+})
+
+describe('areas: coproduct-driven warning', () => {
+  it('names the recipe, not the row column, of a recipe run for its co-product', () => {
+    const b = blk(root([row('co-maker', 'root')], [sub('S', [row('co-user', 'S')], [], true)]), [['cgadget', 60]])
+    const r = solved(b)
+    expect(node(r, 'co-maker@root').throughput).toBeCloseTo(150, 3)
+    const w = r.warnings.find(w => w.type === 'coproduct-driven')
+    if (w?.type !== 'coproduct-driven') throw new Error('missing warning')
+    expect(w.drivers).toHaveLength(1)
+    expect(w.drivers[0].recipeId).toBe('co-maker')
+    expect(w.drivers[0].itemIds).toEqual(['cw'])
+    expect(w.drivers[0].needed).toBeCloseTo(60, 3)
   })
 })

@@ -15,12 +15,17 @@ import type { SolverWarning, GameData, SubPlan } from '../../data/types'
 // Warning helpers (same logic as old SummaryBar)
 // ---------------------------------------------------------------------------
 
+function fmtShare(share: number): string {
+  return share < 0.01 ? 'under 1%' : `about ${Math.round(share * 100)}%`
+}
+
 function warningTitle(w: SolverWarning): string {
   switch (w.type) {
     case 'no-recipe': return 'No recipe in plan'
     case 'duplicate-recipe': return 'Duplicate recipe'
     case 'infeasible-pins': return 'Pinned rate is impossible'
     case 'overconstrained': return "Recipe network can't fully balance"
+    case 'coproduct-driven': return 'Recipe runs for its co-product'
     case 'area-shortfall': return "Area can't cover its own need"
     case 'loop-not-converged': return 'Loop between blocks did not settle'
     case 'request-loop-not-converged': return 'Requests around a loop do not settle'
@@ -55,6 +60,15 @@ function warningBody(
       const names = w.surplusItems.map(si => gameData.items[si.itemId]?.name ?? si.itemId)
       return `The internal flows of ${names.join(', ')} can't all balance — the surplus is shown as a byproduct.`
     }
+    case 'coproduct-driven': {
+      return w.drivers
+        .map(d => {
+          const recipe = gameData.recipes[d.recipeId]?.name ?? d.recipeId
+          const items = d.itemIds.map(id => gameData.items[id]?.name ?? id).join(', ')
+          return `"${recipe}" runs mainly to make ${items} as a co-product. Its other outputs would only need ${fmtShare(d.needed / d.throughput)} of its current rate, so the rest of them is surplus.`
+        })
+        .join(' ')
+    }
     case 'area-shortfall': {
       return w.shortfalls
         .map(s => {
@@ -86,6 +100,7 @@ function warningHint(w: SolverWarning): string {
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
     case 'area-shortfall': return 'Unpin that row, or allow imports of its inputs.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
+    case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Byproducts first (right-click its chip), or pin the recipe's rate."
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'

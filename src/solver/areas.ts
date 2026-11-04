@@ -568,10 +568,17 @@ export function solveAreaBlock(
     ))
   }
 
-  const { overconstrained, unsatisfied, received } = blockDiagnostics({
+  const recipeOfCol = new Map(columns.map(c => [c.id, c.node.recipeId]))
+  const { overconstrained, coproductDriven, unsatisfied, received } = blockDiagnostics({
     goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
+    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), recipeOf: id => recipeOfCol.get(id) ?? id,
+    mainItemOf: id => {
+      const col = columns.find(c => c.id === id)
+      return col?.recipe ? dedicatedProduct(col.node, col.recipe) : undefined
+    },
   })
   if (overconstrained) warnings.push(overconstrained)
+  if (coproductDriven) warnings.push(coproductDriven)
 
   const shortfalls = lp.dedicatedIn
     .filter(d => d.rate > AREA_SHORTFALL_TOLERANCE)

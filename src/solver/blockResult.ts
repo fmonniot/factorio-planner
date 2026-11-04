@@ -175,12 +175,104 @@ export function solvedNodeOf(
   }
 }
 
+/**
+ * A recipe is `coproduct-driven` when at most this share of its throughput is needed for its other
+ * outputs: the rest runs only to make a co-product the block consumes.
+ */
+export const COPRODUCT_DRIVEN_RATIO = 0.5
+
+/**
+ * Detects recipes the LP over-runs to make a co-product (see `coproduct-driven` in spec/solver.md).
+ * Diagnostic only: analytic, from the solved flows. `fixed` columns (pinned rates, byproduct
+ * consumers) are not free LP choices and never count as drivers; `recipeOf` maps a column to the
+ * recipe it runs, so rows of one recipe merge into one entry. `mainItemOf` gives the item a column
+ * is built for: a column whose main item is what binds it is running for its main product.
+ */
+export function coproductDrivenWarning(args: {
+  goals: SolverGoal[]
+  system: ClassifiedSystem
+  throughput: Map<string, number>
+  slack: Map<string, number>
+  itemSurplus: Map<string, number>
+  itemGross: Map<string, number>
+  fixed: Set<string>
+  recipeOf: (columnId: string) => string
+  mainItemOf: (columnId: string) => string | undefined
+}): SolverWarning | undefined {
+  const { goals, system, throughput, slack, itemSurplus, itemGross, fixed, recipeOf, mainItemOf } = args
+  const goalRate = new Map<string, number>()
+  for (const g of goals) goalRate.set(g.itemId, (goalRate.get(g.itemId) ?? 0) + g.rate)
+
+  const excessOf = (itemId: string): number =>
+    Math.max(0, (itemSurplus.get(itemId) ?? 0) - (goalRate.get(itemId) ?? 0))
+  const tolOf = (itemId: string): number => surplusTolerance(itemGross.get(itemId) ?? 0)
+
+  // Pass 1: the constrained outputs of each column.
+  const outs = new Map<string, { itemId: string; coeff: number }[]>()
+  let anyExcess = false
+  const constrained = [...system.classification.intermediates, ...system.classification.goals.keys()]
+  for (const itemId of new Set(constrained)) {
+    const row = system.S.get(itemId)
+    if (!row) continue
+    if (excessOf(itemId) > tolOf(itemId)) anyExcess = true
+    for (const [columnId, coeff] of row) {
+      if (coeff <= 0) continue
+      let list = outs.get(columnId)
+      if (!list) outs.set(columnId, list = [])
+      list.push({ itemId, coeff })
+    }
+  }
+  if (!anyExcess) return undefined
+
+  // Pass 2: per column, how much of its throughput the non-surplus outputs would need.
+  const byRecipe = new Map<string, { itemIds: Set<string>; throughput: number; needed: number }>()
+  for (const [columnId, list] of outs) {
+    const t = throughput.get(columnId) ?? 0
+    if (t <= FLOW_TOLERANCE || fixed.has(columnId)) continue
+    const binding: string[] = []
+    let minRoom = Infinity
+    let goalDriven = false
+    for (const { itemId, coeff } of list) {
+      const excess = excessOf(itemId)
+      if (excess > tolOf(itemId)) {
+        minRoom = Math.min(minRoom, excess / coeff)
+      } else if (goalRate.has(itemId)) {
+        goalDriven = true
+        break
+      } else if ((slack.get(itemId) ?? 0) <= tolOf(itemId)) {
+        binding.push(itemId)
+      }
+    }
+    if (goalDriven || binding.length === 0 || minRoom === Infinity) continue
+    // A row that runs for the item it is built for, leaving a by-product in surplus, is not driven by a co-product.
+    const main = mainItemOf(columnId)
+    if (main !== undefined && binding.includes(main)) continue
+    const needed = Math.max(0, t - minRoom)
+    if (needed > COPRODUCT_DRIVEN_RATIO * t) continue
+    const recipeId = recipeOf(columnId)
+    let entry = byRecipe.get(recipeId)
+    if (!entry) byRecipe.set(recipeId, entry = { itemIds: new Set(), throughput: 0, needed: 0 })
+    for (const id of binding) entry.itemIds.add(id)
+    entry.throughput += t
+    entry.needed += needed
+  }
+  if (byRecipe.size === 0) return undefined
+
+  const drivers = [...byRecipe].map(([recipeId, e]) => ({
+    recipeId, itemIds: [...e.itemIds], throughput: e.throughput, needed: e.needed,
+  }))
+  drivers.sort((a, b) =>
+    (b.throughput - b.needed) - (a.throughput - a.needed) || a.recipeId.localeCompare(b.recipeId))
+  return { type: 'coproduct-driven', drivers }
+}
+
 export interface BlockDiagnostics {
   /** itemId → net production over the block's columns */
   itemSurplus: Map<string, number>
   /** itemId → larger of produced and consumed */
   itemGross: Map<string, number>
   overconstrained?: SolverWarning
+  coproductDriven?: SolverWarning
   unsatisfied: UnsatisfiedItem[]
   /** itemId → items/min taken from the offers */
   received: Map<string, number>
@@ -198,8 +290,14 @@ export function blockDiagnostics(args: {
   supply: Map<string, number>
   nodes: SolvedNode[]
   totalCaps: Map<string, number>
+  /** Columns that are not free LP choices (pinned rates, byproduct consumers). */
+  fixed: Set<string>
+  /** The recipe a column runs. */
+  recipeOf: (columnId: string) => string
+  /** The item a column is built for (see `dedicatedProduct`). */
+  mainItemOf: (columnId: string) => string | undefined
 }): BlockDiagnostics {
-  const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps } = args
+  const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps, fixed, recipeOf, mainItemOf } = args
 
   // Per-item net surplus from the LP solve.
   const itemSurplus = new Map<string, number>()
@@ -283,5 +381,9 @@ export function blockDiagnostics(args: {
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  return { itemSurplus, itemGross, overconstrained, unsatisfied, received }
+  const coproductDriven = coproductDrivenWarning({
+    goals, system, throughput: throughputMap, slack: slackMap, itemSurplus, itemGross, fixed, recipeOf, mainItemOf,
+  })
+
+  return { itemSurplus, itemGross, overconstrained, coproductDriven, unsatisfied, received }
 }

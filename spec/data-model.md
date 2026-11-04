@@ -755,6 +755,7 @@ type SolverWarning =
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
   | { type: 'infeasible-pins'; recipeIds: string[] }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
+  | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
   | { type: 'loop-not-converged'; blockIds: string[]; rounds: number }
   | { type: 'request-loop-not-converged'; blockIds: string[]; rounds: number }
