@@ -329,7 +329,7 @@ export function RecipeRow({
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
         <td
           className="px-2 py-0.5"
-          colSpan={6}
+          colSpan={3}
           style={{ paddingLeft: `${8 + indentPx}px` }}
           onContextMenu={e => {
             e.preventDefault()
@@ -364,9 +364,6 @@ export function RecipeRow({
                 )
               })()}
             </button>
-            {solvedArea && (solvedArea.receives.length > 0 || solvedArea.sends.length > 0) && (
-              <AreaChips area={solvedArea} items={gameData.items} rateUnit={rateUnit} />
-            )}
           </div>
           {menuPos && (
             <RowActionsMenu
@@ -412,6 +409,25 @@ export function RecipeRow({
               onClose={() => setAreaMenu(null)}
             />
           )}
+        </td>
+        <td className="px-2 py-0.5 align-top">
+          <AreaFlowCell
+            flows={solvedArea?.sends ?? []}
+            direction="sends"
+            items={gameData.items}
+            rateUnit={rateUnit}
+            testId="area-chips-out"
+          />
+        </td>
+        <td />
+        <td className="px-2 py-0.5 align-top">
+          <AreaFlowCell
+            flows={solvedArea?.receives ?? []}
+            direction="receives"
+            items={gameData.items}
+            rateUnit={rateUnit}
+            testId="area-chips-in"
+          />
         </td>
       </tr>
     )
@@ -808,23 +824,24 @@ export function RecipeRow({
 }
 
 // ---------------------------------------------------------------------------
-// AreaChips — what a collapsed area receives and sends. The chips are display-only;
+// AreaFlowCell — what a collapsed area receives or sends, in its table column. The chips are display-only;
 // the "+N" for the flows past the cap is a button that opens a popup.
 // ---------------------------------------------------------------------------
 
-function AreaChips({ area, items, rateUnit }: { area: SolvedArea; items: GameData['items']; rateUnit: RateUnit }) {
+function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
+  flows: SolvedArea['receives']
+  direction: 'receives' | 'sends'
+  items: GameData['items']
+  rateUnit: RateUnit
+  testId: string
+}) {
+  if (flows.length === 0) return null
   return (
-    <div data-testid="area-chips" className="flex flex-wrap items-center gap-1 ml-2">
-      {area.receives.length > 0 && <span className="text-[10px] text-gray-500">in</span>}
-      {area.receives.slice(0, AREA_CHIP_CAP).map(f => (
-        <FlowChip key={`in-${f.itemId}`} {...f} direction="receives" items={items} rateUnit={rateUnit} />
+    <div data-testid={testId} className="flex flex-wrap gap-0.5">
+      {flows.slice(0, AREA_CHIP_CAP).map(f => (
+        <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
-      <AreaChipsMore flows={area.receives.slice(AREA_CHIP_CAP)} direction="receives" items={items} rateUnit={rateUnit} />
-      {area.sends.length > 0 && <span className="text-[10px] text-gray-500">out</span>}
-      {area.sends.slice(0, AREA_CHIP_CAP).map(f => (
-        <FlowChip key={`out-${f.itemId}`} {...f} direction="sends" items={items} rateUnit={rateUnit} />
-      ))}
-      <AreaChipsMore flows={area.sends.slice(AREA_CHIP_CAP)} direction="sends" items={items} rateUnit={rateUnit} />
+      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP)} direction={direction} items={items} rateUnit={rateUnit} />
     </div>
   )
 }

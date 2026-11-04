@@ -1476,16 +1476,30 @@ describe('RecipeRow in a block with areas', () => {
 
     it('shows what the area receives and sends as display-only chips', () => {
       renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
-      const chips = screen.getByTestId('area-chips')
-      const received = chips.querySelector('[data-item-id="water"][data-direction="receives"]')!
+      const inCell = screen.getByTestId('area-chips-in')
+      const outCell = screen.getByTestId('area-chips-out')
+      const received = inCell.querySelector('[data-item-id="water"][data-direction="receives"]')!
       expect(received.tagName).toBe('SPAN')
-      expect(chips.querySelector('[data-item-id="hydrogen"][data-direction="sends"]')).not.toBeNull()
-      expect(within(chips).queryAllByRole('button')).toHaveLength(0)
+      expect(outCell.querySelector('[data-item-id="hydrogen"][data-direction="sends"]')).not.toBeNull()
+      expect(within(inCell).queryAllByRole('button')).toHaveLength(0)
+      expect(within(outCell).queryAllByRole('button')).toHaveLength(0)
+    })
+
+    it('puts the name across three columns, sends under Products and receives under Ingredients', () => {
+      renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
+      const row = screen.getByTestId('area-chips-out').closest('tr')!
+      const cells = row.querySelectorAll(':scope > td')
+      expect(cells).toHaveLength(5)
+      expect(cells[1]).toHaveAttribute('colspan', '3')
+      expect(cells[2]).toContainElement(screen.getByTestId('area-chips-out'))
+      expect(cells[3]).toBeEmptyDOMElement()
+      expect(cells[4]).toContainElement(screen.getByTestId('area-chips-in'))
     })
 
     it('shows no chips on an expanded area', () => {
       renderAreaHandle(areaOf([flow('water', 60)], []), { isExpanded: true })
-      expect(screen.queryByTestId('area-chips')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('area-chips-in')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('area-chips-out')).not.toBeInTheDocument()
     })
 
     it('shows no chips on an organising sub-factory', () => {
@@ -1494,13 +1508,14 @@ describe('RecipeRow in a block with areas', () => {
         solvedNode: undefined,
         areaView: { index: indexRecipeAreas(root), solvedMap: solvedMap(), solvedAreas: [areaOf([flow('water', 60)], [])] },
       }, { areas: false })
-      expect(screen.queryByTestId('area-chips')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('area-chips-in')).not.toBeInTheDocument()
+      expect(screen.queryByTestId('area-chips-out')).not.toBeInTheDocument()
     })
 
     it('caps each direction at four chips and lists the rest in a +N', () => {
       const ids = ['a', 'b', 'c', 'd', 'e', 'f']
       renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 60 - i)), []))
-      const chips = screen.getByTestId('area-chips')
+      const chips = screen.getByTestId('area-chips-in')
       expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+2')

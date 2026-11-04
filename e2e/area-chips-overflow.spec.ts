@@ -14,7 +14,7 @@ test('the +N opens a popup listing the hidden items, on hover and on focus', asy
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
-  const chips = group(page, 'Assembly').getByTestId('area-chips')
+  const chips = group(page, 'Assembly').getByTestId('area-chips-in')
   await expect(chips.locator('[data-direction="receives"]')).toHaveCount(4, { timeout: 10000 })
   const more = chips.getByTestId('area-chips-more')
   await expect(more).toHaveText('+5')
