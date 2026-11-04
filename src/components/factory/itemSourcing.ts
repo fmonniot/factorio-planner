@@ -25,6 +25,11 @@ export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label:
 
 const ACTION_IDS = { own: 'sourcing-own', 'byproducts-first': 'sourcing-byproducts', 'connections-first': 'sourcing-connections' }
 
+/** Tooltip of the disabled "Forbid imports" on an item that no recipe row of the block makes. */
+export function noLockTitle(itemName: string): string {
+  return `No recipe in this block makes ${itemName}, so forbidding imports would change nothing. Add a recipe that makes it first.`
+}
+
 /** Lower-case name of a mode, for tooltips. */
 export function itemSourcingLabel(mode: ItemSourcingMode): string {
   return mode === 'byproducts-first' ? 'byproducts first' : 'connections first'

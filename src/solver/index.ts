@@ -50,6 +50,15 @@ export function flattenBlock(block: Block): SolverPlan {
 }
 
 /**
+ * Does a recipe row of the block make `itemId`? Such an item has an LP row, so `noImportItems` can
+ * forbid importing it; any other item is raw in the block and a lock on it changes nothing.
+ */
+export function blockMakesItem(block: Block, gameData: GameData, itemId: string): boolean {
+  return flattenBlock(block).nodes.some(n =>
+    n.kind === 'game-recipe' && gameData.recipes[n.recipeId]?.products.some(p => p.itemId === itemId && p.amount > 0))
+}
+
+/**
  * The solver goals of a block's products: `extraRate` (0 when absent), and for the first product
  * of each item also what other blocks `requested` of it. Rates at or below zero are dropped.
  */

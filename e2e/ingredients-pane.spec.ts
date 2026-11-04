@@ -50,26 +50,15 @@ test.describe('Ingredients pane', () => {
     await expect(plateSlot(page)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  test('forbid and allow imports through the right-click menus', async ({ page }) => {
+  test('Forbid imports is disabled, with a hint, on a raw item that no row makes', async ({ page }) => {
     await rodSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Forbid imports' }).click()
-    await expect(rodSlot(page)).toHaveAttribute('data-status', 'locked')
-
-    await rodSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Allow imports' }).click()
-    await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'locked')
-  })
-
-  test('a left click on a locked slot only selects it; Allow imports unlocks', async ({ page }) => {
-    await rodSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Forbid imports' }).click()
-    await expect(rodSlot(page)).toHaveAttribute('data-status', 'locked')
+    const item = page.getByRole('menuitem', { name: 'Forbid imports' })
+    await expect(item).toBeDisabled()
+    await expect(item).toHaveAttribute('title', /No recipe in this block makes Iron rod/)
+    await page.keyboard.press('Escape')
 
     await selectSlot(page, 'Ingredients', 'Iron rod')
-    await expect(rodSlot(page)).toHaveAttribute('data-status', 'locked')
-    await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
-
-    await stripAction(page, 'Allow imports').click()
+    await expect(stripAction(page, 'Forbid imports')).toBeDisabled()
     await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'locked')
   })
 

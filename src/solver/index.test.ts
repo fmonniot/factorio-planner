@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveBlock, solveAll, flattenBlock, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
+import { solve, solveBlock, solveAll, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
@@ -251,6 +251,18 @@ function pinned(id: string, recipeId: string, pinnedRate: number): RecipeNode {
 function rate(items: { itemId: string; rate: number }[], itemId: string): number {
   return items.find(u => u.itemId === itemId)?.rate ?? 0
 }
+
+describe('blockMakesItem', () => {
+  it('is true for a product of a row, also in a sub-plan, and false for any other item', () => {
+    const flat = makeBlock(makeSubPlan('Root', [planNode('n1', 'iron-plate')]), [ironProduct])
+    const nested = makeBlock({ ...makeSubPlan('Root', []), subPlans: [makeSubPlan('Child', [planNode('n1', 'iron-plate')])] }, [ironProduct])
+    for (const block of [flat, nested]) {
+      expect(blockMakesItem(block, simpleGameData, 'iron-plate')).toBe(true)
+      expect(blockMakesItem(block, simpleGameData, 'iron-ore')).toBe(false)
+    }
+    expect(blockMakesItem(makeBlock(makeSubPlan('Root', []), [ironProduct]), simpleGameData, 'iron-plate')).toBe(false)
+  })
+})
 
 describe('solveBlock — own production first', () => {
   const gearGoal: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
