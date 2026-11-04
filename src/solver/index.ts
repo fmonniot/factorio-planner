@@ -22,7 +22,7 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, outsideResidual, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, byproductsFirstSet, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -278,28 +278,14 @@ export function solveBlock(
   // Pass 2: supply fills only the residual of connected intermediates. Capping at
   // the residual keeps own production at its pass-1 level (replacing it would
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
-  const pass2Caps = new Map<string, number>()
-  // A locked item whose offer is below its residual stays unlocked in pass 2: with
-  // the lock the LP would be infeasible and its output meaningless. The uncovered
-  // part then shows up as an import, the same as in pass 1.
-  const pass2NoImport = new Set(noImportItems)
-  for (const [itemId, cap] of totalCaps) {
-    if (!system.classification.intermediates.has(itemId)) continue
-    const residual = lp.slack.get(itemId) ?? 0
-    if (firstItems.has(itemId)) {
-      // Already supplied in pass 1 up to its offer: stays unlocked only if something is left.
-      if (residual > FLOW_TOLERANCE) pass2NoImport.delete(itemId)
-      continue
-    }
-    if (residual > FLOW_TOLERANCE) {
-      pass2Caps.set(itemId, Math.min(cap, residual))
-      if (cap < residual - FLOW_TOLERANCE) pass2NoImport.delete(itemId)
-    }
-  }
-  if (pass2Caps.size > 0) {
+  const pass2 = pass2Plan({
+    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems,
+    slack: lp.slack, S: system.S, throughput: lp.throughput,
+  })
+  if (pass2.run) {
     lp = solveLP(
-      system, pinnedRates, bcRecipeIds, pass2NoImport,
-      new Map([...firstCaps, ...pass2Caps]), firstItems, byproductsFirst,
+      system, pinnedRates, bcRecipeIds, pass2.noImport,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst,
     )
   }
 
@@ -381,6 +367,8 @@ interface BlockStep {
   flows: ConnectionFlow[]
   /** The block's net output, before any consumer took from it. */
   offers: Offers
+  /** Every item with a positive net output, unthresholded, with the noise floor of its gross flow: the loop's convergence test reads these, so a value hovering at the offer threshold does not flip it. */
+  netOffers: Map<string, { net: number; tol: number }>
 }
 
 function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowStatus): ConnectionFlow {
@@ -440,9 +428,9 @@ function solveStep(
         info && 'requested' in info
           ? // The limit bounded the flow only if it cut the request and the source could have met it.
             c.maxRate !== undefined &&
-            info.requested >= c.maxRate - FLOW_TOLERANCE &&
-            sourceOffer >= c.maxRate - FLOW_TOLERANCE
-          : c.maxRate !== undefined && c.maxRate < sourceOffer - FLOW_TOLERANCE
+            info.requested >= c.maxRate - surplusTolerance(c.maxRate) &&
+            sourceOffer >= c.maxRate - surplusTolerance(c.maxRate)
+          : c.maxRate !== undefined && c.maxRate < sourceOffer - surplusTolerance(sourceOffer)
       if (limitBinds) capped.add(c.id)
       seen.add(key)
       active.push(c)
@@ -516,7 +504,7 @@ function solveStep(
     const importsItem = (stillImported.get(c.itemId) ?? 0) > FLOW_TOLERANCE
     const status: ConnectionFlowStatus =
       duplicates.has(c.id) ? 'unused'
-      : importsItem && rate >= offer - FLOW_TOLERANCE ? 'limited'
+      : importsItem && rate >= offer - surplusTolerance(offer) ? 'limited'
       : rate <= FLOW_TOLERANCE ? 'unused'
       : 'ok'
     flows.push({
@@ -536,10 +524,14 @@ function solveStep(
   }
 
   const offers: Offers = new Map()
+  const netOffers: BlockStep['netOffers'] = new Map()
+  const gross = grossFlow(result.nodes)
   for (const [itemId, net] of netBalance(result.nodes)) {
-    if (net > FLOW_TOLERANCE) offers.set(itemId, net)
+    const tol = surplusTolerance(gross.get(itemId) ?? 0)
+    if (net > 0) netOffers.set(itemId, { net, tol })
+    if (net > tol) offers.set(itemId, net)
   }
-  return { result, error, flows, offers }
+  return { result, error, flows, offers, netOffers }
 }
 
 /** Equal within a relative `FLOW_TOLERANCE`. */
@@ -548,19 +540,20 @@ function sameRate(a: number, b: number): boolean {
 }
 
 /** Did every (source, item) pair carried by a back connection keep its offer between two rounds? */
-function backOffersSettled(
+export function backOffersSettled(
   loop: LoopShape,
   members: Block[],
-  prev: Map<string, Offers>,
-  next: Map<string, Offers>,
+  prev: Map<string, BlockStep['netOffers']>,
+  next: Map<string, BlockStep['netOffers']>,
 ): boolean {
   const back = new Set(loop.backConnectionIds)
   for (const b of members) {
     for (const c of b.inputConnections) {
       if (!back.has(c.id)) continue
-      const before = prev.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      const after = next.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      if (!sameRate(before, after)) return false
+      const before = prev.get(c.fromBlockId)?.get(c.itemId)?.net ?? 0
+      const after = next.get(c.fromBlockId)?.get(c.itemId)
+      // Equal as rates, or both within the noise of the flow (an offer that rounds to nothing).
+      if (!sameRate(before, after?.net ?? 0) && Math.abs(before - (after?.net ?? 0)) > (after?.tol ?? 0)) return false
     }
   }
   return true
@@ -686,9 +679,10 @@ function applyTakeCredits(
 /** What a source with solved `nodes` has left per item after the amounts requested of it. */
 function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, number> | undefined): Offers {
   const left: Offers = new Map()
+  const gross = grossFlow(nodes)
   for (const [itemId, net] of netBalance(nodes)) {
     const rest = net - (requestedOfSource?.get(itemId) ?? 0)
-    if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
+    if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
   }
   return left
 }
@@ -1121,6 +1115,7 @@ export function solveAll(
       for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
       const steps = new Map<string, BlockStep>()
       const next = new Map<string, Offers>()
+      const nets = new Map<string, BlockStep['netOffers']>()
       for (const m of component.blocks) {
         const before = rem.get(m.id)!
         const prevOffers = prev.get(m.id)
@@ -1129,26 +1124,28 @@ export function solveAll(
         // this round offers, the rest is clamped to nothing (flows already committed stay as they are;
         // this only happens in a round that has not settled).
         const left: Offers = new Map()
+        const gross = grossFlow(step.result.nodes)
         for (const [itemId, offer] of step.offers) {
           const drawn = (prevOffers?.get(itemId) ?? 0) - (before.get(itemId) ?? 0)
           const rest = offer - drawn
-          if (rest > FLOW_TOLERANCE) left.set(itemId, rest)
+          if (rest > surplusTolerance(gross.get(itemId) ?? 0)) left.set(itemId, rest)
         }
         rem.set(m.id, left)
         steps.set(m.id, step)
         next.set(m.id, step.offers)
+        nets.set(m.id, step.netOffers)
       }
-      return { rem, pend, steps, next }
+      return { rem, pend, steps, next, nets }
     }
 
     let rounds = 1
     let round = runRound(new Map())
-    let converged = backOffersSettled(loop, component.blocks, new Map(), round.next)
+    let converged = backOffersSettled(loop, component.blocks, new Map(), round.nets)
     while (!converged && rounds < roundLimit) {
       rounds++
-      const before = round.next
-      round = runRound(before)
-      converged = backOffersSettled(loop, component.blocks, before, round.next)
+      const before = round
+      round = runRound(before.next)
+      converged = backOffersSettled(loop, component.blocks, before.nets, round.nets)
     }
     const { rem, pend, steps } = round
 
