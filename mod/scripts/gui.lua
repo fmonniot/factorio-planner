@@ -38,6 +38,7 @@ M.SPRITE = "fp-viewer-button"
 local LEGACY_BUTTON = "fp_viewer_button"
 M.WINDOW = "fp_viewer_window"
 M.CLOSE = "fp_viewer_close"
+M.RATE = "fp_viewer_rate_unit"
 local BAR = "fp_viewer_title_bar"
 local CONTENT = "fp_viewer_content"
 
@@ -272,6 +273,13 @@ function M.open(player, ctx)
   local bar = window.add({ type = "flow", name = BAR, direction = "horizontal" })
   try_style(bar, "frame_header_flow")
   bar.drag_target = window
+  local rate = bar.add({
+    type = "button",
+    name = M.RATE,
+    caption = "/min",
+    tooltip = { key("rate-unit-tooltip") },
+  })
+  try_style(rate, "frame_action_button")
   drag_handle(bar)
   local title = bar.add({ type = "label", caption = { key("title") } })
   try_style(title, "frame_title")
@@ -405,8 +413,21 @@ local function slot(parent, spec)
   return b
 end
 
+-- The unit the window being drawn shows its rates in, "min" or "sec": set at the
+-- top of M.update from ctx.unit (single-threaded, so a module-local is safe).
+local unit = "min"
+
+-- The snapshot's rates are items per minute; "sec" only converts for display.
+local function rate_number(ref)
+  if unit == "sec" then
+    return ref.rate / 60
+  end
+  return ref.rate
+end
+
 local function rate_tooltip(ref)
-  return { "", ref_caption(ref), "\n", { key("tt-rate"), format.tooltip_number(ref.rate) } }
+  local key_name = unit == "sec" and "tt-rate-sec" or "tt-rate"
+  return { "", ref_caption(ref), "\n", { key(key_name), format.tooltip_number(rate_number(ref)) } }
 end
 
 -- A table of item buttons. Virtual refs (electricity, heat) are never drawn here: their
@@ -417,7 +438,7 @@ local function add_items(parent, refs, style, gray, columns)
     if not ref.virtual then
       slot(t, {
         sprite = sprite_of(ref.sprite, ref.missing),
-        number = ref.rate,
+        number = rate_number(ref),
         tooltip = rate_tooltip(ref),
         style = style,
         missing = ref.missing,
@@ -781,6 +802,8 @@ end
 --   only_table   = true when only the selection, the level or a tick changed: the
 --                  header and the drop-down are kept, the block's note, the level
 --                  button and the table redrawn
+--   unit         = "min" | "sec" | nil   the unit item rates are shown in (nil: "min");
+--                  the snapshot's rates are per minute, "sec" divides by 60
 --   reset_scroll = true to scroll the table back to the top (a new block or level)
 -- }
 function M.update(player, ctx)
@@ -797,13 +820,15 @@ function M.update(player, ctx)
   if window == nil then
     return
   end
-  if window[BAR] == nil then
+  if window[BAR] == nil or window[BAR][M.RATE] == nil then
     -- Left by an older version of the mod: no update fires for a mod whose version
     -- did not change, so the window is replaced here.
     M.close(player)
     M.open(player, ctx)
     return
   end
+  unit = ctx.unit == "sec" and "sec" or "min"
+  window[BAR][M.RATE].caption = unit == "sec" and "/s" or "/min"
   local content = window[CONTENT]
   if content == nil then
     content = window.add({ type = "flow", name = CONTENT, direction = "vertical" })

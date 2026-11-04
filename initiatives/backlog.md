@@ -28,7 +28,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Error attribution.* An `error` answers the most recent frame, and after a reconnect the planner sends a restore `snapshot` and an `announce` back to back, so an error for the snapshot looks like one for the announce. The planner forgets the refused bytes after such a pair, which is conservative: it may resend a snapshot that was fine. Fixing it needs the bridge to say which frame an `error` answers (a [protocol](../spec/in-game-viewer-protocol.md) change).
   - *Data-set badge versus `mod.stored`.* The "Data set mismatch" badge comes from the mod's `unknownIds` count in `status`, and is not checked against the plan id the mod reports as stored (`mod.stored`), so the badge can describe a plan other than the one the planner holds. Decide whether the badge should only show when the stored plan is the planner's.
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
-- [ ] **In-game viewer: rate unit toggle in the window header.** Add a button to the left of the draggable area of the mod's window header that toggles the rate unit between /min and /sec.
 
 ## Sourcing priority
 

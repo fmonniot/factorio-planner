@@ -52,6 +52,19 @@ local function state()
   return storage.fp_viewer
 end
 
+-- The unit a player's item rates are shown in, "min" (default) or "sec". The
+-- table is created on first use (never in on_load), so older saves work.
+local function unit_for(player_index)
+  local units = storage.fp_viewer and storage.fp_viewer.unit
+  return units and units[player_index] == "sec" and "sec" or "min"
+end
+
+local function toggle_unit(player_index)
+  local s = state()
+  s.unit = s.unit or {}
+  s.unit[player_index] = unit_for(player_index) == "sec" and "min" or "sec"
+end
+
 -- The "built" ticks, done[block_key][row_key] (lib/progress.lua): one set for the
 -- save, not per player, kept through new snapshots. Created on first use, so a
 -- save made before it existed gets it then (never from on_load).
@@ -204,6 +217,7 @@ local function context(player, indicator, model, extra)
     selected = selected,
     level = level,
     done = done(),
+    unit = unit_for(player.index),
   }
   for k, v in pairs(extra or {}) do
     ctx[k] = v
@@ -356,6 +370,9 @@ script.on_event(defines.events.on_gui_click, function(event)
     gui.toggle(player, context(player, indicator, model))
   elseif name == gui.CLOSE then
     gui.close(player)
+  elseif name == gui.RATE then
+    toggle_unit(player.index)
+    redraw(player, { only_table = true })
   elseif name == format.LEVEL_UP then
     -- Up from the sub-factory shown, to the one it is in or the block's top level.
     local model = get_model()
@@ -449,5 +466,9 @@ script.on_event(defines.events.on_player_display_resolution_changed, on_screen_c
 script.on_event(defines.events.on_player_display_scale_changed, on_screen_changed)
 
 script.on_event(defines.events.on_player_removed, function(event)
-  state().selected[event.player_index] = nil
+  local s = state()
+  s.selected[event.player_index] = nil
+  if s.unit then
+    s.unit[event.player_index] = nil
+  end
 end)
