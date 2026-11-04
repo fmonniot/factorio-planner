@@ -12,6 +12,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
+import { forbidImportsTitle } from './itemSourcing'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
@@ -397,9 +398,11 @@ export function FactorySummary() {
               })
             }
             if (canConnect || slot.locked) {
+              const title = forbidImportsTitle(activeBlock, gameData, slot.itemId)
               actions.push({
                 label: slot.locked ? 'Allow imports' : 'Forbid imports',
                 onSelect: () => toggleNoImportItem(slot.itemId),
+                ...(title ? { disabled: true, title } : {}),
               })
             }
             return actions

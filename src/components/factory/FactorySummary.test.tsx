@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
-import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
@@ -1662,7 +1662,22 @@ describe('FactorySummary — import lock', () => {
   const lock = (...ids: string[]) =>
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ids })) }))
 
+  /** The block gets a row for a recipe that makes Iron Ore, so the item has an LP row and can be locked. */
+  function addOreRow() {
+    const data = structuredClone(mockGameData)
+    data.recipes['ore-synth'] = {
+      id: 'ore-synth', name: 'Ore Synth', category: 'crafting', craftingTime: 1,
+      ingredients: [], products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+      madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-ore',
+    } as unknown as GameData['recipes'][string]
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => ({ ...b, rootPlan: { ...b.rootPlan, nodes: [makeRecipeNode('ore-synth')] } })),
+    }))
+  }
+
   it('right-click then "Forbid imports" locks and dims the slot, below the connection entries', () => {
+    addOreRow()
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
     expect(screen.getByText('Take existing Iron Ore from')).toBeInTheDocument()
@@ -1674,12 +1689,38 @@ describe('FactorySummary — import lock', () => {
   })
 
   it('the strip toggles Forbid imports and Allow imports', () => {
+    addOreRow()
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
     fireEvent.click(within(strip('Ingredients')).getByRole('button', { name: 'Forbid imports' }))
     expect(noImport()).toEqual(['iron-ore'])
     fireEvent.click(within(strip('Ingredients')).getByRole('button', { name: 'Allow imports' }))
     expect(noImport()).toEqual([])
+  })
+
+  it('disables Forbid imports, with a hint, on an item no row of the block makes (raw)', () => {
+    render(<FactorySummary />)
+    fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+    const item = screen.getByRole('menuitem', { name: 'Forbid imports' })
+    expect(item).toBeDisabled()
+    expect(item.getAttribute('title')).toMatch(/No recipe in this block makes Iron Ore/)
+    fireEvent.click(item)
+    expect(noImport()).toEqual([])
+  })
+
+  it('disables the strip action on a raw item too', () => {
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    const button = within(strip('Ingredients')).getByRole('button', { name: 'Forbid imports' })
+    expect(button).toBeDisabled()
+    expect(button.getAttribute('title')).toMatch(/No recipe in this block makes Iron Ore/)
+  })
+
+  it('keeps Allow imports enabled on a locked raw item, so an old lock can be lifted', () => {
+    lock('iron-ore')
+    render(<FactorySummary />)
+    fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+    expect(screen.getByRole('menuitem', { name: 'Allow imports' })).toBeEnabled()
   })
 
   it('left click on a locked slot only selects it', () => {
