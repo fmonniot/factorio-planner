@@ -17,6 +17,7 @@ import { computeNodeEffects, type NodeEffects } from './effects'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
+  coproductDrivenWarning,
   byproductsFirstSet,
   itemsWithSourcing,
   pass2Plan,
@@ -59,6 +60,11 @@ const AREA_SHORTFALL_TOLERANCE = 1e-4
 /** The item a row is built for: `primaryProduct`, else the recipe's main product, else its first product. */
 export function dedicatedProduct(node: GameRecipeNode, recipe: Recipe): string | undefined {
   return node.primaryProduct ?? recipe.mainProduct ?? recipe.products[0]?.itemId
+}
+
+/** The item a recipe names as its main product (the row's `primaryProduct`, else the recipe's `mainProduct`), if any. */
+export function explicitMainProduct(node: GameRecipeNode, recipe: Recipe): string | undefined {
+  return node.primaryProduct ?? recipe.mainProduct ?? undefined
 }
 
 /**
@@ -569,15 +575,21 @@ export function solveAreaBlock(
   }
 
   const recipeOfCol = new Map(columns.map(c => [c.id, c.node.recipeId]))
-  const { overconstrained, coproductDriven, unsatisfied, received } = blockDiagnostics({
+  const mainItemOfCol = new Map<string, string>()
+  for (const c of columns) {
+    const main = c.recipe ? explicitMainProduct(c.node, c.recipe) : undefined
+    if (main !== undefined) mainItemOfCol.set(c.id, main)
+  }
+  const { overconstrained, itemSurplus, itemGross, unsatisfied, received } = blockDiagnostics({
     goals: plan.goals, system, throughput, slack: lp.slack, supply: lp.supply, nodes, totalCaps,
-    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), recipeOf: id => recipeOfCol.get(id) ?? id,
-    mainItemOf: id => {
-      const col = columns.find(c => c.id === id)
-      return col?.recipe ? dedicatedProduct(col.node, col.recipe) : undefined
-    },
   })
   if (overconstrained) warnings.push(overconstrained)
+  // Pins that cannot be met make the flows meaningless for this check.
+  const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
+    goals: plan.goals, system, throughput, slack: lp.slack, itemSurplus, itemGross,
+    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), noImportItems, recipeOf: id => recipeOfCol.get(id) ?? id,
+    mainItemOf: id => mainItemOfCol.get(id),
+  })
   if (coproductDriven) warnings.push(coproductDriven)
 
   const shortfalls = lp.dedicatedIn

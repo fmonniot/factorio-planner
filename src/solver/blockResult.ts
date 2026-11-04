@@ -186,7 +186,8 @@ export const COPRODUCT_DRIVEN_RATIO = 0.5
  * Diagnostic only: analytic, from the solved flows. `fixed` columns (pinned rates, byproduct
  * consumers) are not free LP choices and never count as drivers; `recipeOf` maps a column to the
  * recipe it runs, so rows of one recipe merge into one entry. `mainItemOf` gives the item a column
- * is built for: a column whose main item is what binds it is running for its main product.
+ * is built for (undefined when the recipe names no main product: its outputs are then equals and
+ * the column is skipped); a column whose main item is what binds it is running for its main product.
  */
 export function coproductDrivenWarning(args: {
   goals: SolverGoal[]
@@ -196,16 +197,28 @@ export function coproductDrivenWarning(args: {
   itemSurplus: Map<string, number>
   itemGross: Map<string, number>
   fixed: Set<string>
+  /** Items the block may not import (also its byproduct consumers' ingredients): "Byproducts first" cannot relax them. */
+  noImportItems: Set<string>
   recipeOf: (columnId: string) => string
   mainItemOf: (columnId: string) => string | undefined
 }): SolverWarning | undefined {
-  const { goals, system, throughput, slack, itemSurplus, itemGross, fixed, recipeOf, mainItemOf } = args
+  const { goals, system, throughput, slack, itemSurplus, itemGross, fixed, noImportItems, recipeOf, mainItemOf } = args
   const goalRate = new Map<string, number>()
   for (const g of goals) goalRate.set(g.itemId, (goalRate.get(g.itemId) ?? 0) + g.rate)
 
   const excessOf = (itemId: string): number =>
     Math.max(0, (itemSurplus.get(itemId) ?? 0) - (goalRate.get(itemId) ?? 0))
   const tolOf = (itemId: string): number => surplusTolerance(itemGross.get(itemId) ?? 0)
+
+  // How much each constrained item the columns make, to share its surplus among them.
+  const produced = new Map<string, number>()
+  for (const itemId of new Set([...system.classification.intermediates, ...system.classification.goals.keys()])) {
+    let total = 0
+    for (const [columnId, coeff] of system.S.get(itemId) ?? []) {
+      if (coeff > 0) total += coeff * (throughput.get(columnId) ?? 0)
+    }
+    produced.set(itemId, total)
+  }
 
   // Pass 1: the constrained outputs of each column.
   const outs = new Map<string, { itemId: string; coeff: number }[]>()
@@ -225,42 +238,51 @@ export function coproductDrivenWarning(args: {
   if (!anyExcess) return undefined
 
   // Pass 2: per column, how much of its throughput the non-surplus outputs would need.
-  const byRecipe = new Map<string, { itemIds: Set<string>; throughput: number; needed: number }>()
+  const byRecipe = new Map<string, { itemIds: Set<string>; saved: number }>()
   for (const [columnId, list] of outs) {
     const t = throughput.get(columnId) ?? 0
     if (t <= FLOW_TOLERANCE || fixed.has(columnId)) continue
     const binding: string[] = []
     let minRoom = Infinity
     let goalDriven = false
-    for (const { itemId, coeff } of list) {
+    for (const { itemId } of list) {
       const excess = excessOf(itemId)
       if (excess > tolOf(itemId)) {
-        minRoom = Math.min(minRoom, excess / coeff)
+        // The surplus is shared among the columns making the item, in proportion to what they make.
+        const made = produced.get(itemId) ?? 0
+        minRoom = Math.min(minRoom, made > 0 ? excess * t / made : 0)
       } else if (goalRate.has(itemId)) {
         goalDriven = true
         break
-      } else if ((slack.get(itemId) ?? 0) <= tolOf(itemId)) {
+      } else if (!noImportItems.has(itemId) && (slack.get(itemId) ?? 0) <= tolOf(itemId)) {
         binding.push(itemId)
       }
     }
     if (goalDriven || binding.length === 0 || minRoom === Infinity) continue
     // A row that runs for the item it is built for, leaving a by-product in surplus, is not driven by a co-product.
+    // Without an explicit main product there is no co-product to speak of.
     const main = mainItemOf(columnId)
-    if (main !== undefined && binding.includes(main)) continue
+    if (main === undefined || binding.includes(main)) continue
     const needed = Math.max(0, t - minRoom)
     if (needed > COPRODUCT_DRIVEN_RATIO * t) continue
     const recipeId = recipeOf(columnId)
     let entry = byRecipe.get(recipeId)
-    if (!entry) byRecipe.set(recipeId, entry = { itemIds: new Set(), throughput: 0, needed: 0 })
+    if (!entry) byRecipe.set(recipeId, entry = { itemIds: new Set(), saved: 0 })
     for (const id of binding) entry.itemIds.add(id)
-    entry.throughput += t
-    entry.needed += needed
+    entry.saved += t - needed
   }
   if (byRecipe.size === 0) return undefined
 
-  const drivers = [...byRecipe].map(([recipeId, e]) => ({
-    recipeId, itemIds: [...e.itemIds], throughput: e.throughput, needed: e.needed,
-  }))
+  // The recipe's rate is its total over all its columns, flagged or not; only flagged ones save anything.
+  const total = new Map<string, number>()
+  for (const [columnId, t] of throughput) {
+    const recipeId = recipeOf(columnId)
+    if (byRecipe.has(recipeId)) total.set(recipeId, (total.get(recipeId) ?? 0) + t)
+  }
+  const drivers = [...byRecipe].map(([recipeId, e]) => {
+    const t = total.get(recipeId) ?? 0
+    return { recipeId, itemIds: [...e.itemIds], throughput: t, needed: Math.max(0, t - e.saved) }
+  })
   drivers.sort((a, b) =>
     (b.throughput - b.needed) - (a.throughput - a.needed) || a.recipeId.localeCompare(b.recipeId))
   return { type: 'coproduct-driven', drivers }
@@ -272,7 +294,6 @@ export interface BlockDiagnostics {
   /** itemId → larger of produced and consumed */
   itemGross: Map<string, number>
   overconstrained?: SolverWarning
-  coproductDriven?: SolverWarning
   unsatisfied: UnsatisfiedItem[]
   /** itemId → items/min taken from the offers */
   received: Map<string, number>
@@ -290,14 +311,8 @@ export function blockDiagnostics(args: {
   supply: Map<string, number>
   nodes: SolvedNode[]
   totalCaps: Map<string, number>
-  /** Columns that are not free LP choices (pinned rates, byproduct consumers). */
-  fixed: Set<string>
-  /** The recipe a column runs. */
-  recipeOf: (columnId: string) => string
-  /** The item a column is built for (see `dedicatedProduct`). */
-  mainItemOf: (columnId: string) => string | undefined
 }): BlockDiagnostics {
-  const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps, fixed, recipeOf, mainItemOf } = args
+  const { goals, system, throughput: throughputMap, slack: slackMap, supply, nodes, totalCaps } = args
 
   // Per-item net surplus from the LP solve.
   const itemSurplus = new Map<string, number>()
@@ -381,9 +396,5 @@ export function blockDiagnostics(args: {
   // Ordering: goal shortfalls first, then intermediate slack, then raw consumption.
   const unsatisfied: UnsatisfiedItem[] = [...goalShortfalls, ...slackIntermediates, ...rawConsumption]
 
-  const coproductDriven = coproductDrivenWarning({
-    goals, system, throughput: throughputMap, slack: slackMap, itemSurplus, itemGross, fixed, recipeOf, mainItemOf,
-  })
-
-  return { itemSurplus, itemGross, overconstrained, coproductDriven, unsatisfied, received }
+  return { itemSurplus, itemGross, overconstrained, unsatisfied, received }
 }

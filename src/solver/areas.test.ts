@@ -59,7 +59,7 @@ function gd(): GameData {
     recipe('heat-use-a', [['power:heat', 10]], [['ha', 1]]),
     recipe('heat-use-b', [['power:heat', 10]], [['hb', 1]]),
     // Co-product driven: co-maker makes cp and 40 cw per run; co-user needs 100 cw per cgadget.
-    recipe('co-maker', [], [['cp', 1], ['cw', 40]]),
+    recipe('co-maker', [], [['cp', 1], ['cw', 40]], { mainProduct: 'cp' }),
     recipe('co-user', [['cp', 1], ['cw', 100]], [['cgadget', 1]]),
   ]
   return {
