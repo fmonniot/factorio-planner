@@ -1493,7 +1493,25 @@ describe('RecipeRow in a block with areas', () => {
       expect(cells[1]).toHaveAttribute('colspan', '3')
       expect(cells[2]).toContainElement(screen.getByTestId('area-chips-out'))
       expect(cells[3]).toBeEmptyDOMElement()
+      expect(cells[3]).toHaveClass('px-2', 'py-0.5')
       expect(cells[4]).toContainElement(screen.getByTestId('area-chips-in'))
+    })
+
+    it('labels the chip groups Receives and Sends', () => {
+      renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]))
+      expect(screen.getByRole('group', { name: 'Receives' })).toBe(screen.getByTestId('area-chips-in'))
+      expect(screen.getByRole('group', { name: 'Sends' })).toBe(screen.getByTestId('area-chips-out'))
+    })
+
+    it('opens the row menu from a chip and from the empty Byproducts cell', () => {
+      renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]))
+      const chip = screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!
+      fireEvent.contextMenu(chip)
+      expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
+      fireEvent.keyDown(document, { key: 'Escape' })
+      const cells = screen.getByTestId('area-chips-out').closest('tr')!.querySelectorAll(':scope > td')
+      fireEvent.contextMenu(cells[3])
+      expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
     })
 
     it('shows no chips on an expanded area', () => {

@@ -948,7 +948,7 @@ its contents**. When it has contents a confirmation names the sub-factory and
 counts its recipes and nested sub-factories; an empty one is removed at once.
 
 A collapsed sub-factory that is a separate area spans the Recipe, Machine and Beacon columns with its name, marker and recipe count. The items it sends sit in the Products column (`data-testid="area-chips-out"`) and the items it receives in the Ingredients column (`data-testid="area-chips-in"`); Byproducts is empty. The chips are display-only
-(`<span>`s), with no "in" or "out" label (the column header says it). At most four chips per direction; the
+(`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips and the empty Byproducts cell included, opens the row menu. At most four chips per direction; the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per

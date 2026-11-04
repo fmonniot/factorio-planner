@@ -310,6 +310,13 @@ export function RecipeRow({
       ? areaView?.solvedAreas?.find(a => a.areaId === subPlanId)
       : undefined
 
+    // Every cell of the area row opens the row menu, the chips included (they are display-only).
+    const openAreaRowMenu = (e: React.MouseEvent) => {
+      e.preventDefault()
+      setAreaMenu(null)
+      setMenuPos({ x: e.clientX, y: e.clientY })
+    }
+
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
 
@@ -331,11 +338,7 @@ export function RecipeRow({
           className="px-2 py-0.5"
           colSpan={3}
           style={{ paddingLeft: `${8 + indentPx}px` }}
-          onContextMenu={e => {
-            e.preventDefault()
-            setAreaMenu(null)
-            setMenuPos({ x: e.clientX, y: e.clientY })
-          }}
+          onContextMenu={openAreaRowMenu}
         >
           {dropZone === 'before' && <DropLine edge="top" />}
           <div className="flex items-center gap-1.5">
@@ -410,7 +413,7 @@ export function RecipeRow({
             />
           )}
         </td>
-        <td className="px-2 py-0.5 align-top">
+        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.sends ?? []}
             direction="sends"
@@ -419,8 +422,8 @@ export function RecipeRow({
             testId="area-chips-out"
           />
         </td>
-        <td />
-        <td className="px-2 py-0.5 align-top">
+        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu} />
+        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.receives ?? []}
             direction="receives"
@@ -837,7 +840,12 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
 }) {
   if (flows.length === 0) return null
   return (
-    <div data-testid={testId} className="flex flex-wrap gap-0.5">
+    <div
+      data-testid={testId}
+      role="group"
+      aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
+      className="flex flex-wrap gap-0.5"
+    >
       {flows.slice(0, AREA_CHIP_CAP).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
