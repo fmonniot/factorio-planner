@@ -43,6 +43,7 @@ local BAR = "fp_viewer_title_bar"
 local CONTENT = "fp_viewer_content"
 
 local RED = { r = 1, g = 0.4, b = 0.35 }
+local WHITE = { r = 1, g = 1, b = 1 }
 local ORANGE = { r = 1, g = 0.75, b = 0.3 }
 local GREY = { r = 0.6, g = 0.6, b = 0.6 }
 
@@ -289,6 +290,8 @@ function M.open(player, ctx)
   pcall(function()
     rate.style.minimal_width = 48
     rate.style.horizontally_stretchable = false
+    -- The style's own text is dark: white reads on the title bar, like the title.
+    rate.style.font_color = WHITE
   end)
   drag_handle(bar)
   local title = bar.add({ type = "label", caption = { key("title") } })
