@@ -112,7 +112,7 @@ export function BeaconModal({
   const rawEffects = computeBeaconEffects(beacon, gameData)
   const recipeEffects = applyRecipeConstraints(
     rawEffects,
-    machine?.allowedEffects ?? [],
+    [beaconEntity?.allowedEffects, machine?.allowedEffects],
     recipe?.allowProductivity ?? false,
   )
   const showQuality = rawEffects.quality !== 0

@@ -265,6 +265,14 @@ describe('computeNodeEffects — allowed effects', () => {
     expect(fx.speedBonus).toBeCloseTo(-0.15)
   })
 
+  it('treats a known machine with an empty allowedEffects as allowing nothing', () => {
+    const gd = withEntities([], ['speed', 'consumption', 'productivity'])
+    const machineMods = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
+    expect(computeNodeEffects(machineMods, gd)).toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
+    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg('beacon')), gd))
+      .toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
+  })
+
   it('filters nothing without a beaconId, with an unknown beaconId or with an unknown machine', () => {
     const gd = withEntities(null, ['speed'])
     expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg()), gd).productivityBonus).toBeCloseTo(0.1)

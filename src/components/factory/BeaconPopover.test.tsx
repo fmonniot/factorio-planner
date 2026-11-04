@@ -243,6 +243,22 @@ describe('BeaconModal — research horizon', () => {
       'No machine within research horizon: machine count and power are 0 for this row. Module and beacon productivity still applies to the output rates.',
     )
     const recipeEffects = screen.getByText('Recipe effects').parentElement!
+    // No machine: the solver filters nothing, so the panel shows the beacon's effects (limited by the beacon entity only).
+    expect(recipeEffects).toHaveTextContent('Speed:+600%')
+    expect(recipeEffects).not.toHaveTextContent('No active effects')
+  })
+
+  it('drops a productivity module in a speed-only beacon from the recipe effects, as the solver does', () => {
+    const gd = horizonData()
+    gd.beacons.beacon.allowedEffects = ['speed', 'consumption']
+    gd.machines.am1.allowedEffects = ['speed', 'consumption', 'productivity']
+    gd.recipes['iron-plate'].allowProductivity = true
+    gd.modules['prod-1'] = { ...gd.modules[Object.keys(gd.modules)[0]], id: 'prod-1', effects: { productivity: 0.1 }, limitation: [], limitationBlacklist: [] }
+    render(
+      <BeaconModal nodeId="n1" beacon={{ ...beaconWithEntity, moduleId: 'prod-1' }} recipeId="iron-plate"
+        machineId="am1" recipeCategory="crafting" gameData={gd} onClose={() => {}} />,
+    )
+    const recipeEffects = screen.getByText('Recipe effects').parentElement!
     expect(recipeEffects).toHaveTextContent('No active effects')
   })
 })

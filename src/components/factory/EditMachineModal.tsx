@@ -9,6 +9,7 @@ import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../../dat
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../data/defaultMachines'
 import { Modal } from '../Modal'
 import { Icon } from '../Icon'
+import { effectAllowed } from '../../solver/effects'
 import { NeighbourSection } from './NeighbourSection'
 import { countRecipeRows } from './recipeAreas'
 import { isModuleAllowedInMachine, isModuleAllowedForRecipe, isModuleAllowedByProductivity } from './moduleRules'
@@ -41,15 +42,16 @@ function computeModuleEffects(modules: ModuleConfig[], gameData: GameData): Effe
 // eslint-disable-next-line react-refresh/only-export-components
 export function applyRecipeConstraints(
   totals: EffectTotals,
-  allowedEffects: string[],
+  allowedLists: (readonly string[] | undefined)[],
   allowProductivity: boolean,
 ): EffectTotals {
+  const ok = (effect: string) => effectAllowed(effect, ...allowedLists)
   return {
-    speed: allowedEffects.includes('speed') ? totals.speed : 0,
-    productivity: allowProductivity && allowedEffects.includes('productivity') ? totals.productivity : 0,
-    consumption: allowedEffects.includes('consumption') ? totals.consumption : 0,
-    pollution: allowedEffects.includes('pollution') ? totals.pollution : 0,
-    quality: allowedEffects.includes('quality') ? totals.quality : 0,
+    speed: ok('speed') ? totals.speed : 0,
+    productivity: allowProductivity && ok('productivity') ? totals.productivity : 0,
+    consumption: ok('consumption') ? totals.consumption : 0,
+    pollution: ok('pollution') ? totals.pollution : 0,
+    quality: ok('quality') ? totals.quality : 0,
   }
 }
 
@@ -303,7 +305,7 @@ export function EditMachineModal({
   const machineEffects = computeModuleEffects(modules, gameData)
   const recipeEffects = applyRecipeConstraints(
     machineEffects,
-    machine?.allowedEffects ?? [],
+    [machine?.allowedEffects],
     recipe?.allowProductivity ?? false,
   )
   const showQuality =

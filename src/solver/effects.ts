@@ -1,4 +1,4 @@
-import type { EffectName, GameData, GameRecipeNode, Ingredient, Machine } from '../data/types'
+import type { GameData, GameRecipeNode, Ingredient, Machine } from '../data/types'
 import { resolveRowFuel } from '../data/fuel'
 
 // ---------------------------------------------------------------------------
@@ -42,6 +42,15 @@ export interface NodeEffects {
   fuel?: Ingredient
 }
 
+/**
+ * Whether an effect counts: every known list of allowed effects includes it. An unknown entity
+ * (undefined list) filters nothing, as for legacy data; a known empty list allows nothing.
+ * Shared by the solver and the module / beacon modals so they cannot drift.
+ */
+export function effectAllowed(effect: string, ...lists: (readonly string[] | undefined)[]): boolean {
+  return lists.every(list => !list || list.includes(effect))
+}
+
 /** The machine a row runs on: its own choice, else the category default. */
 export function rowMachine(node: GameRecipeNode, gameData: GameData): Machine | undefined {
   const recipe = gameData.recipes[node.recipeId]
@@ -76,10 +85,7 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
   const allowProductivity = gameData.recipes[node.recipeId]?.allowProductivity ?? false
   const machineAllowed = rowMachine(node, gameData)?.allowedEffects
 
-  // An effect counts when every known list of allowed effects includes it; an unknown entity
-  // (undefined list) filters nothing, as for legacy data.
-  const allowed = (effect: EffectName, ...lists: (readonly EffectName[] | undefined)[]) =>
-    lists.every(list => !list || list.includes(effect))
+  const allowed = effectAllowed
 
   // Machine module contributions (full effect per module).
   for (const mc of node.modules) {
