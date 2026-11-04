@@ -1,4 +1,5 @@
-import type { BeaconEntity, GameData, Machine, Recipe, Technology } from './types'
+import { acceptsTemperature, effectiveTemperature, hasTemperatureBound } from './temperature'
+import type { BeaconEntity, GameData, Ingredient, Machine, Recipe, Technology } from './types'
 
 export function hasTechnologies(gameData: GameData): boolean {
   return Object.keys(gameData.technologies).length > 0
@@ -19,6 +20,51 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
 }
 
 /**
+ * Whether the recipes `inside` offer an ingredient, kept incrementally (`admit` adds a recipe's
+ * products). An item is offered when no non-hidden recipe makes it (or it is missing from the
+ * bundle, so there is nothing to gate on) or one inside does; an ingredient with a temperature
+ * bound further needs an inside product at an accepted temperature.
+ *
+ * Deliberately lenient: an unknown product temperature counts as accepted, so one inside producer
+ * of unknown temperature offers the ingredient even when the other producers have known
+ * temperatures that fail the bound; an ingredient missing from `gameData.items` skips the
+ * bound check altogether.
+ *
+ * `inside` is read once, when this is called, to seed the reachable products; recipes admitted
+ * afterwards must be passed to `admit`. The produced/reachable bookkeeping mirrors
+ * `availableItemIds` (hidden recipes ignored), which stays name-only: keep the two in step.
+ */
+function offeredIngredients(
+  gameData: GameData,
+  inside: ReadonlySet<string>,
+): { offered: (ing: Ingredient) => boolean; admit: (r: Recipe) => void } {
+  const produced = new Set<string>()
+  const reachable = new Map<string, (number | undefined)[]>()
+  const admit = (r: Recipe) => {
+    if (r.hidden) return
+    for (const p of r.products) {
+      const temps = reachable.get(p.itemId)
+      const t = effectiveTemperature(p, gameData.items[p.itemId])
+      if (temps) temps.push(t)
+      else reachable.set(p.itemId, [t])
+    }
+  }
+  for (const r of Object.values(gameData.recipes)) {
+    if (r.hidden) continue
+    for (const p of r.products) produced.add(p.itemId)
+    if (inside.has(r.id)) admit(r)
+  }
+  const offered = (ing: Ingredient) => {
+    if (!(ing.itemId in gameData.items) || !produced.has(ing.itemId)) return true
+    const temps = reachable.get(ing.itemId)
+    if (!temps) return false
+    if (!hasTemperatureBound(ing)) return true
+    return temps.some(t => t === undefined || acceptsTemperature(ing, t))
+  }
+  return { offered, admit }
+}
+
+/**
  * Recipes offered under a research horizon: those available at game start plus
  * those unlocked by a targeted technology or one of its prerequisites, plus
  * extraction recipes, which need no research (their machines are gated like any
@@ -26,8 +72,10 @@ export function technologyClosure(gameData: GameData, targetIds: readonly string
  * steam, heat) is offered by the recipes already inside, so a boiler on rocket fuel
  * waits for rocket fuel. Chains (boiler -> steam engine, reactor -> heat exchanger)
  * are resolved by iterating to a fixed point; a cycle with no way in stays outside.
- * Temperatures are not checked, only item names. Returns null (= no limit)
- * when the data set has no technology data or no target is a known technology.
+ * An ingredient with a temperature bound also needs an inside recipe making that item at an accepted
+ * temperature (an unknown temperature is accepted).
+ *
+ * Returns null (= no limit) when the data set has no technology data or no target is a known technology.
  */
 export function availableRecipeIds(gameData: GameData, targetIds: readonly string[]): Set<string> | null {
   if (!hasTechnologies(gameData)) return null
@@ -41,26 +89,14 @@ export function availableRecipeIds(gameData: GameData, targetIds: readonly strin
   for (const r of recipes) if (r.extraction) available.add(r.id)
   const pending = recipes.filter(r => r.power && !available.has(r.id))
   if (pending.length === 0) return available
-  // Reachable items, kept incrementally: an item is offered when no non-hidden recipe makes it
-  // or one inside does (the rule of availableItemIds), so admitting a recipe only adds its products.
-  const produced = new Set<string>()
-  const reachable = new Set<string>()
-  for (const r of recipes) {
-    if (r.hidden) continue
-    for (const p of r.products) {
-      produced.add(p.itemId)
-      if (available.has(r.id)) reachable.add(p.itemId)
-    }
-  }
-  // An item missing from the bundle has no data to gate on, so it counts as offered.
-  const offered = (itemId: string) => !(itemId in gameData.items) || !produced.has(itemId) || reachable.has(itemId)
+  const { offered, admit } = offeredIngredients(gameData, available)
   for (let added = true; added && pending.length > 0;) {
     added = false
     for (let i = pending.length - 1; i >= 0; i--) {
       const r = pending[i]
-      if (!r.ingredients.every(ing => offered(ing.itemId))) continue
+      if (!r.ingredients.every(offered)) continue
       available.add(r.id)
-      if (!r.hidden) for (const p of r.products) reachable.add(p.itemId)
+      admit(r)
       pending.splice(i, 1)
       added = true
     }
@@ -89,8 +125,8 @@ export function recipeUnlock(
   if (!hasTechnologies(gameData)) return null
   const power = gameData.recipes[recipeId]
   if (power?.power && inside && !inside.has(recipeId) && !gameData.startingRecipes.includes(recipeId)) {
-    const offered = availableItemIds(gameData, inside)!
-    const missing = power.ingredients.map(i => i.itemId).filter(id => id in gameData.items && !offered.has(id))
+    const { offered } = offeredIngredients(gameData, inside)
+    const missing = power.ingredients.filter(i => !offered(i)).map(i => i.itemId)
     if (missing.length > 0) return { kind: 'fuel', itemIds: [...new Set(missing)] }
   }
   if (gameData.startingRecipes.includes(recipeId) || gameData.recipes[recipeId]?.extraction || gameData.recipes[recipeId]?.power) {
@@ -157,7 +193,7 @@ export function technologyUnlocks(
  * entirely: an item only hidden recipes produce counts as having no producer
  * (always offered), and a hidden recipe never rescues an item whose non-hidden
  * producers are all outside the horizon. Returns null (= no limit) when
- * `recipeIds` is null.
+ * `recipeIds` is null. Name-only; `offeredIngredients` applies the same rule with temperatures.
  */
 export function availableItemIds(gameData: GameData, recipeIds: ReadonlySet<string> | null): Set<string> | null {
   if (!recipeIds) return null

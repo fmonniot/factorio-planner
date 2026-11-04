@@ -610,6 +610,76 @@ describe('power recipes', () => {
       expect(availableRecipeIds(makeFuelData(), ['nope'])).toBeNull()
       expect(computeHorizon(makeFuelData(), []).itemIds).toBeNull()
     })
+    describe('temperatures', () => {
+      function makeSteamData(ingredient: Partial<GameData['recipes'][string]['ingredients'][number]>): GameData {
+        const d = makeFuelData()
+        d.items.steam = { ...item('steam'), defaultTemperature: 165 }
+        d.recipes['power:boiler:rocket-fuel'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 500 }]
+        d.recipes['power:boiler:wood'].products = [{ itemId: 'steam', type: 'fluid', amount: 1 }]
+        d.recipes['power:turbine:steam'] = power2('power:turbine:steam', 'steam', 'power:electricity')
+        d.recipes['power:turbine:steam'].ingredients = [{ itemId: 'steam', type: 'fluid', amount: 1, ...ingredient }]
+        delete d.recipes['power:steam-engine:steam']
+        return d
+      }
+      const turbine = 'power:turbine:steam'
+      it('excludes a turbine needing hotter steam than any inside recipe makes', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(false)
+        expect(availableRecipeIds(d, ['b'])!.has(turbine)).toBe(true)
+      })
+      it('includes it when an inside producer makes an accepted temperature', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        d.recipes['power:boiler:wood'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 500 }]
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(true)
+      })
+      it('leaves an unbounded ingredient name-only', () => {
+        expect(availableRecipeIds(makeSteamData({}), ['a'])!.has(turbine)).toBe(true)
+      })
+      it('accepts an unknown product temperature against a bound', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        delete d.items.steam.defaultTemperature
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(true)
+      })
+      it('honours a maximum temperature', () => {
+        const d = makeSteamData({ maximumTemperature: 100 })
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(false)
+        d.recipes['power:boiler:wood'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 90 }]
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(true)
+      })
+      it('does not let a hidden hot producer satisfy a bound', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        d.recipes['h-steam'] = { ...makeRecipe('h-steam', 'steam'), hidden: true }
+        d.recipes['h-steam'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 500 }]
+        d.startingRecipes = ['h-steam']
+        expect(availableRecipeIds(d, ['a'])!.has(turbine)).toBe(false)
+      })
+      it('admits a turbine through a boiler that is itself only admitted in the loop', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        d.items.water = item('water')
+        d.recipes['power:pump'] = { ...power2('power:pump', 'x', 'water'), ingredients: [] }
+        d.recipes['power:boiler:wood'].ingredients = [{ itemId: 'water', type: 'fluid', amount: 1 }]
+        d.recipes['power:boiler:wood'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 500 }]
+        const inside = availableRecipeIds(d, ['a'])!
+        expect(inside.has('power:boiler:wood')).toBe(true)
+        expect(inside.has(turbine)).toBe(true)
+      })
+      it('leaves a cycle through a hot-steam turbine outside, whatever cold steam exists', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        d.recipes['power:hot-boiler'] = power2('power:hot-boiler', 'power:electricity', 'steam')
+        d.recipes['power:hot-boiler'].products = [{ itemId: 'steam', type: 'fluid', amount: 1, temperature: 500 }]
+        // electricity from the turbine only
+        delete d.recipes['power:solar-panel']
+        d.recipes[turbine].products = [{ itemId: 'power:electricity', type: 'fluid', amount: 1 }]
+        const inside = availableRecipeIds(d, ['a'])!
+        expect(inside.has(turbine)).toBe(false)
+        expect(inside.has('power:hot-boiler')).toBe(false)
+      })
+      it('recipeUnlock reports the item whose temperature is not offered', () => {
+        const d = makeSteamData({ minimumTemperature: 500 })
+        expect(recipeUnlock(d, turbine, availableRecipeIds(d, ['a']))).toEqual({ kind: 'fuel', itemIds: ['steam'] })
+        expect(recipeUnlock(d, turbine, availableRecipeIds(d, ['b']))).toEqual({ kind: 'start' })
+      })
+    })
     it('recipeUnlock names the missing fuel of a power recipe beyond the horizon', () => {
       const d = makeFuelData()
       const early = availableRecipeIds(d, ['a'])
