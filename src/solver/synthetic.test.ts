@@ -119,7 +119,7 @@ function fuelItem(id: string, fuelValueKj: number): GameData['items'][string] {
 function furnace(id: string, craftingSpeed: number): Machine {
   return {
     id, name: id, type: 'furnace', craftingSpeed, energyUsageKw: 90, energyType: 'burner', drainKw: 0, moduleSlots: 0,
-    allowedEffects: [], craftingCategories: ['smelting'], iconPath: '', hidden: false, fuelCategories: ['chemical'],
+    allowedEffects: ['speed', 'productivity', 'consumption'], craftingCategories: ['smelting'], iconPath: '', hidden: false, fuelCategories: ['chemical'],
   }
 }
 
