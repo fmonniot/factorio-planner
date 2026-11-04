@@ -50,6 +50,16 @@ export function surplusTolerance(grossFlow: number): number {
   return Math.max(SURPLUS_TOLERANCE, SURPLUS_REL_TOLERANCE * grossFlow)
 }
 
+/**
+ * What a block takes from and gives to the outside for an item, from the gross rates areas send
+ * and receive (net of each area's own rows): the residual, unless within `surplusTolerance`.
+ */
+export function outsideResidual(sent: number, received: number): { fromOutside: number; toOutside: number } {
+  const s = sent - received
+  const tol = surplusTolerance(Math.max(sent, received))
+  return { fromOutside: s < -tol ? -s : 0, toOutside: s > tol ? s : 0 }
+}
+
 /** A goal's shortfall below this is not reported. */
 export const GOAL_SHORTFALL_TOLERANCE = 1e-4
 

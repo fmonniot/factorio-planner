@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
-  areaContents, blockMatrix, cancels, groupTotal, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery, rowPairs,
-  MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow,
+  areaContents, blockMatrix, cancels, groupTotal, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
+  MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow, type PairFlow,
 } from './areaMatrix'
 import { makeEmptyBlock } from '../../store/blockStore'
 import type { Block, GameData, SolvedArea, SolverResult, SubPlan } from '../../data/types'
@@ -102,55 +102,34 @@ describe('blockMatrix', () => {
     expect(m.areas[2].contents.rowCount).toBe(1)
   })
 
+  it('takes the pairs of each row from the solver routes, the outside for an absent end', () => {
+    const r: SolverResult = {
+      ...result([
+        { areaId: 'root', receives: [], sends: [f('h2', 30)] },
+        { areaId: 'A', receives: [f('h2', 10)], sends: [] },
+      ]),
+      areaRoutes: [
+        { itemId: 'h2', from: 'root', to: 'A', rate: 10 },
+        { itemId: 'h2', from: 'root', rate: 20 },
+      ],
+    }
+    const m = blockMatrix(makeBlock(), r, makeGameData(), machines)!
+    expect(m.rows[0].pairs).toEqual([pf('root', 'A', 10), pf('root', OUTSIDE, 20)])
+    const none = blockMatrix(makeBlock(), result(r.areas!), makeGameData(), machines)!
+    expect(none.rows[0].pairs).toEqual([])
+  })
+
   it('returns undefined without areas', () => {
     expect(blockMatrix(makeBlock(), { nodes: [], unsatisfied: [], warnings: [] }, makeGameData(), machines)).toBeUndefined()
   })
 })
 
-const row = (cells: Record<string, number>, fromOutside = 0, toOutside = 0): MatrixRow => ({
+const row = (cells: Record<string, number>, fromOutside = 0, toOutside = 0, pairs: PairFlow[] = []): MatrixRow => ({
   itemId: 'x', name: 'X', groupId: 'g', cells, fromOutside, toOutside,
   total: Object.values(cells).filter(v => v > 0).reduce((a, b) => a + b, 0) + fromOutside,
+  pairs,
 })
-const pair = (pairs: ReturnType<typeof rowPairs>, from: string, to: string) =>
-  pairs.find(p => p.from === from && p.to === to)?.rate
-
-describe('rowPairs', () => {
-  it('splits one sender over its receivers', () => {
-    const p = rowPairs(row({ A: 30, B: -10, C: -20 }))
-    expect(pair(p, 'A', 'B')).toBeCloseTo(10)
-    expect(pair(p, 'A', 'C')).toBeCloseTo(20)
-  })
-
-  it('counts the outside as a sender', () => {
-    const p = rowPairs(row({ A: 30, B: 10, C: -60 }, 20))
-    expect(pair(p, 'A', 'C')).toBeCloseTo(30)
-    expect(pair(p, 'B', 'C')).toBeCloseTo(10)
-    expect(pair(p, OUTSIDE, 'C')).toBeCloseTo(20)
-  })
-
-  it('counts the outside as a receiver', () => {
-    const p = rowPairs(row({ A: 40, B: -10 }, 0, 30))
-    expect(pair(p, 'A', 'B')).toBeCloseTo(10)
-    expect(pair(p, 'A', OUTSIDE)).toBeCloseTo(30)
-  })
-
-  it('shares in proportion with several senders and receivers', () => {
-    const p = rowPairs(row({ A: 30, B: 10, C: -20, D: -20 }))
-    expect(pair(p, 'A', 'C')).toBeCloseTo(15)
-    expect(pair(p, 'A', 'D')).toBeCloseTo(15)
-    expect(pair(p, 'B', 'C')).toBeCloseTo(5)
-    expect(pair(p, 'B', 'D')).toBeCloseTo(5)
-  })
-
-  it('gives every source back exactly what it sends', () => {
-    const r = row({ A: 33.3, B: 7.1, C: -11.9, D: -20.2, E: -8.3 }, 0, 0)
-    const p = rowPairs(r)
-    for (const s of ['A', 'B']) {
-      const sum = p.filter(x => x.from === s).reduce((a, x) => a + x.rate, 0)
-      expect(sum).toBeCloseTo(r.cells[s], 9)
-    }
-  })
-})
+const pf = (from: string, to: string, rate: number): PairFlow => ({ from, to, rate })
 
 function matrixOf(areaIds: string[], rows: MatrixRow[]): BlockMatrix {
   return {
@@ -165,13 +144,24 @@ function matrixOf(areaIds: string[], rows: MatrixRow[]): BlockMatrix {
 
 describe('flowOrder', () => {
   it('puts senders before receivers', () => {
-    const m = matrixOf(['A', 'B', 'C'], [row({ C: 10, B: -10 }), row({ B: 10, A: -10 })])
+    const m = matrixOf(['A', 'B', 'C'], [
+      row({ C: 10, B: -10 }, 0, 0, [pf('C', 'B', 10)]),
+      row({ B: 10, A: -10 }, 0, 0, [pf('B', 'A', 10)]),
+    ])
     expect(flowOrder(m)).toEqual(['C', 'B', 'A'])
   })
 
   it('breaks a cycle on the greatest out minus in', () => {
-    const m = matrixOf(['B', 'A'], [row({ A: 10, B: -10 }), row({ B: 1, A: -1 })])
+    const m = matrixOf(['B', 'A'], [
+      row({ A: 10, B: -10 }, 0, 0, [pf('A', 'B', 10)]),
+      row({ B: 1, A: -1 }, 0, 0, [pf('B', 'A', 1)]),
+    ])
     expect(flowOrder(m)).toEqual(['A', 'B'])
+  })
+
+  it('follows the routes, not the nets: an area that feeds nobody does not move', () => {
+    const m = matrixOf(['A', 'B', 'C'], [row({ A: 10, B: 10, C: -10 }, 0, 10, [pf('B', 'C', 10), pf('A', OUTSIDE, 10)])])
+    expect(flowOrder(m)).toEqual(['A', 'B', 'C'])
   })
 
   it('keeps table order on ties', () => {
@@ -254,9 +244,9 @@ describe('groupRows', () => {
 })
 
 describe('focusArea', () => {
-  const r1 = { ...row({ A: 30, B: -10, C: -20 }), itemId: 'one' }
-  const r2 = { ...row({ B: 5, C: -5 }, 0, 0), itemId: 'two' }
-  const r3 = { ...row({ A: 4, C: -4 }, 0, 0), itemId: 'three' }
+  const r1 = { ...row({ A: 30, B: -10, C: -20 }, 0, 0, [pf('A', 'B', 10), pf('A', 'C', 20)]), itemId: 'one' }
+  const r2 = { ...row({ B: 5, C: -5 }, 0, 0, [pf('B', 'C', 5)]), itemId: 'two' }
+  const r3 = { ...row({ A: 4, C: -4 }, 0, 0, [pf('A', 'C', 4)]), itemId: 'three' }
   const m = matrixOf(['A', 'B', 'C', 'D'], [r1, r2, r3])
 
   it('keeps the rows of the area and the counterparts', () => {
@@ -267,8 +257,15 @@ describe('focusArea', () => {
     expect(v.tradingAreaIds).toEqual(['A', 'C'])
   })
 
+  it('follows the routes: C gets 20 from A and nothing from B', () => {
+    const two = { ...row({ A: 20, B: 10, C: -20, D: -10 }, 0, 0, [pf('A', 'C', 20), pf('B', 'D', 10)]), itemId: 'x2' }
+    const v = focusArea(matrixOf(['A', 'B', 'C', 'D'], [two]), 'C')
+    expect(v.counterpart.x2).toEqual({ A: 20 })
+    expect(v.tradingAreaIds).toEqual(['A'])
+  })
+
   it('summarises the trades, the outside last', () => {
-    const out = { ...row({ A: 10 }, 0, 10), itemId: 'out' }
+    const out = { ...row({ A: 10 }, 0, 10, [pf('A', OUTSIDE, 10)]), itemId: 'out' }
     const v = focusArea(matrixOf(['A', 'B'], [out, r1]), 'A')
     expect(v.trades.at(-1)?.partyId).toBe(OUTSIDE)
     const toB = v.trades.find(t => t.partyId === 'B')!
@@ -338,7 +335,7 @@ describe('matchQuery', () => {
 
 describe('groupTotal', () => {
   const row = (itemId: string, cells: Record<string, number>): MatrixRow =>
-    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1 })
+    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
   const focus = (counterpart: Record<string, Record<string, number>>) =>
     ({ areaId: 'B', rows: [], counterpart, tradingAreaIds: [], trades: [] })
 

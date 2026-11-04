@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { solve, solveAll, solveBlock, flattenBlock } from './index'
+import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
 import { parseAppState } from '../data/loader'
@@ -148,7 +148,47 @@ function root(rootNodes: RecipeNode[], subs: SubPlan[]): SubPlan {
   return sub('root', [...rootNodes, ...subs.map(handle)], subs)
 }
 
-const solved = (b: Block) => solve(flattenBlock(b), gd())
+/** Invariants of `areaRoutes`: they decompose the per-area nets exactly (see spec/solver.md, "Areas"). */
+function checkRoutes(r: SolverResult) {
+  if (!r.areas) {
+    expect(r.areaRoutes).toBeUndefined()
+    return
+  }
+  const routes = r.areaRoutes!
+  expect(routes).toBeDefined()
+  const items = new Set([...r.areas.flatMap(a => [...a.sends, ...a.receives].map(f => f.itemId)), ...routes.map(x => x.itemId)])
+  for (const itemId of items) {
+    const mine = routes.filter(x => x.itemId === itemId)
+    let pos = 0
+    let neg = 0
+    for (const a of r.areas) {
+      const send = flow(a.sends, itemId)?.rate ?? 0
+      const recv = flow(a.receives, itemId)?.rate ?? 0
+      expect(send > 0 && recv > 0, `${a.areaId} both sends and receives ${itemId}`).toBe(false)
+      pos += send
+      neg += recv
+      expect(mine.filter(x => x.from === a.areaId).reduce((n, x) => n + x.rate, 0)).toBeCloseTo(send, 5)
+      expect(mine.filter(x => x.to === a.areaId).reduce((n, x) => n + x.rate, 0)).toBeCloseTo(recv, 5)
+    }
+    const tol = surplusTolerance(Math.max(pos, neg))
+    const s = pos - neg
+    expect(mine.filter(x => x.from === undefined).reduce((n, x) => n + x.rate, 0)).toBeCloseTo(s < -tol ? -s : 0, 5)
+    expect(mine.filter(x => x.to === undefined).reduce((n, x) => n + x.rate, 0)).toBeCloseTo(s > tol ? s : 0, 5)
+    for (const x of mine) {
+      expect(x.from === undefined && x.to === undefined).toBe(false)
+      expect(x.from === x.to).toBe(false)
+      expect(x.rate).toBeGreaterThan(0)
+    }
+  }
+}
+
+const solved = (b: Block) => {
+  const r = solve(flattenBlock(b), gd())
+  checkRoutes(r)
+  return r
+}
+const routeOf = (r: SolverResult, itemId: string, from: string | undefined, to: string | undefined) =>
+  r.areaRoutes!.find(x => x.itemId === itemId && x.from === from && x.to === to)?.rate
 const node = (r: SolverResult, id: string) => {
   const n = r.nodes.find(x => x.recipeNodeId === id)
   if (!n) throw new Error(`no node ${id}`)
@@ -377,6 +417,38 @@ describe('areas in the solve', () => {
     expect(received.rate).toBeCloseTo(252, 6)
     expect(received.boundary).toBe(false)
     expect(flow(area(r, 'root').sends, 'hydrogen')!.rate).toBeCloseTo(252, 6)
+    expect(r.areaRoutes!.filter(x => x.itemId === 'hydrogen')).toEqual([{ itemId: 'hydrogen', from: 'root', to: 'P', rate: expect.closeTo(252, 6) }])
+  })
+
+  it('routes the allowed shortfall of a pinned area from the root, and F stays self-sufficient', () => {
+    const r = solved(scenario1(true, { pinnedRate: 200 }))
+    expect(routeOf(r, 'hydrogen', 'root', 'P')).toBeCloseTo(52, 4)
+    expect(r.areaRoutes!.some(x => x.itemId === 'hydrogen' && (x.to === 'F' || x.from === 'F'))).toBe(false)
+  })
+
+  it('keeps a restricted area off another area dedicated output', () => {
+    // C makes x on purpose (pinned 20); R has its own x-make and must not be handed C's x.
+    const a = sub('A', [row('r-main', 'A')], [], true)
+    const c = sub('C', [row('x-make', 'C', { pinnedRate: 20 })], [], true)
+    const rr = sub('R', [row('use-x', 'R'), row('x-make', 'R')], [], true)
+    const r = solved(blk(root([row('use-x2', 'root')], [a, c, rr]), [['y', 20], ['z', 20], ['w', 30]]))
+    expect(node(r, 'x-make@R').throughput).toBeCloseTo(0, 6)
+    expect(routeOf(r, 'x', 'A', 'R')).toBeCloseTo(20, 4)
+    expect(routeOf(r, 'x', 'C', 'root')).toBeCloseTo(30, 4)
+    expect(routeOf(r, 'x', 'C', undefined)).toBeCloseTo(10, 4)
+  })
+
+  it('pairs two senders with two receivers in table order', () => {
+    const b = sub('B', [row('electrolysis', 'B')], [], true)
+    const p = sub('P', [row('plastic', 'P')], [], true)
+    const f = sub('F', [row('rocket-fuel', 'F')], [], true)
+    const r = solved(blk(
+      root([row('electrolysis', 'root', { pinnedRate: 100 })], [b, p, f]),
+      [['plastic', 80], ['rocket-fuel', 80]],
+    ))
+    expect(routeOf(r, 'hydrogen', 'root', 'P')).toBeCloseTo(80, 4)
+    expect(routeOf(r, 'hydrogen', 'root', 'F')).toBeCloseTo(20, 4)
+    expect(routeOf(r, 'hydrogen', 'B', 'F')).toBeCloseTo(60, 4)
   })
 
   it('S2: two small areas round up per area', () => {

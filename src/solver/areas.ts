@@ -3,6 +3,7 @@ import type {
   GameData,
   GameRecipeNode,
   Recipe,
+  AreaRoute,
   SolvedArea,
   SolvedNode,
   SolverResult,
@@ -10,6 +11,7 @@ import type {
   SubPlan,
 } from '../data/types'
 import { buildClassifiedSystem, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
+import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -358,17 +360,25 @@ function solveAreaLP(
   return finish(stage2, base)
 }
 
-/** Items/min each area receives and sends, from the net production of its rows. */
+/**
+ * Items/min each area receives and sends, from the net production of its rows, and the routes
+ * between areas (`itemRoutes`; `dedicatedIn` is the final pass's allowed shortfall per restricted area).
+ */
 function areaFlows(
   system: ClassifiedSystem,
   columns: Column[],
   throughput: Map<string, number>,
   areas: SolverArea[],
-): SolvedArea[] {
-  const areaOf = new Map(columns.map(c => [c.id, c.area]))
+  dedicatedIn: { area: number; itemId: string; rate: number }[],
+): { areas: SolvedArea[]; routes: AreaRoute[] } {
+  const colById = new Map(columns.map(c => [c.id, c]))
+  const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
   const solved: SolvedArea[] = areas.map(a => ({ areaId: a.id, receives: [], sends: [] }))
-  for (const [itemId, rowS] of system.S) {
+  const routes: AreaRoute[] = []
+  for (const [itemId, rowS] of [...system.S].sort(([x], [y]) => (x < y ? -1 : x > y ? 1 : 0))) {
     const net = areas.map(() => 0)
+    const other = areas.map(() => 0)
+    const restricted = areas.map(() => false)
     const produced = areas.map(() => 0)
     const consumed = areas.map(() => 0)
     let blockNet = 0
@@ -376,10 +386,13 @@ function areaFlows(
     let blockConsumed = 0
     for (const [colId, coeff] of rowS) {
       const flow = coeff * (throughput.get(colId) ?? 0)
-      const a = areaOf.get(colId)!
+      const a = colById.get(colId)!.area
       net[a] += flow
       blockNet += flow
+      const dedicated = colById.get(colId)?.dedicated === itemId
+      if (dedicated && coeff > 0) restricted[a] = true
       if (flow > 0) {
+        if (!dedicated) other[a] += flow
         produced[a] += flow
         blockProduced += flow
       } else {
@@ -388,10 +401,31 @@ function areaFlows(
       }
     }
     const blockTol = surplusTolerance(Math.max(blockProduced, blockConsumed))
+    const senders: RouteSender[] = []
+    const receivers: RouteReceiver[] = []
     for (let a = 0; a < areas.length; a++) {
       const tol = surplusTolerance(Math.max(produced[a], consumed[a]))
-      if (net[a] > tol) solved[a].sends.push({ itemId, rate: net[a], boundary: blockNet > blockTol })
-      else if (net[a] < -tol) solved[a].receives.push({ itemId, rate: -net[a], boundary: blockNet < -blockTol })
+      if (net[a] > tol) {
+        solved[a].sends.push({ itemId, rate: net[a], boundary: blockNet > blockTol })
+        senders.push({ area: a, rate: net[a], other: other[a], tol })
+      } else if (net[a] < -tol) {
+        solved[a].receives.push({ itemId, rate: -net[a], boundary: blockNet < -blockTol })
+        receivers.push({
+          area: a,
+          rate: -net[a],
+          restricted: restricted[a],
+          dedicatedIn: dedicatedInOf.get(`${a}\u0000${itemId}`) ?? 0,
+          tol,
+        })
+      }
+    }
+    for (const r of itemRoutes(senders, receivers)) {
+      routes.push({
+        itemId,
+        ...(r.from !== undefined ? { from: areas[r.from].id } : {}),
+        ...(r.to !== undefined ? { to: areas[r.to].id } : {}),
+        rate: r.rate,
+      })
     }
   }
   const byRate = (x: { rate: number; itemId: string }, y: { rate: number; itemId: string }) =>
@@ -400,7 +434,7 @@ function areaFlows(
     a.receives.sort(byRate)
     a.sends.sort(byRate)
   }
-  return solved
+  return { areas: solved, routes }
 }
 
 /**
@@ -553,12 +587,14 @@ export function solveAreaBlock(
     .map(d => ({ areaId: areas[d.area].id, itemId: d.itemId, rate: d.rate }))
   if (shortfalls.length > 0) warnings.push({ type: 'area-shortfall', shortfalls })
 
+  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn)
   return {
     result: {
       nodes,
       unsatisfied,
       warnings: [...duplicateWarnings, ...noRecipeWarnings, ...warnings],
-      areas: areaFlows(system, columns, throughput, areas),
+      areas: flows.areas,
+      areaRoutes: flows.routes,
     },
     received,
   }

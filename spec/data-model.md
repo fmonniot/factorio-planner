@@ -713,6 +713,14 @@ interface SolverResult {
   unsatisfied: UnsatisfiedItem[]
   warnings: SolverWarning[]
   areas?: SolvedArea[]   // only when a sub-factory is a separate area; table order, root first
+  areaRoutes?: AreaRoute[]   // present exactly when `areas` is; sorted by item id, sender rank, receiver rank (outside last)
+}
+
+interface AreaRoute {
+  itemId: string
+  from?: string          // area id; absent = from outside the block
+  to?: string            // area id; absent = to outside the block
+  rate: number           // items/min
 }
 
 interface SolvedArea {

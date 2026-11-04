@@ -128,3 +128,37 @@ test('Escape closes the viewer', async ({ page }) => {
   await page.keyboard.press('Escape')
   await expect(page.getByLabel('Filter areas')).toHaveCount(0)
 })
+
+/**
+ * Counterpart figures follow the solver routes. "Hydrogen" here has a pinned Top level
+ * electrolysis (400 hydrogen/min), Compression (needs 960), Chlorides (needs 300) and an unpinned
+ * Backup. Receivers are served in table order: Top level's whole output goes to Compression, which
+ * Backup tops up (560), and Backup alone feeds Chlorides. A pro rata split would also hand
+ * Chlorides a share of Top level's output.
+ */
+test('counterpart figures follow the solver routes', async ({ page }) => {
+  await loadPlanFixture(page, path.resolve('e2e/fixtures/area-routes.json'))
+  await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
+  await expect(row(page, 'ffff0004-0000-0000-0000-000000000001')).toBeVisible({ timeout: 10000 })
+  await page.getByRole('button', { name: 'Areas in every block' }).click()
+
+  const ROOT = 'ffff0002-0000-0000-0000-000000000001'
+  const BACKUP = 'ffff0030-0000-0000-0000-000000000001'
+  const hydrogen = matrix(page).locator('tr[data-item-id="nullius-hydrogen"]')
+
+  await matrix(page).getByRole('button', { name: 'Chlorides' }).click()
+  await expect(hydrogen.locator(`td[data-col="${BACKUP}"]`)).toHaveText(/^300\s*→$/)
+  await expect(matrix(page).locator(`th[data-area-id="${ROOT}"]`)).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Show all 4 areas' }).click()
+  await matrix(page).getByRole('button', { name: 'Compression' }).click()
+  const top = hydrogen.locator(`td[data-col="${ROOT}"]`)
+  const backup = hydrogen.locator(`td[data-col="${BACKUP}"]`)
+  await expect(top).toHaveText(/^400\s*→$/)
+  await expect(backup).toHaveText(/^560\s*→$/)
+  for (const cell of [top, backup]) {
+    const title = (await cell.getAttribute('title')) ?? ''
+    expect(title).toContain('Areas higher in the table supply first; an area with its own row for the item is served before the others.')
+    expect(title).not.toContain('allocated')
+  }
+})
