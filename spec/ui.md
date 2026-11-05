@@ -50,14 +50,13 @@ session (see [Game data set](#game-data-set)).
 │ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
-│ [+]│ Recipe          │ Machine      │ Beacon │ Products │ Byprod. │ Ingr. │
-│ ▲▼ │ ▶ Smelting  3 recipes                                               │
-│ ▲▼ │ ▶ Plastics  Area  2 recipes      │ [plastic 60] │         │ [H 30] │
-│ ▲▼ │ [icon]           │ [mach 4][2/4] │ [+]    │ [..]     │ [..]    │ [..]⚡│
+│ [+]│ Recipe │ Machine │ Beacons │ Products │ Byprod. │ Ingr. │ Power     │
+│ ▲▼ │ ▶ Smelting   3 recipes · 5 machines                                 │
+│ ▲▼ │ [icon] name │ [m 4][2/4] │ [+] │ [..] │ [..] │ [..] [..] │ 3kW      │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The layout is designed for desktop widths; there is no mobile layout.
+The side panel appears to the right of the table only while a row is selected. The layout is designed for desktop widths (the table and the panel need about 1280px); there is no mobile layout.
 
 ---
 
@@ -771,21 +770,11 @@ The popover closes on Escape or a click outside.
 
 ## ProductionTable
 
-`ProductionTable.tsx` renders the active block's recipe tree.
+`ProductionTable.tsx` renders the active block's recipe tree, and the [side panel](#side-panel) beside it.
 
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" and a `+ Add recipe` link.
-- Otherwise: a table with a sticky header — reorder, Recipe, Machine, Beacon,
-  Products, Byproducts, Ingredients. The left (reorder) header column carries a `+`
-  button (Add recipe). The Ingredients header also shows the block's total power draw
-  (⚡, auto-scaled W / kW / MW / GW, right-aligned): the sum of every row's power draw, including rows in
-  collapsed sub-plans (which have no tile of their own), hidden when it is zero, beacon power not included.
-  A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing to the total.
-- In a block with areas, the Recipe header also carries a small [segmented control](#segmented-control)
-  named "Table view" with two options, **Tree** and **By recipe** (`aria-pressed`), that switches
-  between the tree and the [by-recipe view](#by-recipe-view). The choice is global, not per block,
-  and persisted in `uiStore` (`tableView`, with the rate unit under `factorio-planner:ui`); a block
-  without areas has no switch and always shows the tree.
+- Otherwise: a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width.
 
 The header `+` button (and the empty-state `+ Add recipe` link) opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -794,53 +783,41 @@ plan as a new node with default settings.
 Row order is the order of the nodes in each sub-plan. The table is not sortable;
 the user arranges rows by drag-and-drop or the ▲/▼ buttons.
 
-### By-recipe view
+### Columns
 
-With **By recipe** on (blocks with areas only), the table shows one line per recipe
-instead of the tree, so a recipe built in several areas can be read as one total. Lines
-are in the order the tree would first show the recipe (nodes in order, descending into
-sub-factory handles). Sub-factory rows, drop zones and the ▲/▼ buttons are not part of
-this view; rows in a sub-plan without a handle are left out, as in the tree.
+The reorder column comes first (▲/▼ buttons; the header carries the `+` Add recipe button), then:
 
-A recipe with two or more rows is a **recipe line** (`RecipeGroupRow.tsx`,
-`data-testid="recipe-group"`, `data-recipe-id`): a ▶/▼ button (`aria-expanded`,
-`aria-label` "<recipe>: rows per area"), the recipe icon, a teal badge ("N areas", or "N
-rows in M area(s)" when an area has several rows of the recipe), the total buildings
-(`data-testid="recipe-group-buildings"`, "N building(s)": the sum of each row's whole
-machines, so it equals the sum of the per-area figures in the tooltip rather than the
-ceiling of the exact total; the tooltip lists the exact count and the split by area, the
-root named "Top level"), and display-only product, byproduct, ingredient and electricity
-tiles summing the rows' solved rates. The buildings, the badge and the tiles all cover
-the rows the line lists. An output is a product when any row is built for it, else a
-byproduct. A recipe with a single row is that row itself, with no line.
+| Column | Content |
+|---|---|
+| Recipe | The recipe icon and name (a button), one 12px tree guide per nesting level. |
+| Machine | The machine chip (count in its corner), then the module chip (used / slots). |
+| Beacons | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
+| Products | Product chips, right-aligned. |
+| Byproducts | Byproduct chips (red rates). |
+| Ingredients | Ingredient chips (green rates); takes the remaining width. |
+| Power | The row's power (cyan, right-aligned). The header shows the block's total power draw (`data-testid="block-power-total"`, ⚡ with auto-scaled W / kW / MW / GW): the sum of every row's power draw, including rows in collapsed sub-plans, beacon power not included, hidden when zero. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
-Opening a line shows its rows indented under it, in area table order (root first). These
-are ordinary [recipe rows](#recipe-rows) with the full row menu, except that there is no
-reorder cell, no dragging, and the area's name (`data-testid="row-area"`) replaces the
-multi-area badge. Which lines are open is local to the table: not persisted, and cleared
-when another block becomes active (coming back finds every line closed). **Go to row
-in…** and **Build also in…** open the line of the target row and flash it; a reveal
-request for a sub-factory row (not shown in this view) is ignored.
+Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
+
+### Icon chip
+
+`IconChip.tsx` is the one component for every icon with a number in the table (item, machine, module and beacon chips): the icon, a quantity in its **bottom-right** corner (9px bold monospace with a dark outline, as Factorio draws stack counts), optional badges in its **top-right** corner and an optional label in its top-left corner (a temperature requirement, orange). Item icons are 28px (`size="item"`), machine, module and beacon icons 32px (`size="entity"`). With an `onClick` the chip is a button; `warn` draws an amber ring; `empty` draws a dashed outline and a `+` instead of the icon.
+
+- Bottom-right is always a quantity: an item rate (the number only; the tooltip adds the unit), the machine count, a module chip's used / slots, a beacon count, a beacon module chip's modules per beacon / slots. An energy item (electricity, heat) shows its value with its power unit.
+- Top-right is always a badge: an amber pin (`data-testid="chip-pin"`, the product's rate is pinned), a lavender `+N` (`chip-more`, the row has N more beacon configurations; never shown while a row holds at most one), an amber `B` or `C` (`item-tile-sourcing`, the item is not sourced from Own recipes first).
+- A chip without an icon shows the first two letters of its name (⚡ for electricity).
+
+`ItemChip.tsx` is the item chip on top of it: the item's icon, its rate in the rate unit, a tone by variant (product, byproduct, ingredient; the chip carries `data-variant`), the pin and sourcing badges and the temperature label. Its title is the item name, then the sourcing mode when there is one (" (byproducts first)", " (connections first)"), then " — " and the rate with its unit.
 
 ### Recipe rows
 
-`RecipeRow.tsx`, one per `GameRecipeNode`. Rows inside a sub-factory are indented
-by depth. Nodes whose recipe does not exist in the loaded data render nothing.
+`RecipeRow.tsx`, one per `GameRecipeNode`. Nodes whose recipe does not exist in the loaded data render nothing. Every row (recipe or sub-factory) carries `data-node-id`.
+
+**Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`: a teal bar on the left of the reorder cell and a tinted background) and opens the [side panel](#side-panel). The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
 
 **Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends).
 
-**Recipe cell.** The icon of the primary product (falls back to the first two
-letters of the recipe name), with the recipe name as tooltip. The cell has no
-buttons; the row actions are in the right-click menu below. Byproduct-consumer
-rows carry a small amber "↓" badge at the icon's bottom-right corner, whose
-tooltip explains the mode. In a block with areas, a recipe that has rows in two or
-more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the
-number of areas) after the icon. Its tooltip names the recipe and splits its buildings
-per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5
-Rocket fuel" ("here" is the row's own area and comes first, the others follow in table
-order, the root is "Top level"; several rows in one area are summed, a row with no solve
-result counts as 0). The badge is display-only. Every row (recipe or sub-factory) carries
-`data-node-id`.
+**Recipe cell.** The icon of the primary product (falls back to the first two letters of the recipe name) and the recipe name (ellipsis, the name as tooltip), indented by one 12px guide per nesting level (`data-guide-levels`; see [sub-factory rows](#sub-factory-rows)). Byproduct-consumer rows carry a small amber "↓" badge at the icon's bottom-right corner, whose tooltip explains the mode. In a block with areas, a recipe that has rows in two or more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the number of areas) after the name. Its tooltip names the recipe and splits its buildings per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel" ("here" is the row's own area and comes first, the others follow in table order, the root is "Top level"; several rows in one area are summed, a row with no solve result counts as 0). The badge is display-only.
 
 Right-clicking anywhere in the recipe cell opens a context menu
 (`RowActionsMenu.tsx`, portalled to `document.body`, sized to its content and
@@ -849,15 +826,9 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
 - **Absorb byproduct** / **Stop absorbing byproduct** — "only run to absorb
   byproduct from other recipes" (sets `byproductConsumer`).
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
-  least 1); omitted on byproduct-consumer rows. While pinned, the Products cell
-  becomes a number input for the pinned rate (MW for an electricity or heat row): the primary product's rate in the
-  current rate unit. It is stored as executions per minute (typed rate divided by
-  the primary product's items per run, productivity included). When the node is
-  unsolved or solved at zero throughput, the last positive solved factor is
-  reused (declared product amounts only if there never was one), so the input
-  does not remount or change value.
+  least 1); omitted on byproduct-consumer rows. The product chip then carries the pin badge, and the rate is edited in the panel's [Rate section](#rate).
 - **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
-  replaces the row with a new sub-factory containing just this node.
+  replaces the row with a new sub-factory containing just this node. Disabled with the title "Cannot nest deeper than 4 levels" when the new group would sit past the [nesting limit](#nesting-limit).
 - **Build also in…** (blocks with areas only) — adds a copy of this row to another area (machine, modules, beacon, neighbour count, byproduct policy and primary product; not the pin).
   It is disabled when no area qualifies, with the title "No other area uses <item>
   without a row of this recipe", or "Waiting for the solve" while the row has no solve
@@ -878,77 +849,109 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   table and highlights it (`data-highlighted="true"`, a teal outline) for two seconds. The
   request is transient (`uiStore.revealRowRequest`, handled by the table of the active
   block; a request made before the table mounted is ignored).
-- **Remove recipe** (red).
+- **Remove recipe** (red). Removing the selected row closes the panel.
 
 The menu closes on an outside click, Escape, scroll, window blur or after choosing
 an item.
 
-**Machine cell.** `MachineCell` (machine icon with the rounded-up machine count)
-and, when the machine has module slots, `ModuleCell` (first module's icon, or
-`+`, with a `used/total` slot badge). Both open the
-[Edit machine modal](#edit-machine-modal). An explicit machine outside the research
-horizon gets an amber ring and the title "<name> (beyond research horizon)". When no
-machine is inside the horizon the cell shows the `?` placeholder with count 0, an amber
-ring, and the title "No machine within research horizon". `ModuleCell` renders whenever the machine has
-slots or modules are configured, so leftover modules stay visible. It is ringed (amber)
-in three cases, each with its own title: the row has no machine in the horizon ("Modules
-without a machine", `data-beyond-horizon`); a module is outside the horizon ("Edit modules
-(beyond research horizon)", `data-beyond-horizon`); or the modules outnumber the slots
-(`data-over-slots`, "Edit modules (more modules than slots)", or "Edit modules (this machine has
-no module slots)" for a real machine with 0 slots). The plan and the solver are untouched:
-the solver applies every configured module (except the productivity of a recipe that disallows it and effects the machine's `allowedEffects` lacks), so the flag is the only sign of an overfilled row.
+**Machine column.** `MachineCell` is the machine chip (`data-testid="machine-chip"`, the machine's icon with the rounded-up machine count in its corner, titled with the machine's name). Clicking it opens the [machine picker](#machine-picker) under the chip (`aria-expanded`). An explicit machine outside the research horizon gets an amber ring and the title "<name> (beyond research horizon)" (`data-beyond-horizon`). When no machine is inside the horizon the chip shows the `?` placeholder with count 0, an amber ring, the title "No machine within research horizon" and `data-no-machine`.
 
-**Beacon cell.** `BeaconCell` (in `BeaconPopover.tsx`). Without a beacon, a `+`
-button creates one — the first non-hidden beacon type by name, the first module by
-name, 4 beacons — and opens the [Edit beacon modal](#edit-beacon-modal). With a
-beacon, it shows the beacon icon and `N×`; click to edit. The beacon and module chosen
-are the first ones inside the research horizon. The `+` is disabled, with a title giving
-the reason, when the row has no machine within the horizon ("No machine within research
-horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or
-no module is ("No module within the research horizon"; only when a horizon is active). A configured beacon whose type or
-module is outside the horizon gets an amber ring. A configuration without a module (the schema allows it; no control creates one yet) shows the beacon icon and count like any other, but contributes nothing to the row.
+`ModuleCell` follows it (`data-testid="module-chip"`) whenever the machine has slots or modules are configured, so leftover modules stay visible. Its corner reads `used/slots`. With modules it shows the icon of the most used module type (on a tie the first by module id) and a click selects the row and highlights the panel's Machine section (slots can hold mixed modules, so there is no quick picker). With none it is a dashed `+` chip reading `0/N` (title "Fill all N slots with a module") whose click opens a **fill-all picker**: the modules the machine accepts, headed "Fill all N slots with"; choosing one puts that module in every slot. It is ringed (amber) in three cases, each with its own title: the row has no machine in the horizon ("Modules without a machine", `data-beyond-horizon`, no picker); a module is outside the horizon ("Edit modules (beyond research horizon)", `data-beyond-horizon`); or the modules outnumber the slots (`data-over-slots`, "Edit modules (more modules than slots)", or "Edit modules (this machine has no module slots)" for a real machine with 0 slots). The plan and the solver are untouched: the solver applies every configured module (except the productivity of a recipe that disallows it and effects the machine's `allowedEffects` lacks), so the flag is the only sign of an overfilled row.
 
-**Products cell.** The output that counts as the primary product
-(`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an
-`ItemTile` with its rate. Right-clicking the tile opens the [sourcing menu](#item-chip-sourcing-menu), with its choices disabled (except **Own recipes first** while a mode is set) for an item that is a product of the block (title "<item> is a product of this block, so the block always makes it"). A pinned row shows the rate input instead of the tile, with no menu.
+**Beacons column.** `BeaconCell` (in `BeaconPopover.tsx`) takes the row's beacon configurations as a list; the data model holds one (`beaconConfig`), so it shows the first and a lavender `+N` badge on the beacon chip would count the others (the chip's tooltip lists them all).
 
-**Byproducts cell.** Every other output. On multi-output recipes, clicking a
-byproduct makes it the primary product (it swaps places with the current one). In a
-block with areas the tile's tooltip adds "; the primary product decides what this row
-builds for its area" after "Set as primary".
-Right-clicking a byproduct tile opens a `RowActionsMenu` with **Add consumer
-recipe…** (when the row can add one), which opens the recipe picker filtered to recipes
-consuming that item; the chosen recipe is added to the same sub-plan as the row. After a
-separator (shown only when **Add consumer recipe…** is) come the [sourcing choices](#item-chip-sourcing-menu). The tile's tooltip hint reads "; right-click to add a consumer recipe or choose how it is sourced", or "; right-click to choose how it is sourced" when the row cannot add one, followed by the mode suffix. The menu follows the
-same closing rules as the recipe-cell menu, and only one of the two is open at a
-time.
+- Without a beacon, a dashed `+` chip (title and name "Add beacon") opens a fill-all picker headed "Add 4 × Beacon, fill its slots with", listing the modules the default beacon type accepts. Choosing one creates a configuration with the first non-hidden beacon type inside the research horizon (by name), 4 beacons and that module in every slot, as one command. The chip is disabled, with a title giving the reason, when the row has no machine within the horizon ("No machine within research horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or no module is ("No module within the research horizon"; only when a horizon is active).
+- With a beacon, the **beacon chip** (the beacon's icon, `N` beacons in its corner; title "Edit beacon") and the **beacon module chip** (`data-testid="beacon-module-chip"`, the module's icon, modules per beacon over the beacon's slots; title "<module> × N per beacon") follow. Both open the panel on the highlighted Beacons section. A configuration without a module (the beacon's `moduleId` is optional) shows the beacon module chip as a dashed `+` reading `0/N` (title "Beacon without a module"), whose click opens a fill-all picker headed "Fill its slots with" limited to the modules the beacon accepts (speed and efficiency, never productivity); it contributes nothing to the row until it has a module. A configured beacon whose type or module is outside the horizon gets an amber ring.
 
-**Ingredients cell.** Every input with its rate. Clicking one opens the recipe
+**Products column.** The output that counts as the primary product (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an item chip. When `primaryProduct` is explicitly `null` (a multi-output recipe with no primary) every output shows here. A pinned row's chip carries the pin badge; the pinned rate is not editable in the table. A product chip has no right-click menu and no click action.
+
+**Byproducts column.** Every other output, as chips. On multi-output recipes, clicking a byproduct makes it the primary product (it swaps places with the current one). In a block with areas the chip's tooltip adds "; the primary product decides what this row builds for its area" after "Set as primary". Right-clicking a byproduct chip opens a `RowActionsMenu` with the single entry **Add consumer recipe…** (when the row can add one), which opens the recipe picker filtered to recipes consuming that item; the chosen recipe is added to the same sub-plan as the row. The chip's tooltip hint reads "; right-click to add a consumer recipe" when the row can. The menu follows the same closing rules as the recipe-cell menu, and only one of the two is open at a time. A single-output recipe's rare byproduct chip toggles its feed-back / discard policy on click.
+
+**Ingredients column.** Every input as a chip with its rate. Clicking one opens the recipe
 picker filtered to recipes producing that item; the chosen recipe is added to the
-same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the tile adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its tile shows it after the rate in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The tile title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. Product and byproduct tiles show the same orange badge, and their title adds it (e.g. "Steam (165°C)"; a multi-output byproduct reads "Steam (165°C) — Set as primary…"), only when the recipe sets an explicit `temperature` on that product (a fluid at its default temperature shows none); the by-recipe group row does the same for its product, byproduct and ingredient tiles. The solver reads the bounds only for the `temperature-mismatch` warning; the summary, goals, item picker and block graph do not show temperatures. A burner row's fuel is one of these inputs: its tile is marked `data-fuel="true"` and titled "Fuel: <name> — Find producer recipe" (no other badge), and the row has no ⚡ tile. A ⚡ tile at the end shows the row's power draw (a power generation row, or a burner row with fuel, draws nothing, so it has none: its output is the electricity product tile, in power units)
-(auto-scaled W / kW / MW / GW) when it is above zero. Right-clicking an ingredient tile opens the [sourcing menu](#item-chip-sourcing-menu); the power tile has none. The Ingredients header total sums these draws over every row, including rows in collapsed sub-plans.
+same sub-plan as the clicked row. For a raw ore or pumped fluid in a data set with extraction data this lists its mining or offshore-pump recipe, so clicking the chip adds the drill or pump row. When the row's recipe sets a temperature bound on an ingredient, its chip shows it in the top-left corner in orange (`≥95°C` minimum only, `≤30°C` maximum only, `125–165°C` both, `95°C` when they are equal); values are rounded to one decimal, a minimum above the maximum is shown as given (not validated), and bounds at or beyond ±1e30 count as unbounded. The chip title includes it (e.g. "Steam (125–165°C) — Find producer recipe"), and a recipe that lists the fluid twice with different bounds shows both, comma-separated. Product and byproduct chips show the same orange label, and their title adds it (e.g. "Steam (165°C)"; a multi-output byproduct reads "Steam (165°C) — Set as primary…"), only when the recipe sets an explicit `temperature` on that product (a fluid at its default temperature shows none). The solver reads the bounds only for the `temperature-mismatch` warning; the summary, goals, item picker and block graph do not show temperatures. A burner row's fuel is one of these inputs: its chip is marked `data-fuel="true"` and titled "Fuel: <name> — Find producer recipe", and the row has no power. An ingredient chip has no right-click menu.
 
-#### Item chip sourcing menu
+**Power column.** The row's power draw (`data-testid="row-power"`, auto-scaled W / kW / MW / GW) when it is above zero. A power generation row, or a burner row with fuel, draws nothing: its output is the electricity product chip, in power units.
 
-Right-clicking a product, byproduct or ingredient chip of a row opens a `RowActionsMenu` with three `menuitemradio` entries that set how the active block sources the item (`itemSourcing`, see [solver.md](solver.md#connections-between-blocks)): **Own recipes first** (the default), **Byproducts first** and **Connections first**, with the current one checked and titles describing each. On a chip of a product of the block the choices are disabled (title "<item> is a product of this block, so the block always makes it"), except **Own recipes first** while a mode is set, so a mode left on an item that became a product can be cleared. A chip whose item has a mode other than the default shows a small amber letter badge after the rate (`data-testid="item-tile-sourcing"`, `B` or `C`) and its title ends with " (byproducts first)" or " (connections first)". The menu is the same on every row that shows the item; the by-recipe group line is display-only. Only one menu is open at a time in a row: opening a chip menu closes the recipe-cell and area menus, and the reverse.
+**Sourcing badge.** A chip whose item has a sourcing mode other than the default shows an amber `B` (byproducts first) or `C` (connections first) badge in its top-right corner (`data-testid="item-tile-sourcing"`, `data-sourcing`). The mode is set in the panel's [sourcing section](#sourcing), not from the chip; the `B` / `C` badge and the title suffix are its only trace in the table.
 
 Rates come from the last solve; before a solve (or for a row the solver did not
 reach) the rate cells are empty and the machine count is 0.
 
+### Side panel
+
+`sidePanel/SidePanel.tsx`, an `aside` (`data-testid="side-panel"`, `aria-label="Row details"`) 380px wide at the right of the table. It exists only while a row is selected: there is no empty state, and the close button (✕, "Close panel") clears the selection and gives the table its full width. Opening it does not move or resize the rows. Selection is transient UI state (`uiStore.selectedRow`: a block id and a node id); the panel of another block, or of a node that no longer exists, counts as none and the selection is cleared (removing the selected row closes the panel). Escape does not close it.
+
+The panel shows exactly one of a recipe row, an organising sub-factory or a separate area. Its header shows the title (`data-testid="panel-title"`) with the row's icon.
+
+#### Recipe panel
+
+Sections in order, each a `section` with a heading:
+
+1. **Header.** The primary product's icon, the recipe name, and "Absorbs byproduct" for a byproduct-consumer row.
+2. <a id="rate"></a>**Rate.** The **Pin rate** checkbox (disabled with a title on a byproduct-consumer row that is not pinned: "A row that absorbs a byproduct runs on surplus and cannot be pinned"). While pinned, a number input (`aria-label="Pinned rate"`) with the unit (the primary product's rate in the current rate unit; MW for an electricity or heat row; stored as executions per minute, the typed rate divided by the primary product's items per run, productivity included) and an explanation. "= N runs/min" (`data-testid="runs-per-min"`) always shows. Pinning starts from where the row runs now, at least 1. When the node is unsolved or solved at zero throughput, the last positive solved factor is reused (declared product amounts only if there never was one), so the value does not jump.
+3. **Machine.** The machine picker button (`data-testid="machine-picker-button"`: the 32px machine icon and a chevron, the machine's name as tooltip, `aria-expanded`), beside it "N needed" and "X exact · Y% busy"; the machine's name below, with the "Beyond research horizon" tag (amber) for an explicit machine outside the horizon. With no machine in the horizon: "No machine within research horizon: machine count and power are 0 for this row. Module and beacon productivity still applies to the output rates." (amber, and the button is ringed). Then, when they apply:
+   - **Fuel** (only when the machine burns fuel, `energyType: 'burner'` or `'fluid-burner'`; a fluid-burner lists fluids): a picker button (`fuel-button`: icon, name, value in MJ or kJ) resolved with `resolveRowFuel`. Its list holds **Default** (`fuel-default`, "Default (<fuel name>)": the lowest-value accepted fuel) and the machine's accepted fuels inside the research horizon (`fuel-option`, `data-item-id`, lowest value first). Choosing one stores it as the row's `fuelItemId`, **Default** clears it; both are undoable. An effective fuel outside the horizon carries the "Beyond research horizon" marker and is not listed. A burner whose data set has no fuel data (for a fluid-burner: no fluid with a fuel value) shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw; a machine with fuel categories whose every accepted fuel is excluded (burnt result, hidden) shows "No usable fuel for this machine" in the same slot, as does a fluid-burner whose data set has fluid fuels but none the machine accepts.
+   - **Neighbours** (only when the machine has `neighbourBonus > 0`, i.e. a reactor): a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors: **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a typed value outside the range is clamped, other text stays until blur) and a drawing (`neighbour-grid`, `role="img"`). Each 40 px tile shows how many reactors share a side with it (0–4, diagonals do not count), coloured by that number. An axis longer than 5 is folded into five tracks (the first two, a gap marked ⋯ / ⋮ / ⋱, the last two); the numbers come from the real positions and the average always uses the full size. The average of the drawing, `2 × (cols × (rows − 1) + rows × (cols − 1)) / (cols × rows)`, is what is stored in `neighbourCount` (an exact ratio; 1 × 1 stores nothing). The size is UI state and is not persisted: reopening finds the rectangle whose average equals the stored count (smallest area, then the most square, then cols ≤ rows; no stored count opens as 1 × 1) and, when none matches, opens in own-average mode. Below a rule, **Not a rectangle?** is a number input (`neighbour-count`, accessible name "Neighbouring reactors", 0–4) that shows the drawing's average and takes the player's own. Typing a valid own value saves it, dims the drawing ("Not used: you typed your own average below.") and offers **Use the drawing**; changing a size does the same. Text outside 0–4 shows "A reactor has four sides, so use a number from 0 to 4." and is not saved (the schema accepts any non-negative number, and a stored value above 4 is kept and flagged); on blur the field reverts to the stored value. Every valid change is saved at once and is undoable (0 clears it). A result strip shows the average, "Each neighbour adds +N %" (from the machine's bonus) and the heat per reactor (`neighbour-multiplier`, "×N" = 1 + bonus × average). Switching to a machine without a bonus hides the section; the count is kept but ignored.
+   - **Modules** (when the machine has slots or modules are configured): "N / M slots used" (amber when over) and one button per slot (`data-testid="module-slot"`, 32px chips; dashed when empty). A slot opens a [picker](#pickers) headed "Module" with **Empty slot** and the modules that slot may take. The machine's modules are stored as `{ moduleId, count }` entries; the slot buttons are a view over them, so slots can hold mixed modules. Only modules inside the research horizon whose effects the machine allows (and whose recipe limitations permit the recipe) are offered, and a module with a positive productivity effect only when the recipe allows productivity; the total never exceeds the machine's slots when choosing. A slot past the machine's slot count (more modules than slots) is ringed amber and titled "(more modules than slots)"; a configured module outside the horizon is ringed and the section carries the "Beyond research horizon" tag. Without a machine, slots can be emptied but not filled.
+   - **Apply to every row of this recipe (N)** (`apply-to-recipe-rows`; only when the active block has N > 1 rows of the recipe, in any area): copies this row's machine, fuel and modules together (including "Default", which clears the machine) to every other row of the recipe, as one undoable command. The panel stays open; when every other row already matches, nothing happens and no history entry is recorded.
+4. **Beacons.** One card per configuration: a beacon type button (chevron; the list holds the non-hidden beacons inside the research horizon, the configured one marked "Beyond research horizon" when outside; picking one copies its module slots and distribution efficiency into the configuration), a count input (`aria-label="Beacon count"`), one button per module slot (a picker headed "Module"), a remove button ("Remove beacon configuration") and a line with the configuration's efficiency and what it contributes. A configuration without a module shows its empty slot buttons and contributes nothing. When the data has no beacon entities, editable "Modules/beacon" and "Efficiency" fields appear instead. A selected module that no longer fits (for example after picking another beacon type) stays in the configuration and shows an amber note (`module-not-allowed`). Offered modules: inside the research horizon, whose effects are all in the selected beacon's `allowedEffects` (so no productivity module in a speed-only beacon; skipped when the data has no beacon entity), not excluded by the module's recipe limitation lists, and productivity modules only when the recipe allows productivity. Below the cards, a dashed **+ Add beacon configuration** button (`add-beacon-config`) creates the default configuration (first beacon type inside the horizon, 4 beacons, the first module that fits); it is disabled with the title "One beacon configuration per recipe for now" once the row has one, and with the same reasons as the table's `+` chip when it cannot add. Removing the card re-enables it. **Apply to every row of this recipe (N)** (only when N > 1) copies this row's beacon to every other row of the recipe, so rows without one get one; the rows keep their own machine. Removing a beacon is not propagated. One undoable command; the panel stays open.
+5. **Effects on this row.** Speed, productivity and energy as rows; columns Machine, one per beacon configuration, and Total (a single Beacons column while a row has at most one configuration). The values apply the same rule as the solver (`effectAllowed`): an effect counts only when both the beacon entity's and the machine's `allowedEffects` include it, productivity is zeroed if the recipe disallows it, and an unknown beacon or machine filters nothing. An effect that does not count is shown amber and struck through with a title saying why (`data-ignored`), and a "Recipe effects: …" note (`recipe-effects-note`) names what does not count. Footnote: "Beacon effect = module effect × efficiency × modules per beacon × beacons. All sources add up."
+6. <a id="sourcing"></a>**Where inputs come from.** One entry per ingredient (`data-testid="sourcing-entry"`, `data-item-id`): the item's icon, name and rate, a radio group of **Own recipes / Byproducts / Connections** (`data-sourcing-choice` `own`, `byproducts-first`, `connections-first`; titles "Own recipes first" and so on; they set the block's `itemSourcing` for the item, see [solver.md](solver.md#connections-between-blocks)), one sentence (`data-testid="sourcing-sentence"`), and a **Forbid imports** checkbox (`forbid-imports`, `noImportItems`). The mode is per item for the whole block, so every row that uses the item follows it (a line says so). For an item that is a product of the block the choices other than Own recipes are disabled (title "<item> is a product of this block, so the block always makes it"), except Own recipes first while a mode is set, so a leftover mode can be cleared; Forbid imports is disabled for an item no row makes. A row with no inputs reads "This row takes no inputs."
+
+   The sentence is built by the pure function in `sourcingText.ts` from the item, its mode, the block's connections and the solve result (no generated text; rates go through `fmtItemRateText`):
+
+   | Mode | Sentence |
+   |---|---|
+   | Own recipes first | "Made in this block by {recipe} ({n} × {machine})." If no row makes it: "No row here makes {item}; it is imported." With Forbid imports on, " Imports are forbidden." is appended. |
+   | Byproducts first | "Uses byproducts of other rows first ({recipe} {rate}/min, …). {recipe} makes the rest." With none: "No row here makes {item} as a byproduct, so {recipe} covers it." |
+   | Connections first | "Takes {item} from {block} first ({offered}/min offered), then {recipe} makes the rest." The second half is dropped when the connection covers everything. With no connection: "No connection for {item}; {recipe} covers it." |
+
+   "The rest" follows what the solver took from each source, not only the settings.
+
+A chip shortcut (the filled module or beacon chips) selects the row and highlights one section of its panel: it scrolls into view and shows a teal ring (`data-highlighted="true"`) for about two seconds. The highlight (`uiStore.panelHighlight`) is transient, belongs to the row that asked for it, and ends when another row is selected.
+
+#### Group panel
+
+`sidePanel/GroupPanel.tsx`, read only. Selecting a group row (anywhere that is not its chevron button or a field) shows:
+
+- **Header.** A folder icon, the group's name and the subtitle "Sub-factory · level N of 4" or "Separate area · level N of 4" (N = the group's own nesting level, 1 for a group in the root). A separate area also carries the **Area** marker (`panel-area-marker`).
+- **Summary.** Recipes (recursive), Machines (recursive) and Power (recursive; "–" when zero), as on the group row.
+- **Receives** and **Sends** (separate areas only): item icon, name, rate and the other end ("from Oil", "to the rest of the block", "outside the block"); they hold the same items as the chips on the group row. An area with nothing to receive or send shows an empty line ("This area receives nothing from outside it.", "This area sends nothing out.").
+- **Inside this group.** The rows and groups directly below it, each a button (`data-testid="group-child"`, `data-node-id`) with its icon, name, machine count and power; clicking one selects that row or group, and the panel becomes its panel. An empty group reads "Nothing in this group yet." A closing line says a sub-factory only organises rows and that **Separate area**, from its right-click menu, tracks what it sends and receives, or, for an area, that it is solved on its own.
+
+Rename, Separate area, Duplicate to… and Remove stay in the group's right-click menu.
+
+### Pickers
+
+Every list that opens under a button follows one pattern, in `Picker.tsx` and `PickerTrigger.tsx`:
+
+- `PickerTrigger` renders the trigger button (it owns the open flag and provides the anchor) and, when open, its picker. `Picker` is the frame (`data-testid="picker"`): a popover list portalled to `document.body` and fixed to the viewport, aligned to the trigger's left edge, opening upward when there is more room above and clamped to the viewport, so the table's scroll container never clips it; an optional heading (`picker-heading`) names what the choice does. `PickerRow` is a row of icon, name and an optional detail (a machine's "speed 1.5"), the current choice in teal; `PickerEmpty` is the note when nothing fits.
+- A picker closes on a click away from it and its trigger, and on Esc (the topmost open picker only; nothing else reacts to that Esc). A click on the trigger toggles it. A click inside a picker does not select the table row under it.
+- Lists are filtered by the research horizon and by the usual rules (`effectAllowed`; productivity modules only when the recipe allows productivity; a beacon accepts only the effects of its entity).
+
+The pickers are the machine picker, the fuel picker, the module slot pickers, the beacon type picker and the two fill-all pickers (`ModuleFillPicker.tsx`, rows `module-fill-option`).
+
+#### Machine picker
+
+`MachinePicker.tsx`, opened from the table's machine chip and the panel's machine button; headed "Select machine", 288px wide:
+
+- **Default** (`machine-option-default`, labelled "Default (<machine name>)" when the category has a default) and every non-hidden machine inside the research horizon that can craft the recipe's category (`availableMachinesFor`; `machine-option`, `data-machine-id`), each with its icon, name and "speed N". The names show because Seablock recipes can have around six machines and the assemblers look alike. The category's current default carries a "default" badge (`default-machine-badge`); every other machine has a **Make default** button (accessible name "Make <machine> the <category> default", shown on hover and focus) that sets the plan's default for the category, resets this row to "Default" and closes the list; the row reset is undoable with the block, the default change is not (defaults are not part of block history). When none is available the list shows "No machine for this recipe within the research horizon. Widen the horizon to choose one."
+- A footer (`default-machine-usage`): "<Category> default is used by N rows" (rows of the category left on "Default", across all blocks) with an **All defaults…** link that opens the workspace menu's [Default machines](#workspace-menu) flyout on that category.
+- An **Alternate recipe** section: other non-hidden recipes inside the research horizon that produce the current recipe's main product. Choosing one swaps the row's recipe and resets its machine, modules, beacon, pin and other settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel change goes through **Alternate recipe**, where the several power recipes of one machine are one expandable entry (`alt-recipe-group`, `data-machine-id`, "(N recipes)", one open at a time; expanding scrolls the fuels into view inside the short list) listing its fuels (`alt-recipe-fuel`, with the fuel's icon and, for item fuels, its value); a machine left with a single other fuel is a plain `alt-recipe` entry. Other alternates outside the research horizon are left out, but power recipes beyond it stay listed (a row can always switch back to the fuel it used) with the amber "Beyond research horizon" tag (`beyond-horizon`; `data-beyond-horizon="true"` on the fuel entry).
+
 ### Sub-factory rows
 
-A `SubPlanNode` renders as a group row: ▶/▼ toggle, sub-plan name, recipe count (recursive, including nested sub-factories),
-and a right-click menu with **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
-**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal. While it is on, an "Area" marker (`data-testid="area-marker"`) follows the name.
-Rename opens a browser prompt prefilled with the current name; cancelling or a
-blank answer is ignored. Adding, renaming, wrapping a row in and removing a sub-factory are
-undoable (undoing a wrap is dropped once the new sub-factory holds more than the wrapped row).
-Remove deletes it **with all
-its contents**. When it has contents a confirmation names the sub-factory and
-counts its recipes and nested sub-factories; an empty one is removed at once.
+A `SubPlanNode` renders as a group row in the same grid as the recipe rows:
 
-A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacon columns with its name, marker and recipe count. The items it sends sit in the Products column (`data-testid="area-chips-out"`) and the items it receives in the Ingredients column (`data-testid="area-chips-in"`); Byproducts is empty. The chips are display-only
-(`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips and the empty Byproducts cell included, opens the row menu. At most four chips per direction; the
+- The same ▲/▼ reorder cell as a recipe row; rows and groups are both draggable.
+- One 12px vertical **guide** line per ancestor level in the Recipe cell (`treeGuides.ts`; `data-guide-levels` is the number drawn), running the full height of the row so the tree reads as one continuous line; recipe rows use the same guides. The indent stops growing at 4 levels. A group row has a slightly lighter tinted background than a recipe row.
+- A chevron **button** (`aria-expanded`, `aria-label` "Collapse X" / "Expand X"), then the name as a button (it selects the group; `aria-pressed`), the **Area** marker (`data-testid="area-marker"`, teal, title "Separate area") when it is a separate area, then the summary (`data-testid="group-summary"`): "N recipes · M machines", both recursive over nested sub-factories.
+- The Power column shows the group's recursive total (`data-testid="group-power"`).
+- Clicking the group row anywhere that is not a button or field selects it and opens the [group panel](#group-panel). The chevron only expands or collapses.
+- A collapsed group hides everything below it until the next node at its depth or shallower; expanding it shows its nodes (including nested sub-factories) with their own expanded state kept. An empty expanded group shows a "Drop here" target. Expanded or collapsed state is local to the table and not saved.
+
+A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacons columns with its name, marker and summary. The items it sends sit in the Products column (`data-testid="area-chips-out"`) and the items it receives in the Ingredients column (`data-testid="area-chips-in"`); Byproducts is empty. The chips line up with the recipe rows' chips on the same right edge, are display-only (`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips and the empty Byproducts cell included, opens the row menu. At most four chips per direction; the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per
@@ -966,19 +969,33 @@ overflow empties. The popup is rendered in a portal on `document.body`
 (`position: fixed`, to the right of the button, flipped left or clamped by `anchoredPosition`), since
 the table scrolls. Timing, placement and dismissal live in the `useHoverPopup.ts` hook. An organising
 sub-factory shows no chips (the Products and Ingredients cells stay empty, as does a side with no flows).
-**Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too, with the tooltip "Every area already has a row of one of its recipes" when each area is disabled for a recipe conflict, else "No area can take a copy of this subfactory" (some areas are inside the source). The entry is hidden in a block without areas. The copy is one undoable command.
+
+**Right-click menu.** **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
+**Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal.
+Rename opens a browser prompt prefilled with the current name; cancelling or a
+blank answer is ignored. Adding, renaming, wrapping a row in and removing a sub-factory are
+undoable (undoing a wrap is dropped once the new sub-factory holds more than the wrapped row).
+Remove deletes it **with all
+its contents**. When it has contents a confirmation names the sub-factory and
+counts its recipes and nested sub-factories; an empty one is removed at once.
+**Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), an area where the copy would nest past the limit ("Cannot nest deeper than 4 levels"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too, with the tooltip "Every area already has a row of one of its recipes" when each area is disabled for a recipe conflict, else "No area can take a copy of this subfactory". The entry is hidden in a block without areas. The copy is one undoable command.
 Removal, with all its contents, is undoable at store level: undo restores the
 sub-factory at its original position. The undo history is session-only and per
-block. Expanding shows its nodes indented beneath it (including nested
-sub-factories); an empty expanded group shows a "Drop here" target.
-Expanded/collapsed state is not saved.
+block.
 
 A sub-factory only organises the table unless it is a separate area; then the solver builds each recipe once per area.
 
+#### Nesting limit
+
+A row or group may sit inside at most **4** ancestor groups (`MAX_NESTING_DEPTH` in `src/data/nesting.ts`, read by both the UI and the store commands; the data model itself has no limit). A row 4 levels deep has about 78px for its name at the reference layout, and a group row about 255px for name, marker and summary; a higher limit would need a wider Recipe column. The limit counts a moved group's own deepest descendant: the target's depth plus the height of the moved subtree must stay within 4.
+
+- **Wrap in subfactory…** (row menu) is disabled with the title "Cannot nest deeper than 4 levels" when the new group would sit past the limit. **Duplicate to…** disables the areas where the copy would go past it (above).
+- A drop that would go past the limit does nothing: no drop line or outline is shown and the plan is unchanged (the store command refuses the move too). That covers a row or group dropped onto or between the rows of a group that is too deep.
+- Plans already deeper than the limit still load and render. They are not flattened or rewritten; the indent just stops growing at 4 levels.
+
 ### Drag and drop
 
-Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop, except
-in the [by-recipe view](#by-recipe-view), where nothing is draggable.
+Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop.
 `RecipeDnd.tsx` holds the drag state in a context; the drop logic is in
 `RecipeRow` and `ProductionTable`.
 
@@ -991,6 +1008,7 @@ in the [by-recipe view](#by-recipe-view), where nothing is draggable.
 - While dragging, a "Drop here to append" row at the end of the table appends to
   the root plan.
 - A sub-factory cannot be dropped inside itself or its descendants.
+- A drop that would [nest past the limit](#nesting-limit) is refused.
 - Dropping a sub-factory into another plan moves the sub-factory with its rows, so they join the
   area of the plan it lands in (see [data-model.md](data-model.md#subplan)); undo puts it back.
 
@@ -998,7 +1016,7 @@ in the [by-recipe view](#by-recipe-view), where nothing is draggable.
 
 ## Modals and pickers
 
-Modals (`Modal.tsx`, and the pickers' own frame) are centred over a dimmed
+Modals (`Modal.tsx`, and the item and recipe pickers' own frame) are centred over a dimmed
 backdrop and close on Escape or a click on the backdrop.
 
 ### Item picker
@@ -1041,13 +1059,13 @@ The same component in recipes mode (`source="recipes"`).
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".
-- When opened from a summary slot's **Find recipe**, an ingredient tile or **Make in a new block…**, only recipes producing that item are
+- When opened from a summary slot's **Find recipe**, an ingredient chip or **Make in a new block…**, only recipes producing that item are
   listed and the subtitle reads "Choose a recipe to produce '…'".
 - When opened from a byproduct, only recipes consuming that item (as an
   ingredient, fluid temperature ignored) are listed and the subtitle reads
   "Choose a recipe that consumes '…'".
 - Extraction recipes ("Iron ore (mining)", "Water (offshore pump)") are listed like any other recipe, under the group of what they produce; they are always inside the research horizon.
-- Power generation recipes (`Recipe.power`; "Boiler (Coal)", "Steam engine (Steam)", "Solar panel (electricity)") are listed in the **Power** group, by subgroup (boilers and heat exchangers, generators, burner generators, solar panels, reactors); a heat exchanger reads "Heat exchanger (Heat)" and a reactor "Uranium reactor (Uranium-235 fuel cell)", with heat as the badge of the exchanger. Steam and heat temperatures (boiler and exchanger steam, reactor heat and the exchanger's heat minimum) show as the usual orange badges. A reactor row's neighbour count is set in the Edit machine modal. A power slot shows its machine's icon, with its last ingredient (the fuel, or the steam of a generator) as a small badge at the bottom-right (`data-testid="recipe-slot-badge"`). A machine with two or more power recipes in the list (a boiler, burner generator or reactor has one per fuel) is collapsed into one **group slot** (`data-testid="recipe-group-slot"`, `data-machine-id`, the machine's icon and a count pill `recipe-group-count`); clicking it replaces the grid with a fuel view (`recipe-fuel-grid`): a **← Back** button (`recipe-fuel-back`), the machine's name and "Choose a recipe (N)" (focus moves to Back on entering, and Escape steps back to the groups instead of closing the picker), and one slot per fuel (the fuel's icon, no badge, with the usual hover detail panel) that picks the recipe. Grouping runs after the search, item filter and horizon, and search matches the per-fuel recipe names ("Boiler (Wood)"), so a list left with a single recipe of a machine shows it as a plain slot. The group slot has no detail panel, and is disabled ("already in …") only when every fuel of it is already in the area; changing the group tab, or a search, horizon or hidden toggle that leaves one fuel, closes the fuel view (and clears the hovered recipe). A machine's recipes are grouped over the whole tab, so a machine spread over several subgroups still has a single group slot, placed in the subgroup of its first recipe. A fuel without an icon shows its name as text. They are inside the research horizon only when everything they take is offered (a fuel only a recipe beyond the horizon makes hides its boiler recipe until "Beyond research horizon" is ticked); a group slot is dimmed as beyond the horizon only when every one of its fuels is, the fuel view dims each fuel on its own, and the group's count follows the checkbox like the rest of the grid. Their detail panel reads "Available from the start" (the machine is gated through its placing item), or "Needs <items>, not yet available" (`data-unlock-kind="fuel"`) when the recipe is beyond the horizon. Amounts below 0.01 in the detail panel show two significant digits ("0.0015 ×"). Steam temperatures (boiler output and generator minimum) are checked by the `temperature-mismatch` warning: a boiler whose steam is below every generator's minimum in the block (or its connected sources) is flagged. The detail panel shows the generator's minimum next to its steam ingredient and the boiler's steam temperature next to its product, in orange (`data-testid="recipe-detail-temperature"`, formatted like the tile badge; products only when the recipe sets one).
+- Power generation recipes (`Recipe.power`; "Boiler (Coal)", "Steam engine (Steam)", "Solar panel (electricity)") are listed in the **Power** group, by subgroup (boilers and heat exchangers, generators, burner generators, solar panels, reactors); a heat exchanger reads "Heat exchanger (Heat)" and a reactor "Uranium reactor (Uranium-235 fuel cell)", with heat as the badge of the exchanger. Steam and heat temperatures (boiler and exchanger steam, reactor heat and the exchanger's heat minimum) show as the usual orange badges. A reactor row's neighbour count is set in the side panel's Machine section. A power slot shows its machine's icon, with its last ingredient (the fuel, or the steam of a generator) as a small badge at the bottom-right (`data-testid="recipe-slot-badge"`). A machine with two or more power recipes in the list (a boiler, burner generator or reactor has one per fuel) is collapsed into one **group slot** (`data-testid="recipe-group-slot"`, `data-machine-id`, the machine's icon and a count pill `recipe-group-count`); clicking it replaces the grid with a fuel view (`recipe-fuel-grid`): a **← Back** button (`recipe-fuel-back`), the machine's name and "Choose a recipe (N)" (focus moves to Back on entering, and Escape steps back to the groups instead of closing the picker), and one slot per fuel (the fuel's icon, no badge, with the usual hover detail panel) that picks the recipe. Grouping runs after the search, item filter and horizon, and search matches the per-fuel recipe names ("Boiler (Wood)"), so a list left with a single recipe of a machine shows it as a plain slot. The group slot has no detail panel, and is disabled ("already in …") only when every fuel of it is already in the area; changing the group tab, or a search, horizon or hidden toggle that leaves one fuel, closes the fuel view (and clears the hovered recipe). A machine's recipes are grouped over the whole tab, so a machine spread over several subgroups still has a single group slot, placed in the subgroup of its first recipe. A fuel without an icon shows its name as text. They are inside the research horizon only when everything they take is offered (a fuel only a recipe beyond the horizon makes hides its boiler recipe until "Beyond research horizon" is ticked); a group slot is dimmed as beyond the horizon only when every one of its fuels is, the fuel view dims each fuel on its own, and the group's count follows the checkbox like the rest of the grid. Their detail panel reads "Available from the start" (the machine is gated through its placing item), or "Needs <items>, not yet available" (`data-unlock-kind="fuel"`) when the recipe is beyond the horizon. Amounts below 0.01 in the detail panel show two significant digits ("0.0015 ×"). Steam temperatures (boiler output and generator minimum) are checked by the `temperature-mismatch` warning: a boiler whose steam is below every generator's minimum in the block (or its connected sources) is flagged. The detail panel shows the generator's minimum next to its steam ingredient and the boiler's steam temperature next to its product, in orange (`data-testid="recipe-detail-temperature"`, formatted like the tile badge; products only when the recipe sets one).
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
@@ -1067,109 +1085,12 @@ The same component in recipes mode (`source="recipes"`).
   area off) can still create a duplicate, which the solver reports as `duplicate-recipe`.
 - Clicking a slot adds the recipe and closes the picker.
 
-### Edit machine modal
-
-`EditMachineModal.tsx`, opened from the Machine cell.
-
-- **Machine** — the current machine; clicking it lists **Default** (use the
-  category's default machine, labelled "Default (<machine name>)" when there is one) and every non-hidden machine inside the research
-  horizon that can craft the recipe's category (`availableMachinesFor`). The machine that is the
-  plan's current default for the category carries a "default" badge; every other machine has a
-  **Make default** button (accessible name "Make <machine> the <category> default", shown on hover
-  and focus) that sets the plan's default for the category, resets this row to "Default" and closes
-  the list; the row reset is undoable with the block, the default change is not (defaults are not part of block history). The list's footer reads "<Category> default is used by N rows" (rows of the category
-  left on "Default", across all blocks) with an **All defaults…** link that closes the modal and
-  opens the workspace menu's [Default machines](#workspace-menu) flyout on that category. When none is, the list shows "No
-  machine for this recipe within the research horizon. Widen the horizon to choose
-  one." The current-machine label reads "No machine within research horizon" in amber
-  when the row has no machine, and carries a "Beyond research horizon" marker for an
-  explicit machine outside the horizon. The same list has an **Alternate recipe** section: other
-  non-hidden recipes inside the research horizon that produce the current recipe's
-  main product. Choosing one
-  swaps the row's recipe and resets its machine, modules, beacon, pin and other
-  settings. A power generation row has exactly one machine (its recipe's), so a tier or fuel
-  change goes through **Alternate recipe**, where the several power recipes of one machine
-  are one expandable entry (`alt-recipe-group`, `data-machine-id`, "(N recipes)", one open at a time; expanding scrolls the fuels into view inside the short list)
-  listing its fuels (`alt-recipe-fuel`, with the fuel's icon and, for item fuels, its value); a machine
-  left with a single other fuel is a plain `alt-recipe` entry. Other alternates outside the research horizon are left out, but power recipes beyond it stay listed (a row can always switch back to the fuel it used) with the amber "Beyond research horizon" tag (`beyond-horizon`; `data-beyond-horizon="true"` on the fuel entry).
-- **Fuel** (only when the row's machine burns fuel, `energyType: 'burner'` or `'fluid-burner'`; a fluid-burner lists fluids) — the fuel the row burns
-  (`fuel-button`: icon, name, value in MJ or kJ), resolved with `resolveRowFuel`. Clicking it lists
-  **Default** (`fuel-default`, labelled "Default (<fuel name>)": the lowest-value accepted fuel) and the
-  machine's accepted fuels inside the research horizon (`fuel-option`, `data-item-id`, lowest value first).
-  Choosing one stores it as the row's `fuelItemId`, **Default** clears it; both are undoable. An effective fuel outside
-  the horizon carries the "Beyond research horizon" marker (`beyond-horizon`) and is not listed. A burner whose data set
-  has no fuel data (for a fluid-burner: no fluid with a fuel value) shows "No fuel data in this data set" (`no-fuel-data`) instead, and the row keeps its ⚡ draw; a machine with fuel categories whose every accepted fuel is excluded (burnt result, hidden) shows "No usable fuel for this machine" in the same slot, as does a fluid-burner whose data set has fluid fuels but none the machine accepts.
-- **Neighbours** (only when the selected machine has `neighbourBonus > 0`, i.e. a reactor) —
-  a layout builder (`neighbour-section`). The player draws one rectangular cluster of reactors:
-  **Wide** and **Deep** steppers (`neighbour-cols`, `neighbour-rows`; 1–30, typed or stepped, a
-  typed value outside the range is clamped, other text stays until blur) and a drawing
-  (`neighbour-grid`, `role="img"`). Each 40 px tile shows how many reactors share a side with it
-  (0–4, diagonals do not count), coloured by that number. An axis longer than 5 is folded into
-  five tracks (the first two, a gap marked ⋯ / ⋮ / ⋱, the last two); the numbers come from the
-  real positions and the average always uses the full size. The average of the drawing,
-  `2 × (cols × (rows − 1) + rows × (cols − 1)) / (cols × rows)`, is what is stored in
-  `neighbourCount` (an exact ratio; 1 × 1 stores nothing). The size is UI state and is not
-  persisted: reopening the modal finds the rectangle whose average equals the stored count
-  (smallest area, then the most square, then cols ≤ rows; no stored count opens as 1 × 1) and,
-  when none matches, opens in own-average mode.
-  Below a rule, **Not a rectangle?** is a number input (`neighbour-count`, accessible name
-  "Neighbouring reactors", 0–4) that shows the drawing's average and takes the player's own.
-  Typing a valid own value saves it, dims the drawing ("Not used: you typed your own average
-  below.") and offers **Use the drawing**; changing a size does the same. Text outside 0–4 shows
-  "A reactor has four sides, so use a number from 0 to 4." and is not saved (the schema accepts
-  any non-negative number, and a stored value above 4 is kept and flagged); on blur the field
-  reverts to the stored value. Every valid change is saved at once and is undoable (0 clears
-  it). A result strip shows the average, "Each neighbour adds +N %" (from the machine's bonus)
-  and the heat per reactor (`neighbour-multiplier`, "×N" = 1 + bonus × average). Switching to a
-  machine without a bonus hides the section; the count is kept but ignored. **Apply to every row
-  of this recipe** does not copy it.
-- **Modules** (when the machine has slots or modules are configured) — each configured
-  module with −/+ counts, and an "add module" dropdown. Only modules inside the
-  research horizon whose effects the machine allows (and whose recipe limitations
-  permit the recipe) are offered, and a module with a positive productivity effect only
-  when the recipe allows productivity; the total never exceeds the machine's slots. A
-  configured module outside the horizon carries a "Beyond research horizon" marker.
-  Without a machine, modules can be removed but not added.
-- **Effects** — "Module effects" (raw totals) and "Recipe effects" (after the
-  machine's allowed effects, and with productivity zeroed if the recipe disallows
-  it). Quality is listed only when relevant.
-- **Apply to every row of this recipe (N)** (footer; only when the active block has N > 1
-  rows of the recipe, in any area) — copies this row's machine, fuel and modules together
-  (including "Default", which clears the machine) to every other row of the recipe, as one
-  undoable command. The modal stays open; when every other row already matches, nothing
-  happens and no history entry is recorded.
-
-### Edit beacon modal
-
-`BeaconModal.tsx`, opened from the Beacon cell. A configuration without a module shows "No module" in the module picker and no effect totals.
-
-- **Beacon** — beacon type (non-hidden beacons inside the research horizon, the
-  configured one marked "Beyond research horizon" when outside; picking one copies its module
-  slots and distribution efficiency into the config) and **Amount** (beacon
-  count). When the data has no beacon entities, editable "Modules/beacon" and
-  "Efficiency" fields appear instead.
-- **Effects** — "Beacon effects" and "Recipe effects", as in the machine modal. "Recipe effects" applies the same rule as the solver (`effectAllowed`): an effect counts only when both the beacon entity's and the machine's `allowedEffects` include it; an unknown beacon or machine filters nothing. When
-  the row has no machine within the horizon, a note says the row's machine count and
-  power are 0 while module and beacon productivity (where the recipe allows it) still applies to the output rates.
-- **Module** — the module placed in every beacon slot. Offered: modules inside the
-  research horizon, whose effects are all in the selected beacon's `allowedEffects`
-  (so no productivity module in a speed-only beacon; skipped when the data has no beacon
-  entity), not excluded by the module's recipe limitation lists, and productivity modules only when the
-  recipe allows productivity. A selected module that no longer fits (for example after
-  picking another beacon type) stays in the config and shows an amber note; the Beacon
-  cell's `+` picks the first module that fits.
-- **Apply to every row of this recipe (N)** (footer; only when N > 1, as in the machine
-  modal) — copies this row's beacon to every other row of the recipe, so rows without one
-  get one; the rows keep their own machine. Removing a beacon is not propagated. One
-  undoable command; the modal stays open.
-- **Remove beacon**.
-
 ---
 
 ## Shared pieces
 
-- `ItemTile.tsx` — the coloured rate tile used in the production table (variants product,
-  byproduct, ingredient, electricity; the tile carries `data-variant`), plus `fmtRate` and `fmtPower`. Rates show
+- `IconChip.tsx` and `ItemChip.tsx` — the [icon chip](#icon-chip) and the item chip of the production table (variants product,
+  byproduct, ingredient; the chip carries `data-variant`). `ItemTile.tsx` holds the rate formatters they use: `fmtRate` and `fmtPower`. Rates show
   0–2 decimals depending on magnitude, and two significant digits for a non-zero rate below 0.005 ("0.00082", never "0.00"). `fmtItemRate(itemId, ratePerSec, unit)` / `fmtItemRateText` format a
   rate of an item as value + unit, and show the electricity and heat items (1 unit/s = 1 MW) in W / kW / MW / GW whatever the
   rate unit; `inputRateUnit(itemId, unit)` is the unit a rate input is typed in (`'sec'`, i.e. MW, for electricity and heat).
@@ -1177,8 +1098,8 @@ The same component in recipes mode (`source="recipes"`).
   and so does the rounding check behind "short" and "differs from the target" (`isShortfall`, `differsFromTarget` take
   the item id: an electricity or heat gap is rounded in power units, so it does not depend on the rate toggle). The areas matrices
   and the strip's overview totals are the documented exception.
-  An electricity item tile without an icon shows ⚡ (heat has its own icon). An optional `temperature` prop adds the
-  orange temperature badge after the rate.
+  An electricity item chip without an icon shows ⚡ (heat has its own icon). An optional `temperature` prop adds the
+  orange temperature label in the chip's top-left corner.
 - `temperature.ts` — formats an ingredient's temperature bounds (`fmtTemperatureRange`)
   and builds the per-item labels for a recipe (`ingredientTemperatureLabels`, and
   `productTemperatureLabels` for explicit product temperatures); `fmtTemperatureWarning`
@@ -1188,6 +1109,7 @@ The same component in recipes mode (`source="recipes"`).
   The `<picture>` is `display: contents` and its `<source>` is `display: none`, so the `<img>` is
   the only flex item it contributes and a parent's `gap` adds no extra space before it.
 - `Modal.tsx` — the modal frame.
+- `factory/Picker.tsx`, `factory/PickerTrigger.tsx` — the [picker](#pickers) frame and its trigger.
 - `factory/Popover.tsx` — an absolutely positioned panel that closes on an outside pointerdown
   (except inside its optional `ignoreRef`, the trigger, so a click on the trigger just toggles) and on
   Escape, handled in the capture phase and prevented so it does not also clear a summary selection.
@@ -1204,7 +1126,7 @@ The same component in recipes mode (`source="recipes"`).
 each `Segment` a pill button in it; the pressed pill is filled grey (`bg-gray-700`) with white
 text, the others are muted and brighten on hover. `Segmented` takes an optional `label` (it then
 is a `role="group"` with that name) and a `size`: `md` (28px pills, the Areas modal header), `sm`
-(24px, the workspace menu's rate unit) or `xs` (20px, 10px text, the table header's Table view).
+(24px, the workspace menu's rate unit) or `xs` (20px, 10px text).
 A `Segment` reports `aria-pressed`; given `role="menuitemradio"` it reports `aria-checked`
 instead and shows its keyboard focus on any focus (a teal inset ring), like the other menu
 items. Other props (`title`, `tabIndex`, …) go to the button.

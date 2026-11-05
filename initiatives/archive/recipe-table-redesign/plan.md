@@ -1,14 +1,14 @@
 # Recipe table redesign
 
-Status: Future
+Status: Shipped
 
 ## Context
 
 The production table is hard to read at the block level and its editing lives behind right-click modals:
 
 - A block with many rows needs a lot of scrolling, and the Machine and Beacon columns repeat the same icon-and-badge idea differently.
-- Machine, module and beacon settings open in separate modals ([Edit machine](../../spec/ui.md#edit-machine-modal), [Edit beacon](../../spec/ui.md#edit-beacon-modal)). The effects of the two add up to one result, but nothing shows that.
-- A row holds a single beacon configuration (`beaconConfig`) and a beacon cannot exist without a module. The redesign builds the final UI of the design canvas, which draws several configurations, on top of the single one; several come afterwards, see [multiple beacon configurations](../multiple-beacon-configs/plan.md).
+- Machine, module and beacon settings open in separate modals ([Edit machine](../../../spec/ui.md#edit-machine-modal), [Edit beacon](../../../spec/ui.md#edit-beacon-modal)). The effects of the two add up to one result, but nothing shows that.
+- A row holds a single beacon configuration (`beaconConfig`) and a beacon cannot exist without a module. The redesign builds the final UI of the design canvas, which draws several configurations, on top of the single one; several come afterwards, see [multiple beacon configurations](../../multiple-beacon-configs/plan.md).
 - How an item is sourced (own recipes, byproducts, connections) is set from a right-click menu on an item chip, and is only visible as a small `B` / `C` badge.
 - Nested sub-factories have no visual structure beyond indentation.
 
@@ -25,7 +25,7 @@ Real scale means the planner's own sizes: recipe, machine, module and beacon ico
 One reusable component for every icon-with-a-number in the table: the icon, a quantity in its **bottom-right** corner (9px bold monospace with a dark outline, as Factorio draws stack counts), and an optional badge in its **top-right** corner. It replaces `ItemTile`'s side-by-side icon and rate in the table.
 
 - Bottom-right is always a quantity: an item rate, the machine count, a module chip's used/slots, a beacon count, a beacon module chip's modules per beacon over slots.
-- Top-right is always a badge: amber pin (the product's rate is pinned), lavender `+N` (the row has N more beacon configurations; built, but never shown until [several are supported](../multiple-beacon-configs/plan.md)), amber `B` or `C` (the item is not on Own recipes first).
+- Top-right is always a badge: amber pin (the product's rate is pinned), lavender `+N` (the row has N more beacon configurations; built, but never shown until [several are supported](../../multiple-beacon-configs/plan.md)), amber `B` or `C` (the item is not on Own recipes first).
 - A cell that holds chips must not use `overflow: hidden`; it clips the badges.
 
 ### Columns
@@ -120,11 +120,11 @@ The design canvas is the final UI, including its several beacon configurations. 
 
 - The components take the configurations as a list. A small adapter gives them `beaconConfig ? [beaconConfig] : []` and writes edits back to `beaconConfig`. The `+N` badge, the tooltip listing all configurations, the per-configuration cards and the per-configuration Effects columns exist but only ever render one configuration.
 - The "+ Add beacon configuration" button is disabled once a row has a configuration, with the title "One beacon configuration per recipe for now". Removing the card re-enables it.
-- [Multiple beacon configurations](../multiple-beacon-configs/plan.md) then replaces the adapter with `beaconConfigs` and removes the disabled state; the UI itself does not change.
+- [Multiple beacon configurations](../../multiple-beacon-configs/plan.md) then replaces the adapter with `beaconConfigs` and removes the disabled state; the UI itself does not change.
 
 `BeaconConfig.moduleId` also becomes optional, so a beacon can exist without a module. The configuration then contributes nothing. This is the state after the fill-all picker's `+` is used for the beacon but not for its modules, and the panel's per-slot buttons can be emptied.
 
-- `moduleId` optional in `BeaconConfigSchema`; `computeNodeEffects` skips a configuration without one; the snapshot already skips it (`src/snapshot/project.ts` does not send a config with no `moduleId`, per [data-model.md](../../spec/data-model.md)). Older plans load unchanged.
+- `moduleId` optional in `BeaconConfigSchema`; `computeNodeEffects` skips a configuration without one; the snapshot already skips it (`src/snapshot/project.ts` does not send a config with no `moduleId`, per [data-model.md](../../../spec/data-model.md)). Older plans load unchanged.
 - Machine modules stay `ModuleConfig[]` (`moduleId`, `count`). The panel's per-slot buttons are a view over it. The table's module chip shows the icon of the most used module type with used/slots (see Decisions). A beacon module chip shows `modulesPerBeacon` over the beacon's slot count; fewer modules than slots is possible because the modal copies the slot count from the beacon entity.
 - A beacon without a module is shown as a beacon chip plus a dashed module chip.
 - Sourcing data is unchanged: `itemSourcing` and `noImportItems`.
@@ -152,12 +152,12 @@ The mock does not draw these; the implementation must keep them:
 
 ## Phases
 
-- [x] **1. Optional beacon module.** `BeaconConfig.moduleId` optional, `computeNodeEffects` skips such a configuration, unit tests, [data-model.md](../../spec/data-model.md) and [solver.md](../../spec/solver.md).
+- [x] **1. Optional beacon module.** `BeaconConfig.moduleId` optional, `computeNodeEffects` skips such a configuration, unit tests, [data-model.md](../../../spec/data-model.md) and [solver.md](../../../spec/solver.md).
 - [x] **2. Icon chip, columns, group rows.** The chip component, the new column set with the new order, group rows with guides and chevrons, the nesting limit constant and its disabled actions.
 - [x] **3. Side panel.** Selection, the panel and its six sections, replacing the Edit machine and Edit beacon modals (keeping everything under "Carry over"), the sourcing sentences.
 - [x] **4. Pickers and shortcuts.** The shared picker pattern, the machine and beacon pickers, the fill-all pickers, the row and chip shortcuts.
 - [x] **5. Remove the chip sourcing menu.** Keep the byproduct **Add consumer recipe…** entry and the `B` / `C` badge.
-- [ ] **6. Docs and tests.** [ui.md](../../spec/ui.md) (production table, Edit machine and Edit beacon modal sections, item chip sourcing menu, sub-factory rows), the README "Using the planner" section and repository map, and Playwright specs in `e2e/` for the interactions (row click, shortcuts, pickers, panel close, group collapse, nesting limit).
+- [x] **6. Docs and tests.** [ui.md](../../../spec/ui.md) (production table, Edit machine and Edit beacon modal sections, item chip sourcing menu, sub-factory rows), the README "Using the planner" section and repository map, and Playwright specs in `e2e/` for the interactions (row click, shortcuts, pickers, panel close, group collapse, nesting limit).
 
 ## Alternatives considered
 

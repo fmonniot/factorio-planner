@@ -59,7 +59,9 @@ test.describe('item sourcing', () => {
     await expect(page.getByRole('menuitemradio')).toHaveCount(0)
 
     await expect((await oxygenEntry(page)).locator('[data-sourcing-choice="own"]')).toHaveAttribute('aria-checked', 'true')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Made in this block by')
     await choose(page, 'byproducts-first')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Uses byproducts of other rows first')
 
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
