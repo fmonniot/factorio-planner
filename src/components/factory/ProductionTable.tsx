@@ -9,6 +9,8 @@ import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
 import { Segment, Segmented } from '../SegmentedControl'
 import { RecipeGroupRow } from './RecipeGroupRow'
+import { treeGuideStyle } from './treeGuides'
+import { canMoveNodeInto } from '../../data/nesting'
 import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, recipeGroups, type AreaView, type RecipeGroup } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
@@ -146,7 +148,7 @@ export function ProductionTable() {
                       </svg>
                     </button>
                   </th>
-                  <th className="px-2 py-1 min-w-[8rem]">
+                  <th className="px-2 py-1 w-[170px] min-w-[170px] max-w-[170px]">
                     <span className="flex items-center gap-2">
                       Recipe
                       {areaIndex?.hasAreas && (
@@ -169,25 +171,24 @@ export function ProductionTable() {
                       )}
                     </span>
                   </th>
-                  <th className="px-2 py-1 min-w-[10rem]">Machine</th>
-                  <th className="px-2 py-1 min-w-[6rem]">Beacon</th>
-                  <th className="px-2 py-1">Products</th>
-                  <th className="px-2 py-1">Byproducts</th>
-                  <th className="px-2 py-1">
-                    <span className="flex items-center justify-between gap-2">
-                      Ingredients
-                      {totalPower && (
-                        <span
-                          data-testid="block-power-total"
-                          role="img"
-                          title="Total power draw of the block"
-                          aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
-                          className="font-mono tabular-nums text-cyan-300 whitespace-nowrap"
-                        >
-                          ⚡ {totalPower.value}<span className="opacity-60">{totalPower.unit}</span>
-                        </span>
-                      )}
-                    </span>
+                  <th className="px-2 py-1 w-[100px]">Machine</th>
+                  <th className="px-2 py-1 w-[100px]">Beacons</th>
+                  <th className="px-2 py-1 text-right">Products</th>
+                  <th className="px-2 py-1 w-[120px]">Byproducts</th>
+                  <th className="px-2 py-1 w-full">Ingredients</th>
+                  <th className="px-2 py-1 text-right w-[78px] whitespace-nowrap">
+                    Power
+                    {totalPower && (
+                      <span
+                        data-testid="block-power-total"
+                        role="img"
+                        title="Total power draw of the block"
+                        aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
+                        className="ml-1 font-mono tabular-nums text-cyan-300 normal-case"
+                      >
+                        ⚡ {totalPower.value}<span className="opacity-60">{totalPower.unit}</span>
+                      </span>
+                    )}
                   </th>
                 </tr>
               </thead>
@@ -377,10 +378,13 @@ function findSubPlanAnywhere(plan: SubPlan, id: string): SubPlan | undefined {
 function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth: number }) {
   const { dragging, endDrag } = useRecipeDnd()
   const moveNode = useBlockStore(s => s.moveNode)
+  const rootPlan = useBlockStore(s => selectActiveBlock(s)?.rootPlan)
   const [isOver, setIsOver] = useState(false)
+  // Nesting limit: refuse a drop the store would refuse.
+  const fits = !dragging || !rootPlan || dragging.sourceSubPlanId === subPlanId || canMoveNodeInto(rootPlan, dragging.nodeId, subPlanId)
 
   function handleDragOver(e: React.DragEvent) {
-    if (!dragging) return
+    if (!dragging || !fits) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setIsOver(true)
@@ -388,7 +392,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
-    if (!dragging) return
+    if (!dragging || !fits) return
     moveNode(dragging.nodeId, subPlanId, 0)
     setIsOver(false)
     endDrag()
@@ -401,7 +405,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={7} className="py-2 text-center text-gray-700 text-[10px]" style={{ paddingLeft: `${8 + depth * 16}px` }}>
+      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]" style={treeGuideStyle(depth)}>
         Drop here
       </td>
     </tr>
@@ -415,10 +419,13 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
 function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCount: number }) {
   const { dragging, endDrag } = useRecipeDnd()
   const moveNode = useBlockStore(s => s.moveNode)
+  const rootPlan = useBlockStore(s => selectActiveBlock(s)?.rootPlan)
   const [isOver, setIsOver] = useState(false)
+  // Nesting limit: refuse a drop the store would refuse.
+  const fits = !dragging || !rootPlan || dragging.sourceSubPlanId === subPlanId || canMoveNodeInto(rootPlan, dragging.nodeId, subPlanId)
 
   function handleDragOver(e: React.DragEvent) {
-    if (!dragging) return
+    if (!dragging || !fits) return
     e.preventDefault()
     e.dataTransfer.dropEffect = 'move'
     setIsOver(true)
@@ -426,7 +433,7 @@ function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCou
 
   function handleDrop(e: React.DragEvent) {
     e.preventDefault()
-    if (!dragging) return
+    if (!dragging || !fits) return
     moveNode(dragging.nodeId, subPlanId, nodeCount)
     setIsOver(false)
     endDrag()
@@ -441,7 +448,7 @@ function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCou
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={7} className="py-2 text-center text-gray-700 text-[10px]">
+      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]">
         Drop here to append
       </td>
     </tr>

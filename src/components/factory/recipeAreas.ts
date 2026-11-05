@@ -1,6 +1,7 @@
 import type { GameData, GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
 import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
+import { canCopyGroupInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 
 // ---------------------------------------------------------------------------
 // Which rows build which recipe in which area: what the table's area actions
@@ -256,7 +257,9 @@ export function duplicateToOptions(
     const blocker = subPlanCopyBlocker(root, subPlanId, areaId)
     if (blocker?.reason === 'invalid') continue
     const name = areaName(root, areaId)
-    if (!blocker) options.push({ areaId, name })
+    if (!blocker) {
+      options.push(canCopyGroupInto(root, subPlanId, areaId) ? { areaId, name } : { areaId, name, disabledReason: NESTING_LIMIT_TITLE })
+    }
     else if (blocker.reason === 'inside') options.push({ areaId, name, disabledReason: 'Cannot copy a subfactory into itself' })
     else options.push({ areaId, name, disabledReason: copyConflictTitle(blocker.recipeIds.map(recipeName)) })
   }

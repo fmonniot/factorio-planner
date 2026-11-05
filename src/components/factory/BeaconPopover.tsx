@@ -3,7 +3,7 @@ import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
-import { Icon } from '../Icon'
+import { IconChip, MoreBadge } from './IconChip'
 import { BeaconModal } from './BeaconModal'
 import { isModuleAllowedForBeaconRow } from './moduleRules'
 
@@ -13,7 +13,11 @@ import { isModuleAllowedForBeaconRow } from './moduleRules'
 
 interface BeaconCellProps {
   nodeId: string
-  beacon: BeaconConfig | undefined
+  /**
+   * The row's beacon configurations, shown as the first one plus a `+N` badge for the rest. The
+   * single-configuration data model reaches this through `beaconConfig ? [beaconConfig] : []`.
+   */
+  beacons: BeaconConfig[]
   gameData: GameData
   // RecipeRow needs to pass these for the effects panels in the modal.
   recipeId: string
@@ -21,8 +25,9 @@ interface BeaconCellProps {
   recipeCategory: string
 }
 
-export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, recipeCategory }: BeaconCellProps) {
+export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory }: BeaconCellProps) {
   const [open, setOpen] = useState(false)
+  const beacon: BeaconConfig | undefined = beacons[0]
   const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
   const horizon = useHorizon(gameData)
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
@@ -77,55 +82,64 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
           ? 'No module within the research horizon'
           : undefined
     return (
-      <button
-        type="button"
+      <IconChip
         onClick={enable}
+        size="entity"
+        empty
+        alt="Add beacon"
         disabled={disabledTitle !== undefined}
-        className="w-7 h-7 flex items-center justify-center rounded bg-gray-800 text-gray-500 hover:text-gray-200 hover:bg-gray-700 text-xs leading-none disabled:opacity-40 disabled:hover:bg-gray-800 disabled:hover:text-gray-500"
         title={disabledTitle ?? 'Add beacon'}
         aria-label="Add beacon"
-      >
-        +
-      </button>
+        className={disabledTitle !== undefined ? 'opacity-40' : ''}
+      />
     )
   }
 
-  // Determine the icon: prefer the beacon-type icon, fall back to module icon.
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
   const moduleData = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
-  const displayIcon = beaconEntity?.iconPath ?? moduleData?.iconPath
   const beyondHorizon =
     (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
     (beacon.moduleId !== undefined && !withinHorizon(horizon.moduleIds, beacon.moduleId))
 
+  const slots = beaconEntity?.moduleSlots ?? beacon.modulesPerBeacon
+  const more = beacons.length - 1
+  const describe = (b: BeaconConfig) => {
+    const name = (b.beaconId && gameData.beacons[b.beaconId]?.name) || 'Beacon'
+    const mod = b.moduleId ? gameData.modules[b.moduleId]?.name ?? b.moduleId : 'no module'
+    return `${b.beaconCount} × ${name}, ${b.modulesPerBeacon} × ${mod}`
+  }
+  const chipTitle = beacons.map(describe).join('; ')
+  const editTitle = beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'
+
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        className={`relative w-7 h-7 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${beyondHorizon ? 'ring-1 ring-amber-500' : ''}`}
-        title={beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'}
-        aria-label="Edit beacon"
-        data-beyond-horizon={beyondHorizon ? 'true' : undefined}
-      >
-        {displayIcon ? (
-          <Icon
-            iconPath={displayIcon}
-            alt={beaconEntity?.name ?? moduleData?.name ?? 'beacon'}
-            className="w-full h-full object-contain"
-          />
-        ) : (
-          <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">
-            🔆
-          </span>
-        )}
-        <span
-          className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
-          style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}
-        >
-          {beacon.beaconCount}×
-        </span>
-      </button>
+      <div className="flex items-center gap-1.5">
+        <IconChip
+          onClick={() => setOpen(o => !o)}
+          size="entity"
+          iconPath={(beaconEntity?.iconPath || moduleData?.iconPath) || undefined}
+          alt={beaconEntity?.name ?? moduleData?.name ?? 'beacon'}
+          fallback="B"
+          quantity={beacon.beaconCount}
+          quantityTestId="beacon-count"
+          badges={more > 0 ? <MoreBadge count={more} /> : undefined}
+          warn={beyondHorizon}
+          title={more > 0 ? `${editTitle}: ${chipTitle}` : editTitle}
+          aria-label="Edit beacon"
+          data-beyond-horizon={beyondHorizon ? 'true' : undefined}
+        />
+        <IconChip
+          onClick={() => setOpen(o => !o)}
+          size="entity"
+          empty={!moduleData}
+          iconPath={moduleData?.iconPath || undefined}
+          alt={moduleData?.name ?? 'module'}
+          fallback="+"
+          quantity={`${moduleData ? beacon.modulesPerBeacon : 0}/${slots}`}
+          title={moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon` : 'Beacon without a module'}
+          data-testid="beacon-module-chip"
+        />
+      </div>
 
       {open && (
         <BeaconModal

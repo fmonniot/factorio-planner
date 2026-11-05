@@ -61,7 +61,7 @@ test.describe('Fluid-burning machines', () => {
     const fuel = row.locator('[data-fuel="true"]')
     await expect(fuel).toHaveCount(1)
     await expect(fuel).toHaveAttribute('title', 'Fuel: Light oil — Find producer recipe')
-    await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+    await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
     // Pick the other fluid in the Edit machine modal.
     await row.getByTitle('Fluid furnace', { exact: true }).click()
@@ -72,7 +72,7 @@ test.describe('Fluid-burning machines', () => {
     await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
     await expect(fuel).toHaveAttribute('title', 'Fuel: Heavy oil — Find producer recipe')
-    await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+    await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
     expect(await storedPlans(page)).toContain('"fuelItemId":"heavy-oil"')
   })
 
@@ -82,6 +82,6 @@ test.describe('Fluid-burning machines', () => {
     const row = page.locator('main table tbody tr').first()
     await expect(row).toBeVisible()
     await expect(row.locator('[data-fuel="true"]')).toHaveCount(0)
-    await expect(row.locator('[data-variant="electricity"]')).toHaveCount(1)
+    await expect(row.locator('[data-testid="row-power"]')).toHaveCount(1)
   })
 })

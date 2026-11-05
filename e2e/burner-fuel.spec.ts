@@ -15,7 +15,7 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   await expect(fuel).toHaveCount(1)
   await expect(fuel).toHaveAttribute('data-variant', 'ingredient')
   await expect(fuel).toHaveAttribute('title', 'Fuel: Cellulose fiber — Find producer recipe')
-  await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+  await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // Pick solid fuel in the Edit machine modal.
   await row.getByTitle('Stone furnace', { exact: true }).click()
@@ -27,8 +27,8 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
 
   // 30 runs/min x 7 s = 3.5 furnaces; 3.5 x 90 kW / 12 MJ = 0.02625 /s = 1.575 /min.
   await expect(fuel).toHaveAttribute('title', 'Fuel: Solid fuel — Find producer recipe')
-  await expect(fuel).toContainText(/^1\.57\/m$/)
-  await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+  await expect(fuel).toContainText(/^1\.57$/)
+  await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // The choice is saved with the plan.
   const saved = JSON.stringify(await readActivePlan(page, 'kompetenz-seablock'))

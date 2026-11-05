@@ -307,7 +307,7 @@ describe('BeaconModal — allowed effects', () => {
     const gd = restrictedData()
     // 'Prod 3' sorts before 'Speed 3', so without the check it would be the default.
     render(
-      <BeaconCell nodeId="n1" beacon={undefined} gameData={gd} recipeId="iron-plate"
+      <BeaconCell nodeId="n1" beacons={[]} gameData={gd} recipeId="iron-plate"
         machineId={undefined} recipeCategory="crafting" />,
     )
     fireEvent.click(screen.getByLabelText('Add beacon'))
@@ -319,7 +319,7 @@ describe('BeaconModal — allowed effects', () => {
 describe('BeaconCell — research horizon', () => {
   function renderCell(gameData: GameData) {
     return render(
-      <BeaconCell nodeId="n1" beacon={undefined} gameData={gameData} recipeId="iron-plate"
+      <BeaconCell nodeId="n1" beacons={[]} gameData={gameData} recipeId="iron-plate"
         machineId={undefined} recipeCategory="crafting" />,
     )
   }
@@ -392,5 +392,41 @@ describe('BeaconModal — apply to every row of the recipe', () => {
   it('has no such button with a single row', () => {
     renderModal()
     expect(screen.queryByRole('button', { name: /Apply to every row/ })).not.toBeInTheDocument()
+  })
+})
+
+describe('BeaconCell — chips over a list of configurations', () => {
+  const renderList = (beacons: BeaconConfig[]) =>
+    render(
+      <BeaconCell nodeId="n1" beacons={beacons} gameData={mockGameData} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" />,
+    )
+
+  it('shows the beacon count and the modules per beacon over slots, without a +N badge for one configuration', () => {
+    renderList([beacon])
+    expect(screen.getByLabelText('Edit beacon')).toHaveTextContent('4')
+    expect(screen.getByTestId('beacon-module-chip')).toHaveTextContent('2/2')
+    expect(screen.queryByTestId('chip-more')).toBeNull()
+  })
+
+  it('shows the first configuration with a +N badge and lists them all in the tooltip', () => {
+    renderList([beacon, { ...beacon, beaconCount: 8 }, { ...beacon, beaconCount: 2 }])
+    expect(screen.getByLabelText('Edit beacon')).toHaveTextContent('4')
+    expect(screen.getByTestId('chip-more')).toHaveTextContent('+2')
+    const title = screen.getByLabelText('Edit beacon').getAttribute('title')!
+    expect(title).toContain('4 × Beacon')
+    expect(title).toContain('8 × Beacon')
+    expect(title).toContain('2 × Beacon')
+  })
+
+  it('shows a beacon without a module as a beacon chip plus a dashed module chip', () => {
+    renderList([{ ...beacon, moduleId: undefined }])
+    expect(screen.getByTestId('beacon-module-chip')).toHaveTextContent('0/2')
+    expect(screen.getByTestId('beacon-module-chip').querySelector('.border-dashed')).not.toBeNull()
+  })
+
+  it('shows a dashed plus when there is none', () => {
+    renderList([])
+    expect(screen.getByLabelText('Add beacon')).toBeInTheDocument()
   })
 })

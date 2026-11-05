@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen } from '@testing-library/react'
-import { ModuleCell } from './ModuleCell'
+import { ModuleCell, mostUsedModule } from './ModuleCell'
 import type { GameData } from '../../data/types'
 
 const makeSpeedModule = () => ({
@@ -60,5 +60,30 @@ describe('ModuleCell', () => {
     expect(cell()).toHaveAttribute('title', 'Edit modules')
     expect(cell()).not.toHaveAttribute('data-over-slots')
     expect(cell()).not.toHaveClass('ring-amber-500')
+  })
+})
+
+describe('ModuleCell chip', () => {
+  const gd = () => ({
+    items: {}, recipes: {}, machines: {}, beacons: {}, defaultMachines: {}, technologies: {}, startingRecipes: [],
+    modules: { 'speed-3': makeSpeedModule(), 'eff-1': { ...makeSpeedModule(), id: 'eff-1', name: 'Efficiency 1', iconPath: '/e.png' } },
+  } as unknown as GameData)
+
+  it('shows an empty machine as a dashed plus reading 0/N', () => {
+    const { container } = render(<ModuleCell modules={[]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
+    expect(screen.getByText('0/4')).toBeInTheDocument()
+    expect(container.querySelector('.border-dashed')).not.toBeNull()
+  })
+
+  it('shows the most used module type, the first by id on a tie', () => {
+    expect(mostUsedModule([{ moduleId: 'speed-3', count: 1 }, { moduleId: 'eff-1', count: 3 }])).toBe('eff-1')
+    expect(mostUsedModule([{ moduleId: 'speed-3', count: 2 }, { moduleId: 'eff-1', count: 2 }])).toBe('eff-1')
+    expect(mostUsedModule([{ moduleId: 'speed-3', count: 1 }, { moduleId: 'speed-3', count: 2 }, { moduleId: 'eff-1', count: 2 }])).toBe('speed-3')
+    expect(mostUsedModule([])).toBeUndefined()
+  })
+
+  it('draws used/slots in the bottom-right corner', () => {
+    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
+    expect(screen.getByText('2/4')).toHaveClass('right-0', 'bottom-0')
   })
 })

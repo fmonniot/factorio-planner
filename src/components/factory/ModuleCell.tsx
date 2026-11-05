@@ -1,7 +1,7 @@
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useHorizon } from '../../store/horizon'
 import { withinHorizon } from '../../data/horizon'
-import { Icon } from '../Icon'
+import { IconChip } from './IconChip'
 
 interface ModuleCellProps {
   modules: ModuleConfig[]
@@ -29,34 +29,35 @@ export function ModuleCell({ modules, machineSlots, gameData, noMachine = false,
           ? 'Edit modules (this machine has no module slots)'
           : 'Edit modules (more modules than slots)'
         : 'Edit modules'
-  const firstModule = modules[0] ? gameData.modules[modules[0].moduleId] : undefined
+  const shown = mostUsedModule(modules)
+  const shownModule = shown ? gameData.modules[shown] : undefined
 
   return (
-    <button
-      type="button"
+    <IconChip
       onClick={onOpenEdit}
-      className={`relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${beyondHorizon || overSlots ? 'ring-1 ring-amber-500' : ''}`}
+      size="entity"
+      empty={modules.length === 0}
+      iconPath={shownModule?.iconPath || undefined}
+      alt={shownModule?.name ?? 'module'}
+      fallback="+"
+      quantity={`${usedSlots}/${machineSlots}`}
+      warn={beyondHorizon || overSlots}
       title={title}
       data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       data-over-slots={overSlots ? 'true' : undefined}
-    >
-      {firstModule?.iconPath ? (
-        <Icon
-          iconPath={firstModule.iconPath}
-          alt={firstModule.name}
-          className="w-full h-full object-contain"
-        />
-      ) : (
-        <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">
-          +
-        </span>
-      )}
-      <span
-        className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
-        style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}
-      >
-        {usedSlots}/{machineSlots}
-      </span>
-    </button>
+    />
   )
+}
+
+/** The module type with the most modules; on a tie the first by module id. */
+// eslint-disable-next-line react-refresh/only-export-components
+export function mostUsedModule(modules: ModuleConfig[]): string | undefined {
+  const counts = new Map<string, number>()
+  for (const m of modules) counts.set(m.moduleId, (counts.get(m.moduleId) ?? 0) + m.count)
+  let best: string | undefined
+  for (const [id, n] of counts) {
+    const bestN = best === undefined ? -1 : counts.get(best)!
+    if (n > bestN || (n === bestN && id < best!)) best = id
+  }
+  return best
 }

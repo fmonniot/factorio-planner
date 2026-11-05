@@ -4,6 +4,7 @@ import type { GameData, SolvedArea } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { useHoverPopup } from '../useHoverPopup'
 import { FlowChip } from './AreaFlow'
+import { fmtItemRateText } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // AreaChipsMore — the "+N" of a collapsed area row: a button that opens a popup
@@ -52,6 +53,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
               <li key={f.itemId} className="flex items-center gap-2">
                 <FlowChip {...f} direction={direction} items={items} rateUnit={rateUnit} />
                 <span className="truncate text-gray-200">{items[f.itemId]?.name ?? f.itemId}</span>
+                <span className="font-mono tabular-nums text-gray-400">{fmtItemRateText(f.itemId, f.rate / 60, rateUnit)}</span>
               </li>
             ))}
           </ul>

@@ -220,9 +220,9 @@ describe('RecipeRow', () => {
     expect(screen.getByText(/120/)).toBeInTheDocument()
   })
 
-  it('renders electricity tile', () => {
+  it('shows the row power in the Power column', () => {
     renderRow()
-    expect(screen.getByText('⚡')).toBeInTheDocument()
+    expect(screen.getByTestId('row-power')).toBeInTheDocument()
   })
 
   it('move-up button is disabled when isFirst=true', () => {
@@ -286,11 +286,10 @@ describe('RecipeRow', () => {
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     const onToggle = vi.fn()
     renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: false, onToggleExpand: onToggle })
-    // The collapsed toggle shows ▶ inside a colSpan cell (not the reorder ▲/▼ buttons)
-    const collapseIcon = screen.getByText('▶')
-    expect(collapseIcon).toBeInTheDocument()
-    // Click the button that contains ▶
-    fireEvent.click(collapseIcon.closest('button')!)
+    // The chevron is a button with a state and a label (not the reorder ▲/▼ buttons)
+    const chevron = screen.getByRole('button', { name: 'Expand sp-123' })
+    expect(chevron).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(chevron)
     expect(onToggle).toHaveBeenCalled()
   })
 
@@ -731,7 +730,7 @@ describe('RecipeRow context menu', () => {
 
   it('right-clicking a non-recipe cell does not open the menu', () => {
     renderRow()
-    fireEvent.contextMenu(screen.getByText('⚡'))
+    fireEvent.contextMenu(screen.getByTestId('row-power'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })
@@ -1034,6 +1033,54 @@ describe('RecipeRow sub-factory actions', () => {
     expect('area' in rootPlan().subPlans[0]).toBe(false)
   })
 
+  it('shows the recursive machine count and power of the sub-factory on its row', () => {
+    const nested = makeSubPlan('sp-inner', 'Inner', [recipeNode('r3')])
+    const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'sp-inner' }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    const child = makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), innerNode], [nested])
+    const block = makeEmptyBlock('Test')
+    const root = { ...block.rootPlan, nodes: [spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    const solved = (id: string, machineCountCeil: number, powerKw: number) => [id, { ...solvedNode, recipeNodeId: id, machineCountCeil, powerKw }] as const
+    renderRow({
+      planNode: spNode,
+      solvedNode: undefined,
+      depth: 2,
+      areaView: { index: indexRecipeAreas(root), solvedMap: new Map([solved('r1', 2, 300), solved('r3', 3, 200)]), solvedAreas: undefined },
+    })
+    expect(screen.getByTestId('group-summary')).toHaveTextContent('2 recipes · 5 machines')
+    expect(screen.getByTestId('group-power')).toHaveTextContent('500.0kW')
+    expect(screen.getByText('My Subfactory').closest('td')).toHaveAttribute('data-guide-levels', '2')
+  })
+
+  it('labels the chevron button with the state and the name', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    const chevron = screen.getByRole('button', { name: 'Expand My Subfactory' })
+    expect(chevron).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('stops growing the indent past the nesting limit', () => {
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    renderRow({ planNode: spNode, solvedNode: undefined, depth: 7 })
+    expect(screen.getByText('sp-123').closest('td')).toHaveAttribute('data-guide-levels', '4')
+  })
+
+  it('disables "Wrap in subfactory…" with a reason when the row is already four groups deep', () => {
+    const leaf: GameRecipeNode = { kind: 'game-recipe', id: 'leaf', recipeId: 'iron-plate', modules: [], byproductPolicy: {} }
+    let inner = makeSubPlan('g4', 'g4', [leaf])
+    for (let i = 3; i >= 1; i--) {
+      inner = makeSubPlan(`g${i}`, `g${i}`, [{ kind: 'subplan', id: `h${i + 1}`, subPlanId: `g${i + 1}` }], [inner])
+    }
+    const block = makeEmptyBlock('Test')
+    const root = { ...block.rootPlan, nodes: [{ kind: 'subplan', id: 'h1', subPlanId: 'g1' } as SubPlanNode], subPlans: [inner] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    renderRow({ planNode: leaf, rootPlan: root, parentSubPlanId: 'g4', depth: 4 })
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
+    const wrap = screen.getByRole('menuitem', { name: 'Wrap in subfactory…' })
+    expect(wrap).toBeDisabled()
+    expect(wrap).toHaveAttribute('title', 'Cannot nest deeper than 4 levels')
+  })
+
   it('shows no area marker for an organising sub-factory', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     expect(screen.queryByTestId('area-marker')).not.toBeInTheDocument()
@@ -1081,7 +1128,7 @@ describe('RecipeRow sub-factory actions', () => {
     vi.stubGlobal('confirm', confirm)
 
     // The badge counts recipes recursively, like the confirmation does.
-    expect(screen.getByText('2 recipes')).toBeInTheDocument()
+    expect(screen.getByTestId('group-summary')).toHaveTextContent('2 recipes')
 
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
@@ -1489,12 +1536,13 @@ describe('RecipeRow in a block with areas', () => {
       renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
       const row = screen.getByTestId('area-chips-out').closest('tr')!
       const cells = row.querySelectorAll(':scope > td')
-      expect(cells).toHaveLength(5)
+      expect(cells).toHaveLength(6)
       expect(cells[1]).toHaveAttribute('colspan', '3')
       expect(cells[2]).toContainElement(screen.getByTestId('area-chips-out'))
       expect(cells[3]).toBeEmptyDOMElement()
       expect(cells[3]).toHaveClass('px-2', 'py-0.5')
       expect(cells[4]).toContainElement(screen.getByTestId('area-chips-in'))
+      expect(cells[5]).toHaveClass('text-right')
     })
 
     it('labels the chip groups Receives and Sends', () => {
@@ -1587,13 +1635,13 @@ describe('RecipeRow — burner fuel', () => {
     expect(fuel).toHaveAttribute('data-variant', 'ingredient')
     expect(fuel).toHaveAttribute('title', 'Fuel: coal — Find producer recipe')
     expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
-    expect(document.querySelector('[data-variant="electricity"]')).toBeNull()
+    expect(screen.queryByTestId('row-power')).toBeNull()
   })
 
   it('has no fuel marker for a row without fuel', () => {
     renderRow({ planNode: smeltNode, solvedNode })
     expect(document.querySelector('[data-fuel]')).toBeNull()
-    expect(document.querySelector('[data-variant="electricity"]')).not.toBeNull()
+    expect(screen.getByTestId('row-power')).toBeInTheDocument()
   })
 })
 

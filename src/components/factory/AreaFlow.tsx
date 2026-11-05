@@ -1,6 +1,7 @@
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { Icon } from '../Icon'
+import { isEnergyItem } from '../../data/electricity'
+import { IconChip } from './IconChip'
 import { fmtItemRate } from './ItemTile'
 
 interface ChipProps {
@@ -18,30 +19,17 @@ export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit }:
   const { value: amount, unit: unitLabel } = fmtItemRate(itemId, rate / 60, rateUnit)
   const outside = direction === 'receives' ? ' — from outside the block' : ' — leaves the block'
   const title = `${name}: ${amount}${unitLabel}${boundary ? outside : ''}`
-  const content = (
-    <>
-      {item?.iconPath ? (
-        <Icon iconPath={item.iconPath} alt={name} className="w-4 h-4 object-contain shrink-0" />
-      ) : (
-        <span className="truncate max-w-[4rem]">{name}</span>
-      )}
-      <span>
-        {amount}
-        <span className="opacity-60">{unitLabel}</span>
-      </span>
-    </>
-  )
   return (
-    <span
+    <IconChip
+      iconPath={item?.iconPath || undefined}
+      alt={name}
+      fallback={name}
+      quantity={amount + (isEnergyItem(itemId) ? unitLabel : '')}
+      tone={direction === 'receives' ? 'ingredient' : 'product'}
+      title={title}
       data-item-id={itemId}
       data-direction={direction}
       data-boundary={boundary ? 'true' : 'false'}
-      title={title}
-      className={`inline-flex items-center gap-1 h-6 px-1 rounded border text-[10px] font-mono tabular-nums border-gray-600 text-gray-300 ${
-        boundary ? 'border-dashed' : ''
-      }`}
-    >
-      {content}
-    </span>
+    />
   )
 }

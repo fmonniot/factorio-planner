@@ -95,7 +95,7 @@ test('Build also in… copies the row to an area and Apply to every row sets its
 
   await row(page, ROOT_ELEC).locator('td').nth(2).locator('button').first().click()
   await expect(page.getByRole('heading', { name: 'Edit machine' })).toBeVisible()
-  await page.getByText(/machines$/).click()
+  await page.getByText(/^×\d+ machines$/).click()
   await page.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()
   await page.getByRole('button', { name: 'Apply to every row of this recipe (3)' }).click()
   await page.getByRole('button', { name: 'Close' }).last().click()
@@ -107,14 +107,14 @@ test('Build also in… copies the row to an area and Apply to every row sets its
 test('the recipe picker greys out a recipe the target area already has', async ({ page }) => {
   await open(page)
 
-  await group(page, 'Compression').getByText('Compression').click()
+  await group(page, 'Compression').getByRole('button', { name: /^(Expand|Collapse) Compression$/ }).click()
   const inCompression = await pickerSlot(page, row(page, COMP_ROW))
   await expect(inCompression).toBeDisabled()
   await expect(inCompression).toHaveAttribute('data-in-area', 'true')
   await page.keyboard.press('Escape')
   await expect(page.getByPlaceholder('Search…')).toHaveCount(0)
 
-  await group(page, 'Chlorides').getByText('Chlorides').click()
+  await group(page, 'Chlorides').getByRole('button', { name: /^(Expand|Collapse) Chlorides$/ }).click()
   await expect(await pickerSlot(page, row(page, CHLORIDE_ROW))).toBeEnabled()
 })
 
@@ -160,7 +160,7 @@ test('Duplicate to… copies an area into another area', async ({ page }) => {
 test('Duplicate to… disables an area that already has a row of the recipe', async ({ page }) => {
   await open(page)
 
-  await group(page, 'Compression').getByText('Compression').click()
+  await group(page, 'Compression').getByRole('button', { name: /^(Expand|Collapse) Compression$/ }).click()
   page.once('dialog', d => void d.accept('Packing'))
   await clickRowAction(page, row(page, COMP_ROW), 'Wrap in subfactory…')
   await expect(group(page, 'Packing')).toBeVisible()

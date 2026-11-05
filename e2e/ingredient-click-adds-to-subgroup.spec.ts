@@ -15,18 +15,18 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await setup(page)
 
     // Expand the "Acid Sub" subgroup.
-    await page.locator('main button', { hasText: 'Acid Sub' }).click()
+    await page.getByRole('button', { name: 'Expand Acid Sub' }).click()
 
     // Wait for the subgroup recipe row to appear.
-    const subgroupBadge = page.locator('main button', { hasText: 'Acid Sub' }).locator('span', { hasText: /recipe/ })
-    await expect(subgroupBadge).toHaveText('1 recipe')
+    const subgroupBadge = page.locator('main').getByTestId('group-summary')
+    await expect(subgroupBadge).toContainText('1 recipe')
 
     // Scope to the row right after the subgroup header: that is the subgroup's recipe row.
     // Its ingredient tiles only render once the solver result lands, so rely on
     // auto-waiting (a one-shot count()/last() can run before then, or while only the
     // root recipe's tiles exist, and pick the wrong tile).
     const subgroupRecipeRow = page
-      .locator('main tr', { has: page.locator('button', { hasText: 'Acid Sub' }) })
+      .locator('main tr', { has: page.getByTestId('group-summary') })
       .locator('xpath=following-sibling::tr[1]')
     const ingredientTile = subgroupRecipeRow.locator('button[title$="Find producer recipe"]').first()
     await expect(ingredientTile).toBeVisible({ timeout: 10000 })
@@ -41,7 +41,7 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await slots.first().click()
 
     // The subgroup badge should now show 2 recipes.
-    await expect(subgroupBadge).toHaveText('2 recipes')
+    await expect(subgroupBadge).toContainText('2 recipes')
   })
 
   test('clicking an ingredient at root level adds the new recipe to root (regression)', async ({ page }) => {
@@ -49,8 +49,8 @@ test.describe('ingredient click adds to correct subgroup', () => {
 
     // Count root-level rows before: 1 game-recipe row + 1 subplan row = 2 visible rows
     // (don't expand the subgroup so we know subgroup count stays the same).
-    const subgroupBadge = page.locator('main button', { hasText: 'Acid Sub' }).locator('span', { hasText: /recipe/ })
-    await expect(subgroupBadge).toHaveText('1 recipe')
+    const subgroupBadge = page.locator('main').getByTestId('group-summary')
+    await expect(subgroupBadge).toContainText('1 recipe')
 
     // Click an ingredient tile from the root recipe (the first one in DOM order).
     const ingredientTiles = page.locator('main button[title$="Find producer recipe"]')
@@ -66,6 +66,6 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await slots.first().click()
 
     // Subgroup badge must still show 1 recipe — the new node went to root, not subgroup.
-    await expect(subgroupBadge).toHaveText('1 recipe')
+    await expect(subgroupBadge).toContainText('1 recipe')
   })
 })

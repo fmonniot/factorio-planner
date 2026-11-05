@@ -235,7 +235,7 @@ describe('ProductionTable', () => {
       solveWithSlag('node-1')
       render(<ProductionTable />)
       // Expand the sub-factory so its row renders.
-      fireEvent.click(screen.getByText('▶'))
+      fireEvent.click(screen.getByRole('button', { name: /^Expand / }))
       await openConsumerPicker()
 
       fireEvent.click(screen.getByTitle('Slag To Plate'))

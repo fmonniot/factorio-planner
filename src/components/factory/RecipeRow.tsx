@@ -5,7 +5,10 @@ import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
-import { ItemTile, fmtRate, fmtItemRateText, inputRateUnit } from './ItemTile'
+import { fmtRate, fmtPower, fmtItemRateText, inputRateUnit } from './ItemTile'
+import { ItemChip } from './ItemChip'
+import { treeGuideStyle, guideLevels } from './treeGuides'
+import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { isEnergyItem } from '../../data/electricity'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
@@ -31,7 +34,7 @@ import { rowProductAmount } from '../../solver/build'
 import { neighbourHeatBonus } from '../../solver/effects'
 import { hasProduct } from '../../solver/blockGraph'
 import { itemSourcingActions } from './itemSourcing'
-import { countSubPlanContents } from './subPlanContents'
+import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 
 /** Solved items-per-run of the primary product; undefined unless strictly positive. */
@@ -152,7 +155,6 @@ export function RecipeRow({
   // key) stays stable when a later solve zeroes this node.
   const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
-  const indentPx = depth * 16
   // The badge tooltip, memoised: it walks every area of the recipe, and a badged row renders often.
   const multiAreaBadgeTitle = useMemo(() => {
     if (planNode.kind !== 'game-recipe' || !areaView) return undefined
@@ -221,14 +223,18 @@ export function RecipeRow({
     }
 
     const relY = (e.clientY - rect.top) / rect.height
+    // Nesting limit: the dragged row or group (with everything under it) has to fit where it would land.
+    const fits = (planId: string) => planId === dragging.sourceSubPlanId || canMoveNodeInto(rootPlan, dragging.nodeId, planId)
 
     if (planNode.kind === 'subplan') {
       // Collapsed subgroup: always append-into
-      if (!isExpanded) return 'into'
+      if (!isExpanded) return fits(planNode.subPlanId) ? 'into' : null
       // Expanded subgroup: top half = before (sibling), bottom half = first child
-      return relY < 0.5 ? 'before' : 'into'
+      if (relY < 0.5) return fits(parentSubPlanId) ? 'before' : null
+      return fits(planNode.subPlanId) ? 'into' : null
     }
 
+    if (!fits(parentSubPlanId)) return null
     return relY < 0.5 ? 'before' : 'after'
   }
 
@@ -317,6 +323,12 @@ export function RecipeRow({
       setMenuPos({ x: e.clientX, y: e.clientY })
     }
 
+    const recipes = childPlan ? countSubPlanContents(childPlan).recipes : 0
+    const { machines, powerKw: groupPowerKw } = childPlan
+      ? sumSubPlanSolved(childPlan, areaView?.solvedMap ?? new Map())
+      : { machines: 0, powerKw: 0 }
+    const groupPower = groupPowerKw > 0 ? fmtPower(groupPowerKw) : null
+
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
 
@@ -337,36 +349,38 @@ export function RecipeRow({
         <td
           className="px-2 py-0.5"
           colSpan={3}
-          style={{ paddingLeft: `${8 + indentPx}px` }}
+          data-guide-levels={guideLevels(depth)}
+          style={treeGuideStyle(depth)}
           onContextMenu={openAreaRowMenu}
         >
           {dropZone === 'before' && <DropLine edge="top" />}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={onToggleExpand}
-              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 text-left"
+              aria-expanded={isExpanded === true}
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
+              className="w-[22px] h-[22px] shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-200"
             >
-              <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
-              <span className="font-medium">{label}</span>
-              {childPlan?.area === true && (
-                <span
-                  data-testid="area-marker"
-                  title="Separate area"
-                  className="text-[10px] px-1 rounded border border-teal-700 text-teal-300"
-                >
-                  Area
-                </span>
-              )}
-              {childPlan && (() => {
-                const { recipes } = countSubPlanContents(childPlan)
-                return (
-                  <span className="text-gray-600 text-[10px]">
-                    {recipes} recipe{recipes !== 1 ? 's' : ''}
-                  </span>
-                )
-              })()}
+              <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+                <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
             </button>
+            <span className="font-semibold text-xs whitespace-nowrap truncate" title={label}>{label}</span>
+            {childPlan?.area === true && (
+              <span
+                data-testid="area-marker"
+                title="Separate area"
+                className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 shrink-0"
+              >
+                Area
+              </span>
+            )}
+            {childPlan && (
+              <span data-testid="group-summary" className="text-gray-400 text-[11px] whitespace-nowrap shrink-0">
+                {recipes} recipe{recipes !== 1 ? 's' : ''} · {machines} machine{machines !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
           {menuPos && (
             <RowActionsMenu
@@ -413,7 +427,7 @@ export function RecipeRow({
             />
           )}
         </td>
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
+        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.sends ?? []}
             direction="sends"
@@ -422,8 +436,8 @@ export function RecipeRow({
             testId="area-chips-out"
           />
         </td>
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu} />
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
+        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu} />
+        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.receives ?? []}
             direction="receives"
@@ -431,6 +445,13 @@ export function RecipeRow({
             rateUnit={rateUnit}
             testId="area-chips-in"
           />
+        </td>
+        <td className="px-2 py-0.5 text-right whitespace-nowrap" onContextMenu={openAreaRowMenu}>
+          {groupPower && (
+            <span data-testid="group-power" className="font-mono tabular-nums text-[11px] text-gray-400">
+              {groupPower.value}<span className="opacity-60">{groupPower.unit}</span>
+            </span>
+          )}
         </td>
       </tr>
     )
@@ -495,6 +516,8 @@ export function RecipeRow({
     if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
   }
 
+  const canWrap = canAddGroupIn(rootPlan, parentSubPlanId)
+
   const rowActions: RowAction[] = [
     {
       label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
@@ -503,7 +526,12 @@ export function RecipeRow({
     ...(!isByproductConsumer
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
-    { label: 'Wrap in subfactory…', onSelect: handleWrap },
+    {
+      label: 'Wrap in subfactory…',
+      disabled: !canWrap,
+      title: canWrap ? undefined : NESTING_LIMIT_TITLE,
+      onSelect: handleWrap,
+    },
     ...(hasAreas
       ? [
           {
@@ -555,7 +583,8 @@ export function RecipeRow({
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
         className="px-2 py-0.5 whitespace-nowrap"
-        style={{ paddingLeft: `${8 + indentPx}px` }}
+        data-guide-levels={guideLevels(depth)}
+        style={treeGuideStyle(depth)}
         onContextMenu={e => {
           e.preventDefault()
           setItemMenu(null)
@@ -565,19 +594,17 @@ export function RecipeRow({
       >
         {dropZone === 'before' && <DropLine edge="top" />}
         {dropZone === 'after' && <DropLine edge="bottom" />}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1.5 min-w-0">
           <div className="relative shrink-0">
             {/* Recipe icon derived from primary product */}
             {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
               <Icon
                 iconPath={gameData.items[primaryItemId]!.iconPath}
                 alt={recipe.name}
-                title={recipe.name}
                 className="w-8 h-8 object-contain shrink-0"
               />
             ) : (
               <span
-                title={recipe.name}
                 className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
               >
                 {recipe.name.substring(0, 2).toUpperCase()}
@@ -594,6 +621,9 @@ export function RecipeRow({
               </span>
             )}
           </div>
+          <span data-testid="recipe-name" title={recipe.name} className="text-[11px] font-medium truncate min-w-0">
+            {recipe.name}
+          </span>
           {byRecipeView && hasAreas && hereAreaId && (
             <span data-testid="row-area" className="text-[10px] text-gray-400 select-none">
               {areaName(rootPlan, hereAreaId)}
@@ -673,11 +703,11 @@ export function RecipeRow({
         )}
       </td>
 
-      {/* Beacon */}
+      {/* Beacons — the data model holds one configuration; the cell takes a list */}
       <td className="px-2 py-0.5 whitespace-nowrap">
         <BeaconCell
           nodeId={planNode.id}
-          beacon={planNode.beaconConfig}
+          beacons={planNode.beaconConfig ? [planNode.beaconConfig] : []}
           gameData={gameData}
           recipeId={planNode.recipeId}
           machineId={planNode.machineId}
@@ -685,49 +715,50 @@ export function RecipeRow({
         />
       </td>
 
-      {/* Products — primary output(s), with pinned-rate input when pinned */}
+      {/* Products — primary output(s), right-aligned; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5 items-center">
+        <div className="flex flex-wrap gap-1.5 items-center justify-end">
           {productEntries.map(([itemId, ratePerMin]) => {
-            if (isPinned && !isByproductConsumer) {
-              // Replace the static tile with an editable input.
-              return (
-                <div key={itemId} className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0.001"
-                    step="any"
-                    aria-label="Pinned rate"
-                    // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, inputRateUnit(primaryItemId, rateUnit))}
-                    key={`${planNode.id}-pin-${inputRateUnit(primaryItemId, rateUnit)}-${primaryPerRun.toFixed(6)}`}
-                    onChange={e => handlePinnedRateChange(e.target.value)}
-                    className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
-                  />
-                  <span className="text-gray-600 text-[10px]">{isEnergyItem(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
-                </div>
-              )
-            }
+            const showPin = isPinned && !isByproductConsumer
             const productTemp = productTemperatures[itemId]
             return (
-              <ItemTile
-                key={itemId}
-                item={gameData.items[itemId]}
-                ratePerSec={ratePerMin / 60}
-                variant="product"
-                sourcing={activeBlock?.itemSourcing[itemId]}
-                onContextMenu={e => openItemMenu(e, itemId, false)}
-                temperature={productTemp}
-                title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
-              />
+              <div key={itemId} className="flex items-center gap-1">
+                {showPin && (
+                  // Kept until the side panel takes over the rate (it edits the pin there).
+                  <>
+                    <input
+                      type="number"
+                      min="0.001"
+                      step="any"
+                      aria-label="Pinned rate"
+                      // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
+                      defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, inputRateUnit(primaryItemId, rateUnit))}
+                      key={`${planNode.id}-pin-${inputRateUnit(primaryItemId, rateUnit)}-${primaryPerRun.toFixed(6)}`}
+                      onChange={e => handlePinnedRateChange(e.target.value)}
+                      className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
+                    />
+                    <span className="text-gray-600 text-[10px]">{isEnergyItem(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
+                  </>
+                )}
+                <ItemChip
+                  item={gameData.items[itemId]}
+                  ratePerSec={ratePerMin / 60}
+                  variant="product"
+                  pinned={showPin}
+                  sourcing={activeBlock?.itemSourcing[itemId]}
+                  onContextMenu={e => openItemMenu(e, itemId, false)}
+                  temperature={productTemp}
+                  title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
+                />
+              </div>
             )
           })}
         </div>
       </td>
 
-      {/* Byproducts — non-primary outputs; click tile to make it primary */}
+      {/* Byproducts — non-primary outputs; click chip to make it primary */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex flex-wrap gap-1.5">
           {byproductEntries.map(([itemId, ratePerMin]) => {
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
             const baseName = gameData.items[itemId]?.name ?? itemId
@@ -738,9 +769,9 @@ export function RecipeRow({
             const hint = onAddConsumer ? '; right-click to add a consumer recipe or choose how it is sourced' : '; right-click to choose how it is sourced'
 
             if (isMultiOutput) {
-              // In multi-output recipes, clicking a byproduct tile makes it primary.
+              // In multi-output recipes, clicking a byproduct chip makes it primary.
               return (
-                <ItemTile
+                <ItemChip
                   key={itemId}
                   item={gameData.items[itemId]}
                   ratePerSec={ratePerMin / 60}
@@ -757,7 +788,7 @@ export function RecipeRow({
             // Single-output (shouldn't have byproducts, but handle gracefully):
             // clicking toggles feed-back / discard policy.
             return (
-              <ItemTile
+              <ItemChip
                 key={itemId}
                 item={gameData.items[itemId]}
                 ratePerSec={ratePerMin / 60}
@@ -786,41 +817,44 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients + electricity */}
+      {/* Ingredients */}
       <td className="px-2 py-0.5">
-        <div className="flex items-start gap-1">
-          <div className="flex flex-wrap gap-0.5 flex-1">
-            {inputEntries.map(([itemId, ratePerMin]) => {
-              const itemName = gameData.items[itemId]?.name ?? itemId
-              const temp = temperatureLabels[itemId]
-              const label = temp ? `${itemName} (${temp})` : itemName
-              const isFuel = itemId === solvedNode?.fuelItemId
-              return (
-                <ItemTile
-                  key={itemId}
-                  item={gameData.items[itemId]}
-                  ratePerSec={ratePerMin / 60}
-                  variant="ingredient"
-                  fuel={isFuel}
-                  onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                  onContextMenu={e => openItemMenu(e, itemId, false)}
-                  sourcing={activeBlock?.itemSourcing[itemId]}
-                  temperature={temp}
-                  title={isFuel
-                    ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
-                    : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
-                />
-              )
-            })}
-          </div>
-          {powerKw > 0 && (
-            <ItemTile
-              item={undefined}
-              ratePerSec={powerKw}
-              variant="electricity"
-            />
-          )}
+        <div className="flex flex-wrap gap-1.5">
+          {inputEntries.map(([itemId, ratePerMin]) => {
+            const itemName = gameData.items[itemId]?.name ?? itemId
+            const temp = temperatureLabels[itemId]
+            const label = temp ? `${itemName} (${temp})` : itemName
+            const isFuel = itemId === solvedNode?.fuelItemId
+            return (
+              <ItemChip
+                key={itemId}
+                item={gameData.items[itemId]}
+                ratePerSec={ratePerMin / 60}
+                variant="ingredient"
+                fuel={isFuel}
+                onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
+                onContextMenu={e => openItemMenu(e, itemId, false)}
+                sourcing={activeBlock?.itemSourcing[itemId]}
+                temperature={temp}
+                title={isFuel
+                  ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
+                  : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
+              />
+            )
+          })}
         </div>
+      </td>
+
+      {/* Power */}
+      <td className="px-2 py-0.5 text-right whitespace-nowrap">
+        {powerKw > 0 && (() => {
+          const power = fmtPower(powerKw)
+          return (
+            <span data-testid="row-power" className="font-mono tabular-nums text-[11px] text-cyan-300">
+              {power.value}<span className="opacity-60">{power.unit}</span>
+            </span>
+          )
+        })()}
       </td>
     </tr>
   )
@@ -844,7 +878,7 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
       data-testid={testId}
       role="group"
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
-      className="flex flex-wrap gap-0.5"
+      className="flex flex-wrap items-center justify-end gap-1.5"
     >
       {flows.slice(0, AREA_CHIP_CAP).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />

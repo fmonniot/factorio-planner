@@ -81,8 +81,8 @@ test.describe('Byproduct consumer mode', () => {
     // confirming the solver computed a positive throughput from the oxygen surplus.
     const row = nitricAcidRow(page)
     await expect(row).toBeVisible()
-    // Output item icons appear in the Products td; any img with a title suffices.
-    await expect(row.locator('img[title]').first()).toBeVisible({ timeout: 5000 })
+    // Output item icons appear in the Products td; any img suffices.
+    await expect(row.locator('img').first()).toBeVisible({ timeout: 5000 })
   })
 
   test('toggling byproduct consumer off restores the underdetermined warning', async ({ page }) => {

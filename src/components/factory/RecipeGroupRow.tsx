@@ -1,7 +1,8 @@
 import type { GameData, SolvedNode, SubPlan } from '../../data/types'
 import { dedicatedProduct } from '../../solver/areas'
 import { Icon } from '../Icon'
-import { ItemTile } from './ItemTile'
+import { ItemChip } from './ItemChip'
+import { fmtPower } from './ItemTile'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 import {
   multiAreaSummary,
@@ -74,28 +75,35 @@ export function RecipeGroupRow({ group, rootPlan, index, solvedMap, gameData, is
       </td>
       <td />
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex flex-wrap gap-1.5">
           {rates.products.map(([id, rate]) => (
-            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="product" temperature={productTemps[id]} />
+            <ItemChip key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="product" temperature={productTemps[id]} />
           ))}
         </div>
       </td>
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex flex-wrap gap-1.5">
           {rates.byproducts.map(([id, rate]) => (
-            <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="byproduct" temperature={productTemps[id]} />
+            <ItemChip key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="byproduct" temperature={productTemps[id]} />
           ))}
         </div>
       </td>
       <td className="px-2 py-0.5">
-        <div className="flex items-start gap-1">
-          <div className="flex flex-wrap gap-0.5 flex-1">
-            {rates.inputs.map(([id, rate]) => (
-              <ItemTile key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="ingredient" temperature={ingredientTemps[id]} />
-            ))}
-          </div>
-          {rates.powerKw > 0 && <ItemTile item={undefined} ratePerSec={rates.powerKw} variant="electricity" />}
+        <div className="flex flex-wrap gap-1.5">
+          {rates.inputs.map(([id, rate]) => (
+            <ItemChip key={id} item={gameData.items[id]} ratePerSec={rate / 60} variant="ingredient" temperature={ingredientTemps[id]} />
+          ))}
         </div>
+      </td>
+      <td className="px-2 py-0.5 text-right whitespace-nowrap">
+        {rates.powerKw > 0 && (() => {
+          const power = fmtPower(rates.powerKw)
+          return (
+            <span className="font-mono tabular-nums text-[11px] text-cyan-300">
+              {power.value}<span className="opacity-60">{power.unit}</span>
+            </span>
+          )
+        })()}
       </td>
     </tr>
   )
