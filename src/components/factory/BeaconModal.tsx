@@ -19,7 +19,7 @@ function computeBeaconEffects(
   gameData: GameData,
 ): EffectTotals {
   const totals: EffectTotals = { speed: 0, productivity: 0, consumption: 0, pollution: 0, quality: 0 }
-  const mod = gameData.modules[beacon.moduleId]
+  const mod = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
   if (!mod) return totals
 
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
@@ -73,7 +73,7 @@ export function BeaconModal({
   const { machine } = row
 
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
-  const selectedModule = gameData.modules[beacon.moduleId]
+  const selectedModule = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
   const hasBeaconData = Object.keys(gameData.beacons).length > 0
 
   const availableBeacons = Object.values(gameData.beacons)
@@ -275,8 +275,8 @@ export function BeaconModal({
                 <span className="absolute bottom-0 right-0 text-[8px] text-gray-400">▾</span>
               </button>
               <span className="text-xs text-gray-300 flex-1">
-                {selectedModule?.name ?? beacon.moduleId}
-                {!withinHorizon(horizon.moduleIds, beacon.moduleId) && (
+                {selectedModule?.name ?? beacon.moduleId ?? 'No module'}
+                {beacon.moduleId && !withinHorizon(horizon.moduleIds, beacon.moduleId) && (
                   <>
                     {' '}
                     <span data-testid="beyond-horizon" className="text-[10px] text-amber-400">Beyond research horizon</span>

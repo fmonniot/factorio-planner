@@ -906,7 +906,7 @@ are the first ones inside the research horizon. The `+` is disabled, with a titl
 the reason, when the row has no machine within the horizon ("No machine within research
 horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or
 no module is ("No module within the research horizon"; only when a horizon is active). A configured beacon whose type or
-module is outside the horizon gets an amber ring.
+module is outside the horizon gets an amber ring. A configuration without a module (the schema allows it; no control creates one yet) shows the beacon icon and count like any other, but contributes nothing to the row.
 
 **Products cell.** The output that counts as the primary product
 (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an
@@ -1141,7 +1141,7 @@ The same component in recipes mode (`source="recipes"`).
 
 ### Edit beacon modal
 
-`BeaconModal.tsx`, opened from the Beacon cell.
+`BeaconModal.tsx`, opened from the Beacon cell. A configuration without a module shows "No module" in the module picker and no effect totals.
 
 - **Beacon** — beacon type (non-hidden beacons inside the research horizon, the
   configured one marked "Beyond research horizon" when outside; picking one copies its module

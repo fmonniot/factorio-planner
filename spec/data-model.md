@@ -687,12 +687,15 @@ interface ModuleConfig {
 
 interface BeaconConfig {
   beaconId?: string               // BeaconEntity id; absent on configs made without beacon data
-  moduleId: string
+  moduleId?: string               // absent: a beacon with no module, which contributes nothing
   beaconCount: number             // int >= 0
   modulesPerBeacon: number        // int > 0
   distributionEfficiency: number  // >= 0
 }
 ```
+
+A `BeaconConfig` without a `moduleId` is valid (older plans always have one and load unchanged): the
+beacon is placed but holds no module, so the solver ignores it and the snapshot does not send it.
 
 The total module count on a node is kept within the machine's `moduleSlots` by the
 UI, not by the schema. When `beaconId` is set, the beacon modal copies the

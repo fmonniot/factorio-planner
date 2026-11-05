@@ -504,6 +504,20 @@ describe('parsePlan', () => {
     expect(() => parsePlan(plan)).not.toThrow()
   })
 
+  it('accepts a beacon config without a module and keeps it without one', () => {
+    const plan = minimalPlan()
+    ;(plan.nodes[0] as GameRecipeNode).beaconConfig = {
+      beaconId: 'beacon',
+      beaconCount: 4,
+      modulesPerBeacon: 2,
+      distributionEfficiency: 1.5,
+    }
+    const parsed = parsePlan(plan)
+    const cfg = (parsed.nodes[0] as GameRecipeNode).beaconConfig
+    expect(cfg).toBeDefined()
+    expect(cfg?.moduleId).toBeUndefined()
+  })
+
   it('accepts a node with a pinned rate', () => {
     const plan = minimalPlan()
     ;(plan.nodes[0] as GameRecipeNode).pinnedRate = 10

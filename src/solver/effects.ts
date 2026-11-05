@@ -100,7 +100,7 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
 
   // Beacon contributions: capped by both the beacon entity's and the machine's allowed effects.
   const beacon = node.beaconConfig
-  if (beacon) {
+  if (beacon?.moduleId) {
     const mod = gameData.modules[beacon.moduleId]
     if (mod) {
       const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined

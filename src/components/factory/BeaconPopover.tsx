@@ -92,11 +92,11 @@ export function BeaconCell({ nodeId, beacon, gameData, recipeId, machineId, reci
 
   // Determine the icon: prefer the beacon-type icon, fall back to module icon.
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
-  const moduleData = gameData.modules[beacon.moduleId]
+  const moduleData = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
   const displayIcon = beaconEntity?.iconPath ?? moduleData?.iconPath
   const beyondHorizon =
     (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
-    !withinHorizon(horizon.moduleIds, beacon.moduleId)
+    (beacon.moduleId !== undefined && !withinHorizon(horizon.moduleIds, beacon.moduleId))
 
   return (
     <>
