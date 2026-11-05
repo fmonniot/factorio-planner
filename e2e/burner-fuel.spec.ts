@@ -14,7 +14,7 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   const fuel = row.locator('[data-fuel="true"]')
   await expect(fuel).toHaveCount(1)
   await expect(fuel).toHaveAttribute('data-variant', 'ingredient')
-  await expect(fuel).toHaveAttribute('title', 'Fuel: Cellulose fiber — Find producer recipe')
+  await expect(fuel).toHaveAttribute('title', /^Fuel: Cellulose fiber — Find producer recipe — \S+$/)
   await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // Pick solid fuel in the Edit machine modal.
@@ -26,7 +26,7 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
   // 30 runs/min x 7 s = 3.5 furnaces; 3.5 x 90 kW / 12 MJ = 0.02625 /s = 1.575 /min.
-  await expect(fuel).toHaveAttribute('title', 'Fuel: Solid fuel — Find producer recipe')
+  await expect(fuel).toHaveAttribute('title', /^Fuel: Solid fuel — Find producer recipe — \S+$/)
   await expect(fuel).toContainText(/^1\.57$/)
   await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 

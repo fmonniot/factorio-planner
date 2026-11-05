@@ -27,7 +27,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const rateUnit = useUiStore(s => s.rateUnit)
-  const setTableView = useUiStore(s => s.setTableView)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
 
   const withAreas = useMemo(() => blocks.filter(b => results[b.id]?.areas !== undefined), [blocks, results])
@@ -82,7 +81,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     if (!block) return
     setActiveBlock(block.id)
     if (area.handleNodeId !== undefined) {
-      setTableView('tree')
       requestRevealRow(area.handleNodeId)
     }
     onClose()

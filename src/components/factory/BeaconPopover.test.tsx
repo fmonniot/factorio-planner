@@ -425,6 +425,14 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(screen.getByTestId('beacon-module-chip').querySelector('.border-dashed')).not.toBeNull()
   })
 
+  it('keeps the count and names the id of a module the loaded data set does not know', () => {
+    renderList([{ ...beacon, moduleId: 'gone-module' }])
+    const chip = screen.getByLabelText('Edit beacon modules')
+    expect(chip).toHaveTextContent('2/2')
+    expect(chip.getAttribute('title')).toContain('gone-module')
+    expect(chip.querySelector('.border-dashed')).toBeNull()
+  })
+
   it('shows a dashed plus when there is none', () => {
     renderList([])
     expect(screen.getByLabelText('Add beacon')).toBeInTheDocument()

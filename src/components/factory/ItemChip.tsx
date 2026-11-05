@@ -2,7 +2,7 @@ import type { Item, ItemSourcingMode } from '../../data/types'
 import { ELECTRICITY_ITEM_ID, isEnergyItem } from '../../data/electricity'
 import { useUiStore } from '../../store/uiStore'
 import { IconChip, PinBadge, SourcingBadge, type ChipTone } from './IconChip'
-import { fmtItemRate } from './ItemTile'
+import { fmtItemRate, fmtItemRateText } from './ItemTile'
 import { itemSourcingLabel } from './itemSourcing'
 
 export type ItemChipVariant = Exclude<ChipTone, 'neutral'>
@@ -32,7 +32,9 @@ export function ItemChip({ item, ratePerSec, variant, onClick, onContextMenu, ti
   // Energy is always in power units, which the rate unit does not tell; item rates follow the toolbar's unit.
   const quantity = isEnergyItem(item?.id) ? rate.value + rate.unit : rate.value
   const baseTitle = title ?? item?.name
-  const chipTitle = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle
+  const sourced = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle
+  // The corner shows the number only: the title carries the full rate with its unit.
+  const chipTitle = sourced ? `${sourced} — ${fmtItemRateText(item?.id, ratePerSec, unit)}` : sourced
   const electricityNoIcon = item?.id === ELECTRICITY_ITEM_ID && !item?.iconPath
 
   return (

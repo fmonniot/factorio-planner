@@ -7,11 +7,9 @@ import { fmtPower } from './ItemTile'
 import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
-import { Segment, Segmented } from '../SegmentedControl'
-import { RecipeGroupRow } from './RecipeGroupRow'
 import { treeGuideStyle } from './treeGuides'
 import { canMoveNodeInto } from '../../data/nesting'
-import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, recipeGroups, type AreaView, type RecipeGroup } from './recipeAreas'
+import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, type AreaView } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
 /** How long a revealed row stays highlighted. */
@@ -50,24 +48,6 @@ export function ProductionTable() {
   const areaIndex = useMemo(() => (rootPlan ? indexRecipeAreas(rootPlan) : undefined), [rootPlan])
   const areaView: AreaView | undefined = areaIndex && { index: areaIndex, solvedMap, solvedAreas: solverResult?.areas }
 
-  // The by-recipe view only exists in a block with areas; any other block shows the tree.
-  const tableView = useUiStore(s => s.tableView)
-  const setTableView = useUiStore(s => s.setTableView)
-  const view = areaIndex?.hasAreas && tableView === 'recipe' ? 'recipe' : 'tree'
-  const groups = useMemo(() => (rootPlan && areaIndex ? recipeGroups(rootPlan, areaIndex) : []), [rootPlan, areaIndex])
-  // The recipe lines that are open (a line with one row has nothing to open). Not persisted; it starts over in another block.
-  const [openRecipes, setOpenRecipes] = useState<{ blockId: string | undefined; ids: Set<string> }>({ blockId: undefined, ids: new Set() })
-  // Another block became active: drop the old set now, so coming back to a block finds its lines closed.
-  if (openRecipes.blockId !== activeBlock?.id) setOpenRecipes({ blockId: activeBlock?.id, ids: new Set() })
-  const openIds = openRecipes.blockId === activeBlock?.id ? openRecipes.ids : new Set<string>()
-
-  function toggleRecipe(recipeId: string) {
-    const next = new Set(openIds)
-    if (next.has(recipeId)) next.delete(recipeId)
-    else next.add(recipeId)
-    setOpenRecipes({ blockId: activeBlock?.id, ids: next })
-  }
-
   // A request to show a row (Build also in…, Go to row in…): expand its sub-factories now, scroll
   // and flash once it is rendered. A request left over from before this table mounted is ignored.
   const revealRequest = useUiStore(s => s.revealRowRequest)
@@ -75,22 +55,10 @@ export function ProductionTable() {
   const [highlight, setHighlight] = useState<{ nodeId: string; seq: number } | null>(null)
   if (revealRequest && revealRequest.seq !== handledRevealSeq) {
     setHandledRevealSeq(revealRequest.seq)
-    if (view === 'recipe') {
-      // A row of a displayed line: open the line and flash the row. A handle (not in this view) or an unknown row is ignored.
-      const ref = areaIndex?.rowById.get(revealRequest.nodeId)
-      const group = ref && groups.find(g => g.recipeId === ref.node.recipeId)
-      if (group?.rows.some(r => r.node.id === revealRequest.nodeId)) {
-        if (group.rows.length >= 2 && !openIds.has(group.recipeId)) {
-          setOpenRecipes({ blockId: activeBlock?.id, ids: new Set([...openIds, group.recipeId]) })
-        }
-        setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
-      }
-    } else {
-      const handles = rootPlan ? ancestorHandleIds(rootPlan, revealRequest.nodeId) : undefined
-      if (handles) {
-        if (handles.some(h => !expanded.has(h))) setExpanded(new Set([...expanded, ...handles]))
-        setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
-      }
+    const handles = rootPlan ? ancestorHandleIds(rootPlan, revealRequest.nodeId) : undefined
+    if (handles) {
+      if (handles.some(h => !expanded.has(h))) setExpanded(new Set([...expanded, ...handles]))
+      setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
     }
   }
   useEffect(() => {
@@ -151,24 +119,6 @@ export function ProductionTable() {
                   <th className="px-2 py-1 w-[170px] min-w-[170px] max-w-[170px]">
                     <span className="flex items-center gap-2">
                       Recipe
-                      {areaIndex?.hasAreas && (
-                        <Segmented label="Table view" size="xs">
-                          <Segment
-                            pressed={view === 'tree'}
-                            title="One row per recipe node, grouped by sub-factory and area"
-                            onClick={() => setTableView('tree')}
-                          >
-                            Tree
-                          </Segment>
-                          <Segment
-                            pressed={view === 'recipe'}
-                            title="One line per recipe with its total over every area; open a line to see its rows per area"
-                            onClick={() => setTableView('recipe')}
-                          >
-                            By recipe
-                          </Segment>
-                        </Segmented>
-                      )}
                     </span>
                   </th>
                   <th className="px-2 py-1 w-[100px]">Machine</th>
@@ -193,9 +143,7 @@ export function ProductionTable() {
                 </tr>
               </thead>
               <tbody>
-                {rootPlan && view === 'recipe' && areaIndex && areaView && gameData &&
-                  renderRecipeView(groups, openIds, toggleRecipe, rootPlan, areaView, gameData, highlight?.nodeId ?? null)}
-                {rootPlan && view === 'tree' && renderNodes(
+                {rootPlan && renderNodes(
                   nodes,
                   0,
                   rootPlan,
@@ -209,7 +157,7 @@ export function ProductionTable() {
                   areaView,
                   highlight?.nodeId ?? null,
                 )}
-                {rootPlan && view === 'tree' && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
+                {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
               </tbody>
             </table>
           </RecipeDndProvider>
@@ -303,62 +251,6 @@ function renderNodes(
     }
   })
 
-  return rows
-}
-
-// ---------------------------------------------------------------------------
-// By-recipe view
-// ---------------------------------------------------------------------------
-
-function renderRecipeView(
-  groups: RecipeGroup[],
-  openIds: Set<string>,
-  toggleRecipe: (recipeId: string) => void,
-  rootPlan: SubPlan,
-  areaView: AreaView,
-  gameData: import('../../data/types').GameData,
-  highlightedNodeId: string | null,
-): React.ReactNode[] {
-  const rows: React.ReactNode[] = []
-  const row = (ref: RecipeGroup['rows'][number], depth: number) => {
-    return (
-      <RecipeRow
-        key={ref.node.id}
-        solvedNode={areaView.solvedMap.get(ref.node.id)}
-        planNode={ref.node}
-        isFirst={false}
-        isLast={false}
-        depth={depth}
-        gameData={gameData}
-        rootPlan={rootPlan}
-        parentSubPlanId={ref.subPlanId}
-        nodeIndex={0} // only the drop handler reads it, and drag is off in this view
-        areaView={areaView}
-        isHighlighted={ref.node.id === highlightedNodeId}
-        byRecipeView
-      />
-    )
-  }
-  for (const group of groups) {
-    if (group.rows.length < 2) {
-      rows.push(row(group.rows[0], 0))
-      continue
-    }
-    const isOpen = openIds.has(group.recipeId)
-    rows.push(
-      <RecipeGroupRow
-        key={`group-${group.recipeId}`}
-        group={group}
-        rootPlan={rootPlan}
-        index={areaView.index}
-        solvedMap={areaView.solvedMap}
-        gameData={gameData}
-        isOpen={isOpen}
-        onToggle={() => toggleRecipe(group.recipeId)}
-      />,
-    )
-    if (isOpen) for (const ref of group.rows) rows.push(row(ref, 1))
-  }
   return rows
 }
 

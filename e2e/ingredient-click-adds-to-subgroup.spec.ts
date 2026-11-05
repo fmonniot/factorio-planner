@@ -28,7 +28,7 @@ test.describe('ingredient click adds to correct subgroup', () => {
     const subgroupRecipeRow = page
       .locator('main tr', { has: page.getByTestId('group-summary') })
       .locator('xpath=following-sibling::tr[1]')
-    const ingredientTile = subgroupRecipeRow.locator('button[title$="Find producer recipe"]').first()
+    const ingredientTile = subgroupRecipeRow.locator('button[title*="Find producer recipe"]').first()
     await expect(ingredientTile).toBeVisible({ timeout: 10000 })
     await ingredientTile.click()
 
@@ -53,7 +53,7 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await expect(subgroupBadge).toContainText('1 recipe')
 
     // Click an ingredient tile from the root recipe (the first one in DOM order).
-    const ingredientTiles = page.locator('main button[title$="Find producer recipe"]')
+    const ingredientTiles = page.locator('main button[title*="Find producer recipe"]')
     await expect(ingredientTiles.first()).toBeVisible()
     await ingredientTiles.first().click()
 

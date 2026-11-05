@@ -19,7 +19,6 @@ import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
-import { areaName } from '../../data/subPlanTree'
 import {
   buildAlsoInOptions,
   duplicateToOptions,
@@ -105,9 +104,9 @@ interface RecipeRowProps {
   areaView?: AreaView
   /** Flash the row: it was just revealed. */
   isHighlighted?: boolean
-  /** Shown under a recipe line of the by-recipe view: no reorder or drag (the position means nothing there), and the area's name instead of the multi-area badge. */
-  byRecipeView?: boolean
 }
+
+const NO_SOLVED: ReadonlyMap<string, SolvedNode> = new Map()
 
 export function RecipeRow({
   solvedNode,
@@ -125,7 +124,6 @@ export function RecipeRow({
   onAddConsumer,
   areaView,
   isHighlighted,
-  byRecipeView = false,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -154,6 +152,12 @@ export function RecipeRow({
   // Last positive solved items-per-run, so the pin factor (and the pin input's
   // key) stays stable when a later solve zeroes this node.
   const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
+
+  // A group row's machines and power over its whole subtree, memoised: the walk would otherwise run on every render.
+  const groupTotals = useMemo(() => {
+    const child = planNode.kind === 'subplan' ? findSubPlanDeep(rootPlan, planNode.subPlanId) : undefined
+    return child ? sumSubPlanSolved(child, areaView?.solvedMap ?? NO_SOLVED) : { machines: 0, powerKw: 0 }
+  }, [planNode, rootPlan, areaView?.solvedMap])
 
   // The badge tooltip, memoised: it walks every area of the recipe, and a badged row renders often.
   const multiAreaBadgeTitle = useMemo(() => {
@@ -324,9 +328,7 @@ export function RecipeRow({
     }
 
     const recipes = childPlan ? countSubPlanContents(childPlan).recipes : 0
-    const { machines, powerKw: groupPowerKw } = childPlan
-      ? sumSubPlanSolved(childPlan, areaView?.solvedMap ?? new Map())
-      : { machines: 0, powerKw: 0 }
+    const { machines, powerKw: groupPowerKw } = groupTotals
     const groupPower = groupPowerKw > 0 ? fmtPower(groupPowerKw) : null
 
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
@@ -568,17 +570,15 @@ export function RecipeRow({
       data-node-id={planNode.id}
       {...highlightProps}
       className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity} ${highlightClass}`}
-      draggable={!byRecipeView}
-      onDragStart={byRecipeView ? undefined : handleDragStart}
-      onDragEnd={byRecipeView ? undefined : handleDragEnd}
-      onDragOver={byRecipeView ? undefined : handleDragOver}
-      onDragLeave={byRecipeView ? undefined : handleDragLeave}
-      onDrop={byRecipeView ? undefined : handleDrop}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Reorder */}
-      {byRecipeView
-        ? <td />
-        : <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />}
+      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
 
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
@@ -594,18 +594,18 @@ export function RecipeRow({
       >
         {dropZone === 'before' && <DropLine edge="top" />}
         {dropZone === 'after' && <DropLine edge="bottom" />}
-        <div className="flex items-center gap-1.5 min-w-0">
+        <div className="flex items-center gap-1 min-w-0">
           <div className="relative shrink-0">
             {/* Recipe icon derived from primary product */}
             {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
               <Icon
                 iconPath={gameData.items[primaryItemId]!.iconPath}
                 alt={recipe.name}
-                className="w-8 h-8 object-contain shrink-0"
+                className="w-7 h-7 object-contain shrink-0"
               />
             ) : (
               <span
-                className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
+                className="w-7 h-7 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
               >
                 {recipe.name.substring(0, 2).toUpperCase()}
               </span>
@@ -624,12 +624,7 @@ export function RecipeRow({
           <span data-testid="recipe-name" title={recipe.name} className="text-[11px] font-medium truncate min-w-0">
             {recipe.name}
           </span>
-          {byRecipeView && hasAreas && hereAreaId && (
-            <span data-testid="row-area" className="text-[10px] text-gray-400 select-none">
-              {areaName(rootPlan, hereAreaId)}
-            </span>
-          )}
-          {!byRecipeView && index && areaView && recipeAreaCount >= 2 && hereAreaId && (
+          {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
               title={multiAreaBadgeTitle}

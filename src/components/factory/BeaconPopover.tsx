@@ -97,6 +97,8 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
 
   const beaconEntity = beacon.beaconId ? gameData.beacons[beacon.beaconId] : undefined
   const moduleData = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
+  // A module id the loaded data set does not know (after switching data sets): the solver still counts it.
+  const unknownModuleId = beacon.moduleId && !moduleData ? beacon.moduleId : undefined
   const beyondHorizon =
     (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
     (beacon.moduleId !== undefined && !withinHorizon(horizon.moduleIds, beacon.moduleId))
@@ -131,12 +133,18 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
         <IconChip
           onClick={() => setOpen(o => !o)}
           size="entity"
-          empty={!moduleData}
+          empty={!moduleData && !unknownModuleId}
+          warn={unknownModuleId !== undefined}
           iconPath={moduleData?.iconPath || undefined}
-          alt={moduleData?.name ?? 'module'}
-          fallback="+"
-          quantity={`${moduleData ? beacon.modulesPerBeacon : 0}/${slots}`}
-          title={moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon` : 'Beacon without a module'}
+          alt={moduleData?.name ?? unknownModuleId ?? 'module'}
+          fallback={unknownModuleId !== undefined ? '?' : '+'}
+          quantity={`${moduleData || unknownModuleId ? beacon.modulesPerBeacon : 0}/${slots}`}
+          title={
+            moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon`
+            : unknownModuleId ? `Unknown module "${unknownModuleId}" × ${beacon.modulesPerBeacon} per beacon (not in the loaded game data)`
+            : 'Beacon without a module'
+          }
+          aria-label="Edit beacon modules"
           data-testid="beacon-module-chip"
         />
       </div>

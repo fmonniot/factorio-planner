@@ -11,8 +11,6 @@ import {
   multiAreaTitle,
   presentRecipesFor,
   recipeAreaIds,
-  recipeGroupRates,
-  recipeGroups,
 } from './recipeAreas'
 import type { GameRecipeNode, RecipeNode, SolvedNode, SubPlan } from '../../data/types'
 
@@ -235,59 +233,3 @@ describe('presentRecipesFor', () => {
   })
 })
 
-describe('recipeGroups', () => {
-  const ids = (g: { rows: { node: { id: string } }[] }) => g.rows.map(r => r.node.id)
-
-  it('groups rows by recipe in display order, rows in area order', () => {
-    const p = plan('P', 'Plastics', [gameRow('y', 'Y'), gameRow('x2', 'X')], [], true)
-    const root = plan('root', 'Main', [gameRow('x1', 'X'), handle('h', 'P'), gameRow('z', 'Z')], [p])
-    const groups = recipeGroups(root, indexRecipeAreas(root))
-    expect(groups.map(g => g.recipeId)).toEqual(['X', 'Y', 'Z'])
-    expect(groups.map(ids)).toEqual([['x1', 'x2'], ['y'], ['z']])
-  })
-
-  it('puts the root row first even when the area comes first in the table', () => {
-    const p = plan('P', 'Plastics', [gameRow('x2', 'X')], [], true)
-    const root = plan('root', 'Main', [handle('h', 'P'), gameRow('x1', 'X')], [p])
-    expect(recipeGroups(root, indexRecipeAreas(root)).map(ids)).toEqual([['x1', 'x2']])
-  })
-
-  it('leaves out rows of a sub-plan without a handle', () => {
-    const p = plan('P', 'Plastics', [gameRow('x2', 'X')], [], true)
-    const root = plan('root', 'Main', [gameRow('x1', 'X')], [p])
-    expect(recipeGroups(root, indexRecipeAreas(root)).map(ids)).toEqual([['x1']])
-  })
-})
-
-describe('recipeGroupRates', () => {
-  const recipe = { products: [{ itemId: 'h2' }, { itemId: 'o2' }], mainProduct: 'h2' } as unknown as Parameters<typeof recipeGroupRates>[1]
-  const ref = (id: string, primaryProduct?: string) => ({
-    node: { ...gameRow(id, 'e'), ...(primaryProduct ? { primaryProduct } : {}) },
-    areaId: 'root',
-    subPlanId: 'root',
-  })
-  const map = () => new Map([
-    ['a', solvedNode('a', { outputRates: { h2: 10, o2: 5 }, inputRates: { water: 7 }, powerKw: 100 })],
-    ['b', solvedNode('b', { outputRates: { h2: 6, o2: 3 }, inputRates: { water: 4 }, powerKw: 50 })],
-  ])
-
-  it('adds the rows up, the primary product being a product and the rest byproducts', () => {
-    const r = recipeGroupRates([ref('a'), ref('b')], recipe, map())
-    expect(r.products).toEqual([['h2', 16]])
-    expect(r.byproducts).toEqual([['o2', 8]])
-    expect(r.inputs).toEqual([['water', 11]])
-    expect(r.powerKw).toBe(150)
-  })
-
-  it('counts a row without a result as 0', () => {
-    const r = recipeGroupRates([ref('a'), ref('missing')], recipe, map())
-    expect(r.products).toEqual([['h2', 10]])
-    expect(r.powerKw).toBe(100)
-  })
-
-  it('shows both items as products when the rows are built for different ones', () => {
-    const r = recipeGroupRates([ref('a'), ref('b', 'o2')], recipe, map())
-    expect(r.products).toEqual([['h2', 16], ['o2', 8]])
-    expect(r.byproducts).toEqual([])
-  })
-})

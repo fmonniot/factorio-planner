@@ -312,7 +312,7 @@ describe('RecipeRow', () => {
     const rootPlanId = block.rootPlan.id
     renderRow({ onIngredientClick })
     // Title set when onIngredientClick is provided.
-    const tile = screen.getByTitle('Iron Ore — Find producer recipe')
+    const tile = screen.getByTitle(/^Iron Ore — Find producer recipe — \S+$/)
     fireEvent.click(tile)
     expect(onIngredientClick).toHaveBeenCalledWith('iron-ore', rootPlanId)
   })
@@ -932,7 +932,7 @@ describe('RecipeRow item sourcing menu', () => {
     const block = useBlockStore.getState().blocks[0]
     useBlockStore.setState({ blocks: [{ ...block, itemSourcing: { water: 'byproducts-first' } }] })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    const tile = screen.getByTitle(/\(byproducts first\)$/)
+    const tile = screen.getByTitle(/\(byproducts first\) — \S+$/)
     const badge = tile.querySelector('[data-sourcing="byproducts-first"]')
     expect(badge).toHaveTextContent('B')
   })
@@ -1173,13 +1173,13 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('puts the temperature in the tile title when ingredients are clickable', () => {
       renderRow({ ...steamProps, onIngredientClick: vi.fn() })
-      expect(screen.getByTitle('Steam (125–165°C) — Find producer recipe')).toBeInTheDocument()
-      expect(screen.getByTitle('Water — Find producer recipe')).toBeInTheDocument()
+      expect(screen.getByTitle(/^Steam \(125–165°C\) — Find producer recipe — \S+$/)).toBeInTheDocument()
+      expect(screen.getByTitle(/^Water — Find producer recipe — \S+$/)).toBeInTheDocument()
     })
 
     it('puts the temperature in the tile title without onIngredientClick', () => {
       renderRow(steamProps)
-      expect(screen.getByTitle('Steam (125–165°C)')).toBeInTheDocument()
+      expect(screen.getByTitle(/^Steam \(125–165°C\) — \S+$/)).toBeInTheDocument()
     })
 
     it('renders no temperature badge for recipes without bounds', () => {
@@ -1215,7 +1215,7 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('shows the explicit temperature on the product tile', () => {
       renderRow({ gameData: boilerData(), planNode: node('n-b', 'boiler-steam'), solvedNode: solved('n-b', { steam: 60 }) })
-      const tile = screen.getByTitle('Steam (165°C)')
+      const tile = screen.getByTitle(/^Steam \(165°C\) — \S+$/)
       expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
     })
 
@@ -1397,15 +1397,6 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('e-f')
   })
 
-  it('under a recipe line of the by-recipe view: no reorder, not draggable, the area name instead of the badge', () => {
-    renderAreaRow('e-p', { byRecipeView: true })
-    expect(screen.queryByLabelText('Move up')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Move down')).not.toBeInTheDocument()
-    expect(document.querySelector('tr[data-node-id="e-p"]')).toHaveAttribute('draggable', 'false')
-    expect(screen.getByTestId('row-area').textContent).toBe('Plastics')
-    expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
-  })
-
   it('has no badge and no area menu items when no sub-factory is an area', () => {
     renderAreaRow('e-root', {}, { areas: false })
     expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
@@ -1416,13 +1407,13 @@ describe('RecipeRow in a block with areas', () => {
   it('explains in a block with areas what the primary product decides', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
-      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe or choose how it is sourced',
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe or choose how it is sourced — 30.0/m',
     )
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
-    expect(screen.getByTitle('Oxygen — Set as primary; right-click to choose how it is sourced')).toBeInTheDocument()
+    expect(screen.getByTitle(/^Oxygen — Set as primary; right-click to choose how it is sourced — \S+$/)).toBeInTheDocument()
   })
 
   describe('Duplicate to… on a sub-factory row', () => {
@@ -1633,7 +1624,7 @@ describe('RecipeRow — burner fuel', () => {
     const fuel = document.querySelector('[data-fuel="true"]')
     expect(fuel).not.toBeNull()
     expect(fuel).toHaveAttribute('data-variant', 'ingredient')
-    expect(fuel).toHaveAttribute('title', 'Fuel: coal — Find producer recipe')
+    expect(fuel).toHaveAttribute('title', expect.stringMatching(/^Fuel: coal — Find producer recipe — \S+$/))
     expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
     expect(screen.queryByTestId('row-power')).toBeNull()
   })

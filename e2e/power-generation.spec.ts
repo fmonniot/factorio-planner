@@ -299,7 +299,7 @@ test.describe('Heat', () => {
     await expect(heat).toHaveAccessibleName('Heat, 21.6 MW')
     await expect(heat).toContainText('21.6MW')
 
-    await rows.nth(1).locator('button[title="Heat — Find producer recipe"]').click()
+    await rows.nth(1).locator('button[title^="Heat — Find producer recipe"]').click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:nuclear-reactor:uranium-fuel-cell"]').click()
     await expect(rows).toHaveCount(3)
     await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)

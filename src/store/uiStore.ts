@@ -14,13 +14,10 @@ export const UI_STATE_STORAGE_KEY = 'factorio-planner:ui'
 export type RateUnit = 'sec' | 'min'
 
 /** How the production table lists its rows: the block's tree, or one line per recipe over every area. */
-export type TableView = 'tree' | 'recipe'
 
 export interface UiStoreState {
   rateUnit: RateUnit
   setRateUnit: (unit: RateUnit) => void
-  tableView: TableView
-  setTableView: (view: TableView) => void
   /** Address of the in-game viewer's bridge (a WebSocket URL). The connection itself is never persisted: it starts off. */
   bridgeUrl: string
   setBridgeUrl: (url: string) => void
@@ -46,8 +43,6 @@ export interface UiStoreState {
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
   setRateUnit: (unit) => set({ rateUnit: unit }),
-  tableView: 'tree',
-  setTableView: (view) => set({ tableView: view }),
   bridgeUrl: DEFAULT_BRIDGE_URL,
   setBridgeUrl: (url) => set({ bridgeUrl: url }),
   viewerAutoSend: false,
@@ -67,15 +62,14 @@ export const useUiStore = create<UiStoreState>()((set) => ({
 
 interface PersistedUiState {
   rateUnit: RateUnit
-  tableView: TableView
   bridgeUrl: string
   viewerAutoSend: boolean
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, tableView, bridgeUrl, viewerAutoSend } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, tableView, bridgeUrl, viewerAutoSend }
+    const { rateUnit, bridgeUrl, viewerAutoSend } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -89,9 +83,6 @@ export function loadPersistedUiState(): void {
     const parsed = JSON.parse(raw) as Partial<PersistedUiState>
     if (parsed.rateUnit === 'sec' || parsed.rateUnit === 'min') {
       useUiStore.setState({ rateUnit: parsed.rateUnit })
-    }
-    if (parsed.tableView === 'tree' || parsed.tableView === 'recipe') {
-      useUiStore.setState({ tableView: parsed.tableView })
     }
     if (typeof parsed.bridgeUrl === 'string' && parsed.bridgeUrl !== '') {
       useUiStore.setState({ bridgeUrl: parsed.bridgeUrl })
@@ -107,7 +98,7 @@ export function loadPersistedUiState(): void {
 export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
     if (
-      state.rateUnit !== prevState.rateUnit || state.tableView !== prevState.tableView ||
+      state.rateUnit !== prevState.rateUnit ||
       state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend
     ) {
       saveUiState()

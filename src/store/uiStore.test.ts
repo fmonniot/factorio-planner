@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', tableView: 'tree', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -72,15 +72,7 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView', 'bridgeUrl', 'viewerAutoSend'])
-  })
-})
-
-describe('tableView', () => {
-  it('defaults to the tree and can be switched', () => {
-    expect(useUiStore.getState().tableView).toBe('tree')
-    useUiStore.getState().setTableView('recipe')
-    expect(useUiStore.getState().tableView).toBe('recipe')
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend'])
   })
 })
 
@@ -97,7 +89,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'tableView', 'bridgeUrl', 'viewerAutoSend'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend'])
   })
 })
 
@@ -128,12 +120,6 @@ describe('loadPersistedUiState', () => {
     expect(useUiStore.getState().rateUnit).toBe('sec')
   })
 
-  it('restores tableView from localStorage', () => {
-    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'min', tableView: 'recipe' }))
-    loadPersistedUiState()
-    expect(useUiStore.getState().tableView).toBe('recipe')
-  })
-
   it('restores the in-game viewer settings, and defaults without them', () => {
     expect(useUiStore.getState().bridgeUrl).toBe('ws://127.0.0.1:34199/')
     localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ bridgeUrl: 'ws://127.0.0.1:40000/', viewerAutoSend: true }))
@@ -142,18 +128,11 @@ describe('loadPersistedUiState', () => {
     expect(useUiStore.getState().viewerAutoSend).toBe(true)
   })
 
-  it('ignores unknown tableView values', () => {
-    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec', tableView: 'grid' }))
-    loadPersistedUiState()
-    expect(useUiStore.getState().tableView).toBe('tree')
-    expect(useUiStore.getState().rateUnit).toBe('sec')
-  })
-
-  it('loads state saved before tableView existed', () => {
-    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec' }))
+  it('ignores a tableView left by an older version', () => {
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ rateUnit: 'sec', tableView: 'recipe' }))
     loadPersistedUiState()
     expect(useUiStore.getState().rateUnit).toBe('sec')
-    expect(useUiStore.getState().tableView).toBe('tree')
+    expect('tableView' in useUiStore.getState()).toBe(false)
   })
 
   it('ignores missing entry', () => {
@@ -182,16 +161,6 @@ describe('initUiStatePersistence', () => {
     expect(localStorageMock.setItem).toHaveBeenCalledWith(
       UI_STATE_STORAGE_KEY,
       expect.stringContaining('"sec"'),
-    )
-  })
-
-  it('auto-saves when tableView changes', () => {
-    const unsub = initUiStatePersistence()
-    useUiStore.getState().setTableView('recipe')
-    unsub()
-    expect(localStorageMock.setItem).toHaveBeenCalledWith(
-      UI_STATE_STORAGE_KEY,
-      expect.stringContaining('"tableView":"recipe"'),
     )
   })
 
