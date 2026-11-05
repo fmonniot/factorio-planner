@@ -48,7 +48,7 @@ The recipe icon can differ from the product (an oil processing recipe's own icon
 
 ### Selected row and side panel
 
-A row is selected by clicking it (anywhere that is not a button or field), its recipe icon and name, or one of the shortcuts below. The selected row gets a teal bar on the left and a tinted background, and a **side panel** opens on the right. The table does not move or resize. The panel replaces the Edit machine and Edit beacon modals and adds the sourcing controls. It has a close button.
+A row (or sub-factory) is selected by clicking it (anywhere that is not a button or field), its recipe icon and name, or one of the shortcuts below. The selected row gets a teal bar on the left and a tinted background, and a **side panel** opens on the right. The table does not move or resize. The panel replaces the Edit machine and Edit beacon modals and adds the sourcing controls. It has a close button.
 
 Sections, in order:
 
@@ -60,6 +60,17 @@ Sections, in order:
 6. **Where inputs come from.** One entry per ingredient: item icon, name, rate; a three-way choice **Own recipes / Byproducts / Connections** (titles "Own recipes first" and so on, `itemSourcing`); one explanatory sentence; a **Forbid imports** checkbox (`noImportItems`). The mode is per item for the whole block, so every row that uses the item follows it.
 
 Every picker follows one pattern: rows of icon and name, filtered by the research horizon and by the existing rules (`effectAllowed`; productivity modules only when the recipe allows productivity; a beacon accepts only the effects of its entity). Pickers close on a click away and on Esc.
+
+### Panel for sub-factories
+
+The panel shows exactly one of a recipe row (the six sections above), an organising sub-factory or a separate area, and exists only while one is selected. There is no "nothing selected" state: the close button clears the selection and the table takes the full width. A group row is selected by clicking it anywhere that is not its chevron button or a field.
+
+Both group states are read-only (drawn on screen 3 of the design canvas):
+
+- **Sub-factory (organising group).** Header with a folder icon, the name and the nesting level ("Sub-factory · level N of 4"). Recipes and machines (recursive, as on the group row) and power. **Inside this group**: the rows and groups directly below it, each a button that selects it, with its machine count and power. A closing line says the group only organises rows and that Separate area, from its right-click menu, tracks what it sends and receives.
+- **Separate area.** The same, with the **Area** marker in the header, plus **Receives** and **Sends** lists: item icon, name, rate and the other end ("from Oil", "to the rest of the block"). They hold the same items as the chips on the group row. An area with nothing to send or receive shows an empty list with a short line saying so.
+
+Rename, Separate area, Duplicate to… and Remove stay in the group's right-click menu, which is unchanged.
 
 ### Shortcuts from the table
 
@@ -124,16 +135,16 @@ The mock does not draw these; the implementation must keep them:
 - Burner fuel and reactor neighbour count.
 - The disabled states of the sourcing choices (an item that is a product of the block keeps only Own recipes first; Forbid imports is disabled for an item no row makes).
 
-## Open questions
+## Decisions
 
-- Panel content for group and area rows, and the empty state when nothing is selected.
-- Widths below 1280px: table 900 + panel 380 needs it. Overlay the panel, or hide columns?
-- Keyboard use of the table (arrows between rows, Esc closes the panel).
-- The by-recipe view in the new layout; expand chevrons on recipe rows that have rows beneath them per area.
-- A recipe with several products: the chip code takes a list, only one product is drawn in the design.
-- Mixed module types in the table's module chip.
-- Whether dropping the inline pinned-rate input is acceptable once it is used.
-- The group right-click menu and the empty "Drop here" row are unchanged and not redrawn.
+- **Narrow widths** (table 900 + panel 380 needs 1280px): handled by the "Responsive layout" backlog item.
+- **Keyboard use** (arrows between rows, Esc closes the panel): handled by the "Keyboard navigation" backlog item.
+- **By-recipe view:** dropped, along with the expand chevrons on recipe rows per area. It is not used.
+- **Several products:** the Products cell shows the primary product (`primaryProduct`, else `mainProduct`, else the first product) and the other outputs are byproducts. The exception is `primaryProduct: null` (explicitly multi-output), where the row has no primary; the chip code takes a list so such a row can show every output in Products.
+- **Inline pinned-rate input:** dropped. The rate is edited in the side panel's Rate section; the Products cell shows a chip with the pin badge.
+- **Group right-click menu and "Drop here" row:** unchanged, not redrawn; the nesting-limit disables are added to the menu entries.
+- **Panel selection:** the panel shows one recipe row, one organising sub-factory or one separate area, and only while one is selected; no "nothing selected" state. Group states are read-only. See "Panel for sub-factories".
+- **Mixed module types in the module chip:** the chip shows the icon of the most used module type; on a tie, a deterministic pick (first by module id).
 
 ## Phases
 
