@@ -6,7 +6,7 @@ import { dedicatedProduct } from '../../../solver/areas'
 import { neighbourHeatBonus } from '../../../solver/effects'
 import { isEnergyItem } from '../../../data/electricity'
 import { fmtRate, inputRateUnit } from '../ItemTile'
-import { primaryItemPerRun, solvedPrimaryPerRun } from '../RecipeRow'
+import { primaryItemPerRun, solvedPrimaryPerRun, pinSeedRate } from '../pinRate'
 import { PanelSection } from './PanelParts'
 
 /**
@@ -38,7 +38,7 @@ export function RateSection({ node, solved, gameData }: {
   const runs = pinned ? node.pinnedRate! : (solved?.throughput ?? 0)
 
   function togglePin(checked: boolean) {
-    updateNodePinnedRate(node.id, checked ? Math.max(solved?.throughput ?? 0, 1) : undefined)
+    updateNodePinnedRate(node.id, checked ? pinSeedRate(solved) : undefined)
   }
 
   function change(raw: string) {
@@ -51,12 +51,12 @@ export function RateSection({ node, solved, gameData }: {
       <div className="flex items-center gap-2 flex-wrap">
         <label
           className="flex items-center gap-1.5 text-xs text-gray-300"
-          title={absorbs ? 'A row that absorbs a byproduct runs on surplus and cannot be pinned' : undefined}
+          title={absorbs && !pinned ? 'A row that absorbs a byproduct runs on surplus and cannot be pinned' : undefined}
         >
           <input
             type="checkbox"
             checked={pinned}
-            disabled={absorbs}
+            disabled={absorbs && !pinned}
             onChange={e => togglePin(e.target.checked)}
             data-testid="pin-checkbox"
             className="accent-amber-400"

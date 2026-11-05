@@ -155,6 +155,9 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         testIdPrefix="beacon-module"
         label="Beacon module slot"
       />
+      <p data-testid="beacon-module-hint" className="text-[11px] text-gray-500">
+        A beacon holds one module type: choosing a module fills every slot, and emptying a slot removes it from all.
+      </p>
       {moduleNotAllowed && (
         <div data-testid="module-not-allowed" className="text-xs text-amber-400">
           {selectedModule?.name} cannot be inserted in {entity?.name ?? 'this beacon'}; pick another module.
@@ -214,6 +217,10 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
   const recipe = gameData.recipes[node.recipeId]
   const row = resolveRowMachine(gameData, horizon, recipe?.category ?? '', node.machineId)
 
+  // Configurations have no id yet, so cards are keyed by position; bumping this on removal remounts them all, which
+  // drops open popovers instead of handing them to whichever card slid into the removed one's place.
+  const [generation, setGeneration] = useState(0)
+
   const full = configs.length >= MAX_BEACON_CONFIGS
   const nonHidden = Object.values(gameData.beacons).filter(b => !b.hidden)
   const noBeacon = nonHidden.length > 0 && !nonHidden.some(b => withinHorizon(horizon.beaconIds, b.id))
@@ -237,13 +244,16 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
       <div className="space-y-2">
         {configs.map((c, i) => (
           <BeaconCard
-            key={i}
+            key={`${generation}-${i}`}
             index={i}
             beacon={c}
             node={node}
             gameData={gameData}
             onChange={next => onChange(configs.map((x, j) => (j === i ? next : x)))}
-            onRemove={() => onChange(configs.filter((_, j) => j !== i))}
+            onRemove={() => {
+              setGeneration(g => g + 1)
+              onChange(configs.filter((_, j) => j !== i))
+            }}
           />
         ))}
         <button

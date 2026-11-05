@@ -13,14 +13,11 @@ export function slotsOf(modules: readonly ModuleConfig[], slotCount: number): (s
   return slots
 }
 
-/** The module list a slot view stands for: equal modules grouped in order of first appearance, empty slots dropped. */
-export function modulesFromSlots(slots: readonly (string | undefined)[]): ModuleConfig[] {
-  const counts = new Map<string, number>()
-  for (const id of slots) if (id !== undefined) counts.set(id, (counts.get(id) ?? 0) + 1)
-  return [...counts].map(([moduleId, count]) => ({ moduleId, count }))
-}
-
-/** The module list after setting one slot (`undefined` empties it). */
+/**
+ * The module list after setting one slot (`undefined` empties it). The list is a multiset, so exactly one module changes:
+ * the module shown in that slot loses one, the new one gains one. Every other entry keeps its place; the displayed slots
+ * (grouped by module in list order) may therefore shift, but never change contents.
+ */
 export function setSlot(
   modules: readonly ModuleConfig[],
   slotCount: number,
@@ -29,6 +26,17 @@ export function setSlot(
 ): ModuleConfig[] {
   const slots = slotsOf(modules, slotCount)
   if (index < 0 || index >= slots.length) return [...modules]
-  slots[index] = moduleId
-  return modulesFromSlots(slots)
+  const old = slots[index]
+  if (old === moduleId) return [...modules]
+  const next = modules.map(m => ({ ...m }))
+  if (old !== undefined) {
+    const entry = next.find(m => m.moduleId === old && m.count > 0)
+    if (entry) entry.count -= 1
+  }
+  if (moduleId !== undefined) {
+    const entry = next.find(m => m.moduleId === moduleId)
+    if (entry) entry.count += 1
+    else next.push({ moduleId, count: 1 })
+  }
+  return next.filter(m => m.count > 0)
 }

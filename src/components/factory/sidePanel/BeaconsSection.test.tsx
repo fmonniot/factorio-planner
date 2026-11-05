@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { BeaconsSection } from './BeaconsSection'
@@ -114,6 +115,32 @@ describe('BeaconsSection — the card', () => {
     fireEvent.click(screen.getByTestId('beacon-module-option'))
     expect(storedBeacon()?.moduleId).toBe('speed-3')
     expect(storedBeacon()?.modulesPerBeacon).toBe(2)
+  })
+})
+
+describe('BeaconsSection — module semantics and removal', () => {
+  it('says a beacon holds one module type, and emptying any slot removes it from all', () => {
+    renderBeacons(makeGameData())
+    expect(screen.getByTestId('beacon-module-hint')).toHaveTextContent('one module type')
+    fireEvent.click(screen.getAllByTestId('beacon-module-slot')[1])
+    fireEvent.click(screen.getByTestId('beacon-module-option-empty'))
+    expect(storedBeacon()?.moduleId).toBeUndefined()
+  })
+
+  it('does not hand an open popover to the card that slides into a removed one\'s place', () => {
+    const gd = makeGameData()
+    const node = rowNode()
+    function Wrapper() {
+      const [configs, setConfigs] = useState<BeaconConfig[]>([beacon(), beacon({ beaconCount: 7 })])
+      return <BeaconsSection node={node} configs={configs} gameData={gd} onChange={setConfigs} />
+    }
+    setRows(node)
+    render(<Wrapper />)
+    fireEvent.click(screen.getAllByTestId('beacon-type-button')[0])
+    expect(screen.getAllByTestId('beacon-option').length).toBeGreaterThan(0)
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove beacon configuration' })[0])
+    expect(screen.getAllByTestId('beacon-card')).toHaveLength(1)
+    expect(screen.queryAllByTestId('beacon-option')).toHaveLength(0)
   })
 })
 

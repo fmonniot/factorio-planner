@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { RecipeRow, primaryItemPerRun } from './RecipeRow'
+import { RecipeRow } from './RecipeRow'
+import { primaryItemPerRun, pinSeedRate } from './pinRate'
 import { countSubPlanContents } from './subPlanContents'
 import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -416,6 +417,14 @@ describe('T12 — Pin rate UI', () => {
       expect(updated.pinnedRate).toBeDefined()
       expect(updated.pinnedRate!).toBeGreaterThan(0)
     }
+  })
+
+  describe('pinSeedRate', () => {
+    it('seeds at the solved throughput, at least 1', () => {
+      expect(pinSeedRate(undefined)).toBe(1)
+      expect(pinSeedRate({ ...electrolysisSolved, throughput: 0.2 })).toBe(1)
+      expect(pinSeedRate({ ...electrolysisSolved, throughput: 7 })).toBe(7)
+    })
   })
 
   describe('primaryItemPerRun', () => {
@@ -1623,5 +1632,19 @@ describe('RecipeRow — selection', () => {
     fireEvent.click(screen.getByTestId('group-summary'))
     expect(selected()).toEqual({ blockId: blockId(), nodeId: 'sp-node' })
     expect(document.querySelector('tr[data-node-id="sp-node"]')).toHaveAttribute('data-selected', 'true')
+  })
+
+  it('selects a group from its name button, a real button with aria-pressed', () => {
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub: SubPlan = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    const name = screen.getByRole('button', { name: 'Group' })
+    expect(name).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(name)
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'sp-node' })
+    expect(screen.getByRole('button', { name: 'Group' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

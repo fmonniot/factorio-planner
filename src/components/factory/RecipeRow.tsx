@@ -27,45 +27,11 @@ import {
   type AreaView,
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
-import { rowProductAmount } from '../../solver/build'
+import { pinSeedRate } from './pinRate'
 import { hasProduct } from '../../solver/blockGraph'
 import { itemSourcingActions } from './itemSourcing'
 import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
-
-/** Solved items-per-run of the primary product; undefined unless strictly positive. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function solvedPrimaryPerRun(
-  primaryItemId: string | undefined,
-  solvedNode: SolvedNode | undefined,
-): number | undefined {
-  if (!primaryItemId || !solvedNode || !(solvedNode.throughput > 0)) return undefined
-  const out = solvedNode.outputRates[primaryItemId]
-  if (out === undefined || !(out > 0)) return undefined
-  const v = out / solvedNode.throughput
-  return Number.isFinite(v) ? v : undefined
-}
-
-/**
- * Items of `primaryItemId` produced per recipe execution, productivity included.
- * Derived from the solved node when available (so it follows modules and
- * productivity); otherwise from the recipe's declared product amounts.
- * Converts the stored pin (executions/min) to the primary product's rate.
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function primaryItemPerRun(
-  recipe: GameData['recipes'][string],
-  primaryItemId: string | undefined,
-  solvedNode: SolvedNode | undefined,
-  heatBonus = 0,
-): number {
-  const solved = solvedPrimaryPerRun(primaryItemId, solvedNode)
-  if (solved !== undefined) return solved
-  const declared = recipe.products
-    .filter(p => p.itemId === primaryItemId)
-    .reduce((sum, p) => sum + rowProductAmount(p, 0, heatBonus), 0)
-  return declared > 0 ? declared : 1
-}
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -379,7 +345,15 @@ export function RecipeRow({
                 <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </button>
-            <span className="font-semibold text-xs whitespace-nowrap truncate" title={label}>{label}</span>
+            <button
+              type="button"
+              onClick={select}
+              aria-pressed={isSelected}
+              title={label}
+              className="font-semibold text-xs whitespace-nowrap truncate min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400"
+            >
+              {label}
+            </button>
             {childPlan?.area === true && (
               <span
                 data-testid="area-marker"
@@ -505,8 +479,7 @@ export function RecipeRow({
   const powerKw = solvedNode?.powerKw ?? 0
 
   function handlePin() {
-    const seedRate = Math.max(solvedNode?.throughput ?? 0, 1)
-    updateNodePinnedRate(planNode.id, seedRate)
+    updateNodePinnedRate(planNode.id, pinSeedRate(solvedNode))
   }
 
   function handleUnpin() {

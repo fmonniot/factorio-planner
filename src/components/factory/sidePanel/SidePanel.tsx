@@ -8,7 +8,7 @@ import { findPlanNode } from './findPlanNode'
 /**
  * The side panel: exactly one of a recipe row, an organising sub-factory or a separate area, and nothing while no row is
  * selected (the table then has the full width). The selection is the ui store's `selectedRow`; one of another block or of a
- * node that no longer exists counts as none and is cleared.
+ * node missing from the loaded plan counts as none and is cleared; while the plan is not loaded the selection is kept.
  */
 export function SidePanel({ blockId, rootPlan, result, gameData }: {
   blockId: string | undefined
@@ -21,7 +21,8 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
   const clear = useUiStore(s => s.clearSelectedRow)
 
   const node = selected && selected.blockId === blockId && rootPlan ? findPlanNode(rootPlan, selected.nodeId) : undefined
-  const stale = selected !== null && node === undefined
+  // Stale only when judged against a loaded plan: a block or plan that is momentarily undefined keeps the selection.
+  const stale = selected !== null && node === undefined && blockId !== undefined && rootPlan !== undefined
   useEffect(() => {
     if (stale) clear()
   }, [stale, clear])

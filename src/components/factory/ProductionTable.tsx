@@ -77,107 +77,109 @@ export function ProductionTable() {
 
   if (!gameData) {
     return (
-      <div className="flex flex-col flex-1 min-h-0 bg-gray-900 items-center justify-center gap-2 text-gray-600">
-        <span className="text-sm">Load game data to begin</span>
-        <span className="text-xs text-gray-700">Open the workspace menu at the top right to pick a game data set</span>
+      <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900 items-center justify-center gap-2 text-gray-600">
+          <span className="text-sm">Load game data to begin</span>
+          <span className="text-xs text-gray-700">Open the workspace menu at the top right to pick a game data set</span>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
-    <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
-      {/* Scrollable table body */}
-      <div ref={scrollRef} className="flex-1 overflow-auto">
-        {nodes.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
-            <span className="text-sm">No recipes yet</span>
-            <button
-              type="button"
-              onClick={() => setPicker({})}
-              className="text-xs text-blue-400 hover:text-blue-300"
-            >
-              + Add recipe
-            </button>
-          </div>
-        ) : (
-          <RecipeDndProvider>
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
-                  <th className="px-1 py-0.5 w-8">
-                    <button
-                      type="button"
-                      onClick={() => setPicker({})}
-                      title="Add recipe"
-                      aria-label="Add recipe"
-                      className="w-[22px] h-5 flex mx-auto items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
-                    >
-                      <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
-                        <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                      </svg>
-                    </button>
-                  </th>
-                  <th className="px-2 py-1 w-[170px] min-w-[170px] max-w-[170px]">
-                    <span className="flex items-center gap-2">
-                      Recipe
-                    </span>
-                  </th>
-                  <th className="px-2 py-1 w-[100px]">Machine</th>
-                  <th className="px-2 py-1 w-[100px]">Beacons</th>
-                  <th className="px-2 py-1 text-right">Products</th>
-                  <th className="px-2 py-1 w-[120px]">Byproducts</th>
-                  <th className="px-2 py-1 w-full">Ingredients</th>
-                  <th className="px-2 py-1 text-right w-[78px] whitespace-nowrap">
-                    Power
-                    {totalPower && (
-                      <span
-                        data-testid="block-power-total"
-                        role="img"
-                        title="Total power draw of the block"
-                        aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
-                        className="ml-1 font-mono tabular-nums text-cyan-300 normal-case"
+      <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
+        {/* Scrollable table body */}
+        <div ref={scrollRef} className="flex-1 overflow-auto">
+          {nodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
+              <span className="text-sm">No recipes yet</span>
+              <button
+                type="button"
+                onClick={() => setPicker({})}
+                className="text-xs text-blue-400 hover:text-blue-300"
+              >
+                + Add recipe
+              </button>
+            </div>
+          ) : (
+            <RecipeDndProvider>
+              <table className="w-full border-collapse text-xs">
+                <thead>
+                  <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+                    <th className="px-1 py-0.5 w-8">
+                      <button
+                        type="button"
+                        onClick={() => setPicker({})}
+                        title="Add recipe"
+                        aria-label="Add recipe"
+                        className="w-[22px] h-5 flex mx-auto items-center justify-center text-gray-400 hover:text-gray-200 rounded border border-gray-700 hover:border-gray-500"
                       >
-                        ⚡ {totalPower.value}<span className="opacity-60">{totalPower.unit}</span>
+                        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true">
+                          <path d="M5 1v8M1 5h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    </th>
+                    <th className="px-2 py-1 w-[170px] min-w-[170px] max-w-[170px]">
+                      <span className="flex items-center gap-2">
+                        Recipe
                       </span>
-                    )}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {rootPlan && renderNodes(
-                  nodes,
-                  0,
-                  rootPlan,
-                  rootPlan.id,
-                  solvedMap,
-                  gameData,
-                  expanded,
-                  toggleExpand,
-                  (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
-                  (itemId, subPlanId) => setPicker({ consumesItemId: itemId, targetSubPlanId: subPlanId }),
-                  areaView,
-                  highlight?.nodeId ?? null,
-                )}
-                {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
-              </tbody>
-            </table>
-          </RecipeDndProvider>
+                    </th>
+                    <th className="px-2 py-1 w-[100px]">Machine</th>
+                    <th className="px-2 py-1 w-[100px]">Beacons</th>
+                    <th className="px-2 py-1 text-right">Products</th>
+                    <th className="px-2 py-1 w-[120px]">Byproducts</th>
+                    <th className="px-2 py-1 w-full">Ingredients</th>
+                    <th className="px-2 py-1 text-right w-[78px] whitespace-nowrap">
+                      Power
+                      {totalPower && (
+                        <span
+                          data-testid="block-power-total"
+                          role="img"
+                          title="Total power draw of the block"
+                          aria-label={`Total power draw, ${totalPower.value} ${totalPower.unit}`}
+                          className="ml-1 font-mono tabular-nums text-cyan-300 normal-case"
+                        >
+                          ⚡ {totalPower.value}<span className="opacity-60">{totalPower.unit}</span>
+                        </span>
+                      )}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rootPlan && renderNodes(
+                    nodes,
+                    0,
+                    rootPlan,
+                    rootPlan.id,
+                    solvedMap,
+                    gameData,
+                    expanded,
+                    toggleExpand,
+                    (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
+                    (itemId, subPlanId) => setPicker({ consumesItemId: itemId, targetSubPlanId: subPlanId }),
+                    areaView,
+                    highlight?.nodeId ?? null,
+                  )}
+                  {rootPlan && <TrailingDropZone subPlanId={rootPlan.id} nodeCount={nodes.length} />}
+                </tbody>
+              </table>
+            </RecipeDndProvider>
+          )}
+        </div>
+
+        {picker && (
+          <ItemPicker
+            source="recipes"
+            filterByItemId={picker.filterByItemId}
+            consumesItemId={picker.consumesItemId}
+            presentRecipes={rootPlan ? presentRecipesFor(rootPlan, picker.targetSubPlanId ?? rootPlan.id) : undefined}
+            onSelect={handleAddRecipe}
+            onClose={() => setPicker(null)}
+          />
         )}
       </div>
-
-      {picker && (
-        <ItemPicker
-          source="recipes"
-          filterByItemId={picker.filterByItemId}
-          consumesItemId={picker.consumesItemId}
-          presentRecipes={rootPlan ? presentRecipesFor(rootPlan, picker.targetSubPlanId ?? rootPlan.id) : undefined}
-          onSelect={handleAddRecipe}
-          onClose={() => setPicker(null)}
-        />
-      )}
-    </div>
-    <SidePanel blockId={activeBlock?.id} rootPlan={rootPlan} result={solverResult} gameData={gameData} />
+      <SidePanel blockId={activeBlock?.id} rootPlan={rootPlan} result={solverResult} gameData={gameData} />
     </div>
   )
 }

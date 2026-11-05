@@ -95,6 +95,14 @@ describe('RateSection — pin', () => {
     renderRate(electrolysis({ byproductConsumer: true }))
     expect(screen.getByRole('checkbox', { name: 'Pin rate' })).toBeDisabled()
   })
+
+  it('lets a pinned row that absorbs a byproduct be unpinned', () => {
+    renderRate(electrolysis({ byproductConsumer: true, pinnedRate: 5 }))
+    const box = screen.getByRole('checkbox', { name: 'Pin rate' })
+    expect(box).toBeEnabled()
+    fireEvent.click(box)
+    expect(stored()).toBeUndefined()
+  })
 })
 
 describe('RateSection — pinned rate', () => {

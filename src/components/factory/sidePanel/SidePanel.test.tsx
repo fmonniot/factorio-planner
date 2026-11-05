@@ -107,6 +107,16 @@ describe('SidePanel — selection', () => {
     expect(selected()).toBeNull()
   })
 
+  it('keeps the selection while the plan or block is momentarily undefined', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    const { rerender } = renderPanel()
+    rerender(<SidePanel blockId={undefined} rootPlan={undefined} result={undefined} gameData={gd} />)
+    expect(selected()).toEqual({ blockId: block.id, nodeId: 'n1' })
+    rerender(<SidePanel blockId={block.id} rootPlan={block.rootPlan} result={undefined} gameData={gd} />)
+    expect(screen.getByTestId('side-panel')).toBeInTheDocument()
+  })
+
   it('swaps to another row when the selection changes', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n1')
