@@ -21,6 +21,8 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
+| Recipe table redesign       | Future   | [recipe-table-redesign/](recipe-table-redesign/plan.md) |
+| Multiple beacon configurations | Future | [multiple-beacon-configs/](multiple-beacon-configs/plan.md) |
 | In-game viewer as a table   | Shipped  | [archive/in-game-viewer-table/](archive/in-game-viewer-table/plan.md) |
 | In-game plan viewer (mod and bridge) | Shipped | [archive/in-game-viewer/](archive/in-game-viewer/plan.md) |
 | Plan power generation       | Shipped  | [archive/power-generation/](archive/power-generation/plan.md) |
