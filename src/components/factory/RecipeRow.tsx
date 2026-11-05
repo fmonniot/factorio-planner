@@ -28,8 +28,6 @@ import {
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
 import { pinSeedRate } from './pinRate'
-import { hasProduct } from '../../solver/blockGraph'
-import { itemSourcingActions } from './itemSourcing'
 import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
 
@@ -107,7 +105,6 @@ export function RecipeRow({
   const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
   const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
   const duplicateSubPlanTo = useBlockStore(s => s.duplicateSubPlanTo)
-  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const activeBlock = useBlockStore(selectActiveBlock)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -151,31 +148,18 @@ export function RecipeRow({
     )
   }, [planNode, areaView, gameData, rootPlan])
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
-  // The menu of an item chip: the sourcing choice, and for a byproduct chip "Add consumer recipe…".
-  const [itemMenu, setItemMenu] = useState<{ itemId: string; byproduct: boolean; x: number; y: number } | null>(null)
+  // The menu of a byproduct chip: its single entry "Add consumer recipe…" (product and ingredient chips have none).
+  const [itemMenu, setItemMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
   // The menus opened from the row menu's "Build also in…" and "Go to row in…", and a sub-factory's "Duplicate to…".
   const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto' | 'duplicate'; x: number; y: number } | null>(null)
 
-  function openItemMenu(e: React.MouseEvent, itemId: string, byproduct: boolean) {
+  function openByproductMenu(e: React.MouseEvent, itemId: string) {
+    // Without an entry to offer there is no menu, and the browser's own one stays.
+    if (!onAddConsumer) return
     e.preventDefault()
     setMenuPos(null)
     setAreaMenu(null)
-    setItemMenu({ itemId, byproduct, x: e.clientX, y: e.clientY })
-  }
-
-  function itemMenuActions(menu: { itemId: string; byproduct: boolean }): RowAction[] {
-    const addConsumer: RowAction[] = menu.byproduct && onAddConsumer
-      ? [{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer(menu.itemId, parentSubPlanId) }]
-      : []
-    const itemName = gameData.items[menu.itemId]?.name ?? menu.itemId
-    const isProduct = activeBlock !== undefined && hasProduct(activeBlock, menu.itemId)
-    return [
-      ...addConsumer,
-      ...itemSourcingActions(activeBlock?.itemSourcing[menu.itemId], mode => setItemSourcing(menu.itemId, mode), {
-        separate: addConsumer.length > 0,
-        disabledTitle: isProduct ? `${itemName} is a product of this block, so the block always makes it` : undefined,
-      }),
-    ]
+    setItemMenu({ itemId, x: e.clientX, y: e.clientY })
   }
 
   function handleDragStart(e: React.DragEvent) {
@@ -696,7 +680,6 @@ export function RecipeRow({
                   variant="product"
                   pinned={showPin}
                   sourcing={activeBlock?.itemSourcing[itemId]}
-                  onContextMenu={e => openItemMenu(e, itemId, false)}
                   temperature={productTemp}
                   title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
                 />
@@ -714,9 +697,9 @@ export function RecipeRow({
             const baseName = gameData.items[itemId]?.name ?? itemId
             const byproductTemp = productTemperatures[itemId]
             const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
-            const openMenu = (e: React.MouseEvent) => openItemMenu(e, itemId, true)
+            const openMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
             const sourcing = activeBlock?.itemSourcing[itemId]
-            const hint = onAddConsumer ? '; right-click to add a consumer recipe or choose how it is sourced' : '; right-click to choose how it is sourced'
+            const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
             if (isMultiOutput) {
               // In multi-output recipes, clicking a byproduct chip makes it primary.
@@ -760,7 +743,7 @@ export function RecipeRow({
             <RowActionsMenu
               x={itemMenu.x}
               y={itemMenu.y}
-              actions={itemMenuActions(itemMenu)}
+              actions={[{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer?.(itemMenu.itemId, parentSubPlanId) }]}
               onClose={() => setItemMenu(null)}
             />
           )}
@@ -783,7 +766,6 @@ export function RecipeRow({
                 variant="ingredient"
                 fuel={isFuel}
                 onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                onContextMenu={e => openItemMenu(e, itemId, false)}
                 sourcing={activeBlock?.itemSourcing[itemId]}
                 temperature={temp}
                 title={isFuel

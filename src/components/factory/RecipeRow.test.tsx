@@ -803,21 +803,17 @@ describe('RecipeRow byproduct context menu', () => {
     expect(updated.kind === 'game-recipe' && updated.primaryProduct).toBe('oxygen')
   })
 
-  it('offers only the sourcing choice without onAddConsumer', () => {
+  it('opens no menu without onAddConsumer', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('lists the sourcing radios after a separator below "Add consumer recipe…"', () => {
+  it('has no divider and no sourcing radios', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
     fireEvent.contextMenu(oxygenTile())
-    expect(screen.getByRole('separator')).toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio').map(i => i.textContent)).toEqual(
-      expect.arrayContaining([expect.stringContaining('Own recipes first')]),
-    )
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
   })
 
   it('never has the recipe-cell menu and the byproduct menu open together', () => {
@@ -834,44 +830,19 @@ describe('RecipeRow byproduct context menu', () => {
   })
 })
 
-describe('RecipeRow item sourcing menu', () => {
+describe('RecipeRow item chips: no sourcing menu', () => {
   beforeEach(() => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
   })
-  const waterTile = () => screen.getByTitle(/^Water/)
-  const sourcing = () => useBlockStore.getState().blocks[0].itemSourcing
 
-  it('right-clicking an ingredient chip offers the three choices, own recipes first checked', () => {
+  it('right-clicking an ingredient or a product chip opens no menu', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    const radios = screen.getAllByRole('menuitemradio')
-    expect(radios.map(r => r.textContent)).toEqual(['•Own recipes first', 'Byproducts first', 'Connections first'])
-    expect(radios.map(r => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
-  })
-
-  it('choosing Byproducts first sets the block\'s map and closes the menu', () => {
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Byproducts first/ }))
-    expect(sourcing()).toEqual({ water: 'byproducts-first' })
+    fireEvent.contextMenu(screen.getByTitle(/^Water/))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-
-  it('disables the choices on the chip of a product of the block', () => {
-    const block = useBlockStore.getState().blocks[0]
-    useBlockStore.setState({
-      blocks: [{ ...block, products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }] }],
-    })
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
-    const radios = screen.getAllByRole('menuitemradio')
-    expect(radios).toHaveLength(3)
-    for (const r of radios) {
-      expect(r).toBeDisabled()
-      expect(r).toHaveAttribute('title', 'Hydrogen is a product of this block, so the block always makes it')
-    }
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('shows a badge and a title suffix on a chip with a mode', () => {
@@ -881,39 +852,6 @@ describe('RecipeRow item sourcing menu', () => {
     const tile = screen.getByTitle(/\(byproducts first\) — \S+$/)
     const badge = tile.querySelector('[data-sourcing="byproducts-first"]')
     expect(badge).toHaveTextContent('B')
-  })
-
-  it('closes an ingredient chip menu when the recipe-cell menu opens, and the reverse', () => {
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
-    expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Remove recipe' })).toBeInTheDocument()
-    fireEvent.contextMenu(waterTile())
-    expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-  })
-
-  it('keeps Own recipes first enabled to clear a mode left on a product of the block', () => {
-    const block = useBlockStore.getState().blocks[0]
-    useBlockStore.setState({
-      blocks: [{
-        ...block,
-        products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }],
-        itemSourcing: { hydrogen: 'byproducts-first' },
-      }],
-    })
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
-    const [own, byproducts, connections] = screen.getAllByRole('menuitemradio')
-    expect(own).toBeEnabled()
-    expect(byproducts).toBeDisabled()
-    expect(connections).toBeDisabled()
-    fireEvent.click(own)
-    expect(sourcing()).toEqual({})
   })
 })
 
@@ -1272,18 +1210,17 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe(added.id)
   })
 
-  it('closes the area menu when a chip menu opens, and the reverse', () => {
-    renderAreaRow('e-root')
+  it('closes the area menu when a byproduct chip menu opens, and the reverse', () => {
+    renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
     expect(labels()).toEqual(['Chlorides · uses 45.0/m'])
-    fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    expect(labels()).toEqual(['Add consumer recipe…'])
     openMenu()
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(labels()).not.toContain('Add consumer recipe…')
     expect(labels()).toContain('Build also in…')
   })
 
@@ -1353,13 +1290,13 @@ describe('RecipeRow in a block with areas', () => {
   it('explains in a block with areas what the primary product decides', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
-      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe or choose how it is sourced — 30.0/m',
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe — 30.0/m',
     )
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
-    expect(screen.getByTitle(/^Oxygen — Set as primary; right-click to choose how it is sourced — \S+$/)).toBeInTheDocument()
+    expect(screen.getByTitle(/^Oxygen — Set as primary — \S+$/)).toBeInTheDocument()
   })
 
   describe('Duplicate to… on a sub-factory row', () => {

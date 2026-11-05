@@ -60,7 +60,7 @@ test('a click on a control inside the row does not select it', async ({ page }) 
 })
 
 test('the panel changes the machine', async ({ page }) => {
-  const panel = await selectRow(page, row(page, ROOT_ELEC))
+  await selectRow(page, row(page, ROOT_ELEC))
 
   await openMachinePicker(page)
   await page.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()
