@@ -151,6 +151,28 @@ describe('computeNodeEffects — machine modules', () => {
 })
 
 describe('computeNodeEffects — beacon', () => {
+  it('a beacon configuration without a module contributes nothing', () => {
+    const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
+    const n = node('n1', 'r1', [], {
+      beaconCount: 8,
+      modulesPerBeacon: 2,
+      distributionEfficiency: 0.5,
+    })
+    const fx = computeNodeEffects(n, gd)
+    expect(fx.speedBonus).toBe(0)
+    expect(fx.productivityBonus).toBe(0)
+    expect(fx.consumptionBonus).toBe(0)
+  })
+
+  it('a module-less beacon leaves machine module effects unchanged', () => {
+    const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
+    const withBeacon = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }], {
+      beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5,
+    })
+    const without = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }])
+    expect(computeNodeEffects(withBeacon, gd)).toEqual(computeNodeEffects(without, gd))
+  })
+
   it('1 beacon with 2 speed-3, 50% efficiency → +50% speed', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
     const n = node('n1', 'r1', [], {

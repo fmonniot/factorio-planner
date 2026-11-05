@@ -152,7 +152,7 @@ The mock does not draw these; the implementation must keep them:
 
 ## Phases
 
-- [ ] **1. Optional beacon module.** `BeaconConfig.moduleId` optional, `computeNodeEffects` skips such a configuration, unit tests, [data-model.md](../../spec/data-model.md) and [solver.md](../../spec/solver.md).
+- [x] **1. Optional beacon module.** `BeaconConfig.moduleId` optional, `computeNodeEffects` skips such a configuration, unit tests, [data-model.md](../../spec/data-model.md) and [solver.md](../../spec/solver.md).
 - [ ] **2. Icon chip, columns, group rows.** The chip component, the new column set with the new order, group rows with guides and chevrons, the nesting limit constant and its disabled actions.
 - [ ] **3. Side panel.** Selection, the panel and its six sections, replacing the Edit machine and Edit beacon modals (keeping everything under "Carry over"), the sourcing sentences.
 - [ ] **4. Pickers and shortcuts.** The shared picker pattern, the machine and beacon pickers, the fill-all pickers, the row and chip shortcuts.

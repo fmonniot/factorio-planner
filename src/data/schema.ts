@@ -234,7 +234,7 @@ export const ModuleConfigSchema = z.object({
 
 export const BeaconConfigSchema = z.object({
   beaconId: z.string().optional(),
-  moduleId: z.string(),
+  moduleId: z.string().optional(),
   beaconCount: z.number().int().nonnegative(),
   modulesPerBeacon: z.number().int().positive(),
   distributionEfficiency: z.number().min(0),
