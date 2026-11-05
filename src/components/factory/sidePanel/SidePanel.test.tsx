@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { SidePanel } from './SidePanel'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
 import { useUiStore } from '../../../store/uiStore'
@@ -59,7 +59,7 @@ const select = (nodeId: string, blockId = block.id) => useUiStore.setState({ sel
 const selected = () => useUiStore.getState().selectedRow
 
 beforeEach(() => {
-  useUiStore.setState({ selectedRow: null, rateUnit: 'min' })
+  useUiStore.setState({ selectedRow: null, panelHighlight: null, rateUnit: 'min' })
   useSolverStore.setState({ lastResults: {}, flows: [] })
 })
 
@@ -125,6 +125,29 @@ describe('SidePanel — selection', () => {
     select('n2')
     rerender(<SidePanel blockId={block.id} rootPlan={block.rootPlan} result={undefined} gameData={gd} />)
     expect(screen.getByTestId('panel-title')).toHaveTextContent('Gear')
+  })
+})
+
+describe('SidePanel — section highlight', () => {
+  beforeEach(() => { vi.useFakeTimers() })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('highlights the requested section for a moment, then clears it', () => {
+    setPlan([row('n1', 'r-plate')])
+    useUiStore.getState().selectRowSection(block.id, 'n1', 'machine')
+    renderPanel()
+    expect(screen.getByTestId('panel-machine')).toHaveAttribute('data-highlighted', 'true')
+    expect(screen.getByTestId('panel-beacons')).not.toHaveAttribute('data-highlighted')
+    act(() => { vi.advanceTimersByTime(3000) })
+    expect(screen.getByTestId('panel-machine')).not.toHaveAttribute('data-highlighted')
+    expect(useUiStore.getState().panelHighlight).toBeNull()
+  })
+
+  it('highlights the Beacons section', () => {
+    setPlan([row('n1', 'r-plate')])
+    useUiStore.getState().selectRowSection(block.id, 'n1', 'beacons')
+    renderPanel()
+    expect(screen.getByTestId('panel-beacons')).toHaveAttribute('data-highlighted', 'true')
   })
 })
 

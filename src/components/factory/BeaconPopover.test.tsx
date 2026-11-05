@@ -121,7 +121,7 @@ describe('BeaconCell — creating a beacon', () => {
     return gd
   }
 
-  it('creates the beacon with a module the beacon allows', () => {
+  it('creates the beacon with the chosen module', () => {
     useBlockStore.setState({ horizonTechnologyIds: [] })
     const gd = restrictedData()
     // 'Prod 3' sorts before 'Speed 3', so without the check it would be the default.
@@ -130,6 +130,9 @@ describe('BeaconCell — creating a beacon', () => {
         machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
     )
     fireEvent.click(screen.getByLabelText('Add beacon'))
+    // The picker offers only what the beacon accepts: no productivity module.
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3'])
+    fireEvent.click(screen.getByText('Speed 3'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(updated.kind === 'game-recipe' && updated.beaconConfig?.moduleId).toBe('speed-3')
   })
@@ -175,6 +178,7 @@ describe('BeaconCell — research horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: [] })
     renderCell(horizonData())
     fireEvent.click(screen.getByLabelText('Add beacon'))
+    fireEvent.click(screen.getByTestId('module-fill-option'))
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(updated.kind === 'game-recipe' && updated.beaconConfig?.beaconId).toBe('beacon')
   })
@@ -244,15 +248,53 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(onOpenEdit).toHaveBeenCalledTimes(2)
   })
 
-  it('creates the default configuration from the dashed plus and opens the side panel', () => {
+  it('creates the default configuration from the dashed plus picker, in one undoable command', () => {
+    useBlockStore.getState().updateNodeBeacon('n1', undefined)
+    useBlockStore.setState({ history: {} })
     const onOpenEdit = vi.fn()
     render(
       <BeaconCell nodeId="n1" beacons={[]} gameData={mockGameData} recipeId="iron-plate"
         machineId={undefined} recipeCategory="crafting" onOpenEdit={onOpenEdit} />,
     )
     fireEvent.click(screen.getByLabelText('Add beacon'))
-    expect(onOpenEdit).toHaveBeenCalledTimes(1)
+    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 4 × Beacon, fill its slots with')
+    fireEvent.click(screen.getByText('Speed 3'))
+    expect(screen.queryByTestId('picker')).toBeNull()
+    expect(onOpenEdit).not.toHaveBeenCalled()
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(updated.kind === 'game-recipe' && updated.beaconConfig).toMatchObject({ moduleId: 'speed-3', beaconCount: 4 })
+    useBlockStore.getState().undo()
+    const undone = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(undone.kind === 'game-recipe' && undone.beaconConfig).toBeUndefined()
+  })
+
+  it('closes the plus picker on Esc and on a press outside, without creating anything', () => {
+    useBlockStore.getState().updateNodeBeacon('n1', undefined)
+    render(
+      <BeaconCell nodeId="n1" beacons={[]} gameData={mockGameData} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+    )
+    fireEvent.click(screen.getByLabelText('Add beacon'))
+    fireEvent.keyDown(document.body, { key: 'Escape' })
+    expect(screen.queryByTestId('picker')).toBeNull()
+    fireEvent.click(screen.getByLabelText('Add beacon'))
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByTestId('picker')).toBeNull()
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.beaconConfig).toBeUndefined()
+  })
+
+  it('fills the slots of an existing beacon from the dashed module chip', () => {
+    const onOpenEdit = vi.fn()
+    useBlockStore.getState().updateNodeBeacon('n1', { ...beacon, moduleId: undefined })
+    render(
+      <BeaconCell nodeId="n1" beacons={[{ ...beacon, moduleId: undefined }]} gameData={mockGameData} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" onOpenEdit={onOpenEdit} />,
+    )
+    fireEvent.click(screen.getByTestId('beacon-module-chip'))
+    expect(onOpenEdit).not.toHaveBeenCalled()
+    fireEvent.click(screen.getByText('Speed 3'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.beaconConfig).toMatchObject({ moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2 })
   })
 })

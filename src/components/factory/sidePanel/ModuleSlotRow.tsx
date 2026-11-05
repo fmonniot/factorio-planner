@@ -1,10 +1,9 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { GameData } from '../../../data/types'
 import { withinHorizon } from '../../../data/horizon'
-import { Icon } from '../../Icon'
 import { IconChip } from '../IconChip'
 import { BeyondTag } from './PanelParts'
-import { useDismiss } from './useDismiss'
+import { Picker, PickerRow } from '../Picker'
 
 type Module = GameData['modules'][string]
 
@@ -27,20 +26,18 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
   label: string
 }) {
   const [open, setOpen] = useState<number | null>(null)
-  const ref = useRef<HTMLDivElement>(null)
-  useDismiss(ref, open !== null, () => setOpen(null))
   const beyond = slots.some(id => id !== undefined && !withinHorizon(moduleIds, id))
 
   return (
-    <div ref={ref}>
+    <div>
       <div className="flex flex-wrap gap-1.5" data-testid={`${testIdPrefix}-slots`}>
         {slots.map((id, i) => {
           const mod = id ? gameData.modules[id] : undefined
           const overflow = i >= slotCount
           const outside = id !== undefined && !withinHorizon(moduleIds, id)
           return (
+            <span key={i} className="relative inline-flex">
             <IconChip
-              key={i}
               size="entity"
               empty={id === undefined}
               iconPath={mod?.iconPath || undefined}
@@ -55,34 +52,31 @@ export function ModuleSlotRow({ slots, slotCount, options, gameData, moduleIds, 
               data-slot-index={i}
               data-overflow={overflow ? 'true' : undefined}
             />
+            {open === i && (
+              <Picker heading="Module" onClose={() => setOpen(null)} align={i * 2 >= slots.length ? 'right' : 'left'}>
+                <PickerRow
+                  name="Empty slot"
+                  selected={id === undefined}
+                  data-testid={`${testIdPrefix}-option-empty`}
+                  onClick={() => { onSelect(i, undefined); setOpen(null) }}
+                />
+                {options.map(m => (
+                  <PickerRow
+                    key={m.id}
+                    name={m.name}
+                    iconPath={m.iconPath || undefined}
+                    selected={m.id === id}
+                    data-testid={`${testIdPrefix}-option`}
+                    data-module-id={m.id}
+                    onClick={() => { onSelect(i, m.id); setOpen(null) }}
+                  />
+                ))}
+              </Picker>
+            )}
+            </span>
           )
         })}
       </div>
-      {open !== null && (
-        <div className="mt-1.5 bg-gray-800 border border-gray-700 rounded p-1 max-h-48 overflow-y-auto space-y-0.5">
-          <button
-            type="button"
-            data-testid={`${testIdPrefix}-option-empty`}
-            onClick={() => { onSelect(open, undefined); setOpen(null) }}
-            className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${slots[open] === undefined ? 'text-teal-400' : 'text-gray-300'}`}
-          >
-            Empty slot
-          </button>
-          {options.map(m => (
-            <button
-              key={m.id}
-              type="button"
-              data-testid={`${testIdPrefix}-option`}
-              data-module-id={m.id}
-              onClick={() => { onSelect(open, m.id); setOpen(null) }}
-              className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === slots[open] ? 'text-teal-400' : 'text-gray-300'}`}
-            >
-              {m.iconPath && <Icon iconPath={m.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
-              {m.name}
-            </button>
-          ))}
-        </div>
-      )}
       {beyond && <BeyondTag className="block mt-1" />}
     </div>
   )

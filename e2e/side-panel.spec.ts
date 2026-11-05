@@ -1,7 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
-import { sidePanel, openMachinePicker } from './support/sidePanel'
+import { sidePanel, selectRow, openMachinePicker } from './support/sidePanel'
 
 /**
  * Selection and the side panel: a click on a row (or on its recipe button) selects it and opens the panel; the
@@ -59,10 +59,8 @@ test('a click on a control inside the row does not select it', async ({ page }) 
   await expect(sidePanel(page)).toHaveCount(0)
 })
 
-test('the machine chip selects the row, and the panel changes the machine', async ({ page }) => {
-  await row(page, ROOT_ELEC).locator('td').nth(2).locator('button').first().click()
-  const panel = sidePanel(page)
-  await expect(panel).toBeVisible()
+test('the panel changes the machine', async ({ page }) => {
+  const panel = await selectRow(page, row(page, ROOT_ELEC))
 
   await openMachinePicker(page)
   await panel.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()

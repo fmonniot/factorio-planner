@@ -59,9 +59,13 @@ test.describe('Nodes panel', () => {
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
-    // The module cell shows slot count — click it to select the row and open the side panel.
-    const moduleBtn = row.getByTitle('Edit modules')
+    // The empty module chip opens the fill-all picker; choosing a module fills every slot.
+    const moduleBtn = row.getByTestId('module-chip')
     await expect(moduleBtn).toBeVisible()
+    await moduleBtn.click()
+    await page.getByTestId('module-fill-option').first().click()
+
+    // The chip now holds modules: clicking it selects the row and opens the side panel.
     await moduleBtn.click()
 
     // The panel's Machine section shows a slot usage indicator.

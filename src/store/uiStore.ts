@@ -41,7 +41,17 @@ export interface UiStoreState {
   selectedRow: { blockId: string; nodeId: string } | null
   selectRow: (blockId: string, nodeId: string) => void
   clearSelectedRow: () => void
+  /**
+   * A short-lived highlight of one section of the side panel (a chip shortcut opened it for that section). Transient.
+   * `seq` changes on every request; the section clears it with `clearPanelHighlight(seq)` once the highlight is over.
+   */
+  panelHighlight: { seq: number; section: PanelHighlightSection } | null
+  /** Select the row and highlight a section of its panel. */
+  selectRowSection: (blockId: string, nodeId: string, section: PanelHighlightSection) => void
+  clearPanelHighlight: (seq: number) => void
 }
+
+export type PanelHighlightSection = 'machine' | 'beacons'
 
 // ---------------------------------------------------------------------------
 // Store
@@ -64,7 +74,14 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   selectedRow: null,
   selectRow: (blockId, nodeId) =>
     set(state => (state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state : { selectedRow: { blockId, nodeId } })),
-  clearSelectedRow: () => set(state => (state.selectedRow === null ? state : { selectedRow: null })),
+  clearSelectedRow: () => set(state => (state.selectedRow === null ? state : { selectedRow: null, panelHighlight: null })),
+  panelHighlight: null,
+  selectRowSection: (blockId, nodeId, section) =>
+    set(state => ({
+      selectedRow: state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state.selectedRow : { blockId, nodeId },
+      panelHighlight: { seq: (state.panelHighlight?.seq ?? 0) + 1, section },
+    })),
+  clearPanelHighlight: (seq) => set(state => (state.panelHighlight?.seq === seq ? { panelHighlight: null } : state)),
 }))
 
 // ---------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test'
+import { selectRow } from './support/sidePanel'
 import fs from 'fs'
 import path from 'path'
 
@@ -64,7 +65,7 @@ test.describe('Fluid-burning machines', () => {
     await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
     // Pick the other fluid in the side panel's Machine section.
-    await row.getByTitle('Fluid furnace', { exact: true }).click()
+    await selectRow(page, row)
     await expect(page.getByTestId('fuel-button')).toContainText('Light oil')
     await page.getByTestId('fuel-button').click()
     await page.locator('[data-testid="fuel-option"][data-item-id="heavy-oil"]').click()

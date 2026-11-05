@@ -1,14 +1,36 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, type ReactNode } from 'react'
+import { useUiStore, type PanelHighlightSection } from '../../../store/uiStore'
+
+/** How long a chip shortcut's highlight of a section lasts. */
+export const HIGHLIGHT_MS = 1600
 
 /** A titled section of the side panel. */
-export function PanelSection({ title, testId, children, className = '' }: {
+export function PanelSection({ title, testId, children, className = '', highlightKey }: {
   title: string
   testId?: string
   children: ReactNode
   className?: string
+  /** The section a chip shortcut can highlight: it scrolls into view and shows a ring (`data-highlighted`) for a moment. */
+  highlightKey?: PanelHighlightSection
 }) {
+  const ref = useRef<HTMLElement>(null)
+  const highlight = useUiStore(s => s.panelHighlight)
+  const clearHighlight = useUiStore(s => s.clearPanelHighlight)
+  const seq = highlightKey !== undefined && highlight?.section === highlightKey ? highlight.seq : undefined
+  useEffect(() => {
+    if (seq === undefined) return
+    ref.current?.scrollIntoView?.({ block: 'nearest' })
+    const timer = setTimeout(() => clearHighlight(seq), HIGHLIGHT_MS)
+    return () => clearTimeout(timer)
+  }, [seq, clearHighlight])
   return (
-    <section data-testid={testId} aria-label={title} className={`px-4 py-3 border-b border-gray-800 ${className}`}>
+    <section
+      ref={ref}
+      data-testid={testId}
+      data-highlighted={seq !== undefined ? 'true' : undefined}
+      aria-label={title}
+      className={`px-4 py-3 border-b border-gray-800 ${seq !== undefined ? 'ring-2 ring-inset ring-teal-500 bg-teal-950/30' : ''} ${className}`}
+    >
       <h3 className="text-[10px] uppercase tracking-wide text-gray-500 mb-2">{title}</h3>
       {children}
     </section>

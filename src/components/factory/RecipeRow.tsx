@@ -123,6 +123,9 @@ export function RecipeRow({
   const isSelected = useUiStore(s => s.selectedRow !== null && s.selectedRow.nodeId === planNode.id && s.selectedRow.blockId === blockId)
   const selectRow = useUiStore(s => s.selectRow)
   const select = () => { if (blockId) selectRow(blockId, planNode.id) }
+  // A chip shortcut: select the row and highlight one section of its panel.
+  const selectRowSection = useUiStore(s => s.selectRowSection)
+  const openSection = (section: 'machine' | 'beacons') => { if (blockId) selectRowSection(blockId, planNode.id, section) }
   // A click anywhere on the row that is not a control selects it; the controls keep their own behaviour.
   function handleRowClick(e: React.MouseEvent) {
     if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
@@ -652,14 +655,16 @@ export function RecipeRow({
             machineId={planNode.machineId}
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             gameData={gameData}
-            onOpenEdit={select}
           />
           <ModuleCell
+            nodeId={planNode.id}
+            recipeId={planNode.recipeId}
+            machine={machine}
             modules={planNode.modules}
             machineSlots={machine?.moduleSlots ?? 0}
             gameData={gameData}
             noMachine={noMachineInHorizon}
-            onOpenEdit={select}
+            onOpenEdit={() => openSection('machine')}
           />
         </div>
       </td>
@@ -673,7 +678,7 @@ export function RecipeRow({
           recipeId={planNode.recipeId}
           machineId={planNode.machineId}
           recipeCategory={recipe.category}
-          onOpenEdit={select}
+          onOpenEdit={() => openSection('beacons')}
         />
       </td>
 

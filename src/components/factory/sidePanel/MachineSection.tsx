@@ -1,19 +1,18 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
-import { resolveRowMachine, withinHorizon } from '../../../data/horizon'
+import { resolveRowMachine } from '../../../data/horizon'
 import { burnsFuel } from '../../../data/fuel'
 import { Icon } from '../../Icon'
 import { NeighbourSection } from '../NeighbourSection'
 import { countRecipeRows } from '../recipeAreas'
-import { isModuleAllowedForRecipe, isModuleAllowedByProductivity, isModuleAllowedInMachine } from '../moduleRules'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { MachinePicker } from './MachinePicker'
 import { FuelPicker } from './FuelPicker'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { setSlot, slotsOf } from './moduleSlots'
-import { useDismiss } from './useDismiss'
+import { machineModuleOptions } from './moduleOptions'
 
 /** "X exact · Y% busy" of a row's machines. */
 function utilisation(solved: SolvedNode | undefined): string | undefined {
@@ -39,8 +38,6 @@ export function MachineSection({ node, solved, gameData }: {
   })
   const horizon = useHorizon(gameData)
   const [pickerOpen, setPickerOpen] = useState(false)
-  const pickerRef = useRef<HTMLDivElement>(null)
-  useDismiss(pickerRef, pickerOpen, () => setPickerOpen(false))
 
   const recipe = gameData.recipes[node.recipeId]
   const category = recipe?.category ?? ''
@@ -51,21 +48,15 @@ export function MachineSection({ node, solved, gameData }: {
   const neighbourBonus = machine?.neighbourBonus ?? 0
 
   // The modules a slot of this machine takes: the machine's allowed effects, the recipe's limits and productivity flag, the research horizon.
-  const moduleOptions = Object.values(gameData.modules).filter(
-    m =>
-      machine &&
-      isModuleAllowedInMachine(m, machine) &&
-      isModuleAllowedForRecipe(m, node.recipeId) &&
-      isModuleAllowedByProductivity(m, recipe?.allowProductivity ?? false) &&
-      withinHorizon(horizon.moduleIds, m.id),
-  )
+  const moduleOptions = machineModuleOptions(gameData, horizon, machine, node.recipeId)
   const slots = slotsOf(node.modules, slotCount)
   const util = utilisation(solved)
 
   return (
-    <PanelSection title="Machine" testId="panel-machine">
-      <div ref={pickerRef}>
+    <PanelSection title="Machine" testId="panel-machine" highlightKey="machine">
+      <div>
         <div className="flex items-center gap-3">
+          <span className="relative inline-flex">
           <button
             type="button"
             data-testid="machine-picker-button"
@@ -82,6 +73,17 @@ export function MachineSection({ node, solved, gameData }: {
             )}
             <Chevron />
           </button>
+          {pickerOpen && (
+            <MachinePicker
+              nodeId={node.id}
+              recipeId={node.recipeId}
+              recipeCategory={category}
+              machineId={node.machineId}
+              gameData={gameData}
+              onDone={() => setPickerOpen(false)}
+            />
+          )}
+          </span>
           <div className="min-w-0 text-xs">
             <div data-testid="machine-needed" className="text-gray-200">{solved?.machineCountCeil ?? 0} needed</div>
             {util && <div data-testid="machine-utilisation" className="text-gray-500">{util}</div>}
@@ -96,16 +98,6 @@ export function MachineSection({ node, solved, gameData }: {
             {machine?.name ?? 'Default'}
             {row.beyondHorizon && <> <BeyondTag /></>}
           </div>
-        )}
-        {pickerOpen && (
-          <MachinePicker
-            nodeId={node.id}
-            recipeId={node.recipeId}
-            recipeCategory={category}
-            machineId={node.machineId}
-            gameData={gameData}
-            onDone={() => setPickerOpen(false)}
-          />
         )}
       </div>
 

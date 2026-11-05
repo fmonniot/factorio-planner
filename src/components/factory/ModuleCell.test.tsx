@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
+import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { ModuleCell, mostUsedModule } from './ModuleCell'
-import type { GameData } from '../../data/types'
+import type { GameData, GameRecipeNode } from '../../data/types'
 
 const makeSpeedModule = () => ({
   id: 'speed-3',
@@ -21,12 +22,12 @@ describe('ModuleCell', () => {
   } as unknown as GameData)
 
   it('renders the slot text with zero slots when a module is configured', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={makeData()} onOpenEdit={() => {}} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={makeData()} onOpenEdit={() => {}} />)
     expect(screen.getByText('1/0')).toBeInTheDocument()
   })
 
   it('renders nothing with zero slots and no modules', () => {
-    const { container } = render(<ModuleCell modules={[]} machineSlots={0} gameData={makeData()} onOpenEdit={() => {}} />)
+    const { container } = render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[]} machineSlots={0} gameData={makeData()} onOpenEdit={() => {}} />)
     expect(container).toBeEmptyDOMElement()
   })
 
@@ -34,21 +35,21 @@ describe('ModuleCell', () => {
   const noop = () => {}
 
   it('does not claim a missing machine on a real machine with zero slots', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={makeData()} onOpenEdit={noop} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('title', 'Edit modules (this machine has no module slots)')
     expect(cell()).not.toHaveAttribute('data-beyond-horizon')
     expect(cell()).toHaveAttribute('data-over-slots', 'true')
   })
 
   it('flags modules without a machine when the row has no machine', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} noMachine gameData={makeData()} onOpenEdit={noop} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={0} noMachine gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('title', 'Modules without a machine')
     expect(cell()).toHaveAttribute('data-beyond-horizon', 'true')
     expect(cell()).not.toHaveAttribute('data-over-slots')
   })
 
   it('flags more modules than slots', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 4 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 4 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('data-over-slots', 'true')
     expect(cell()).toHaveAttribute('title', 'Edit modules (more modules than slots)')
     expect(cell()).toHaveClass('ring-amber-500')
@@ -56,7 +57,7 @@ describe('ModuleCell', () => {
   })
 
   it('is not flagged when the modules fit', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={2} gameData={makeData()} onOpenEdit={noop} />)
     expect(cell()).toHaveAttribute('title', 'Edit modules')
     expect(cell()).not.toHaveAttribute('data-over-slots')
     expect(cell()).not.toHaveClass('ring-amber-500')
@@ -70,7 +71,7 @@ describe('ModuleCell chip', () => {
   } as unknown as GameData)
 
   it('shows an empty machine as a dashed plus reading 0/N', () => {
-    const { container } = render(<ModuleCell modules={[]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
+    const { container } = render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
     expect(screen.getByText('0/4')).toBeInTheDocument()
     expect(container.querySelector('.border-dashed')).not.toBeNull()
   })
@@ -83,7 +84,55 @@ describe('ModuleCell chip', () => {
   })
 
   it('draws used/slots in the bottom-right corner', () => {
-    render(<ModuleCell modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={undefined} modules={[{ moduleId: 'speed-3', count: 2 }]} machineSlots={4} gameData={gd()} onOpenEdit={() => {}} />)
     expect(screen.getByText('2/4')).toHaveClass('right-0', 'bottom-0')
+  })
+})
+
+describe('ModuleCell shortcuts', () => {
+  const data = () => ({
+    items: {}, recipes: { r: { id: 'r', allowProductivity: false } }, machines: {}, beacons: {}, defaultMachines: {}, technologies: {},
+    startingRecipes: [],
+    modules: {
+      'speed-3': makeSpeedModule(),
+      'prod-3': { ...makeSpeedModule(), id: 'prod-3', name: 'Prod 3', effects: { productivity: 0.1, speed: -0.15 } },
+    },
+  } as unknown as GameData)
+  const machine = { allowedEffects: ['speed', 'consumption', 'productivity'] }
+
+  beforeEach(() => {
+    const block = makeEmptyBlock('T')
+    const node: GameRecipeNode = { kind: 'game-recipe', id: 'n1', recipeId: 'r', modules: [], byproductPolicy: {} }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }], activeBlockId: block.id, history: {}, horizonTechnologyIds: [] })
+  })
+
+  it('opens a fill-all picker from the empty chip and fills every slot with the choice', () => {
+    const onOpenEdit = vi.fn()
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={machine} modules={[]} machineSlots={4} gameData={data()} onOpenEdit={onOpenEdit} />)
+    fireEvent.click(screen.getByTestId('module-chip'))
+    expect(onOpenEdit).not.toHaveBeenCalled()
+    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Fill all 4 slots with')
+    // The recipe does not allow productivity.
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3'])
+    fireEvent.click(screen.getByText('Speed 3'))
+    const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(node.kind === 'game-recipe' && node.modules).toEqual([{ moduleId: 'speed-3', count: 4 }])
+    expect(screen.queryByTestId('picker')).toBeNull()
+  })
+
+  it('offers productivity modules when the recipe allows productivity', () => {
+    const gd = data()
+    gd.recipes.r.allowProductivity = true
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={machine} modules={[]} machineSlots={2} gameData={gd} onOpenEdit={() => {}} />)
+    fireEvent.click(screen.getByTestId('module-chip'))
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3', 'prod-3'])
+  })
+
+  it('opens the panel instead of a picker when the chip holds modules', () => {
+    const onOpenEdit = vi.fn()
+    render(<ModuleCell nodeId="n1" recipeId="r" machine={machine} modules={[{ moduleId: 'speed-3', count: 1 }]} machineSlots={4} gameData={data()} onOpenEdit={onOpenEdit} />)
+    fireEvent.click(screen.getByTestId('module-chip'))
+    expect(onOpenEdit).toHaveBeenCalledTimes(1)
+    expect(screen.queryByTestId('picker')).toBeNull()
   })
 })

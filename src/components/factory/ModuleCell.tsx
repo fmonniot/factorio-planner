@@ -1,19 +1,30 @@
+import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
+import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { withinHorizon } from '../../data/horizon'
 import { IconChip } from './IconChip'
+import { ModuleFillPicker } from './ModuleFillPicker'
+import { machineModuleOptions } from './sidePanel/moduleOptions'
 
 interface ModuleCellProps {
+  nodeId: string
+  recipeId: string
+  /** The row's resolved machine; the empty chip's picker lists the modules it takes. */
+  machine: { allowedEffects: string[] } | undefined
   modules: ModuleConfig[]
   machineSlots: number
   gameData: GameData
   /** The row has no machine at all (the research horizon removed its default). */
   noMachine?: boolean
+  /** Select the row and highlight the panel's Machine section (the chip holds modules). */
   onOpenEdit: () => void
 }
 
-export function ModuleCell({ modules, machineSlots, gameData, noMachine = false, onOpenEdit }: ModuleCellProps) {
+export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, gameData, noMachine = false, onOpenEdit }: ModuleCellProps) {
   const horizon = useHorizon(gameData)
+  const updateNodeModules = useBlockStore(s => s.updateNodeModules)
+  const [pickerOpen, setPickerOpen] = useState(false)
   if (machineSlots === 0 && modules.length === 0) return null
 
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
@@ -32,9 +43,15 @@ export function ModuleCell({ modules, machineSlots, gameData, noMachine = false,
   const shown = mostUsedModule(modules)
   const shownModule = shown ? gameData.modules[shown] : undefined
 
+  // An empty chip is the fill-all shortcut; one with modules opens the panel (slots can hold mixed modules).
+  const fillAll = modules.length === 0 && machineSlots > 0 && !noMachine
+
   return (
+    <span className="relative inline-flex">
     <IconChip
-      onClick={onOpenEdit}
+      onClick={fillAll ? () => setPickerOpen(o => !o) : onOpenEdit}
+      aria-expanded={fillAll ? pickerOpen : undefined}
+      data-testid="module-chip"
       size="entity"
       empty={modules.length === 0}
       iconPath={shownModule?.iconPath || undefined}
@@ -42,10 +59,19 @@ export function ModuleCell({ modules, machineSlots, gameData, noMachine = false,
       fallback="+"
       quantity={`${usedSlots}/${machineSlots}`}
       warn={beyondHorizon || overSlots}
-      title={title}
+      title={fillAll ? `Fill all ${machineSlots} slots with a module` : title}
       data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       data-over-slots={overSlots ? 'true' : undefined}
     />
+    {fillAll && pickerOpen && (
+      <ModuleFillPicker
+        heading={`Fill all ${machineSlots} ${machineSlots === 1 ? 'slot' : 'slots'} with`}
+        options={machineModuleOptions(gameData, horizon, machine, recipeId)}
+        onPick={moduleId => updateNodeModules(nodeId, [{ moduleId, count: machineSlots }])}
+        onClose={() => setPickerOpen(false)}
+      />
+    )}
+    </span>
   )
 }
 

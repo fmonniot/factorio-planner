@@ -1,10 +1,12 @@
+import { useState } from 'react'
 import type { GameData } from '../../data/types'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { IconChip } from './IconChip'
+import { MachinePicker } from './sidePanel/MachinePicker'
 
 // ---------------------------------------------------------------------------
-// Shows the machine and its count; opens the edit modal on click
+// Shows the machine and its count; a click opens the machine picker under the chip
 // ---------------------------------------------------------------------------
 
 interface MachineCellProps {
@@ -14,16 +16,17 @@ interface MachineCellProps {
   machineId: string | undefined
   machineCountCeil: number
   gameData: GameData
-  onOpenEdit: () => void
 }
 
 export function MachineCell({
+  nodeId,
+  recipeId,
   recipeCategory,
   machineId,
   machineCountCeil,
   gameData,
-  onOpenEdit,
 }: MachineCellProps) {
+  const [open, setOpen] = useState(false)
   const horizon = useHorizon(gameData)
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
   const { machine } = row
@@ -35,8 +38,11 @@ export function MachineCell({
       : (machine?.name ?? 'Edit machine')
 
   return (
+    <span className="relative inline-flex">
     <IconChip
-      onClick={onOpenEdit}
+      onClick={() => setOpen(o => !o)}
+      aria-expanded={open}
+      data-testid="machine-chip"
       size="entity"
       iconPath={machine?.iconPath || undefined}
       alt={machine?.name ?? '?'}
@@ -48,5 +54,16 @@ export function MachineCell({
       data-beyond-horizon={flagged ? 'true' : undefined}
       data-no-machine={row.noMachineInHorizon ? 'true' : undefined}
     />
+    {open && (
+      <MachinePicker
+        nodeId={nodeId}
+        recipeId={recipeId}
+        recipeCategory={recipeCategory}
+        machineId={machineId}
+        gameData={gameData}
+        onDone={() => setOpen(false)}
+      />
+    )}
+    </span>
   )
 }

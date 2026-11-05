@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
+import { selectRow } from './support/sidePanel'
 
 /** One Seablock block: 60 iron plates/min smelted in stone furnaces (90 kW, 7 s per run of 2 plates). */
 const FIXTURE = path.resolve('e2e/fixtures/burner-fuel-seablock.json')
@@ -18,7 +19,7 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // Pick solid fuel in the side panel's Machine section.
-  await row.getByTitle('Stone furnace', { exact: true }).click()
+  await selectRow(page, row)
   await expect(page.getByTestId('fuel-button')).toContainText('Cellulose fiber')
   await page.getByTestId('fuel-button').click()
   await page.locator('[data-testid="fuel-option"][data-item-id="solid-fuel"]').click()

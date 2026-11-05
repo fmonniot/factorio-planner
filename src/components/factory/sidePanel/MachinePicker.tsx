@@ -5,7 +5,7 @@ import { useUiStore } from '../../../store/uiStore'
 import { useAvailableRecipeIds, useHorizon } from '../../../store/horizon'
 import { availableMachinesFor, categoryLabel, defaultMachineRowCounts } from '../../../data/defaultMachines'
 import { groupPowerRecipes } from '../../../data/powerFuelGroups'
-import { Icon } from '../../Icon'
+import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { AlternateRecipeList } from './AlternateRecipeList'
 
 /**
@@ -60,33 +60,30 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
   }
 
   return (
-    <div className="mt-1.5 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-64 overflow-y-auto">
-      <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 mb-1">Select machine</div>
-      <button
-        type="button"
+    <Picker heading="Select machine" onClose={onDone} className="w-72">
+      <PickerRow
+        name={defaultMachineName ? `Default (${defaultMachineName})` : 'Default'}
+        selected={!machineId}
+        data-testid="machine-option-default"
         onClick={() => selectMachine(undefined)}
-        className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 ${!machineId ? 'text-teal-400' : 'text-gray-300'}`}
-      >
-        {defaultMachineName ? `Default (${defaultMachineName})` : 'Default'}
-      </button>
+      />
       {availableMachines.length === 0 && (
-        <div data-testid="machine-picker-empty" className="px-2 py-1 text-xs text-gray-500 italic">
+        <PickerEmpty data-testid="machine-picker-empty">
           No machine for this recipe within the research horizon. Widen the horizon to choose one.
-        </div>
+        </PickerEmpty>
       )}
       {availableMachines.map(m => (
         <div key={m.id} className="group flex items-center">
-          <button
-            type="button"
+          <PickerRow
+            name={m.name}
+            iconPath={m.iconPath || undefined}
+            detail={`speed ${+m.craftingSpeed.toFixed(2)}`}
+            selected={m.id === machineId}
             data-testid="machine-option"
             data-machine-id={m.id}
             onClick={() => selectMachine(m.id)}
-            className={`flex-1 min-w-0 text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${m.id === machineId ? 'text-teal-400' : 'text-gray-300'}`}
-          >
-            {m.iconPath && <Icon iconPath={m.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
-            <span className="flex-1 min-w-0 truncate">{m.name}</span>
-            <span className="text-gray-500 tabular-nums">speed {+m.craftingSpeed.toFixed(2)}</span>
-          </button>
+            className="flex-1 min-w-0"
+          />
           {m.id === defaultMachineId ? (
             <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-500">default</span>
           ) : (
@@ -114,7 +111,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
       </div>
       {altRecipes.length > 0 && (
         <>
-          <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-500 px-2 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
           <AlternateRecipeList
             entries={altEntries}
             gameData={gameData}
@@ -123,6 +120,6 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
           />
         </>
       )}
-    </div>
+    </Picker>
   )
 }

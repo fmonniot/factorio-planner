@@ -1,12 +1,16 @@
+import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
-import { defaultBeaconConfig } from './sidePanel/beaconDefaults'
+import { ModuleFillPicker } from './ModuleFillPicker'
+import { availableBeacons, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
+import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
 // ---------------------------------------------------------------------------
-// BeaconCell — icon+badge trigger (or + placeholder); opens the side panel on the row
+// BeaconCell — beacon and module chips. Filled chips open the side panel on the Beacons section; the dashed + chips
+// open a picker that creates the beacon or fills its modules.
 // ---------------------------------------------------------------------------
 
 interface BeaconCellProps {
@@ -20,7 +24,7 @@ interface BeaconCellProps {
   recipeId: string
   machineId: string | undefined
   recipeCategory: string
-  /** Select the row: the side panel edits its beacons. */
+  /** Select the row and highlight the Beacons section of the side panel. */
   onOpenEdit: () => void
 }
 
@@ -32,12 +36,12 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
 
   const nonHiddenBeacons = Object.values(gameData.beacons).filter(b => !b.hidden)
 
-  function enable() {
-    // The first beacon type within the horizon (or the legacy defaults) with the first module it accepts.
-    const config = defaultBeaconConfig(gameData, horizon, recipeId)
-    if (!config) return
-    updateNodeBeacon(nodeId, config)
-    onOpenEdit()
+  const [pickerOpen, setPickerOpen] = useState(false)
+
+  /** One store command: the default beacon type and count with the chosen module in its slots. */
+  function createWith(moduleId: string) {
+    const config = defaultBeaconConfig(gameData, horizon, recipeId, moduleId)
+    if (config) updateNodeBeacon(nodeId, config)
   }
 
   if (!beacon) {
@@ -52,9 +56,13 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
         : noModule
           ? 'No module within the research horizon'
           : undefined
+    // The picker lists what the default beacon type (the first within the horizon) accepts.
+    const newBeacon = availableBeacons(gameData, horizon)[0]
     return (
+      <span className="relative inline-flex">
       <IconChip
-        onClick={enable}
+        onClick={() => setPickerOpen(o => !o)}
+        aria-expanded={pickerOpen}
         size="entity"
         empty
         alt="Add beacon"
@@ -63,6 +71,15 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
         aria-label="Add beacon"
         className={disabledTitle !== undefined ? 'opacity-40' : ''}
       />
+      {pickerOpen && disabledTitle === undefined && (
+        <ModuleFillPicker
+          heading={`Add ${DEFAULT_BEACON_COUNT} × Beacon, fill its slots with`}
+          options={beaconModuleOptions(gameData, horizon, newBeacon, recipeId)}
+          onPick={createWith}
+          onClose={() => setPickerOpen(false)}
+        />
+      )}
+      </span>
     )
   }
 
@@ -74,6 +91,8 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
     (beacon.moduleId !== undefined && !withinHorizon(horizon.moduleIds, beacon.moduleId))
 
+  // The dashed module chip is the fill-all shortcut; one holding a module opens the panel.
+  const fillBeacon = !moduleData && !unknownModuleId
   const slots = beaconEntity?.moduleSlots ?? beacon.modulesPerBeacon
   const more = beacons.length - 1
   const describe = (b: BeaconConfig) => {
@@ -101,8 +120,10 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
           aria-label="Edit beacon"
           data-beyond-horizon={beyondHorizon ? 'true' : undefined}
         />
+        <span className="relative inline-flex">
         <IconChip
-          onClick={onOpenEdit}
+          onClick={fillBeacon ? () => setPickerOpen(o => !o) : onOpenEdit}
+          aria-expanded={fillBeacon ? pickerOpen : undefined}
           size="entity"
           empty={!moduleData && !unknownModuleId}
           warn={unknownModuleId !== undefined}
@@ -118,6 +139,16 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
           aria-label="Edit beacon modules"
           data-testid="beacon-module-chip"
         />
+        {fillBeacon && pickerOpen && (
+          <ModuleFillPicker
+            heading="Fill its slots with"
+            options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
+            onPick={moduleId => updateNodeBeacon(nodeId, { ...beacon, moduleId })}
+            onClose={() => setPickerOpen(false)}
+            align="right"
+          />
+        )}
+        </span>
       </div>
 
     </>

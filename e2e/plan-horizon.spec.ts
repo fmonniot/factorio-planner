@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { horizonButton, openHorizonTree, closeHorizonTree } from './support/horizon'
 import { runPlanAction, switchToPlan } from './support/planMenu'
-import { sidePanel, openMachinePicker } from './support/sidePanel'
+import { sidePanel, selectRow, openMachinePicker } from './support/sidePanel'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
 
@@ -313,7 +313,7 @@ test.describe('Plan horizon: machines and modules', () => {
     await expect(cell).toHaveText('?0')
     await expect(row.getByLabel('Add beacon')).toBeDisabled()
 
-    await cell.click()
+    await selectRow(page, row)
     await expect(page.getByTestId('no-machine-in-horizon')).toBeVisible()
     await openMachinePicker(page)
     await expect(page.getByTestId('machine-picker-empty')).toBeVisible()
@@ -329,7 +329,7 @@ test.describe('Plan horizon: machines and modules', () => {
     await setHorizon(page, 'electronics')
     await addGoal(page, 'iron-gear-wheel')
     await addRecipe(page, 'iron-gear-wheel')
-    await page.getByTitle('Assembling machine', { exact: true }).click()
+    await selectRow(page, page.locator('main table tbody tr').first())
     await openMachinePicker(page)
     const ids = await page.locator('[data-testid="machine-option"]').evaluateAll(
       els => els.map(e => e.getAttribute('data-machine-id')),
@@ -341,7 +341,7 @@ test.describe('Plan horizon: machines and modules', () => {
     await addGoal(page, 'iron-gear-wheel')
     await addRecipe(page, 'iron-gear-wheel')
     const row = page.locator('main table tbody tr').first()
-    await row.getByTitle('Assembling machine 2', { exact: true }).click()
+    await selectRow(page, row)
     await openMachinePicker(page)
     await page.locator('[data-testid="machine-option"][data-machine-id="assembling-machine-2"]').click()
 
@@ -358,17 +358,18 @@ test.describe('Plan horizon: machines and modules', () => {
     await addRecipe(page, 'iron-gear-wheel')
     const row = page.locator('main table tbody tr').first()
     await row.getByLabel('Add beacon').waitFor()
-    await row.getByTitle('Edit modules').click()
+    await selectRow(page, row)
     await sidePanel(page).getByTestId('module-slot').first().click()
     await expect(page.locator('[data-testid="module-option"][data-module-id="speed-module"]')).toHaveCount(0)
     await expect(row.getByLabel('Add beacon')).toBeDisabled()
     await expect(row.getByLabel('Add beacon')).toHaveAttribute('title', 'No beacon within the research horizon')
 
     await setHorizon(page, 'electronics', 'automation-2', 'modules')
-    await row.getByTitle('Edit modules').click()
+    await selectRow(page, row)
     await sidePanel(page).getByTestId('module-slot').first().click()
     await expect(page.locator('[data-testid="module-option"][data-module-id="speed-module"]')).toHaveCount(1)
     await row.getByLabel('Add beacon').click()
+    await page.locator('[data-testid="module-fill-option"][data-module-id="speed-module"]').click()
     await expect(sidePanel(page).getByRole('heading', { name: 'Beacons' })).toBeVisible()
     await expect(sidePanel(page).getByTitle('Beacon', { exact: true })).toBeVisible()
   })
@@ -398,12 +399,12 @@ test.describe('Default machines', () => {
 
   test('"Make default" in the side panel changes the row and persists', async ({ page }) => {
     const row = firstRow(page)
-    await row.getByTitle('Assembling machine 2', { exact: true }).click()
+    await selectRow(page, row)
     await openMachinePicker(page)
     await page.getByRole('button', { name: 'Make Assembling machine the Crafting default' }).click()
     await expect(row.getByTitle('Assembling machine', { exact: true })).toBeVisible()
 
-    await row.getByTitle('Assembling machine', { exact: true }).click()
+    await selectRow(page, row)
     await openMachinePicker(page)
     await expect(page.getByTestId('default-machine-usage')).toContainText('Crafting default is used by 1 row')
 
@@ -433,7 +434,7 @@ test.describe('Default machines', () => {
   })
 
   test('"All defaults…" opens the flyout on the category', async ({ page }) => {
-    await firstRow(page).getByTitle('Assembling machine 2', { exact: true }).click()
+    await selectRow(page, firstRow(page))
     await openMachinePicker(page)
     await page.getByRole('button', { name: 'All defaults…' }).click()
     const flyout = page.getByRole('menu', { name: 'Default machines' })

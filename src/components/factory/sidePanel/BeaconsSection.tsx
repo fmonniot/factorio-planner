@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useState } from 'react'
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
@@ -6,11 +6,12 @@ import { withinHorizon } from '../../../data/horizon'
 import { Icon } from '../../Icon'
 import { countRecipeRows } from '../recipeAreas'
 import { isModuleAllowedForBeaconRow } from '../moduleRules'
+import { beaconModuleOptions } from './moduleOptions'
+import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { availableBeacons, defaultBeaconConfig } from './beaconDefaults'
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
-import { useDismiss } from './useDismiss'
 import { resolveRowMachine } from '../../../data/horizon'
 import { rowMachine } from '../../../solver/effects'
 
@@ -37,8 +38,6 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 }) {
   const horizon = useHorizon(gameData)
   const [typeOpen, setTypeOpen] = useState(false)
-  const typeRef = useRef<HTMLDivElement>(null)
-  useDismiss(typeRef, typeOpen, () => setTypeOpen(false))
 
   const recipe = gameData.recipes[node.recipeId]
   const allowProductivity = recipe?.allowProductivity ?? false
@@ -47,9 +46,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   const hasBeaconData = Object.keys(gameData.beacons).length > 0
   const beacons = availableBeacons(gameData, horizon)
   const fits = (m: GameData['modules'][string]) => isModuleAllowedForBeaconRow(m, entity, node.recipeId, allowProductivity)
-  const moduleOptions = Object.values(gameData.modules)
-    .filter(m => withinHorizon(horizon.moduleIds, m.id) && fits(m))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const moduleOptions = beaconModuleOptions(gameData, horizon, entity, node.recipeId)
   const moduleNotAllowed = !!selectedModule && !fits(selectedModule)
 
   const slotCount = entity?.moduleSlots ?? beacon.modulesPerBeacon
@@ -78,7 +75,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   return (
     <div data-testid="beacon-card" data-config-index={index} className="bg-gray-800 rounded p-2 space-y-2">
       <div className="flex items-center gap-2">
-        <div ref={typeRef} className="relative">
+        <div className="relative">
           <button
             type="button"
             data-testid="beacon-type-button"
@@ -96,23 +93,21 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
             <Chevron />
           </button>
           {typeOpen && (
-            <div className="absolute z-20 mt-1 left-0 w-56 bg-gray-800 border border-gray-600 rounded shadow-lg p-1 max-h-48 overflow-y-auto space-y-0.5">
+            <Picker heading="Beacon type" onClose={() => setTypeOpen(false)}>
               {hasBeaconData ? beacons.map(b => (
-                <button
+                <PickerRow
                   key={b.id}
-                  type="button"
+                  name={b.name}
+                  iconPath={b.iconPath || undefined}
+                  selected={b.id === beacon.beaconId}
                   data-testid="beacon-option"
                   data-beacon-id={b.id}
                   onClick={() => selectBeacon(b.id)}
-                  className={`w-full text-left px-2 py-1 rounded text-xs hover:bg-gray-700 flex items-center gap-1.5 ${b.id === beacon.beaconId ? 'text-teal-400' : 'text-gray-300'}`}
-                >
-                  {b.iconPath && <Icon iconPath={b.iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
-                  {b.name}
-                </button>
+                />
               )) : (
-                <div className="px-2 py-1.5 text-xs text-gray-500 italic">No beacon data — re-export game data to populate.</div>
+                <PickerEmpty>No beacon data — re-export game data to populate.</PickerEmpty>
               )}
-            </div>
+            </Picker>
           )}
         </div>
         <label className="flex items-center gap-1.5 text-xs text-gray-500">
@@ -240,7 +235,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
   }
 
   return (
-    <PanelSection title="Beacons" testId="panel-beacons">
+    <PanelSection title="Beacons" testId="panel-beacons" highlightKey="beacons">
       <div className="space-y-2">
         {configs.map((c, i) => (
           <BeaconCard

@@ -1606,10 +1606,18 @@ describe('RecipeRow — selection', () => {
     expect(screen.getByRole('button', { name: /Iron Plate/ })).toHaveAttribute('aria-pressed', 'true')
   })
 
-  it('selects the row from the machine chip', () => {
+  it('opens the machine picker from the machine chip without selecting the row', () => {
     renderRow()
     fireEvent.click(screen.getByTestId('machine-count').closest('button')!)
+    expect(screen.getByTestId('picker')).toBeInTheDocument()
+    expect(selected()).toBeNull()
+  })
+
+  it('selects the row and highlights the Beacons section from a filled beacon chip', () => {
+    renderRow({ planNode: { ...ironPlateRecipeNode, beaconConfig: { moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 } } })
+    fireEvent.click(screen.getByLabelText('Edit beacon'))
     expect(selected()?.nodeId).toBe('node-1')
+    expect(useUiStore.getState().panelHighlight?.section).toBe('beacons')
   })
 
   it('does not select the row when a control inside it is clicked', () => {

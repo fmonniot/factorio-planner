@@ -269,7 +269,7 @@ test.describe('Power generation', () => {
     await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(slot(page, 'Ingredients', 'Coal')).toBeVisible()
 
-    await rows.nth(1).getByTitle('Boiler', { exact: true }).click()
+    await selectRow(page, rows.nth(1))
     await openMachinePicker(page)
     const group = page.locator('[data-testid="alt-recipe-group"][data-machine-id="boiler"]')
     await expect(group).toHaveAttribute('data-recipe-count', '2')
@@ -338,7 +338,7 @@ test.describe('Heat', () => {
     const reactor = rows.first().getByTitle('Nuclear reactor', { exact: true })
     await expect(reactor).toHaveText(/^\??2$/)
 
-    await reactor.click()
+    await selectRow(page, rows.first())
     const count = page.getByLabel('Neighbouring reactors')
     await expect(count).toHaveValue('0')
     // The caption wraps inside the panel instead of running off its right edge.
@@ -354,7 +354,7 @@ test.describe('Heat', () => {
 
     // Reopen the panel: it starts from the stored count, which is a 4 × 4 cluster.
     await sidePanel(page).getByRole('button', { name: 'Close panel' }).click()
-    await reactor.click()
+    await selectRow(page, rows.first())
     await expect(page.getByLabel('Neighbouring reactors')).toHaveValue('3')
     await expect(page.getByTestId('neighbour-cols')).toHaveValue('4')
     await expect(page.getByTestId('neighbour-rows')).toHaveValue('4')
