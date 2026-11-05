@@ -1,9 +1,6 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useUiStore, type PanelHighlightSection } from '../../../store/uiStore'
 
-/** How long a chip shortcut's highlight of a section lasts. */
-export const HIGHLIGHT_MS = 1600
-
 /** A titled section of the side panel. */
 export function PanelSection({ title, testId, children, className = '', highlightKey }: {
   title: string
@@ -15,14 +12,16 @@ export function PanelSection({ title, testId, children, className = '', highligh
 }) {
   const ref = useRef<HTMLElement>(null)
   const highlight = useUiStore(s => s.panelHighlight)
-  const clearHighlight = useUiStore(s => s.clearPanelHighlight)
-  const seq = highlightKey !== undefined && highlight?.section === highlightKey ? highlight.seq : undefined
+  const selected = useUiStore(s => s.selectedRow)
+  // A highlight only applies to the row that asked for it.
+  const seq =
+    highlightKey !== undefined && highlight?.section === highlightKey &&
+    selected?.blockId === highlight.blockId && selected.nodeId === highlight.nodeId
+      ? highlight.seq
+      : undefined
   useEffect(() => {
-    if (seq === undefined) return
-    ref.current?.scrollIntoView?.({ block: 'nearest' })
-    const timer = setTimeout(() => clearHighlight(seq), HIGHLIGHT_MS)
-    return () => clearTimeout(timer)
-  }, [seq, clearHighlight])
+    if (seq !== undefined) ref.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [seq])
   return (
     <section
       ref={ref}

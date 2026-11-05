@@ -7,15 +7,14 @@ type Module = GameData['modules'][string]
  * The fill-all picker behind the dashed `+` chips: lists the modules a choice may use and reports the chosen id.
  * The caller decides what choosing does (fill every machine slot, fill a new or existing beacon) and which modules fit.
  */
-export function ModuleFillPicker({ heading, options, onPick, onClose, align }: {
+export function ModuleFillPicker({ heading, options, onPick, onClose }: {
   heading: string
   options: readonly Module[]
   onPick: (moduleId: string) => void
   onClose: () => void
-  align?: 'left' | 'right'
 }) {
   return (
-    <Picker heading={heading} onClose={onClose} align={align} data-kind="module-fill">
+    <Picker heading={heading} onClose={onClose} data-kind="module-fill">
       {options.length === 0 && <PickerEmpty data-testid="module-fill-empty">No module fits here within the research horizon.</PickerEmpty>}
       {options.map(m => (
         <PickerRow

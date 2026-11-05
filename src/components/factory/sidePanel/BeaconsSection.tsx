@@ -8,6 +8,7 @@ import { countRecipeRows } from '../recipeAreas'
 import { isModuleAllowedForBeaconRow } from '../moduleRules'
 import { beaconModuleOptions } from './moduleOptions'
 import { Picker, PickerRow, PickerEmpty } from '../Picker'
+import { PickerTrigger } from '../PickerTrigger'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { ModuleSlotRow } from './ModuleSlotRow'
 import { availableBeacons, defaultBeaconConfig } from './beaconDefaults'
@@ -37,7 +38,6 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   onRemove: () => void
 }) {
   const horizon = useHorizon(gameData)
-  const [typeOpen, setTypeOpen] = useState(false)
 
   const recipe = gameData.recipes[node.recipeId]
   const allowProductivity = recipe?.allowProductivity ?? false
@@ -64,7 +64,6 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
     const e = gameData.beacons[beaconId]
     if (!e) return
     update({ beaconId, modulesPerBeacon: e.moduleSlots, distributionEfficiency: e.distributionEfficiency })
-    setTypeOpen(false)
   }
 
   function selectModule(_slot: number, moduleId: string | undefined) {
@@ -75,25 +74,28 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
   return (
     <div data-testid="beacon-card" data-config-index={index} className="bg-gray-800 rounded p-2 space-y-2">
       <div className="flex items-center gap-2">
-        <div className="relative">
-          <button
-            type="button"
-            data-testid="beacon-type-button"
-            aria-expanded={typeOpen}
-            title={entity?.name ?? (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
-            aria-label={`Beacon type: ${entity?.name ?? 'none'}`}
-            onClick={() => setTypeOpen(o => !o)}
-            className={`flex items-center gap-1 rounded px-1 py-0.5 bg-gray-700 hover:bg-gray-600 ${beacon.beaconId && !withinHorizon(horizon.beaconIds, beacon.beaconId) ? 'ring-1 ring-amber-500' : ''}`}
-          >
-            {entity?.iconPath ? (
-              <Icon iconPath={entity.iconPath} alt={entity.name} className="w-8 h-8 object-contain shrink-0" />
-            ) : (
-              <span className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center text-[10px] text-gray-300 shrink-0">B</span>
-            )}
-            <Chevron />
-          </button>
-          {typeOpen && (
-            <Picker heading="Beacon type" onClose={() => setTypeOpen(false)}>
+        <PickerTrigger
+          trigger={({ open, toggle }) => (
+            <button
+              type="button"
+              data-testid="beacon-type-button"
+              aria-expanded={open}
+              title={entity?.name ?? (hasBeaconData ? 'Select beacon type' : 'No beacon data')}
+              aria-label={`Beacon type: ${entity?.name ?? 'none'}`}
+              onClick={toggle}
+              className={`flex items-center gap-1 rounded px-1 py-0.5 bg-gray-700 hover:bg-gray-600 ${beacon.beaconId && !withinHorizon(horizon.beaconIds, beacon.beaconId) ? 'ring-1 ring-amber-500' : ''}`}
+            >
+              {entity?.iconPath ? (
+                <Icon iconPath={entity.iconPath} alt={entity.name} className="w-8 h-8 object-contain shrink-0" />
+              ) : (
+                <span className="w-8 h-8 bg-gray-600 rounded flex items-center justify-center text-[10px] text-gray-300 shrink-0">B</span>
+              )}
+              <Chevron />
+            </button>
+          )}
+        >
+          {close => (
+            <Picker heading="Beacon type" onClose={close}>
               {hasBeaconData ? beacons.map(b => (
                 <PickerRow
                   key={b.id}
@@ -102,14 +104,14 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
                   selected={b.id === beacon.beaconId}
                   data-testid="beacon-option"
                   data-beacon-id={b.id}
-                  onClick={() => selectBeacon(b.id)}
+                  onClick={() => { selectBeacon(b.id); close() }}
                 />
               )) : (
                 <PickerEmpty>No beacon data — re-export game data to populate.</PickerEmpty>
               )}
             </Picker>
           )}
-        </div>
+        </PickerTrigger>
         <label className="flex items-center gap-1.5 text-xs text-gray-500">
           ×
           <input

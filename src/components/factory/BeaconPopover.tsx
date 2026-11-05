@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
+import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { availableBeacons, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
@@ -36,8 +36,6 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
 
   const nonHiddenBeacons = Object.values(gameData.beacons).filter(b => !b.hidden)
 
-  const [pickerOpen, setPickerOpen] = useState(false)
-
   /** One store command: the default beacon type and count with the chosen module in its slots. */
   function createWith(moduleId: string) {
     const config = defaultBeaconConfig(gameData, horizon, recipeId, moduleId)
@@ -59,27 +57,30 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     // The picker lists what the default beacon type (the first within the horizon) accepts.
     const newBeacon = availableBeacons(gameData, horizon)[0]
     return (
-      <span className="relative inline-flex">
-      <IconChip
-        onClick={() => setPickerOpen(o => !o)}
-        aria-expanded={pickerOpen}
-        size="entity"
-        empty
-        alt="Add beacon"
-        disabled={disabledTitle !== undefined}
-        title={disabledTitle ?? 'Add beacon'}
-        aria-label="Add beacon"
-        className={disabledTitle !== undefined ? 'opacity-40' : ''}
-      />
-      {pickerOpen && disabledTitle === undefined && (
-        <ModuleFillPicker
-          heading={`Add ${DEFAULT_BEACON_COUNT} × Beacon, fill its slots with`}
-          options={beaconModuleOptions(gameData, horizon, newBeacon, recipeId)}
-          onPick={createWith}
-          onClose={() => setPickerOpen(false)}
-        />
-      )}
-      </span>
+      <PickerTrigger
+        trigger={({ open, toggle }) => (
+          <IconChip
+            onClick={toggle}
+            aria-expanded={open}
+            size="entity"
+            empty
+            alt="Add beacon"
+            disabled={disabledTitle !== undefined}
+            title={disabledTitle ?? 'Add beacon'}
+            aria-label="Add beacon"
+            className={disabledTitle !== undefined ? 'opacity-40' : ''}
+          />
+        )}
+      >
+        {close => (
+          <ModuleFillPicker
+            heading={`Add ${DEFAULT_BEACON_COUNT} × Beacon, fill its slots with`}
+            options={beaconModuleOptions(gameData, horizon, newBeacon, recipeId)}
+            onPick={createWith}
+            onClose={close}
+          />
+        )}
+      </PickerTrigger>
     )
   }
 
@@ -103,6 +104,27 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const chipTitle = beacons.map(describe).join('; ')
   const editTitle = beyondHorizon ? 'Edit beacon (beyond research horizon)' : 'Edit beacon'
 
+  const moduleChip = (toggle?: () => void, open?: boolean) => (
+    <IconChip
+      onClick={toggle ?? onOpenEdit}
+      aria-expanded={toggle ? open : undefined}
+      size="entity"
+      empty={!moduleData && !unknownModuleId}
+      warn={unknownModuleId !== undefined}
+      iconPath={moduleData?.iconPath || undefined}
+      alt={moduleData?.name ?? unknownModuleId ?? 'module'}
+      fallback={unknownModuleId !== undefined ? '?' : '+'}
+      quantity={`${moduleData || unknownModuleId ? beacon.modulesPerBeacon : 0}/${slots}`}
+      title={
+        moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon`
+        : unknownModuleId ? `Unknown module "${unknownModuleId}" × ${beacon.modulesPerBeacon} per beacon (not in the loaded game data)`
+        : 'Beacon without a module'
+      }
+      aria-label="Edit beacon modules"
+      data-testid="beacon-module-chip"
+    />
+  )
+
   return (
     <>
       <div className="flex items-center gap-1.5">
@@ -120,37 +142,19 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
           aria-label="Edit beacon"
           data-beyond-horizon={beyondHorizon ? 'true' : undefined}
         />
-        <span className="relative inline-flex">
-        <IconChip
-          onClick={fillBeacon ? () => setPickerOpen(o => !o) : onOpenEdit}
-          aria-expanded={fillBeacon ? pickerOpen : undefined}
-          size="entity"
-          empty={!moduleData && !unknownModuleId}
-          warn={unknownModuleId !== undefined}
-          iconPath={moduleData?.iconPath || undefined}
-          alt={moduleData?.name ?? unknownModuleId ?? 'module'}
-          fallback={unknownModuleId !== undefined ? '?' : '+'}
-          quantity={`${moduleData || unknownModuleId ? beacon.modulesPerBeacon : 0}/${slots}`}
-          title={
-            moduleData ? `${moduleData.name} × ${beacon.modulesPerBeacon} per beacon`
-            : unknownModuleId ? `Unknown module "${unknownModuleId}" × ${beacon.modulesPerBeacon} per beacon (not in the loaded game data)`
-            : 'Beacon without a module'
-          }
-          aria-label="Edit beacon modules"
-          data-testid="beacon-module-chip"
-        />
-        {fillBeacon && pickerOpen && (
-          <ModuleFillPicker
-            heading="Fill its slots with"
-            options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
-            onPick={moduleId => updateNodeBeacon(nodeId, { ...beacon, moduleId })}
-            onClose={() => setPickerOpen(false)}
-            align="right"
-          />
-        )}
-        </span>
+        {fillBeacon ? (
+          <PickerTrigger trigger={({ open, toggle }) => moduleChip(toggle, open)}>
+            {close => (
+              <ModuleFillPicker
+                heading="Fill its slots with"
+                options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
+                onPick={moduleId => updateNodeBeacon(nodeId, { ...beacon, moduleId })}
+                onClose={close}
+              />
+            )}
+          </PickerTrigger>
+        ) : moduleChip()}
       </div>
-
     </>
   )
 }

@@ -172,3 +172,31 @@ describe('initUiStatePersistence', () => {
     expect(localStorageMock.setItem).not.toHaveBeenCalled()
   })
 })
+
+describe('panel highlight', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    useUiStore.setState({ selectedRow: null, panelHighlight: null })
+  })
+  afterEach(() => { vi.useRealTimers() })
+
+  it('belongs to the row that asked for it', () => {
+    useUiStore.getState().selectRowSection('b1', 'n1', 'beacons')
+    expect(useUiStore.getState().panelHighlight).toMatchObject({ blockId: 'b1', nodeId: 'n1', section: 'beacons' })
+  })
+
+  it('is dropped when another row is selected, and when the selection clears', () => {
+    useUiStore.getState().selectRowSection('b1', 'n1', 'machine')
+    useUiStore.getState().selectRow('b1', 'n2')
+    expect(useUiStore.getState().panelHighlight).toBeNull()
+    useUiStore.getState().selectRowSection('b1', 'n2', 'machine')
+    useUiStore.getState().clearSelectedRow()
+    expect(useUiStore.getState().panelHighlight).toBeNull()
+  })
+
+  it('expires on its own even when no section shows it', () => {
+    useUiStore.getState().selectRowSection('b1', 'n1', 'beacons')
+    vi.advanceTimersByTime(5000)
+    expect(useUiStore.getState().panelHighlight).toBeNull()
+  })
+})

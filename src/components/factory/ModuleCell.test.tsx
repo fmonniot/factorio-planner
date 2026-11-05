@@ -125,7 +125,18 @@ describe('ModuleCell shortcuts', () => {
     gd.recipes.r.allowProductivity = true
     render(<ModuleCell nodeId="n1" recipeId="r" machine={machine} modules={[]} machineSlots={2} gameData={gd} onOpenEdit={() => {}} />)
     fireEvent.click(screen.getByTestId('module-chip'))
-    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['speed-3', 'prod-3'])
+    expect(screen.getAllByTestId('module-fill-option').map(o => o.getAttribute('data-module-id'))).toEqual(['prod-3', 'speed-3'])
+  })
+
+  it('does not reopen the picker when the chip empties again after holding modules', () => {
+    const props = { nodeId: 'n1', recipeId: 'r', machine, machineSlots: 4, gameData: data(), onOpenEdit: () => {} }
+    const { rerender } = render(<ModuleCell {...props} modules={[]} />)
+    fireEvent.click(screen.getByTestId('module-chip'))
+    expect(screen.getByTestId('picker')).toBeInTheDocument()
+    rerender(<ModuleCell {...props} modules={[{ moduleId: 'speed-3', count: 1 }]} />)
+    expect(screen.queryByTestId('picker')).toBeNull()
+    rerender(<ModuleCell {...props} modules={[]} />)
+    expect(screen.queryByTestId('picker')).toBeNull()
   })
 
   it('opens the panel instead of a picker when the chip holds modules', () => {

@@ -143,6 +143,17 @@ describe('SidePanel — section highlight', () => {
     expect(useUiStore.getState().panelHighlight).toBeNull()
   })
 
+  it('does not highlight a section for a different row than the one that asked', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    useUiStore.getState().selectRowSection(block.id, 'n1', 'machine')
+    useUiStore.getState().selectRow(block.id, 'n2')
+    renderPanel()
+    expect(screen.getByTestId('panel-machine')).not.toHaveAttribute('data-highlighted')
+    // Even if a stale highlight of the first row were still stored.
+    useUiStore.setState({ panelHighlight: { seq: 99, blockId: block.id, nodeId: 'n1', section: 'machine' } })
+    expect(screen.getByTestId('panel-machine')).not.toHaveAttribute('data-highlighted')
+  })
+
   it('highlights the Beacons section', () => {
     setPlan([row('n1', 'r-plate')])
     useUiStore.getState().selectRowSection(block.id, 'n1', 'beacons')

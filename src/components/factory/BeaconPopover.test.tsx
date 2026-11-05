@@ -297,4 +297,13 @@ describe('BeaconCell — chips over a list of configurations', () => {
     const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(updated.kind === 'game-recipe' && updated.beaconConfig).toMatchObject({ moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2 })
   })
+
+  it('does not open the other chip\'s picker when the row changes from no beacon to a beacon without a module', () => {
+    const props = { nodeId: 'n1', gameData: mockGameData, recipeId: 'iron-plate', machineId: undefined, recipeCategory: 'crafting', onOpenEdit: () => {} }
+    const { rerender } = render(<BeaconCell {...props} beacons={[]} />)
+    fireEvent.click(screen.getByLabelText('Add beacon'))
+    expect(screen.getByTestId('picker')).toBeInTheDocument()
+    rerender(<BeaconCell {...props} beacons={[{ ...beacon, moduleId: undefined }]} />)
+    expect(screen.queryByTestId('picker')).toBeNull()
+  })
 })

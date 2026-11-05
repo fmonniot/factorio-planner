@@ -63,11 +63,11 @@ test('the panel changes the machine', async ({ page }) => {
   const panel = await selectRow(page, row(page, ROOT_ELEC))
 
   await openMachinePicker(page)
-  await panel.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()
+  await page.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()
 
   await expect.poll(async () => rootNode(await readActivePlan(page, 'nullius')).machineId).toBe('nullius-surge-electrolyzer-1')
   // The picker closes after a choice.
-  await expect(panel.getByTestId('machine-option')).toHaveCount(0)
+  await expect(page.getByTestId('machine-option')).toHaveCount(0)
 })
 
 test('the Rate section pins the rate, and unpinning removes the badge', async ({ page }) => {

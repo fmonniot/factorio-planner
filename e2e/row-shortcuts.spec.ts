@@ -111,7 +111,7 @@ test('the empty beacon module chip fills a beacon that has none', async ({ page 
   await row(page).getByRole('button', { name: 'Edit beacon', exact: true }).click()
   const panel = sidePanel(page)
   await panel.getByTestId('beacon-module-slot').first().click()
-  await panel.getByTestId('beacon-module-option-empty').click()
+  await page.getByTestId('beacon-module-option-empty').click()
   await expect.poll(async () => (await rootNode(page)).beaconConfig?.moduleId).toBeUndefined()
 
   await row(page).getByTestId('beacon-module-chip').click()
@@ -146,4 +146,35 @@ test('a filled beacon chip opens the panel on the highlighted Beacons section', 
   await expect(panel).toBeVisible()
   await expect(panel.getByTestId('panel-beacons')).toHaveAttribute('data-highlighted', 'true')
   await expect(panel.getByTestId('panel-machine')).not.toHaveAttribute('data-highlighted', 'true')
+})
+
+test('a picker opened from the bottom row or the Beacons column stays inside the viewport', async ({ page }) => {
+  // A short window, so the table's last rows sit close to the bottom edge.
+  await page.setViewportSize({ width: 1100, height: 520 })
+  const rows = page.locator('main tr[data-node-id]:has([data-testid="machine-chip"])')
+  const last = rows.last()
+  await last.scrollIntoViewIfNeeded()
+
+  async function expectInViewport() {
+    const picker = page.getByTestId('picker')
+    await expect(picker).toBeVisible()
+    const box = (await picker.boundingBox())!
+    const view = page.viewportSize()!
+    expect(box.x).toBeGreaterThanOrEqual(0)
+    expect(box.y).toBeGreaterThanOrEqual(0)
+    expect(box.x + box.width).toBeLessThanOrEqual(view.width)
+    expect(box.y + box.height).toBeLessThanOrEqual(view.height)
+    await page.keyboard.press('Escape')
+    await expect(page.getByTestId('picker')).toHaveCount(0)
+  }
+
+  await last.getByTestId('machine-chip').click()
+  await expectInViewport()
+  const add = last.getByLabel('Add beacon')
+  if (await add.count()) {
+    await add.click()
+    await expectInViewport()
+  }
+  await row(page).getByLabel('Add beacon').click()
+  await expectInViewport()
 })

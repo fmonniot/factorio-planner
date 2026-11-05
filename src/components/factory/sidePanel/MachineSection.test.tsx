@@ -237,7 +237,7 @@ describe('MachineSection — productivity modules', () => {
     useBlockStore.setState({ horizonTechnologyIds: [] })
     renderModal(gameDataWithProdModule(true))
     openSlot(0)
-    expect(moduleOptionIds()).toEqual(['speed', 'prod'])
+    expect(moduleOptionIds()).toEqual(['prod', 'speed'])
   })
 })
 

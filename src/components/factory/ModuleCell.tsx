@@ -1,9 +1,9 @@
-import { useState } from 'react'
 import type { GameData, ModuleConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { withinHorizon } from '../../data/horizon'
 import { IconChip } from './IconChip'
+import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
 import { machineModuleOptions } from './sidePanel/moduleOptions'
 
@@ -24,7 +24,6 @@ interface ModuleCellProps {
 export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, gameData, noMachine = false, onOpenEdit }: ModuleCellProps) {
   const horizon = useHorizon(gameData)
   const updateNodeModules = useBlockStore(s => s.updateNodeModules)
-  const [pickerOpen, setPickerOpen] = useState(false)
   if (machineSlots === 0 && modules.length === 0) return null
 
   const usedSlots = modules.reduce((sum, m) => sum + m.count, 0)
@@ -46,11 +45,10 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
   // An empty chip is the fill-all shortcut; one with modules opens the panel (slots can hold mixed modules).
   const fillAll = modules.length === 0 && machineSlots > 0 && !noMachine
 
-  return (
-    <span className="relative inline-flex">
+  const chip = (toggle?: () => void, open?: boolean) => (
     <IconChip
-      onClick={fillAll ? () => setPickerOpen(o => !o) : onOpenEdit}
-      aria-expanded={fillAll ? pickerOpen : undefined}
+      onClick={toggle ?? onOpenEdit}
+      aria-expanded={toggle ? open : undefined}
       data-testid="module-chip"
       size="entity"
       empty={modules.length === 0}
@@ -63,15 +61,19 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
       data-beyond-horizon={beyondHorizon ? 'true' : undefined}
       data-over-slots={overSlots ? 'true' : undefined}
     />
-    {fillAll && pickerOpen && (
-      <ModuleFillPicker
-        heading={`Fill all ${machineSlots} ${machineSlots === 1 ? 'slot' : 'slots'} with`}
-        options={machineModuleOptions(gameData, horizon, machine, recipeId)}
-        onPick={moduleId => updateNodeModules(nodeId, [{ moduleId, count: machineSlots }])}
-        onClose={() => setPickerOpen(false)}
-      />
-    )}
-    </span>
+  )
+  if (!fillAll) return chip()
+  return (
+    <PickerTrigger trigger={({ open, toggle }) => chip(toggle, open)}>
+      {close => (
+        <ModuleFillPicker
+          heading={`Fill all ${machineSlots} ${machineSlots === 1 ? 'slot' : 'slots'} with`}
+          options={machineModuleOptions(gameData, horizon, machine, recipeId)}
+          onPick={moduleId => updateNodeModules(nodeId, [{ moduleId, count: machineSlots }])}
+          onClose={close}
+        />
+      )}
+    </PickerTrigger>
   )
 }
 

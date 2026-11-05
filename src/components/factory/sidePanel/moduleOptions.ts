@@ -5,10 +5,10 @@ import { isModuleAllowedByProductivity, isModuleAllowedForBeaconRow, isModuleAll
 
 type Module = GameData['modules'][string]
 
-const byName = (a: Module, b: Module) => a.name.localeCompare(b.name)
+const byName = (a: Module, b: Module) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id)
 
 /**
- * The modules a slot of a machine takes: the machine's allowed effects, the recipe's limits and productivity flag, and the
+ * The modules a slot of a machine takes, by name: the machine's allowed effects, the recipe's limits and productivity flag, and the
  * research horizon. Empty without a machine.
  */
 export function machineModuleOptions(
@@ -25,9 +25,10 @@ export function machineModuleOptions(
       isModuleAllowedForRecipe(m, recipeId) &&
       isModuleAllowedByProductivity(m, allowProductivity) &&
       withinHorizon(horizon.moduleIds, m.id))
+    .sort(byName)
 }
 
-/** The modules a beacon (the entity, or undefined for legacy data) accepts for a recipe, within the research horizon. */
+/** The modules a beacon (the entity, or undefined for legacy data) accepts for a recipe, within the research horizon, by name. */
 export function beaconModuleOptions(
   gameData: GameData,
   horizon: Horizon,

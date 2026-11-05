@@ -45,7 +45,7 @@ export interface UiStoreState {
    * A short-lived highlight of one section of the side panel (a chip shortcut opened it for that section). Transient.
    * `seq` changes on every request; the section clears it with `clearPanelHighlight(seq)` once the highlight is over.
    */
-  panelHighlight: { seq: number; section: PanelHighlightSection } | null
+  panelHighlight: { seq: number; blockId: string; nodeId: string; section: PanelHighlightSection } | null
   /** Select the row and highlight a section of its panel. */
   selectRowSection: (blockId: string, nodeId: string, section: PanelHighlightSection) => void
   clearPanelHighlight: (seq: number) => void
@@ -56,6 +56,10 @@ export type PanelHighlightSection = 'machine' | 'beacons'
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
+
+/** How long a chip shortcut's highlight of a panel section lasts. */
+export const HIGHLIGHT_MS = 1600
+let highlightSeq = 0
 
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
@@ -72,15 +76,20 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   requestRevealRow: (nodeId) =>
     set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),
   selectedRow: null,
+  // Selecting another row drops a live highlight: it belongs to the row that asked for it.
   selectRow: (blockId, nodeId) =>
-    set(state => (state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state : { selectedRow: { blockId, nodeId } })),
+    set(state => (state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state : { selectedRow: { blockId, nodeId }, panelHighlight: null })),
   clearSelectedRow: () => set(state => (state.selectedRow === null ? state : { selectedRow: null, panelHighlight: null })),
   panelHighlight: null,
-  selectRowSection: (blockId, nodeId, section) =>
+  selectRowSection: (blockId, nodeId, section) => {
+    const seq = (highlightSeq += 1)
     set(state => ({
       selectedRow: state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state.selectedRow : { blockId, nodeId },
-      panelHighlight: { seq: (state.panelHighlight?.seq ?? 0) + 1, section },
-    })),
+      panelHighlight: { seq, blockId, nodeId, section },
+    }))
+    // The highlight ends on its own even when no mounted section shows it (the row's panel has no such section).
+    setTimeout(() => useUiStore.getState().clearPanelHighlight(seq), HIGHLIGHT_MS)
+  },
   clearPanelHighlight: (seq) => set(state => (state.panelHighlight?.seq === seq ? { panelHighlight: null } : state)),
 }))
 
