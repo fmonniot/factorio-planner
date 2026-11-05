@@ -24,7 +24,7 @@ test('right-click menu pins, dismisses with Escape and removes a recipe', async 
   expect((await menu.boundingBox())!.width).toBeLessThan(200)
   await menu.getByRole('menuitem', { name: 'Pin rate' }).click()
   await expect(menu).toBeHidden()
-  await expect(row.getByLabel('Pinned rate')).toBeVisible()
+  await expect(row.getByTestId('chip-pin')).toBeVisible()
 
   // Escape dismisses.
   await icon.click({ button: 'right' })

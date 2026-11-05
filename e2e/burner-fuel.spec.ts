@@ -17,13 +17,12 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   await expect(fuel).toHaveAttribute('title', /^Fuel: Cellulose fiber — Find producer recipe — \S+$/)
   await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
-  // Pick solid fuel in the Edit machine modal.
+  // Pick solid fuel in the side panel's Machine section.
   await row.getByTitle('Stone furnace', { exact: true }).click()
   await expect(page.getByTestId('fuel-button')).toContainText('Cellulose fiber')
   await page.getByTestId('fuel-button').click()
   await page.locator('[data-testid="fuel-option"][data-item-id="solid-fuel"]').click()
   await expect(page.getByTestId('fuel-button')).toContainText('Solid fuel')
-  await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
   // 30 runs/min x 7 s = 3.5 furnaces; 3.5 x 90 kW / 12 MJ = 0.02625 /s = 1.575 /min.
   await expect(fuel).toHaveAttribute('title', /^Fuel: Solid fuel — Find producer recipe — \S+$/)

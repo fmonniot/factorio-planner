@@ -34,6 +34,13 @@ export interface UiStoreState {
   /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
   revealRowRequest: { seq: number; nodeId: string } | null
   requestRevealRow: (nodeId: string) => void
+  /**
+   * The production-table row (recipe row or group) the side panel shows, with the block it belongs to.
+   * Transient (not persisted). The table treats a selection of another block or of a removed node as none.
+   */
+  selectedRow: { blockId: string; nodeId: string } | null
+  selectRow: (blockId: string, nodeId: string) => void
+  clearSelectedRow: () => void
 }
 
 // ---------------------------------------------------------------------------
@@ -54,6 +61,10 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   revealRowRequest: null,
   requestRevealRow: (nodeId) =>
     set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),
+  selectedRow: null,
+  selectRow: (blockId, nodeId) =>
+    set(state => (state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state : { selectedRow: { blockId, nodeId } })),
+  clearSelectedRow: () => set(state => (state.selectedRow === null ? state : { selectedRow: null })),
 }))
 
 // ---------------------------------------------------------------------------

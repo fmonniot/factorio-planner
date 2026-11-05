@@ -59,12 +59,12 @@ test.describe('Nodes panel', () => {
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
-    // The module cell shows slot count — click it to open the module popover.
+    // The module cell shows slot count — click it to select the row and open the side panel.
     const moduleBtn = row.getByTitle('Edit modules')
     await expect(moduleBtn).toBeVisible()
     await moduleBtn.click()
 
-    // Module popover appears with a slot count indicator.
-    await expect(page.getByText(/\/\d+/)).toBeVisible()
+    // The panel's Machine section shows a slot usage indicator.
+    await expect(page.getByTestId('side-panel').getByText(/\d+ \/ \d+ slots used/)).toBeVisible()
   })
 })

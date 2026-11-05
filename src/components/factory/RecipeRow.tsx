@@ -5,15 +5,13 @@ import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
-import { fmtRate, fmtPower, fmtItemRateText, inputRateUnit } from './ItemTile'
+import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
 import { treeGuideStyle, guideLevels } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
-import { isEnergyItem } from '../../data/electricity'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
 import { BeaconCell } from './BeaconPopover'
-import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
@@ -30,7 +28,6 @@ import {
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
 import { rowProductAmount } from '../../solver/build'
-import { neighbourHeatBonus } from '../../solver/effects'
 import { hasProduct } from '../../solver/blockGraph'
 import { itemSourcingActions } from './itemSourcing'
 import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
@@ -106,6 +103,11 @@ interface RecipeRowProps {
   isHighlighted?: boolean
 }
 
+/** Clicks that come from these do not select the row. */
+const CONTROL_SELECTOR = 'button, input, select, textarea, a, label, [role="menu"], [role="dialog"]'
+
+const SELECTED_ROW_CLASS = 'bg-teal-900/25'
+
 const NO_SOLVED: ReadonlyMap<string, SolvedNode> = new Map()
 
 export function RecipeRow({
@@ -149,9 +151,17 @@ export function RecipeRow({
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
-  // Last positive solved items-per-run, so the pin factor (and the pin input's
-  // key) stays stable when a later solve zeroes this node.
-  const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
+
+  // Selection: the side panel shows the selected row.
+  const blockId = activeBlock?.id
+  const isSelected = useUiStore(s => s.selectedRow !== null && s.selectedRow.nodeId === planNode.id && s.selectedRow.blockId === blockId)
+  const selectRow = useUiStore(s => s.selectRow)
+  const select = () => { if (blockId) selectRow(blockId, planNode.id) }
+  // A click anywhere on the row that is not a control selects it; the controls keep their own behaviour.
+  function handleRowClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
+    select()
+  }
 
   // A group row's machines and power over its whole subtree, memoised: the walk would otherwise run on every render.
   const groupTotals = useMemo(() => {
@@ -171,7 +181,6 @@ export function RecipeRow({
       hereId,
     )
   }, [planNode, areaView, gameData, rootPlan])
-  const [editMachineOpen, setEditMachineOpen] = useState(false)
   const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
   // The menu of an item chip: the sourcing choice, and for a byproduct chip "Add consumer recipe…".
   const [itemMenu, setItemMenu] = useState<{ itemId: string; byproduct: boolean; x: number; y: number } | null>(null)
@@ -339,7 +348,9 @@ export function RecipeRow({
         ref={rowRef}
         data-node-id={planNode.id}
         {...highlightProps}
-        className={`border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        data-selected={isSelected ? 'true' : undefined}
+        className={`border-b border-gray-800 ${isSelected ? SELECTED_ROW_CLASS : 'bg-gray-800/20'} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        onClick={handleRowClick}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -347,7 +358,7 @@ export function RecipeRow({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
+        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
         <td
           className="px-2 py-0.5"
           colSpan={3}
@@ -470,9 +481,6 @@ export function RecipeRow({
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = dedicatedProduct(planNode, recipe)
-  const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
-  if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
-  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined, neighbourHeatBonus(planNode, gameData))
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
@@ -552,16 +560,6 @@ export function RecipeRow({
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
-  // `pinnedRate` is stored as executions per minute; the input shows the primary
-  // product's rate in the current unit. This conversion and the `* primaryPerRun / 60`
-  // in the input's defaultValue are inverses: keep them in sync.
-  function handlePinnedRateChange(raw: string) {
-    const v = parseFloat(raw)
-    if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, (inputRateUnit(primaryItemId, rateUnit) === 'min' ? v : v * 60) / primaryPerRun)
-    }
-  }
-
   const recipeOpacity = isDragging ? 'opacity-50' : ''
 
   return (
@@ -569,7 +567,9 @@ export function RecipeRow({
       ref={rowRef}
       data-node-id={planNode.id}
       {...highlightProps}
-      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity} ${highlightClass}`}
+      data-selected={isSelected ? 'true' : undefined}
+      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${isSelected ? SELECTED_ROW_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
+      onClick={handleRowClick}
       draggable
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
@@ -578,7 +578,7 @@ export function RecipeRow({
       onDrop={handleDrop}
     >
       {/* Reorder */}
-      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
+      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
 
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
@@ -595,6 +595,12 @@ export function RecipeRow({
         {dropZone === 'before' && <DropLine edge="top" />}
         {dropZone === 'after' && <DropLine edge="bottom" />}
         <div className="flex items-center gap-1 min-w-0">
+          <button
+            type="button"
+            onClick={select}
+            aria-pressed={isSelected}
+            className="flex items-center gap-1 min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400"
+          >
           <div className="relative shrink-0">
             {/* Recipe icon derived from primary product */}
             {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
@@ -624,6 +630,7 @@ export function RecipeRow({
           <span data-testid="recipe-name" title={recipe.name} className="text-[11px] font-medium truncate min-w-0">
             {recipe.name}
           </span>
+          </button>
           {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
@@ -672,30 +679,16 @@ export function RecipeRow({
             machineId={planNode.machineId}
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             gameData={gameData}
-            onOpenEdit={() => setEditMachineOpen(true)}
+            onOpenEdit={select}
           />
           <ModuleCell
             modules={planNode.modules}
             machineSlots={machine?.moduleSlots ?? 0}
             gameData={gameData}
             noMachine={noMachineInHorizon}
-            onOpenEdit={() => setEditMachineOpen(true)}
+            onOpenEdit={select}
           />
         </div>
-        {editMachineOpen && (
-          <EditMachineModal
-            nodeId={planNode.id}
-            recipeId={planNode.recipeId}
-            recipeCategory={recipe.category}
-            machineId={planNode.machineId}
-            machineCountCeil={solvedNode?.machineCountCeil ?? 0}
-            modules={planNode.modules}
-            neighbourCount={planNode.neighbourCount}
-            fuelItemId={planNode.fuelItemId}
-            gameData={gameData}
-            onClose={() => setEditMachineOpen(false)}
-          />
-        )}
       </td>
 
       {/* Beacons — the data model holds one configuration; the cell takes a list */}
@@ -707,6 +700,7 @@ export function RecipeRow({
           recipeId={planNode.recipeId}
           machineId={planNode.machineId}
           recipeCategory={recipe.category}
+          onOpenEdit={select}
         />
       </td>
 
@@ -718,23 +712,6 @@ export function RecipeRow({
             const productTemp = productTemperatures[itemId]
             return (
               <div key={itemId} className="flex items-center gap-1">
-                {showPin && (
-                  // Kept until the side panel takes over the rate (it edits the pin there).
-                  <>
-                    <input
-                      type="number"
-                      min="0.001"
-                      step="any"
-                      aria-label="Pinned rate"
-                      // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
-                      defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, inputRateUnit(primaryItemId, rateUnit))}
-                      key={`${planNode.id}-pin-${inputRateUnit(primaryItemId, rateUnit)}-${primaryPerRun.toFixed(6)}`}
-                      onChange={e => handlePinnedRateChange(e.target.value)}
-                      className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
-                    />
-                    <span className="text-gray-600 text-[10px]">{isEnergyItem(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
-                  </>
-                )}
                 <ItemChip
                   item={gameData.items[itemId]}
                   ratePerSec={ratePerMin / 60}
@@ -889,6 +866,8 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
 
 interface ReorderCellProps {
   nodeId: string
+  /** The row is selected: a teal bar on the left edge. */
+  selected?: boolean
   isFirst: boolean
   isLast: boolean
   moveUp: (id: string) => void
@@ -910,9 +889,9 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
   )
 }
 
-function ReorderCell({ nodeId, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
+function ReorderCell({ nodeId, selected, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
   return (
-    <td className="px-1 py-0.5 w-8">
+    <td className="px-1 py-0.5 w-8" style={selected ? { boxShadow: 'inset 3px 0 0 #14b8a6' } : undefined}>
       <div className="flex flex-col items-center gap-0">
         <button
           type="button"

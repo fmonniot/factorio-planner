@@ -1,14 +1,12 @@
-import { useState } from 'react'
 import type { GameData, BeaconConfig } from '../../data/types'
 import { useBlockStore } from '../../store/blockStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
-import { BeaconModal } from './BeaconModal'
-import { isModuleAllowedForBeaconRow } from './moduleRules'
+import { defaultBeaconConfig } from './sidePanel/beaconDefaults'
 
 // ---------------------------------------------------------------------------
-// BeaconCell — icon+badge trigger (or + placeholder), opens BeaconModal
+// BeaconCell — icon+badge trigger (or + placeholder); opens the side panel on the row
 // ---------------------------------------------------------------------------
 
 interface BeaconCellProps {
@@ -19,14 +17,14 @@ interface BeaconCellProps {
    */
   beacons: BeaconConfig[]
   gameData: GameData
-  // RecipeRow needs to pass these for the effects panels in the modal.
   recipeId: string
   machineId: string | undefined
   recipeCategory: string
+  /** Select the row: the side panel edits its beacons. */
+  onOpenEdit: () => void
 }
 
-export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory }: BeaconCellProps) {
-  const [open, setOpen] = useState(false)
+export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit }: BeaconCellProps) {
   const beacon: BeaconConfig | undefined = beacons[0]
   const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
   const horizon = useHorizon(gameData)
@@ -35,38 +33,11 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const nonHiddenBeacons = Object.values(gameData.beacons).filter(b => !b.hidden)
 
   function enable() {
-    // Pick the first beacon type within the horizon, or fall back to legacy defaults.
-    const firstBeacon = nonHiddenBeacons
-      .filter(b => withinHorizon(horizon.beaconIds, b.id))
-      .sort((a, b) => a.name.localeCompare(b.name))[0]
-
-    const allowProductivity = gameData.recipes[recipeId]?.allowProductivity ?? false
-    const firstModule = Object.values(gameData.modules)
-      .filter(m =>
-        withinHorizon(horizon.moduleIds, m.id) &&
-        isModuleAllowedForBeaconRow(m, firstBeacon, recipeId, allowProductivity),
-      )
-      .sort((a, b) => a.name.localeCompare(b.name))[0]
-
-    if (!firstModule) return
-
-    const config: BeaconConfig = firstBeacon
-      ? {
-          beaconId: firstBeacon.id,
-          moduleId: firstModule.id,
-          beaconCount: 4,
-          modulesPerBeacon: firstBeacon.moduleSlots,
-          distributionEfficiency: firstBeacon.distributionEfficiency,
-        }
-      : {
-          moduleId: firstModule.id,
-          beaconCount: 4,
-          modulesPerBeacon: 2,
-          distributionEfficiency: 0.5,
-        }
-
+    // The first beacon type within the horizon (or the legacy defaults) with the first module it accepts.
+    const config = defaultBeaconConfig(gameData, horizon, recipeId)
+    if (!config) return
     updateNodeBeacon(nodeId, config)
-    setOpen(true)
+    onOpenEdit()
   }
 
   if (!beacon) {
@@ -117,7 +88,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     <>
       <div className="flex items-center gap-1.5">
         <IconChip
-          onClick={() => setOpen(o => !o)}
+          onClick={onOpenEdit}
           size="entity"
           iconPath={(beaconEntity?.iconPath || moduleData?.iconPath) || undefined}
           alt={beaconEntity?.name ?? moduleData?.name ?? 'beacon'}
@@ -131,7 +102,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
           data-beyond-horizon={beyondHorizon ? 'true' : undefined}
         />
         <IconChip
-          onClick={() => setOpen(o => !o)}
+          onClick={onOpenEdit}
           size="entity"
           empty={!moduleData && !unknownModuleId}
           warn={unknownModuleId !== undefined}
@@ -149,17 +120,6 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
         />
       </div>
 
-      {open && (
-        <BeaconModal
-          nodeId={nodeId}
-          beacon={beacon}
-          recipeId={recipeId}
-          machineId={machineId}
-          recipeCategory={recipeCategory}
-          gameData={gameData}
-          onClose={() => setOpen(false)}
-        />
-      )}
     </>
   )
 }

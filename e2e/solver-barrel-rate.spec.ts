@@ -19,16 +19,16 @@ test('solver does not produce astronomical rates when the same recipe appears tw
   // Wait for at least one recipe row to appear in the production table.
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 5000 })
 
-  // Collect all rate texts rendered in the table (/m = /min or /sec suffix).
+  // Collect all rates rendered in the table: the quantity in the corner of every chip.
   // count() does not auto-wait, so wait for the first rate to render before sampling.
-  const rateLocator = page.locator('main table').getByText(/\/m/)
+  const rateLocator = page.locator('main table [data-chip-quantity]')
   await expect(rateLocator.first()).toBeVisible({ timeout: 5000 })
   const count = await rateLocator.count()
   expect(count).toBeGreaterThan(0)
 
   for (let i = 0; i < count; i++) {
     const text = (await rateLocator.nth(i).textContent()) ?? ''
-    const match = text.match(/([\d.]+)\/m/)
+    const match = text.match(/^([\d.]+)/)
     if (!match) continue
     const rate = parseFloat(match[1])
     expect(

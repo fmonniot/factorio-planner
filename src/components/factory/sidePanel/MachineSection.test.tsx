@@ -1,10 +1,35 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { EditMachineModal } from './EditMachineModal'
-import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
-import { useGameDataStore } from '../../store/gameDataStore'
-import { useUiStore } from '../../store/uiStore'
-import type { GameData, GameRecipeNode } from '../../data/types'
+import { MachineSection } from './MachineSection'
+import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
+import { useGameDataStore } from '../../../store/gameDataStore'
+import { useUiStore } from '../../../store/uiStore'
+import type { GameData, GameRecipeNode, ModuleConfig } from '../../../data/types'
+
+/** The old modal's props, as the section's node: keeps the scenarios below readable. */
+interface SectionProps {
+  nodeId?: string
+  recipeId?: string
+  recipeCategory?: string
+  machineId?: string
+  machineCountCeil?: number
+  modules?: ModuleConfig[]
+  neighbourCount?: number
+  fuelItemId?: string
+  gameData: GameData
+  onClose?: () => void
+}
+
+function SectionHarness({ nodeId = 'n1', recipeId = 'plate', machineId, machineCountCeil = 1, modules = [], neighbourCount, fuelItemId, gameData }: SectionProps) {
+  const node: GameRecipeNode = {
+    kind: 'game-recipe', id: nodeId, recipeId, modules, byproductPolicy: {},
+    ...(machineId !== undefined && { machineId }),
+    ...(neighbourCount !== undefined && { neighbourCount }),
+    ...(fuelItemId !== undefined && { fuelItemId }),
+  }
+  const solved = { recipeNodeId: nodeId, inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: machineCountCeil, machineCountCeil, powerKw: 0 }
+  return <MachineSection node={node} solved={solved} gameData={gameData} />
+}
 
 function recipe(id: string, name: string): GameData['recipes'][string] {
   return {
@@ -69,11 +94,11 @@ function makeGameData(): GameData {
 
 function renderModal(
   gameData: GameData,
-  props: Partial<React.ComponentProps<typeof EditMachineModal>> = {},
+  props: Partial<SectionProps> = {},
 ) {
   useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
   render(
-    <EditMachineModal
+    <SectionHarness
       nodeId="n1"
       recipeId="plate"
       recipeCategory="crafting"
@@ -85,9 +110,13 @@ function renderModal(
       {...props}
     />,
   )
-  fireEvent.click(screen.getByText(/machines$/))
+  openMachinePicker()
 }
 
+const openMachinePicker = () => fireEvent.click(screen.getByTestId('machine-picker-button'))
+
+const openSlot = (i: number) => fireEvent.click(screen.getAllByTestId('module-slot')[i])
+const moduleOptionIds = () => screen.queryAllByTestId('module-option').map(e => e.getAttribute('data-module-id'))
 const optionIds = () => screen.queryAllByTestId('machine-option').map(e => e.getAttribute('data-machine-id'))
 
 beforeEach(() => {
@@ -95,7 +124,7 @@ beforeEach(() => {
   useUiStore.setState({ defaultMachinesRequest: null })
 })
 
-describe('EditMachineModal — alternate recipes and the research horizon', () => {
+describe('MachineSection — alternate recipes and the research horizon', () => {
   it('omits an alternate recipe outside the horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
     renderModal(makeGameData())
@@ -114,7 +143,7 @@ describe('EditMachineModal — alternate recipes and the research horizon', () =
   })
 })
 
-describe('EditMachineModal — machines, modules and the research horizon', () => {
+describe('MachineSection — machines, modules and the research horizon', () => {
   it('lists only machines within the horizon and shows the horizon default', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base', 'asm'] })
     renderModal(makeGameData())
@@ -162,10 +191,10 @@ describe('EditMachineModal — machines, modules and the research horizon', () =
       history: {},
     })
     renderModal(makeGameData(), { modules: [{ moduleId: 'speed', count: 1 }] })
-    const moduleRow = screen.getByText('Speed').closest('div')!
-    expect(within(moduleRow).getByTestId('beyond-horizon')).toBeInTheDocument()
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-    fireEvent.click(screen.getByLabelText('Remove one Speed'))
+    expect(screen.getByTestId('beyond-horizon')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('module-slot'))
+    expect(screen.queryAllByTestId('module-option'), 'nothing can be added without a machine').toHaveLength(0)
+    fireEvent.click(screen.getByTestId('module-option-empty'))
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.modules).toEqual([])
   })
@@ -173,17 +202,19 @@ describe('EditMachineModal — machines, modules and the research horizon', () =
   it('offers a module only once it is inside the horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base', 'asm'] })
     renderModal(makeGameData())
-    expect(screen.queryByRole('option', { name: 'Speed' }), 'no speed option before its technology').not.toBeInTheDocument()
+    openSlot(0)
+    expect(moduleOptionIds(), 'no speed option before its technology').toEqual([])
   })
 
-  it('offers the module in the add dropdown within the horizon', () => {
+  it('offers the module in a slot picker within the horizon', () => {
     useBlockStore.setState({ horizonTechnologyIds: ['base', 'asm', 'alt'] })
     renderModal(makeGameData())
-    expect(screen.getByRole('option', { name: 'Speed' })).toBeInTheDocument()
+    openSlot(0)
+    expect(moduleOptionIds()).toEqual(['speed'])
   })
 })
 
-describe('EditMachineModal — productivity modules', () => {
+describe('MachineSection — productivity modules', () => {
   function gameDataWithProdModule(allowProductivity: boolean): GameData {
     const gd = makeGameData()
     gd.modules.prod = {
@@ -195,21 +226,22 @@ describe('EditMachineModal — productivity modules', () => {
     return gd
   }
 
-  it('hides productivity modules from the add dropdown when the recipe disallows productivity', () => {
+  it('hides productivity modules from the slot picker when the recipe disallows productivity', () => {
     useBlockStore.setState({ horizonTechnologyIds: [] })
     renderModal(gameDataWithProdModule(false))
-    expect(screen.getByRole('option', { name: 'Speed' })).toBeInTheDocument()
-    expect(screen.queryByRole('option', { name: 'Prod' })).not.toBeInTheDocument()
+    openSlot(0)
+    expect(moduleOptionIds()).toEqual(['speed'])
   })
 
   it('offers productivity modules when the recipe allows productivity', () => {
     useBlockStore.setState({ horizonTechnologyIds: [] })
     renderModal(gameDataWithProdModule(true))
-    expect(screen.getByRole('option', { name: 'Prod' })).toBeInTheDocument()
+    openSlot(0)
+    expect(moduleOptionIds()).toEqual(['speed', 'prod'])
   })
 })
 
-describe('EditMachineModal — default machine per category', () => {
+describe('MachineSection — default machine per category', () => {
   const nodeWith = (id: string, machineId?: string) => ({
     kind: 'game-recipe' as const, id, recipeId: 'plate', machineId, modules: [], byproductPolicy: {},
   })
@@ -242,7 +274,7 @@ describe('EditMachineModal — default machine per category', () => {
     expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'assembler' })
     const node = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
     expect(node.kind === 'game-recipe' && node.machineId).toBeUndefined()
-    fireEvent.click(screen.getByText(/machines$/))
+    openMachinePicker()
     expect(within(optionRow('assembler')).getByTestId('default-machine-badge')).toBeInTheDocument()
     expect(within(optionRow('assembler-2')).queryByTestId('default-machine-badge')).not.toBeInTheDocument()
   })
@@ -253,16 +285,14 @@ describe('EditMachineModal — default machine per category', () => {
     expect(screen.getByTestId('default-machine-usage')).toHaveTextContent('Crafting default is used by 2 rows')
   })
 
-  it('"All defaults…" closes the modal and requests the default machines menu', () => {
-    const onClose = vi.fn()
-    renderModal(makeGameData(), { onClose })
+  it('"All defaults…" requests the default machines menu', () => {
+    renderModal(makeGameData())
     fireEvent.click(screen.getByRole('button', { name: 'All defaults…' }))
-    expect(onClose).toHaveBeenCalledTimes(1)
     expect(useUiStore.getState().defaultMachinesRequest).toEqual({ seq: 1, category: 'crafting' })
   })
 })
 
-describe('EditMachineModal — module counts and slots', () => {
+describe('MachineSection — module counts and slots', () => {
   function gameDataWithSlots(slots: number): GameData {
     const gd = makeGameData()
     gd.machines['assembler-2'].moduleSlots = slots
@@ -287,50 +317,73 @@ describe('EditMachineModal — module counts and slots', () => {
     return node.kind === 'game-recipe' ? node.modules : undefined
   }
 
-  it('decrements a module that stays when its count is above 1', () => {
+  it('shows one button per slot, filled in list order, and the slot usage', () => {
     setModules([{ moduleId: 'speed', count: 2 }])
     renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
-    fireEvent.click(screen.getByLabelText('Remove one Speed'))
-    expect(storedModules()).toEqual([{ moduleId: 'speed', count: 1 }])
+    const slots = screen.getAllByTestId('module-slot')
+    expect(slots).toHaveLength(4)
+    expect(slots.map(e => e.getAttribute('aria-label'))).toEqual([
+      'Machine module slot 1: Speed', 'Machine module slot 2: Speed', 'Machine module slot 3: empty', 'Machine module slot 4: empty',
+    ])
+    expect(screen.getByText('2 / 4 slots used')).toBeInTheDocument()
   })
 
-  it('increments a module while a slot is free', () => {
+  it('fills an empty slot from its picker', () => {
     setModules([{ moduleId: 'speed', count: 1 }])
     renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 1 }] })
-    fireEvent.click(screen.getByLabelText('Add one Speed'))
+    openSlot(1)
+    fireEvent.click(screen.getByTestId('module-option'))
     expect(storedModules()).toEqual([{ moduleId: 'speed', count: 2 }])
   })
 
-  it('disables incrementing, and the add dropdown disappears, once the slots are full', () => {
+  it('empties a slot', () => {
     setModules([{ moduleId: 'speed', count: 2 }])
-    renderModal(gameDataWithSlots(2), { modules: [{ moduleId: 'speed', count: 2 }] })
-    expect(screen.getByLabelText('Add one Speed')).toBeDisabled()
-    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-  })
-
-  it('adds a module from the dropdown with a count of 1', () => {
-    setModules([])
-    renderModal(gameDataWithSlots(4))
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'speed' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
+    openSlot(0)
+    fireEvent.click(screen.getByTestId('module-option-empty'))
     expect(storedModules()).toEqual([{ moduleId: 'speed', count: 1 }])
   })
 
-  it('does not add a module until one is chosen', () => {
+  it('closes the slot picker on Esc and on a click away', () => {
     setModules([])
-    renderModal(gameDataWithSlots(4))
-    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled()
-    expect(storedModules()).toEqual([])
+    renderModal(gameDataWithSlots(2))
+    openSlot(0)
+    expect(screen.getByTestId('module-option-empty')).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByTestId('module-option-empty')).not.toBeInTheDocument()
+    openSlot(0)
+    fireEvent.mouseDown(document.body)
+    expect(screen.queryByTestId('module-option-empty')).not.toBeInTheDocument()
   })
 
-  it('shows the slot usage', () => {
-    setModules([{ moduleId: 'speed', count: 2 }])
-    renderModal(gameDataWithSlots(4), { modules: [{ moduleId: 'speed', count: 2 }] })
-    expect(screen.getByText('2 / 4 slots used')).toBeInTheDocument()
+  it('draws modules beyond the machine slots as amber overflow slots', () => {
+    setModules([{ moduleId: 'speed', count: 3 }])
+    renderModal(gameDataWithSlots(2), { modules: [{ moduleId: 'speed', count: 3 }] })
+    const slots = screen.getAllByTestId('module-slot')
+    expect(slots).toHaveLength(3)
+    expect(slots[2]).toHaveAttribute('data-overflow', 'true')
+    expect(slots[2]).toHaveClass('ring-amber-500')
+    expect(slots[1]).not.toHaveAttribute('data-overflow')
+    expect(screen.getByText('3 / 2 slots used')).toHaveClass('text-amber-400')
+  })
+
+  it('shows the machines needed and how busy they are', () => {
+    setModules([])
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: makeGameData(), sourceId: 'test' } })
+    const node: GameRecipeNode = { kind: 'game-recipe', id: 'n1', recipeId: 'plate', modules: [], byproductPolicy: {} }
+    render(
+      <MachineSection
+        node={node}
+        solved={{ recipeNodeId: 'n1', inputRates: {}, outputRates: {}, throughput: 1, machineCountExact: 2.37, machineCountCeil: 3, powerKw: 0 }}
+        gameData={makeGameData()}
+      />,
+    )
+    expect(screen.getByTestId('machine-needed')).toHaveTextContent('3 needed')
+    expect(screen.getByTestId('machine-utilisation')).toHaveTextContent('2.37 exact · 79% busy')
   })
 })
 
-describe('EditMachineModal — apply to every row of the recipe', () => {
+describe('MachineSection — apply to every row of the recipe', () => {
   const plateRow = (id: string, extra: Partial<GameRecipeNode> = {}): GameRecipeNode =>
     ({ kind: 'game-recipe', id, recipeId: 'plate', modules: [], byproductPolicy: {}, ...extra })
 
@@ -344,7 +397,7 @@ describe('EditMachineModal — apply to every row of the recipe', () => {
     })
     useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
     render(
-      <EditMachineModal
+      <SectionHarness
         nodeId="n1"
         recipeId="plate"
         recipeCategory="crafting"
@@ -381,7 +434,7 @@ describe('EditMachineModal — apply to every row of the recipe', () => {
   })
 })
 
-describe('EditMachineModal — neighbours', () => {
+describe('MachineSection — neighbours', () => {
   function reactorData(neighbourBonus = 1): GameData {
     const gd = makeGameData()
     gd.machines.reactor = {
@@ -413,7 +466,7 @@ describe('EditMachineModal — neighbours', () => {
     })
     useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
     render(
-      <EditMachineModal
+      <SectionHarness
         nodeId="n1"
         recipeId={recipeId}
         recipeCategory={recipeId === 'plate' ? 'crafting' : 'power:reactor'}
@@ -596,12 +649,12 @@ describe('EditMachineModal — neighbours', () => {
       history: {},
     })
     useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
-    const { rerender } = render(<EditMachineModal {...props} neighbourCount={3} />)
+    const { rerender } = render(<SectionHarness {...props} neighbourCount={3} />)
     expect(colsInput().value).toBe('4')
     expect(rowsInput().value).toBe('4')
     expect(input().value).toBe('3')
     expect(multiplier()).toBe('×4')
-    rerender(<EditMachineModal {...props} neighbourCount={undefined} />)
+    rerender(<SectionHarness {...props} neighbourCount={undefined} />)
     expect(colsInput().value).toBe('1')
     expect(input().value).toBe('0')
     expect(multiplier()).toBe('×1')
@@ -620,7 +673,7 @@ describe('EditMachineModal — neighbours', () => {
   })
 })
 
-describe('EditMachineModal — fuel', () => {
+describe('MachineSection — fuel', () => {
   function fuelItem(id: string, fuelValueKj: number): GameData['items'][string] {
     return { ...item(id), fuelValueKj, fuelCategory: 'chemical' }
   }
@@ -665,7 +718,7 @@ describe('EditMachineModal — fuel', () => {
     })
     useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
     render(
-      <EditMachineModal
+      <SectionHarness
         nodeId="n1"
         recipeId="smelt"
         recipeCategory="smelting"
@@ -780,7 +833,7 @@ describe('EditMachineModal — fuel', () => {
   })
 })
 
-describe('EditMachineModal — per-fuel power recipes in the Alternate recipe list', () => {
+describe('MachineSection — per-fuel power recipes in the Alternate recipe list', () => {
   function boilerMachine(id: string, name: string): GameData['machines'][string] {
     return {
       id, name, type: 'boiler', craftingSpeed: 1, energyUsageKw: 0, energyType: 'void', drainKw: 0,

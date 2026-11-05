@@ -154,7 +154,7 @@ The mock does not draw these; the implementation must keep them:
 
 - [x] **1. Optional beacon module.** `BeaconConfig.moduleId` optional, `computeNodeEffects` skips such a configuration, unit tests, [data-model.md](../../spec/data-model.md) and [solver.md](../../spec/solver.md).
 - [x] **2. Icon chip, columns, group rows.** The chip component, the new column set with the new order, group rows with guides and chevrons, the nesting limit constant and its disabled actions.
-- [ ] **3. Side panel.** Selection, the panel and its six sections, replacing the Edit machine and Edit beacon modals (keeping everything under "Carry over"), the sourcing sentences.
+- [x] **3. Side panel.** Selection, the panel and its six sections, replacing the Edit machine and Edit beacon modals (keeping everything under "Carry over"), the sourcing sentences.
 - [ ] **4. Pickers and shortcuts.** The shared picker pattern, the machine and beacon pickers, the fill-all pickers, the row and chip shortcuts.
 - [ ] **5. Remove the chip sourcing menu.** Keep the byproduct **Add consumer recipe…** entry and the `B` / `C` badge.
 - [ ] **6. Docs and tests.** [ui.md](../../spec/ui.md) (production table, Edit machine and Edit beacon modal sections, item chip sourcing menu, sub-factory rows), the README "Using the planner" section and repository map, and Playwright specs in `e2e/` for the interactions (row click, shortcuts, pickers, panel close, group collapse, nesting limit).

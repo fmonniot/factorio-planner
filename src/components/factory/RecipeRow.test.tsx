@@ -293,10 +293,12 @@ describe('RecipeRow', () => {
     expect(onToggle).toHaveBeenCalled()
   })
 
-  it('recipe cell has no inline action buttons (actions live in the right-click menu)', () => {
+  it('recipe cell holds only the select button (actions live in the right-click menu)', () => {
     renderRow()
     const cell = screen.getAllByTitle('Iron Plate')[0].closest('td')!
-    expect(within(cell).queryAllByRole('button')).toHaveLength(0)
+    const buttons = within(cell).getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('subplan node shows expanded indicator when isExpanded=true', () => {
@@ -384,19 +386,20 @@ describe('T12 — Pin rate UI', () => {
     return node
   }
 
-  it('unpinned row has no pinned input and offers "Pin rate" in the menu', () => {
+  it('unpinned row has no pin badge and offers "Pin rate" in the menu', () => {
     setupElectrolysis(undefined)
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('chip-pin')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Pin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Unpin rate' })).not.toBeInTheDocument()
   })
 
-  it('pinned row shows a pinned input and offers "Unpin rate" in the menu', () => {
+  it('pinned row shows the pin badge on the product chip, no inline input, and offers "Unpin rate" in the menu', () => {
     const pinned = setupElectrolysis(2)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Pin rate' })).not.toBeInTheDocument()
@@ -413,72 +416,6 @@ describe('T12 — Pin rate UI', () => {
       expect(updated.pinnedRate).toBeDefined()
       expect(updated.pinnedRate!).toBeGreaterThan(0)
     }
-  })
-
-  // Electrolysis makes 6 hydrogen per run (60 / 10 in electrolysisSolved), so the
-  // pin is displayed and typed as the hydrogen rate and stored as runs per minute.
-  it('shows the pinned runs as the primary product rate in the current unit', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(20) // 20 runs/min * 6 hydrogen = 120/min
-    const { unmount } = renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(120)
-    unmount()
-    useUiStore.setState({ rateUnit: 'sec' })
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(2)
-  })
-
-  it('typing a product rate in /min mode stores runs = rate / items per run', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(1)
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '120' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(20) // 120 / 6
-    }
-  })
-
-  it('typing a product rate in /sec mode stores value * 60 / items per run', () => {
-    useUiStore.setState({ rateUnit: 'sec' })
-    const pinned = setupElectrolysis(1)
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '5' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(50) // 5 * 60 / 6
-    }
-  })
-
-  it('a single-product amount-1 recipe shows the pin unchanged', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const node: GameRecipeNode = { ...(ironPlateRecipeNode as GameRecipeNode), pinnedRate: 30 }
-    const block = makeEmptyBlock('Test')
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }], activeBlockId: block.id, history: {} })
-    renderRow({ planNode: node, solvedNode: { ...solvedNode, outputRates: { 'iron-plate': 30 } } })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(30)
-  })
-
-  it('keeps the pin input mounted and its factor when the solve later zeroes the node', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(10)
-    const prod = { ...electrolysisSolved, outputRates: { hydrogen: 66 } } // productivity: 6.6 per run
-    const { rerender } = renderRow({ planNode: pinned, solvedNode: prod })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '66' } })
-    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
-    rerender(
-      <RecipeDndProvider><table><tbody>
-        <RecipeRow
-          solvedNode={{ ...prod, throughput: 0 }} planNode={pinned} isFirst={false} isLast={false} depth={0}
-          gameData={mockGameData} rootPlan={rootPlan} parentSubPlanId={rootPlan.id} nodeIndex={0}
-        />
-      </tbody></table></RecipeDndProvider>,
-    )
-    expect(screen.getByLabelText('Pinned rate')).toBe(input)
-    expect(input).toHaveValue(66)
   })
 
   describe('primaryItemPerRun', () => {
@@ -603,7 +540,7 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('Pin rate pins the node and the pinned input appears', () => {
+  it('Pin rate pins the node and the pin badge appears', () => {
     const { unmount } = renderRow()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
@@ -612,7 +549,7 @@ describe('RecipeRow context menu', () => {
     // Props are static in the harness: re-render with the updated store node.
     unmount()
     renderRow({ planNode: node })
-    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
   })
 
   it('a pinned node offers Unpin rate', () => {
@@ -1636,77 +1573,55 @@ describe('RecipeRow — burner fuel', () => {
   })
 })
 
-describe('RecipeRow — reactor neighbour count', () => {
-  it('opens the Edit machine modal with the stored neighbour count', () => {
-    const gameData = {
-      ...mockGameData,
-      recipes: {
-        ...mockGameData.recipes,
-        'power:reactor:fuel': {
-          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
-          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
-          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
-          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
-        },
-      },
-      machines: {
-        ...mockGameData.machines,
-        reactor: {
-          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
-          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
-          neighbourBonus: 1, iconPath: '', hidden: false,
-        },
-      },
-      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
-    } as unknown as GameData
-    renderRow({
-      gameData,
-      planNode: { kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 2 },
-    })
-    fireEvent.click(screen.getByTitle('Reactor', { exact: true }))
-    expect(screen.getByTestId('neighbour-count')).toHaveValue(2)
+describe('RecipeRow — selection', () => {
+  const selected = () => useUiStore.getState().selectedRow
+  const blockId = () => useBlockStore.getState().blocks[0].id
+
+  beforeEach(() => {
+    useUiStore.setState({ selectedRow: null })
   })
 
-  it('applies the heat bonus when converting a typed pin with no solved throughput', () => {
-    const gameData = {
-      ...mockGameData,
-      recipes: {
-        ...mockGameData.recipes,
-        'power:reactor:fuel': {
-          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
-          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
-          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
-          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
-        },
-      },
-      machines: {
-        ...mockGameData.machines,
-        reactor: {
-          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
-          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
-          neighbourBonus: 1, iconPath: '', hidden: false,
-        },
-      },
-      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
-    } as unknown as GameData
-    const planNode: GameRecipeNode = {
-      kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {},
-      neighbourCount: 3, pinnedRate: 1,
-    }
-    const block = makeEmptyBlock('Test')
-    useBlockStore.setState({
-      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [planNode] } }],
-      activeBlockId: block.id,
-      history: {},
-    })
-    const idle: SolvedNode = {
-      recipeNodeId: 'node-r', inputRates: {}, outputRates: { 'power:heat': 0 },
-      throughput: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0,
-    }
-    renderRow({ gameData, planNode, solvedNode: idle })
-    // 10 heat/run * (1 + 1 * 3) = 40 heat/run; energy items are typed per second.
-    fireEvent.change(screen.getByLabelText('Pinned rate'), { target: { value: '20' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.pinnedRate).toBeCloseTo(30) // 20 * 60 / 40
+  it('selects the row when a non-control part of it is clicked, and marks it', () => {
+    renderRow()
+    const row = document.querySelector('tr[data-node-id="node-1"]')!
+    expect(row).not.toHaveAttribute('data-selected')
+    fireEvent.click(screen.getByTestId('row-power'))
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'node-1' })
+    expect(row).toHaveAttribute('data-selected', 'true')
+  })
+
+  it('selects the row from the recipe icon and name button', () => {
+    renderRow()
+    fireEvent.click(screen.getByRole('button', { name: /Iron Plate/ }))
+    expect(selected()?.nodeId).toBe('node-1')
+    expect(screen.getByRole('button', { name: /Iron Plate/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('selects the row from the machine chip', () => {
+    renderRow()
+    fireEvent.click(screen.getByTestId('machine-count').closest('button')!)
+    expect(selected()?.nodeId).toBe('node-1')
+  })
+
+  it('does not select the row when a control inside it is clicked', () => {
+    renderRow({ isFirst: false, onIngredientClick: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }))
+    expect(selected()).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Iron Ore/ }))
+    expect(selected()).toBeNull()
+  })
+
+  it('selects a group row anywhere but its chevron', () => {
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub: SubPlan = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Group' }))
+    expect(selected()).toBeNull()
+    fireEvent.click(screen.getByTestId('group-summary'))
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'sp-node' })
+    expect(document.querySelector('tr[data-node-id="sp-node"]')).toHaveAttribute('data-selected', 'true')
   })
 })

@@ -3,6 +3,7 @@ import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/bl
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
+import { SidePanel } from './sidePanel/SidePanel'
 import { fmtPower } from './ItemTile'
 import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
@@ -84,7 +85,8 @@ export function ProductionTable() {
   }
 
   return (
-    <div className="flex flex-col flex-1 min-h-0 bg-gray-900">
+    <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
+    <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
       {/* Scrollable table body */}
       <div ref={scrollRef} className="flex-1 overflow-auto">
         {nodes.length === 0 ? (
@@ -174,6 +176,8 @@ export function ProductionTable() {
           onClose={() => setPicker(null)}
         />
       )}
+    </div>
+    <SidePanel blockId={activeBlock?.id} rootPlan={rootPlan} result={solverResult} gameData={gameData} />
     </div>
   )
 }

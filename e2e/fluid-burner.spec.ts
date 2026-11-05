@@ -63,13 +63,12 @@ test.describe('Fluid-burning machines', () => {
     await expect(fuel).toHaveAttribute('title', /^Fuel: Light oil — Find producer recipe — \S+$/)
     await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
-    // Pick the other fluid in the Edit machine modal.
+    // Pick the other fluid in the side panel's Machine section.
     await row.getByTitle('Fluid furnace', { exact: true }).click()
     await expect(page.getByTestId('fuel-button')).toContainText('Light oil')
     await page.getByTestId('fuel-button').click()
     await page.locator('[data-testid="fuel-option"][data-item-id="heavy-oil"]').click()
     await expect(page.getByTestId('fuel-button')).toContainText('Heavy oil')
-    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
     await expect(fuel).toHaveAttribute('title', /^Fuel: Heavy oil — Find producer recipe — \S+$/)
     await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)

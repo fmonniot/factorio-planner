@@ -2,6 +2,7 @@ import { test, expect, type Locator, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { clickRowAction, openRowMenu } from './support/rowMenu'
+import { sidePanel, openMachinePicker } from './support/sidePanel'
 
 /**
  * Row conveniences in a block with areas. The fixture builds steam electrolysis in the root and in
@@ -94,11 +95,10 @@ test('Build also in… copies the row to an area and Apply to every row sets its
   await page.keyboard.press('Escape')
 
   await row(page, ROOT_ELEC).locator('td').nth(2).locator('button').first().click()
-  await expect(page.getByRole('heading', { name: 'Edit machine' })).toBeVisible()
-  await page.getByText(/^×\d+ machines$/).click()
+  await expect(sidePanel(page).getByRole('heading', { name: 'Machine' })).toBeVisible()
+  await openMachinePicker(page)
   await page.locator('[data-testid="machine-option"][data-machine-id="nullius-surge-electrolyzer-1"]').click()
   await page.getByRole('button', { name: 'Apply to every row of this recipe (3)' }).click()
-  await page.getByRole('button', { name: 'Close' }).last().click()
 
   await expect.poll(async () => electrolysisNodes(await readActivePlan(page, 'nullius')).map(n => n.machineId))
     .toEqual(Array(3).fill('nullius-surge-electrolyzer-1'))
