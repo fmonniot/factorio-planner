@@ -53,12 +53,19 @@ function buildPlan() {
   }
 }
 
-const group = (page: Page, name: string) => page.locator('main table tbody tr').filter({ has: page.getByRole('button', { name: new RegExp(`^(Expand|Collapse) ${name}$`) }) })
-const chevron = (page: Page, name: string) => page.getByRole('button', { name: new RegExp(`^(Expand|Collapse) ${name}$`) })
+// The chevron's accessible name is "Expand <name>" or "Collapse <name>"; match the two exact strings, never a pattern built from the name.
+const chevron = (page: Page, name: string) => page.getByRole('button', { name: `Expand ${name}`, exact: true }).or(page.getByRole('button', { name: `Collapse ${name}`, exact: true }))
+const group = (page: Page, name: string) => page.locator('main table tbody tr').filter({ has: chevron(page, name) })
 const rowOf = (page: Page, nodeId: string) => page.locator(`main tr[data-node-id="${nodeId}"]`)
 
 async function expandChain(page: Page) {
-  for (const name of ['G1', 'G2', 'G3', 'G4']) await chevron(page, name).click()
+  // Expansion state is React state (not persisted), so every test starts collapsed; still, only click what is collapsed.
+  for (const name of ['G1', 'G2', 'G3', 'G4']) {
+    const button = chevron(page, name)
+    await expect(button).toBeVisible()
+    if ((await button.getAttribute('aria-expanded')) !== 'true') await button.click()
+    await expect(button).toHaveAttribute('aria-expanded', 'true')
+  }
   await expect(rowOf(page, R_DEEP)).toBeVisible()
 }
 
@@ -157,16 +164,23 @@ test('dropping a group onto a group that is too deep does nothing', async ({ pag
     // Chromium only fires dragover on the move after dragenter, hence the nudge.
     await page.mouse.move(to.x + 150, y, { steps: 6 })
     await page.mouse.move(to.x + 151, y)
+    // The dragged row is dimmed from dragstart to dragend, and the drop handler runs before dragend:
+    // once the dimming is gone the drop has been handled and whatever it wrote is already saved.
+    await expect(dragRow).toHaveClass(/opacity-50/)
     await page.mouse.up()
+    await expect(dragRow).not.toHaveClass(/opacity-50/)
   }
 
   // G4 sits four levels down: a group (which brings its own row one level lower) does not fit in it.
   await drag(group(page, 'G4'), 'bottom')
-  await expect.poll(async () => (await savedPlan(page, 'G4')).nodes.length).toBe(1)
+  expect((await savedPlan(page, 'G4')).nodes).toHaveLength(1)
   expect((await savedPlan(page, 'Loose')).nodes).toHaveLength(1)
+  expect((await savedPlan(page, 'Main')).nodes.map(n => n.id)).toContain(id('h', 6))
   await expect(group(page, 'Loose')).toBeVisible()
 
-  // G3 is one level up, so it takes the group: Loose is moved into it.
+  // G3 is one level up, so it takes the group: the Loose handle moves out of Main into G3, after G4's handle.
   await drag(group(page, 'G3'), 'bottom')
-  await expect.poll(async () => (await savedPlan(page, 'G3')).nodes.length).toBe(2)
+  await expect.poll(async () => (await savedPlan(page, 'G3')).nodes.map(n => n.id)).toEqual([id('h', 3), id('h', 6)])
+  expect((await savedPlan(page, 'Main')).nodes.map(n => n.id)).not.toContain(id('h', 6))
+  expect((await savedPlan(page, 'Loose')).nodes).toHaveLength(1)
 })

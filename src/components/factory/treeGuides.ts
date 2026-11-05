@@ -26,3 +26,14 @@ export function treeGuideStyle(depth: number): CSSProperties {
   style.backgroundRepeat = 'no-repeat'
   return style
 }
+
+/**
+ * Background tint of a group row `depth` groups deep: a gray tint that gets darker
+ * (less opaque) with each level and stops changing at the nesting limit. Full class
+ * names so Tailwind sees them.
+ */
+const GROUP_TINTS = ['bg-gray-800/30', 'bg-gray-800/20', 'bg-gray-800/10', 'bg-gray-800/5'] as const
+
+export function groupRowTint(depth: number): string {
+  return GROUP_TINTS[Math.min(guideLevels(depth), GROUP_TINTS.length - 1)]
+}

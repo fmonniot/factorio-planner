@@ -945,7 +945,7 @@ The pickers are the machine picker, the fuel picker, the module slot pickers, th
 A `SubPlanNode` renders as a group row in the same grid as the recipe rows:
 
 - The same ▲/▼ reorder cell as a recipe row; rows and groups are both draggable.
-- One 12px vertical **guide** line per ancestor level in the Recipe cell (`treeGuides.ts`; `data-guide-levels` is the number drawn), running the full height of the row so the tree reads as one continuous line; recipe rows use the same guides. The indent stops growing at 4 levels. A group row has a slightly lighter tinted background than a recipe row.
+- One 12px vertical **guide** line per ancestor level in the Recipe cell (`treeGuides.ts`; `data-guide-levels` is the number drawn), running the full height of the row so the tree reads as one continuous line; recipe rows use the same guides. The indent stops growing at 4 levels. A group row has a tinted background that gets slightly darker with each nesting level (four steps, the last one shared by anything deeper).
 - A chevron **button** (`aria-expanded`, `aria-label` "Collapse X" / "Expand X"), then the name as a button (it selects the group; `aria-pressed`), the **Area** marker (`data-testid="area-marker"`, teal, title "Separate area") when it is a separate area, then the summary (`data-testid="group-summary"`): "N recipes · M machines", both recursive over nested sub-factories.
 - The Power column shows the group's recursive total (`data-testid="group-power"`).
 - Clicking the group row anywhere that is not a button or field selects it and opens the [group panel](#group-panel). The chevron only expands or collapses.

@@ -7,7 +7,7 @@ import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
-import { treeGuideStyle, guideLevels } from './treeGuides'
+import { treeGuideStyle, guideLevels, groupRowTint } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
@@ -311,7 +311,7 @@ export function RecipeRow({
         data-node-id={planNode.id}
         {...highlightProps}
         data-selected={isSelected ? 'true' : undefined}
-        className={`border-b border-gray-800 ${isSelected ? SELECTED_ROW_CLASS : 'bg-gray-800/20'} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        className={`border-b border-gray-800 ${isSelected ? SELECTED_ROW_CLASS : groupRowTint(depth)} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
         onClick={handleRowClick}
         draggable
         onDragStart={handleDragStart}

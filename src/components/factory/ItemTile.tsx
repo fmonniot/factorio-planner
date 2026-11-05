@@ -1,14 +1,10 @@
-import type { Item, ItemSourcingMode } from '../../data/types'
-import { ELECTRICITY_ITEM_ID, isEnergyItem } from '../../data/electricity'
-import { Icon } from '../Icon'
-import { useUiStore, type RateUnit } from '../../store/uiStore'
-import { itemSourcingLabel } from './itemSourcing'
+import { isEnergyItem } from '../../data/electricity'
+import type { RateUnit } from '../../store/uiStore'
 
 // ---------------------------------------------------------------------------
 // Rate formatting (shared across factory components)
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   const v = unit === 'min' ? ratePerSec * 60 : ratePerSec
   if (v >= 100) return v.toFixed(0)
@@ -18,7 +14,6 @@ export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
   return v.toFixed(2)
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
 export function fmtPower(kw: number): { value: string; unit: string } {
   if (kw < 1) return { value: (kw * 1000).toFixed(0), unit: 'W' }
   if (kw < 1000) return { value: kw.toFixed(1), unit: 'kW' }
@@ -30,130 +25,18 @@ export function fmtPower(kw: number): { value: string; unit: string } {
  * A rate of `itemId` as a value and a unit. Electricity and heat (1 unit/s = 1 MW) are always
  * shown in power units, whatever the rate unit; everything else follows `unit`.
  */
-// eslint-disable-next-line react-refresh/only-export-components
 export function fmtItemRate(itemId: string | undefined, ratePerSec: number, unit: RateUnit): { value: string; unit: string } {
   if (isEnergyItem(itemId)) return fmtPower(ratePerSec * 1000)
   return { value: fmtRate(ratePerSec, unit), unit: unit === 'min' ? '/m' : '/s' }
 }
 
 /** `fmtItemRate` as one string, e.g. "10.0MW" or "60.0/m". */
-// eslint-disable-next-line react-refresh/only-export-components
 export function fmtItemRateText(itemId: string | undefined, ratePerSec: number, unit: RateUnit): string {
   const r = fmtItemRate(itemId, ratePerSec, unit)
   return r.value + r.unit
 }
 
 /** The unit a rate input for `itemId` is typed in: MW (rate unit 'sec') for electricity and heat. */
-// eslint-disable-next-line react-refresh/only-export-components
 export function inputRateUnit(itemId: string | undefined, unit: RateUnit): RateUnit {
   return isEnergyItem(itemId) ? 'sec' : unit
-}
-
-// ---------------------------------------------------------------------------
-// ItemTile
-// ---------------------------------------------------------------------------
-
-export type ItemTileVariant = 'product' | 'byproduct' | 'ingredient' | 'electricity'
-
-interface ItemTileProps {
-  /** Item data for icon/label. Pass undefined for electricity (uses ⚡ symbol). */
-  item: Item | undefined
-  /** Always expressed as items/sec internally; displayed according to uiStore rateUnit. */
-  ratePerSec: number
-  variant: ItemTileVariant
-  onClick?: () => void
-  onContextMenu?: (e: React.MouseEvent) => void
-  title?: string
-  /** Pre-formatted temperature requirement (e.g. "≥95°C"); rendered as a small badge after the rate. */
-  temperature?: string
-  /** The block's sourcing mode for this item, when not the default; shown as a small letter badge. */
-  sourcing?: ItemSourcingMode
-  /** The tile is the fuel a burner row burns: marked with `data-fuel` (the caller words the title). */
-  fuel?: boolean
-}
-
-const variantClasses: Record<ItemTileVariant, string> = {
-  product:     'bg-gray-700 text-gray-100 border-t-2 border-teal-500',
-  byproduct:   'bg-red-950 text-red-300 border-t-2 border-red-500',
-  ingredient:  'bg-green-950 text-green-300 border-t-2 border-green-600',
-  electricity: 'bg-cyan-950 text-cyan-300 border-t-2 border-yellow-500',
-}
-
-export function ItemTile({ item, ratePerSec, variant, onClick, onContextMenu, title, temperature, sourcing, fuel }: ItemTileProps) {
-  const unit = useUiStore(s => s.rateUnit)
-  const cls = variantClasses[variant]
-
-  const isPower = variant === 'electricity'
-  const power = isPower ? fmtPower(ratePerSec) : null
-  const rate = fmtItemRate(item?.id, ratePerSec, unit)
-  const label = isPower ? power!.value : rate.value
-  const unitLabel = isPower ? power!.unit : rate.unit
-  const electricityItem = !isPower && item?.id === ELECTRICITY_ITEM_ID
-
-  const baseTitle = title ?? item?.name
-  const tileTitle = sourcing && baseTitle ? `${baseTitle} (${itemSourcingLabel(sourcing)})` : baseTitle
-
-  const inner = (
-    <>
-      {isPower || (electricityItem && !item?.iconPath) ? (
-        <span className="text-base leading-none">⚡</span>
-      ) : item?.iconPath ? (
-        <Icon
-          iconPath={item.iconPath}
-          alt={item.name}
-          className="w-7 h-7 object-contain shrink-0"
-        />
-      ) : (
-        <span className="text-xs truncate max-w-[4rem]" title={tileTitle ? undefined : '?'}>
-          {item?.name ?? '?'}
-        </span>
-      )}
-      <span className="text-[10px] font-mono tabular-nums leading-none">
-        {label}
-        <span className="opacity-60">{unitLabel}</span>
-      </span>
-      {temperature && (
-        <span
-          data-testid="item-tile-temperature"
-          className="text-[9px] font-mono tabular-nums leading-none text-orange-300"
-        >
-          {temperature}
-        </span>
-      )}
-      {sourcing && (
-        <span
-          data-testid="item-tile-sourcing"
-          data-sourcing={sourcing}
-          aria-hidden
-          className="text-[9px] font-semibold leading-none text-amber-300"
-        >
-          {sourcing === 'byproducts-first' ? 'B' : 'C'}
-        </span>
-      )}
-    </>
-  )
-
-  const baseClass = `inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs ${cls}`
-
-  if (onClick) {
-    return (
-      <button
-        type="button"
-        onClick={onClick}
-        onContextMenu={onContextMenu}
-        title={tileTitle}
-        data-variant={variant}
-        data-fuel={fuel ? 'true' : undefined}
-        className={`${baseClass} hover:brightness-125 cursor-pointer`}
-      >
-        {inner}
-      </button>
-    )
-  }
-
-  return (
-    <span title={tileTitle} data-variant={variant} data-fuel={fuel ? 'true' : undefined} onContextMenu={onContextMenu} className={baseClass}>
-      {inner}
-    </span>
-  )
 }
