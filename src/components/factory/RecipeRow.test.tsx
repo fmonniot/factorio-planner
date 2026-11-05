@@ -156,10 +156,10 @@ const mockGameData: GameData = {
 // Setup
 // ---------------------------------------------------------------------------
 
-function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+function rowElement(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
   const block = useBlockStore.getState().blocks[0]
   const rootPlan = block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }
-  return render(
+  return (
     <RecipeDndProvider>
       <table>
         <tbody>
@@ -179,6 +179,10 @@ function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
       </table>
     </RecipeDndProvider>
   )
+}
+
+function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+  return render(rowElement(props))
 }
 
 beforeEach(() => {
@@ -807,6 +811,26 @@ describe('RecipeRow byproduct context menu', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(oxygenTile())
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('closes the open menu when onAddConsumer goes away', () => {
+    const props = { planNode: electrolysisPlanNode, solvedNode: electrolysisSolved }
+    const { rerender } = renderRow({ ...props, onAddConsumer: vi.fn() })
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.getByRole('menuitem', { name: 'Add consumer recipe…' })).toBeInTheDocument()
+    rerender(rowElement(props))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('chip titles never end in a separator or whitespace, with or without onAddConsumer', () => {
+    for (const onAddConsumer of [undefined, vi.fn()]) {
+      const { unmount } = renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer })
+      const title = oxygenTile().getAttribute('title')!
+      expect(title).toBe(title.trim())
+      expect(title).not.toMatch(/[;—,]$/)
+      expect(title.includes('right-click')).toBe(onAddConsumer !== undefined)
+      unmount()
+    }
   })
 
   it('has no divider and no sourcing radios', () => {

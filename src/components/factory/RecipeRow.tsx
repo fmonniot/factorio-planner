@@ -147,19 +147,29 @@ export function RecipeRow({
       hereId,
     )
   }, [planNode, areaView, gameData, rootPlan])
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
-  // The menu of a byproduct chip: its single entry "Add consumer recipe…" (product and ingredient chips have none).
-  const [itemMenu, setItemMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
-  // The menus opened from the row menu's "Build also in…" and "Go to row in…", and a sub-factory's "Duplicate to…".
-  const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto' | 'duplicate'; x: number; y: number } | null>(null)
+  // At most one context menu is open at a time:
+  // - 'row': the row menu (recipe row or sub-factory),
+  // - 'item': the menu of a byproduct chip, its single entry "Add consumer recipe…" (product and ingredient chips have none),
+  // - 'build' / 'goto': opened from the row menu's "Build also in…" and "Go to row in…",
+  // - 'duplicate': a sub-factory's "Duplicate to…".
+  const [openMenu, setOpenMenu] = useState<
+    { kind: 'row' | 'build' | 'goto' | 'duplicate'; x: number; y: number }
+    | { kind: 'item'; itemId: string; x: number; y: number }
+    | null
+  >(null)
+  // A menu closes itself after a selection, by which time the selection may have opened a follow-up menu: only clear its own kind.
+  const closeMenu = (kind: NonNullable<typeof openMenu>['kind']) =>
+    setOpenMenu(cur => (cur?.kind === kind ? null : cur))
+  const rowMenu = openMenu?.kind === 'row' ? openMenu : null
+  // The byproduct menu only shows while there is something to add a consumer to.
+  const itemMenu = openMenu?.kind === 'item' && onAddConsumer ? openMenu : null
+  const areaMenu = openMenu && openMenu.kind !== 'row' && openMenu.kind !== 'item' ? openMenu : null
 
   function openByproductMenu(e: React.MouseEvent, itemId: string) {
     // Without an entry to offer there is no menu, and the browser's own one stays.
     if (!onAddConsumer) return
     e.preventDefault()
-    setMenuPos(null)
-    setAreaMenu(null)
-    setItemMenu({ itemId, x: e.clientX, y: e.clientY })
+    setOpenMenu({ kind: 'item', itemId, x: e.clientX, y: e.clientY })
   }
 
   function handleDragStart(e: React.DragEvent) {
@@ -269,7 +279,7 @@ export function RecipeRow({
     }
 
     // Only while a menu is open: the options walk the tree for every area.
-    const dupOptions = (menuPos || areaMenu) && areaView
+    const dupOptions = openMenu && areaView
       ? duplicateToOptions(areaView.index, rootPlan, subPlanId, id => gameData.recipes[id]?.name ?? id)
       : []
     const dupEnabled = dupOptions.some(o => !o.disabledReason)
@@ -285,8 +295,7 @@ export function RecipeRow({
     // Every cell of the area row opens the row menu, the chips included (they are display-only).
     const openAreaRowMenu = (e: React.MouseEvent) => {
       e.preventDefault()
-      setAreaMenu(null)
-      setMenuPos({ x: e.clientX, y: e.clientY })
+      setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
     }
 
     const recipes = childPlan ? countSubPlanContents(childPlan).recipes : 0
@@ -356,10 +365,10 @@ export function RecipeRow({
               </span>
             )}
           </div>
-          {menuPos && (
+          {rowMenu && (
             <RowActionsMenu
-              x={menuPos.x}
-              y={menuPos.y}
+              x={rowMenu.x}
+              y={rowMenu.y}
               actions={[
                 { label: 'Rename subfactory…', onSelect: handleRenameSubPlan },
                 {
@@ -374,13 +383,13 @@ export function RecipeRow({
                       disabled: !dupEnabled,
                       title: dupEnabled ? undefined : dupDisabledTitle,
                       onSelect: () => {
-                        if (menuPos) setAreaMenu({ kind: 'duplicate', ...menuPos })
+                        setOpenMenu({ kind: 'duplicate', x: rowMenu.x, y: rowMenu.y })
                       },
                     }]
                   : []),
                 { label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan },
               ]}
-              onClose={() => setMenuPos(null)}
+              onClose={() => closeMenu('row')}
             />
           )}
           {areaMenu?.kind === 'duplicate' && (
@@ -397,7 +406,7 @@ export function RecipeRow({
                   if (id) requestRevealRow(id)
                 },
               }))}
-              onClose={() => setAreaMenu(null)}
+              onClose={() => closeMenu(areaMenu.kind)}
             />
           )}
         </td>
@@ -451,7 +460,7 @@ export function RecipeRow({
   const hereAreaId = index?.rowById.get(planNode.id)?.areaId
   const recipeAreaCount = index ? recipeAreaIds(index, planNode.recipeId).length : 0
   // Only while a menu is open: the options are not needed otherwise.
-  const menuOpen = menuPos !== null || areaMenu !== null
+  const menuOpen = openMenu !== null
   const buildOptions = menuOpen && index && areaView
     ? buildAlsoInOptions(index, rootPlan, planNode.id, primaryItemId, areaView.solvedMap)
     : []
@@ -474,7 +483,7 @@ export function RecipeRow({
   }
 
   function openAreaMenu(kind: 'build' | 'goto') {
-    if (menuPos) setAreaMenu({ kind, ...menuPos })
+    if (rowMenu) setOpenMenu({ kind, x: rowMenu.x, y: rowMenu.y })
   }
 
   function handleToggleByproductConsumer() {
@@ -547,9 +556,7 @@ export function RecipeRow({
         style={treeGuideStyle(depth)}
         onContextMenu={e => {
           e.preventDefault()
-          setItemMenu(null)
-          setAreaMenu(null)
-          setMenuPos({ x: e.clientX, y: e.clientY })
+          setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
         }}
       >
         {dropZone === 'before' && <DropLine edge="top" />}
@@ -601,8 +608,8 @@ export function RecipeRow({
             </span>
           )}
         </div>
-        {menuPos && (
-          <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />
+        {rowMenu && (
+          <RowActionsMenu x={rowMenu.x} y={rowMenu.y} actions={rowActions} onClose={() => closeMenu('row')} />
         )}
         {areaMenu && areaMenu.kind !== 'duplicate' && (
           <RowActionsMenu
@@ -624,7 +631,7 @@ export function RecipeRow({
                     onSelect: () => requestRevealRow(o.nodeId),
                   }))
             }
-            onClose={() => setAreaMenu(null)}
+            onClose={() => closeMenu(areaMenu.kind)}
           />
         )}
       </td>
@@ -697,7 +704,7 @@ export function RecipeRow({
             const baseName = gameData.items[itemId]?.name ?? itemId
             const byproductTemp = productTemperatures[itemId]
             const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
-            const openMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
+            const openItemMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
             const sourcing = activeBlock?.itemSourcing[itemId]
             const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
@@ -711,7 +718,7 @@ export function RecipeRow({
                   variant="byproduct"
                   temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
-                  onContextMenu={openMenu}
+                  onContextMenu={openItemMenu}
                   sourcing={sourcing}
                   title={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
                 />
@@ -733,7 +740,7 @@ export function RecipeRow({
                     [itemId]: policy === 'feed-back' ? 'discard' : 'feed-back',
                   })
                 }
-                onContextMenu={openMenu}
+                onContextMenu={openItemMenu}
                 sourcing={sourcing}
                 title={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
@@ -744,7 +751,7 @@ export function RecipeRow({
               x={itemMenu.x}
               y={itemMenu.y}
               actions={[{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer?.(itemMenu.itemId, parentSubPlanId) }]}
-              onClose={() => setItemMenu(null)}
+              onClose={() => closeMenu('item')}
             />
           )}
         </div>
