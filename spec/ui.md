@@ -766,7 +766,7 @@ The popover closes on Escape or a click outside.
 
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one).
-- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. When the viewport is narrower than the table, the table's wrapper scrolls horizontally while the sticky header stays at its top.
+- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. The table is at least 738px wide (the sum of the column minimums); when its wrapper is narrower, the wrapper scrolls horizontally while the sticky header stays at its top. Above 738px the free width is shared by the Recipe, Products, Byproducts and Ingredients columns in the proportions 2 : 3 : 2 : 5, on top of their minimums (see [Columns](#columns)).
 
 The toolbar's `+ Recipe` button opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -792,15 +792,15 @@ The reorder column comes first (▲/▼ buttons), then:
 
 | Column | Content |
 |---|---|
-| Recipe (150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
+| Recipe (min 150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
 | Machine (88px) | The machine chip (count in its corner), then the module chip (used / slots). |
 | Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
-| Products (80px) | Product chips, right-aligned. |
-| Byproducts (80px) | Byproduct chips (red rates). |
-| Ingredients | Ingredient chips (green rates); takes the remaining width, at least 148px. |
+| Products (min 80px) | Product chips, right-aligned. |
+| Byproducts (min 80px) | Byproduct chips (red rates). |
+| Ingredients (min 148px) | Ingredient chips (green rates); the largest share of the free width. |
 | Power (72px) | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
-The table is `table-fixed` with a `<colgroup>` (`COLUMN_WIDTHS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns; its minimum width is the sum of the widths with Ingredients at 148px, below which the table scrolls. A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products and Byproducts hold 2 chips per line and wrap beyond, Ingredients at least 4.
+The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons and Power are fixed; the other four are their minimum plus a share (weights 2 : 3 : 2 : 5) of the width beyond the 738px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: at the minimum Products and Byproducts hold 2 chips per line and wrap beyond, Ingredients 4; at 1470px with the panel closed they hold about 7, 5 and 12.
 
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
 

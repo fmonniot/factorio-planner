@@ -210,3 +210,44 @@ test.describe('side panel below xl', () => {
     await expect(row(page)).toHaveAttribute('data-selected', 'true')
   })
 })
+
+test.describe('column widths', () => {
+  const TABLE_MIN_WIDTH = 738
+  const widths = (page: Page) =>
+    page.locator('main table thead th').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))
+  // Column order: reorder, recipe, machine, beacons, products, byproducts, ingredients, power.
+
+  test.describe('wide, panel closed', () => {
+    test.use({ viewport: { width: 1470, height: 900 } })
+
+    test('recipe, products, byproducts and ingredients share the free width', async ({ page }) => {
+      await load(page)
+      const w = await widths(page)
+      const table = w.reduce((a, b) => a + b, 0)
+      expect(w[1], 'recipe grew').toBeGreaterThan(150 * 1.3)
+      expect(w[4], 'products grew').toBeGreaterThanOrEqual(80 * 1.5)
+      expect(w[5], 'byproducts grew').toBeGreaterThanOrEqual(80 * 1.5)
+      expect(w[6], 'ingredients is not the only column that grew').toBeLessThan(table * 0.5)
+      expect(w[6], 'ingredients is still the widest').toBeGreaterThan(Math.max(w[1], w[4], w[5]))
+      expect([w[0], w[2], w[3], w[7]], 'fixed columns stay fixed').toEqual([32, 88, 88, 72])
+    })
+  })
+
+  test.describe('narrow', () => {
+    for (const [width, withPanel] of [[1280, true], [390, false]] as const) {
+      test(`keeps the minimum table width at ${width}px${withPanel ? ' with the panel open' : ''}`, async ({ page }) => {
+        await page.setViewportSize({ width, height: 900 })
+        await load(page)
+        if (withPanel) await selectRow(page, row(page))
+        const w = await widths(page)
+        expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(TABLE_MIN_WIDTH - 0.5)
+        expect(w[1]).toBeGreaterThanOrEqual(149.5)
+        expect(w[4]).toBeGreaterThanOrEqual(79.5)
+        expect(w[5]).toBeGreaterThanOrEqual(79.5)
+        expect(w[6]).toBeGreaterThanOrEqual(147.5)
+        const [sw, cw] = await tableScroller(page).evaluate(el => [el.scrollWidth, el.clientWidth])
+        if (cw < TABLE_MIN_WIDTH) expect(sw).toBeGreaterThan(cw)
+      })
+    }
+  })
+})
