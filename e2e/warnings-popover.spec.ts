@@ -22,8 +22,8 @@ test.describe('Warnings popover', () => {
     await expect(badge).toContainText('warning')
   })
 
-  test('the badge lives in the top bar', async ({ page }) => {
-    await expect(page.getByTestId('top-bar').getByRole('button', { name: /warning/ })).toBeVisible()
+  test('the badge lives in the table toolbar', async ({ page }) => {
+    await expect(page.getByTestId('table-toolbar').getByRole('button', { name: /warning/ })).toBeVisible()
   })
 
   test('clicking the badge opens the popover with title, body and hint', async ({ page }) => {

@@ -2,8 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 import { openHorizonTree, closeHorizonTree } from './support/horizon'
-import { openAppMenu } from './support/appMenu'
-import { clickRowAction } from './support/rowMenu'
+import { sidePanel, selectRow, openMachinePicker } from './support/sidePanel'
 import { slot } from './support/summary'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
@@ -172,7 +171,7 @@ test.describe('Power generation', () => {
     const engine = rows.first()
     await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
     await expect(engine.locator('[data-variant="product"]')).toContainText('10.0MW')
-    await expect(engine.locator('[data-variant="electricity"]')).toHaveCount(0)
+    await expect(engine.locator('[data-testid="row-power"]')).toHaveCount(0)
     // Generators draw nothing, so the header shows no power total.
     await expect(page.getByTestId('block-power-total')).toHaveCount(0)
 
@@ -190,14 +189,14 @@ test.describe('Power generation', () => {
     await engine.locator('button[title^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
 
-    const menu = await openAppMenu(page)
-    await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+    await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
     await expect(slot(page, 'Products', 'Electricity')).toContainText('10.0MW')
     await expect(slot(page, 'Ingredients', 'Coal')).toHaveAccessibleName('Coal, 2.50 per second')
 
     // The pin is typed in MW: 9 MW is 600 executions per minute of the 0.9 MJ recipe.
-    await clickRowAction(page, engine, 'Pin rate')
-    const pinned = engine.getByLabel('Pinned rate')
+    const panel = await selectRow(page, engine)
+    await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+    const pinned = panel.getByLabel('Pinned rate')
     await expect(pinned).toHaveValue('10.0')
     await pinned.fill('9')
     await pinned.press('Tab')
@@ -260,7 +259,7 @@ test.describe('Power generation', () => {
     await expect(page.locator('main table tbody tr')).toHaveCount(1)
   })
 
-  test('the Edit machine modal swaps a boiler fuel from a collapsed Alternate recipe group', async ({ page }) => {
+  test('the side panel swaps a boiler fuel from a collapsed Alternate recipe group', async ({ page }) => {
     await addElectricityGoal(page, '10')
     await addRecipe(page, 'power:steam-engine:steam')
     const rows = page.locator('main table tbody tr')
@@ -268,13 +267,12 @@ test.describe('Power generation', () => {
     await pickBoilerFuel(page, 'power:boiler:coal')
     await expect(slot(page, 'Ingredients', 'Coal')).toBeVisible()
 
-    await rows.nth(1).getByTitle('Boiler', { exact: true }).click()
-    await page.getByText(/machines$/).click()
+    await selectRow(page, rows.nth(1))
+    await openMachinePicker(page)
     const group = page.locator('[data-testid="alt-recipe-group"][data-machine-id="boiler"]')
     await expect(group).toHaveAttribute('data-recipe-count', '2')
     await group.click()
     await page.locator('[data-testid="alt-recipe-fuel"][data-recipe-id="power:boiler:wood"]').click()
-    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
     await expect(slot(page, 'Ingredients', 'Wood')).toBeVisible()
     await expect(slot(page, 'Ingredients', 'Coal')).toHaveCount(0)
@@ -299,7 +297,7 @@ test.describe('Heat', () => {
     await expect(heat).toHaveAccessibleName('Heat, 21.6 MW')
     await expect(heat).toContainText('21.6MW')
 
-    await rows.nth(1).locator('button[title="Heat — Find producer recipe"]').click()
+    await rows.nth(1).locator('button[title^="Heat — Find producer recipe"]').click()
     await page.locator('[data-testid="recipe-slot"][data-recipe-id="power:nuclear-reactor:uranium-fuel-cell"]').click()
     await expect(rows).toHaveCount(3)
     await expect(rows.nth(2).getByTitle('Nuclear reactor', { exact: true })).toHaveText(/^\??2$/)
@@ -321,8 +319,7 @@ test.describe('Heat', () => {
     await addRecipe(page, 'power:nuclear-reactor:uranium-fuel-cell')
     await expect(slot(page, 'Products', 'Heat')).toHaveAccessibleName('Heat, 21.6 MW')
 
-    const menu = await openAppMenu(page)
-    await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+    await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
     await expect(slot(page, 'Products', 'Heat')).toContainText('21.6MW')
   })
 
@@ -338,27 +335,27 @@ test.describe('Heat', () => {
     const reactor = rows.first().getByTitle('Nuclear reactor', { exact: true })
     await expect(reactor).toHaveText(/^\??2$/)
 
-    await reactor.click()
+    await selectRow(page, rows.first())
     const count = page.getByLabel('Neighbouring reactors')
     await expect(count).toHaveValue('0')
-    // The caption wraps inside the modal instead of running off its right edge.
+    // The caption wraps inside the panel instead of running off its right edge.
     const caption = page.getByTestId('neighbour-section').getByText(/^Each number is how many reactors/)
     expect((await caption.boundingBox())!.height).toBeGreaterThan(20)
     await count.fill('3')
     await expect(page.getByTestId('neighbour-multiplier')).toHaveText('×4')
-    await expect(page.getByText('×1 machines')).toBeVisible()
-    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
+    await expect(sidePanel(page).getByTestId('machine-needed')).toHaveText('1 needed')
 
     await expect(reactor).toHaveText(/^\??1$/)
     await expect(slot(page, 'Ingredients', 'Uranium fuel cell')).toHaveAccessibleName('Uranium fuel cell, 0.16 per minute')
     await expect(slot(page, 'Products', 'Heat')).toHaveAccessibleName('Heat, 21.6 MW')
 
-    await reactor.click()
+    // Reopen the panel: it starts from the stored count, which is a 4 × 4 cluster.
+    await sidePanel(page).getByRole('button', { name: 'Close panel' }).click()
+    await selectRow(page, rows.first())
     await expect(page.getByLabel('Neighbouring reactors')).toHaveValue('3')
     await expect(page.getByTestId('neighbour-cols')).toHaveValue('4')
     await expect(page.getByTestId('neighbour-rows')).toHaveValue('4')
     await page.getByLabel('Neighbouring reactors').fill('0')
-    await page.getByRole('button', { name: 'Close', exact: true }).last().click()
     await expect(reactor).toHaveText(/^\??2$/)
   })
 

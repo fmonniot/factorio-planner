@@ -27,7 +27,7 @@ test.describe('Nodes panel', () => {
     // 2. Main panel should show the "no recipes yet" state
     await expect(page.getByText('No recipes yet')).toBeVisible()
 
-    // 3. Open recipe picker via the empty-state "+ Add recipe" button in ProductionTable
+    // 3. Open recipe picker via the "Add recipe" button in the table toolbar
     await page.getByRole('button', { name: 'Add recipe' }).click()
     await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
 
@@ -59,12 +59,16 @@ test.describe('Nodes panel', () => {
     const row = page.locator('main table tbody tr').filter({ has: page.locator('[title="Chemistry research 1"]') }).first()
     await expect(row).toBeVisible()
 
-    // The module cell shows slot count — click it to open the module popover.
-    const moduleBtn = row.getByTitle('Edit modules')
+    // The empty module chip opens the fill-all picker; choosing a module fills every slot.
+    const moduleBtn = row.getByTestId('module-chip')
     await expect(moduleBtn).toBeVisible()
     await moduleBtn.click()
+    await page.getByTestId('module-fill-option').first().click()
 
-    // Module popover appears with a slot count indicator.
-    await expect(page.getByText(/\/\d+/)).toBeVisible()
+    // The chip now holds modules: clicking it selects the row and opens the side panel.
+    await moduleBtn.click()
+
+    // The panel's Machine section shows a slot usage indicator.
+    await expect(page.getByTestId('side-panel').getByText(/\d+ \/ \d+ slots used/)).toBeVisible()
   })
 })

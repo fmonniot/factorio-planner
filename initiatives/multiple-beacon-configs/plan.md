@@ -2,7 +2,7 @@
 
 Status: Future
 
-A recipe row holds one beacon configuration (`beaconConfig`). This initiative lets it hold several, in the data model, the solver, the in-game viewer snapshot. It comes after the [recipe table redesign](../recipe-table-redesign/plan.md), which lands first with the final beacon UI but a single configuration, so this step has no UI work beyond removing a disabled state.
+A recipe row holds one beacon configuration (`beaconConfig`). This initiative lets it hold several, in the data model, the solver, the in-game viewer snapshot. It comes after the [recipe table redesign](../archive/recipe-table-redesign/plan.md), which lands first with the final beacon UI but a single configuration, so this step has no UI work beyond removing a disabled state.
 
 ## Context
 
@@ -29,7 +29,7 @@ Code that reads `beaconConfig` today, to move to the list (found with a search o
 
 ### UI
 
-None to build. The [recipe table redesign](../recipe-table-redesign/plan.md) ships the final UI of its design canvas over a list of configurations (the `+N` badge, one card per configuration, one Effects column each), fed by an adapter around the single `beaconConfig`, with "+ Add beacon configuration" disabled once a row has one. This step replaces the adapter with `beaconConfigs` and removes the disabled state.
+None to build. The [recipe table redesign](../archive/recipe-table-redesign/plan.md) ships the final UI of its design canvas over a list of configurations (the `+N` badge, one card per configuration, one Effects column each), fed by an adapter around the single `beaconConfig`, with "+ Add beacon configuration" disabled once a row has one. This step replaces the adapter with `beaconConfigs` and removes the disabled state.
 
 ## Open questions
 

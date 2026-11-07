@@ -116,11 +116,11 @@ describe('WorkspaceMenu', () => {
     expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'In-game viewerOff', 'Export plan', 'Import plan…'])
   })
 
-  it('adds the rate unit and default machines entries once game data is loaded', async () => {
+  it('adds the default machines entry once game data is loaded', async () => {
     loaded()
     render(<WorkspaceMenu />)
     await openMenu()
-    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'In-game viewerOff', '/sec', '/min', 'Default machines', 'Export plan', 'Import plan…'])
+    expect(itemNames()).toEqual(['Nullius', 'Seablock', 'Upload file…', 'In-game viewerOff', 'Default machines', 'Export plan', 'Import plan…'])
   })
 
   it('focuses Nullius on first visit with nothing checked', async () => {
@@ -150,13 +150,12 @@ describe('WorkspaceMenu', () => {
     expect(screen.getByRole('menuitem', { name: 'Import plan…' })).toHaveFocus()
   })
 
-  it('focuses the checked data set, not the checked rate unit, on a keyboard open when loaded', async () => {
+  it('focuses the checked data set on a keyboard open when loaded', async () => {
     localStorage.setItem(KEY, 'nullius')
     loaded()
     render(<WorkspaceMenu />)
     await openMenuWithKeyboard()
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).toHaveFocus()
-    expect(screen.getByRole('menuitemradio', { name: '/min' })).toHaveAttribute('aria-checked', 'true')
   })
 
   it('ignores arrow keys while focus is outside the menu', async () => {
@@ -333,20 +332,6 @@ describe('WorkspaceMenu game data info', () => {
     render(<WorkspaceMenu />)
     await openMenu()
     expect(screen.getByRole('menuitemradio', { name: 'Nullius' })).not.toHaveAccessibleDescription()
-  })
-})
-
-describe('WorkspaceMenu rate unit', () => {
-  it('reflects the rate unit and sets it without closing the menu', async () => {
-    loaded()
-    render(<WorkspaceMenu />)
-    await openMenu()
-    const group = screen.getByRole('group', { name: 'Rate unit' })
-    expect(within(group).getByRole('menuitemradio', { name: '/min' })).toHaveAttribute('aria-checked', 'true')
-    await userEvent.click(within(group).getByRole('menuitemradio', { name: '/sec' }))
-    expect(useUiStore.getState().rateUnit).toBe('sec')
-    expect(within(group).getByRole('menuitemradio', { name: '/sec' })).toHaveAttribute('aria-checked', 'true')
-    expect(screen.getByRole('menu', { name: 'Plan and game data' })).toBeInTheDocument()
   })
 })
 

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { canConnect } from './connections'
 import { findSubPlan } from '../data/subPlanTree'
+import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
@@ -601,6 +602,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block || !findSubPlan(block.rootPlan, parentSubPlanId)) return state
+      if (!canAddGroupIn(block.rootPlan, parentSubPlanId)) return state
       const newSubPlan = makeEmptySubPlan(name)
       const newSubPlanNode: SubPlanNode = {
         kind: 'subplan',
@@ -692,6 +694,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block || subPlanCopyBlocker(block.rootPlan, subPlanId, areaId)) return state
+      if (!canCopyGroupInto(block.rootPlan, subPlanId, areaId)) return state
       const source = findSubPlan(block.rootPlan, subPlanId)
       const target = findSubPlan(block.rootPlan, areaId)
       if (!source || !target) return state
@@ -1044,6 +1047,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
       const node = sourcePlan.nodes[sourceIndex]
 
+      // Nesting limit: only for a move to another plan (reordering is always allowed, even in a plan that is already too deep).
+      if (sourceSubPlanId !== targetSubPlanId && !canMoveNodeInto(block.rootPlan, nodeId, targetSubPlanId)) return state
+
       // Cycle guard: refuse to move a subplan node into its own subtree.
       if (node.kind === 'subplan') {
         if (isSubPlanDescendant(block.rootPlan, node.subPlanId, targetSubPlanId)) return state
@@ -1315,6 +1321,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const original = containing.nodes.find(n => n.id === nodeId)
       if (!original || original.kind !== 'game-recipe') return state
       const containingId = containing.id
+      if (!canAddGroupIn(block.rootPlan, containingId)) return state
 
       const now = new Date().toISOString()
       const newSubPlan: SubPlan = {

@@ -67,7 +67,7 @@ function setup(withAreas = true, extra: string[] = []) {
     activeBlockId: 'A',
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min', tableView: 'recipe', revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', revealRowRequest: null })
   useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
   useSolverStore.setState({
     flows: [],
@@ -165,14 +165,13 @@ describe('PlanAreasModal', () => {
     expect(screen.queryByRole('complementary')).toBeNull()
   })
 
-  it('opens an area: switches block, back to the tree, reveals the handle and closes', () => {
+  it('opens an area: switches block, reveals the handle and closes', () => {
     const onClose = vi.fn()
     render(<PlanAreasModal gameData={gameData} onClose={onClose} />)
     fireEvent.click(group('Charlie'))
     fireEvent.click(within(table('Charlie')).getByRole('button', { name: 'Plastics' }))
     fireEvent.click(screen.getByRole('button', { name: 'Show in table' }))
     expect(useBlockStore.getState().activeBlockId).toBe('C')
-    expect(useUiStore.getState().tableView).toBe('tree')
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('h-c')
     expect(onClose).toHaveBeenCalled()
   })
@@ -185,7 +184,6 @@ describe('PlanAreasModal', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Show in table' }))
     expect(useBlockStore.getState().activeBlockId).toBe('C')
     expect(useUiStore.getState().revealRowRequest).toBeNull()
-    expect(useUiStore.getState().tableView).toBe('recipe')
     expect(onClose).toHaveBeenCalled()
   })
 

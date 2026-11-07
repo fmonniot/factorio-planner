@@ -15,12 +15,12 @@ test.describe('cycles of requests', () => {
   test.beforeEach(async ({ page }) => {
     await loadPlanFixture(page, FIXTURE, 'kompetenz-seablock')
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-    await expect(page.getByTestId('top-bar').getByRole('button', { name: /warning/ })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('table-toolbar').getByRole('button', { name: /warning/ })).toBeVisible({ timeout: 15000 })
   })
 
   test('says when the requests around a loop do not settle, and a limit settles them', async ({ page }) => {
     // Sciences is active: its warning says what happened.
-    await page.getByTestId('top-bar').getByRole('button', { name: /warning/ }).click()
+    await page.getByTestId('table-toolbar').getByRole('button', { name: /warning/ }).click()
     await expect(page.getByText('Requests around a loop do not settle')).toBeVisible()
     await page.keyboard.press('Escape')
 

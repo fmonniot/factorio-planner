@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
+import { selectRow } from './support/sidePanel'
 
 /** One Seablock block: 60 iron plates/min smelted in stone furnaces (90 kW, 7 s per run of 2 plates). */
 const FIXTURE = path.resolve('e2e/fixtures/burner-fuel-seablock.json')
@@ -14,21 +15,20 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
   const fuel = row.locator('[data-fuel="true"]')
   await expect(fuel).toHaveCount(1)
   await expect(fuel).toHaveAttribute('data-variant', 'ingredient')
-  await expect(fuel).toHaveAttribute('title', 'Fuel: Cellulose fiber — Find producer recipe')
-  await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+  await expect(fuel).toHaveAttribute('title', /^Fuel: Cellulose fiber — Find producer recipe — \S+$/)
+  await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
-  // Pick solid fuel in the Edit machine modal.
-  await row.getByTitle('Stone furnace', { exact: true }).click()
+  // Pick solid fuel in the side panel's Machine section.
+  await selectRow(page, row)
   await expect(page.getByTestId('fuel-button')).toContainText('Cellulose fiber')
   await page.getByTestId('fuel-button').click()
   await page.locator('[data-testid="fuel-option"][data-item-id="solid-fuel"]').click()
   await expect(page.getByTestId('fuel-button')).toContainText('Solid fuel')
-  await page.getByRole('button', { name: 'Close', exact: true }).last().click()
 
   // 30 runs/min x 7 s = 3.5 furnaces; 3.5 x 90 kW / 12 MJ = 0.02625 /s = 1.575 /min.
-  await expect(fuel).toHaveAttribute('title', 'Fuel: Solid fuel — Find producer recipe')
-  await expect(fuel).toContainText(/^1\.57\/m$/)
-  await expect(row.locator('[data-variant="electricity"]')).toHaveCount(0)
+  await expect(fuel).toHaveAttribute('title', /^Fuel: Solid fuel — Find producer recipe — \S+$/)
+  await expect(fuel).toContainText(/^1\.57$/)
+  await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // The choice is saved with the plan.
   const saved = JSON.stringify(await readActivePlan(page, 'kompetenz-seablock'))

@@ -17,14 +17,14 @@ function parsePower(text: string): { kw: number; err: number } {
   return { kw: parseFloat(m[1]) * SCALE[unit], err }
 }
 
-test('the Ingredients header totals the power of the rows', async ({ page }) => {
+test('the toolbar totals the power of the rows', async ({ page }) => {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
   const total = page.getByTestId('block-power-total')
   await expect(total).toBeVisible({ timeout: 20000 })
 
-  const tiles = page.locator('main table tbody [data-variant="electricity"]')
+  const tiles = page.locator('main table tbody [data-testid="row-power"]')
   await expect(tiles.first()).toBeVisible()
   const texts = await tiles.evaluateAll(els => els.map(e => e.textContent ?? ''))
   const parts = texts.map(parsePower)

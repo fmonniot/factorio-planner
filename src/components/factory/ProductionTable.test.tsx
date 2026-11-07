@@ -87,15 +87,15 @@ describe('ProductionTable', () => {
     expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
   })
 
-  it('clicking add-recipe in empty state shows recipe picker', async () => {
+  it('the toolbar Add recipe button opens the picker in an empty block', async () => {
     render(<ProductionTable />)
-    fireEvent.click(screen.getByText('+ Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })
   })
 
-  it('shows an Add recipe button in the header instead of a footer when nodes exist', async () => {
+  it('shows the Add recipe button in the toolbar instead of a footer when nodes exist', async () => {
     const block = useBlockStore.getState().blocks[0]
     const rootPlan = { ...block.rootPlan, nodes: [existingNode] }
     useBlockStore.setState({
@@ -105,9 +105,8 @@ describe('ProductionTable', () => {
     })
     render(<ProductionTable />)
     expect(screen.queryByText('+ Add recipe')).not.toBeInTheDocument()
-    const header = screen.getAllByRole('columnheader')[0]
-    const button = within(header).getByRole('button', { name: 'Add recipe' })
-    fireEvent.click(button)
+    const toolbar = screen.getByTestId('table-toolbar')
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })
@@ -115,7 +114,7 @@ describe('ProductionTable', () => {
 
   it('adding a recipe via picker creates a node in blockStore', async () => {
     render(<ProductionTable />)
-    fireEvent.click(screen.getByText('+ Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
 
     // Click the Iron Plate recipe slot in the picker
@@ -155,7 +154,7 @@ describe('ProductionTable', () => {
     } as never)
 
     render(<ProductionTable />)
-    const ingredient = screen.getByTitle('Iron Ore — Find producer recipe')
+    const ingredient = screen.getByTitle(/^Iron Ore — Find producer recipe — \S+$/)
     fireEvent.click(ingredient)
 
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
@@ -235,7 +234,7 @@ describe('ProductionTable', () => {
       solveWithSlag('node-1')
       render(<ProductionTable />)
       // Expand the sub-factory so its row renders.
-      fireEvent.click(screen.getByText('▶'))
+      fireEvent.click(screen.getByRole('button', { name: /^Expand / }))
       await openConsumerPicker()
 
       fireEvent.click(screen.getByTitle('Slag To Plate'))
@@ -272,7 +271,7 @@ describe('ProductionTable — block power total', () => {
     } as never)
   }
 
-  it('sums the power of every solved node in the Ingredients header', () => {
+  it('sums the power of every solved node in the toolbar', () => {
     solveWithPower(1500, 500)
     render(<ProductionTable />)
     const total = screen.getByTestId('block-power-total')
@@ -352,7 +351,7 @@ describe('ProductionTable — revealing a row', () => {
   })
 })
 
-describe('ProductionTable — by-recipe view', () => {
+describe('ProductionTable — reveal a row', () => {
   const original = Element.prototype.scrollIntoView
 
   const solvedNode = (id: string, ceil: number) => ({
@@ -379,77 +378,14 @@ describe('ProductionTable — by-recipe view', () => {
     })
   }
   const rowEl = (id: string) => document.querySelector(`tr[data-node-id="${id}"]`)
-  const toggle = () => screen.queryByRole('button', { name: 'By recipe' })
 
   beforeEach(() => {
-    useUiStore.setState({ tableView: 'tree', revealRowRequest: null })
+    useUiStore.setState({ revealRowRequest: null })
     Element.prototype.scrollIntoView = vi.fn()
   })
 
   afterEach(() => {
     Element.prototype.scrollIntoView = original
-  })
-
-  it('has no toggle in a block without areas, and shows the tree there even if recipe view is stored', () => {
-    load([areaBlock('A', false)])
-    useUiStore.setState({ tableView: 'recipe' })
-    render(<ProductionTable />)
-    expect(toggle()).not.toBeInTheDocument()
-    expect(screen.queryByTestId('recipe-group')).not.toBeInTheDocument()
-    expect(rowEl('node-1A')).toBeInTheDocument()
-  })
-
-  it('toggles the view in a block with areas', () => {
-    load([areaBlock('A')])
-    render(<ProductionTable />)
-    expect(toggle()).toHaveAttribute('aria-pressed', 'false')
-    fireEvent.click(toggle()!)
-    expect(toggle()).toHaveAttribute('aria-pressed', 'true')
-    expect(useUiStore.getState().tableView).toBe('recipe')
-  })
-
-  it('shows one line per recipe with the total, and the rows per area when opened', () => {
-    load([areaBlock('A')])
-    useUiStore.setState({ tableView: 'recipe' })
-    render(<ProductionTable />)
-    expect(screen.getByTestId('recipe-group-buildings').textContent).toBe('3 buildings')
-    expect(screen.queryByTitle('Plastics')).not.toBeInTheDocument() // the area's handle row is not in this view
-    expect(rowEl('node-1A')).toBeNull()
-
-    fireEvent.click(screen.getByRole('button', { name: 'Iron Plate: rows per area' }))
-    expect(screen.getAllByTestId('row-area').map(e => e.textContent)).toEqual(['Top level', 'Plastics'])
-    expect(screen.queryByLabelText('Move up')).not.toBeInTheDocument()
-    expect(rowEl('node-1A')).toHaveAttribute('draggable', 'false')
-  })
-
-  it('opens the line of a revealed row and highlights the row', () => {
-    load([areaBlock('A')])
-    useUiStore.setState({ tableView: 'recipe' })
-    render(<ProductionTable />)
-    act(() => useUiStore.getState().requestRevealRow('p-1A'))
-    expect(rowEl('p-1A')).toHaveAttribute('data-highlighted', 'true')
-    expect(screen.getAllByTestId('row-area')).toHaveLength(2)
-  })
-
-  it('closes the lines again after another block was active', () => {
-    load([areaBlock('A'), areaBlock('B')])
-    useUiStore.setState({ tableView: 'recipe' })
-    render(<ProductionTable />)
-    fireEvent.click(screen.getByRole('button', { name: 'Iron Plate: rows per area' }))
-    expect(screen.getAllByTestId('row-area')).toHaveLength(2)
-    act(() => useBlockStore.getState().setActiveBlock('B'))
-    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
-    act(() => useBlockStore.getState().setActiveBlock('A'))
-    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
-  })
-
-  it('ignores a reveal request for a handle', () => {
-    load([areaBlock('A')])
-    useUiStore.setState({ tableView: 'recipe' })
-    render(<ProductionTable />)
-    act(() => useUiStore.getState().requestRevealRow('h-pA'))
-    expect(document.querySelector('[data-highlighted]')).toBeNull()
-    expect(screen.queryByTestId('row-area')).not.toBeInTheDocument()
   })
 
   it('reveals a row of another block after switching to it in the same update', () => {
@@ -472,7 +408,7 @@ describe('ProductionTable — recipe picker', () => {
       history: {},
     })
     render(<ProductionTable />)
-    fireEvent.click(within(screen.getAllByRole('columnheader')[0]).getByRole('button', { name: 'Add recipe' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
     expect(slot).toBeDisabled()
     expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')

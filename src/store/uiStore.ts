@@ -14,13 +14,10 @@ export const UI_STATE_STORAGE_KEY = 'factorio-planner:ui'
 export type RateUnit = 'sec' | 'min'
 
 /** How the production table lists its rows: the block's tree, or one line per recipe over every area. */
-export type TableView = 'tree' | 'recipe'
 
 export interface UiStoreState {
   rateUnit: RateUnit
   setRateUnit: (unit: RateUnit) => void
-  tableView: TableView
-  setTableView: (view: TableView) => void
   /** Address of the in-game viewer's bridge (a WebSocket URL). The connection itself is never persisted: it starts off. */
   bridgeUrl: string
   setBridgeUrl: (url: string) => void
@@ -37,17 +34,36 @@ export interface UiStoreState {
   /** Transient (not persisted) ask to show a production-table row of the active block: expand its sub-factories, scroll to it, flash it. `seq` changes on every request. */
   revealRowRequest: { seq: number; nodeId: string } | null
   requestRevealRow: (nodeId: string) => void
+  /**
+   * The production-table row (recipe row or group) the side panel shows, with the block it belongs to.
+   * Transient (not persisted). The table treats a selection of another block or of a removed node as none.
+   */
+  selectedRow: { blockId: string; nodeId: string } | null
+  selectRow: (blockId: string, nodeId: string) => void
+  clearSelectedRow: () => void
+  /**
+   * A short-lived highlight of one section of the side panel (a chip shortcut opened it for that section). Transient.
+   * `seq` changes on every request; the section clears it with `clearPanelHighlight(seq)` once the highlight is over.
+   */
+  panelHighlight: { seq: number; blockId: string; nodeId: string; section: PanelHighlightSection } | null
+  /** Select the row and highlight a section of its panel. */
+  selectRowSection: (blockId: string, nodeId: string, section: PanelHighlightSection) => void
+  clearPanelHighlight: (seq: number) => void
 }
+
+export type PanelHighlightSection = 'machine' | 'beacons'
 
 // ---------------------------------------------------------------------------
 // Store
 // ---------------------------------------------------------------------------
 
+/** How long a chip shortcut's highlight of a panel section lasts. */
+export const HIGHLIGHT_MS = 1600
+let highlightSeq = 0
+
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
   setRateUnit: (unit) => set({ rateUnit: unit }),
-  tableView: 'tree',
-  setTableView: (view) => set({ tableView: view }),
   bridgeUrl: DEFAULT_BRIDGE_URL,
   setBridgeUrl: (url) => set({ bridgeUrl: url }),
   viewerAutoSend: false,
@@ -59,6 +75,22 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   revealRowRequest: null,
   requestRevealRow: (nodeId) =>
     set(state => ({ revealRowRequest: { seq: (state.revealRowRequest?.seq ?? 0) + 1, nodeId } })),
+  selectedRow: null,
+  // Selecting another row drops a live highlight: it belongs to the row that asked for it.
+  selectRow: (blockId, nodeId) =>
+    set(state => (state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state : { selectedRow: { blockId, nodeId }, panelHighlight: null })),
+  clearSelectedRow: () => set(state => (state.selectedRow === null ? state : { selectedRow: null, panelHighlight: null })),
+  panelHighlight: null,
+  selectRowSection: (blockId, nodeId, section) => {
+    const seq = (highlightSeq += 1)
+    set(state => ({
+      selectedRow: state.selectedRow?.blockId === blockId && state.selectedRow.nodeId === nodeId ? state.selectedRow : { blockId, nodeId },
+      panelHighlight: { seq, blockId, nodeId, section },
+    }))
+    // The highlight ends on its own even when no mounted section shows it (the row's panel has no such section).
+    setTimeout(() => useUiStore.getState().clearPanelHighlight(seq), HIGHLIGHT_MS)
+  },
+  clearPanelHighlight: (seq) => set(state => (state.panelHighlight?.seq === seq ? { panelHighlight: null } : state)),
 }))
 
 // ---------------------------------------------------------------------------
@@ -67,15 +99,14 @@ export const useUiStore = create<UiStoreState>()((set) => ({
 
 interface PersistedUiState {
   rateUnit: RateUnit
-  tableView: TableView
   bridgeUrl: string
   viewerAutoSend: boolean
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, tableView, bridgeUrl, viewerAutoSend } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, tableView, bridgeUrl, viewerAutoSend }
+    const { rateUnit, bridgeUrl, viewerAutoSend } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -89,9 +120,6 @@ export function loadPersistedUiState(): void {
     const parsed = JSON.parse(raw) as Partial<PersistedUiState>
     if (parsed.rateUnit === 'sec' || parsed.rateUnit === 'min') {
       useUiStore.setState({ rateUnit: parsed.rateUnit })
-    }
-    if (parsed.tableView === 'tree' || parsed.tableView === 'recipe') {
-      useUiStore.setState({ tableView: parsed.tableView })
     }
     if (typeof parsed.bridgeUrl === 'string' && parsed.bridgeUrl !== '') {
       useUiStore.setState({ bridgeUrl: parsed.bridgeUrl })
@@ -107,7 +135,7 @@ export function loadPersistedUiState(): void {
 export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
     if (
-      state.rateUnit !== prevState.rateUnit || state.tableView !== prevState.tableView ||
+      state.rateUnit !== prevState.rateUnit ||
       state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend
     ) {
       saveUiState()

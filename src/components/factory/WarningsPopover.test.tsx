@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { WarningsPopover } from './WarningsPopover'
+import { WarningsPopover } from './TableToolbar'
 import { useSolverStore } from '../../store/solverStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'

@@ -2078,3 +2078,77 @@ describe('applyRowSettingsToRecipe', () => {
     expect(treePlan('U').updatedAt).not.toBe('2099-01-01T00:00:00.000Z')
   })
 })
+
+// ---------------------------------------------------------------------------
+// Nesting limit
+// ---------------------------------------------------------------------------
+
+describe('nesting limit', () => {
+  /** A chain of groups g1 ⊃ … ⊃ g<levels> under the root; `leaf` rows go in the deepest. */
+  function setChain(levels: number, extraRoot: RecipeNode[] = []) {
+    let inner: SubPlan = { ...makeEmptySubPlan(`g${levels}`), id: `g${levels}`, nodes: [{ ...ironNode, id: 'leaf' }] }
+    for (let i = levels - 1; i >= 1; i--) {
+      inner = {
+        ...makeEmptySubPlan(`g${i}`), id: `g${i}`,
+        nodes: [{ kind: 'subplan', id: `h${i + 1}`, subPlanId: `g${i + 1}` }], subPlans: [inner],
+      }
+    }
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{
+        ...block,
+        rootPlan: { ...block.rootPlan, nodes: [{ kind: 'subplan', id: 'h1', subPlanId: 'g1' }, ...extraRoot], subPlans: [inner] },
+      }],
+    })
+  }
+  const root = () => useBlockStore.getState().blocks[0].rootPlan
+
+  it('refuses to move a row into a plan already four groups deep', () => {
+    setChain(5, [{ ...ironNode, id: 'r' }])
+    useBlockStore.getState().moveNode('r', 'g5', 0)
+    expect(root().nodes.map(n => n.id)).toContain('r')
+    useBlockStore.getState().moveNode('r', 'g4', 0)
+    expect(findSubPlan(root(), 'g4')!.nodes.map(n => n.id)).toContain('r')
+  })
+
+  it('counts the height of a moved group', () => {
+    // m1 ⊃ m2 ⊃ row: height 2.
+    const m2 = { ...makeEmptySubPlan('m2'), id: 'm2', nodes: [{ ...ironNode, id: 'mleaf' }] }
+    const m1 = { ...makeEmptySubPlan('m1'), id: 'm1', nodes: [{ kind: 'subplan' as const, id: 'hm2', subPlanId: 'm2' }], subPlans: [m2] }
+    setChain(3, [{ kind: 'subplan', id: 'hm1', subPlanId: 'm1' } as unknown as RecipeNode])
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, subPlans: [...block.rootPlan.subPlans, m1] } }] })
+    useBlockStore.getState().moveNode('hm1', 'g3', 0) // 3 + 2 > 4
+    expect(root().nodes.map(n => n.id)).toContain('hm1')
+    useBlockStore.getState().moveNode('hm1', 'g2', 0) // 2 + 2 = 4
+    expect(findSubPlan(root(), 'g2')!.nodes.map(n => n.id)).toContain('hm1')
+  })
+
+  it('still reorders inside a plan that is already too deep', () => {
+    setChain(6)
+    const g6 = findSubPlan(root(), 'g6')!
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => ({
+        ...b,
+        rootPlan: {
+          ...b.rootPlan,
+          subPlans: [(function patch(p: SubPlan): SubPlan {
+            return p.id === 'g6' ? { ...g6, nodes: [...g6.nodes, { ...ironNode, id: 'second' }] } : { ...p, subPlans: p.subPlans.map(patch) }
+          })(b.rootPlan.subPlans[0])],
+        },
+      })),
+    }))
+    useBlockStore.getState().moveNode('second', 'g6', 0)
+    expect(findSubPlan(root(), 'g6')!.nodes.map(n => n.id)).toEqual(['second', 'leaf'])
+  })
+
+  it('refuses to wrap a row or add a sub-factory too deep', () => {
+    setChain(4)
+    useBlockStore.getState().wrapNodeInSubPlan('leaf', 'Wrapper')
+    expect(findSubPlan(root(), 'g4')!.nodes.map(n => n.id)).toEqual(['leaf'])
+    useBlockStore.getState().addSubPlan('g4', 'Nope')
+    expect(findSubPlan(root(), 'g4')!.subPlans).toHaveLength(0)
+    useBlockStore.getState().addSubPlan('g3', 'Fine')
+    expect(findSubPlan(root(), 'g3')!.subPlans).toHaveLength(2)
+  })
+})

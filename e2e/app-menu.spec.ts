@@ -34,7 +34,7 @@ test.describe('workspace menu', () => {
     const menu = await openAppMenu(page)
     const items = menu.locator('[role^="menuitem"]')
     await expect(items).toHaveText([
-      /^✓?Plan 1$/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, /In-game viewer/, '/sec', '/min', /Default machines/, 'Export plan', 'Import plan…',
+      /^✓?Plan 1$/, 'New', 'Rename', 'Duplicate', 'Delete', /Nullius/, /Seablock/, /Upload file…/, /In-game viewer/, /Default machines/, 'Export plan', 'Import plan…',
     ])
     await expect(menu.getByRole('menuitemradio', { name: 'Nullius' })).toHaveAttribute('aria-checked', 'true')
   })
@@ -82,13 +82,14 @@ test.describe('workspace menu', () => {
       .toHaveAccessibleDescription(/^Factorio 2\.0\.76 · \d+ mods · \d+ recipes$/)
   })
 
-  test('the top bar rate toggle switches the slot rates and persists', async ({ page }) => {
+  test('the table toolbar rate segment switches the slot rates and persists', async ({ page }) => {
     await setup(page)
-    await page.getByRole('button', { name: 'Rates per minute, switch to per second' }).click()
-    await expect(page.getByRole('button', { name: 'Rates per second, switch to per minute' })).toBeVisible()
+    const perSecond = page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' })
+    await perSecond.click()
+    await expect(perSecond).toHaveAttribute('aria-pressed', 'true')
     await expect(page.getByRole('button', { name: /^Iron gear, .* per second/ }).first()).toBeVisible()
     await page.reload()
-    await expect(page.getByRole('button', { name: 'Rates per second, switch to per minute' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByTestId('table-toolbar').getByRole('button', { name: '/sec' })).toHaveAttribute('aria-pressed', 'true', { timeout: 10000 })
   })
 
   test('mouse open keeps focus on the button; ArrowUp opens on the last item', async ({ page }) => {
