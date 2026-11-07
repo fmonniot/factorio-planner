@@ -39,7 +39,7 @@ session (see [Game data set](#game-data-set)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣ Plates][▣ Gears] +      (⚠ 2 warnings)  /min ⇄  ⚑  ⊞  ⚗ │ [≡ Main base ▾] │
+│ [▣ Plates][▣ Gears] +      (⚠ 2 warnings)  ⚑  ⊞  ⚗ │ [≡ Main base ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
 │ │ [slot 58▼] [slot ]    │ │ [slot 12 ] [slot ]  │ │ [slot 30 ] [slot ⊘] │ │
@@ -65,7 +65,7 @@ The side panel appears to the right of the table only while a row is selected. T
 
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
 are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
-warnings), the rate unit toggle, the icon-only tool buttons (the [horizon](#research-horizon)
+warnings), the icon-only tool buttons (the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
 shown only while some block has areas and the [tech tree](#technology-tree)), a divider
 (shown only
@@ -73,12 +73,7 @@ when game data is loaded, like the tools) and the [workspace menu](#workspace-me
 [in-game viewer](#in-game-viewer) connection. The root
 carries `data-testid="top-bar"`.
 
-The rate unit toggle (`RateUnitButton.tsx`, shown only when game data is loaded) is a wide
-`IconButton` (`wide`: `h-8 px-2 gap-1 text-xs`) showing `/min` or `/sec` and a swap icon. Its
-accessible name and tooltip are "Rates per minute, switch to per second" or "Rates per second, switch
-to per minute"; a click flips the unit. The unit is stored in `uiStore` and persisted; the default is
-per minute. It changes how every rate in the summary and the table is displayed; stored values are
-always per minute. The workspace menu has the same switch (see below).
+The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment and from the workspace menu (see below); the top bar has no rate control of its own.
 
 The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
@@ -673,7 +668,7 @@ are not touched.
 `FactorySummary.tsx` is the summary strip for the active block.
 
 There is no header row: the block name is on its tab (renamed from the tab's context menu), and the
-warnings pill and the rate unit toggle are in the [top bar](#topbar).
+warnings pill is in the [top bar](#topbar).
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
@@ -787,7 +782,7 @@ plan as a new node with default settings.
 
 - **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
 - **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
-- **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that reads and writes the same rate unit as the [TopBar](#topbar) toggle. The pressed segment is the current unit.
+- **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit. The [workspace menu](#workspace-menu) has the same switch.
 - **Totals**, right-aligned, over the whole block at every depth: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.

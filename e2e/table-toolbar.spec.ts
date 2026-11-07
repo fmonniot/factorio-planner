@@ -35,6 +35,5 @@ test.describe('Table toolbar', () => {
     await expect(group.getByRole('button', { name: '/min' })).toHaveAttribute('aria-pressed', 'true')
     await group.getByRole('button', { name: '/sec' }).click()
     await expect(group.getByRole('button', { name: '/sec' })).toHaveAttribute('aria-pressed', 'true')
-    await expect(page.getByRole('button', { name: 'Rates per second, switch to per minute' })).toBeVisible()
   })
 })
