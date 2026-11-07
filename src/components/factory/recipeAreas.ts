@@ -1,6 +1,7 @@
-import type { GameData, GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
-import { areaRecipeIds, blockAreas, dedicatedProduct, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
+import type { GameRecipeNode, SolvedArea, SolvedNode, SubPlan } from '../../data/types'
+import { areaRecipeIds, blockAreas, subPlanAreaIds, subPlanCopyBlocker } from '../../solver/areas'
 import { areaName } from '../../data/subPlanTree'
+import { canCopyGroupInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 
 // ---------------------------------------------------------------------------
 // Which rows build which recipe in which area: what the table's area actions
@@ -132,71 +133,6 @@ export function multiAreaTitle(recipeName: string, s: MultiAreaSummary, hereArea
   return `${recipeName}: ${b} building${b === 1 ? '' : 's'} (${s.exact.toFixed(1)} exact) in ${n} area${n === 1 ? '' : 's'}: ${parts.join(', ')}`
 }
 
-export interface RecipeGroup {
-  recipeId: string
-  /** in table order of their areas, root first */
-  rows: RecipeRowRef[]
-}
-
-/**
- * The rows of the by-recipe view: one group per recipe, in the order the table shows their first
- * row. Only rows the tree shows are listed (a sub-plan without a handle has none).
- */
-export function recipeGroups(root: SubPlan, index: RecipeAreaIndex): RecipeGroup[] {
-  const groups = new Map<string, RecipeRowRef[]>()
-  function visit(plan: SubPlan): void {
-    const areaId = index.areaOfSubPlan.get(plan.id) ?? root.id
-    for (const node of plan.nodes) {
-      if (node.kind === 'game-recipe') {
-        const list = groups.get(node.recipeId) ?? []
-        list.push({ node, areaId, subPlanId: plan.id })
-        groups.set(node.recipeId, list)
-      } else {
-        const child = plan.subPlans.find(sp => sp.id === node.subPlanId)
-        if (child) visit(child)
-      }
-    }
-  }
-  visit(root)
-  const rank = (ref: RecipeRowRef) => index.areaRank.get(ref.areaId) ?? 0
-  return [...groups].map(([recipeId, rows]) => ({ recipeId, rows: rows.sort((a, b) => rank(a) - rank(b)) }))
-}
-
-export interface RecipeGroupRates {
-  products: [string, number][]
-  byproducts: [string, number][]
-  inputs: [string, number][]
-  powerKw: number
-}
-
-/** What a recipe line shows: the rows' solved rates added up. An output is a product when any row is built for it. */
-export function recipeGroupRates(
-  rows: RecipeRowRef[],
-  recipe: GameData['recipes'][string],
-  solvedMap: ReadonlyMap<string, SolvedNode>,
-): RecipeGroupRates {
-  const outputs = new Map<string, number>()
-  const inputs = new Map<string, number>()
-  let powerKw = 0
-  const primary = new Set<string>()
-  for (const row of rows) {
-    const primaryId = dedicatedProduct(row.node, recipe)
-    if (primaryId !== undefined) primary.add(primaryId)
-    const solved = solvedMap.get(row.node.id)
-    if (!solved) continue
-    for (const [id, rate] of Object.entries(solved.outputRates)) outputs.set(id, (outputs.get(id) ?? 0) + rate)
-    for (const [id, rate] of Object.entries(solved.inputRates)) inputs.set(id, (inputs.get(id) ?? 0) + rate)
-    powerKw += solved.powerKw
-  }
-  const out = [...outputs]
-  return {
-    products: out.filter(([id]) => primary.has(id)),
-    byproducts: out.filter(([id]) => !primary.has(id)),
-    inputs: [...inputs],
-    powerKw,
-  }
-}
-
 export interface BuildAlsoInOption {
   areaId: string
   name: string
@@ -256,7 +192,9 @@ export function duplicateToOptions(
     const blocker = subPlanCopyBlocker(root, subPlanId, areaId)
     if (blocker?.reason === 'invalid') continue
     const name = areaName(root, areaId)
-    if (!blocker) options.push({ areaId, name })
+    if (!blocker) {
+      options.push(canCopyGroupInto(root, subPlanId, areaId) ? { areaId, name } : { areaId, name, disabledReason: NESTING_LIMIT_TITLE })
+    }
     else if (blocker.reason === 'inside') options.push({ areaId, name, disabledReason: 'Cannot copy a subfactory into itself' })
     else options.push({ areaId, name, disabledReason: copyConflictTitle(blocker.recipeIds.map(recipeName)) })
   }

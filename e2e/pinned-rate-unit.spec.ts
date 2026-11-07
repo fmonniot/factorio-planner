@@ -1,11 +1,10 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
-import { clickRowAction } from './support/rowMenu'
-import { openAppMenu } from './support/appMenu'
+import { selectRow } from './support/sidePanel'
 
 /**
- * `pinnedRate` is stored in executions per minute and shown as the primary
+ * `pinnedRate` is stored in executions per minute and shown, in the side panel's Rate section, as the primary
  * product's rate. The fixture's primary product (sodium hydroxide) is made 1 per
  * run, so typing 120 in /min mode pins the recipe at 120 executions/min (not 2),
  * and switching to /sec must show the same pin as 2.00. The per-run conversion
@@ -19,8 +18,12 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
     .filter({ has: page.locator('[title="Saline electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
-  await clickRowAction(page, row, 'Pin rate')
-  const pinnedInput = row.getByLabel('Pinned rate')
+  const panel = await selectRow(page, row)
+  await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+  // The table keeps no inline input: the chip carries the pin badge.
+  await expect(row.getByLabel('Pinned rate')).toHaveCount(0)
+  await expect(row.getByTestId('chip-pin')).toBeVisible()
+  const pinnedInput = panel.getByLabel('Pinned rate')
   await pinnedInput.fill('120')
   await pinnedInput.press('Tab')
 
@@ -31,9 +34,8 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
   const stored = await storedPinnedRates(page)
 
   // Switch to /sec: the same pin reads 2.00 and the stored value is untouched.
-  const menu = await openAppMenu(page)
-  await menu.getByRole('menuitemradio', { name: '/sec' }).click()
-  await expect(row.getByLabel('Pinned rate')).toHaveValue('2.00')
+  await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
+  await expect(panel.getByLabel('Pinned rate')).toHaveValue('2.00')
   expect(await storedPinnedRates(page)).toEqual(stored)
 })
 

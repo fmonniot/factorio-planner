@@ -19,3 +19,26 @@ export function countSubPlanContents(plan: SubPlan): { recipes: number; subfacto
   }
   return { recipes, subfactories }
 }
+
+/** Machines (rounded up per row) and power (kW) of every row in a sub-plan, at every depth. */
+export function sumSubPlanSolved(
+  plan: SubPlan,
+  solvedMap: ReadonlyMap<string, { machineCountCeil: number; powerKw: number }>,
+): { machines: number; powerKw: number } {
+  let machines = 0
+  let powerKw = 0
+  for (const n of plan.nodes) {
+    if (n.kind === 'subplan') {
+      const child = plan.subPlans.find(sp => sp.id === n.subPlanId)
+      if (!child) continue
+      const inner = sumSubPlanSolved(child, solvedMap)
+      machines += inner.machines
+      powerKw += inner.powerKw
+    } else {
+      const solved = solvedMap.get(n.id)
+      machines += solved?.machineCountCeil ?? 0
+      powerKw += solved?.powerKw ?? 0
+    }
+  }
+  return { machines, powerKw }
+}

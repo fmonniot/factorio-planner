@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
-import { clickRowAction } from './support/rowMenu'
+import { selectRow } from './support/sidePanel'
 
 /**
  * Regression test for two related pin bugs:
@@ -16,7 +16,7 @@ import { clickRowAction } from './support/rowMenu'
  * Expected behaviour after the fix:
  *   - The fixture loads successfully (pinnedRate: 0 treated as unpinned).
  *   - Pinning a 0-throughput recipe pins at a value > 0.
- *   - The user can type a new rate into the pinned input and it sticks.
+ *   - The user can type a new rate into the panel's pinned input and it sticks.
  */
 test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/pin-recipe-not-working.json'))
@@ -29,15 +29,20 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
     .filter({ has: page.locator('[title="Saline electrolysis"]') }).first()
   await expect(row).toBeVisible({ timeout: 5000 })
 
-  // Not yet pinned: no pinned-rate input, and the menu offers "Pin rate".
-  await expect(row.getByLabel('Pinned rate')).not.toBeVisible()
+  // Not yet pinned: no badge, and the panel's Rate section offers an unchecked pin.
+  await expect(row.getByTestId('chip-pin')).toHaveCount(0)
+  const panel = await selectRow(page, row)
+  const pin = panel.getByRole('checkbox', { name: 'Pin rate' })
+  await expect(pin).not.toBeChecked()
+  await expect(panel.getByLabel('Pinned rate')).toHaveCount(0)
 
-  // Pin through the row menu.
-  await clickRowAction(page, row, 'Pin rate')
+  // Pin through the panel.
+  await pin.check()
 
-  // After clicking, the pinned input appears.
-  const pinnedInput = row.getByLabel('Pinned rate')
+  // After checking, the pinned input appears and the chip carries the badge.
+  const pinnedInput = panel.getByLabel('Pinned rate')
   await expect(pinnedInput).toBeVisible()
+  await expect(row.getByTestId('chip-pin')).toBeVisible()
 
   // The seeded value must be > 0 (the zero-throughput seed bug would show 0 here).
   const rawValue = await pinnedInput.inputValue()
@@ -52,6 +57,7 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
   expect(parseFloat(updatedValue)).toBeCloseTo(120, 0)
 
   // Unpin restores the static tile.
-  await clickRowAction(page, row, 'Unpin rate')
-  await expect(row.getByLabel('Pinned rate')).not.toBeVisible()
+  await pin.uncheck()
+  await expect(panel.getByLabel('Pinned rate')).toHaveCount(0)
+  await expect(row.getByTestId('chip-pin')).toHaveCount(0)
 })

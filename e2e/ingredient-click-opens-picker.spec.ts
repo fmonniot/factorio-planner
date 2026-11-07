@@ -13,10 +13,10 @@ test.describe('Click ingredient → recipe picker filtered to producers', () => 
     await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
     // Ingredient tiles render as buttons with title "<Name> — Find producer recipe".
-    const ingredientTile = page.locator('main button[title$="Find producer recipe"]').first()
+    const ingredientTile = page.locator('main button[title*="Find producer recipe"]').first()
     await expect(ingredientTile).toBeVisible()
     const tileTitle = await ingredientTile.getAttribute('title')
-    expect(tileTitle).toMatch(/^.+ — Find producer recipe$/)
+    expect(tileTitle).toMatch(/^.+ — Find producer recipe — \S+$/)
 
     await ingredientTile.click()
 

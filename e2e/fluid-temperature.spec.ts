@@ -9,7 +9,7 @@ test('ingredient tiles show the temperature a recipe requires', async ({ page })
   await loadPlanFixture(page, FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
-  const semiheavy = page.locator('main button[title="7.5% Semiheavy water (≤30°C) — Find producer recipe"]')
+  const semiheavy = page.locator('main button[title^="7.5% Semiheavy water (≤30°C) — Find producer recipe"]')
   await expect(semiheavy).toBeVisible()
   await expect(semiheavy).toContainText('≤30°C')
 
@@ -32,7 +32,7 @@ test('a steam turbine on boiler steam warns, and shows the boiler temperature', 
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
   await expect(page.locator('main button[title="Mismatch"], [data-testid="block-tab"] button[title="Mismatch"]').first()).toHaveAttribute('aria-current', 'true')
-  await expect(page.locator('main [title="Steam (165°C)"]').first()).toContainText('165°C')
+  await expect(page.locator('main [title^="Steam (165°C)"]').first()).toContainText('165°C')
 
   const pill = page.getByRole('button', { name: /1 warning/ })
   await expect(pill).toBeVisible()
@@ -47,7 +47,7 @@ test('a steam engine on boiler steam raises no warning', async ({ page }) => {
   await loadPlanFixture(page, POWER_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
   await page.locator('[data-testid="block-tab"] button[title="Match"]').click()
-  await expect(page.locator('main [title="Steam (165°C)"]').first()).toBeVisible()
+  await expect(page.locator('main [title^="Steam (165°C)"]').first()).toBeVisible()
   await expect(page.getByTitle('Show solver warnings')).toHaveCount(0)
 })
 

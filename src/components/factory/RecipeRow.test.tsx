@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, within } from '@testing-library/react'
-import { RecipeRow, primaryItemPerRun } from './RecipeRow'
+import { RecipeRow } from './RecipeRow'
+import { primaryItemPerRun, pinSeedRate } from './pinRate'
 import { countSubPlanContents } from './subPlanContents'
 import { RecipeDndProvider } from './RecipeDnd'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
@@ -155,10 +156,10 @@ const mockGameData: GameData = {
 // Setup
 // ---------------------------------------------------------------------------
 
-function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+function rowElement(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
   const block = useBlockStore.getState().blocks[0]
   const rootPlan = block?.rootPlan ?? { id: 'r', name: 'Root', goals: [], nodes: [], subPlans: [], createdAt: '', updatedAt: '' }
-  return render(
+  return (
     <RecipeDndProvider>
       <table>
         <tbody>
@@ -178,6 +179,10 @@ function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
       </table>
     </RecipeDndProvider>
   )
+}
+
+function renderRow(props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+  return render(rowElement(props))
 }
 
 beforeEach(() => {
@@ -220,9 +225,9 @@ describe('RecipeRow', () => {
     expect(screen.getByText(/120/)).toBeInTheDocument()
   })
 
-  it('renders electricity tile', () => {
+  it('shows the row power in the Power column', () => {
     renderRow()
-    expect(screen.getByText('⚡')).toBeInTheDocument()
+    expect(screen.getByTestId('row-power')).toBeInTheDocument()
   })
 
   it('move-up button is disabled when isFirst=true', () => {
@@ -286,18 +291,19 @@ describe('RecipeRow', () => {
     const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
     const onToggle = vi.fn()
     renderRow({ planNode: spNode, solvedNode: undefined, isExpanded: false, onToggleExpand: onToggle })
-    // The collapsed toggle shows ▶ inside a colSpan cell (not the reorder ▲/▼ buttons)
-    const collapseIcon = screen.getByText('▶')
-    expect(collapseIcon).toBeInTheDocument()
-    // Click the button that contains ▶
-    fireEvent.click(collapseIcon.closest('button')!)
+    // The chevron is a button with a state and a label (not the reorder ▲/▼ buttons)
+    const chevron = screen.getByRole('button', { name: 'Expand sp-123' })
+    expect(chevron).toHaveAttribute('aria-expanded', 'false')
+    fireEvent.click(chevron)
     expect(onToggle).toHaveBeenCalled()
   })
 
-  it('recipe cell has no inline action buttons (actions live in the right-click menu)', () => {
+  it('recipe cell holds only the select button (actions live in the right-click menu)', () => {
     renderRow()
     const cell = screen.getAllByTitle('Iron Plate')[0].closest('td')!
-    expect(within(cell).queryAllByRole('button')).toHaveLength(0)
+    const buttons = within(cell).getAllByRole('button')
+    expect(buttons).toHaveLength(1)
+    expect(buttons[0]).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('subplan node shows expanded indicator when isExpanded=true', () => {
@@ -313,7 +319,7 @@ describe('RecipeRow', () => {
     const rootPlanId = block.rootPlan.id
     renderRow({ onIngredientClick })
     // Title set when onIngredientClick is provided.
-    const tile = screen.getByTitle('Iron Ore — Find producer recipe')
+    const tile = screen.getByTitle(/^Iron Ore — Find producer recipe — \S+$/)
     fireEvent.click(tile)
     expect(onIngredientClick).toHaveBeenCalledWith('iron-ore', rootPlanId)
   })
@@ -385,19 +391,20 @@ describe('T12 — Pin rate UI', () => {
     return node
   }
 
-  it('unpinned row has no pinned input and offers "Pin rate" in the menu', () => {
+  it('unpinned row has no pin badge and offers "Pin rate" in the menu', () => {
     setupElectrolysis(undefined)
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('chip-pin')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Pin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Unpin rate' })).not.toBeInTheDocument()
   })
 
-  it('pinned row shows a pinned input and offers "Unpin rate" in the menu', () => {
+  it('pinned row shows the pin badge on the product chip, no inline input, and offers "Unpin rate" in the menu', () => {
     const pinned = setupElectrolysis(2)
     renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
+    expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
     fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
     expect(screen.getByRole('menuitem', { name: 'Unpin rate' })).toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Pin rate' })).not.toBeInTheDocument()
@@ -416,70 +423,12 @@ describe('T12 — Pin rate UI', () => {
     }
   })
 
-  // Electrolysis makes 6 hydrogen per run (60 / 10 in electrolysisSolved), so the
-  // pin is displayed and typed as the hydrogen rate and stored as runs per minute.
-  it('shows the pinned runs as the primary product rate in the current unit', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(20) // 20 runs/min * 6 hydrogen = 120/min
-    const { unmount } = renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(120)
-    unmount()
-    useUiStore.setState({ rateUnit: 'sec' })
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(2)
-  })
-
-  it('typing a product rate in /min mode stores runs = rate / items per run', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(1)
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '120' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(20) // 120 / 6
-    }
-  })
-
-  it('typing a product rate in /sec mode stores value * 60 / items per run', () => {
-    useUiStore.setState({ rateUnit: 'sec' })
-    const pinned = setupElectrolysis(1)
-    renderRow({ planNode: pinned, solvedNode: electrolysisSolved })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '5' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    if (updated.kind === 'game-recipe') {
-      expect(updated.pinnedRate).toBeCloseTo(50) // 5 * 60 / 6
-    }
-  })
-
-  it('a single-product amount-1 recipe shows the pin unchanged', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const node: GameRecipeNode = { ...(ironPlateRecipeNode as GameRecipeNode), pinnedRate: 30 }
-    const block = makeEmptyBlock('Test')
-    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node] } }], activeBlockId: block.id, history: {} })
-    renderRow({ planNode: node, solvedNode: { ...solvedNode, outputRates: { 'iron-plate': 30 } } })
-    expect(screen.getByLabelText('Pinned rate')).toHaveValue(30)
-  })
-
-  it('keeps the pin input mounted and its factor when the solve later zeroes the node', () => {
-    useUiStore.setState({ rateUnit: 'min' })
-    const pinned = setupElectrolysis(10)
-    const prod = { ...electrolysisSolved, outputRates: { hydrogen: 66 } } // productivity: 6.6 per run
-    const { rerender } = renderRow({ planNode: pinned, solvedNode: prod })
-    const input = screen.getByLabelText('Pinned rate')
-    fireEvent.change(input, { target: { value: '66' } })
-    const rootPlan = useBlockStore.getState().blocks[0].rootPlan
-    rerender(
-      <RecipeDndProvider><table><tbody>
-        <RecipeRow
-          solvedNode={{ ...prod, throughput: 0 }} planNode={pinned} isFirst={false} isLast={false} depth={0}
-          gameData={mockGameData} rootPlan={rootPlan} parentSubPlanId={rootPlan.id} nodeIndex={0}
-        />
-      </tbody></table></RecipeDndProvider>,
-    )
-    expect(screen.getByLabelText('Pinned rate')).toBe(input)
-    expect(input).toHaveValue(66)
+  describe('pinSeedRate', () => {
+    it('seeds at the solved throughput, at least 1', () => {
+      expect(pinSeedRate(undefined)).toBe(1)
+      expect(pinSeedRate({ ...electrolysisSolved, throughput: 0.2 })).toBe(1)
+      expect(pinSeedRate({ ...electrolysisSolved, throughput: 7 })).toBe(7)
+    })
   })
 
   describe('primaryItemPerRun', () => {
@@ -604,7 +553,7 @@ describe('RecipeRow context menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('Pin rate pins the node and the pinned input appears', () => {
+  it('Pin rate pins the node and the pin badge appears', () => {
     const { unmount } = renderRow()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Pin rate' }))
@@ -613,7 +562,7 @@ describe('RecipeRow context menu', () => {
     // Props are static in the harness: re-render with the updated store node.
     unmount()
     renderRow({ planNode: node })
-    expect(screen.getByLabelText('Pinned rate')).toBeInTheDocument()
+    expect(screen.getByTestId('chip-pin')).toBeInTheDocument()
   })
 
   it('a pinned node offers Unpin rate', () => {
@@ -731,7 +680,7 @@ describe('RecipeRow context menu', () => {
 
   it('right-clicking a non-recipe cell does not open the menu', () => {
     renderRow()
-    fireEvent.contextMenu(screen.getByText('⚡'))
+    fireEvent.contextMenu(screen.getByTestId('row-power'))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 })
@@ -858,21 +807,37 @@ describe('RecipeRow byproduct context menu', () => {
     expect(updated.kind === 'game-recipe' && updated.primaryProduct).toBe('oxygen')
   })
 
-  it('offers only the sourcing choice without onAddConsumer', () => {
+  it('opens no menu without onAddConsumer', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('lists the sourcing radios after a separator below "Add consumer recipe…"', () => {
+  it('closes the open menu when onAddConsumer goes away', () => {
+    const props = { planNode: electrolysisPlanNode, solvedNode: electrolysisSolved }
+    const { rerender } = renderRow({ ...props, onAddConsumer: vi.fn() })
+    fireEvent.contextMenu(oxygenTile())
+    expect(screen.getByRole('menuitem', { name: 'Add consumer recipe…' })).toBeInTheDocument()
+    rerender(rowElement(props))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('chip titles never end in a separator or whitespace, with or without onAddConsumer', () => {
+    for (const onAddConsumer of [undefined, vi.fn()]) {
+      const { unmount } = renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer })
+      const title = oxygenTile().getAttribute('title')!
+      expect(title).toBe(title.trim())
+      expect(title).not.toMatch(/[;—,]$/)
+      expect(title.includes('right-click')).toBe(onAddConsumer !== undefined)
+      unmount()
+    }
+  })
+
+  it('has no divider and no sourcing radios', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, onAddConsumer: vi.fn() })
     fireEvent.contextMenu(oxygenTile())
-    expect(screen.getByRole('separator')).toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio').map(i => i.textContent)).toEqual(
-      expect.arrayContaining([expect.stringContaining('Own recipes first')]),
-    )
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
   })
 
   it('never has the recipe-cell menu and the byproduct menu open together', () => {
@@ -889,86 +854,28 @@ describe('RecipeRow byproduct context menu', () => {
   })
 })
 
-describe('RecipeRow item sourcing menu', () => {
+describe('RecipeRow item chips: no sourcing menu', () => {
   beforeEach(() => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
   })
-  const waterTile = () => screen.getByTitle(/^Water/)
-  const sourcing = () => useBlockStore.getState().blocks[0].itemSourcing
 
-  it('right-clicking an ingredient chip offers the three choices, own recipes first checked', () => {
+  it('right-clicking an ingredient or a product chip opens no menu', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    const radios = screen.getAllByRole('menuitemradio')
-    expect(radios.map(r => r.textContent)).toEqual(['•Own recipes first', 'Byproducts first', 'Connections first'])
-    expect(radios.map(r => r.getAttribute('aria-checked'))).toEqual(['true', 'false', 'false'])
-  })
-
-  it('choosing Byproducts first sets the block\'s map and closes the menu', () => {
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    fireEvent.click(screen.getByRole('menuitemradio', { name: /Byproducts first/ }))
-    expect(sourcing()).toEqual({ water: 'byproducts-first' })
+    fireEvent.contextMenu(screen.getByTitle(/^Water/))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-  })
-
-  it('disables the choices on the chip of a product of the block', () => {
-    const block = useBlockStore.getState().blocks[0]
-    useBlockStore.setState({
-      blocks: [{ ...block, products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }] }],
-    })
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
-    const radios = screen.getAllByRole('menuitemradio')
-    expect(radios).toHaveLength(3)
-    for (const r of radios) {
-      expect(r).toBeDisabled()
-      expect(r).toHaveAttribute('title', 'Hydrogen is a product of this block, so the block always makes it')
-    }
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
   it('shows a badge and a title suffix on a chip with a mode', () => {
     const block = useBlockStore.getState().blocks[0]
     useBlockStore.setState({ blocks: [{ ...block, itemSourcing: { water: 'byproducts-first' } }] })
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    const tile = screen.getByTitle(/\(byproducts first\)$/)
+    const tile = screen.getByTitle(/\(byproducts first\) — \S+$/)
     const badge = tile.querySelector('[data-sourcing="byproducts-first"]')
     expect(badge).toHaveTextContent('B')
-  })
-
-  it('closes an ingredient chip menu when the recipe-cell menu opens, and the reverse', () => {
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(waterTile())
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-    fireEvent.contextMenu(screen.getAllByTitle('Electrolysis')[0])
-    expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
-    expect(screen.getByRole('menuitem', { name: 'Remove recipe' })).toBeInTheDocument()
-    fireEvent.contextMenu(waterTile())
-    expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-  })
-
-  it('keeps Own recipes first enabled to clear a mode left on a product of the block', () => {
-    const block = useBlockStore.getState().blocks[0]
-    useBlockStore.setState({
-      blocks: [{
-        ...block,
-        products: [{ id: 'p', itemId: 'hydrogen', extraRate: 60 }],
-        itemSourcing: { hydrogen: 'byproducts-first' },
-      }],
-    })
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
-    const [own, byproducts, connections] = screen.getAllByRole('menuitemradio')
-    expect(own).toBeEnabled()
-    expect(byproducts).toBeDisabled()
-    expect(connections).toBeDisabled()
-    fireEvent.click(own)
-    expect(sourcing()).toEqual({})
   })
 })
 
@@ -1034,6 +941,54 @@ describe('RecipeRow sub-factory actions', () => {
     expect('area' in rootPlan().subPlans[0]).toBe(false)
   })
 
+  it('shows the recursive machine count and power of the sub-factory on its row', () => {
+    const nested = makeSubPlan('sp-inner', 'Inner', [recipeNode('r3')])
+    const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'sp-inner' }
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    const child = makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), innerNode], [nested])
+    const block = makeEmptyBlock('Test')
+    const root = { ...block.rootPlan, nodes: [spNode], subPlans: [child] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    const solved = (id: string, machineCountCeil: number, powerKw: number) => [id, { ...solvedNode, recipeNodeId: id, machineCountCeil, powerKw }] as const
+    renderRow({
+      planNode: spNode,
+      solvedNode: undefined,
+      depth: 2,
+      areaView: { index: indexRecipeAreas(root), solvedMap: new Map([solved('r1', 2, 300), solved('r3', 3, 200)]), solvedAreas: undefined },
+    })
+    expect(screen.getByTestId('group-summary')).toHaveTextContent('2 recipes · 5 machines')
+    expect(screen.getByTestId('group-power')).toHaveTextContent('500.0kW')
+    expect(screen.getByText('My Subfactory').closest('td')).toHaveAttribute('data-guide-levels', '2')
+  })
+
+  it('labels the chevron button with the state and the name', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    const chevron = screen.getByRole('button', { name: 'Expand My Subfactory' })
+    expect(chevron).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('stops growing the indent past the nesting limit', () => {
+    const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: 'sp-123' }
+    renderRow({ planNode: spNode, solvedNode: undefined, depth: 7 })
+    expect(screen.getByText('sp-123').closest('td')).toHaveAttribute('data-guide-levels', '4')
+  })
+
+  it('disables "Wrap in subfactory…" with a reason when the row is already four groups deep', () => {
+    const leaf: GameRecipeNode = { kind: 'game-recipe', id: 'leaf', recipeId: 'iron-plate', modules: [], byproductPolicy: {} }
+    let inner = makeSubPlan('g4', 'g4', [leaf])
+    for (let i = 3; i >= 1; i--) {
+      inner = makeSubPlan(`g${i}`, `g${i}`, [{ kind: 'subplan', id: `h${i + 1}`, subPlanId: `g${i + 1}` }], [inner])
+    }
+    const block = makeEmptyBlock('Test')
+    const root = { ...block.rootPlan, nodes: [{ kind: 'subplan', id: 'h1', subPlanId: 'g1' } as SubPlanNode], subPlans: [inner] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+    renderRow({ planNode: leaf, rootPlan: root, parentSubPlanId: 'g4', depth: 4 })
+    fireEvent.contextMenu(screen.getAllByTitle('Iron Plate')[0])
+    const wrap = screen.getByRole('menuitem', { name: 'Wrap in subfactory…' })
+    expect(wrap).toBeDisabled()
+    expect(wrap).toHaveAttribute('title', 'Cannot nest deeper than 4 levels')
+  })
+
   it('shows no area marker for an organising sub-factory', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     expect(screen.queryByTestId('area-marker')).not.toBeInTheDocument()
@@ -1081,7 +1036,7 @@ describe('RecipeRow sub-factory actions', () => {
     vi.stubGlobal('confirm', confirm)
 
     // The badge counts recipes recursively, like the confirmation does.
-    expect(screen.getByText('2 recipes')).toBeInTheDocument()
+    expect(screen.getByTestId('group-summary')).toHaveTextContent('2 recipes')
 
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
@@ -1126,13 +1081,13 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('puts the temperature in the tile title when ingredients are clickable', () => {
       renderRow({ ...steamProps, onIngredientClick: vi.fn() })
-      expect(screen.getByTitle('Steam (125–165°C) — Find producer recipe')).toBeInTheDocument()
-      expect(screen.getByTitle('Water — Find producer recipe')).toBeInTheDocument()
+      expect(screen.getByTitle(/^Steam \(125–165°C\) — Find producer recipe — \S+$/)).toBeInTheDocument()
+      expect(screen.getByTitle(/^Water — Find producer recipe — \S+$/)).toBeInTheDocument()
     })
 
     it('puts the temperature in the tile title without onIngredientClick', () => {
       renderRow(steamProps)
-      expect(screen.getByTitle('Steam (125–165°C)')).toBeInTheDocument()
+      expect(screen.getByTitle(/^Steam \(125–165°C\) — \S+$/)).toBeInTheDocument()
     })
 
     it('renders no temperature badge for recipes without bounds', () => {
@@ -1168,7 +1123,7 @@ describe('RecipeRow sub-factory actions', () => {
 
     it('shows the explicit temperature on the product tile', () => {
       renderRow({ gameData: boilerData(), planNode: node('n-b', 'boiler-steam'), solvedNode: solved('n-b', { steam: 60 }) })
-      const tile = screen.getByTitle('Steam (165°C)')
+      const tile = screen.getByTitle(/^Steam \(165°C\) — \S+$/)
       expect(within(tile).getByTestId('item-tile-temperature')).toHaveTextContent('165°C')
     })
 
@@ -1279,18 +1234,17 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe(added.id)
   })
 
-  it('closes the area menu when a chip menu opens, and the reverse', () => {
-    renderAreaRow('e-root')
+  it('closes the area menu when a byproduct chip menu opens, and the reverse', () => {
+    renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Build also in…' }))
     expect(labels()).toEqual(['Chlorides · uses 45.0/m'])
-    fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    fireEvent.contextMenu(screen.getByTitle(/^Oxygen — Set as primary/))
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitem')).not.toBeInTheDocument()
-    expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
+    expect(labels()).toEqual(['Add consumer recipe…'])
     openMenu()
     expect(screen.getAllByRole('menu')).toHaveLength(1)
-    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+    expect(labels()).not.toContain('Add consumer recipe…')
     expect(labels()).toContain('Build also in…')
   })
 
@@ -1350,15 +1304,6 @@ describe('RecipeRow in a block with areas', () => {
     expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('e-f')
   })
 
-  it('under a recipe line of the by-recipe view: no reorder, not draggable, the area name instead of the badge', () => {
-    renderAreaRow('e-p', { byRecipeView: true })
-    expect(screen.queryByLabelText('Move up')).not.toBeInTheDocument()
-    expect(screen.queryByLabelText('Move down')).not.toBeInTheDocument()
-    expect(document.querySelector('tr[data-node-id="e-p"]')).toHaveAttribute('draggable', 'false')
-    expect(screen.getByTestId('row-area').textContent).toBe('Plastics')
-    expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
-  })
-
   it('has no badge and no area menu items when no sub-factory is an area', () => {
     renderAreaRow('e-root', {}, { areas: false })
     expect(screen.queryByTestId('multi-area-badge')).not.toBeInTheDocument()
@@ -1369,13 +1314,13 @@ describe('RecipeRow in a block with areas', () => {
   it('explains in a block with areas what the primary product decides', () => {
     renderAreaRow('e-root', { onAddConsumer: vi.fn() })
     expect(screen.getByTitle(/^Oxygen — Set as primary/).getAttribute('title')).toBe(
-      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe or choose how it is sourced',
+      'Oxygen — Set as primary; the primary product decides what this row builds for its area; right-click to add a consumer recipe — 30.0/m',
     )
   })
 
   it('keeps the plain primary-product tooltip without areas', () => {
     renderAreaRow('e-root', {}, { areas: false })
-    expect(screen.getByTitle('Oxygen — Set as primary; right-click to choose how it is sourced')).toBeInTheDocument()
+    expect(screen.getByTitle(/^Oxygen — Set as primary — \S+$/)).toBeInTheDocument()
   })
 
   describe('Duplicate to… on a sub-factory row', () => {
@@ -1485,16 +1430,16 @@ describe('RecipeRow in a block with areas', () => {
       expect(within(outCell).queryAllByRole('button')).toHaveLength(0)
     })
 
-    it('puts the name across three columns, sends under Products and receives under Ingredients', () => {
+    it('puts the name across three columns, sends under Products and Byproducts and receives under Ingredients', () => {
       renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
       const row = screen.getByTestId('area-chips-out').closest('tr')!
       const cells = row.querySelectorAll(':scope > td')
       expect(cells).toHaveLength(5)
       expect(cells[1]).toHaveAttribute('colspan', '3')
+      expect(cells[2]).toHaveAttribute('colspan', '2')
       expect(cells[2]).toContainElement(screen.getByTestId('area-chips-out'))
-      expect(cells[3]).toBeEmptyDOMElement()
-      expect(cells[3]).toHaveClass('px-2', 'py-0.5')
-      expect(cells[4]).toContainElement(screen.getByTestId('area-chips-in'))
+      expect(cells[3]).toContainElement(screen.getByTestId('area-chips-in'))
+      expect(cells[4]).toHaveClass('text-right')
     })
 
     it('labels the chip groups Receives and Sends', () => {
@@ -1503,14 +1448,14 @@ describe('RecipeRow in a block with areas', () => {
       expect(screen.getByRole('group', { name: 'Sends' })).toBe(screen.getByTestId('area-chips-out'))
     })
 
-    it('opens the row menu from a chip and from the empty Byproducts cell', () => {
+    it('opens the row menu from a chip and from the cell around the chips', () => {
       renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]))
       const chip = screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!
       fireEvent.contextMenu(chip)
       expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
       fireEvent.keyDown(document, { key: 'Escape' })
       const cells = screen.getByTestId('area-chips-out').closest('tr')!.querySelectorAll(':scope > td')
-      fireEvent.contextMenu(cells[3])
+      fireEvent.contextMenu(cells[2])
       expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
     })
 
@@ -1530,32 +1475,33 @@ describe('RecipeRow in a block with areas', () => {
       expect(screen.queryByTestId('area-chips-out')).not.toBeInTheDocument()
     })
 
-    it('caps each direction at four chips and lists the rest in a +N', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e', 'f']
-      renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 60 - i)), []))
+    it('caps receives at sixteen chips and lists the rest in a +N', () => {
+      const ids = Array.from({ length: 18 }, (_, i) => `r${i}`)
+      renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 100 - i)), []))
       const chips = screen.getByTestId('area-chips-in')
-      expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
+      expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(16)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+2')
       expect(more.tagName).toBe('BUTTON')
       expect(more).not.toHaveAttribute('title')
       fireEvent.focus(more)
       const popup = screen.getByRole('tooltip')
-      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
-      expect(popup.querySelector('[data-item-id="f"]')).not.toBeNull()
-      for (const id of ['a', 'b', 'c', 'd']) expect(popup.querySelector(`[data-item-id="${id}"]`)).toBeNull()
+      expect(popup.querySelector('[data-item-id="r16"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="r17"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="r15"]')).toBeNull()
     })
 
-    it('lists the sends past the cap in the same way', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e']
+    it('caps sends at eight chips and lists the rest in the same way', () => {
+      const ids = Array.from({ length: 9 }, (_, i) => `s${i}`)
       renderAreaHandle(areaOf([], ids.map((id, i) => flow(id, 60 - i))))
+      expect(screen.getByTestId('area-chips-out').querySelectorAll('[data-direction="sends"]')).toHaveLength(8)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+1')
       fireEvent.focus(more)
       const popup = screen.getByRole('tooltip')
       expect(popup.getAttribute('data-direction')).toBe('sends')
       expect(popup.querySelectorAll('[data-item-id]')).toHaveLength(1)
-      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="s8"]')).not.toBeNull()
     })
   })
 
@@ -1585,89 +1531,89 @@ describe('RecipeRow — burner fuel', () => {
     const fuel = document.querySelector('[data-fuel="true"]')
     expect(fuel).not.toBeNull()
     expect(fuel).toHaveAttribute('data-variant', 'ingredient')
-    expect(fuel).toHaveAttribute('title', 'Fuel: coal — Find producer recipe')
+    expect(fuel).toHaveAttribute('title', expect.stringMatching(/^Fuel: coal — Find producer recipe — \S+$/))
     expect(document.querySelectorAll('[data-fuel]')).toHaveLength(1)
-    expect(document.querySelector('[data-variant="electricity"]')).toBeNull()
+    expect(screen.queryByTestId('row-power')).toBeNull()
   })
 
   it('has no fuel marker for a row without fuel', () => {
     renderRow({ planNode: smeltNode, solvedNode })
     expect(document.querySelector('[data-fuel]')).toBeNull()
-    expect(document.querySelector('[data-variant="electricity"]')).not.toBeNull()
+    expect(screen.getByTestId('row-power')).toBeInTheDocument()
   })
 })
 
-describe('RecipeRow — reactor neighbour count', () => {
-  it('opens the Edit machine modal with the stored neighbour count', () => {
-    const gameData = {
-      ...mockGameData,
-      recipes: {
-        ...mockGameData.recipes,
-        'power:reactor:fuel': {
-          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
-          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
-          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
-          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
-        },
-      },
-      machines: {
-        ...mockGameData.machines,
-        reactor: {
-          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
-          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
-          neighbourBonus: 1, iconPath: '', hidden: false,
-        },
-      },
-      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
-    } as unknown as GameData
-    renderRow({
-      gameData,
-      planNode: { kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {}, neighbourCount: 2 },
-    })
-    fireEvent.click(screen.getByTitle('Reactor', { exact: true }))
-    expect(screen.getByTestId('neighbour-count')).toHaveValue(2)
+describe('RecipeRow — selection', () => {
+  const selected = () => useUiStore.getState().selectedRow
+  const blockId = () => useBlockStore.getState().blocks[0].id
+
+  beforeEach(() => {
+    useUiStore.setState({ selectedRow: null })
   })
 
-  it('applies the heat bonus when converting a typed pin with no solved throughput', () => {
-    const gameData = {
-      ...mockGameData,
-      recipes: {
-        ...mockGameData.recipes,
-        'power:reactor:fuel': {
-          id: 'power:reactor:fuel', name: 'Reactor fuel', category: 'power:reactor', craftingTime: 1,
-          ingredients: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
-          products: [{ itemId: 'power:heat', type: 'fluid', amount: 10 }],
-          madeIn: ['reactor'], allowProductivity: false, hidden: false, mainProduct: undefined,
-        },
-      },
-      machines: {
-        ...mockGameData.machines,
-        reactor: {
-          id: 'reactor', name: 'Reactor', type: 'reactor', craftingSpeed: 1, energyUsageKw: 0, energyType: 'electric',
-          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['power:reactor'],
-          neighbourBonus: 1, iconPath: '', hidden: false,
-        },
-      },
-      defaultMachines: { ...mockGameData.defaultMachines, 'power:reactor': 'reactor' },
-    } as unknown as GameData
-    const planNode: GameRecipeNode = {
-      kind: 'game-recipe', id: 'node-r', recipeId: 'power:reactor:fuel', modules: [], byproductPolicy: {},
-      neighbourCount: 3, pinnedRate: 1,
-    }
-    const block = makeEmptyBlock('Test')
-    useBlockStore.setState({
-      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [planNode] } }],
-      activeBlockId: block.id,
-      history: {},
-    })
-    const idle: SolvedNode = {
-      recipeNodeId: 'node-r', inputRates: {}, outputRates: { 'power:heat': 0 },
-      throughput: 0, machineCountExact: 0, machineCountCeil: 0, powerKw: 0,
-    }
-    renderRow({ gameData, planNode, solvedNode: idle })
-    // 10 heat/run * (1 + 1 * 3) = 40 heat/run; energy items are typed per second.
-    fireEvent.change(screen.getByLabelText('Pinned rate'), { target: { value: '20' } })
-    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
-    expect(updated.kind === 'game-recipe' && updated.pinnedRate).toBeCloseTo(30) // 20 * 60 / 40
+  it('selects the row when a non-control part of it is clicked, and marks it', () => {
+    renderRow()
+    const row = document.querySelector('tr[data-node-id="node-1"]')!
+    expect(row).not.toHaveAttribute('data-selected')
+    fireEvent.click(screen.getByTestId('row-power'))
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'node-1' })
+    expect(row).toHaveAttribute('data-selected', 'true')
+  })
+
+  it('selects the row from the recipe icon and name button', () => {
+    renderRow()
+    fireEvent.click(screen.getByRole('button', { name: /Iron Plate/ }))
+    expect(selected()?.nodeId).toBe('node-1')
+    expect(screen.getByRole('button', { name: /Iron Plate/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('opens the machine picker from the machine chip without selecting the row', () => {
+    renderRow()
+    fireEvent.click(screen.getByTestId('machine-count').closest('button')!)
+    expect(screen.getByTestId('picker')).toBeInTheDocument()
+    expect(selected()).toBeNull()
+  })
+
+  it('selects the row and highlights the Beacons section from a filled beacon chip', () => {
+    renderRow({ planNode: { ...ironPlateRecipeNode, beaconConfig: { moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 } } })
+    fireEvent.click(screen.getByLabelText('Edit beacon'))
+    expect(selected()?.nodeId).toBe('node-1')
+    expect(useUiStore.getState().panelHighlight?.section).toBe('beacons')
+  })
+
+  it('does not select the row when a control inside it is clicked', () => {
+    renderRow({ isFirst: false, onIngredientClick: vi.fn() })
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }))
+    expect(selected()).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /Iron Ore/ }))
+    expect(selected()).toBeNull()
+  })
+
+  it('selects a group row anywhere but its chevron', () => {
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub: SubPlan = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    fireEvent.click(screen.getByRole('button', { name: 'Expand Group' }))
+    expect(selected()).toBeNull()
+    fireEvent.click(screen.getByTestId('group-summary'))
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'sp-node' })
+    expect(document.querySelector('tr[data-node-id="sp-node"]')).toHaveAttribute('data-selected', 'true')
+  })
+
+  it('selects a group from its name button, a real button with aria-pressed', () => {
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub: SubPlan = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    const name = screen.getByRole('button', { name: 'Group' })
+    expect(name).toHaveAttribute('aria-pressed', 'false')
+    fireEvent.click(name)
+    expect(selected()).toEqual({ blockId: blockId(), nodeId: 'sp-node' })
+    expect(screen.getByRole('button', { name: 'Group' })).toHaveAttribute('aria-pressed', 'true')
   })
 })

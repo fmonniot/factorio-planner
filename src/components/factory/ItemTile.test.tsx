@@ -1,8 +1,5 @@
-import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
-import { ItemTile, fmtRate, fmtPower, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
-import { useUiStore } from '../../store/uiStore'
-import type { Item } from '../../data/types'
+import { describe, it, expect } from 'vitest'
+import { fmtRate, fmtPower, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // fmtRate
@@ -50,111 +47,7 @@ describe('fmtRate', () => {
   })
 })
 
-// ---------------------------------------------------------------------------
-// ItemTile rendering
-// ---------------------------------------------------------------------------
-
-const mockItem: Item = {
-  id: 'iron-plate',
-  name: 'Iron Plate',
-  type: 'item',
-  iconPath: '',
-  hidden: false,
-  subgroup: '',
-  order: '',
-}
-
-beforeEach(() => {
-  useUiStore.setState({ rateUnit: 'min' })
-})
-
-describe('ItemTile', () => {
-  it('renders the temperature badge when given', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" temperature="≥95°C" />)
-    expect(screen.getByTestId('item-tile-temperature')).toHaveTextContent('≥95°C')
-  })
-
-  it('renders no temperature badge by default', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
-    expect(screen.queryByTestId('item-tile-temperature')).toBeNull()
-  })
-
-  it('renders a sourcing badge and a title suffix when given a mode', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" sourcing="connections-first" />)
-    expect(screen.getByTestId('item-tile-sourcing')).toHaveTextContent('C')
-    expect(screen.getByTitle('Iron Plate (connections first)')).toBeInTheDocument()
-  })
-
-  it('renders no sourcing badge by default', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
-    expect(screen.queryByTestId('item-tile-sourcing')).toBeNull()
-    expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
-  })
-
-  it('renders rate in /min by default', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
-    expect(screen.getByText(/60\.0/)).toBeInTheDocument()
-  })
-
-  it('renders rate in /sec when uiStore is set to sec', () => {
-    useUiStore.setState({ rateUnit: 'sec' })
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" />)
-    expect(screen.getByText(/1\.00/)).toBeInTheDocument()
-  })
-
-  it('renders electricity symbol for electricity variant with no item', () => {
-    render(<ItemTile item={undefined} ratePerSec={5} variant="electricity" />)
-    expect(screen.getByText('⚡')).toBeInTheDocument()
-  })
-
-  it('renders power in kW for electricity variant', () => {
-    render(<ItemTile item={undefined} ratePerSec={180} variant="electricity" />)
-    expect(screen.getByText(/180\.0/)).toBeInTheDocument()
-    expect(screen.getByText('kW')).toBeInTheDocument()
-  })
-
-  it('renders power in MW for large electricity values', () => {
-    render(<ItemTile item={undefined} ratePerSec={2500} variant="electricity" />)
-    expect(screen.getByText(/2\.5/)).toBeInTheDocument()
-    expect(screen.getByText('MW')).toBeInTheDocument()
-  })
-
-  it('electricity power display is independent of rateUnit', () => {
-    useUiStore.setState({ rateUnit: 'sec' })
-    render(<ItemTile item={undefined} ratePerSec={180} variant="electricity" />)
-    expect(screen.getByText(/180\.0/)).toBeInTheDocument()
-    expect(screen.getByText('kW')).toBeInTheDocument()
-  })
-
-  it('renders item name when no iconPath', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="product" />)
-    expect(screen.getByText('Iron Plate')).toBeInTheDocument()
-  })
-
-  it('renders as a button when onClick is provided', () => {
-    const handler = () => {}
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="byproduct" onClick={handler} />)
-    expect(screen.getByRole('button')).toBeInTheDocument()
-  })
-
-  it('renders as a span when no onClick', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="product" />)
-    expect(screen.queryByRole('button')).not.toBeInTheDocument()
-  })
-
-  it('lets the tile title show on hover of the name when there is no icon', () => {
-    render(<ItemTile item={mockItem} ratePerSec={1} variant="ingredient" title="Iron Plate (≥95°C)" />)
-    const name = screen.getByText('Iron Plate')
-    expect(name.getAttribute('title'), 'name span must not override the tile title').toBeNull()
-    expect(name.closest('[title]')?.getAttribute('title')).toBe('Iron Plate (≥95°C)')
-  })
-})
-
 describe('electricity rates', () => {
-  const electricity: Item = {
-    id: 'power:electricity', name: 'Electricity', type: 'fluid', iconPath: '', hidden: false, subgroup: '', order: '',
-  }
-
   it('formats electricity in power units, 1 unit/s being 1 MW', () => {
     expect(fmtItemRate('power:electricity', 10, 'min')).toEqual({ value: '10.0', unit: 'MW' })
     expect(fmtItemRate('power:electricity', 0.042, 'sec')).toEqual({ value: '42.0', unit: 'kW' })
@@ -171,27 +64,8 @@ describe('electricity rates', () => {
     expect(inputRateUnit('iron-plate', 'min')).toBe('min')
   })
 
-  it.each(['min', 'sec'] as const)('shows an electricity item tile with no icon as ⚡ and MW in %s', unit => {
-    useUiStore.setState({ rateUnit: unit })
-    const { container } = render(<ItemTile item={electricity} ratePerSec={10} variant="product" />)
-    expect(screen.getByText('⚡')).toBeInTheDocument()
-    expect(container.textContent).toContain('10.0MW')
-    expect(container.querySelector('[data-variant="product"]')).not.toBeNull()
-  })
-
-  const heat: Item = {
-    id: 'power:heat', name: 'Heat', type: 'fluid', iconPath: '/icons/power-heat.png', hidden: false, subgroup: '', order: '',
-  }
-
   it('formats and types heat like electricity', () => {
     expect(fmtItemRate('power:heat', 21.6, 'min')).toEqual({ value: '21.6', unit: 'MW' })
     expect(inputRateUnit('power:heat', 'min')).toBe('sec')
-  })
-
-  it('shows a heat item tile with its icon, not ⚡', () => {
-    const { container } = render(<ItemTile item={heat} ratePerSec={21.6} variant="product" />)
-    expect(container.querySelector('img')).not.toBeNull()
-    expect(screen.queryByText('⚡')).not.toBeInTheDocument()
-    expect(container.textContent).toContain('21.6MW')
   })
 })

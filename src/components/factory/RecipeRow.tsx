@@ -5,18 +5,18 @@ import { isSubPlanDescendant } from '../../store/blockStore'
 import { useUiStore, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
-import { ItemTile, fmtRate, fmtItemRateText, inputRateUnit } from './ItemTile'
-import { isEnergyItem } from '../../data/electricity'
+import { fmtPower, fmtItemRateText } from './ItemTile'
+import { ItemChip } from './ItemChip'
+import { treeGuideStyle, guideLevels, groupRowTint } from './treeGuides'
+import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
 import { BeaconCell } from './BeaconPopover'
-import { EditMachineModal } from './EditMachineModal'
 import { Icon } from '../Icon'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
-import { areaName } from '../../data/subPlanTree'
 import {
   buildAlsoInOptions,
   duplicateToOptions,
@@ -27,46 +27,9 @@ import {
   type AreaView,
 } from './recipeAreas'
 import { dedicatedProduct } from '../../solver/areas'
-import { rowProductAmount } from '../../solver/build'
-import { neighbourHeatBonus } from '../../solver/effects'
-import { hasProduct } from '../../solver/blockGraph'
-import { itemSourcingActions } from './itemSourcing'
-import { countSubPlanContents } from './subPlanContents'
+import { pinSeedRate } from './pinRate'
+import { countSubPlanContents, sumSubPlanSolved } from './subPlanContents'
 import { ingredientTemperatureLabels, productTemperatureLabels } from './temperature'
-
-/** Solved items-per-run of the primary product; undefined unless strictly positive. */
-// eslint-disable-next-line react-refresh/only-export-components
-export function solvedPrimaryPerRun(
-  primaryItemId: string | undefined,
-  solvedNode: SolvedNode | undefined,
-): number | undefined {
-  if (!primaryItemId || !solvedNode || !(solvedNode.throughput > 0)) return undefined
-  const out = solvedNode.outputRates[primaryItemId]
-  if (out === undefined || !(out > 0)) return undefined
-  const v = out / solvedNode.throughput
-  return Number.isFinite(v) ? v : undefined
-}
-
-/**
- * Items of `primaryItemId` produced per recipe execution, productivity included.
- * Derived from the solved node when available (so it follows modules and
- * productivity); otherwise from the recipe's declared product amounts.
- * Converts the stored pin (executions/min) to the primary product's rate.
- */
-// eslint-disable-next-line react-refresh/only-export-components
-export function primaryItemPerRun(
-  recipe: GameData['recipes'][string],
-  primaryItemId: string | undefined,
-  solvedNode: SolvedNode | undefined,
-  heatBonus = 0,
-): number {
-  const solved = solvedPrimaryPerRun(primaryItemId, solvedNode)
-  if (solved !== undefined) return solved
-  const declared = recipe.products
-    .filter(p => p.itemId === primaryItemId)
-    .reduce((sum, p) => sum + rowProductAmount(p, 0, heatBonus), 0)
-  return declared > 0 ? declared : 1
-}
 
 // ---------------------------------------------------------------------------
 // RecipeRow
@@ -77,8 +40,11 @@ const BYPRODUCT_CONSUMER_HINT =
 
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
-/** Chips shown per direction on a collapsed area row; the rest is a "+N". */
-const AREA_CHIP_CAP = 4
+/**
+ * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
+ * Products and Byproducts columns (160px, 4 chips per line), receives under Ingredients (about 8 per line).
+ */
+const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
 interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
@@ -102,9 +68,14 @@ interface RecipeRowProps {
   areaView?: AreaView
   /** Flash the row: it was just revealed. */
   isHighlighted?: boolean
-  /** Shown under a recipe line of the by-recipe view: no reorder or drag (the position means nothing there), and the area's name instead of the multi-area badge. */
-  byRecipeView?: boolean
 }
+
+/** Clicks that come from these do not select the row. */
+const CONTROL_SELECTOR = 'button, input, select, textarea, a, label, [role="menu"], [role="dialog"]'
+
+const SELECTED_ROW_CLASS = 'bg-teal-900/25'
+
+const NO_SOLVED: ReadonlyMap<string, SolvedNode> = new Map()
 
 export function RecipeRow({
   solvedNode,
@@ -122,7 +93,6 @@ export function RecipeRow({
   onAddConsumer,
   areaView,
   isHighlighted,
-  byRecipeView = false,
 }: RecipeRowProps) {
   const moveNodeUp = useBlockStore(s => s.moveNodeUp)
   const moveNodeDown = useBlockStore(s => s.moveNodeDown)
@@ -138,7 +108,6 @@ export function RecipeRow({
   const setSubPlanArea = useBlockStore(s => s.setSubPlanArea)
   const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
   const duplicateSubPlanTo = useBlockStore(s => s.duplicateSubPlanTo)
-  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const activeBlock = useBlockStore(selectActiveBlock)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -148,11 +117,27 @@ export function RecipeRow({
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
   const [isDragging, setIsDragging] = useState(false)
   const rowRef = useRef<HTMLTableRowElement>(null)
-  // Last positive solved items-per-run, so the pin factor (and the pin input's
-  // key) stays stable when a later solve zeroes this node.
-  const [lastSolvedPerRun, setLastSolvedPerRun] = useState<number | undefined>(undefined)
 
-  const indentPx = depth * 16
+  // Selection: the side panel shows the selected row.
+  const blockId = activeBlock?.id
+  const isSelected = useUiStore(s => s.selectedRow !== null && s.selectedRow.nodeId === planNode.id && s.selectedRow.blockId === blockId)
+  const selectRow = useUiStore(s => s.selectRow)
+  const select = () => { if (blockId) selectRow(blockId, planNode.id) }
+  // A chip shortcut: select the row and highlight one section of its panel.
+  const selectRowSection = useUiStore(s => s.selectRowSection)
+  const openSection = (section: 'machine' | 'beacons') => { if (blockId) selectRowSection(blockId, planNode.id, section) }
+  // A click anywhere on the row that is not a control selects it; the controls keep their own behaviour.
+  function handleRowClick(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest(CONTROL_SELECTOR)) return
+    select()
+  }
+
+  // A group row's machines and power over its whole subtree, memoised: the walk would otherwise run on every render.
+  const groupTotals = useMemo(() => {
+    const child = planNode.kind === 'subplan' ? findSubPlanDeep(rootPlan, planNode.subPlanId) : undefined
+    return child ? sumSubPlanSolved(child, areaView?.solvedMap ?? NO_SOLVED) : { machines: 0, powerKw: 0 }
+  }, [planNode, rootPlan, areaView?.solvedMap])
+
   // The badge tooltip, memoised: it walks every area of the recipe, and a badged row renders often.
   const multiAreaBadgeTitle = useMemo(() => {
     if (planNode.kind !== 'game-recipe' || !areaView) return undefined
@@ -165,33 +150,29 @@ export function RecipeRow({
       hereId,
     )
   }, [planNode, areaView, gameData, rootPlan])
-  const [editMachineOpen, setEditMachineOpen] = useState(false)
-  const [menuPos, setMenuPos] = useState<{ x: number; y: number } | null>(null)
-  // The menu of an item chip: the sourcing choice, and for a byproduct chip "Add consumer recipe…".
-  const [itemMenu, setItemMenu] = useState<{ itemId: string; byproduct: boolean; x: number; y: number } | null>(null)
-  // The menus opened from the row menu's "Build also in…" and "Go to row in…", and a sub-factory's "Duplicate to…".
-  const [areaMenu, setAreaMenu] = useState<{ kind: 'build' | 'goto' | 'duplicate'; x: number; y: number } | null>(null)
+  // At most one context menu is open at a time:
+  // - 'row': the row menu (recipe row or sub-factory),
+  // - 'item': the menu of a byproduct chip, its single entry "Add consumer recipe…" (product and ingredient chips have none),
+  // - 'build' / 'goto': opened from the row menu's "Build also in…" and "Go to row in…",
+  // - 'duplicate': a sub-factory's "Duplicate to…".
+  const [openMenu, setOpenMenu] = useState<
+    { kind: 'row' | 'build' | 'goto' | 'duplicate'; x: number; y: number }
+    | { kind: 'item'; itemId: string; x: number; y: number }
+    | null
+  >(null)
+  // A menu closes itself after a selection, by which time the selection may have opened a follow-up menu: only clear its own kind.
+  const closeMenu = (kind: NonNullable<typeof openMenu>['kind']) =>
+    setOpenMenu(cur => (cur?.kind === kind ? null : cur))
+  const rowMenu = openMenu?.kind === 'row' ? openMenu : null
+  // The byproduct menu only shows while there is something to add a consumer to.
+  const itemMenu = openMenu?.kind === 'item' && onAddConsumer ? openMenu : null
+  const areaMenu = openMenu && openMenu.kind !== 'row' && openMenu.kind !== 'item' ? openMenu : null
 
-  function openItemMenu(e: React.MouseEvent, itemId: string, byproduct: boolean) {
+  function openByproductMenu(e: React.MouseEvent, itemId: string) {
+    // Without an entry to offer there is no menu, and the browser's own one stays.
+    if (!onAddConsumer) return
     e.preventDefault()
-    setMenuPos(null)
-    setAreaMenu(null)
-    setItemMenu({ itemId, byproduct, x: e.clientX, y: e.clientY })
-  }
-
-  function itemMenuActions(menu: { itemId: string; byproduct: boolean }): RowAction[] {
-    const addConsumer: RowAction[] = menu.byproduct && onAddConsumer
-      ? [{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer(menu.itemId, parentSubPlanId) }]
-      : []
-    const itemName = gameData.items[menu.itemId]?.name ?? menu.itemId
-    const isProduct = activeBlock !== undefined && hasProduct(activeBlock, menu.itemId)
-    return [
-      ...addConsumer,
-      ...itemSourcingActions(activeBlock?.itemSourcing[menu.itemId], mode => setItemSourcing(menu.itemId, mode), {
-        separate: addConsumer.length > 0,
-        disabledTitle: isProduct ? `${itemName} is a product of this block, so the block always makes it` : undefined,
-      }),
-    ]
+    setOpenMenu({ kind: 'item', itemId, x: e.clientX, y: e.clientY })
   }
 
   function handleDragStart(e: React.DragEvent) {
@@ -221,14 +202,18 @@ export function RecipeRow({
     }
 
     const relY = (e.clientY - rect.top) / rect.height
+    // Nesting limit: the dragged row or group (with everything under it) has to fit where it would land.
+    const fits = (planId: string) => planId === dragging.sourceSubPlanId || canMoveNodeInto(rootPlan, dragging.nodeId, planId)
 
     if (planNode.kind === 'subplan') {
       // Collapsed subgroup: always append-into
-      if (!isExpanded) return 'into'
+      if (!isExpanded) return fits(planNode.subPlanId) ? 'into' : null
       // Expanded subgroup: top half = before (sibling), bottom half = first child
-      return relY < 0.5 ? 'before' : 'into'
+      if (relY < 0.5) return fits(parentSubPlanId) ? 'before' : null
+      return fits(planNode.subPlanId) ? 'into' : null
     }
 
+    if (!fits(parentSubPlanId)) return null
     return relY < 0.5 ? 'before' : 'after'
   }
 
@@ -297,7 +282,7 @@ export function RecipeRow({
     }
 
     // Only while a menu is open: the options walk the tree for every area.
-    const dupOptions = (menuPos || areaMenu) && areaView
+    const dupOptions = openMenu && areaView
       ? duplicateToOptions(areaView.index, rootPlan, subPlanId, id => gameData.recipes[id]?.name ?? id)
       : []
     const dupEnabled = dupOptions.some(o => !o.disabledReason)
@@ -313,9 +298,12 @@ export function RecipeRow({
     // Every cell of the area row opens the row menu, the chips included (they are display-only).
     const openAreaRowMenu = (e: React.MouseEvent) => {
       e.preventDefault()
-      setAreaMenu(null)
-      setMenuPos({ x: e.clientX, y: e.clientY })
+      setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
     }
+
+    const recipes = childPlan ? countSubPlanContents(childPlan).recipes : 0
+    const { machines, powerKw: groupPowerKw } = groupTotals
+    const groupPower = groupPowerKw > 0 ? fmtPower(groupPowerKw) : null
 
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
@@ -325,7 +313,9 @@ export function RecipeRow({
         ref={rowRef}
         data-node-id={planNode.id}
         {...highlightProps}
-        className={`border-b border-gray-800 bg-gray-800/20 hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        data-selected={isSelected ? 'true' : undefined}
+        className={`border-b border-gray-800 ${isSelected ? SELECTED_ROW_CLASS : groupRowTint(depth)} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        onClick={handleRowClick}
         draggable
         onDragStart={handleDragStart}
         onDragEnd={handleDragEnd}
@@ -333,45 +323,55 @@ export function RecipeRow({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />
+        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
         <td
           className="px-2 py-0.5"
           colSpan={3}
-          style={{ paddingLeft: `${8 + indentPx}px` }}
+          data-guide-levels={guideLevels(depth)}
+          style={treeGuideStyle(depth)}
           onContextMenu={openAreaRowMenu}
         >
           {dropZone === 'before' && <DropLine edge="top" />}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 min-w-0">
             <button
               type="button"
               onClick={onToggleExpand}
-              className="flex items-center gap-1.5 text-xs text-blue-400 hover:text-blue-300 text-left"
+              aria-expanded={isExpanded === true}
+              aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
+              className="w-[22px] h-[22px] shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-200"
             >
-              <span className="shrink-0">{isExpanded ? '▼' : '▶'}</span>
-              <span className="font-medium">{label}</span>
-              {childPlan?.area === true && (
-                <span
-                  data-testid="area-marker"
-                  title="Separate area"
-                  className="text-[10px] px-1 rounded border border-teal-700 text-teal-300"
-                >
-                  Area
-                </span>
-              )}
-              {childPlan && (() => {
-                const { recipes } = countSubPlanContents(childPlan)
-                return (
-                  <span className="text-gray-600 text-[10px]">
-                    {recipes} recipe{recipes !== 1 ? 's' : ''}
-                  </span>
-                )
-              })()}
+              <svg width="9" height="9" viewBox="0 0 10 10" aria-hidden="true">
+                <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
+              </svg>
             </button>
+            <button
+              type="button"
+              onClick={select}
+              aria-pressed={isSelected}
+              title={label}
+              className="font-semibold text-xs whitespace-nowrap truncate min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400"
+            >
+              {label}
+            </button>
+            {childPlan?.area === true && (
+              <span
+                data-testid="area-marker"
+                title="Separate area"
+                className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 shrink-0"
+              >
+                Area
+              </span>
+            )}
+            {childPlan && (
+              <span data-testid="group-summary" className="text-gray-400 text-[11px] whitespace-nowrap shrink-0">
+                {recipes} recipe{recipes !== 1 ? 's' : ''} · {machines} machine{machines !== 1 ? 's' : ''}
+              </span>
+            )}
           </div>
-          {menuPos && (
+          {rowMenu && (
             <RowActionsMenu
-              x={menuPos.x}
-              y={menuPos.y}
+              x={rowMenu.x}
+              y={rowMenu.y}
               actions={[
                 { label: 'Rename subfactory…', onSelect: handleRenameSubPlan },
                 {
@@ -386,13 +386,13 @@ export function RecipeRow({
                       disabled: !dupEnabled,
                       title: dupEnabled ? undefined : dupDisabledTitle,
                       onSelect: () => {
-                        if (menuPos) setAreaMenu({ kind: 'duplicate', ...menuPos })
+                        setOpenMenu({ kind: 'duplicate', x: rowMenu.x, y: rowMenu.y })
                       },
                     }]
                   : []),
                 { label: 'Remove subfactory', danger: true, onSelect: handleRemoveSubPlan },
               ]}
-              onClose={() => setMenuPos(null)}
+              onClose={() => closeMenu('row')}
             />
           )}
           {areaMenu?.kind === 'duplicate' && (
@@ -409,11 +409,11 @@ export function RecipeRow({
                   if (id) requestRevealRow(id)
                 },
               }))}
-              onClose={() => setAreaMenu(null)}
+              onClose={() => closeMenu(areaMenu.kind)}
             />
           )}
         </td>
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
+        <td className="px-2 py-0.5" colSpan={2} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.sends ?? []}
             direction="sends"
@@ -422,8 +422,7 @@ export function RecipeRow({
             testId="area-chips-out"
           />
         </td>
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu} />
-        <td className="px-2 py-0.5 align-top" onContextMenu={openAreaRowMenu}>
+        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.receives ?? []}
             direction="receives"
@@ -431,6 +430,13 @@ export function RecipeRow({
             rateUnit={rateUnit}
             testId="area-chips-in"
           />
+        </td>
+        <td className="px-2 py-0.5 text-right whitespace-nowrap" onContextMenu={openAreaRowMenu}>
+          {groupPower && (
+            <span data-testid="group-power" className="font-mono tabular-nums text-[11px] text-gray-400">
+              {groupPower.value}<span className="opacity-60">{groupPower.unit}</span>
+            </span>
+          )}
         </td>
       </tr>
     )
@@ -447,9 +453,6 @@ export function RecipeRow({
   const { machine, noMachineInHorizon } = resolveRowMachine(gameData, horizon, recipe.category, planNode.machineId)
 
   const primaryItemId = dedicatedProduct(planNode, recipe)
-  const solvedPerRun = solvedPrimaryPerRun(primaryItemId, solvedNode)
-  if (solvedPerRun !== undefined && solvedPerRun !== lastSolvedPerRun) setLastSolvedPerRun(solvedPerRun)
-  const primaryPerRun = solvedPerRun ?? lastSolvedPerRun ?? primaryItemPerRun(recipe, primaryItemId, undefined, neighbourHeatBonus(planNode, gameData))
   const isMultiOutput = recipe.products.length > 1
   const isPinned = planNode.pinnedRate !== undefined
   const isByproductConsumer = planNode.byproductConsumer === true
@@ -459,7 +462,7 @@ export function RecipeRow({
   const hereAreaId = index?.rowById.get(planNode.id)?.areaId
   const recipeAreaCount = index ? recipeAreaIds(index, planNode.recipeId).length : 0
   // Only while a menu is open: the options are not needed otherwise.
-  const menuOpen = menuPos !== null || areaMenu !== null
+  const menuOpen = openMenu !== null
   const buildOptions = menuOpen && index && areaView
     ? buildAlsoInOptions(index, rootPlan, planNode.id, primaryItemId, areaView.solvedMap)
     : []
@@ -474,8 +477,7 @@ export function RecipeRow({
   const powerKw = solvedNode?.powerKw ?? 0
 
   function handlePin() {
-    const seedRate = Math.max(solvedNode?.throughput ?? 0, 1)
-    updateNodePinnedRate(planNode.id, seedRate)
+    updateNodePinnedRate(planNode.id, pinSeedRate(solvedNode))
   }
 
   function handleUnpin() {
@@ -483,7 +485,7 @@ export function RecipeRow({
   }
 
   function openAreaMenu(kind: 'build' | 'goto') {
-    if (menuPos) setAreaMenu({ kind, ...menuPos })
+    if (rowMenu) setOpenMenu({ kind, x: rowMenu.x, y: rowMenu.y })
   }
 
   function handleToggleByproductConsumer() {
@@ -495,6 +497,8 @@ export function RecipeRow({
     if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
   }
 
+  const canWrap = canAddGroupIn(rootPlan, parentSubPlanId)
+
   const rowActions: RowAction[] = [
     {
       label: isByproductConsumer ? 'Stop absorbing byproduct' : 'Absorb byproduct',
@@ -503,7 +507,12 @@ export function RecipeRow({
     ...(!isByproductConsumer
       ? [{ label: isPinned ? 'Unpin rate' : 'Pin rate', onSelect: isPinned ? handleUnpin : handlePin }]
       : []),
-    { label: 'Wrap in subfactory…', onSelect: handleWrap },
+    {
+      label: 'Wrap in subfactory…',
+      disabled: !canWrap,
+      title: canWrap ? undefined : NESTING_LIMIT_TITLE,
+      onSelect: handleWrap,
+    },
     ...(hasAreas
       ? [
           {
@@ -522,16 +531,6 @@ export function RecipeRow({
     { label: 'Remove recipe', onSelect: () => removeNode(planNode.id), danger: true },
   ]
 
-  // `pinnedRate` is stored as executions per minute; the input shows the primary
-  // product's rate in the current unit. This conversion and the `* primaryPerRun / 60`
-  // in the input's defaultValue are inverses: keep them in sync.
-  function handlePinnedRateChange(raw: string) {
-    const v = parseFloat(raw)
-    if (isFinite(v) && v > 0) {
-      updateNodePinnedRate(planNode.id, (inputRateUnit(primaryItemId, rateUnit) === 'min' ? v : v * 60) / primaryPerRun)
-    }
-  }
-
   const recipeOpacity = isDragging ? 'opacity-50' : ''
 
   return (
@@ -539,46 +538,49 @@ export function RecipeRow({
       ref={rowRef}
       data-node-id={planNode.id}
       {...highlightProps}
-      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${recipeOpacity} ${highlightClass}`}
-      draggable={!byRecipeView}
-      onDragStart={byRecipeView ? undefined : handleDragStart}
-      onDragEnd={byRecipeView ? undefined : handleDragEnd}
-      onDragOver={byRecipeView ? undefined : handleDragOver}
-      onDragLeave={byRecipeView ? undefined : handleDragLeave}
-      onDrop={byRecipeView ? undefined : handleDrop}
+      data-selected={isSelected ? 'true' : undefined}
+      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${isSelected ? SELECTED_ROW_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
+      onClick={handleRowClick}
+      draggable
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
     >
       {/* Reorder */}
-      {byRecipeView
-        ? <td />
-        : <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} />}
+      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
 
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
         className="px-2 py-0.5 whitespace-nowrap"
-        style={{ paddingLeft: `${8 + indentPx}px` }}
+        data-guide-levels={guideLevels(depth)}
+        style={treeGuideStyle(depth)}
         onContextMenu={e => {
           e.preventDefault()
-          setItemMenu(null)
-          setAreaMenu(null)
-          setMenuPos({ x: e.clientX, y: e.clientY })
+          setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
         }}
       >
         {dropZone === 'before' && <DropLine edge="top" />}
         {dropZone === 'after' && <DropLine edge="bottom" />}
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 min-w-0">
+          <button
+            type="button"
+            onClick={select}
+            aria-pressed={isSelected}
+            className="flex items-center gap-1 min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400"
+          >
           <div className="relative shrink-0">
             {/* Recipe icon derived from primary product */}
             {primaryItemId && gameData.items[primaryItemId]?.iconPath ? (
               <Icon
                 iconPath={gameData.items[primaryItemId]!.iconPath}
                 alt={recipe.name}
-                title={recipe.name}
-                className="w-8 h-8 object-contain shrink-0"
+                className="w-7 h-7 object-contain shrink-0"
               />
             ) : (
               <span
-                title={recipe.name}
-                className="w-8 h-8 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
+                className="w-7 h-7 bg-gray-800 rounded text-[9px] text-gray-400 flex items-center justify-center shrink-0 leading-none select-none"
               >
                 {recipe.name.substring(0, 2).toUpperCase()}
               </span>
@@ -594,12 +596,11 @@ export function RecipeRow({
               </span>
             )}
           </div>
-          {byRecipeView && hasAreas && hereAreaId && (
-            <span data-testid="row-area" className="text-[10px] text-gray-400 select-none">
-              {areaName(rootPlan, hereAreaId)}
-            </span>
-          )}
-          {!byRecipeView && index && areaView && recipeAreaCount >= 2 && hereAreaId && (
+          <span data-testid="recipe-name" title={recipe.name} className="text-[11px] font-medium truncate min-w-0">
+            {recipe.name}
+          </span>
+          </button>
+          {index && areaView && recipeAreaCount >= 2 && hereAreaId && (
             <span
               data-testid="multi-area-badge"
               title={multiAreaBadgeTitle}
@@ -609,8 +610,8 @@ export function RecipeRow({
             </span>
           )}
         </div>
-        {menuPos && (
-          <RowActionsMenu x={menuPos.x} y={menuPos.y} actions={rowActions} onClose={() => setMenuPos(null)} />
+        {rowMenu && (
+          <RowActionsMenu x={rowMenu.x} y={rowMenu.y} actions={rowActions} onClose={() => closeMenu('row')} />
         )}
         {areaMenu && areaMenu.kind !== 'duplicate' && (
           <RowActionsMenu
@@ -632,7 +633,7 @@ export function RecipeRow({
                     onSelect: () => requestRevealRow(o.nodeId),
                   }))
             }
-            onClose={() => setAreaMenu(null)}
+            onClose={() => closeMenu(areaMenu.kind)}
           />
         )}
       </td>
@@ -647,107 +648,79 @@ export function RecipeRow({
             machineId={planNode.machineId}
             machineCountCeil={solvedNode?.machineCountCeil ?? 0}
             gameData={gameData}
-            onOpenEdit={() => setEditMachineOpen(true)}
           />
           <ModuleCell
+            nodeId={planNode.id}
+            recipeId={planNode.recipeId}
+            machine={machine}
             modules={planNode.modules}
             machineSlots={machine?.moduleSlots ?? 0}
             gameData={gameData}
             noMachine={noMachineInHorizon}
-            onOpenEdit={() => setEditMachineOpen(true)}
+            onOpenEdit={() => openSection('machine')}
           />
         </div>
-        {editMachineOpen && (
-          <EditMachineModal
-            nodeId={planNode.id}
-            recipeId={planNode.recipeId}
-            recipeCategory={recipe.category}
-            machineId={planNode.machineId}
-            machineCountCeil={solvedNode?.machineCountCeil ?? 0}
-            modules={planNode.modules}
-            neighbourCount={planNode.neighbourCount}
-            fuelItemId={planNode.fuelItemId}
-            gameData={gameData}
-            onClose={() => setEditMachineOpen(false)}
-          />
-        )}
       </td>
 
-      {/* Beacon */}
+      {/* Beacons — the data model holds one configuration; the cell takes a list */}
       <td className="px-2 py-0.5 whitespace-nowrap">
         <BeaconCell
           nodeId={planNode.id}
-          beacon={planNode.beaconConfig}
+          beacons={planNode.beaconConfig ? [planNode.beaconConfig] : []}
           gameData={gameData}
           recipeId={planNode.recipeId}
           machineId={planNode.machineId}
           recipeCategory={recipe.category}
+          onOpenEdit={() => openSection('beacons')}
         />
       </td>
 
-      {/* Products — primary output(s), with pinned-rate input when pinned */}
+      {/* Products — primary output(s), right-aligned; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5 items-center">
+        <div className="flex flex-wrap gap-1.5 items-center justify-end">
           {productEntries.map(([itemId, ratePerMin]) => {
-            if (isPinned && !isByproductConsumer) {
-              // Replace the static tile with an editable input.
-              return (
-                <div key={itemId} className="flex items-center gap-1">
-                  <input
-                    type="number"
-                    min="0.001"
-                    step="any"
-                    aria-label="Pinned rate"
-                    // executions/min -> primary product rate in the display unit (inverse of handlePinnedRateChange)
-                    defaultValue={fmtRate((planNode.pinnedRate ?? 0) * primaryPerRun / 60, inputRateUnit(primaryItemId, rateUnit))}
-                    key={`${planNode.id}-pin-${inputRateUnit(primaryItemId, rateUnit)}-${primaryPerRun.toFixed(6)}`}
-                    onChange={e => handlePinnedRateChange(e.target.value)}
-                    className="w-20 bg-gray-700 text-yellow-300 text-xs rounded px-1 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
-                  />
-                  <span className="text-gray-600 text-[10px]">{isEnergyItem(primaryItemId) ? 'MW' : rateUnit === 'min' ? '/m' : '/s'}</span>
-                </div>
-              )
-            }
+            const showPin = isPinned && !isByproductConsumer
             const productTemp = productTemperatures[itemId]
             return (
-              <ItemTile
-                key={itemId}
-                item={gameData.items[itemId]}
-                ratePerSec={ratePerMin / 60}
-                variant="product"
-                sourcing={activeBlock?.itemSourcing[itemId]}
-                onContextMenu={e => openItemMenu(e, itemId, false)}
-                temperature={productTemp}
-                title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
-              />
+              <div key={itemId} className="flex items-center gap-1">
+                <ItemChip
+                  item={gameData.items[itemId]}
+                  ratePerSec={ratePerMin / 60}
+                  variant="product"
+                  pinned={showPin}
+                  sourcing={activeBlock?.itemSourcing[itemId]}
+                  temperature={productTemp}
+                  title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
+                />
+              </div>
             )
           })}
         </div>
       </td>
 
-      {/* Byproducts — non-primary outputs; click tile to make it primary */}
+      {/* Byproducts — non-primary outputs; click chip to make it primary */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-0.5">
+        <div className="flex flex-wrap gap-1.5">
           {byproductEntries.map(([itemId, ratePerMin]) => {
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
             const baseName = gameData.items[itemId]?.name ?? itemId
             const byproductTemp = productTemperatures[itemId]
             const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
-            const openMenu = (e: React.MouseEvent) => openItemMenu(e, itemId, true)
+            const openItemMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
             const sourcing = activeBlock?.itemSourcing[itemId]
-            const hint = onAddConsumer ? '; right-click to add a consumer recipe or choose how it is sourced' : '; right-click to choose how it is sourced'
+            const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
             if (isMultiOutput) {
-              // In multi-output recipes, clicking a byproduct tile makes it primary.
+              // In multi-output recipes, clicking a byproduct chip makes it primary.
               return (
-                <ItemTile
+                <ItemChip
                   key={itemId}
                   item={gameData.items[itemId]}
                   ratePerSec={ratePerMin / 60}
                   variant="byproduct"
                   temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
-                  onContextMenu={openMenu}
+                  onContextMenu={openItemMenu}
                   sourcing={sourcing}
                   title={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
                 />
@@ -757,7 +730,7 @@ export function RecipeRow({
             // Single-output (shouldn't have byproducts, but handle gracefully):
             // clicking toggles feed-back / discard policy.
             return (
-              <ItemTile
+              <ItemChip
                 key={itemId}
                 item={gameData.items[itemId]}
                 ratePerSec={ratePerMin / 60}
@@ -769,7 +742,7 @@ export function RecipeRow({
                     [itemId]: policy === 'feed-back' ? 'discard' : 'feed-back',
                   })
                 }
-                onContextMenu={openMenu}
+                onContextMenu={openItemMenu}
                 sourcing={sourcing}
                 title={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
@@ -779,48 +752,50 @@ export function RecipeRow({
             <RowActionsMenu
               x={itemMenu.x}
               y={itemMenu.y}
-              actions={itemMenuActions(itemMenu)}
-              onClose={() => setItemMenu(null)}
+              actions={[{ label: 'Add consumer recipe…', onSelect: () => onAddConsumer?.(itemMenu.itemId, parentSubPlanId) }]}
+              onClose={() => closeMenu('item')}
             />
           )}
         </div>
       </td>
 
-      {/* Ingredients + electricity */}
+      {/* Ingredients */}
       <td className="px-2 py-0.5">
-        <div className="flex items-start gap-1">
-          <div className="flex flex-wrap gap-0.5 flex-1">
-            {inputEntries.map(([itemId, ratePerMin]) => {
-              const itemName = gameData.items[itemId]?.name ?? itemId
-              const temp = temperatureLabels[itemId]
-              const label = temp ? `${itemName} (${temp})` : itemName
-              const isFuel = itemId === solvedNode?.fuelItemId
-              return (
-                <ItemTile
-                  key={itemId}
-                  item={gameData.items[itemId]}
-                  ratePerSec={ratePerMin / 60}
-                  variant="ingredient"
-                  fuel={isFuel}
-                  onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                  onContextMenu={e => openItemMenu(e, itemId, false)}
-                  sourcing={activeBlock?.itemSourcing[itemId]}
-                  temperature={temp}
-                  title={isFuel
-                    ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
-                    : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
-                />
-              )
-            })}
-          </div>
-          {powerKw > 0 && (
-            <ItemTile
-              item={undefined}
-              ratePerSec={powerKw}
-              variant="electricity"
-            />
-          )}
+        <div className="flex flex-wrap gap-1.5">
+          {inputEntries.map(([itemId, ratePerMin]) => {
+            const itemName = gameData.items[itemId]?.name ?? itemId
+            const temp = temperatureLabels[itemId]
+            const label = temp ? `${itemName} (${temp})` : itemName
+            const isFuel = itemId === solvedNode?.fuelItemId
+            return (
+              <ItemChip
+                key={itemId}
+                item={gameData.items[itemId]}
+                ratePerSec={ratePerMin / 60}
+                variant="ingredient"
+                fuel={isFuel}
+                onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
+                sourcing={activeBlock?.itemSourcing[itemId]}
+                temperature={temp}
+                title={isFuel
+                  ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`
+                  : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
+              />
+            )
+          })}
         </div>
+      </td>
+
+      {/* Power */}
+      <td className="px-2 py-0.5 text-right whitespace-nowrap">
+        {powerKw > 0 && (() => {
+          const power = fmtPower(powerKw)
+          return (
+            <span data-testid="row-power" className="font-mono tabular-nums text-[11px] text-cyan-300">
+              {power.value}<span className="opacity-60">{power.unit}</span>
+            </span>
+          )
+        })()}
       </td>
     </tr>
   )
@@ -844,12 +819,12 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
       data-testid={testId}
       role="group"
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
-      className="flex flex-wrap gap-0.5"
+      className="flex flex-wrap items-center justify-end gap-1.5"
     >
-      {flows.slice(0, AREA_CHIP_CAP).map(f => (
+      {flows.slice(0, AREA_CHIP_CAP[direction]).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
-      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP)} direction={direction} items={items} rateUnit={rateUnit} />
+      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP[direction])} direction={direction} items={items} rateUnit={rateUnit} />
     </div>
   )
 }
@@ -860,6 +835,8 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
 
 interface ReorderCellProps {
   nodeId: string
+  /** The row is selected: a teal bar on the left edge. */
+  selected?: boolean
   isFirst: boolean
   isLast: boolean
   moveUp: (id: string) => void
@@ -881,9 +858,9 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
   )
 }
 
-function ReorderCell({ nodeId, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
+function ReorderCell({ nodeId, selected, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
   return (
-    <td className="px-1 py-0.5 w-8">
+    <td className="px-1 py-0.5 w-8" style={selected ? { boxShadow: 'inset 3px 0 0 #14b8a6' } : undefined}>
       <div className="flex flex-col items-center gap-0">
         <button
           type="button"

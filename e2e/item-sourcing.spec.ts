@@ -4,6 +4,7 @@ import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, selectSlot, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
+import { selectRow } from './support/sidePanel'
 
 /**
  * Fixture: the active block "Acid" makes hydrogen 800 and nitric acid 125 with steam electrolysis
@@ -26,10 +27,15 @@ async function setup(page: Page) {
   await expect(compressedSlot(page)).toBeVisible({ timeout: 10000 })
 }
 
-/** Right-click the oxygen chip of the Nitric acid row and choose a mode. */
-async function chooseFromChip(page: Page, name: string) {
-  await oxygenChip(page).click({ button: 'right' })
-  await page.getByRole('menuitemradio', { name }).click()
+/** Select the Nitric acid row and return the oxygen entry of the panel's sourcing section. */
+async function oxygenEntry(page: Page) {
+  const panel = await selectRow(page, acidRow(page))
+  return panel.getByTestId('panel-sourcing').locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]')
+}
+
+/** Choose a mode for oxygen in the side panel ('own' | 'byproducts-first' | 'connections-first'). */
+async function choose(page: Page, mode: string) {
+  await (await oxygenEntry(page)).locator(`[data-sourcing-choice="${mode}"]`).click()
 }
 
 async function exportedAcid(page: Page) {
@@ -43,13 +49,19 @@ test.describe('item sourcing', () => {
     await setup(page)
   })
 
-  test('the chip menu sets Byproducts first, which imports oxygen instead of decompressing it', async ({ page }) => {
+  test('the panel sourcing section sets Byproducts first, which imports oxygen instead of decompressing it', async ({ page }) => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
+    // The chip has no menu of its own.
     await oxygenChip(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemradio', { name: 'Own recipes first' })).toHaveAttribute('aria-checked', 'true')
-    await page.getByRole('menuitemradio', { name: 'Byproducts first' }).click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    await expect(page.getByRole('menuitemradio')).toHaveCount(0)
+
+    await expect((await oxygenEntry(page)).locator('[data-sourcing-choice="own"]')).toHaveAttribute('aria-checked', 'true')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Made in this block by')
+    await choose(page, 'byproducts-first')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Uses byproducts of other rows first')
 
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
@@ -63,12 +75,12 @@ test.describe('item sourcing', () => {
     expect(acid.itemSourcing).toEqual({ 'nullius-oxygen': 'byproducts-first' })
     expect(acid.connectionsFirstItems).toBeUndefined()
 
-    await chooseFromChip(page, 'Own recipes first')
+    await choose(page, 'own')
     await expect(compressedSlot(page)).toContainText('25.0')
   })
 
   test('a request from another block covers only what the byproducts do not', async ({ page }) => {
-    await chooseFromChip(page, 'Byproducts first')
+    await choose(page, 'byproducts-first')
     await expect(oxygenSlot(page)).toContainText('100')
 
     await oxygenSlot(page).click({ button: 'right' })
@@ -83,8 +95,7 @@ test.describe('item sourcing', () => {
     await page.locator('button[title="Acid"]').click()
 
     // Back to own recipes first: the connection delivers nothing, Acid decompresses by itself again.
-    await oxygenSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitemradio', { name: 'Own recipes first' }).click()
+    await choose(page, 'own')
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')).toHaveCount(0)
     await expect(compressedSlot(page)).toContainText('25.0')
   })

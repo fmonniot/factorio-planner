@@ -24,7 +24,7 @@ test('a sub-factory solved as a separate area gets its own row, and the toggle p
   await warnings.click()
 
   const compression = rows.filter({ hasText: 'Compression' })
-  await compression.getByText('Compression').click()
+  await compression.getByRole('button', { name: /^(Expand|Collapse) Compression$/ }).click()
   const counts = page.getByTestId('machine-count')
   await expect(counts).toHaveCount(3)
   await expect(counts.nth(1)).toHaveText('0')

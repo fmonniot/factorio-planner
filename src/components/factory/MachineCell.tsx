@@ -1,10 +1,12 @@
 import type { GameData } from '../../data/types'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
-import { Icon } from '../Icon'
+import { IconChip } from './IconChip'
+import { PickerTrigger } from './PickerTrigger'
+import { MachinePicker } from './sidePanel/MachinePicker'
 
 // ---------------------------------------------------------------------------
-// Shows the machine and its count; opens the edit modal on click
+// Shows the machine and its count; a click opens the machine picker under the chip
 // ---------------------------------------------------------------------------
 
 interface MachineCellProps {
@@ -14,15 +16,15 @@ interface MachineCellProps {
   machineId: string | undefined
   machineCountCeil: number
   gameData: GameData
-  onOpenEdit: () => void
 }
 
 export function MachineCell({
+  nodeId,
+  recipeId,
   recipeCategory,
   machineId,
   machineCountCeil,
   gameData,
-  onOpenEdit,
 }: MachineCellProps) {
   const horizon = useHorizon(gameData)
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
@@ -35,29 +37,35 @@ export function MachineCell({
       : (machine?.name ?? 'Edit machine')
 
   return (
-    <button
-      type="button"
-      onClick={onOpenEdit}
-      className={`relative w-8 h-8 shrink-0 hover:ring-1 hover:ring-gray-500 rounded ${flagged ? 'ring-1 ring-amber-500' : ''}`}
-      title={title}
-      data-beyond-horizon={flagged ? 'true' : undefined}
-      data-no-machine={row.noMachineInHorizon ? 'true' : undefined}
-    >
-      {machine?.iconPath ? (
-        <Icon
-          iconPath={machine.iconPath}
-          alt={machine.name}
-          className="w-full h-full object-contain"
+    <PickerTrigger
+      trigger={({ open, toggle }) => (
+        <IconChip
+          onClick={toggle}
+          aria-expanded={open}
+          data-testid="machine-chip"
+          size="entity"
+          iconPath={machine?.iconPath || undefined}
+          alt={machine?.name ?? '?'}
+          fallback="?"
+          quantity={machineCountCeil}
+          quantityTestId="machine-count"
+          warn={flagged}
+          title={title}
+          data-beyond-horizon={flagged ? 'true' : undefined}
+          data-no-machine={row.noMachineInHorizon ? 'true' : undefined}
         />
-      ) : (
-        <span className="w-full h-full bg-gray-700 rounded flex items-center justify-center text-[9px] text-gray-400">
-          ?
-        </span>
       )}
-      <span data-testid="machine-count" className="absolute bottom-0 right-0 text-[9px] text-white leading-none px-px"
-        style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>
-        {machineCountCeil}
-      </span>
-    </button>
+    >
+      {close => (
+        <MachinePicker
+          nodeId={nodeId}
+          recipeId={recipeId}
+          recipeCategory={recipeCategory}
+          machineId={machineId}
+          gameData={gameData}
+          onDone={close}
+        />
+      )}
+    </PickerTrigger>
   )
 }

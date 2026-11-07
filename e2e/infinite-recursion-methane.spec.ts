@@ -17,6 +17,6 @@ test('production table renders without stack overflow when recipes form a cycle'
   await expect(page.locator('main').getByText(/Solver error:/)).not.toBeVisible()
 
   // At least one rate value must render in the production table.
-  const rateLocator = page.locator('main table').getByText(/\/m/)
+  const rateLocator = page.locator('main table [data-chip-quantity]')
   await expect(rateLocator.first()).toBeVisible({ timeout: 5000 })
 })
