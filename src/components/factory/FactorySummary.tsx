@@ -271,7 +271,7 @@ export function FactorySummary() {
   return (
     <div className="border-b border-gray-700 bg-gray-900 shrink-0">
       {/* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */}
-      <div className="flex overflow-x-auto snap-x snap-mandatory overscroll-x-contain gap-2 px-3 pb-2 pt-2 md:grid md:grid-cols-3 md:overflow-visible">
+      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 md:grid md:grid-cols-3 md:overflow-visible">
         <SummaryPane
           key={`products-${activeBlock?.id}`}
           pane="products"

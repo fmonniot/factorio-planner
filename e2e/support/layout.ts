@@ -8,7 +8,13 @@ export async function expectShellFits(page: Page): Promise<void> {
   const shell = page.locator('body > div > div').first()
   const [scrollWidth, clientWidth] = await shell.evaluate(el => [el.scrollWidth, el.clientWidth])
   expect(scrollWidth, 'shell content is no wider than the shell').toBeLessThanOrEqual(clientWidth)
-  for (const id of ['top-bar', 'table-toolbar']) await expectWithinViewport(page, page.getByTestId(id))
+  for (const id of ['top-bar', 'table-toolbar']) {
+    const region = page.getByTestId(id)
+    await expectWithinViewport(page, region)
+    // The shell hides overflow inside the regions too: compare each region with its own content.
+    const [sw, cw] = await region.evaluate(el => [el.scrollWidth, el.clientWidth])
+    expect(sw, `${id} content is no wider than ${id}`).toBeLessThanOrEqual(cw)
+  }
   await expectWithinViewport(page, page.getByTestId('summary-pane').first())
 }
 

@@ -5,6 +5,11 @@ type Inside = RefObject<HTMLElement | null>
 /** Dismissible things currently open, oldest first: an Esc only reaches the last one. */
 const open: object[] = []
 
+/** Whether a dismissible is open now (read it in a capture handler, before the press closes it). */
+export function isDismissibleOpen(): boolean {
+  return open.length > 0
+}
+
 /**
  * While `active`, calls `onDismiss` on a mouse press outside every element of `inside` (a ref or a list of refs: the popup
  * and its trigger) and on Esc. Esc goes to the most recently opened dismissible only, and is marked as handled (capture

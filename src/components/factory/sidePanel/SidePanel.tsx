@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { GameData, SolverResult, SubPlan } from '../../../data/types'
 import { useUiStore } from '../../../store/uiStore'
 import { RecipePanel } from './RecipePanel'
 import { GroupPanel } from './GroupPanel'
 import { findPlanNode } from './findPlanNode'
+import { isDismissibleOpen } from './useDismiss'
 
 /**
  * The side panel: exactly one of a recipe row, an organising sub-factory or a separate area, and nothing while no row is
@@ -19,6 +20,8 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
   const selected = useUiStore(s => s.selectedRow)
   const selectRow = useUiStore(s => s.selectRow)
   const clear = useUiStore(s => s.clearSelectedRow)
+  // True when the current press only dismissed a picker or popover opened over the drawer: it must not close the drawer too.
+  const pressDismissedOverlay = useRef(false)
 
   const node = selected && selected.blockId === blockId && rootPlan ? findPlanNode(rootPlan, selected.nodeId) : undefined
   // Stale only when judged against a loaded plan: a block or plan that is momentarily undefined keeps the selection.
@@ -32,8 +35,9 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
 
   return (
     <>
-    {/* Below xl the panel is a drawer over the table; the backdrop dismisses it. */}
-    <div data-testid="side-panel-backdrop" className="fixed inset-0 z-30 bg-black/50 xl:hidden" onClick={clear} />
+    {/* Below xl the panel is a drawer over the table; the backdrop dismisses it, unless that press closed a picker or popover that was open over the drawer. */}
+    <div data-testid="side-panel-backdrop" className="fixed inset-0 z-30 bg-black/50 xl:hidden" onMouseDownCapture={() => { pressDismissedOverlay.current = isDismissibleOpen() }}
+      onClick={() => { if (!pressDismissedOverlay.current) clear(); pressDismissedOverlay.current = false }} />
     <aside
       data-testid="side-panel"
       aria-label="Row details"

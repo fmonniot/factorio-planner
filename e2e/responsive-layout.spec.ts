@@ -70,7 +70,7 @@ test.describe('phone width', () => {
     await expect(page.getByPlaceholder('Filter recipes or items')).toBeHidden()
     await expect(page.getByTestId('block-recipe-count')).toBeVisible()
     await page.getByTestId('table-toolbar').getByRole('button', { name: /warning/ }).click()
-    const popover = page.getByTestId('table-toolbar').locator('div.absolute').first()
+    const popover = page.getByTestId('warnings-popover')
     await expect(popover).toBeVisible()
     await expectWithinViewport(page, popover)
   })
@@ -90,7 +90,62 @@ test.describe('phone width', () => {
   })
 })
 
+test.describe('phone width: pickers, flyouts and errors', () => {
+  test.use({ viewport: { width: 390, height: 844 } })
+
+  test('the Add product picker fits the viewport', async ({ page }) => {
+    await load(page)
+    await page.getByTitle('Add product').click()
+    const heading = page.getByRole('heading', { name: 'Add product' })
+    await expect(heading).toBeVisible()
+    await expectWithinViewport(page, heading.locator('xpath=ancestor::div[contains(@class,"max-h-")][1]'))
+  })
+
+  test('a menu flyout is pinned inside the viewport', async ({ page }) => {
+    await load(page)
+    const menu = await openAppMenu(page)
+    await menu.getByRole('menuitem', { name: /Default machines/ }).click()
+    const flyout = page.getByRole('menu', { name: 'Default machines' }).or(page.getByRole('dialog', { name: 'Default machines' }))
+    await expect(flyout).toBeVisible()
+    await expectWithinViewport(page, flyout)
+  })
+
+  test('a tall modal scrolls inside the viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 300 })
+    await load(page)
+    const menu = await openAppMenu(page)
+    await menu.getByRole('menuitem', { name: 'Rename plan' }).click()
+    const dialog = page.locator('div.fixed.inset-0 > div').last()
+    await expect(dialog).toBeVisible()
+    const box = (await dialog.boundingBox())!
+    expect(box.y + box.height).toBeLessThanOrEqual(300)
+    expect(box.y).toBeGreaterThanOrEqual(0)
+  })
+
+  test('a data load error stays visible without the label', async ({ page }) => {
+    await page.route('**/data/nullius/game-data.json', route => route.fulfill({ status: 500, body: 'nope' }))
+    await loadPlanFixture(page, FIXTURE)
+    const error = page.getByText('Error loading data')
+    await expect(error).toBeVisible({ timeout: 10000 })
+    await expectWithinViewport(page, error)
+    await expectWithinViewport(page, menuTrigger(page))
+  })
+})
+
 test.describe('summary strip', () => {
+  for (const width of [768, 1000]) {
+    test(`is a three-column grid at ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 800 })
+      await load(page)
+      const panes = page.getByTestId('summary-pane')
+      const boxes = await Promise.all([0, 1, 2].map(async i => (await panes.nth(i).boundingBox())!))
+      for (let i = 0; i < 3; i++) await expect(panes.nth(i)).toBeInViewport()
+      expect(boxes[0].x).toBeLessThan(boxes[1].x)
+      expect(boxes[1].x).toBeLessThan(boxes[2].x)
+      expect(boxes[2].x + boxes[2].width).toBeLessThanOrEqual(width)
+    })
+  }
+
   test('is a three-column grid from md', async ({ page }) => {
     await page.setViewportSize({ width: 1280, height: 800 })
     await load(page)
@@ -124,6 +179,18 @@ test.describe('side panel below xl', () => {
     await selectRow(page, row(page))
     await sidePanel(page).getByRole('button', { name: 'Close panel' }).click()
     await expect(sidePanel(page)).toHaveCount(0)
+  })
+
+  test('a picker opened over the drawer closes alone when its dimmed area is pressed', async ({ page }) => {
+    await load(page)
+    await selectRow(page, row(page))
+    const trigger = sidePanel(page).getByTestId('machine-picker-button')
+    await trigger.click()
+    await expect(trigger).toHaveAttribute('aria-expanded', 'true')
+    await page.mouse.click(20, 400)
+    await expect(trigger).toHaveAttribute('aria-expanded', 'false')
+    await expect(sidePanel(page)).toBeVisible()
+    await expect(row(page)).toHaveAttribute('data-selected', 'true')
   })
 
   test('crossing xl keeps the selection and switches the mode', async ({ page }) => {

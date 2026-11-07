@@ -22,6 +22,13 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
     if (e.target === e.currentTarget) onClose()
   }
 
+  // Caps apply unless the caller sets its own (utility order in the stylesheet, not class order, would pick the winner).
+  const capClasses = [
+    /(^|\s)max-w-/.test(className) ? '' : 'max-w-[calc(100vw-1rem)]',
+    'max-h-[calc(100dvh-1rem)]',
+    /(^|\s)overflow-/.test(className) ? '' : 'overflow-y-auto',
+  ].join(' ')
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
@@ -29,7 +36,7 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
     >
       <div
         ref={panelRef}
-        className={`bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto ${className}`}
+        className={`bg-gray-900 border border-gray-700 rounded-lg shadow-2xl ${capClasses} ${className}`}
       >
         {children}
       </div>

@@ -183,8 +183,11 @@ function RecipeDetailPanel({ recipeId, gameData, inside }: { recipeId: string; g
 // Shared modal frame
 // ---------------------------------------------------------------------------
 
+/** The slot grid of the pickers: fewer columns on narrow viewports. */
+const PICKER_GRID = 'grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1'
+
 function PickerFrame({
-  onClose, onEscape, sidePanel, children, width = 'w-[32rem] max-w-[calc(100vw-1rem)]',
+  onClose, onEscape, sidePanel, children, width = 'w-[32rem]',
 }: {
   onClose: () => void
   /** Escape steps back instead of closing (a drill-in view is open). */
@@ -209,7 +212,7 @@ function PickerFrame({
     >
       {/* Anchor: positions the picker centered while letting the side panel float to the right without shifting layout. */}
       <div className="relative">
-        <div className={`bg-gray-900 border border-gray-700 rounded-lg ${width} max-h-[85dvh] flex flex-col shadow-2xl`}>
+        <div className={`bg-gray-900 border border-gray-700 rounded-lg ${width} max-w-[calc(100vw-1rem)] max-h-[85dvh] flex flex-col shadow-2xl`}>
           {children}
         </div>
         {sidePanel && (
@@ -450,7 +453,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           <span className="text-sm text-gray-200">{machine?.name ?? g.machineId}</span>
           <span className="text-sm text-gray-500">Choose a recipe ({g.recipes.length})</span>
         </div>
-        <div data-testid="recipe-fuel-grid" className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1">
+        <div data-testid="recipe-fuel-grid" className={PICKER_GRID}>
           {g.recipes.map(r => renderRecipeSlot(r, { fuelView: true }))}
         </div>
       </div>
@@ -546,7 +549,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
             key={sgId}
             data-testid="recipe-subgroup-row"
             data-subgroup={sgId}
-            className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1"
+            className={PICKER_GRID}
           >
             {entries.map(e => e.kind === 'recipe' ? renderRecipeSlot(e.recipe) : renderGroupSlot(e))}
           </div>
@@ -670,7 +673,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
   }
 
   return (
-    <PickerFrame onClose={onClose} width="w-[32rem]">
+    <PickerFrame onClose={onClose}>
       {/* Header */}
       <div className="p-3 border-b border-gray-700 flex items-center gap-3">
         <h2 className="text-lg font-semibold text-amber-200 shrink-0">Add product</h2>
@@ -748,7 +751,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
             key={sgId}
             data-testid="item-subgroup-row"
             data-subgroup={sgId}
-            className="grid grid-cols-6 sm:grid-cols-8 md:grid-cols-10 gap-1"
+            className={PICKER_GRID}
           >
             {items.map(it => {
               const active = it.id === selectedId

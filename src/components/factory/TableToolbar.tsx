@@ -289,7 +289,7 @@ export function WarningsPopover() {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 max-md:right-2 max-md:left-2 max-md:w-auto mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
+        <div data-testid="warnings-popover" className="absolute top-full right-0 max-md:right-2 max-md:left-2 max-md:w-auto mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
           <div className="px-3 py-2 border-b border-gray-700 font-medium text-gray-300">
             Solver warnings
           </div>
