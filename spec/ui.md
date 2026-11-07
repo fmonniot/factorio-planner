@@ -39,7 +39,7 @@ session (see [Game data set](#game-data-set)).
 
 ```
 ┌ TopBar ──────────────────────────────────────────────────────────────────┐
-│ [▣ Plates][▣ Gears] +      (⚠ 2 warnings)  ⚑  ⊞  ⚗ │ [≡ Main base ▾] │
+│ [▣ Plates][▣ Gears] +                                  ⚑  ⊞  ⚗ │ [≡ Main base ▾] │
 ├ FactorySummary ──────────────────────────────────────────────────────────┤
 │ ┌ PRODUCTS · 1       [+]┐ ┌ BYPRODUCTS · 1 ─────┐ ┌ INGREDIENTS · 2 ────┐ │
 │ │ [slot 58▼] [slot ]    │ │ [slot 12 ] [slot ]  │ │ [slot 30 ] [slot ⊘] │ │
@@ -64,8 +64,7 @@ The side panel appears to the right of the table only while a row is selected. T
 ## TopBar
 
 `TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
-are, in order, the [warnings pill](#warnings-popover) (only while the last solve produced
-warnings), the icon-only tool buttons (the [horizon](#research-horizon)
+are, in order, the icon-only tool buttons (the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
 shown only while some block has areas and the [tech tree](#technology-tree)), a divider
 (shown only
@@ -665,7 +664,7 @@ are not touched.
 `FactorySummary.tsx` is the summary strip for the active block.
 
 There is no header row: the block name is on its tab (renamed from the tab's context menu), and the
-warnings pill is in the [top bar](#topbar).
+warnings pill is in the [table toolbar](#table-toolbar).
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
@@ -740,7 +739,7 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Warnings popover
 
-`WarningsPopover.tsx`, in the [top bar](#topbar). A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
+`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
 `aria-expanded`), amber, or red when any warning is
 `infeasible-pins`; it renders only while the last solve produced warnings. Clicking it opens a list where each warning has a title, an
 explanation naming the items or recipes involved, and a hint:
@@ -780,7 +779,7 @@ plan as a new node with default settings.
 - **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
 - **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
 - **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit.
-- **Totals**, right-aligned, over the whole block at every depth: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
+- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
 

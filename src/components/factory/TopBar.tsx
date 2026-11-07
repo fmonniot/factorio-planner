@@ -3,7 +3,6 @@ import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
 import { PlanAreasButton } from './PlanAreas'
 import { TechTreeButton } from '../TechTree'
-import { WarningsPopover } from './WarningsPopover'
 import { WorkspaceMenu } from '../WorkspaceMenu'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 
@@ -18,7 +17,6 @@ export function TopBar() {
           <BlockTabs />
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
-          <WarningsPopover />
           <HorizonButton />
           <BlockGraphButton />
           <PlanAreasButton />
