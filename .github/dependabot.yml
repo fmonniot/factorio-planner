@@ -26,6 +26,10 @@ updates:
         patterns:
           - "vitest"
           - "@vitest/*"
+      tailwind:
+        patterns:
+          - "tailwindcss"
+          - "@tailwindcss/*"
   - package-ecosystem: "cargo"
     directory: "/bridge" # The in-game viewer's bridge workspace
     schedule:
