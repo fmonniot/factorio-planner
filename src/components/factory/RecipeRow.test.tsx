@@ -1430,17 +1430,16 @@ describe('RecipeRow in a block with areas', () => {
       expect(within(outCell).queryAllByRole('button')).toHaveLength(0)
     })
 
-    it('puts the name across three columns, sends under Products and receives under Ingredients', () => {
+    it('puts the name across three columns, sends under Products and Byproducts and receives under Ingredients', () => {
       renderAreaHandle(areaOf([flow('water', 60, true)], [flow('hydrogen', 30)]))
       const row = screen.getByTestId('area-chips-out').closest('tr')!
       const cells = row.querySelectorAll(':scope > td')
-      expect(cells).toHaveLength(6)
+      expect(cells).toHaveLength(5)
       expect(cells[1]).toHaveAttribute('colspan', '3')
+      expect(cells[2]).toHaveAttribute('colspan', '2')
       expect(cells[2]).toContainElement(screen.getByTestId('area-chips-out'))
-      expect(cells[3]).toBeEmptyDOMElement()
-      expect(cells[3]).toHaveClass('px-2', 'py-0.5')
-      expect(cells[4]).toContainElement(screen.getByTestId('area-chips-in'))
-      expect(cells[5]).toHaveClass('text-right')
+      expect(cells[3]).toContainElement(screen.getByTestId('area-chips-in'))
+      expect(cells[4]).toHaveClass('text-right')
     })
 
     it('labels the chip groups Receives and Sends', () => {
@@ -1449,14 +1448,14 @@ describe('RecipeRow in a block with areas', () => {
       expect(screen.getByRole('group', { name: 'Sends' })).toBe(screen.getByTestId('area-chips-out'))
     })
 
-    it('opens the row menu from a chip and from the empty Byproducts cell', () => {
+    it('opens the row menu from a chip and from the cell around the chips', () => {
       renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]))
       const chip = screen.getByTestId('area-chips-in').querySelector('[data-item-id="water"]')!
       fireEvent.contextMenu(chip)
       expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
       fireEvent.keyDown(document, { key: 'Escape' })
       const cells = screen.getByTestId('area-chips-out').closest('tr')!.querySelectorAll(':scope > td')
-      fireEvent.contextMenu(cells[3])
+      fireEvent.contextMenu(cells[2])
       expect(screen.getByRole('menuitem', { name: 'Remove subfactory' })).toBeInTheDocument()
     })
 
@@ -1476,32 +1475,33 @@ describe('RecipeRow in a block with areas', () => {
       expect(screen.queryByTestId('area-chips-out')).not.toBeInTheDocument()
     })
 
-    it('caps each direction at four chips and lists the rest in a +N', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e', 'f']
-      renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 60 - i)), []))
+    it('caps receives at sixteen chips and lists the rest in a +N', () => {
+      const ids = Array.from({ length: 18 }, (_, i) => `r${i}`)
+      renderAreaHandle(areaOf(ids.map((id, i) => flow(id, 100 - i)), []))
       const chips = screen.getByTestId('area-chips-in')
-      expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
+      expect(chips.querySelectorAll('[data-direction="receives"]')).toHaveLength(16)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+2')
       expect(more.tagName).toBe('BUTTON')
       expect(more).not.toHaveAttribute('title')
       fireEvent.focus(more)
       const popup = screen.getByRole('tooltip')
-      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
-      expect(popup.querySelector('[data-item-id="f"]')).not.toBeNull()
-      for (const id of ['a', 'b', 'c', 'd']) expect(popup.querySelector(`[data-item-id="${id}"]`)).toBeNull()
+      expect(popup.querySelector('[data-item-id="r16"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="r17"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="r15"]')).toBeNull()
     })
 
-    it('lists the sends past the cap in the same way', () => {
-      const ids = ['a', 'b', 'c', 'd', 'e']
+    it('caps sends at eight chips and lists the rest in the same way', () => {
+      const ids = Array.from({ length: 9 }, (_, i) => `s${i}`)
       renderAreaHandle(areaOf([], ids.map((id, i) => flow(id, 60 - i))))
+      expect(screen.getByTestId('area-chips-out').querySelectorAll('[data-direction="sends"]')).toHaveLength(8)
       const more = screen.getByTestId('area-chips-more')
       expect(more.textContent).toBe('+1')
       fireEvent.focus(more)
       const popup = screen.getByRole('tooltip')
       expect(popup.getAttribute('data-direction')).toBe('sends')
       expect(popup.querySelectorAll('[data-item-id]')).toHaveLength(1)
-      expect(popup.querySelector('[data-item-id="e"]')).not.toBeNull()
+      expect(popup.querySelector('[data-item-id="s8"]')).not.toBeNull()
     })
   })
 

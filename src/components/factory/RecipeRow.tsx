@@ -40,8 +40,11 @@ const BYPRODUCT_CONSUMER_HINT =
 
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
-/** Chips shown per direction on a collapsed area row; the rest is a "+N". */
-const AREA_CHIP_CAP = 4
+/**
+ * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
+ * Products and Byproducts columns (160px, 4 chips per line), receives under Ingredients (about 8 per line).
+ */
+const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
 interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
@@ -410,7 +413,7 @@ export function RecipeRow({
             />
           )}
         </td>
-        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
+        <td className="px-2 py-0.5" colSpan={2} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.sends ?? []}
             direction="sends"
@@ -419,7 +422,6 @@ export function RecipeRow({
             testId="area-chips-out"
           />
         </td>
-        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu} />
         <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.receives ?? []}
@@ -819,10 +821,10 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
       className="flex flex-wrap items-center justify-end gap-1.5"
     >
-      {flows.slice(0, AREA_CHIP_CAP).map(f => (
+      {flows.slice(0, AREA_CHIP_CAP[direction]).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
-      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP)} direction={direction} items={items} rateUnit={rateUnit} />
+      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP[direction])} direction={direction} items={items} rateUnit={rateUnit} />
     </div>
   )
 }

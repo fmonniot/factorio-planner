@@ -4,7 +4,8 @@ import { loadPlanFixture } from './support/loadPlan'
 
 /**
  * The "+N" of a collapsed area row opens a popup with the flows the row has no room for. The fixture is one
- * area holding a turret recipe with nine ingredients, so it receives nine items: four chips and "+5".
+ * area holding a turret recipe (nine ingredients) and a rocket recipe (eleven), so it receives twenty items: sixteen
+ * chips and "+4".
  */
 const FIXTURE = path.resolve('e2e/fixtures/area-chips-overflow.json')
 
@@ -15,9 +16,9 @@ test('the +N opens a popup listing the hidden items, on hover and on focus', asy
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
   const chips = group(page, 'Assembly').getByTestId('area-chips-in')
-  await expect(chips.locator('[data-direction="receives"]')).toHaveCount(4, { timeout: 10000 })
+  await expect(chips.locator('[data-direction="receives"]')).toHaveCount(16, { timeout: 10000 })
   const more = chips.getByTestId('area-chips-more')
-  await expect(more).toHaveText('+5')
+  await expect(more).toHaveText('+4')
 
   const inline = await chips.locator('[data-direction="receives"]').evaluateAll(
     els => els.map(el => el.getAttribute('data-item-id')),
@@ -27,7 +28,7 @@ test('the +N opens a popup listing the hidden items, on hover and on focus', asy
   const popup = page.getByRole('tooltip')
   await expect(popup).toBeVisible()
   const hidden = popup.locator('[data-direction="receives"]')
-  await expect(hidden).toHaveCount(5)
+  await expect(hidden).toHaveCount(4)
   const hiddenIds = await hidden.evaluateAll(els => els.map(el => el.getAttribute('data-item-id')))
   for (const id of hiddenIds) expect(inline).not.toContain(id)
 

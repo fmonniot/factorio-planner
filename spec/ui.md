@@ -792,13 +792,15 @@ The reorder column comes first (▲/▼ buttons), then:
 
 | Column | Content |
 |---|---|
-| Recipe | The recipe icon and name (a button), one 12px tree guide per nesting level. |
-| Machine | The machine chip (count in its corner), then the module chip (used / slots). |
-| Beacons | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
-| Products | Product chips, right-aligned. |
-| Byproducts | Byproduct chips (red rates). |
-| Ingredients | Ingredient chips (green rates); takes the remaining width. |
-| Power | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
+| Recipe (150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
+| Machine (88px) | The machine chip (count in its corner), then the module chip (used / slots). |
+| Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
+| Products (80px) | Product chips, right-aligned. |
+| Byproducts (80px) | Byproduct chips (red rates). |
+| Ingredients | Ingredient chips (green rates); takes the remaining width, at least 148px. |
+| Power (72px) | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
+
+The table is `table-fixed` with a `<colgroup>` (`COLUMN_WIDTHS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns; its minimum width is the sum of the widths with Ingredients at 148px, below which the table scrolls. A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products and Byproducts hold 2 chips per line and wrap beyond, Ingredients at least 4.
 
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
 
@@ -954,7 +956,7 @@ A `SubPlanNode` renders as a group row in the same grid as the recipe rows:
 - Clicking the group row anywhere that is not a button or field selects it and opens the [group panel](#group-panel). The chevron only expands or collapses.
 - A collapsed group hides everything below it until the next node at its depth or shallower; expanding it shows its nodes (including nested sub-factories) with their own expanded state kept. An empty expanded group shows a "Drop here" target. Expanded or collapsed state is local to the table and not saved.
 
-A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacons columns with its name, marker and summary. The items it sends sit in the Products column (`data-testid="area-chips-out"`) and the items it receives in the Ingredients column (`data-testid="area-chips-in"`); Byproducts is empty. The chips line up with the recipe rows' chips on the same right edge, are display-only (`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips and the empty Byproducts cell included, opens the row menu. At most four chips per direction; the
+A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacons columns with its name, marker and summary. The items it sends sit under the Products and Byproducts columns, which the cell spans (160px, 4 chips per line; `data-testid="area-chips-out"`), and the items it receives in the Ingredients column (`data-testid="area-chips-in"`). The chips wrap and line up with the recipe rows' chips on the same right edge, are display-only (`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips included, opens the row menu. At most two lines of chips per direction (8 sent, 16 received); the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per

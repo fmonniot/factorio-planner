@@ -9,6 +9,11 @@
           "id": "ffff0101-0000-0000-0000-0000000000p1",
           "itemId": "nullius-turret",
           "extraRate": 1
+        },
+        {
+          "id": "ffff0101-0000-0000-0000-0000000000p2",
+          "itemId": "nullius-rocket",
+          "extraRate": 1
         }
       ],
       "noImportItems": [],
@@ -32,6 +37,13 @@
                 "kind": "game-recipe",
                 "id": "ffff0111-0000-0000-0000-000000000001",
                 "recipeId": "nullius-turret",
+                "modules": [],
+                "byproductPolicy": {}
+              },
+              {
+                "kind": "game-recipe",
+                "id": "ffff0111-0000-0000-0000-000000000002",
+                "recipeId": "nullius-rocket",
                 "modules": [],
                 "byproductPolicy": {}
               }

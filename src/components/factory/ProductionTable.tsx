@@ -16,6 +16,14 @@ import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 /** How long a revealed row stays highlighted. */
 const REVEAL_HIGHLIGHT_MS = 2000
 
+// Column widths in px, padding included, in column order (reorder, recipe, machine, beacons, products, byproducts,
+// ingredients, power). A chip slot is 34px (28px icon + 6px gap), so a chip cell is 34n + 10 wide: products and
+// byproducts hold 2 chips per line, ingredients (no width: it takes the rest) at least 4. The table is
+// `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
+const COLUMN_WIDTHS: (number | undefined)[] = [32, 150, 88, 88, 80, 80, undefined, 72]
+const INGREDIENTS_MIN_WIDTH = 148
+const TABLE_MIN_WIDTH = COLUMN_WIDTHS.reduce<number>((sum, w) => sum + (w ?? INGREDIENTS_MIN_WIDTH), 0)
+
 // ---------------------------------------------------------------------------
 // ProductionTable
 // ---------------------------------------------------------------------------
@@ -96,21 +104,24 @@ export function ProductionTable() {
             </div>
           ) : (
             <RecipeDndProvider>
-              <table className="w-full border-collapse text-xs">
+              <table className="w-full border-collapse text-xs table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
+                <colgroup>
+                  {COLUMN_WIDTHS.map((w, i) => <col key={i} style={w === undefined ? undefined : { width: w }} />)}
+                </colgroup>
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
-                    <th className="px-1 py-0.5 w-8" />
-                    <th className="px-2 py-1 w-[170px] min-w-[170px] max-w-[170px]">
+                    <th className="px-1 py-0.5" />
+                    <th className="px-2 py-1">
                       <span className="flex items-center gap-2">
                         Recipe
                       </span>
                     </th>
-                    <th className="px-2 py-1 w-[100px]">Machine</th>
-                    <th className="px-2 py-1 w-[100px]">Beacons</th>
+                    <th className="px-2 py-1">Machine</th>
+                    <th className="px-2 py-1">Beacons</th>
                     <th className="px-2 py-1 text-right">Products</th>
-                    <th className="px-2 py-1 w-[120px]">Byproducts</th>
-                    <th className="px-2 py-1 w-full">Ingredients</th>
-                    <th className="px-2 py-1 text-right w-[78px] whitespace-nowrap">Power</th>
+                    <th className="px-2 py-1">Byproducts</th>
+                    <th className="px-2 py-1">Ingredients</th>
+                    <th className="px-2 py-1 text-right whitespace-nowrap">Power</th>
                   </tr>
                 </thead>
                 <tbody>
