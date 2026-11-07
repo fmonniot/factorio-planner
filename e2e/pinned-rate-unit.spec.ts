@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { selectRow } from './support/sidePanel'
-import { openAppMenu } from './support/appMenu'
 
 /**
  * `pinnedRate` is stored in executions per minute and shown, in the side panel's Rate section, as the primary
@@ -35,8 +34,7 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
   const stored = await storedPinnedRates(page)
 
   // Switch to /sec: the same pin reads 2.00 and the stored value is untouched.
-  const menu = await openAppMenu(page)
-  await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+  await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
   await expect(panel.getByLabel('Pinned rate')).toHaveValue('2.00')
   expect(await storedPinnedRates(page)).toEqual(stored)
 })

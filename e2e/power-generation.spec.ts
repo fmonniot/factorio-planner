@@ -2,7 +2,6 @@ import { test, expect, type Page } from '@playwright/test'
 import fs from 'fs'
 import path from 'path'
 import { openHorizonTree, closeHorizonTree } from './support/horizon'
-import { openAppMenu } from './support/appMenu'
 import { sidePanel, selectRow, openMachinePicker } from './support/sidePanel'
 import { slot } from './support/summary'
 
@@ -190,8 +189,7 @@ test.describe('Power generation', () => {
     await engine.locator('button[title^="Steam ("]').first().click()
     await pickBoilerFuel(page, 'power:boiler:coal')
 
-    const menu = await openAppMenu(page)
-    await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+    await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
     await expect(slot(page, 'Products', 'Electricity')).toContainText('10.0MW')
     await expect(slot(page, 'Ingredients', 'Coal')).toHaveAccessibleName('Coal, 2.50 per second')
 
@@ -321,8 +319,7 @@ test.describe('Heat', () => {
     await addRecipe(page, 'power:nuclear-reactor:uranium-fuel-cell')
     await expect(slot(page, 'Products', 'Heat')).toHaveAccessibleName('Heat, 21.6 MW')
 
-    const menu = await openAppMenu(page)
-    await menu.getByRole('menuitemradio', { name: '/sec' }).click()
+    await page.getByTestId('table-toolbar').getByRole('group', { name: 'Rate unit' }).getByRole('button', { name: '/sec' }).click()
     await expect(slot(page, 'Products', 'Heat')).toContainText('21.6MW')
   })
 

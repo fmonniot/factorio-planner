@@ -73,7 +73,7 @@ when game data is loaded, like the tools) and the [workspace menu](#workspace-me
 [in-game viewer](#in-game-viewer) connection. The root
 carries `data-testid="top-bar"`.
 
-The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment and from the workspace menu (see below); the top bar has no rate control of its own.
+The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
 The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
@@ -485,9 +485,7 @@ It opens a panel named "Plan and game data", in order:
   once there is one, and **Upload file…**; the current data set is the checked item (see
   [Game data set](#game-data-set)). The radio items carry their label as `aria-label`;
 - a separator, then the **In-game viewer** submenu item (see [In-game viewer](#in-game-viewer)) and another separator;
-- only once game data is loaded: a **Rate unit** group with `/sec` and `/min`
-  radio items (a [segmented control](#segmented-control); picking one sets the unit and leaves the menu open), the
-  **Default machines** submenu item (see below) and another separator;
+- only once game data is loaded: the **Default machines** submenu item (see below) and another separator;
 - **Export plan** and **Import plan…** (see [Export and import plan](#export-and-import-plan)).
 
 The trigger, panel, keyboard handling and focus rules are the shared `MenuButton` component
@@ -537,8 +535,7 @@ item; a flyout focused with the keyboard stays open. ArrowRight opens and ArrowL
 although it opens to the item's left (the usual menu convention).
 
 Opening with the keyboard (Enter, Space or ArrowDown) focuses the first checked item (the active plan, else the checked data set; failing that the first
-enabled item). The rate unit radio is never focused first, since a checked plan or data set radio
-always precedes it, and it only renders once data is loaded. ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
+enabled item). ArrowUp focuses the last enabled item. Opening with the mouse leaves focus on the
 button, so only the hovered row looks active. Arrow keys move between enabled items and wrap;
 Home / End jump to the ends; Tab closes the menu. Apart from Escape, these keys are only taken
 while focus is inside the menu or on its button. Escape closes it and
@@ -782,7 +779,7 @@ plan as a new node with default settings.
 
 - **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
 - **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
-- **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit. The [workspace menu](#workspace-menu) has the same switch.
+- **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit.
 - **Totals**, right-aligned, over the whole block at every depth: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
@@ -1133,7 +1130,7 @@ The same component in recipes mode (`source="recipes"`).
 each `Segment` a pill button in it; the pressed pill is filled grey (`bg-gray-700`) with white
 text, the others are muted and brighten on hover. `Segmented` takes an optional `label` (it then
 is a `role="group"` with that name) and a `size`: `md` (28px pills, the Areas modal header), `sm`
-(24px, the workspace menu's rate unit) or `xs` (20px, 10px text).
+(24px) or `xs` (20px, 10px text).
 A `Segment` reports `aria-pressed`; given `role="menuitemradio"` it reports `aria-checked`
 instead and shows its keyboard focus on any focus (a teal inset ring), like the other menu
 items. Other props (`title`, `tabIndex`, …) go to the button.

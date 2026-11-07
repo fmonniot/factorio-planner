@@ -11,7 +11,6 @@ import { Modal } from './Modal'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { usePlanSection } from './PlanMenu'
 import { DefaultMachinesMenuItem } from './DefaultMachinesMenu'
-import { Segment, Segmented } from './SegmentedControl'
 import { useViewerTriggerName } from '../viewer/viewer'
 import { ViewerMenuItem, ViewerStatusDot, ViewerTroubleshootDialog } from './ViewerMenu'
 import { LayersIcon, ChevronDownIcon, DownloadIcon, UploadIcon } from './icons'
@@ -377,8 +376,6 @@ export function WorkspaceMenu() {
   const viewerName = useViewerTriggerName()
   const plans = usePlanSection()
   const gameData = useGameDataStore(selectGameData)
-  const rateUnit = useUiStore(s => s.rateUnit)
-  const setRateUnit = useUiStore(s => s.setRateUnit)
   const defaultMachinesSignal = useUiStore(s => s.defaultMachinesRequest?.seq)
   const infoId = useId()
   const info = useMemo(() => (gameData ? gameDataInfo(gameData) : null), [gameData])
@@ -495,22 +492,6 @@ export function WorkspaceMenu() {
             <div role="separator" className="my-1 border-t border-gray-700" />
             {status.type === 'loaded' && gameData && (
               <>
-                <div role="group" aria-label="Rate unit" className="flex items-center px-3 py-1 gap-2">
-                  <span aria-hidden className="text-gray-400 mr-auto">Rate unit</span>
-                  <Segmented size="sm">
-                    {(['sec', 'min'] as const).map(unit => (
-                      <Segment
-                        key={unit}
-                        role="menuitemradio"
-                        pressed={rateUnit === unit}
-                        tabIndex={-1}
-                        onClick={() => setRateUnit(unit)}
-                      >
-                        /{unit}
-                      </Segment>
-                    ))}
-                  </Segmented>
-                </div>
                 <DefaultMachinesMenuItem gameData={gameData} />
                 <div role="separator" className="my-1 border-t border-gray-700" />
               </>
