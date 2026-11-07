@@ -17,7 +17,7 @@ function parsePower(text: string): { kw: number; err: number } {
   return { kw: parseFloat(m[1]) * SCALE[unit], err }
 }
 
-test('the Power header totals the power of the rows', async ({ page }) => {
+test('the toolbar totals the power of the rows', async ({ page }) => {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 

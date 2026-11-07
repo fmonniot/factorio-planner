@@ -50,7 +50,8 @@ session (see [Game data set](#game-data-set)).
 │ │ slot's bar and key    │ │ bar, key and actions│ │                     │ │
 │ └───────────────────────┘ └─────────────────────┘ └─────────────────────┘ │
 ├ ProductionTable ─────────────────────────────────────────────────────────┤
-│ [+]│ Recipe │ Machine │ Beacons │ Products │ Byprod. │ Ingr. │ Power     │
+│ [+ Recipe] [Filter…] [/min /sec]          9 recipes · 35 machines · 7.2MW │
+│    │ Recipe │ Machine │ Beacons │ Products │ Byprod. │ Ingr. │ Power     │
 │ ▲▼ │ ▶ Smelting   3 recipes · 5 machines                                 │
 │ ▲▼ │ [icon] name │ [m 4][2/4] │ [+] │ [..] │ [..] │ [..] [..] │ 3kW      │
 └──────────────────────────────────────────────────────────────────────────┘
@@ -773,19 +774,30 @@ The popover closes on Escape or a click outside.
 `ProductionTable.tsx` renders the active block's recipe tree, and the [side panel](#side-panel) beside it.
 
 - Without game data: "Load game data to begin".
-- With no nodes: "No recipes yet" and a `+ Add recipe` link.
-- Otherwise: a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width.
+- With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one).
+- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width.
 
-The header `+` button (and the empty-state `+ Add recipe` link) opens the
+The toolbar's `+ Recipe` button opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
 plan as a new node with default settings.
+
+### Table toolbar
+
+`TableToolbar.tsx` (`factory/`) is the row just above the table, 44px high, shown whenever game data is loaded. It is separate from the [TopBar](#topbar), which it does not change. From left to right:
+
+- **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
+- **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
+- **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that reads and writes the same rate unit as the [TopBar](#topbar) toggle. The pressed segment is the current unit.
+- **Totals**, right-aligned, over the whole block at every depth: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
+
+There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
 
 Row order is the order of the nodes in each sub-plan. The table is not sortable;
 the user arranges rows by drag-and-drop or the ▲/▼ buttons.
 
 ### Columns
 
-The reorder column comes first (▲/▼ buttons; the header carries the `+` Add recipe button), then:
+The reorder column comes first (▲/▼ buttons), then:
 
 | Column | Content |
 |---|---|
@@ -795,7 +807,7 @@ The reorder column comes first (▲/▼ buttons; the header carries the `+` Add 
 | Products | Product chips, right-aligned. |
 | Byproducts | Byproduct chips (red rates). |
 | Ingredients | Ingredient chips (green rates); takes the remaining width. |
-| Power | The row's power (cyan, right-aligned). The header shows the block's total power draw (`data-testid="block-power-total"`, ⚡ with auto-scaled W / kW / MW / GW): the sum of every row's power draw, including rows in collapsed sub-plans, beacon power not included, hidden when zero. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
+| Power | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
 

@@ -87,15 +87,15 @@ describe('ProductionTable', () => {
     expect(screen.getByTitle('Iron Plate')).toBeInTheDocument()
   })
 
-  it('clicking add-recipe in empty state shows recipe picker', async () => {
+  it('the toolbar Add recipe button opens the picker in an empty block', async () => {
     render(<ProductionTable />)
-    fireEvent.click(screen.getByText('+ Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })
   })
 
-  it('shows an Add recipe button in the header instead of a footer when nodes exist', async () => {
+  it('shows the Add recipe button in the toolbar instead of a footer when nodes exist', async () => {
     const block = useBlockStore.getState().blocks[0]
     const rootPlan = { ...block.rootPlan, nodes: [existingNode] }
     useBlockStore.setState({
@@ -105,9 +105,8 @@ describe('ProductionTable', () => {
     })
     render(<ProductionTable />)
     expect(screen.queryByText('+ Add recipe')).not.toBeInTheDocument()
-    const header = screen.getAllByRole('columnheader')[0]
-    const button = within(header).getByRole('button', { name: 'Add recipe' })
-    fireEvent.click(button)
+    const toolbar = screen.getByTestId('table-toolbar')
+    fireEvent.click(within(toolbar).getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => {
       expect(screen.getByRole('heading', { name: 'Add recipe' })).toBeInTheDocument()
     })
@@ -115,7 +114,7 @@ describe('ProductionTable', () => {
 
   it('adding a recipe via picker creates a node in blockStore', async () => {
     render(<ProductionTable />)
-    fireEvent.click(screen.getByText('+ Add recipe'))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
 
     // Click the Iron Plate recipe slot in the picker
@@ -272,7 +271,7 @@ describe('ProductionTable — block power total', () => {
     } as never)
   }
 
-  it('sums the power of every solved node in the Ingredients header', () => {
+  it('sums the power of every solved node in the toolbar', () => {
     solveWithPower(1500, 500)
     render(<ProductionTable />)
     const total = screen.getByTestId('block-power-total')
@@ -409,7 +408,7 @@ describe('ProductionTable — recipe picker', () => {
       history: {},
     })
     render(<ProductionTable />)
-    fireEvent.click(within(screen.getAllByRole('columnheader')[0]).getByRole('button', { name: 'Add recipe' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
     const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
     expect(slot).toBeDisabled()
     expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')
