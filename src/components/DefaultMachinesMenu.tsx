@@ -120,7 +120,7 @@ export function DefaultMachinesMenuItem({ gameData }: FlyoutProps) {
     <SubmenuItem
       label="Default machines"
       menuLabel="Default machines"
-      panelClassName="w-[26rem]"
+      panelClassName="w-[26rem] max-w-[calc(100vw-1rem)]"
       defaultOpen={!!request}
       initialFocus={flyout => {
         if (category === undefined) return null

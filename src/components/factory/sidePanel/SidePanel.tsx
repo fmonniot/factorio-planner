@@ -31,10 +31,13 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
   const solvedMap = new Map(result?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
 
   return (
+    <>
+    {/* Below xl the panel is a drawer over the table; the backdrop dismisses it. */}
+    <div data-testid="side-panel-backdrop" className="fixed inset-0 z-30 bg-black/50 xl:hidden" onClick={clear} />
     <aside
       data-testid="side-panel"
       aria-label="Row details"
-      className="w-[380px] shrink-0 border-l border-gray-700 bg-gray-900 overflow-y-auto"
+      className="fixed inset-y-0 right-0 z-40 w-full sm:w-[380px] shadow-2xl xl:static xl:z-auto xl:shadow-none shrink-0 border-l border-gray-700 bg-gray-900 overflow-y-auto"
     >
       {node.kind === 'subplan' ? (
         <GroupPanel
@@ -52,5 +55,6 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
         <RecipePanel key={node.id} node={node} solved={solvedMap.get(node.id)} gameData={gameData} onClose={clear} />
       )}
     </aside>
+    </>
   )
 }

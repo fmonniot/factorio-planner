@@ -12,7 +12,7 @@ export function TopBar() {
   return (
     <div data-testid="top-bar" className="shrink-0 bg-gray-900 border-b border-gray-700">
       {/* Single row: block tabs left (tabs sitting on the bottom border), tools and workspace menu right */}
-      <div className="flex items-center justify-between gap-4 px-2 h-11">
+      <div className="flex items-center justify-between gap-2 md:gap-4 px-2 h-11">
         <div className="flex items-center gap-2 min-w-0 self-stretch">
           <BlockTabs />
         </div>

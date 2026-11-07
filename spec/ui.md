@@ -57,7 +57,7 @@ session (see [Game data set](#game-data-set)).
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The side panel appears to the right of the table only while a row is selected. The layout is designed for desktop widths (the table and the panel need about 1280px); there is no mobile layout.
+The side panel appears to the right of the table only while a row is selected. The layout supports viewports from 360px wide; 768px and up is comfortable. It is pure CSS with two breakpoints: `md` (768px) sets the density of the chrome and the shape of the summary strip, and `xl` (1280px) decides whether the side panel sits beside the table (from `xl`) or floats over it as a drawer (below). The shell is `h-dvh` with clipped overflow, so no region may grow wider than the viewport: the production table scrolls inside its own wrapper (`overscroll-x-contain`) and the summary strip scrolls inside itself. Hover-only and right-click-only interactions have no touch alternative yet (see the backlog).
 
 ---
 
@@ -70,7 +70,7 @@ shown only while some block has areas and the [tech tree](#technology-tree)), a 
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
-carries `data-testid="top-bar"`.
+carries `data-testid="top-bar"`. Below `md` the gaps are tighter and the workspace button shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
@@ -668,7 +668,7 @@ warnings pill is in the [table toolbar](#table-toolbar).
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
-**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** (segments 1px apart) along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal (with a dark teal fill) when selected, amber for a short product or a limited connection, grey otherwise; a short product's rate is amber. A locked item or an unused connection dims the slot. An empty product slot (see [Products pane](#products-pane)) is dimmed, has a dashed border and the tooltip `<item> — nothing requested yet`. The grid grows to fill the pane, so the three detail strips line up at the bottom of the row. The grid is capped at one row of slots plus half of the next (`max-h-[97px]`), to leave room for the production table, and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes (`useMoreBelow`).
+**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** (segments 1px apart) along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal (with a dark teal fill) when selected, amber for a short product or a limited connection, grey otherwise; a short product's rate is amber. A locked item or an unused connection dims the slot. An empty product slot (see [Products pane](#products-pane)) is dimmed, has a dashed border and the tooltip `<item> — nothing requested yet`. The grid grows to fill the pane, so the three detail strips line up at the bottom of the row. Below `md` the three panes form a horizontal swipe strip (`overflow-x-auto`, scroll snap, each pane 85% of the width so the next one peeks in); from `md` they share a three-column grid. The strip keeps its fixed heights. The grid is capped at one row of slots plus half of the next (`max-h-[97px]`), to leave room for the production table, and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes (`useMoreBelow`).
 
 **Allocation segments.** Every item is a bar whose segments add up to the bar's scale. The micro-bar, the detail bar and the overview all use the same encoding:
 
@@ -739,7 +739,7 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Warnings popover
 
-`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
+`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals; below `md` its list is anchored to the toolbar and spans its width, so it stays on screen. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
 `aria-expanded`), amber, or red when any warning is
 `infeasible-pins`; it renders only while the last solve produced warnings. Clicking it opens a list where each warning has a title, an
 explanation naming the items or recipes involved, and a hint:
@@ -766,7 +766,7 @@ The popover closes on Escape or a click outside.
 
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one).
-- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width.
+- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. When the viewport is narrower than the table, the table's wrapper scrolls horizontally while the sticky header stays at its top.
 
 The toolbar's `+ Recipe` button opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -777,9 +777,9 @@ plan as a new node with default settings.
 `TableToolbar.tsx` (`factory/`) is the row just above the table, 44px high, shown whenever game data is loaded. It is separate from the [TopBar](#topbar), which it does not change. From left to right:
 
 - **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
-- **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
+- **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so. Hidden below `md`.
 - **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit.
-- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
+- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count; hidden below `md`), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
 
@@ -885,7 +885,7 @@ reach) the rate cells are empty and the machine count is 0.
 
 ### Side panel
 
-`sidePanel/SidePanel.tsx`, an `aside` (`data-testid="side-panel"`, `aria-label="Row details"`) 380px wide at the right of the table. It exists only while a row is selected: there is no empty state, and the close button (✕, "Close panel") clears the selection and gives the table its full width. Opening it does not move or resize the rows. Selection is transient UI state (`uiStore.selectedRow`: a block id and a node id); the panel of another block, or of a node that no longer exists, counts as none and the selection is cleared (removing the selected row closes the panel). Escape does not close it.
+`sidePanel/SidePanel.tsx`, an `aside` (`data-testid="side-panel"`, `aria-label="Row details"`) 380px wide at the right of the table from `xl`. Below `xl` it is a drawer: `position: fixed` against the right edge (380px, or the full width below 640px) above the table, with a dimmed backdrop (`data-testid="side-panel-backdrop"`) under it that clears the selection when clicked, so the table does not resize. Both sit below modals and pickers. It exists only while a row is selected: there is no empty state, and the close button (✕, "Close panel") clears the selection and gives the table its full width. Opening it does not move or resize the rows. Selection is transient UI state (`uiStore.selectedRow`: a block id and a node id); the panel of another block, or of a node that no longer exists, counts as none and the selection is cleared (removing the selected row closes the panel). Escape does not close it.
 
 The panel shows exactly one of a recipe row, an organising sub-factory or a separate area. Its header shows the title (`data-testid="panel-title"`) with the row's icon.
 
@@ -1022,7 +1022,7 @@ Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop.
 ## Modals and pickers
 
 Modals (`Modal.tsx`, and the item and recipe pickers' own frame) are centred over a dimmed
-backdrop and close on Escape or a click on the backdrop.
+backdrop and close on Escape or a click on the backdrop. They never exceed the viewport: modals are capped at the viewport minus 0.5rem on each side and scroll vertically, the item and recipe picker frame is `w-[32rem]` capped the same way, starts closer to the top below `md`, and its recipe grids use 6, 8 then 10 columns (`sm`, `md`). The recipe picker's floating detail panel is shown from `xl` only. Menu flyouts that open to the left of their menu (`MenuButton`) are pinned to the viewport's edges below `md`.
 
 ### Item picker
 

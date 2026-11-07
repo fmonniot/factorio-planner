@@ -396,7 +396,7 @@ export function WorkspaceMenu() {
             <span aria-hidden className="w-6 h-6 rounded bg-gray-700 flex items-center justify-center text-gray-300 shrink-0">
               <LayersIcon />
             </span>
-            <span className="flex flex-col items-start leading-tight text-left">
+            <span className="hidden md:flex flex-col items-start leading-tight text-left">
               <span className="text-xs font-semibold text-gray-100 truncate max-w-40">{topLine}</span>
               {status.type === 'loading' && <span className="text-[11px] text-gray-400">Loading…</span>}
               {status.type === 'error' && (

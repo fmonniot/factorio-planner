@@ -29,7 +29,7 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
     >
       <div
         ref={panelRef}
-        className={`bg-gray-900 border border-gray-700 rounded-lg shadow-2xl ${className}`}
+        className={`bg-gray-900 border border-gray-700 rounded-lg shadow-2xl max-w-[calc(100vw-1rem)] max-h-[calc(100dvh-1rem)] overflow-y-auto ${className}`}
       >
         {children}
       </div>
