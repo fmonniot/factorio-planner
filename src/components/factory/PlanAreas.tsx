@@ -41,7 +41,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const [focusedAreaId, setFocusedAreaId] = useState<string | null>(null)
   const [showAllAreas, setShowAllAreas] = useState(false)
   const [groupOverrides, setGroupOverrides] = useState<Map<string, boolean>>(() => new Map())
-  const [openTails, setOpenTails] = useState<Set<string>>(() => new Set())
+  const [closedTails, setClosedTails] = useState<Set<string>>(() => new Set())
   const [crossingOnly, setCrossingOnly] = useState(true)
   const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(() => new Set([activeBlockId]))
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
@@ -63,14 +63,14 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     setShowAllAreas(false)
     setSelectedItemId(null)
     setGroupOverrides(new Map())
-    setOpenTails(new Set())
+    setClosedTails(new Set())
   }
   function focusArea(id: string | null) {
     setFocusedAreaId(id)
     setShowAllAreas(false)
   }
   const toggleGroup = (id: string, open: boolean) => setGroupOverrides(m => new Map(m).set(id, open))
-  const toggleTail = (id: string) => setOpenTails(s => {
+  const toggleTail = (id: string) => setClosedTails(s => {
     const next = new Set(s)
     if (!next.delete(id)) next.add(id)
     return next
@@ -138,7 +138,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           onShowAll={setShowAllAreas}
           groupOverrides={groupOverrides}
           onToggleGroup={toggleGroup}
-          openTails={openTails}
+          closedTails={closedTails}
           onToggleTail={toggleTail}
           onOpenArea={openArea}
         />
@@ -162,7 +162,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           onSelectItem={id => setSelectedItemId(cur => (cur === id ? null : id))}
           groupOverrides={groupOverrides}
           onToggleGroup={toggleGroup}
-          openTails={openTails}
+          closedTails={closedTails}
           onToggleTail={toggleTail}
         />
       )}

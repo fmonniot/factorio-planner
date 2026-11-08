@@ -26,7 +26,7 @@ export interface BlockAreaMatrixProps {
   onShowAll: (show: boolean) => void
   groupOverrides: Map<string, boolean>
   onToggleGroup: (groupId: string, open: boolean) => void
-  openTails: Set<string>
+  closedTails: Set<string>
   onToggleTail: (groupId: string) => void
   onOpenArea: (area: MatrixArea) => void
 }
@@ -64,7 +64,7 @@ function headerNote(inRate: number, outRate: number, items: number): string {
 export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const {
     matrix, gameData, rateUnit, rowMode, columnMode, query, focusedAreaId, onFocus, showAllAreas, onShowAll,
-    groupOverrides, onToggleGroup, openTails, onToggleTail, onOpenArea,
+    groupOverrides, onToggleGroup, closedTails, onToggleTail, onOpenArea,
   } = props
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const areaById = useMemo(() => new Map(matrix.areas.map(a => [a.areaId, a])), [matrix])
@@ -201,7 +201,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const colSpan = columns.length + 3
   const body = grouped.length === 0 ? null : grouped.map(g => {
     const open = !grouping ? true : groupOverrides.get(g.id) ?? true
-    const tailOpen = openTails.has(g.id)
+    const tailOpen = !closedTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
     const { rows: tr, energy } = grouping ? totalRows(g.rows) : { rows: g.rows, energy: false }
     const fromTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'from'), 0) : 0

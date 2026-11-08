@@ -27,7 +27,7 @@ export interface AllBlocksMatrixProps {
   onSelectItem: (itemId: string) => void
   groupOverrides: Map<string, boolean>
   onToggleGroup: (groupId: string, open: boolean) => void
-  openTails: Set<string>
+  closedTails: Set<string>
   onToggleTail: (groupId: string) => void
 }
 
@@ -38,7 +38,7 @@ const BLOCK_EDGE = 'border-l border-gray-700'
 export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   const {
     model, gameData, rateUnit, rowMode, query, crossingOnly, onCrossingOnly, expandedBlocks, onToggleBlock,
-    selectedItemId, onSelectItem, groupOverrides, onToggleGroup, openTails, onToggleTail,
+    selectedItemId, onSelectItem, groupOverrides, onToggleGroup, closedTails, onToggleTail,
   } = props
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const blockName = useMemo(() => new Map(model.blocks.map(b => [b.blockId, b.name])), [model.blocks])
@@ -151,7 +151,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
 
   const body = grouped.map(g => {
     const open = !grouping ? true : groupOverrides.get(g.id) ?? true
-    const tailOpen = openTails.has(g.id)
+    const tailOpen = !closedTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
     return (
       <tbody key={g.id} data-group-id={g.id}>
