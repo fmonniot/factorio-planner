@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { PlanAreasButton, PlanAreasModal } from './PlanAreas'
 import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -129,13 +129,63 @@ describe('PlanAreasModal', () => {
     }
   })
 
-  it('folds small rows into a tail that opens on demand', () => {
+  it('shows the rows of a tail by default, with no "+ N more" button', () => {
     setup(true, Array.from({ length: 9 }, (_, i) => `p${i}`))
     render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
-    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(7)
-    fireEvent.click(screen.getByRole('button', { name: /^\+ 2 more/ }))
     expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(9)
+    expect(screen.queryByRole('button', { name: /^\+ \d+ more/ })).toBeNull()
     expect(screen.getByRole('button', { name: 'Show fewer' })).toHaveAttribute('aria-expanded', 'true')
+  })
+
+  it('folds the tail on demand and reopens it', () => {
+    setup(true, Array.from({ length: 9 }, (_, i) => `p${i}`))
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(7)
+    const more = screen.getByRole('button', { name: /^\+ 2 more/ })
+    expect(more).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: 'Show fewer' })).toBeNull()
+    fireEvent.click(more)
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(9)
+    expect(screen.queryByRole('button', { name: /^\+ \d+ more/ })).toBeNull()
+    expect(screen.getByRole('button', { name: 'Show fewer' })).toBeInTheDocument()
+  })
+
+  it('folds the tail of one group without touching the others', () => {
+    setup(true, [...Array.from({ length: 9 }, (_, i) => `p${i}`), ...Array.from({ length: 10 }, (_, i) => `q${i}`)])
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    const fewer = screen.getAllByRole('button', { name: 'Show fewer' })
+    expect(fewer).toHaveLength(2)
+    fireEvent.click(fewer[0])
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(7)
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="q"]')).toHaveLength(10)
+    expect(screen.getAllByRole('button', { name: 'Show fewer' })).toHaveLength(1)
+  })
+
+  it('keeps a folded tail folded when the plan is solved again', () => {
+    setup(true, Array.from({ length: 9 }, (_, i) => `p${i}`))
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    act(() => {
+      useSolverStore.setState({
+        lastResults: { ...useSolverStore.getState().lastResults, A: areasResult('A', [...Array.from({ length: 9 }, (_, i) => `p${i}`), 'q0']) },
+      })
+    })
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(7)
+    expect(table('Alpha').querySelector('tr[data-item-id="q0"]')).not.toBeNull()
+    expect(screen.getByRole('button', { name: /^\+ 2 more/ })).toBeInTheDocument()
+  })
+
+  it('shows every matching row while filtering, and restores the tail after', () => {
+    setup(true, Array.from({ length: 9 }, (_, i) => `p${i}`))
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: 'part' } })
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(9)
+    expect(screen.queryByRole('button', { name: /more|Show fewer/ })).toBeNull()
+    fireEvent.change(screen.getByLabelText('Filter areas'), { target: { value: '' } })
+    expect(table('Alpha').querySelectorAll('tr[data-item-id^="p"]')).toHaveLength(7)
+    expect(screen.getByRole('button', { name: /^\+ 2 more/ })).toBeInTheDocument()
   })
 
   it('narrows to the matching area column', () => {

@@ -44,7 +44,7 @@ function renderMatrix(over: Partial<AllBlocksMatrixProps> = {}) {
       onSelectItem={vi.fn()}
       groupOverrides={new Map()}
       onToggleGroup={vi.fn()}
-      openTails={new Set()}
+      closedTails={new Set()}
       onToggleTail={vi.fn()}
       {...over}
     />,

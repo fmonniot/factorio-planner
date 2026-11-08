@@ -50,7 +50,7 @@ function renderMatrix(over: Partial<BlockAreaMatrixProps> = {}) {
       onShowAll={vi.fn()}
       groupOverrides={new Map()}
       onToggleGroup={vi.fn()}
-      openTails={new Set()}
+      closedTails={new Set()}
       onToggleTail={vi.fn()}
       onOpenArea={vi.fn()}
       {...over}
