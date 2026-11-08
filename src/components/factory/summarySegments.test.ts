@@ -222,6 +222,18 @@ describe('overviewRows', () => {
     expect(rows[1]).toMatchObject({ total: 90, count: 2 })
   })
 
+  it('keeps electricity out of the item total and counts it as power', () => {
+    const iron = productSlot(goal(), 90, [], 'min')
+    const elec = productSlot({ ...goal(), id: 'g2', itemId: 'power:electricity' }, 600, [], 'min')
+    const kept = overviewRows([iron, elec]).find(r => r.key === 'kept')!
+    expect(kept).toMatchObject({ total: 90, power: 600, count: 2 })
+  })
+
+  it('gives a power-only row a zero total', () => {
+    const elec = productSlot({ ...goal(), itemId: 'power:electricity' }, 600, [], 'min')
+    expect(overviewRows([elec])).toMatchObject([{ key: 'kept', total: 0, power: 600 }])
+  })
+
   it('ranks block keys, then kept/left, then import/short, then locked', () => {
     const slot = ingredientSlot(
       ingredientRow({ connections: [conn('c1', 'A')], importPerMin: 5, locked: true }),
@@ -238,7 +250,7 @@ describe('overviewRows', () => {
       new Set(['A']),
     )
     expect(overviewRows([slot])).toEqual([
-      { key: 'from:A', kind: 'unused', blockId: 'A', total: 0, count: 1, limited: false },
+      { key: 'from:A', kind: 'unused', blockId: 'A', total: 0, power: 0, count: 1, limited: false },
     ])
   })
 

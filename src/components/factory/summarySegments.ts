@@ -108,7 +108,10 @@ export interface OverviewRow {
   key: string
   kind: SegmentKind | OverlayKind
   blockId?: string
+  /** items/min of the segments under this key, electricity and heat excluded (no common unit) */
   total: number
+  /** units/min of the electricity and heat segments under this key, kept out of `total` */
+  power: number
   /** A segment under this key belongs to a loop of blocks. */
   loop?: true
   /** Number of slots carrying this key. */
@@ -332,7 +335,7 @@ export function overviewRows(slots: SlotModel[]): OverviewRow[] {
     const touch = (key: string, kind: OverviewRow['kind'], blockId: string | undefined) => {
       let row = rows.get(key)
       if (!row) {
-        row = { key, kind, blockId, total: 0, count: 0, limited: false }
+        row = { key, kind, blockId, total: 0, power: 0, count: 0, limited: false }
         rows.set(key, row)
       }
       if (!seen.has(key)) {
@@ -349,7 +352,8 @@ export function overviewRows(slots: SlotModel[]): OverviewRow[] {
         row.kind = s.kind
         row.blockId = s.blockId
       }
-      row.total += s.amount
+      if (isEnergyItem(slot.itemId)) row.power += s.amount
+      else row.total += s.amount
       if (s.loop) row.loop = true
       if (s.limited) row.limited = true
     }

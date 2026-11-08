@@ -21,6 +21,12 @@ export function fmtPower(kw: number): { value: string; unit: string } {
   return { value: (kw / 1_000_000).toFixed(1), unit: 'GW' }
 }
 
+/** Electricity or heat at `unitsPerSec` (1 unit/s = 1 MW) as one string, e.g. "10.0MW". */
+export function fmtEnergyText(unitsPerSec: number): string {
+  const p = fmtPower(unitsPerSec * 1000)
+  return p.value + p.unit
+}
+
 /**
  * A rate of `itemId` as a value and a unit. Electricity and heat (1 unit/s = 1 MW) are always
  * shown in power units, whatever the rate unit; everything else follows `unit`.
