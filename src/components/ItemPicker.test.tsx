@@ -331,6 +331,54 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
   })
 })
 
+describe('ItemPicker — recipe detail "Made in" with a research horizon', () => {
+  /** iron-plate is made in two furnaces; the steel furnace's item is only produced by a recipe outside ['smelting']. */
+  function loadTwoFurnaces() {
+    const data = fixtureWithTechnologies()
+    data.items['steel-furnace'] = { id: 'steel-furnace', name: 'Steel Furnace', type: 'item', iconPath: '', hidden: false, subgroup: 'raw-material', order: 'e' }
+    data.machines['steel-furnace'] = { ...data.machines['stone-furnace'], id: 'steel-furnace', name: 'Steel Furnace' }
+    data.recipes['iron-plate'].madeIn = ['stone-furnace', 'steel-furnace']
+    data.recipes['make-steel-furnace'] = {
+      ...data.recipes['copper-plate'], id: 'make-steel-furnace', name: 'Make steel furnace', hidden: false,
+      products: [{ itemId: 'steel-furnace', type: 'item', amount: 1 }], subgroup: 'smelting-basic', order: 'y',
+    }
+    data.technologies['steel'] = { id: 'steel', name: 'Steel', prerequisites: [], unlockedRecipes: ['make-steel-furnace'], iconPath: '' }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+  }
+
+  function hoverIronPlate() {
+    fireEvent.mouseEnter(screen.getAllByTestId('recipe-slot').find(s => s.getAttribute('data-recipe-id') === 'iron-plate')!)
+    return screen.getByTestId('recipe-detail-panel')
+  }
+
+  it('lists only the machines inside the horizon', () => {
+    loadTwoFurnaces()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Stone Furnace')
+    expect(panel).not.toHaveTextContent('Steel Furnace')
+  })
+
+  it('lists every machine once "Beyond research horizon" is ticked', () => {
+    loadTwoFurnaces()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    fireEvent.click(screen.getByLabelText(/Beyond research horizon/, { selector: 'input' }))
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Stone Furnace')
+    expect(panel).toHaveTextContent('Steel Furnace')
+  })
+
+  it('lists every machine without a horizon', () => {
+    loadTwoFurnaces()
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Stone Furnace')
+    expect(panel).toHaveTextContent('Steel Furnace')
+  })
+})
+
 // ---------------------------------------------------------------------------
 // Items mode — research horizon
 // ---------------------------------------------------------------------------

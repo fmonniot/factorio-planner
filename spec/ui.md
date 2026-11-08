@@ -392,6 +392,8 @@ horizon" label. When no machine of a recipe's category is inside the horizon, th
 has no machine: its machine count and power are 0 and the row is flagged (see
 [Machine cell](#production-table)); recipe throughput and rates are unaffected.
 
+The recipe picker's hover detail panel lists in "Made in" only the machines inside the horizon, all of them when "Beyond research horizon" is ticked; the section is hidden when none remains. Power recipes are exempt (their machine is gated through its placing item).
+
 ### Technology tree
 
 `TechTreeButton` (in `TechTree.tsx`, a flask icon button named **Tech tree**) sits next to the

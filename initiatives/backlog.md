@@ -46,7 +46,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Planning features
 
 - [ ] **Supplies other areas toggle.** An area without its own row of a recipe is supplied by the most productive row, then table order. A per-row toggle would let the player choose the supplier instead. See "Choice of supplier" in the [open questions](archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal.
-- [ ] **Recipe picker "Made in" tooltip ignores the horizon.** It lists every machine of the category.
 - [ ] **Mining productivity research.** Extraction rows use the drill's base mining speed. Mining productivity research and a drill's base `effect_receiver` are ignored.
 - [ ] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`.
 - [ ] **Wind turbines and other `electric-energy-interface` generators.** Seablock's `wind-turbine-2` (15 kW) and Nullius' wind turbines and Stirling engines are `electric-energy-interface` entities whose output is set by script (wind, altitude, heat). Decide an average per entity and export them as generation recipes.
