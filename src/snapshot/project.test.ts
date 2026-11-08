@@ -380,18 +380,33 @@ describe('projectSnapshot', () => {
     })
 
     it('sends the beacon entity, how many per machine, and the module and how many of it each holds', () => {
-      expect(rowOf(richNode('n1', 'smelt', { beaconConfig: beacon() }))).toMatchObject({
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [beacon()] }))).toMatchObject({
         beacon: { id: 'beacon', count: 8, module: 'speed-module', modules: 2 },
       })
     })
 
     it('sends no beacon for a config without a beacon id (made without beacon data)', () => {
       const noId = { moduleId: 'speed-module', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: noId }))).toBe(false)
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [noId] }))).toBe(false)
     })
 
     it('sends no beacon for a config without a module (nothing to place in it)', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), moduleId: '' } }))).toBe(false)
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), moduleId: '' }] }))).toBe(false)
+    })
+
+    it('sends the first sendable configuration, not literally the first', () => {
+      const noModule = { ...beacon(), moduleId: '' }
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [noModule, beacon(), { ...beacon(), beaconCount: 2 }] })))
+        .toMatchObject({ beacon: { count: 8 } })
+    })
+
+    it('sends the first of several valid configurations', () => {
+      expect(rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), beaconCount: 3 }, beacon()] })))
+        .toMatchObject({ beacon: { count: 3 } })
+    })
+
+    it('sends no beacon for an empty list', () => {
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [] }))).toBe(false)
     })
 
     it('skips a machine module slot with an empty module id', () => {
@@ -401,7 +416,7 @@ describe('projectSnapshot', () => {
     })
 
     it('sends no beacon for a count of 0', () => {
-      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfig: { ...beacon(), beaconCount: 0 } }))).toBe(false)
+      expect('beacon' in rowOf(richNode('n1', 'smelt', { beaconConfigs: [{ ...beacon(), beaconCount: 0 }] }))).toBe(false)
     })
   })
 

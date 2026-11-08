@@ -16,10 +16,6 @@ import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
 import { rowMachine } from '../../../solver/effects'
 
-/** Configurations a row may hold until the data model supports several (see the multiple beacon configurations initiative). */
-export const MAX_BEACON_CONFIGS = 1
-export const ONE_BEACON_CONFIG_TITLE = 'One beacon configuration per recipe for now'
-
 /** What one configuration contributes, as text: "speed +50%, energy +70%". */
 function contribution(applied: ReturnType<typeof beaconEffects>): string {
   const parts: string[] = []
@@ -196,8 +192,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 }
 
 /**
- * The Beacons section: one card per configuration, and "+ Add beacon configuration". It takes a list; the data model holds
- * at most one configuration for now (`beaconConfig`), which the caller adapts as `beaconConfig ? [beaconConfig] : []`.
+ * The Beacons section: one card per configuration, and "+ Add beacon configuration".
  */
 export function BeaconsSection({ node, configs, gameData, onChange }: {
   node: GameRecipeNode
@@ -218,7 +213,6 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
   // drops open popovers instead of handing them to whichever card slid into the removed one's place.
   const [generation, setGeneration] = useState(0)
 
-  const full = configs.length >= MAX_BEACON_CONFIGS
   const nonHidden = Object.values(gameData.beacons).filter(b => !b.hidden)
   const noBeacon = nonHidden.length > 0 && !nonHidden.some(b => withinHorizon(horizon.beaconIds, b.id))
   const noModule = horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
@@ -229,7 +223,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
       : noModule
         ? 'No module within the research horizon'
         : undefined
-  const addTitle = full ? ONE_BEACON_CONFIG_TITLE : (blocked ?? 'Add a beacon configuration')
+  const addTitle = blocked ?? 'Add a beacon configuration'
 
   function add() {
     const config = defaultBeaconConfig(gameData, horizon, node.recipeId)
@@ -257,7 +251,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
           type="button"
           data-testid="add-beacon-config"
           onClick={add}
-          disabled={full || blocked !== undefined}
+          disabled={blocked !== undefined}
           title={addTitle}
           className="w-full rounded border border-dashed border-gray-600 py-1.5 text-xs text-gray-400 hover:text-gray-200 hover:border-gray-500 disabled:opacity-40 disabled:hover:text-gray-400 disabled:hover:border-gray-600"
         >
@@ -269,7 +263,7 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
           <button
             type="button"
             data-testid="apply-beacon-to-recipe-rows"
-            title={`Copy this beacon to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
+            title={`Copy these beacon configurations to the other ${recipeRowCount - 1} row${recipeRowCount === 2 ? '' : 's'} of ${recipe?.name}`}
             onClick={() => applyRowSettingsToRecipe(node.id, 'beacon')}
             className="text-xs text-teal-400 hover:text-teal-300"
           >

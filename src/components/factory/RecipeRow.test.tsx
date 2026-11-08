@@ -1575,10 +1575,16 @@ describe('RecipeRow — selection', () => {
   })
 
   it('selects the row and highlights the Beacons section from a filled beacon chip', () => {
-    renderRow({ planNode: { ...ironPlateRecipeNode, beaconConfig: { moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 } } })
+    renderRow({ planNode: { ...ironPlateRecipeNode, beaconConfigs: [{ moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }] } })
     fireEvent.click(screen.getByLabelText('Edit beacon'))
     expect(selected()?.nodeId).toBe('node-1')
     expect(useUiStore.getState().panelHighlight?.section).toBe('beacons')
+  })
+
+  it('shows a +1 badge on the beacon chip for a second configuration', () => {
+    const cfg = { moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    renderRow({ planNode: { ...ironPlateRecipeNode, beaconConfigs: [cfg, { ...cfg, beaconCount: 2 }] } })
+    expect(screen.getByTestId('chip-more')).toHaveTextContent('+1')
   })
 
   it('does not select the row when a control inside it is clicked', () => {

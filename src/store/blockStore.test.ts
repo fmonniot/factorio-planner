@@ -1693,7 +1693,7 @@ describe('buildRowAlsoIn', () => {
       machineId: 'm2',
       fuelItemId: 'coal',
       modules: [{ moduleId: 'speed', count: 2 }],
-      beaconConfig: { ...beacon },
+      beaconConfigs: [{ ...beacon }],
       pinnedRate: 10,
       neighbourCount: 2,
       byproductPolicy: { oxygen: 'discard' },
@@ -1719,7 +1719,7 @@ describe('buildRowAlsoIn', () => {
       machineId: 'm2',
       fuelItemId: 'coal',
       modules: [{ moduleId: 'speed', count: 2 }],
-      beaconConfig: beacon,
+      beaconConfigs: [beacon],
       neighbourCount: 2,
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
@@ -1727,6 +1727,7 @@ describe('buildRowAlsoIn', () => {
     expect('pinnedRate' in copy, 'pin is not copied').toBe(false)
     expect('byproductConsumer' in copy, 'consumer flag is not copied').toBe(false)
     expect(copy.modules).not.toBe(rowIn('root', 'src').modules)
+    expect(copy.beaconConfigs).not.toBe(rowIn('root', 'src').beaconConfigs)
   })
 
   it('undoes and redoes with the same id', () => {
@@ -1780,7 +1781,7 @@ describe('duplicateSubPlanTo', () => {
     const a1 = gameRow('a1', 'electrolysis', {
       machineId: 'm2',
       modules: [{ moduleId: 'speed', count: 2 }],
-      beaconConfig: { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 },
+      beaconConfigs: [{ moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
       pinnedRate: 10,
       byproductPolicy: { oxygen: 'discard' },
       primaryProduct: 'hydrogen',
@@ -1864,6 +1865,52 @@ describe('duplicateSubPlanTo', () => {
     useBlockStore.getState().redo()
     expect(treePlan('B').nodes.map(n => n.id)).toEqual(['b1', id])
     expect(treePlan(copyId).name).toBe('Second')
+  })
+})
+
+describe('updateNodeBeacons', () => {
+  const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const setup = () => loadRoot(planOf('root', [gameRow('r1', 'smelt')]))
+  const node = () => rowIn('root', 'r1')
+  const undoDepth = (blockId: string) => useBlockStore.getState().history[blockId]?.undoStack.length ?? 0
+
+  it('sets one then two configurations, and undoes each step back to an absent key', () => {
+    setup()
+    useBlockStore.getState().updateNodeBeacons('r1', [a])
+    useBlockStore.getState().updateNodeBeacons('r1', [a, b])
+    expect(node().beaconConfigs).toEqual([a, b])
+    useBlockStore.getState().undo()
+    expect(node().beaconConfigs).toEqual([a])
+    useBlockStore.getState().undo()
+    expect('beaconConfigs' in node()).toBe(false)
+    useBlockStore.getState().redo()
+    expect(node().beaconConfigs).toEqual([a])
+  })
+
+  it('removes the key for an empty list, and undo restores the list', () => {
+    setup()
+    useBlockStore.getState().updateNodeBeacons('r1', [a])
+    useBlockStore.getState().updateNodeBeacons('r1', [])
+    expect('beaconConfigs' in node()).toBe(false)
+    useBlockStore.getState().undo()
+    expect(node().beaconConfigs).toEqual([a])
+  })
+
+  it('adds no history entry when the list is unchanged, whatever the form of "none"', () => {
+    const blockId = setup()
+    useBlockStore.getState().updateNodeBeacons('r1', [])
+    expect(undoDepth(blockId)).toBe(0)
+    useBlockStore.getState().updateNodeBeacons('r1', [a])
+    useBlockStore.getState().updateNodeBeacons('r1', [{ ...a }])
+    expect(undoDepth(blockId)).toBe(1)
+  })
+
+  it('editing the second configuration leaves the first alone', () => {
+    setup()
+    useBlockStore.getState().updateNodeBeacons('r1', [a, b])
+    useBlockStore.getState().updateNodeBeacons('r1', [a, { ...b, beaconCount: 8 }])
+    expect(node().beaconConfigs).toEqual([a, { ...b, beaconCount: 8 }])
   })
 })
 
@@ -2015,14 +2062,37 @@ describe('applyRowSettingsToRecipe', () => {
     useBlockStore.setState(s => ({
       blocks: s.blocks.map(b => ({
         ...b,
-        rootPlan: { ...b.rootPlan, nodes: b.rootPlan.nodes.map(n => n.id === 'r1' ? { ...n, beaconConfig: beacon } as GameRecipeNode : n) },
+        rootPlan: { ...b.rootPlan, nodes: b.rootPlan.nodes.map(n => n.id === 'r1' ? { ...n, beaconConfigs: [beacon] } as GameRecipeNode : n) },
       })),
     }))
     useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
-    expect(rowIn('A', 'r2').beaconConfig).toEqual(beacon)
+    expect(rowIn('A', 'r2').beaconConfigs).toEqual([beacon])
     expect(rowIn('A', 'r2').machineId, 'machine is untouched').toBe('m1')
     useBlockStore.getState().undo()
-    expect('beaconConfig' in rowIn('A', 'r2')).toBe(false)
+    expect('beaconConfigs' in rowIn('A', 'r2')).toBe(false)
+  })
+
+  it('copies several beacon configurations in order, and undo restores the targets', () => {
+    setup()
+    const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    useBlockStore.getState().updateNodeBeacons('r1', [a, b])
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    expect(rowIn('A', 'r2').beaconConfigs).toEqual([a, b])
+    useBlockStore.getState().undo()
+    expect('beaconConfigs' in rowIn('A', 'r2')).toBe(false)
+    expect(rowIn('root', 'r1').beaconConfigs).toEqual([a, b])
+  })
+
+  it('copies the same configurations in another order', () => {
+    setup()
+    const a: BeaconConfig = { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    const b: BeaconConfig = { moduleId: 'eff', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    useBlockStore.getState().updateNodeBeacons('r1', [a, b])
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    useBlockStore.getState().updateNodeBeacons('r1', [b, a])
+    useBlockStore.getState().applyRowSettingsToRecipe('r1', 'beacon')
+    expect(rowIn('A', 'r2').beaconConfigs).toEqual([b, a])
   })
 
   it('does nothing when no other row exists or every row already matches', () => {
@@ -2042,16 +2112,16 @@ describe('applyRowSettingsToRecipe', () => {
         rootPlan: {
           ...b.rootPlan,
           nodes: b.rootPlan.nodes.map(n => n.id === 'r1'
-            ? { ...n, beaconConfig: beaconA, modules: [{ moduleId: 'speed', count: 1 }] } as GameRecipeNode
+            ? { ...n, beaconConfigs: [beaconA], modules: [{ moduleId: 'speed', count: 1 }] } as GameRecipeNode
             : n),
           subPlans: b.rootPlan.subPlans.map(sp => sp.id !== 'A' ? sp : {
             ...sp,
             nodes: sp.nodes.map(n => n.id === 'r2'
-              ? { ...n, machineId: 'm2', beaconConfig: beaconB, modules: [{ count: 1, moduleId: 'speed' }] } as GameRecipeNode
+              ? { ...n, machineId: 'm2', beaconConfigs: [beaconB], modules: [{ count: 1, moduleId: 'speed' }] } as GameRecipeNode
               : n),
             subPlans: sp.subPlans.map(g => ({
               ...g,
-              nodes: g.nodes.map(n => ({ ...n, machineId: 'm2', beaconConfig: beaconB, modules: [{ count: 1, moduleId: 'speed' }] }) as GameRecipeNode),
+              nodes: g.nodes.map(n => ({ ...n, machineId: 'm2', beaconConfigs: [beaconB], modules: [{ count: 1, moduleId: 'speed' }] }) as GameRecipeNode),
             })),
           }),
         },

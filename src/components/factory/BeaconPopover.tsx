@@ -16,10 +16,9 @@ import { beaconModuleOptions } from './sidePanel/moduleOptions'
 interface BeaconCellProps {
   nodeId: string
   /**
-   * The row's beacon configurations, shown as the first one plus a `+N` badge for the rest. The
-   * single-configuration data model reaches this through `beaconConfig ? [beaconConfig] : []`.
+   * The row's beacon configurations, shown as the first one plus a `+N` badge for the rest.
    */
-  beacons: BeaconConfig[]
+  beacons: readonly BeaconConfig[]
   gameData: GameData
   recipeId: string
   machineId: string | undefined
@@ -30,7 +29,7 @@ interface BeaconCellProps {
 
 export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit }: BeaconCellProps) {
   const beacon: BeaconConfig | undefined = beacons[0]
-  const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
+  const updateNodeBeacons = useBlockStore(s => s.updateNodeBeacons)
   const horizon = useHorizon(gameData)
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
 
@@ -39,7 +38,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   /** One store command: the default beacon type and count with the chosen module in its slots. */
   function createWith(moduleId: string) {
     const config = defaultBeaconConfig(gameData, horizon, recipeId, moduleId)
-    if (config) updateNodeBeacon(nodeId, config)
+    if (config) updateNodeBeacons(nodeId, [config])
   }
 
   if (!beacon) {
@@ -148,7 +147,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               <ModuleFillPicker
                 heading="Fill its slots with"
                 options={beaconModuleOptions(gameData, horizon, beaconEntity, recipeId)}
-                onPick={moduleId => updateNodeBeacon(nodeId, { ...beacon, moduleId })}
+                onPick={moduleId => updateNodeBeacons(nodeId, beacons.map((b, i) => (i === 0 ? { ...b, moduleId } : b)))}
                 onClose={close}
               />
             )}

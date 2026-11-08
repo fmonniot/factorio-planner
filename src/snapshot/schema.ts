@@ -87,7 +87,7 @@ const rowShape = {
   outputs: z.array(SnapshotItemRateSchema).optional(),
   /** The machine's own modules (slots with an empty module id are skipped); omitted when it holds none. */
   modules: z.array(SnapshotModuleSchema).optional(),
-  /** Omitted when the row has no beacon config, no beacon entity, no beacon module or no beacon. */
+  /** The row's first beacon configuration with a beacon entity, a module and a beacon; omitted when none has. */
   beacon: SnapshotBeaconSchema.optional(),
 }
 

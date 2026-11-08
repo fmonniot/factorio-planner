@@ -246,7 +246,10 @@ export const GameRecipeNodeSchema = z.object({
   recipeId: z.string(),
   machineId: z.string().optional(),
   modules: z.array(ModuleConfigSchema),
-  beaconConfig: BeaconConfigSchema.optional(),
+  // Beacon configurations around the machine, summed by the solver. Absent and [] both mean no beacon;
+  // the store removes the key when the last one goes. Plans saved with the former single `beaconConfig`
+  // are migrated on load (see migrateRecipeNode).
+  beaconConfigs: z.array(BeaconConfigSchema).optional(),
   // Coerce 0 → undefined so a plan saved with pinnedRate=0 (produced by
   // clicking pin while throughput is 0) still loads correctly.
   pinnedRate: z.preprocess(v => (v === 0 ? undefined : v), z.number().positive().optional()),
@@ -267,14 +270,26 @@ export const SubPlanNodeSchema = z.object({
   subPlanId: z.string(),
 })
 
-// Preprocess injects kind: 'game-recipe' on legacy data that lacks the field,
-// enabling backwards-compatible loading of persisted plans.
+/**
+ * Load-time migration of one recipe node, pure and idempotent. Injects `kind: 'game-recipe'` on legacy
+ * data that lacks the field, and turns the former single `beaconConfig` into the one-element list
+ * `beaconConfigs` (the list wins when both are present). Invalid legacy values are wrapped as they are,
+ * so the schema rejects them as it did before.
+ */
+export function migrateRecipeNode(data: unknown): unknown {
+  if (typeof data !== 'object' || data === null) return data
+  const node: Record<string, unknown> = { ...data }
+  if (!('kind' in node)) return migrateRecipeNode({ kind: 'game-recipe', ...node })
+  if ('beaconConfig' in node) {
+    const legacy = node.beaconConfig
+    delete node.beaconConfig
+    if (node.beaconConfigs === undefined && legacy !== undefined) node.beaconConfigs = [legacy]
+  }
+  return node
+}
+
 export const RecipeNodeSchema = z.preprocess(
-  data => {
-    if (typeof data === 'object' && data !== null && !('kind' in data))
-      return { kind: 'game-recipe', ...data }
-    return data
-  },
+  migrateRecipeNode,
   z.discriminatedUnion('kind', [GameRecipeNodeSchema, SubPlanNodeSchema]),
 )
 

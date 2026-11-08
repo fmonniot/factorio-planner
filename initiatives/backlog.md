@@ -33,6 +33,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Data-set badge versus `mod.stored`.* The "Data set mismatch" badge comes from the mod's `unknownIds` count in `status`, and is not checked against the plan id the mod reports as stored (`mod.stored`), so the badge can describe a plan other than the one the planner holds. Decide whether the badge should only show when the stored plan is the planner's.
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
 - [ ] **In-game viewer: remember the bridge connection across page loads.** When the user turns on "connect to the bridge", the planner should reconnect automatically on the next page load, without the user toggling it again. Persist the toggle state (per browser, so a `localStorage` flag is enough) and restore it at startup. Turning it off must also be remembered.
+- [ ] **In-game viewer: every beacon configuration.** A row can hold several beacon configurations, but the snapshot sends only the first one that has something to place (`beacon`). Send a `beacons` list instead: the snapshot schema (`src/snapshot/schema.ts`), `npm run contract`, the bridge fixtures, and the mod (`mod/lib/blueprint.lua`, `mod/scripts/cursor.lua`).
 
 ## Sourcing priority
 
@@ -66,7 +67,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [ ] **Localised crafting-category names.** The default-machines flyout and the machine picker label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
-- [ ] **Beacons: several beacon configuration per recipe.** `RecipeNode.beaconConfig` holds a single beacon config today. Tracked in [multiple-beacon-configs](multiple-beacon-configs/plan.md); it follows the [recipe table redesign](archive/recipe-table-redesign/plan.md).
 - [ ] **Touch alternatives for right-click menus.** The row, product, block tab and connection menus open on right-click only; add a long-press or a visible "..." button.
 - [ ] **Touch drag-and-drop.** Row and block-tab reordering relies on mouse drag events and has no touch path.
 - [ ] **Hover-only UI on touch.** `IconButton` tooltips and `useHoverPopup` popups appear on hover and focus only; make them reachable on tap.

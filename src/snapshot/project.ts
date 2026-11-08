@@ -55,13 +55,15 @@ function itemRates(rates: Record<string, number>, ref: (id: string) => SnapshotI
   })
 }
 
-/** The keys of a row that come from the plan's node: its machine modules and its beacons, each left out when there is nothing to place. */
+/** The keys of a row that come from the plan's node: its machine modules and its first sendable beacon, each left out when there is nothing to place. */
 function nodeValues(node: GameRecipeNode): { modules?: SnapshotModule[]; beacon?: SnapshotBeacon } {
   const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
-  const cfg = node.beaconConfig
-  const beacon = cfg?.beaconId && cfg.moduleId && cfg.beaconCount > 0
-    ? { id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }
-    : undefined
+  // The wire format carries one beacon: the first configuration that has something to place.
+  const beacon = (node.beaconConfigs ?? []).flatMap(cfg =>
+    cfg.beaconId && cfg.moduleId && cfg.beaconCount > 0
+      ? [{ id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }]
+      : [],
+  )[0]
   return {
     ...(modules.length > 0 ? { modules } : {}),
     ...(beacon ? { beacon } : {}),

@@ -16,14 +16,13 @@ export function RecipePanel({ node, solved, gameData, onClose }: {
   gameData: GameData
   onClose: () => void
 }) {
-  const updateNodeBeacon = useBlockStore(s => s.updateNodeBeacon)
+  const updateNodeBeacons = useBlockStore(s => s.updateNodeBeacons)
   const recipe = gameData.recipes[node.recipeId]
   if (!recipe) return null
   const primary = dedicatedProduct(node, recipe)
   const iconPath = primary ? gameData.items[primary]?.iconPath : undefined
 
-  // The data model holds one beacon configuration; the beacon UI works on a list.
-  const beacons = node.beaconConfig ? [node.beaconConfig] : []
+  const beacons = node.beaconConfigs ?? []
 
   return (
     <>
@@ -41,7 +40,7 @@ export function RecipePanel({ node, solved, gameData, onClose }: {
         node={node}
         configs={beacons}
         gameData={gameData}
-        onChange={configs => updateNodeBeacon(node.id, configs[0])}
+        onChange={configs => updateNodeBeacons(node.id, configs)}
       />
       <EffectsSection node={node} beacons={beacons} gameData={gameData} />
       <SourcingSection node={node} solved={solved} gameData={gameData} />

@@ -62,19 +62,25 @@ function setRows(...rows: GameRecipeNode[]) {
   useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: rows } }], activeBlockId: block.id, history: {}, horizonTechnologyIds: [] })
 }
 const nodes = () => useBlockStore.getState().blocks[0].rootPlan.nodes as GameRecipeNode[]
-const storedBeacon = () => nodes()[0].beaconConfig
+const storedConfigs = () => nodes()[0].beaconConfigs
+const storedBeacon = () => storedConfigs()?.[0]
 
-/** The section as the panel wires it: the data model's single `beaconConfig` adapted to a list. */
-function renderBeacons(gameData: GameData, node: GameRecipeNode = rowNode({ beaconConfig: beacon() })) {
-  setRows(node)
-  render(
+/** The section as the panel wires it: reading the first row from the store and writing its list back. */
+function StoreBeacons({ gameData }: { gameData: GameData }) {
+  const node = useBlockStore(s => s.blocks[0].rootPlan.nodes[0]) as GameRecipeNode
+  return (
     <BeaconsSection
       node={node}
-      configs={node.beaconConfig ? [node.beaconConfig] : []}
+      configs={node.beaconConfigs ?? []}
       gameData={gameData}
-      onChange={configs => useBlockStore.getState().updateNodeBeacon(node.id, configs[0])}
-    />,
+      onChange={configs => useBlockStore.getState().updateNodeBeacons(node.id, configs)}
+    />
   )
+}
+
+function renderBeacons(gameData: GameData, node: GameRecipeNode = rowNode({ beaconConfigs: [beacon()] })) {
+  setRows(node)
+  render(<StoreBeacons gameData={gameData} />)
 }
 
 beforeEach(() => {
@@ -99,18 +105,18 @@ describe('BeaconsSection — the card', () => {
   it('removes the configuration', () => {
     renderBeacons(makeGameData())
     fireEvent.click(screen.getByRole('button', { name: 'Remove beacon configuration' }))
-    expect(storedBeacon()).toBeUndefined()
+    expect(storedConfigs()).toBeUndefined()
   })
 
   it('shows a beacon without a module as empty slots and empties every slot together', () => {
-    renderBeacons(makeGameData(), rowNode({ beaconConfig: beacon({ moduleId: undefined }) }))
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ moduleId: undefined })] }))
     expect(screen.getByTestId('beacon-summary')).toHaveTextContent('no module')
     const slots = screen.getAllByTestId('beacon-module-slot')
     expect(slots.map(s => s.getAttribute('aria-label'))).toEqual(['Beacon module slot 1: empty', 'Beacon module slot 2: empty'])
   })
 
   it('sets the module of the whole configuration from any slot, and clears it', () => {
-    renderBeacons(makeGameData(), rowNode({ beaconConfig: beacon({ moduleId: undefined }) }))
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon({ moduleId: undefined })] }))
     fireEvent.click(screen.getAllByTestId('beacon-module-slot')[1])
     fireEvent.click(screen.getByTestId('beacon-module-option'))
     expect(storedBeacon()?.moduleId).toBe('speed-3')
@@ -144,23 +150,44 @@ describe('BeaconsSection — module semantics and removal', () => {
   })
 })
 
-describe('BeaconsSection — one configuration for now', () => {
-  it('disables the add button once the row has a configuration, and says why', () => {
+describe('BeaconsSection — several configurations', () => {
+  it('keeps the add button enabled with one configuration, without the old limit title', () => {
     renderBeacons(makeGameData())
     const add = screen.getByRole('button', { name: '+ Add beacon configuration' })
-    expect(add).toBeDisabled()
-    expect(add).toHaveAttribute('title', 'One beacon configuration per recipe for now')
+    expect(add).toBeEnabled()
+    expect(add).not.toHaveAttribute('title', 'One beacon configuration per recipe for now')
   })
 
-  it('adds a default configuration while the row has none, and removing the card re-enables the button', () => {
+  it('adds a second card with the default configuration', () => {
+    renderBeacons(makeGameData())
+    fireEvent.click(screen.getByTestId('add-beacon-config'))
+    expect(screen.getAllByTestId('beacon-card')).toHaveLength(2)
+    expect(storedConfigs()).toHaveLength(2)
+    expect(storedConfigs()![1]).toMatchObject({ beaconId: 'beacon', moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2 })
+  })
+
+  it('adds a default configuration while the row has none', () => {
     renderBeacons(makeGameData(), rowNode())
     fireEvent.click(screen.getByRole('button', { name: '+ Add beacon configuration' }))
     expect(storedBeacon()).toMatchObject({ beaconId: 'beacon', moduleId: 'speed-3', beaconCount: 4, modulesPerBeacon: 2 })
   })
 
-  it('re-enables the add button without a configuration', () => {
-    renderBeacons(makeGameData(), rowNode())
-    expect(screen.getByRole('button', { name: '+ Add beacon configuration' })).toBeEnabled()
+  it('edits the second configuration only', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon(), beacon({ beaconCount: 7 })] }))
+    fireEvent.change(screen.getAllByLabelText('Beacon count')[1], { target: { value: '8' } })
+    expect(storedConfigs()!.map(c => c.beaconCount)).toEqual([4, 8])
+  })
+
+  it('removes the first card and keeps the second', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon(), beacon({ beaconCount: 7 })] }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove beacon configuration' })[0])
+    expect(storedConfigs()!.map(c => c.beaconCount)).toEqual([7])
+  })
+
+  it('drops the key when the last configuration is removed', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon()] }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove beacon configuration' }))
+    expect('beaconConfigs' in nodes()[0]).toBe(false)
   })
 })
 
@@ -189,7 +216,7 @@ describe('BeaconsSection — module picker and productivity', () => {
   it('notes a selected module the beacon cannot take', () => {
     const gd = makeGameData()
     gd.recipes['iron-plate'].allowProductivity = true
-    renderBeacons(gd, rowNode({ beaconConfig: beacon({ moduleId: 'prod-3' }) }))
+    renderBeacons(gd, rowNode({ beaconConfigs: [beacon({ moduleId: 'prod-3' })] }))
     expect(screen.getByTestId('module-not-allowed')).toHaveTextContent('Prod 3 cannot be inserted in Beacon')
   })
 })
@@ -243,12 +270,13 @@ describe('BeaconsSection — research horizon', () => {
 })
 
 describe('BeaconsSection — apply to every row of the recipe', () => {
-  it('copies the beacon to the other rows of the recipe', () => {
-    const first = rowNode({ beaconConfig: beacon() })
+  it('copies every beacon configuration to the other rows of the recipe', () => {
+    const configs = [beacon(), beacon({ beaconCount: 7 })]
+    const first = rowNode({ beaconConfigs: configs })
     setRows(first, rowNode({ id: 'n2' }))
-    render(<BeaconsSection node={first} configs={[beacon()]} gameData={makeGameData()} onChange={() => {}} />)
+    render(<BeaconsSection node={first} configs={configs} gameData={makeGameData()} onChange={() => {}} />)
     fireEvent.click(screen.getByRole('button', { name: 'Apply to every row of this recipe (2)' }))
-    expect(nodes().find(r => r.id === 'n2')!.beaconConfig).toEqual(beacon())
+    expect(nodes().find(r => r.id === 'n2')!.beaconConfigs).toEqual(configs)
   })
 
   it('has no such button with a single row', () => {
@@ -259,15 +287,21 @@ describe('BeaconsSection — apply to every row of the recipe', () => {
 
 describe('EffectsSection', () => {
   const renderEffects = (gd: GameData, node: GameRecipeNode) =>
-    render(<EffectsSection node={node} beacons={node.beaconConfig ? [node.beaconConfig] : []} gameData={gd} />)
+    render(<EffectsSection node={node} beacons={node.beaconConfigs ?? []} gameData={gd} />)
 
   it('lists speed, productivity and energy with the machine, beacon and total columns', () => {
     const gd = makeGameData()
-    renderEffects(gd, rowNode({ machineId: 'am1', beaconConfig: beacon() }))
+    renderEffects(gd, rowNode({ machineId: 'am1', beaconConfigs: [beacon()] }))
     expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['', 'Machine', 'Beacons', 'Total'])
     // 0.5 speed × 1.5 efficiency × 2 modules × 4 beacons
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('+600%')
     expect(screen.getByText('Beacon effect = module effect × efficiency × modules per beacon × beacons. All sources add up.', { exact: false })).toBeInTheDocument()
+  })
+
+  it('shows one Beacons column per configuration', () => {
+    const gd = makeGameData()
+    renderEffects(gd, rowNode({ machineId: 'am1', beaconConfigs: [beacon(), beacon({ beaconCount: 2 })] }))
+    expect(screen.getAllByRole('columnheader').map(h => h.textContent)).toEqual(['', 'Machine', 'Beacons 1', 'Beacons 2', 'Total'])
   })
 
   it('shows no effects as dashes', () => {
@@ -280,7 +314,7 @@ describe('EffectsSection', () => {
     const gd = makeGameData()
     gd.machines.am1.allowedEffects = ['speed', 'consumption', 'productivity']
     gd.recipes['iron-plate'].allowProductivity = true
-    renderEffects(gd, rowNode({ machineId: 'am1', beaconConfig: beacon({ moduleId: 'prod-3' }) }))
+    renderEffects(gd, rowNode({ machineId: 'am1', beaconConfigs: [beacon({ moduleId: 'prod-3' })] }))
     expect(screen.getByTestId('recipe-effects-note')).toHaveTextContent('productivity of the beacons')
     expect(screen.getByTestId('effect-total-productivity')).toHaveTextContent('–')
   })
@@ -290,7 +324,7 @@ describe('EffectsSection', () => {
     gd.technologies.base.unlockedRecipes = ['iron-plate']
     gd.technologies.mods.unlockedRecipes = ['r-am1', 'r-beacon', 'r-speed']
     useBlockStore.setState({ horizonTechnologyIds: ['base'] })
-    renderEffects(gd, rowNode({ beaconConfig: beacon() }))
+    renderEffects(gd, rowNode({ beaconConfigs: [beacon()] }))
     expect(screen.getByTestId('effect-total-speed')).toHaveTextContent('+600%')
   })
 })
