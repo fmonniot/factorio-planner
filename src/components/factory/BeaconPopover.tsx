@@ -5,7 +5,7 @@ import { resolveRowMachine, withinHorizon } from '../../data/horizon'
 import { IconChip, MoreBadge } from './IconChip'
 import { PickerTrigger } from './PickerTrigger'
 import { ModuleFillPicker } from './ModuleFillPicker'
-import { availableBeacons, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
+import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig, DEFAULT_BEACON_COUNT } from './sidePanel/beaconDefaults'
 import { beaconModuleOptions } from './sidePanel/moduleOptions'
 
 // ---------------------------------------------------------------------------
@@ -33,8 +33,6 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const horizon = useHorizon(gameData)
   const row = resolveRowMachine(gameData, horizon, recipeCategory, machineId)
 
-  const nonHiddenBeacons = Object.values(gameData.beacons).filter(b => !b.hidden)
-
   /** One store command: the default beacon type and count with the chosen module in its slots. */
   function createWith(moduleId: string) {
     const config = defaultBeaconConfig(gameData, horizon, recipeId, moduleId)
@@ -42,17 +40,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   }
 
   if (!beacon) {
-    const noBeacon =
-      nonHiddenBeacons.length > 0 && !nonHiddenBeacons.some(b => withinHorizon(horizon.beaconIds, b.id))
-    const noModule =
-      horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
-    const disabledTitle = row.noMachineInHorizon
-      ? 'No machine within research horizon'
-      : noBeacon
-        ? 'No beacon within the research horizon'
-        : noModule
-          ? 'No module within the research horizon'
-          : undefined
+    const disabledTitle = beaconAddBlockedReason(gameData, horizon, row.noMachineInHorizon)
     // The picker lists what the default beacon type (the first within the horizon) accepts.
     const newBeacon = availableBeacons(gameData, horizon)[0]
     return (
@@ -87,9 +75,10 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
   const moduleData = beacon.moduleId ? gameData.modules[beacon.moduleId] : undefined
   // A module id the loaded data set does not know (after switching data sets): the solver still counts it.
   const unknownModuleId = beacon.moduleId && !moduleData ? beacon.moduleId : undefined
-  const beyondHorizon =
-    (beacon.beaconId !== undefined && !withinHorizon(horizon.beaconIds, beacon.beaconId)) ||
-    (beacon.moduleId !== undefined && !withinHorizon(horizon.moduleIds, beacon.moduleId))
+  // Any configuration with a beacon type or module outside the horizon rings the chip.
+  const beyondHorizon = beacons.some(b =>
+    (b.beaconId !== undefined && !withinHorizon(horizon.beaconIds, b.beaconId)) ||
+    (b.moduleId !== undefined && !withinHorizon(horizon.moduleIds, b.moduleId)))
 
   // The dashed module chip is the fill-all shortcut; one holding a module opens the panel.
   const fillBeacon = !moduleData && !unknownModuleId

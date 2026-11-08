@@ -59,11 +59,10 @@ function itemRates(rates: Record<string, number>, ref: (id: string) => SnapshotI
 function nodeValues(node: GameRecipeNode): { modules?: SnapshotModule[]; beacon?: SnapshotBeacon } {
   const modules = node.modules.filter(m => m.moduleId !== '').map(m => ({ id: m.moduleId, count: m.count }))
   // The wire format carries one beacon: the first configuration that has something to place.
-  const beacon = (node.beaconConfigs ?? []).flatMap(cfg =>
-    cfg.beaconId && cfg.moduleId && cfg.beaconCount > 0
-      ? [{ id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }]
-      : [],
-  )[0]
+  const cfg = (node.beaconConfigs ?? []).find(c => c.beaconId && c.moduleId && c.beaconCount > 0)
+  const beacon = cfg?.beaconId && cfg.moduleId
+    ? { id: cfg.beaconId, count: cfg.beaconCount, module: cfg.moduleId, modules: cfg.modulesPerBeacon }
+    : undefined
   return {
     ...(modules.length > 0 ? { modules } : {}),
     ...(beacon ? { beacon } : {}),

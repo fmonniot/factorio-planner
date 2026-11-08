@@ -194,6 +194,27 @@ describe('BeaconCell — research horizon', () => {
   })
 })
 
+describe('BeaconCell — beyond the horizon over several configurations', () => {
+  it('rings the chip when a later configuration is beyond the horizon', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['base'] })
+    const gd = horizonData()
+    gd.technologies.base.unlockedRecipes = ['iron-plate', 'r-am1', 'r-beacon']
+    gd.technologies.mods.unlockedRecipes = ['r-speed']
+    const inside: BeaconConfig = { beaconId: 'beacon', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+    const outside: BeaconConfig = { ...inside, moduleId: 'speed-3' }
+    const renderWith = (beacons: BeaconConfig[]) =>
+      render(
+        <BeaconCell nodeId="n1" beacons={beacons} gameData={gd} recipeId="iron-plate"
+          machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+      )
+    const { unmount } = renderWith([inside])
+    expect(screen.getByLabelText('Edit beacon')).not.toHaveAttribute('data-beyond-horizon')
+    unmount()
+    renderWith([inside, outside])
+    expect(screen.getByLabelText('Edit beacon')).toHaveAttribute('data-beyond-horizon', 'true')
+  })
+})
+
 describe('BeaconCell — chips over a list of configurations', () => {
   const renderList = (beacons: BeaconConfig[]) =>
     render(

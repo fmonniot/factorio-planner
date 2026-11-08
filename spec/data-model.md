@@ -642,7 +642,7 @@ interface GameRecipeNode {
   recipeId: string
   machineId?: string            // undefined = the plan's effective default for recipe.category (horizon default, then defaultMachineOverrides)
   modules: ModuleConfig[]
-  beaconConfigs?: BeaconConfig[]   // absent and [] both mean no beacon; the solver sums them
+  beaconConfigs?: BeaconConfig[]   // absent = no beacon (never []); the solver sums them
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute
   neighbourCount?: number       // reactor rows: average adjacent working reactors; > 0 (0 → undefined)
   fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel
@@ -661,14 +661,14 @@ interface SubPlanNode {
 - **Legacy nodes.** `RecipeNodeSchema` injects `kind: 'game-recipe'` into any
   node that has no `kind`, so plans saved before sub-plans existed still load.
 - **`beaconConfigs`.** The beacon configurations around the machine; the solver sums their
-  effects (see [solver.md](solver.md#machine-count-and-power)). Absent and `[]` both mean no
-  beacon: the store removes the key when the last configuration goes, and readers treat a
-  missing key as `[]`. Order is kept and matters to "apply to every row" and to the snapshot.
+  effects (see [solver.md](solver.md#machine-count-and-power)). Absent means no
+  beacon: the store removes the key when the last configuration goes, the load migration drops
+  an empty list, and readers still treat a missing key as `[]`. Order is kept and matters to "apply to every row" and to the snapshot.
   There is no cap on the count. Plans saved with the former single `beaconConfig` load as a
   one-element list: the node preprocess (`migrateRecipeNode`, run for every node at any
   sub-plan depth) always drops `beaconConfig` and, when `beaconConfigs` is absent, sets it to
-  `[beaconConfig]`. The migration is pure and idempotent, `beaconConfigs` wins when both keys are
-  present, and an invalid legacy value (including `null`) is wrapped as it is, so the schema
+  `[beaconConfig]`. The migration is pure and idempotent, a non-empty `beaconConfigs` wins when both keys are
+  present (an empty one is dropped first, so it does not hide the legacy value), and an invalid legacy value (including `null`) is wrapped as it is, so the schema
   rejects it as before.
 - **`pinnedRate`.** The solver uses it as an equality constraint on the recipe's
   throughput (executions per minute). The preprocess coerces `0` to `undefined`

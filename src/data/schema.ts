@@ -246,9 +246,9 @@ export const GameRecipeNodeSchema = z.object({
   recipeId: z.string(),
   machineId: z.string().optional(),
   modules: z.array(ModuleConfigSchema),
-  // Beacon configurations around the machine, summed by the solver. Absent and [] both mean no beacon;
-  // the store removes the key when the last one goes. Plans saved with the former single `beaconConfig`
-  // are migrated on load (see migrateRecipeNode).
+  // Beacon configurations around the machine, summed by the solver. Absent means no beacon: the store
+  // removes the key when the last one goes and the load migration drops an empty list (see migrateRecipeNode).
+  // Plans saved with the former single `beaconConfig` are migrated on load too.
   beaconConfigs: z.array(BeaconConfigSchema).optional(),
   // Coerce 0 → undefined so a plan saved with pinnedRate=0 (produced by
   // clicking pin while throughput is 0) still loads correctly.
@@ -273,13 +273,15 @@ export const SubPlanNodeSchema = z.object({
 /**
  * Load-time migration of one recipe node, pure and idempotent. Injects `kind: 'game-recipe'` on legacy
  * data that lacks the field, and turns the former single `beaconConfig` into the one-element list
- * `beaconConfigs` (the list wins when both are present). Invalid legacy values are wrapped as they are,
- * so the schema rejects them as it did before.
+ * `beaconConfigs` (a non-empty list wins when both are present). An empty list is dropped, so "no beacon"
+ * is always an absent key, and it does not hide a legacy value. Invalid legacy values are wrapped as they
+ * are, so the schema rejects them as it did before.
  */
 export function migrateRecipeNode(data: unknown): unknown {
   if (typeof data !== 'object' || data === null) return data
   const node: Record<string, unknown> = { ...data }
   if (!('kind' in node)) return migrateRecipeNode({ kind: 'game-recipe', ...node })
+  if (Array.isArray(node.beaconConfigs) && node.beaconConfigs.length === 0) delete node.beaconConfigs
   if ('beaconConfig' in node) {
     const legacy = node.beaconConfig
     delete node.beaconConfig

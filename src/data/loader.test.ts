@@ -624,7 +624,17 @@ describe('beacon configuration migration', () => {
     expect('beaconConfigs' in firstNode(planJson([nodeJson()]))).toBe(false)
   })
 
-  it('lets beaconConfigs win when both keys are present', () => {
+  it('drops an empty beaconConfigs list, so no beacon is always an absent key', () => {
+    expect('beaconConfigs' in firstNode(planJson([nodeJson({ beaconConfigs: [] })]))).toBe(false)
+  })
+
+  it('does not let an empty beaconConfigs hide a legacy beaconConfig', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [] })]))
+    expect(node.beaconConfigs).toEqual([legacy])
+    expect('beaconConfig' in node).toBe(false)
+  })
+
+  it('lets a non-empty beaconConfigs win when both keys are present', () => {
     const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [other] })]))
     expect(node.beaconConfigs).toEqual([other])
     expect('beaconConfig' in node).toBe(false)

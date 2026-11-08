@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { BeaconConfig, GameData, GameRecipeNode } from '../../../data/types'
-import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
+import { useBlockStore, selectActiveBlock, deepEqual } from '../../../store/blockStore'
 import { useHorizon } from '../../../store/horizon'
 import { withinHorizon } from '../../../data/horizon'
 import { Icon } from '../../Icon'
@@ -11,7 +11,7 @@ import { Picker, PickerRow, PickerEmpty } from '../Picker'
 import { PickerTrigger } from '../PickerTrigger'
 import { PanelSection, BeyondTag, Chevron } from './PanelParts'
 import { ModuleSlotRow } from './ModuleSlotRow'
-import { availableBeacons, defaultBeaconConfig } from './beaconDefaults'
+import { availableBeacons, beaconAddBlockedReason, defaultBeaconConfig } from './beaconDefaults'
 import { beaconEffects, applyRecipeConstraints, fmtEffect } from './effects'
 import { resolveRowMachine } from '../../../data/horizon'
 import { rowMachine } from '../../../solver/effects'
@@ -209,25 +209,25 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
   const recipe = gameData.recipes[node.recipeId]
   const row = resolveRowMachine(gameData, horizon, recipe?.category ?? '', node.machineId)
 
-  // Configurations have no id yet, so cards are keyed by position; bumping this on removal remounts them all, which
-  // drops open popovers instead of handing them to whichever card slid into the removed one's place.
-  const [generation, setGeneration] = useState(0)
+  // Configurations have no id yet, so cards are keyed by position. `expected` is the list this section last
+  // produced or saw; when the prop differs from it the list changed from outside (undo, "Apply to every row",
+  // another row), and bumping the generation remounts every card, which drops open popovers instead of handing
+  // them to whichever configuration now sits in that slot. A remove bumps it too, for the same reason.
+  const [sync, setSync] = useState({ expected: configs, generation: 0 })
+  if (!deepEqual(sync.expected, configs)) setSync({ expected: configs, generation: sync.generation + 1 })
+  const generation = sync.generation
 
-  const nonHidden = Object.values(gameData.beacons).filter(b => !b.hidden)
-  const noBeacon = nonHidden.length > 0 && !nonHidden.some(b => withinHorizon(horizon.beaconIds, b.id))
-  const noModule = horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))
-  const blocked = row.noMachineInHorizon
-    ? 'No machine within research horizon'
-    : noBeacon
-      ? 'No beacon within the research horizon'
-      : noModule
-        ? 'No module within the research horizon'
-        : undefined
+  function emit(next: BeaconConfig[], remount = false) {
+    setSync(s => ({ expected: next, generation: remount ? s.generation + 1 : s.generation }))
+    onChange(next)
+  }
+
+  const blocked = beaconAddBlockedReason(gameData, horizon, row.noMachineInHorizon)
   const addTitle = blocked ?? 'Add a beacon configuration'
 
   function add() {
     const config = defaultBeaconConfig(gameData, horizon, node.recipeId)
-    if (config) onChange([...configs, config])
+    if (config) emit([...configs, config])
   }
 
   return (
@@ -240,11 +240,8 @@ export function BeaconsSection({ node, configs, gameData, onChange }: {
             beacon={c}
             node={node}
             gameData={gameData}
-            onChange={next => onChange(configs.map((x, j) => (j === i ? next : x)))}
-            onRemove={() => {
-              setGeneration(g => g + 1)
-              onChange(configs.filter((_, j) => j !== i))
-            }}
+            onChange={next => emit(configs.map((x, j) => (j === i ? next : x)))}
+            onRemove={() => emit(configs.filter((_, j) => j !== i), true)}
           />
         ))}
         <button

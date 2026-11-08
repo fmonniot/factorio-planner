@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { describe, it, expect, beforeEach } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, act } from '@testing-library/react'
 import { BeaconsSection } from './BeaconsSection'
 import { EffectsSection } from './EffectsSection'
 import { useBlockStore, makeEmptyBlock } from '../../../store/blockStore'
@@ -150,12 +150,35 @@ describe('BeaconsSection — module semantics and removal', () => {
   })
 })
 
+describe('BeaconsSection — changes from outside', () => {
+  it('closes an open picker after undo, so a pick lands on the configuration it was opened for', () => {
+    const a = beacon({ beaconCount: 4 })
+    const b = beacon({ beaconCount: 7 })
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [a, b] }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Remove beacon configuration' })[0])
+    expect(storedConfigs()).toEqual([b])
+    fireEvent.click(screen.getByTestId('beacon-type-button'))
+    expect(screen.getAllByTestId('beacon-option').length).toBeGreaterThan(0)
+    act(() => useBlockStore.getState().undo())
+    expect(storedConfigs()).toEqual([a, b])
+    expect(screen.queryAllByTestId('beacon-option')).toHaveLength(0)
+    expect(screen.getAllByLabelText('Beacon count').map(i => (i as HTMLInputElement).value)).toEqual(['4', '7'])
+  })
+
+  it('keeps a picker open across the section\'s own edits', () => {
+    renderBeacons(makeGameData(), rowNode({ beaconConfigs: [beacon(), beacon({ beaconCount: 7 })] }))
+    fireEvent.click(screen.getAllByTestId('beacon-type-button')[1])
+    fireEvent.change(screen.getAllByLabelText('Beacon count')[0], { target: { value: '5' } })
+    expect(screen.getAllByTestId('beacon-option').length).toBeGreaterThan(0)
+  })
+})
+
 describe('BeaconsSection — several configurations', () => {
   it('keeps the add button enabled with one configuration, without the old limit title', () => {
     renderBeacons(makeGameData())
     const add = screen.getByRole('button', { name: '+ Add beacon configuration' })
     expect(add).toBeEnabled()
-    expect(add).not.toHaveAttribute('title', 'One beacon configuration per recipe for now')
+    expect(add).toHaveAttribute('title', 'Add a beacon configuration')
   })
 
   it('adds a second card with the default configuration', () => {

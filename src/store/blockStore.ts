@@ -467,7 +467,7 @@ type RowSettings = Pick<GameRecipeNode, 'machineId' | 'fuelItemId' | 'modules' |
 function pickSettings(n: GameRecipeNode, what: 'machine' | 'beacon'): Partial<RowSettings> {
   return what === 'machine'
     ? { machineId: n.machineId, fuelItemId: n.fuelItemId, modules: structuredClone(n.modules) }
-    : { beaconConfigs: n.beaconConfigs?.length ? structuredClone(n.beaconConfigs) : undefined }
+    : { beaconConfigs: n.beaconConfigs?.length ? n.beaconConfigs : undefined }
 }
 
 /** `n` with `settings` set; a key whose value is undefined is removed. */
@@ -487,7 +487,7 @@ function sameSettings(a: GameRecipeNode, b: GameRecipeNode, what: 'machine' | 'b
 }
 
 /** Structural equality of plain JSON values; independent of object key order. */
-function deepEqual(a: unknown, b: unknown): boolean {
+export function deepEqual(a: unknown, b: unknown): boolean {
   if (a === b) return true
   if (typeof a !== 'object' || typeof b !== 'object' || a === null || b === null) return false
   if (Array.isArray(a) !== Array.isArray(b)) return false
@@ -1193,8 +1193,9 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       const old = subPlan?.nodes.find(n => n.id === nodeId)
       if (!old || old.kind !== 'game-recipe') return state
       if (deepEqual(old.beaconConfigs ?? [], beacons)) return state
-      const oldBeacons = old.beaconConfigs?.length ? structuredClone(old.beaconConfigs) : undefined
-      const newBeacons = beacons.length > 0 ? structuredClone(beacons) : undefined
+      // withSettings copies what it stores, so the lists go in as they are.
+      const oldBeacons = old.beaconConfigs?.length ? old.beaconConfigs : undefined
+      const newBeacons = beacons.length > 0 ? beacons : undefined
       const cmd = nodeCommand(block, nodeId,
         n => n.kind === 'game-recipe' ? withSettings(n, { beaconConfigs: newBeacons }) : n,
         n => n.kind === 'game-recipe' ? withSettings(n, { beaconConfigs: oldBeacons }) : n,
