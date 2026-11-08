@@ -12,6 +12,8 @@ import { Icon } from './Icon'
 import { wheelDeltaPx } from '../utils/viewTransform'
 import { withAlpha, BLOCK_PALETTE } from '../data/blockColors'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
+import { IconButton, TOOLTIP_BOX_CLASS, TOOLTIP_CLASS } from './IconButton'
+import { PlusIcon } from './icons'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -198,15 +200,41 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
   const gameData = useGameDataStore(selectGameData)
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null)
   const [dropSide, setDropSide] = useState<'before' | 'after' | null>(null)
+  const [iconFailed, setIconFailed] = useState(false)
+  // Where the tooltip of an inactive tab is anchored (viewport coordinates), while it shows.
+  const [tipRect, setTipRect] = useState<DOMRect | null>(null)
   const wrapperRef = useRef<HTMLDivElement>(null)
+  const buttonRef = useRef<HTMLButtonElement>(null)
+
+  // The strip scrolls, which would leave a fixed tooltip behind its tab.
+  const tipShown = tipRect !== null
+  useEffect(() => {
+    if (!tipShown) return
+    const hide = () => setTipRect(null)
+    window.addEventListener('scroll', hide, true)
+    return () => window.removeEventListener('scroll', hide, true)
+  }, [tipShown])
 
   if (!block) return null
 
   const firstGoal = block.products[0]
   const firstItem = firstGoal ? gameData?.items[firstGoal.itemId] : undefined
 
+  function showTip() {
+    const el = buttonRef.current
+    if (el && !isActive && dragging === null) setTipRect(el.getBoundingClientRect())
+  }
+
+  /** Keyboard focus shows the tooltip; focus left by a click does not. */
+  function handleFocus(e: React.FocusEvent<HTMLButtonElement>) {
+    let visible = true
+    try { visible = e.currentTarget.matches(':focus-visible') } catch { /* no :focus-visible: show it */ }
+    if (visible) showTip()
+  }
+
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault()
+    setTipRect(null)
     if (!disabled && wrapperRef.current) setMenuAnchor(wrapperRef.current.getBoundingClientRect())
   }
 
@@ -215,6 +243,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
     e.dataTransfer.setData(DRAG_TYPE, blockId)
     e.dataTransfer.effectAllowed = 'move'
     setMenuAnchor(null)
+    setTipRect(null)
     onDragStart(blockId)
   }
 
@@ -273,20 +302,26 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      className={`relative min-w-24 shrink-0 flex ${dragging === blockId ? 'opacity-50' : ''}`}
+      className={`relative shrink-0 flex ${isActive ? 'min-w-24' : 'w-11'} ${dragging === blockId ? 'opacity-50' : ''}`}
     >
+      {/* An inactive tab is its icon alone, 44px wide; its name is the tooltip below. */}
       <button
-        title={block.name}
+        ref={buttonRef}
+        aria-label={block.name}
         aria-current={isActive ? 'true' : undefined}
-        onClick={onClick}
+        onClick={() => { setTipRect(null); onClick() }}
         onContextMenu={handleContextMenu}
+        onMouseEnter={showTip}
+        onMouseLeave={() => setTipRect(null)}
+        onFocus={handleFocus}
+        onBlur={() => setTipRect(null)}
         disabled={disabled}
         className={`
-          relative flex items-center gap-1.5 min-w-0 max-w-44 flex-1 h-8 pl-2 pr-3 rounded-t text-xs border border-b-0
+          relative flex items-center min-w-0 flex-1 h-8 rounded-t text-xs border border-b-0
           transition-colors select-none disabled:opacity-40 disabled:cursor-not-allowed
           ${isActive
-            ? 'bg-gray-800 border-gray-700 text-gray-100'
-            : 'border-transparent text-gray-400 hover:bg-gray-800/50 hover:text-gray-200'
+            ? 'gap-1.5 max-w-44 pl-2 pr-3 bg-gray-800 border-gray-700 text-gray-100'
+            : 'justify-center border-transparent text-gray-400 hover:bg-gray-800/50 hover:text-gray-200 focus-visible:bg-gray-800/50 focus-visible:text-gray-200 outline-none'
           }
         `}
       >
@@ -294,20 +329,37 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
         <span
           aria-hidden="true"
           data-testid="block-tab-stripe"
-          className={`absolute -left-px -right-px -top-px rounded-t ${isActive ? 'h-[3px]' : 'h-0.5'}`}
-          style={{ background: isActive ? block.color : withAlpha(block.color, 0.55) }}
+          className="absolute -left-px -right-px -top-px h-[3px] rounded-t"
+          style={{ background: isActive ? block.color : withAlpha(block.color, 0.85) }}
         />
-        {firstItem && (
+        {firstItem && !iconFailed ? (
           <Icon
             iconPath={firstItem.iconPath}
             alt=""
             draggable={false}
             className="w-5 h-5 object-contain shrink-0"
-            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+            onError={() => setIconFailed(true)}
           />
+        ) : !isActive && (
+          // A block with no goal yet (or an icon that did not load) still needs something to click.
+          <span aria-hidden="true" data-testid="block-tab-initial" className="w-5 h-5 shrink-0 flex items-center justify-center text-[11px] font-semibold uppercase">
+            {Array.from(block.name.trim())[0] ?? ''}
+          </span>
         )}
-        <span className="truncate">{block.name}</span>
+        {isActive && <span className="truncate">{block.name}</span>}
       </button>
+      {tipRect && !isActive && createPortal(
+        // Fixed, since the scrolling strip would clip an absolute tooltip.
+        <div
+          aria-hidden
+          data-testid="block-tab-tooltip"
+          style={{ position: 'fixed', left: tipRect.left + tipRect.width / 2, top: tipRect.bottom + 4, transform: 'translateX(-50%)' }}
+          className={TOOLTIP_BOX_CLASS}
+        >
+          {block.name}
+        </div>,
+        document.body,
+      )}
       {dropLine}
 
       {menuAnchor && (
@@ -318,76 +370,72 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
 }
 
 // ---------------------------------------------------------------------------
-// Overflow detection
+// Block list (before the first tab)
 // ---------------------------------------------------------------------------
 
-/** Whether a horizontally scrolling box holds more than it shows. Attach `ref` to the box. */
-function useHorizontalOverflow<T extends HTMLElement>(contentKey: string) {
-  const ref = useRef<T>(null)
-  const [overflowing, setOverflowing] = useState(false)
-
-  function measure() {
-    const el = ref.current
-    if (!el) return
-    const over = el.scrollWidth > el.clientWidth + 1
-    setOverflowing(prev => (prev === over ? prev : over))
-  }
-
-  // Tab names and counts change the content without resizing the box, so re-measure when `contentKey` (names and count) changes.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  useLayoutEffect(measure, [contentKey])
-
-  useEffect(() => {
-    const el = ref.current
-    if (!el || typeof ResizeObserver === 'undefined') return
-    const observer = new ResizeObserver(measure)
-    observer.observe(el)
-    return () => observer.disconnect()
-  }, [])
-
-  return { ref, overflowing }
+function ListIcon() {
+  return (
+    <svg aria-hidden viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-[17px] h-[17px]">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />
+    </svg>
+  )
 }
 
-// ---------------------------------------------------------------------------
-// "All blocks" dropdown (shown while the strip overflows)
-// ---------------------------------------------------------------------------
-
-function BlockOverflowMenu({ editable }: { editable: boolean }) {
+/** A 28px icon button, always visible, that opens the list of every block. */
+function BlockListButton({ editable }: { editable: boolean }) {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const gameData = useGameDataStore(selectGameData)
 
   return (
-    <MenuButton
-      label=""
-      ariaLabel="All blocks"
-      title="All blocks"
-      menuLabel="All blocks"
-      align="right"
-      disabled={!editable}
-      triggerClassName="self-center shrink-0 h-7 px-1.5 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-      panelClassName="max-h-[calc(100vh-4rem)] overflow-y-auto"
-    >
-      {close => blocks.map(b => {
-        const goal = b.products[0]
-        const firstItem = goal ? gameData?.items[goal.itemId] : undefined
-        return (
-          <button
-            key={b.id}
-            type="button"
-            role="menuitemradio"
-            aria-checked={b.id === activeBlockId}
-            className={`${ITEM_CLASS} w-full max-w-64`}
-            onClick={() => { setActiveBlock(b.id); close(true) }}
-          >
-            <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
-            {firstItem && <Icon iconPath={firstItem.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />}
-            <span className="truncate">{b.name}</span>
-          </button>
-        )
-      })}
-    </MenuButton>
+    <span className="relative group self-center shrink-0">
+      <MenuButton
+        label={<ListIcon />}
+        ariaLabel="All blocks"
+        menuLabel="All blocks"
+        align="left"
+        disabled={!editable}
+        caret={<></>}
+        triggerClassName="w-7 h-7 rounded-md flex items-center justify-center text-gray-300 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+        panelClassName="max-h-[calc(100vh-4rem)] overflow-y-auto"
+      >
+        {close => blocks.map(b => {
+          const goal = b.products[0]
+          const firstItem = goal ? gameData?.items[goal.itemId] : undefined
+          return (
+            <button
+              key={b.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={b.id === activeBlockId}
+              className={`${ITEM_CLASS} w-full max-w-64`}
+              onClick={() => { setActiveBlock(b.id); close(true) }}
+            >
+              <span aria-hidden="true" className="w-2 h-2 rounded-full shrink-0" style={{ background: b.color }} />
+              {firstItem && <Icon iconPath={firstItem.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />}
+              <span className="truncate">{b.name}</span>
+            </button>
+          )
+        })}
+      </MenuButton>
+      <span aria-hidden className={TOOLTIP_CLASS}>All blocks</span>
+    </span>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Add block (a tool button in the top bar's right-hand group)
+// ---------------------------------------------------------------------------
+
+/** The tool-row button that appends a block. Disabled with the tabs until game data is loaded. */
+export function AddBlockButton() {
+  const addBlock = useBlockStore(s => s.addBlock)
+  const editable = useGameDataStore(s => s.status.type === 'loaded')
+  return (
+    <IconButton label="Add block" onClick={addBlock} disabled={!editable} iconClass="text-gray-300">
+      <PlusIcon className="w-[17px] h-[17px]" />
+    </IconButton>
   )
 }
 
@@ -402,21 +450,20 @@ export function BlockTabs() {
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
-  const addBlock = useBlockStore(s => s.addBlock)
   const moveBlock = useBlockStore(s => s.moveBlock)
   // The plan on screen only belongs to the selected data set once its data has
   // loaded; until then the tabs are read-only so no edit lands in the wrong plan.
   const editable = useGameDataStore(s => s.status.type === 'loaded')
   const [draggingId, setDraggingId] = useState<string | null>(null)
-  const { ref: scrollerRef, overflowing } = useHorizontalOverflow<HTMLDivElement>(JSON.stringify(blocks.map(b => b.name)))
+  const scrollerRef = useRef<HTMLDivElement>(null)
 
-  // Keep the active tab visible when it changes, tabs are added, or tabs are reordered.
+  // Keep the active tab in the middle of the strip when it changes, tabs are added, or tabs are reordered.
   const order = blocks.map(b => b.id).join(',')
   useEffect(() => {
     const tab = Array.from(scrollerRef.current?.querySelectorAll<HTMLElement>('[data-block-id]') ?? [])
       .find(el => el.dataset.blockId === activeBlockId)
-    tab?.scrollIntoView?.({ block: 'nearest', inline: 'nearest' })
-  }, [activeBlockId, order, scrollerRef])
+    tab?.scrollIntoView?.({ block: 'nearest', inline: 'center' })
+  }, [activeBlockId, order])
 
   function handleWheel(e: React.WheelEvent<HTMLDivElement>) {
     if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) e.currentTarget.scrollLeft += wheelDeltaPx(e.deltaY, e.deltaMode)
@@ -432,6 +479,7 @@ export function BlockTabs() {
 
   return (
     <div className="self-stretch flex items-end gap-1 min-w-0">
+      <BlockListButton editable={editable} />
       {/* -mb-px lets the active tab overlap the top bar's border; it sits on the scroller so the strip does not clip it */}
       <div
         ref={scrollerRef}
@@ -458,18 +506,6 @@ export function BlockTabs() {
           />
         ))}
       </div>
-
-      {overflowing && <BlockOverflowMenu editable={editable} />}
-
-      {/* Add block button */}
-      <button
-        title="Add block"
-        onClick={addBlock}
-        disabled={!editable}
-        className="self-center shrink-0 w-7 h-7 ml-1 rounded flex items-center justify-center text-gray-500 hover:text-gray-200 hover:bg-gray-700 transition-colors text-lg leading-none disabled:opacity-40 disabled:cursor-not-allowed"
-      >
-        +
-      </button>
     </div>
   )
 }

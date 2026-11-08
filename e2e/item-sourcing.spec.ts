@@ -90,9 +90,9 @@ test.describe('item sourcing', () => {
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')).toHaveCount(0)
 
     // O2 maker decompresses the 100 oxygen Acid asked for.
-    await page.locator('button[title="O2 maker"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="O2 maker"]').click()
     await expect(compressedSlot(page)).toContainText('25.0')
-    await page.locator('button[title="Acid"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Acid"]').click()
 
     // Back to own recipes first: the connection delivers nothing, Acid decompresses by itself again.
     await choose(page, 'own')

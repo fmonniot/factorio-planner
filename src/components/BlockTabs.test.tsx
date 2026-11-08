@@ -1,9 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, createEvent, act } from '@testing-library/react'
-import { BlockTabs } from './BlockTabs'
+import { BlockTabs, AddBlockButton } from './BlockTabs'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useGameDataStore } from '../store/gameDataStore'
 import type { GameData } from '../data/types'
+
+/** A tab's button, by block name (the accessible name; an inactive tab shows no text). */
+const tabBtn = (name: string) => document.querySelector<HTMLElement>(`[data-testid="block-tab"] button[aria-label="${name}"]`)!
 
 beforeEach(() => {
   const block = makeEmptyBlock('Test')
@@ -18,9 +21,10 @@ describe('BlockTabs editability', () => {
     ['error', { type: 'error' as const, message: 'boom' }],
   ])('is disabled while game data is %s', (_name, status) => {
     useGameDataStore.setState({ status })
-    render(<BlockTabs />)
-    expect(screen.getByTitle('Add block'), 'add button').toBeDisabled()
-    expect(screen.getByTitle('Test'), 'block tab').toBeDisabled()
+    render(<><BlockTabs /><AddBlockButton /></>)
+    expect(screen.getByRole('button', { name: 'Add block' }), 'add button').toBeDisabled()
+    expect(screen.getByRole('button', { name: 'All blocks' }), 'block list').toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Test' }), 'block tab').toBeDisabled()
     expect(screen.getByTestId('block-tab'), 'not draggable').not.toHaveAttribute('draggable', 'true')
   })
 
@@ -28,9 +32,10 @@ describe('BlockTabs editability', () => {
     useGameDataStore.setState({
       status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },
     })
-    render(<BlockTabs />)
-    expect(screen.getByTitle('Add block')).toBeEnabled()
-    expect(screen.getByTitle('Test')).toBeEnabled()
+    render(<><BlockTabs /><AddBlockButton /></>)
+    expect(screen.getByRole('button', { name: 'Add block' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'All blocks' })).toBeEnabled()
+    expect(screen.getByRole('button', { name: 'Test' })).toBeEnabled()
     expect(screen.getByTestId('block-tab'), 'draggable').toHaveAttribute('draggable', 'true')
   })
 })
@@ -41,12 +46,12 @@ describe('BlockTabs context menu', () => {
       status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },
     })
     render(<BlockTabs />)
-    fireEvent.contextMenu(screen.getByTitle('Test'))
+    fireEvent.contextMenu(tabBtn('Test'))
     expect(screen.getByRole('menuitem', { name: 'Rename' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Delete' })).toBeInTheDocument()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Duplicate' }))
-    expect(screen.getByTitle('Test')).toBeInTheDocument()
-    expect(screen.getByTitle('Test (copy)')).toBeInTheDocument()
+    expect(tabBtn('Test')).toBeInTheDocument()
+    expect(tabBtn('Test (copy)')).toBeInTheDocument()
   })
 
   it('sets the block colour from a swatch and closes the menu', () => {
@@ -57,7 +62,7 @@ describe('BlockTabs context menu', () => {
     const gears = makeEmptyBlock('Gears', '#f472b6')
     useBlockStore.setState({ blocks: [plates, gears], activeBlockId: gears.id, history: {} })
     render(<BlockTabs />)
-    fireEvent.contextMenu(screen.getByTitle('Gears'))
+    fireEvent.contextMenu(tabBtn('Gears'))
     expect(screen.getByLabelText('Colour #f472b6')).toHaveAttribute('aria-checked', 'true')
     expect(document.querySelectorAll('[data-testid="block-color-swatch"][aria-checked="true"]')).toHaveLength(1)
     fireEvent.click(screen.getByLabelText('Colour #a3e635'))
@@ -65,22 +70,36 @@ describe('BlockTabs context menu', () => {
     expect(second.color).toBe('#a3e635')
     expect(first.color).toBe('#60a5fa')
     expect(screen.queryByRole('menu')).toBeNull()
-    const stripe = screen.getByTitle('Gears').querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
+    const stripe = tabBtn('Gears').querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
     expect(stripe.style.background).toBe('#a3e635')
   })
 })
 
 describe('BlockTabs tab look', () => {
-  it('shows the block name under a stripe in the block colour, full strength when active', () => {
+  it('shows the name on the active tab only, under a stripe in the block colour: full strength when active, 85% otherwise', () => {
     const plates = makeEmptyBlock('Plates', '#60a5fa')
     const gears = makeEmptyBlock('Gears', '#f472b6')
     useBlockStore.setState({ blocks: [plates, gears], activeBlockId: plates.id, history: {} })
     render(<BlockTabs />)
     const stripe = (name: string) =>
-      screen.getByTitle(name).querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
-    expect(screen.getByTitle('Plates')).toHaveTextContent('Plates')
+      tabBtn(name).querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
+    expect(tabBtn('Plates')).toHaveTextContent('Plates')
+    expect(tabBtn('Gears'), 'inactive tab shows no name').not.toHaveTextContent('Gears')
     expect(stripe('Plates').style.background, 'active').toBe('#60a5fa')
-    expect(stripe('Gears').style.background, 'inactive').toBe('rgba(244, 114, 182, 0.55)')
+    expect(stripe('Gears').style.background, 'inactive').toBe('rgba(244, 114, 182, 0.85)')
+    expect(stripe('Plates')).toHaveClass('h-[3px]')
+    expect(stripe('Gears')).toHaveClass('h-[3px]')
+  })
+
+  it('makes an inactive tab 44px wide and gives it the block initial when there is no icon', () => {
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = makeEmptyBlock('gears', '#f472b6')
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: plates.id, history: {} })
+    render(<BlockTabs />)
+    expect(tabBtn('gears').closest('[data-testid="block-tab"]')).toHaveClass('w-11')
+    expect(tabBtn('Plates').closest('[data-testid="block-tab"]')).not.toHaveClass('w-11')
+    expect(tabBtn('gears')).not.toHaveAttribute('title')
+    expect(tabBtn('gears').querySelector('[data-testid="block-tab-initial"]')).toHaveTextContent('g')
   })
 })
 
@@ -96,7 +115,7 @@ describe('BlockTabs reorder and overflow', () => {
     return { a, b, c }
   }
   const names = () => useBlockStore.getState().blocks.map(b => b.name)
-  const tab = (name: string) => screen.getByTitle(name).closest('[data-testid="block-tab"]') as HTMLElement
+  const tab = (name: string) => tabBtn(name).closest('[data-testid="block-tab"]') as HTMLElement
 
   /** Give every tab a 100px-wide box at x = 0 so the pointer half is decided by clientX alone. */
   function stubRects() {
@@ -117,7 +136,7 @@ describe('BlockTabs reorder and overflow', () => {
   it('moves a block left from the context menu and closes the menu', () => {
     const { a } = seed()
     render(<BlockTabs />)
-    fireEvent.contextMenu(screen.getByTitle('B'))
+    fireEvent.contextMenu(tabBtn('B'))
     fireEvent.click(screen.getByRole('menuitem', { name: 'Move left' }))
     expect(names()).toEqual(['B', 'A', 'C'])
     expect(useBlockStore.getState().activeBlockId, 'active unchanged').toBe(a.id)
@@ -127,11 +146,11 @@ describe('BlockTabs reorder and overflow', () => {
   it('disables Move left on the first tab and Move right on the last', () => {
     seed()
     render(<BlockTabs />)
-    fireEvent.contextMenu(screen.getByTitle('A'))
+    fireEvent.contextMenu(tabBtn('A'))
     expect(screen.getByRole('menuitem', { name: 'Move left' })).toBeDisabled()
     expect(screen.getByRole('menuitem', { name: 'Move right' })).toBeEnabled()
     fireEvent.keyDown(document, { key: 'Escape' })
-    fireEvent.contextMenu(screen.getByTitle('C'))
+    fireEvent.contextMenu(tabBtn('C'))
     expect(screen.getByRole('menuitem', { name: 'Move right' })).toBeDisabled()
     expect(screen.getByRole('menuitem', { name: 'Move left' })).toBeEnabled()
   })
@@ -139,7 +158,7 @@ describe('BlockTabs reorder and overflow', () => {
   it('closes the menu on Escape and renders it outside the scrolling strip', () => {
     seed()
     render(<BlockTabs />)
-    fireEvent.contextMenu(screen.getByTitle('B'))
+    fireEvent.contextMenu(tabBtn('B'))
     expect(screen.getByRole('menu').closest('[data-testid="block-tab-strip"]'), 'outside the strip').toBeNull()
     fireEvent.keyDown(document, { key: 'Escape' })
     expect(screen.queryByRole('menu')).toBeNull()
@@ -169,10 +188,32 @@ describe('BlockTabs reorder and overflow', () => {
     expect(screen.queryByTestId('block-tab-drop-line')).toBeNull()
   })
 
-  it('shows no "All blocks" menu while the strip does not overflow', () => {
+  it('has an All blocks list before the tabs whether or not they fit', () => {
     seed()
     render(<BlockTabs />)
-    expect(screen.queryByTitle('All blocks')).toBeNull()
+    const list = screen.getByRole('button', { name: 'All blocks' })
+    expect(list.compareDocumentPosition(screen.getAllByTestId('block-tab')[0]) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+    expect(list).toHaveClass('w-7', 'h-7')
+  })
+
+  it('lists every block in the list, switches to the one picked and closes', () => {
+    const { c } = seed()
+    render(<BlockTabs />)
+    fireEvent.click(screen.getByRole('button', { name: 'All blocks' }))
+    expect(screen.getAllByRole('menuitemradio').map(i => i.textContent)).toEqual(['A', 'B', 'C'])
+    expect(screen.getByRole('menuitemradio', { name: 'A' })).toHaveAttribute('aria-checked', 'true')
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'C' }))
+    expect(useBlockStore.getState().activeBlockId).toBe(c.id)
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
+
+  it('closes the list on Escape', () => {
+    seed()
+    render(<BlockTabs />)
+    fireEvent.click(screen.getByRole('button', { name: 'All blocks' }))
+    expect(screen.getByRole('menu', { name: 'All blocks' })).toBeInTheDocument()
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(screen.queryByRole('menu')).toBeNull()
   })
 
   it('scrolls the strip by line-mode wheel deltas converted to pixels', () => {
@@ -187,7 +228,7 @@ describe('BlockTabs reorder and overflow', () => {
   it('makes the tab button fill its wrapper', () => {
     seed()
     render(<BlockTabs />)
-    expect(screen.getByTitle('A')).toHaveClass('flex-1')
+    expect(tabBtn('A')).toHaveClass('flex-1')
   })
 
   it('re-reveals the active tab after a reorder', () => {

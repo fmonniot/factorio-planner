@@ -48,14 +48,14 @@ test.describe('block connections', () => {
     await expect(rodSlot(page)).toHaveAccessibleName(/, 15\.0 per/)
 
     // Plates shows what it sends to Gears.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     const exportSegment = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
     await expect(exportSegment).toHaveAttribute('title', /^Sends Iron plate to Gears/)
     await expect(detail(page, 'Products').locator('[data-testid="summary-key-entry"][data-kind="export"]')).toContainText('30.0')
 
     // Back on Gears, the request is served in full.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
 
     // Removing the connection brings the whole import back.

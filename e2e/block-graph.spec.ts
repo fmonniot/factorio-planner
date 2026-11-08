@@ -86,7 +86,7 @@ test.describe('block graph', () => {
   test('lists a source\'s product even when it offers nothing', async ({ page }) => {
     await setup(page)
     // Plates keeps only what is requested: with no request, it offers nothing.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     await detail(page, 'Products').getByRole('button', { name: 'Remove extra' }).click()
     await openGraph(page)
@@ -177,6 +177,6 @@ test.describe('block graph', () => {
     await openGraph(page)
     await node(page, 'Plates').getByRole('button', { name: 'Plates', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
-    await expect(page.locator('button[title="Plates"]')).toBeVisible()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Plates"]')).toBeVisible()
   })
 })

@@ -1,4 +1,4 @@
-import { BlockTabs } from '../BlockTabs'
+import { BlockTabs, AddBlockButton } from '../BlockTabs'
 import { HorizonButton } from '../HorizonPicker'
 import { BlockGraphButton } from './BlockGraph'
 import { PlanAreasButton } from './PlanAreas'
@@ -17,6 +17,7 @@ export function TopBar() {
           <BlockTabs />
         </div>
         <div className="flex items-center gap-0.5 shrink-0">
+          <AddBlockButton />
           <HorizonButton />
           <BlockGraphButton />
           <PlanAreasButton />

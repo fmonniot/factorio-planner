@@ -25,7 +25,8 @@ interface MenuButtonProps {
   label: ReactNode
   /** Accessible name of the trigger, when it differs from the visible label. */
   ariaLabel?: string
-  title: string
+  /** Native tooltip; leave out when the trigger has a tooltip of its own. */
+  title?: string
   /** Accessible name of the panel. */
   menuLabel: string
   /** Which edge of the trigger the panel lines up with. */
