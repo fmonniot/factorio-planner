@@ -263,8 +263,11 @@ export function RecipeRow({
 
   const highlightProps = isHighlighted ? { 'data-highlighted': 'true' } : {}
   const highlightClass = isHighlighted ? 'bg-teal-900/40 outline outline-2 outline-teal-400' : ''
+  // The selection tint and outline give way to the flash and to the drop-into-group cue, which draw
+  // their own: two utilities on one property would be decided by stylesheet order, not by intent.
+  const isDropInto = planNode.kind === 'subplan' && dropZone === 'into'
   const rowStateClass = isSelected
-    ? `${SELECTED_ROW_CLASS} ${isHighlighted ? '' : SELECTED_OUTLINE_CLASS}`
+    ? `${isHighlighted ? '' : SELECTED_ROW_CLASS} ${isHighlighted || isDropInto ? '' : SELECTED_OUTLINE_CLASS}`
     : 'hover:bg-gray-800/40'
 
   // ── SubPlan node ─────────────────────────────────────────────────────────
