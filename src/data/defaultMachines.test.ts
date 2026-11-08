@@ -44,7 +44,7 @@ function makeGameData(): GameData {
 function horizon(machineIds: string[] | null): Horizon {
   return {
     recipeIds: null, itemIds: null, machineIds: machineIds && new Set(machineIds),
-    beaconIds: null, moduleIds: null, defaultMachines: {},
+    beaconIds: null, moduleIds: null, defaultMachines: {}, defaultFuels: undefined,
   }
 }
 

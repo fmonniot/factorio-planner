@@ -65,9 +65,17 @@ export function acceptedFuels(gameData: GameData, machine: Machine): Item[] {
   return candidatesOf(gameData).filter(item => categories.includes(item.fuelCategory!))
 }
 
-/** The fuel a row burns when it has no (valid) choice: the lowest-value accepted fuel (item or fluid). */
-export function defaultFuel(gameData: GameData, machine: Machine): Item | undefined {
-  return acceptedFuels(gameData, machine)[0]
+/**
+ * The fuel a row burns when it has no (valid) choice: the machine's entry in `defaultFuels` (the horizon-aware
+ * overlay) when it is still accepted, else the lowest-value accepted fuel (item or fluid).
+ */
+export function defaultFuel(
+  gameData: GameData,
+  machine: Machine,
+  defaultFuels: GameData['defaultFuels'] = gameData.defaultFuels,
+): Item | undefined {
+  const accepted = acceptedFuels(gameData, machine)
+  return accepted.find(item => item.id === defaultFuels?.[machine.id]) ?? accepted[0]
 }
 
 /**
@@ -75,10 +83,14 @@ export function defaultFuel(gameData: GameData, machine: Machine): Item | undefi
  * Undefined when the machine is not a burner or fluid burner, has no fuel data or no accepted fuel (the row then keeps
  * its power draw).
  */
-export function resolveRowFuel(gameData: GameData, machine: Machine | undefined, fuelItemId: string | undefined): Item | undefined {
+export function resolveRowFuel(
+  gameData: GameData,
+  machine: Machine | undefined,
+  fuelItemId: string | undefined,
+  defaultFuels: GameData['defaultFuels'] = gameData.defaultFuels,
+): Item | undefined {
   if (!machine) return undefined
-  const accepted = acceptedFuels(gameData, machine)
-  return accepted.find(item => item.id === fuelItemId) ?? accepted[0]
+  return acceptedFuels(gameData, machine).find(item => item.id === fuelItemId) ?? defaultFuel(gameData, machine, defaultFuels)
 }
 
 /**

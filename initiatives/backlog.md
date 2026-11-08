@@ -50,7 +50,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Mining productivity research.** Extraction rows use the drill's base mining speed. Mining productivity research and a drill's base `effect_receiver` are ignored.
 - [ ] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`.
 - [ ] **Wind turbines and other `electric-energy-interface` generators.** Seablock's `wind-turbine-2` (15 kW) and Nullius' wind turbines and Stirling engines are `electric-energy-interface` entities whose output is set by script (wind, altitude, heat). Decide an average per entity and export them as generation recipes.
-- [ ] **Horizon-aware default fuel.** A burner row without a choice burns the lowest-value accepted fuel, whatever the research horizon. Make the default horizon-aware (the best fuel inside the horizon).
 - [ ] **Burnt results of fuels.** A fuel with a `burnt_result` is never offered. Model the burnt item as an output of the burner row.
 - [ ] **Fluid-burning non-crafting machines.** Drills and pumps with a `burns_fluid` source are exported as `fluid-burner` but have no UI or tests.
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
