@@ -380,8 +380,12 @@ describe('totalRows', () => {
   const ids = (xs: { itemId: string }[]) => xs.map(x => x.itemId)
 
   it('keeps a group made only of energy items, flagged', () => {
-    const rows = [{ itemId: 'power:electricity' }, { itemId: 'power:heat' }]
+    const rows = [{ itemId: 'power:electricity' }, { itemId: 'power:electricity' }]
     expect(totalRows(rows)).toEqual({ rows, energy: true })
+  })
+
+  it('does not sum electricity and heat together', () => {
+    expect(totalRows([{ itemId: 'power:electricity' }, { itemId: 'power:heat' }])).toEqual({ rows: [], energy: false })
   })
 
   it('drops the energy rows of a mixed group', () => {

@@ -203,9 +203,9 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const open = !grouping ? true : groupOverrides.get(g.id) ?? true
     const tailOpen = openTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
-    const { rows: tr, energy } = totalRows(g.rows)
-    const fromTotal = tr.reduce((n, r) => n + outsideValue(r, 'from'), 0)
-    const toTotal = tr.reduce((n, r) => n + outsideValue(r, 'to'), 0)
+    const { rows: tr, energy } = grouping ? totalRows(g.rows) : { rows: g.rows, energy: false }
+    const fromTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'from'), 0) : 0
+    const toTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'to'), 0) : 0
     return (
       <tbody key={g.id} data-group-id={g.id}>
         {grouping && (
@@ -219,7 +219,10 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               >
                 <span aria-hidden className="w-2.5 text-[10px] text-gray-400">{open ? '▾' : '▸'}</span>
                 {g.name}
-                <span className="text-[11px] font-normal text-gray-400">
+                <span
+                  className="text-[11px] font-normal text-gray-400"
+                  title={!energy && tr.length < g.rows.length ? 'Totals leave out electricity and heat rows' : undefined}
+                >
                   {g.rows.length} {g.rows.length === 1 ? 'item' : 'items'}
                 </span>
               </button>
@@ -233,8 +236,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               return (
                 <td
                   key={a.areaId}
-                  title={t.kind === 'pair' && t.out > 0 && t.in > 0 ? 'Sends to the focus, then receives from it' : undefined}
-                  className={cellClass(a.areaId, `px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
+                  title={text === '' ? undefined : t.kind === 'pair' && t.out > 0 && t.in > 0 ? `Sends to the focus, then receives from it: ${text}` : text}
+                  className={cellClass(a.areaId, `truncate px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
                 >
                   {text}
                 </td>
@@ -332,7 +335,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                         </button>
                         <small className="block text-[11px] font-normal text-gray-400">
                           {trade
-                            ? headerNote(trade.inRate, trade.outRate, trade.items)
+                            ? headerNote(trade.inRate + trade.inEnergy, trade.outRate + trade.outEnergy, trade.items)
                             : `${a.contents.rowCount} ${a.contents.rowCount === 1 ? 'row' : 'rows'}`}
                         </small>
                       </th>

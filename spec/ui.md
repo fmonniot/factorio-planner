@@ -277,8 +277,10 @@ for buildings" (items that place a machine or a beacon) — or listed by total r
 A–Z (no groups). A group row (`th scope="rowgroup"` with a button, `aria-expanded`) shows
 the group's item count and its totals per column. A total adds up the items only, because
 items and power share no unit: the electricity and heat rows of a mixed group stay visible
-below but are left out of its header, and a group made only of electricity and heat sums
-them in power units. Within a group rows are ordered by total
+below but are left out of its header (the item count then carries a tooltip saying so), and
+a group made only of one of them sums it in power units; electricity and heat are never
+added together, so a group holding both shows no total. Group cells truncate with the full
+text as tooltip. Within a group rows are ordered by total
 rate (what the areas send plus what comes from outside), then name. Rows below 1 item/min
 fold into a tail, after at most seven rows: "+ N more, X/m and below: A, B, C, D…" opens
 them (and reads "Show fewer"); a single leftover row of at least 1/min stays in the head.
@@ -293,7 +295,7 @@ teal and a panel (`aside`, named after the area) opens at the right with the are
 name, "Area in <block> · N rows", **Show in table**, a close button ("Stop focusing
 <area>"), its contents (sub-factories, areas nested inside, the first recipes of its
 rows) and a "Trades with" list of the areas and the outside it exchanges items with
-(each area is a button that moves the focus; the outside reads "Outside the block"), with the item count and the rates in and out: "12.0/m + 10.0MW in", the items and the electricity and heat kept apart).
+(each area is a button that moves the focus; the outside reads "Outside the block"), with the item count and the rates in and out: "12.0/m + 10.0MW in", the items and the electricity and heat kept apart). Parties are sorted by item rate, then by energy rate: items and power share no unit, so a party trading few items ranks above one trading much power. The header note counts energy flows for its direction.
 Unless **Show all N areas** is chosen, only the items the area moves and the areas it
 trades with stay; the other headers read "sends it N items", "takes N items" or "trades N
 items", and the counterpart cells (`data-counterpart="true"`, teal ring) read "13.8 →"
@@ -699,7 +701,7 @@ Products also draw a 2px light tick at the target when the actual rate differs f
 
 **Detail strip.** A fixed-height strip (`h-[110px]`, `data-testid="summary-detail"`, `data-state`) at the bottom of the pane, on a lighter background, always present, so slots never move when the selection changes. It has four states:
 
-- *overview* (nothing selected or hovered): an `Overview` heading with the hint "click a row to trace it" ("click again to clear" while tracing), then one button per segment key in the pane, laid out in columns: swatch, label such as `→ Sciences`, `Left`, `Imported`, a bar sized against the pane's largest total (at least 2% wide), the total rate of the items (electricity and heat are not added to it; `unused` for an unused source, `—` for a key with no rate) and the number of items carrying it. A key carried only by electricity or heat shows its power in W / kW / MW / GW instead and its bar is sized against the largest power-only key; a key carrying both shows the item total and adds the power to the row's tooltip ("12.0/m of items + 10.0MW"). The strip's height shows three rows and a peek at the fourth; more rows scroll (`summary-overview-rows`) with the same bottom fade as the grid. Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): the row gets a border in its block's colour, the other rows fade, slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
+- *overview* (nothing selected or hovered): an `Overview` heading with the hint "click a row to trace it" ("click again to clear" while tracing), then one button per segment key in the pane, laid out in columns: swatch, label such as `→ Sciences`, `Left`, `Imported`, a bar sized against the pane's largest total (at least 2% wide), the total rate of the items (electricity and heat are not added to it; `unused` for an unused source, `—` for a key with no rate) and the number of items carrying it. A key carried only by electricity or heat shows its power in W / kW / MW / GW instead and its bar is sized against the largest power-only key; a key carrying both shows the item total and adds the power to the row's tooltip ("12.0/m of items + 10.0MW"); the power is therefore not visible beside a small item total, and bars compare items with items and power-only keys with power-only keys, not across kinds. The strip's height shows three rows and a peek at the fourth; more rows scroll (`summary-overview-rows`) with the same bottom fade as the grid. Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): the row gets a border in its block's colour, the other rows fade, slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
 - *preview* (a slot is hovered): that slot's detail with a `preview` tag after the name. Hovering the selected slot keeps the selected state.
 - *selected* (a slot is clicked): header (icon, name, rates, `×` back to the overview), the full-size bar with labels (name and rate) on segments at least 20% wide, a colour key listing every segment and overlay with its exact rate, wrapped inline (it scrolls inside the strip), and the item's actions.
 - *editing* (Products only): as selected, with the extra output as an input. Hover does not change the strip meanwhile.

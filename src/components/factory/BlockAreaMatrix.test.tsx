@@ -95,4 +95,23 @@ describe('BlockAreaMatrix power units', () => {
     const panel = screen.getByRole('complementary', { name: 'A' })
     expect(within(panel).getAllByText(/5\.0MW out/).length).toBeGreaterThan(0)
   })
+
+  it('words the header note of an energy-only trade by its direction', () => {
+    renderMatrix({ matrix: { ...matrix, rows: [elecRow] }, focusedAreaId: 'B' })
+    const head = document.querySelector('thead button[title="Focus A"]')!.closest('th')!
+    expect(head.textContent).toContain('sends it 1 item')
+  })
+
+  it('leaves the totals of an ungrouped matrix alone and hints at the left-out rows', () => {
+    const mixed = { ...elecRow, groupId: 'other-items' }
+    renderMatrix({ matrix: { ...matrix, rows: [mixed, plateRow] } })
+    expect(document.querySelector('tbody[data-group-id="other-items"] span[title]')?.getAttribute('title')).toMatch(/leave out/)
+  })
+
+  it('adds no total for a group holding electricity and heat', () => {
+    const heat = { ...elecRow, itemId: 'power:heat', name: 'Heat' }
+    renderMatrix({ matrix: { ...matrix, rows: [elecRow, heat] } })
+    const header = document.querySelector('tbody[data-group-id="power"] tr')!
+    expect(header.textContent).not.toContain('MW')
+  })
 })

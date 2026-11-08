@@ -21,6 +21,13 @@ describe('fmtPower', () => {
     expect(fmtPower(2500)).toEqual({ value: '2.5', unit: 'MW' })
   })
 
+  it('promotes the unit when rounding reaches 1000', () => {
+    expect(fmtPower(0.9996)).toEqual({ value: '1.0', unit: 'kW' })
+    expect(fmtPower(999.96)).toEqual({ value: '1.0', unit: 'MW' })
+    expect(fmtPower(999_960)).toEqual({ value: '1.0', unit: 'GW' })
+    expect(fmtPower(999.9)).toEqual({ value: '999.9', unit: 'kW' })
+  })
+
   it('formats GW range', () => {
     expect(fmtPower(1_000_000)).toEqual({ value: '1.0', unit: 'GW' })
   })

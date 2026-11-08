@@ -375,10 +375,11 @@ export type GroupTotal =
 
 /**
  * The rows a group total adds up. Items and energy do not share a unit, so a total counts the
- * non-energy rows; a group made only of electricity and heat sums those, in power units (`energy`).
+ * non-energy rows; a group made only of one energy item (electricity or heat, which are not
+ * interchangeable) sums it, in power units (`energy`).
  */
 export function totalRows<R extends { itemId: string }>(rows: R[]): { rows: R[]; energy: boolean } {
-  if (rows.length > 0 && rows.every(r => isEnergyItem(r.itemId))) return { rows, energy: true }
+  if (rows.length > 0 && rows.every(r => isEnergyItem(r.itemId) && r.itemId === rows[0].itemId)) return { rows, energy: true }
   return { rows: rows.filter(r => !isEnergyItem(r.itemId)), energy: false }
 }
 
