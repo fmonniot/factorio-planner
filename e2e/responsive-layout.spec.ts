@@ -84,7 +84,7 @@ test.describe('phone width', () => {
 
     const menu = await openAppMenu(page)
     await menu.getByRole('menuitem', { name: 'Rename plan' }).click()
-    const dialog = page.locator('div.fixed.inset-0 > div').last()
+    const dialog = page.getByTestId('modal-panel')
     await expect(dialog).toBeVisible()
     await expectWithinViewport(page, dialog)
   })
@@ -111,15 +111,22 @@ test.describe('phone width: pickers, flyouts and errors', () => {
   })
 
   test('a tall modal scrolls inside the viewport', async ({ page }) => {
-    await page.setViewportSize({ width: 390, height: 300 })
+    // Load at a normal height, then shrink the viewport below the dialog's natural height (about 130px).
     await load(page)
     const menu = await openAppMenu(page)
     await menu.getByRole('menuitem', { name: 'Rename plan' }).click()
-    const dialog = page.locator('div.fixed.inset-0 > div').last()
+    const dialog = page.getByTestId('modal-panel')
     await expect(dialog).toBeVisible()
+    const natural = (await dialog.boundingBox())!.height
+    const viewportHeight = Math.floor(natural / 2)
+    await page.setViewportSize({ width: 390, height: viewportHeight })
     const box = (await dialog.boundingBox())!
-    expect(box.y + box.height).toBeLessThanOrEqual(300)
+    expect(box.y + box.height).toBeLessThanOrEqual(viewportHeight)
     expect(box.y).toBeGreaterThanOrEqual(0)
+    // It scrolls inside its cap instead of overflowing.
+    const [scrollHeight, clientHeight] = await dialog.evaluate(el => [el.scrollHeight, el.clientHeight])
+    expect(scrollHeight).toBeGreaterThan(clientHeight)
+    await expect(dialog).toHaveCSS('overflow-y', 'auto')
   })
 
   test('a data load error stays visible without the label', async ({ page }) => {
@@ -212,7 +219,8 @@ test.describe('side panel below xl', () => {
 })
 
 test.describe('column widths', () => {
-  const TABLE_MIN_WIDTH = 730
+  // The table's minimum width, as the table declares it (so a column minimum change cannot leave this test stale).
+  const tableMinWidth = (page: Page) => page.locator('main table').first().evaluate(el => parseFloat(getComputedStyle(el).minWidth))
   const widths = (page: Page) =>
     page.locator('main table thead th').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))
   // Column order: reorder, recipe, machine, beacons, products, byproducts, ingredients, power.
@@ -241,13 +249,18 @@ test.describe('column widths', () => {
         await load(page)
         if (withPanel) await selectRow(page, row(page))
         const w = await widths(page)
-        expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(TABLE_MIN_WIDTH - 0.5)
+        const min = await tableMinWidth(page)
+        expect(min).toBeGreaterThan(0)
+        expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(min - 0.5)
         expect(w[1]).toBeGreaterThanOrEqual(149.5)
         expect(w[4]).toBeCloseTo(72, 0)
         expect(w[5]).toBeGreaterThanOrEqual(79.5)
         expect(w[6]).toBeGreaterThanOrEqual(147.5)
         const [sw, cw] = await tableScroller(page).evaluate(el => [el.scrollWidth, el.clientWidth])
-        if (cw < TABLE_MIN_WIDTH) expect(sw).toBeGreaterThan(cw)
+        // Both outcomes are asserted: a wrapper narrower than the minimum scrolls; a wider one fits without scrolling.
+        if (cw < min) expect(sw, 'the narrow wrapper scrolls').toBeGreaterThan(cw)
+        else expect(sw, 'the wide wrapper does not scroll').toBeLessThanOrEqual(cw)
+        expect(withPanel ? cw >= min : cw < min, withPanel ? 'the inline panel leaves room for the minimum' : 'the phone wrapper is narrower than the minimum').toBe(true)
       })
     }
   })
@@ -280,8 +293,16 @@ test.describe('ingredients alignment', () => {
     await expect(last).toBeVisible()
     const box = (await cell.boundingBox())!
     const chip = (await last.boundingBox())!
-    // Within the cell padding (8px) of the right edge, not at the left.
+    // Within the cell padding (8px) of the right edge, and the first chip is well clear of the left edge.
     expect(box.x + box.width - (chip.x + chip.width)).toBeLessThanOrEqual(12)
+    const first = (await cell.locator(':scope > div > *').first().boundingBox())!
+    expect(first.x - box.x, 'the chips do not start at the left edge').toBeGreaterThan(24)
+    // Same right edge as the items an area receives, in the same column.
+    const received = page.locator('main table tbody tr').filter({ hasText: 'Compression' }).getByTestId('area-chips-in').locator('[data-direction="receives"]').last()
+    if (await received.count()) {
+      const r = (await received.boundingBox())!
+      expect(Math.abs((r.x + r.width) - (chip.x + chip.width))).toBeLessThanOrEqual(2)
+    }
   })
 })
 

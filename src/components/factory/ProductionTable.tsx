@@ -118,6 +118,8 @@ export function ProductionTable() {
       <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
         <TableToolbar rootPlan={rootPlan} solvedNodes={solverResult?.nodes ?? []} onAddRecipe={() => setPicker({})} />
         {/* Scrollable table body */}
+        {/* container-type also applies layout containment: a position:fixed descendant would be placed against (and clipped by)
+            this wrapper. Popups are portalled to body, so none exists; keep it that way or compute widths another way. */}
         <div ref={scrollRef} className="flex-1 overflow-auto overscroll-x-contain [container-type:inline-size]">
           {nodes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">

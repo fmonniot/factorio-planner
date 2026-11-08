@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { RowActionsMenu } from '../RowActionsMenu'
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { SidePanel } from './SidePanel'
@@ -299,5 +301,51 @@ describe('SidePanel — where inputs come from', () => {
     const box = within(entry('ore')).getByTestId('forbid-imports')
     expect(box).toBeDisabled()
     expect(box.closest('label')).toHaveAttribute('title', expect.stringContaining('No recipe in this block makes Iron Ore'))
+  })
+})
+
+describe('SidePanel — backdrop', () => {
+  function Harness() {
+    const [menu, setMenu] = useState(true)
+    return (
+      <>
+        <SidePanel blockId={block.id} rootPlan={block.rootPlan} result={undefined} gameData={gd} />
+        {menu && <RowActionsMenu x={10} y={10} actions={[{ label: 'Do it', onSelect: () => {} }]} onClose={() => setMenu(false)} />}
+      </>
+    )
+  }
+  const press = (el: Element, detail = 1) => {
+    fireEvent.mouseDown(el)
+    fireEvent.click(el, { detail })
+  }
+
+  it('closes the drawer when nothing else is open', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderPanel()
+    press(screen.getByTestId('side-panel-backdrop'))
+    expect(selected()).toBeNull()
+  })
+
+  it('only closes a row menu (which dismisses itself on mousedown) opened over the drawer, then closes the drawer on the next press', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    render(<Harness />)
+    const backdrop = screen.getByTestId('side-panel-backdrop')
+    press(backdrop)
+    expect(screen.queryByText('Do it')).toBeNull()
+    expect(selected()).not.toBeNull()
+    press(backdrop)
+    expect(selected()).toBeNull()
+  })
+
+  it('a keyboard click on the backdrop closes the drawer even after a swallowed press', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    render(<Harness />)
+    const backdrop = screen.getByTestId('side-panel-backdrop')
+    fireEvent.mouseDown(backdrop) // a press that never completes as a click on the backdrop (a drag ending elsewhere)
+    fireEvent.click(backdrop, { detail: 0 })
+    expect(selected()).toBeNull()
   })
 })

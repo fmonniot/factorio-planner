@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useId, type ReactNode } from 'react'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { ChevronDownIcon } from './icons'
 
 export const ITEM_SELECTOR = '[role^="menuitem"]:not(:disabled)'
@@ -56,6 +57,7 @@ function PanelItems({ render, close }: { render: MenuButtonProps['children']; cl
  */
 export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, triggerClassName, caret, panelClassName = '', openSignal, children }: MenuButtonProps) {
   const [open, setOpen] = useState(false)
+  useOverlayOpen(open)
   const menuId = useId()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)

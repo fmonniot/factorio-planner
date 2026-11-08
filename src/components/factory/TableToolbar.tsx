@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../store/uiStore'
 import type { RateUnit } from '../../store/uiStore'
@@ -219,6 +220,7 @@ export function WarningsPopover() {
     return i >= 0 && i % 2 === 0 ? idNames[i + 1] : id
   }
   const [open, setOpen] = useState(false)
+  useOverlayOpen(open)
   const ref = useRef<HTMLDivElement>(null)
 
   const warnings = result?.warnings ?? []

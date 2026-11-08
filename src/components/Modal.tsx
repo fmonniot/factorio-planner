@@ -23,10 +23,13 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
   }
 
   // Caps apply unless the caller sets its own (utility order in the stylesheet, not class order, would pick the winner).
+  // Variant-prefixed overrides (`md:max-w-lg`) count too; only an `overflow-y-*` or bare `overflow-*` (both axes) replaces the vertical scroll.
+  const hasMaxW = /(^|\s)(?:[\w-]+:)*max-w-/.test(className)
+  const hasOverflowY = /(^|\s)(?:[\w-]+:)*overflow-(?:y-|auto|hidden|visible|scroll|clip)/.test(className)
   const capClasses = [
-    /(^|\s)max-w-/.test(className) ? '' : 'max-w-[calc(100vw-1rem)]',
+    hasMaxW ? '' : 'max-w-[calc(100vw-1rem)]',
     'max-h-[calc(100dvh-1rem)]',
-    /(^|\s)overflow-/.test(className) ? '' : 'overflow-y-auto',
+    hasOverflowY ? '' : 'overflow-y-auto',
   ].join(' ')
 
   return (
@@ -36,6 +39,7 @@ export function Modal({ onClose, children, className = '' }: ModalProps) {
     >
       <div
         ref={panelRef}
+        data-testid="modal-panel"
         className={`bg-gray-900 border border-gray-700 rounded-lg shadow-2xl ${capClasses} ${className}`}
       >
         {children}

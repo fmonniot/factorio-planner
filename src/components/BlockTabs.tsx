@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useLayoutEffect } from 'react'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
 import { useBlockStore } from '../store/blockStore'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
@@ -34,6 +35,7 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   const index = blocks.findIndex(b => b.id === blockId)
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: anchor.left, y: anchor.bottom + 4 })
+  useOverlayOpen()
 
   // Keep the latest onClose in a ref so the document listeners bind once.
   const onCloseRef = useRef(onClose)
