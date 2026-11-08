@@ -69,9 +69,6 @@ button{font-family:inherit;cursor:pointer}
 .seg:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px}
 .seg .tip{display:none}
 .seg:hover .tip,.seg:focus .tip{display:flex}
-.ibtn{all:unset;cursor:pointer;box-sizing:border-box;flex:none;width:22px;height:20px;display:flex;align-items:center;justify-content:center;background:#101828;color:#d1d5dc;border:1px solid #4a5565;border-radius:4px}
-.ibtn:hover{border-color:#99a1af;color:#f3f4f6}
-.ibtn:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px}
 .menuitem{all:unset;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 10px;font-size:12px;color:#d1d5dc}
 .menuitem:hover,.menuitem:focus-visible{background:#364153;color:#f9fafb}
 </style>
@@ -95,9 +92,30 @@ button{font-family:inherit;cursor:pointer}
 
 <div style="display:flex;gap:8px">
 <button class="act" style="flex:1" onClick="{{allOn}}">All changes on</button>
+<button class="act" style="flex:1" onClick="{{decidedOnly}}">Decided only</button>
 <button class="act" style="flex:1" onClick="{{allOff}}">All off</button>
 </div>
 
+<button class="act" style="text-align:left;display:flex;justify-content:space-between;gap:8px;min-height:40px" aria-expanded="{{decOpen}}" onClick="{{toggleDec}}"><span>{{decLabel}}</span><span aria-hidden="true">{{decMark}}</span></button>
+<sc-if value="{{decOpen}}" hint-placeholder-val="{{ false }}">
+<div style="column-count:2;column-gap:24px">
+<sc-for list="{{decGroups}}" as="g" hint-placeholder-count="1">
+<div style="display:flex;flex-direction:column;gap:6px;break-inside:avoid;margin-bottom:14px">
+<span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af">{{g.title}}</span>
+<sc-for list="{{g.items}}" as="t" hint-placeholder-count="2">
+<button class="{{t.cls}}" aria-pressed="{{t.pressed}}" onClick="{{t.toggle}}">
+<span class="sw"></span>
+<span style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="font-size:13px;font-weight:600;color:#f3f4f6">{{t.label}}</span>
+<span style="font-size:11px;line-height:1.35;color:#99a1af">{{t.desc}}</span>
+<span style="font-size:11px;line-height:1.35;color:#5eead4">{{t.tryIt}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</sc-if>
 <div style="column-count:2;column-gap:24px">
 <sc-for list="{{groups}}" as="g" hint-placeholder-count="11">
 <div style="display:flex;flex-direction:column;gap:6px;break-inside:avoid;margin-bottom:14px">
@@ -205,13 +223,6 @@ button{font-family:inherit;cursor:pointer}
 <span style="font-size:12px;font-weight:600;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.itName}}</span>
 <sc-if value="{{p.itPreview}}" hint-placeholder-val="{{ false }}"><span style="flex:none;font-size:10px;color:#99a1af;border:1px solid #364153;border-radius:3px;padding:0 4px">preview</span></sc-if>
 <span style="flex:1;text-align:right;font-family:ui-monospace,Menlo,monospace;color:#e5e7eb;white-space:nowrap">{{p.itRate}}</span>
-<sc-for list="{{p.actIcons}}" as="a" hint-placeholder-count="2"><button class="ibtn" title="{{a.label}}" aria-label="{{a.label}}" onClick="{{a.go}}">
-<sc-if value="{{a.search}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="4"></circle><path d="M9 9l3.5 3.5"></path></svg></sc-if>
-<sc-if value="{{a.trash}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h9M5.5 4V2.5h3V4M4 4l.5 8h5l.5-8"></path></svg></sc-if>
-<sc-if value="{{a.plus}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"></path></svg></sc-if>
-<sc-if value="{{a.up}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5l7-7M5 3.5h5.5V9"></path></svg></sc-if>
-<sc-if value="{{a.inn}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2v7M4 6.5l3 3 3-3M2.5 12h9"></path></svg></sc-if>
-</button></sc-for>
 <sc-if value="{{p.itSel}}" hint-placeholder-val="{{ false }}"><button style="flex:none;all:unset;cursor:pointer;color:#99a1af;padding:0 0 0 4px;display:flex" aria-label="Back to overview" onClick="{{p.itBack}}"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg></button></sc-if>
 </div>
 <sc-if value="{{p.itBase}}" hint-placeholder-val="{{ true }}">
@@ -428,7 +439,10 @@ button{font-family:inherit;cursor:pointer}
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
-const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: {}, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
+// Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack'];
+const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
+const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
 const TABS = ['Sciences','Hub','Agricultural Science','Circuits','Mod 1','Metals','Ores','Sludge','Bean 1','Clay Brick','Extra Sulfur'];
 const STRIPES = ['#38bdf8','#a78bfa','#4ade80','#60a5fa','#f472b6','#7dd3fc','#2dd4bf','#fb923c','#c084fc','#f87171','#facc15'];
@@ -447,11 +461,10 @@ const TOUCH = ['fc', 'fi', 'ip', 'il'];
 const AREA_PAD = 28;
 const PANES = [['p', 'Products', '#2dd4bf'], ['b', 'Byproducts', '#6a7282'], ['i', 'Ingredients', '#a78bfa']];
 const GROUPS = [
-  { title: '1 · Summary strip', items: [
+  { title: '1 · Summary strip', decided: true, items: [
     ['sumShort', 'Shorter detail strip (110 to 72 px)', 'Still a fixed height, so the table never moves. Here the colour key and the actions share one line; the overview shows about one row instead of three.', 'Try: click an item in a pane (it is selected, then ✕ clears it), and scroll the overview rows.'],
     ['legTip', 'Legend as a tooltip on the bar', 'The key line goes; hovering (or tapping) a segment of the bar names it with its amount and note, in the same black tooltip as the tool buttons. The actions keep their line.', 'Try: select an item with two or three sources (the first Metals product), hover the segments.'],
     ['legInBar', 'Legend written in the bar', 'The bar grows to 16 px and carries the text itself: name and amount when the segment is wide enough, the amount alone when it is narrower, nothing when tiny (the native tooltip names it). The actions keep their line.', 'Try: select the first Metals product, then the first Ingredients item.'],
-    ['legMenu', 'Two-line bar, actions as icons', 'The bar grows to 36 px with the name over the amount; the actions become two icon buttons in the item header, which frees the line. Wins over the previous option for the text.', 'Try: select an item and hover the icon buttons (they say what they do).'],
     ['ovBar', 'Overview as one bar', 'Overview rows become a single stacked bar, like a selected item, sized by share of the pane\'s total. Hover or click a segment to trace it. It uses whichever legend option is on above; with none, the key line under the bar.', 'Try: Metals, look at the Ingredients pane, click a segment; then turn on a legend option.'],
     ['sumLine', 'Collapsible summary', 'A one-line summary (counts and as many chips as fit, then a +N like the area rows) that replaces the strip until you expand it. Expanding pushes the table down and the choice stays across blocks, so you can leave it open while you work through connections.', 'Try: click a +N to list every item with its rate, then Expand, switch blocks and click Collapse summary.'],
     ['sumStack', 'Stack the collapsed summary on phones', 'Needs the collapsible summary above. Under 768 px its three lines sit on top of each other instead of scrolling sideways, and the handle row expands them. Expanded, the panes scroll sideways as before; the Fold inner screen keeps its three columns.', 'Try: Fold 8 cover with the collapsible summary on, then this one; Expand.'] ] },
@@ -813,12 +826,11 @@ class Component extends DCLogic {
       const item = shown >= 0 ? slotsData[shown] : null;
       const lineGap = tg.sumShort;
       // The bar design shared by a selected item and (with ovBar) the overview.
-      const legOn = !!(tg.legTip || tg.legInBar || tg.legMenu);
+      const legOn = !!(tg.legTip || tg.legInBar);
       const ovBarOn = !item && !!tg.ovBar && ovData.length > 0;
       const itNew = !!item && legOn;
       const useBar = ovBarOn || itNew;
-      const twoLine = !!tg.legMenu;
-      const barH = !useBar ? 0 : twoLine ? 36 : tg.legInBar ? 16 : tg.legTip ? 14 : 12;
+      const barH = !useBar ? 0 : tg.legInBar ? 16 : tg.legTip ? 14 : 12;
       let barSegs = [], legEntries = [];
       if (useBar) {
         const innerW = paneW - 20;
@@ -838,19 +850,19 @@ class Component extends DCLogic {
           x += px + 1;
           const on = !item && tr === g.k, faded = !item && !!tr && !on;
           // The overview's item count rides along with the amount when it fits ("381 · 14").
-          const withCnt = g.cnt != null ? g.amt + ' · ' + g.cnt + (twoLine ? (g.cnt === 1 ? ' item' : ' items') : '') : g.amt;
+          const withCnt = g.cnt != null ? g.amt + ' · ' + g.cnt : g.amt;
           const wantCnt = withCnt !== g.amt && px >= withCnt.length * 6.2 + 14;
           const amtTxt = wantCnt ? withCnt : g.amt, amtW = amtTxt.length * 6.2 + 10;
-          const showAmt = (tg.legInBar || twoLine) && !!g.amt && px >= amtW + 4;
-          const showName = (tg.legInBar || twoLine) && showAmt && px >= amtW + (twoLine ? 40 : 46);
+          const showAmt = tg.legInBar && !!g.amt && px >= amtW + 4;
+          const showName = tg.legInBar && showAmt && px >= amtW + 46;
           const full = g.name + (g.amt ? ' · ' + g.amt : '') + (g.note ? ' · ' + g.note : '');
           const anchor = cx < 120 ? 'left:0;' : cx > innerW - 120 ? 'right:0;' : 'left:50%;transform:translateX(-50%);';
           return {
-            style: 'width:' + px + 'px;height:100%;background:' + g.bg + ';border:1px ' + g.bs + ' ' + (on ? '#f3f4f6' : g.bd) + ';border-radius:3px;padding:0 ' + (px < 24 ? 0 : twoLine ? 5 : 4) + 'px;gap:6px;color:#f3f4f6;font-size:' + (twoLine ? 10 : 10) + 'px;line-height:1.15;' + (twoLine ? 'flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;' : '') + 'opacity:' + (faded ? 0.5 : 1) + ';cursor:' + (item ? 'default' : 'pointer'),
+            style: 'width:' + px + 'px;height:100%;background:' + g.bg + ';border:1px ' + g.bs + ' ' + (on ? '#f3f4f6' : g.bd) + ';border-radius:3px;padding:0 ' + (px < 24 ? 0 : 4) + 'px;gap:6px;color:#f3f4f6;font-size:10px;line-height:1.15;opacity:' + (faded ? 0.5 : 1) + ';cursor:' + (item ? 'default' : 'pointer'),
             title: tg.legTip ? '' : full, aria: full, on: on,
             pick: item ? () => {} : () => { const t2 = st.trace.slice(); t2[k] = on ? null : g.k; this.setState({ trace: t2 }); },
-            showName: showName, name: g.name.replace(/ requests$/, ''), nameS: 'min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' + (twoLine ? 'color:#d1d5dc;' : 'flex:1;'),
-            showAmt: showAmt, amt: amtTxt, amtS: 'flex:none;font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#f3f4f6;' + (twoLine ? 'font-size:11px;' : ''),
+            showName: showName, name: g.name.replace(/ requests$/, ''), nameS: 'min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;flex:1;',
+            showAmt: showAmt, amt: amtTxt, amtS: 'flex:none;font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#f3f4f6;',
             hasTip: !!tg.legTip, tipName: g.name, tipAmt: g.amt, tipNote: g.note,
             tipS: 'position:absolute;z-index:20;bottom:calc(100% + 6px);' + anchor + 'gap:8px;align-items:center;white-space:nowrap;background:#000;border:1px solid #364153;border-radius:4px;padding:4px 8px;font-size:11px;color:#f3f4f6;pointer-events:none;box-shadow:0 6px 16px rgba(0,0,0,0.6)',
             tipNoteS: 'color:#99a1af'
@@ -859,9 +871,8 @@ class Component extends DCLogic {
         legEntries = src.map(g => ({ sw: 'flex:none;width:8px;height:8px;border-radius:2px;box-sizing:border-box;background:' + g.bg + ';border:1px ' + g.bs + ' ' + g.bd, l: g.name, a: g.amt, n: g.note, lblS: 'color:' + (g.lg || '#d1d5dc') }));
       }
       const hasLegend = ovBarOn && !legOn;
-      const hasActLine = itNew && !twoLine;
+      const hasActLine = itNew;
       const ovfS = tg.legTip ? 'visible' : 'hidden';
-      const ICONS = { 'Find recipe': 'search', 'Remove product': 'trash', 'Add consumer recipe…': 'plus', 'Make it a product': 'up', 'Receive from…': 'in' };
       const actionsFor = ['Find recipe,Remove product', 'Add consumer recipe…,Make it a product', 'Find recipe,Receive from…'][k].split(',');
       const own = paneMax;
       const itemSegs = item ? item.en.filter(e => e.w > 0).map(e => ({ style: 'display:block;height:100%;box-sizing:border-box;background:' + e.bg + ';border:1px ' + e.bs + ' ' + e.bd + ';width:' + Math.max(2, Math.round(e.w * 100)) + '%' })) : [];
@@ -881,7 +892,6 @@ class Component extends DCLogic {
         hasBar: useBar, barWrap: 'position:relative;height:' + barH + 'px;flex:none;display:flex;gap:1px', barSegs: barSegs,
         hasLegend: hasLegend, legEntries: legEntries, legStyle: lineGap ? 'display:flex;align-items:center;gap:12px;flex:none;height:22px;overflow:hidden;white-space:nowrap' : 'display:flex;flex-wrap:wrap;gap:3px 12px;flex:1;min-height:0;overflow:hidden;align-content:flex-start',
         itBase: !!item && !itNew, hasActLine: hasActLine && !preview,
-        actIcons: itNew && twoLine && !preview ? actionsFor.map(a => ({ label: a, go: () => this.toast(a + ': opens a picker or a confirmation. Not drawn here.'), search: ICONS[a] === 'search', trash: ICONS[a] === 'trash', plus: ICONS[a] === 'plus', up: ICONS[a] === 'up', inn: ICONS[a] === 'in' })) : [],
         ovScroll: 'flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px',
         ov: ov,
         itIc: item ? this.chip(D, {}, item.i, 0, null, 18).ic + 'flex:none;' : '', itName: item ? D.items[item.i][0] : '', itPreview: preview, itSel: !!item && !preview,
@@ -1087,8 +1097,14 @@ class Component extends DCLogic {
         return { label: it[1], desc: it[2], tryIt: it[3], cls: 'tg' + (on ? ' on' : ''), pressed: on, toggle: () => this.setState(Object.assign({ tg: Object.assign({}, st.tg, { [it[0]]: !on }), flip: false }, closeAll)) };
       })
     })));
+    const decGroups = groups.filter((g, i) => i > 0 && GROUPS[i - 1].decided);
+    const openGroups = groups.filter((g, i) => i === 0 || !GROUPS[i - 1].decided);
     const common = {
-      viewports: viewports, groups: groups,
+      viewports: viewports, groups: openGroups, decGroups: decGroups,
+      decOpen: st.decOpen, decMark: st.decOpen ? '▾' : '▸',
+      decLabel: 'Decided: 1 · Summary strip (' + DECIDED.length + ' changes, on by default)',
+      toggleDec: () => this.setState({ decOpen: !st.decOpen }),
+      decidedOnly: () => this.setState(Object.assign({ tg: DEFAULT_TG, flip: false }, closeAll)),
       flipCls: 'flip' + (st.flip ? ' base' : ''), flipPressed: st.flip,
       flipLabel: st.flip ? 'Showing the baseline. Click to show the changes' : 'Showing the changes. Click to flip to the baseline',
       toggleFlip: () => this.setState(Object.assign({ flip: !st.flip }, closeAll)),

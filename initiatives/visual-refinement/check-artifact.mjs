@@ -44,13 +44,15 @@ const errors = []
 const results = []
 let current = ''
 
-async function open() {
+// The page starts with the decided changes on; every check but the defaults one starts from "All off" (the old baseline-plus-toggles state).
+async function open(keepDefaults = false) {
   const page = await browser.newPage({ viewport: { width: 2340, height: 1720 } })
   page.on('pageerror', e => errors.push(`${current}: ${e.message}`))
   page.on('console', m => { if (m.type() === 'error') errors.push(`${current}: console: ${m.text()}`) })
   await page.goto(`http://localhost:${port}/`)
   await page.getByText('Production table refinement').first().waitFor({ timeout: 15000 })
   await page.waitForFunction(() => !document.body.innerText.includes('Loading the plan content'), null, { timeout: 15000 })
+  if (!keepDefaults) await page.getByRole('button', { name: 'All off', exact: true }).click()
   const btn = name => page.getByRole('button', { name, exact: true })
   const api = {
     page,
@@ -58,7 +60,11 @@ async function open() {
     // name also contains the description and the Try line).
     block: name => page.locator('#tabstrip').getByRole('button', { name, exact: true }).click(),
     screen: name => page.locator('.vps').first().getByRole('button', { name }).click(),
-    toggle: async title => { await page.locator('button.tg', { has: page.getByText(title, { exact: true }) }).click() },
+    toggle: async title => {
+      const b = page.locator('button.tg', { has: page.getByText(title, { exact: true }) })
+      if (!(await b.count())) await page.getByRole('button', { name: /^Decided:/ }).click()
+      await b.click()
+    },
     click: name => btn(name).first().click(),
     frame: page.locator('#frame'),
     rows: () => page.locator('#frame .row'),
@@ -69,12 +75,12 @@ async function open() {
   return api
 }
 
-async function check(name, fn) {
+async function check(name, fn, keepDefaults = false) {
   if (opts.only && !name.includes(opts.only)) return
   current = name
   let a
   try {
-    a = await open()
+    a = await open(keepDefaults)
     await fn(a)
     results.push([true, name])
   } catch (e) {
@@ -118,6 +124,35 @@ await check('6 hideEmpty: touch screens keep the placeholders and say why', asyn
   ok(o.every(x => x === 1), 'touch: placeholders must stay visible: ' + o)
   ok(await a.page.getByText('Touch screen: there is no hover').isVisible(), 'the page should say why nothing changed on a touch screen')
 })
+
+// ---------------------------------------------------------------- decided changes
+await check('decided: the six accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+  ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
+  const head = a.page.getByRole('button', { name: /^Decided:/ })
+  ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
+  ok(await a.page.getByText('Two-line bar, actions as icons').count() === 0, 'the rejected option is not offered')
+  await head.click()
+  ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
+  const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all six are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 6, 'and nothing else is on (' + on.length + ')')
+  await a.page.getByRole('button', { name: 'All off', exact: true }).click()
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
+  await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 6, 'Decided only puts the six back')
+  await head.click()
+  ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
+}, true)
+await check('decided: the screen starts with the accepted look (collapsed one-line summary above the table)', async a => {
+  await a.page.locator('#frame').getByRole('button', { name: /^Expand/ }).first().waitFor({ timeout: 3000 })
+  const m = await a.page.evaluate(() => {
+    const c = [...document.querySelectorAll('span')].filter(s => s.textContent.toUpperCase() === 'ABOVE THE TABLE').map(s => s.parentElement.innerText).find(t => /baseline/.test(t))
+    return c || null
+  })
+  const px = +((m || '').match(/(\d+) px/) || [])[1]
+  ok(px > 0 && px < 150, 'one summary line above the table starts the table near the top (about 100 px, baseline 302): ' + m)
+}, true)
 
 // ---------------------------------------------------------------- the table is usable
 await check('table scrolls down, and sideways on the Fold cover', async a => {
@@ -300,19 +335,6 @@ await check('1 legInBar: the bar carries the text, 16 px, fits the strip', async
   ok(info.segs.some(s => s.txt === '' || /^[\d.]+$/.test(s.txt)), 'a narrow one keeps the amount only or nothing: ' + info.segs.map(s => s.txt).join(' | '))
   ok(info.segs.every(s => !!s.label), 'every segment is still named for the tooltip / screen readers')
   ok(info.minis === 2 && info.scrollOk && Math.abs(info.h - 72) < 1.5, 'actions line and the strip fit (' + info.h + ', scrollOk ' + info.scrollOk + ')')
-})
-await check('1 legMenu: two-line bar, the actions become icon buttons in the header', async a => {
-  await a.toggle('Shorter detail strip (110 to 72 px)')
-  await a.page.locator('#frame button.slot').first().click()
-  await a.toggle('Two-line bar, actions as icons')
-  const info = await segInfo(a)
-  ok(info.segs.every(s => Math.abs(s.h - 36) < 1.5), 'bar is 36 px high: ' + info.segs.map(s => s.h))
-  ok(info.minis === 0 && info.icons.join() === 'Find recipe,Remove product', 'the two actions are icon buttons: ' + info.icons)
-  const widest = info.segs.reduce((m, s) => s.w > m.w ? s : m)
-  ok(/Hub/.test(widest.txt) && /26\.5/.test(widest.txt), 'name over amount: ' + widest.txt)
-  ok(info.scrollOk && Math.abs(info.h - 72) < 1.5, 'nothing is clipped (' + info.h + ')')
-  await a.page.getByRole('button', { name: 'Remove product' }).click()
-  ok(await a.page.getByText(/Remove product: opens/).first().isVisible(), 'an icon button acts like the text one')
 })
 await check('1 ovBar: the overview is one stacked bar; click traces; a legend option applies to it', async a => {
   await a.toggle('Shorter detail strip (110 to 72 px)')
