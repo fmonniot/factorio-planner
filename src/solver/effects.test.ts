@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { computeNodeEffects, computeMachineMetrics } from './effects'
 import { rowProductAmount } from './build'
-import type { GameData, GameRecipeNode, Machine } from '../data/types'
+import type { BeaconConfig, GameData, GameRecipeNode, Machine } from '../data/types'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -48,7 +48,7 @@ function node(
   id: string,
   recipeId: string,
   modules: GameRecipeNode['modules'] = [],
-  beaconConfig?: GameRecipeNode['beaconConfig'],
+  beaconConfigs: BeaconConfig[] = [],
 ): GameRecipeNode {
   return {
     kind: 'game-recipe',
@@ -56,7 +56,7 @@ function node(
     recipeId,
     modules,
     byproductPolicy: {},
-    ...(beaconConfig ? { beaconConfig } : {}),
+    ...(beaconConfigs.length > 0 ? { beaconConfigs } : {}),
   }
 }
 
@@ -153,11 +153,11 @@ describe('computeNodeEffects — machine modules', () => {
 describe('computeNodeEffects — beacon', () => {
   it('a beacon configuration without a module contributes nothing', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
-    const n = node('n1', 'r1', [], {
+    const n = node('n1', 'r1', [], [{
       beaconCount: 8,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
-    })
+    }])
     const fx = computeNodeEffects(n, gd)
     expect(fx.speedBonus).toBe(0)
     expect(fx.productivityBonus).toBe(0)
@@ -166,21 +166,21 @@ describe('computeNodeEffects — beacon', () => {
 
   it('a module-less beacon leaves machine module effects unchanged', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
-    const withBeacon = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }], {
+    const withBeacon = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }], [{
       beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5,
-    })
+    }])
     const without = node('n1', 'r1', [{ moduleId: 'speed-module-3', count: 2 }])
     expect(computeNodeEffects(withBeacon, gd)).toEqual(computeNodeEffects(without, gd))
   })
 
   it('1 beacon with 2 speed-3, 50% efficiency → +50% speed', () => {
     const gd = makeGameData({}, { 'speed-module-3': SPEED3_MODULE })
-    const n = node('n1', 'r1', [], {
+    const n = node('n1', 'r1', [], [{
       moduleId: 'speed-module-3',
       beaconCount: 1,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
-    })
+    }])
     const fx = computeNodeEffects(n, gd)
     // 0.5 (speed per module) × 2 (mods per beacon) × 1 (beacon) × 0.5 (efficiency) = 0.5
     expect(fx.speedBonus).toBeCloseTo(0.5)
@@ -195,12 +195,12 @@ describe('computeNodeEffects — beacon', () => {
       'n1',
       'r1',
       [{ moduleId: 'productivity-module-3', count: 4 }],
-      {
+      [{
         moduleId: 'speed-module-3',
         beaconCount: 8,
         modulesPerBeacon: 2,
         distributionEfficiency: 0.5,
-      },
+      }],
     )
     const fx = computeNodeEffects(n, gd)
     // Speed: machine=−0.60, beacon=0.5×2×8×0.5=4.0, total=3.40
@@ -211,20 +211,69 @@ describe('computeNodeEffects — beacon', () => {
 
   it('drops beacon productivity when the recipe disallows it', () => {
     const gd = makeGameData({ r1: recipe(false) }, { 'productivity-module-3': PROD3_MODULE })
-    const n = node('n1', 'r1', [], {
+    const n = node('n1', 'r1', [], [{
       moduleId: 'productivity-module-3',
       beaconCount: 1,
       modulesPerBeacon: 2,
       distributionEfficiency: 0.5,
-    })
+    }])
     const fx = computeNodeEffects(n, gd)
     expect(fx.productivityBonus).toBe(0)
     expect(fx.speedBonus).toBeCloseTo(-0.15)
   })
 })
 
+describe('computeNodeEffects — several beacon configurations', () => {
+  const cfg = (moduleId: string, overrides: Partial<BeaconConfig> = {}): BeaconConfig => ({
+    moduleId, beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5, ...overrides,
+  })
+  const gd = () => makeGameData(
+    { r1: recipe(true) },
+    { 'productivity-module-3': PROD3_MODULE, 'speed-module-3': SPEED3_MODULE },
+  )
+
+  it('sums the contributions of each configuration', () => {
+    const a = cfg('speed-module-3')
+    const b = cfg('productivity-module-3', { beaconCount: 3 })
+    const both = computeNodeEffects(node('n1', 'r1', [], [a, b]), gd())
+    const fa = computeNodeEffects(node('n1', 'r1', [], [a]), gd())
+    const fb = computeNodeEffects(node('n1', 'r1', [], [b]), gd())
+    expect(both.speedBonus).toBeCloseTo(fa.speedBonus + fb.speedBonus)
+    expect(both.productivityBonus).toBeCloseTo(fa.productivityBonus + fb.productivityBonus)
+    expect(both.consumptionBonus).toBeCloseTo(fa.consumptionBonus + fb.consumptionBonus)
+  })
+
+  it('filters each configuration by its own beacon entity', () => {
+    const data = gd()
+    const entity = (id: string, allowedEffects: NonNullable<GameData['beacons'][string]['allowedEffects']>) => ({
+      id, name: id, iconPath: '', hidden: false, moduleSlots: 2, distributionEfficiency: 0.5, allowedEffects,
+    })
+    data.beacons = { b1: entity('b1', ['speed', 'consumption']), b2: entity('b2', ['speed', 'consumption', 'productivity']) }
+    const a = cfg('productivity-module-3', { beaconId: 'b1' })
+    const b = cfg('productivity-module-3', { beaconId: 'b2' })
+    const fx = computeNodeEffects(node('n1', 'r1', [], [a, b]), data)
+    const only = computeNodeEffects(node('n1', 'r1', [], [b]), data)
+    expect(fx.productivityBonus).toBeCloseTo(only.productivityBonus)
+    expect(fx.productivityBonus).toBeGreaterThan(0)
+    // The speed penalty of both configurations still applies.
+    expect(fx.speedBonus).toBeCloseTo(only.speedBonus * 2)
+  })
+
+  it('counts only the speed configuration when another has no module', () => {
+    const speed = cfg('speed-module-3')
+    const empty: BeaconConfig = { beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+    expect(computeNodeEffects(node('n1', 'r1', [], [empty, speed]), gd()))
+      .toEqual(computeNodeEffects(node('n1', 'r1', [], [speed]), gd()))
+  })
+
+  it('treats an empty list like an absent one', () => {
+    const withEmpty: GameRecipeNode = { ...node('n1', 'r1'), beaconConfigs: [] }
+    expect(computeNodeEffects(withEmpty, gd())).toEqual(computeNodeEffects(node('n1', 'r1'), gd()))
+  })
+})
+
 describe('computeNodeEffects — allowed effects', () => {
-  const beaconCfg = (beaconId?: string): NonNullable<GameRecipeNode['beaconConfig']> => ({
+  const beaconCfg = (beaconId?: string): BeaconConfig => ({
     ...(beaconId ? { beaconId } : {}),
     moduleId: 'productivity-module-3',
     beaconCount: 1,
@@ -273,7 +322,7 @@ describe('computeNodeEffects — allowed effects', () => {
 
   it('drops beacon productivity when the beacon entity does not allow it, keeping speed', () => {
     const gd = withEntities(null, ['speed', 'consumption'])
-    const n = node('n1', 'r1', [], beaconCfg('beacon'))
+    const n = node('n1', 'r1', [], [beaconCfg('beacon')])
     const fx = computeNodeEffects(n, gd)
     expect(fx.productivityBonus).toBe(0)
     expect(fx.speedBonus).toBeCloseTo(-0.15)
@@ -281,7 +330,7 @@ describe('computeNodeEffects — allowed effects', () => {
 
   it('drops a beacon effect the machine does not allow even if the beacon does', () => {
     const gd = withEntities(['speed', 'consumption'], ['speed', 'consumption', 'productivity'])
-    const n = node('n1', 'r1', [], beaconCfg('beacon'))
+    const n = node('n1', 'r1', [], [beaconCfg('beacon')])
     const fx = computeNodeEffects(n, gd)
     expect(fx.productivityBonus).toBe(0)
     expect(fx.speedBonus).toBeCloseTo(-0.15)
@@ -291,14 +340,14 @@ describe('computeNodeEffects — allowed effects', () => {
     const gd = withEntities([], ['speed', 'consumption', 'productivity'])
     const machineMods = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
     expect(computeNodeEffects(machineMods, gd)).toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
-    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg('beacon')), gd))
+    expect(computeNodeEffects(node('n1', 'r1', [], [beaconCfg('beacon')]), gd))
       .toMatchObject({ productivityBonus: 0, speedBonus: 0, consumptionBonus: 0 })
   })
 
   it('filters nothing without a beaconId, with an unknown beaconId or with an unknown machine', () => {
     const gd = withEntities(null, ['speed'])
-    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg()), gd).productivityBonus).toBeCloseTo(0.1)
-    expect(computeNodeEffects(node('n1', 'r1', [], beaconCfg('missing')), gd).productivityBonus).toBeCloseTo(0.1)
+    expect(computeNodeEffects(node('n1', 'r1', [], [beaconCfg()]), gd).productivityBonus).toBeCloseTo(0.1)
+    expect(computeNodeEffects(node('n1', 'r1', [], [beaconCfg('missing')]), gd).productivityBonus).toBeCloseTo(0.1)
     const m = node('n1', 'r1', [{ moduleId: 'productivity-module-3', count: 4 }])
     expect(computeNodeEffects(m, gd).productivityBonus).toBeCloseTo(0.4)
   })
@@ -452,6 +501,20 @@ describe('computeNodeEffects — burner fuel', () => {
     // 90 kW x 3.2 s / 4000 kJ
     const fx = computeNodeEffects(smeltNode(), burnerGameData())
     expect(fx.fuel).toEqual({ itemId: 'coal', type: 'item', amount: 0.072 })
+  })
+
+  it('burns the default fuel of the defaultFuels overlay, but an explicit choice still wins', () => {
+    const gd = burnerGameData()
+    gd.defaultFuels = { 'stone-furnace': 'solid-fuel' }
+    // 90 kW x 3.2 s / 12000 kJ
+    expect(computeNodeEffects(smeltNode(), gd).fuel).toEqual({ itemId: 'solid-fuel', type: 'item', amount: 0.024 })
+    expect(computeNodeEffects(smeltNode({ fuelItemId: 'coal' }), gd).fuel?.amount).toBeCloseTo(0.072)
+  })
+
+  it('falls back to the lowest-value fuel for a stale overlay entry', () => {
+    const gd = burnerGameData()
+    gd.defaultFuels = { 'stone-furnace': 'ghost' }
+    expect(computeNodeEffects(smeltNode(), gd).fuel).toEqual({ itemId: 'coal', type: 'item', amount: 0.072 })
   })
 
   it('scales with speed and consumption bonuses', () => {

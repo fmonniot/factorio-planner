@@ -1840,7 +1840,7 @@ describe('solve — a node with no resolvable machine', () => {
     const node: RecipeNode = {
       ...(planNode('n1', 'iron-plate') as GameRecipeNode),
       modules: [{ moduleId: 'speed', count: 1 }],
-      beaconConfig: { moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 },
+      beaconConfigs: [{ moduleId: 'speed', beaconCount: 2, modulesPerBeacon: 2, distributionEfficiency: 0.5 }],
     }
     const n = solve({ goals: [ironGoal], nodes: [node] }, data(false)).nodes[0]
     expect(n.machineCountExact).toBe(0)
@@ -2095,6 +2095,31 @@ describe('solve — burner fuel', () => {
     expect(nodeOf(r, 's').inputRates.coal).toBeUndefined()
   })
 
+  it('burns the default fuel of the defaultFuels overlay', () => {
+    const data = fuelGameData()
+    data.items['solid-fuel'] = fuelItem('solid-fuel', 12000)
+    data.defaultFuels = { furnace: 'solid-fuel' }
+    const r = solve({ goals: plateGoal, nodes: [planNode('s', 'smelt')] }, data)
+    expect(nodeOf(r, 's').inputRates['solid-fuel']).toBeCloseTo(0.9, 4)
+    expect(nodeOf(r, 's').inputRates.coal).toBeUndefined()
+    expect(nodeOf(r, 's').fuelItemId).toBe('solid-fuel')
+  })
+
+  it('keeps an overlay default fuel importable, like the automatic default', () => {
+    const data = fuelGameData()
+    data.items['solid-fuel'] = fuelItem('solid-fuel', 12000)
+    data.defaultFuels = { furnace: 'solid-fuel' }
+    data.recipes.char = recipe('char', 1, [{ itemId: 'solid-fuel', type: 'item', amount: 1 }], [product('charcoal', 1)])
+    data.recipes['make-solid'] = recipe('make-solid', 1, [{ itemId: 'wood', type: 'item', amount: 2 }], [product('solid-fuel', 1)])
+    const burner: RecipeNode = { ...planNode('b', 'burn-slag'), byproductConsumer: true }
+    const r = solveBlock({
+      goals: [{ id: 'g', itemId: 'charcoal', rate: 10 }, { id: 'h', itemId: 'ore', rate: 10 }] as SolverGoal[],
+      nodes: [planNode('k', 'char'), planNode('w', 'wash'), burner, { ...planNode('c', 'make-solid'), pinnedRate: 2 }],
+    }, data)
+    expect(r.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
+    expect(rate(r.result.unsatisfied, 'solid-fuel')).toBeGreaterThan(0)
+  })
+
   it('takes the fuel from a connection', () => {
     const { result, received } = solveBlock(
       { goals: plateGoal, nodes: [planNode('s', 'smelt'), planNode('c', 'coal-from-wood')], itemSourcing: { coal: 'connections-first' } },
@@ -2140,6 +2165,27 @@ describe('solve — burner fuel', () => {
     expect(rate(r.unsatisfied, 'coal')).toBe(0)
     const received = r.areas!.find(a => a.areaId === 'root')!.receives.find(f => f.itemId === 'coal')
     expect(received?.rate).toBeCloseTo(2.7, 4)
+  })
+
+  it('balances the overlay default fuel between areas', () => {
+    const now = new Date().toISOString()
+    const sub = (id: string, nodes: RecipeNode[], area?: boolean): SubPlan =>
+      ({ id, name: id, nodes, subPlans: [], ...(area ? { area } : {}), createdAt: now, updatedAt: now })
+    const data = fuelGameData()
+    data.items['solid-fuel'] = fuelItem('solid-fuel', 12000)
+    data.recipes['solid-from-wood'] = recipe('solid-from-wood', 1, [{ itemId: 'wood', type: 'item', amount: 2 }], [product('solid-fuel', 1)])
+    data.defaultFuels = { furnace: 'solid-fuel' }
+    const fuelArea = sub('fuel', [planNode('c', 'solid-from-wood')], true)
+    const root: SubPlan = {
+      ...sub('root', [planNode('s', 'smelt'), { kind: 'subplan', id: 'h', subPlanId: fuelArea.id }]),
+      subPlans: [fuelArea],
+    }
+    const r = solve(flattenBlock(makeBlock(root, [{ id: 'p', itemId: 'plate', extraRate: 60 }])), data)
+    expect(nodeOf(r, 's').inputRates['solid-fuel']).toBeCloseTo(0.9, 4)
+    expect(nodeOf(r, 'c').throughput).toBeCloseTo(0.9, 4)
+    expect(rate(r.unsatisfied, 'solid-fuel')).toBe(0)
+    const received = r.areas!.find(a => a.areaId === 'root')!.receives.find(f => f.itemId === 'solid-fuel')
+    expect(received?.rate).toBeCloseTo(0.9, 4)
   })
 })
 

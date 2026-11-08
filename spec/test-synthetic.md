@@ -420,7 +420,7 @@ Recipes:
 | 10c | as 10a, one module with +20 % speed and +50 % consumption | 2.667 | 0.09 coal / execution = 5.4 coal / min | |
 | 10d | `fluid-furnace`, default fuel; then the same with `fuelItemId` `heavy-fuel` | 3.2 | 0.96 fuel gas / execution = 57.6 / min; with heavy fuel 0.24 / execution = 14.4 / min | `powerKw` 0; the fluid is an unsatisfied input |
 
-The default fuel is the lowest-value accepted fuel, so 10a burns coal; 10b sets `fuelItemId` to solid fuel; 10d burns the lowest-value fluid (fuel gas) by default. No warnings.
+The default fuel is the lowest-value accepted fuel (inside the horizon; case 10 has none), so 10a burns coal; 10b sets `fuelItemId` to solid fuel; 10d burns the lowest-value fluid (fuel gas) by default. No warnings.
 
 ### Derivation
 

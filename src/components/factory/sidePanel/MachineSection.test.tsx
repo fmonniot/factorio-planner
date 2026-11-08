@@ -758,6 +758,56 @@ describe('MachineSection — fuel', () => {
     expect(fuelOptionIds()).toEqual(['wood', 'coal'])
   })
 
+  // Wood is only produced by a recipe of a technology outside the horizon `fire`.
+  function woodLateData(): GameData {
+    const gd = burnerData()
+    gd.technologies.fire = { ...gd.technologies.fire, unlockedRecipes: ['smelt', 'r-furnace', 'r-coal'] }
+    gd.technologies.forestry = { id: 'forestry', name: 'Forestry', prerequisites: [], unlockedRecipes: ['r-wood'], iconPath: '' }
+    return gd
+  }
+
+  it('defaults to the lowest-value fuel inside the horizon', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['fire'] })
+    renderBurner(undefined, woodLateData())
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('coal')
+    expect(screen.queryByTestId('beyond-horizon')).not.toBeInTheDocument()
+    openFuel()
+    expect(screen.getByTestId('fuel-default')).toHaveTextContent('Default (coal)')
+    expect(fuelOptionIds()).toEqual(['coal'])
+  })
+
+  it('keeps the lowest-value fuel as default without a horizon', () => {
+    renderBurner(undefined, woodLateData())
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('wood')
+  })
+
+  it('falls back to the lowest-value fuel, flagged beyond the horizon, when none is inside', () => {
+    const gd = woodLateData()
+    gd.technologies.fire = { ...gd.technologies.fire, unlockedRecipes: ['smelt', 'r-furnace'] }
+    gd.technologies.chem = { ...gd.technologies.chem, unlockedRecipes: ['r-solid-fuel', 'r-coal'] }
+    useBlockStore.setState({ horizonTechnologyIds: ['fire'] })
+    renderBurner(undefined, gd)
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('wood')
+    expect(screen.getByTestId('beyond-horizon')).toBeInTheDocument()
+  })
+
+  it('lets an explicit fuel win over the horizon default', () => {
+    useBlockStore.setState({ horizonTechnologyIds: ['fire'] })
+    renderBurner('wood', woodLateData())
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('wood')
+  })
+
+  it('defaults a fluid burner to the lowest-value fluid inside the horizon', () => {
+    const gd = fluidBurnerData()
+    gd.recipes['r-crude'] = producer('r-crude', 'crude')
+    gd.technologies.fire = { ...gd.technologies.fire, unlockedRecipes: ['smelt', 'r-furnace'] }
+    gd.technologies.oil = { id: 'oil', name: 'Oil', prerequisites: [], unlockedRecipes: ['r-crude'], iconPath: '' }
+    useBlockStore.setState({ horizonTechnologyIds: ['fire'] })
+    renderBurner(undefined, gd)
+    expect(screen.getByTestId('fuel-button')).toHaveTextContent('heavy-oil')
+    expect(screen.queryByTestId('beyond-horizon')).not.toBeInTheDocument()
+  })
+
   it('choosing a fuel stores it and "Default" clears it', () => {
     renderBurner()
     openFuel()

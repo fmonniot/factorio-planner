@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   hasTechnologies, technologyClosure, availableRecipeIds, availableItemIds,
   withinHorizon, placingItemIds, availableMachineIds, availableBeaconIds, availableModuleIds,
-  horizonDefaultMachines, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock, technologyUnlocks,
+  horizonDefaultMachines, horizonDefaultFuels, applyDefaultMachineOverrides, resolveRowMachine, computeHorizon, recipeUnlock, technologyUnlocks,
 } from './horizon'
 import type { GameData } from './types'
 
@@ -350,6 +350,71 @@ describe('horizonDefaultMachines', () => {
     const r = horizonDefaultMachines(d, computeHorizon(d, ['c']).machineIds)
     expect(r['adv-smelting']).toBe('adv-furnace')
     expect(r.crafting).toBe('am2')
+  })
+})
+
+describe('horizonDefaultFuels', () => {
+  function fuelItem(id: string, fuelValueKj: number, extra: Partial<GameData['items'][string]> = {}): GameData['items'][string] {
+    return { ...item(id), fuelValueKj, fuelCategory: 'chemical', ...extra }
+  }
+  function burner(id: string, extra: Partial<GameData['machines'][string]> = {}): GameData['machines'][string] {
+    return { ...machine(id, 'smelting', 1), energyType: 'burner', fuelCategories: ['chemical'], ...extra }
+  }
+  // wood (2000) is only produced by a recipe of the "forestry" technology; coal (4000) is never produced.
+  function makeFuelData(): GameData {
+    const d = makeGameData()
+    d.technologies = { base: tech('base'), forestry: tech('forestry', [], ['r-wood']) }
+    d.startingRecipes = []
+    d.items = {
+      wood: fuelItem('wood', 2000),
+      coal: fuelItem('coal', 4000),
+      'solid-fuel': fuelItem('solid-fuel', 12000),
+      crude: fuelItem('crude', 100, { type: 'fluid', fuelCategory: undefined }),
+      oil: fuelItem('oil', 300, { type: 'fluid', fuelCategory: undefined }),
+    }
+    d.recipes = { 'r-wood': makeRecipe('r-wood', 'wood'), 'r-solid': makeRecipe('r-solid', 'solid-fuel') }
+    d.machines = {
+      furnace: burner('furnace'),
+      'fluid-furnace': burner('fluid-furnace', { energyType: 'fluid-burner', fuelCategories: undefined }),
+      electric: machine('electric', 'smelting', 1),
+      bare: burner('bare', { fuelCategories: undefined }),
+    }
+    return d
+  }
+  const itemsOf = (d: GameData, targets: string[]) => computeHorizon(d, targets).itemIds
+
+  it('is undefined without a limit', () => {
+    expect(horizonDefaultFuels(makeFuelData(), null)).toBeUndefined()
+  })
+  it('skips a lowest-value fuel outside the horizon', () => {
+    const d = makeFuelData()
+    const itemIds = itemsOf(d, ['base'])
+    expect(itemIds?.has('wood')).toBe(false)
+    expect(horizonDefaultFuels(d, itemIds)).toEqual({ furnace: 'coal' })
+  })
+  it('is undefined when the lowest-value fuel is inside the horizon', () => {
+    const d = makeFuelData()
+    expect(horizonDefaultFuels(d, itemsOf(d, ['forestry']))).toBeUndefined()
+  })
+  it('has no entry when no accepted fuel is inside the horizon', () => {
+    const d = makeFuelData()
+    expect(horizonDefaultFuels(d, new Set(['plate']))).toBeUndefined()
+  })
+  it('has no entry for a non-burner or a burner without fuel data', () => {
+    const d = makeFuelData()
+    const r = horizonDefaultFuels(d, itemsOf(d, ['base']))
+    expect(r).not.toHaveProperty('electric')
+    expect(r).not.toHaveProperty('bare')
+  })
+  it('is computed over fluids for a fluid burner', () => {
+    const d = makeFuelData()
+    expect(horizonDefaultFuels(d, new Set(['oil']))).toEqual({ 'fluid-furnace': 'oil' })
+  })
+  it('is exposed by computeHorizon', () => {
+    const d = makeFuelData()
+    expect(computeHorizon(d, ['base']).defaultFuels).toEqual({ furnace: 'coal' })
+    expect(computeHorizon(d, ['forestry']).defaultFuels).toBeUndefined()
+    expect(computeHorizon(d, []).defaultFuels).toBeUndefined()
   })
 })
 

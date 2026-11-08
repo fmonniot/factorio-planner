@@ -19,7 +19,7 @@ interface PlanNode {
   recipeId?: string
   machineId?: string
   modules?: { moduleId: string; count: number }[]
-  beaconConfig?: { beaconId?: string; moduleId?: string; beaconCount: number; modulesPerBeacon: number }
+  beaconConfigs?: { beaconId?: string; moduleId?: string; beaconCount: number; modulesPerBeacon: number }[]
 }
 interface PlanTree { nodes: PlanNode[]; subPlans: PlanTree[] }
 
@@ -98,7 +98,7 @@ test('the empty beacon plus adds four beacons with the chosen module', async ({ 
   const moduleId = (await option.getAttribute('data-module-id'))!
   await option.click()
 
-  await expect.poll(async () => (await rootNode(page)).beaconConfig).toMatchObject({ moduleId, beaconCount: 4 })
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ moduleId, beaconCount: 4 }])
   await expect(row(page).getByTestId('beacon-count')).toHaveText('4')
   await expect(page.getByTestId('picker')).toHaveCount(0)
 })
@@ -112,7 +112,7 @@ test('the empty beacon module chip fills a beacon that has none', async ({ page 
   const panel = sidePanel(page)
   await panel.getByTestId('beacon-module-slot').first().click()
   await page.getByTestId('beacon-module-option-empty').click()
-  await expect.poll(async () => (await rootNode(page)).beaconConfig?.moduleId).toBeUndefined()
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.[0]?.moduleId).toBeUndefined()
 
   await row(page).getByTestId('beacon-module-chip').click()
   const options = page.getByTestId('module-fill-option')
@@ -121,7 +121,30 @@ test('the empty beacon module chip fills a beacon that has none', async ({ page 
   expect(await options.evaluateAll(els => els.map(e => e.getAttribute('data-module-id')))).not.toContainEqual(expect.stringMatching(/productivity/))
   const moduleId = (await options.first().getAttribute('data-module-id'))!
   await options.first().click()
-  await expect.poll(async () => (await rootNode(page)).beaconConfig?.moduleId).toBe(moduleId)
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.[0]?.moduleId).toBe(moduleId)
+})
+
+test('two beacon configurations from the panel', async ({ page }) => {
+  await row(page).getByLabel('Add beacon').click()
+  await page.getByTestId('module-fill-option').first().click()
+  await row(page).getByRole('button', { name: 'Edit beacon', exact: true }).click()
+  const panel = sidePanel(page)
+  await expect(panel.getByTestId('beacon-card')).toHaveCount(1)
+
+  const add = panel.getByTestId('add-beacon-config')
+  await expect(add).toBeEnabled()
+  await add.click()
+  await expect(panel.getByTestId('beacon-card')).toHaveCount(2)
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.length).toBe(2)
+  await expect(row(page).getByTestId('chip-more')).toHaveText('+1')
+  await expect(panel.getByRole('columnheader').allTextContents()).resolves.toEqual(['', 'Machine', 'Beacons 1', 'Beacons 2', 'Total'])
+
+  await panel.getByTestId('beacon-card').nth(1).getByLabel('Beacon count').fill('8')
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs?.map(c => c.beaconCount)).toEqual([4, 8])
+
+  await panel.getByTestId('beacon-card').first().getByRole('button', { name: 'Remove beacon configuration' }).click()
+  await expect.poll(async () => (await rootNode(page)).beaconConfigs).toMatchObject([{ beaconCount: 8 }])
+  await expect(row(page).getByTestId('chip-more')).toHaveCount(0)
 })
 
 test('a filled module chip opens the panel on the highlighted Machine section', async ({ page }) => {

@@ -666,7 +666,7 @@ export function RecipeRow({
       <td className="px-2 py-0.5 whitespace-nowrap">
         <BeaconCell
           nodeId={planNode.id}
-          beacons={planNode.beaconConfig ? [planNode.beaconConfig] : []}
+          beacons={planNode.beaconConfigs ?? []}
           gameData={gameData}
           recipeId={planNode.recipeId}
           machineId={planNode.machineId}

@@ -456,3 +456,84 @@ describe('wireSolver — research horizon machines', () => {
     expect(n.throughput).toBe(full)
   })
 })
+
+describe('wireSolver — research horizon default fuel', () => {
+  const recipe = (id: string, category: string, productId: string) => ({
+    id, name: id, category, craftingTime: 1,
+    ingredients: [], products: [{ itemId: productId, type: 'item', amount: 1 }],
+    madeIn: [], allowProductivity: false, hidden: false, subgroup: '', order: '',
+  })
+  const fuelItem = (id: string, fuelValueKj: number) =>
+    ({ id, name: id, type: 'item' as const, iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj, fuelCategory: 'chemical' })
+  const tech = (id: string, unlockedRecipes: string[]) =>
+    ({ id, name: id, prerequisites: [], unlockedRecipes, iconPath: '' })
+
+  function setup(extra: Partial<GameData> = {}) {
+    useBlockStore.getState().setHorizonTechnologyIds([])
+    useBlockStore.getState().resetDefaultMachines()
+    loadGameData({
+      ...extra,
+      items: { wood: fuelItem('wood', 2000), coal: fuelItem('coal', 4000) },
+      recipes: {
+        smelt: recipe('smelt', 'smelting', 'plate'),
+        'r-wood': recipe('r-wood', 'crafting', 'wood'),
+      } as unknown as GameData['recipes'],
+      machines: {
+        furnace: {
+          id: 'furnace', name: 'furnace', type: 'furnace', craftingSpeed: 1, energyUsageKw: 90, energyType: 'burner',
+          drainKw: 0, moduleSlots: 0, allowedEffects: [], craftingCategories: ['smelting'], iconPath: '', hidden: false,
+          fuelCategories: ['chemical'],
+        },
+      } as unknown as GameData['machines'],
+      defaultMachines: { smelting: 'furnace' },
+      technologies: { base: tech('base', ['smelt']), extra: tech('extra', []), late: tech('late', ['r-wood']) },
+      startingRecipes: [],
+    })
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{
+        ...block,
+        products: [{ id: 'g', itemId: 'plate', extraRate: 60 }],
+        rootPlan: { ...block.rootPlan, nodes: [{ kind: 'game-recipe', id: 'n1', recipeId: 'smelt', modules: [], byproductPolicy: {} }] },
+      }],
+    })
+    vi.runAllTimers()
+  }
+  const solvedNode = () => {
+    const { status } = useSolverStore.getState()
+    if (status.type !== 'solved') throw new Error(`status ${status.type}`)
+    return status.result.nodes[0]
+  }
+
+  it('burns the horizon default fuel and follows the horizon', () => {
+    setup()
+    expect(solvedNode().fuelItemId).toBe('wood')
+    useBlockStore.getState().setHorizonTechnologyIds(['base'])
+    vi.runAllTimers()
+    expect(solvedNode().fuelItemId).toBe('coal')
+    useBlockStore.getState().setHorizonTechnologyIds(['base', 'late'])
+    vi.runAllTimers()
+    expect(solvedNode().fuelItemId).toBe('wood')
+  })
+
+  it('keeps results when a horizon change leaves the default fuel the same', () => {
+    setup()
+    useBlockStore.getState().setHorizonTechnologyIds(['base'])
+    vi.runAllTimers()
+    const id = useBlockStore.getState().blocks[0].id
+    const before = useSolverStore.getState().lastResults[id]
+    useBlockStore.getState().setHorizonTechnologyIds(['base', 'extra'])
+    vi.runAllTimers()
+    expect(solvedNode().fuelItemId).toBe('coal')
+    expect(useSolverStore.getState().lastResults[id], 'same effective default fuel').toBe(before)
+  })
+
+  it('keeps a bundle-supplied defaultFuels whether or not the machine defaults change', () => {
+    setup({ defaultFuels: { furnace: 'coal' } })
+    expect(solvedNode().fuelItemId, 'raw data passthrough').toBe('coal')
+    // 'extra' unlocks nothing, so the horizon drops the smelting default and a derived data object is built.
+    useBlockStore.getState().setHorizonTechnologyIds(['extra'])
+    vi.runAllTimers()
+    expect(solvedNode().fuelItemId, 'derived data').toBe('coal')
+  })
+})

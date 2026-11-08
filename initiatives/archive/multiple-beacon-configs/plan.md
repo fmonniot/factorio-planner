@@ -1,8 +1,8 @@
 # Multiple beacon configurations per recipe
 
-Status: Future
+Status: Shipped
 
-A recipe row holds one beacon configuration (`beaconConfig`). This initiative lets it hold several, in the data model, the solver, the in-game viewer snapshot. It comes after the [recipe table redesign](../archive/recipe-table-redesign/plan.md), which lands first with the final beacon UI but a single configuration, so this step has no UI work beyond removing a disabled state.
+A recipe row holds one beacon configuration (`beaconConfig`). This initiative lets it hold several, in the data model, the solver, the in-game viewer snapshot. It comes after the [recipe table redesign](../recipe-table-redesign/plan.md), which lands first with the final beacon UI but a single configuration, so this step has no UI work beyond removing a disabled state.
 
 ## Context
 
@@ -29,7 +29,7 @@ Code that reads `beaconConfig` today, to move to the list (found with a search o
 
 ### UI
 
-None to build. The [recipe table redesign](../archive/recipe-table-redesign/plan.md) ships the final UI of its design canvas over a list of configurations (the `+N` badge, one card per configuration, one Effects column each), fed by an adapter around the single `beaconConfig`, with "+ Add beacon configuration" disabled once a row has one. This step replaces the adapter with `beaconConfigs` and removes the disabled state.
+None to build. The [recipe table redesign](../recipe-table-redesign/plan.md) ships the final UI of its design canvas over a list of configurations (the `+N` badge, one card per configuration, one Effects column each), fed by an adapter around the single `beaconConfig`, with "+ Add beacon configuration" disabled once a row has one. This step replaces the adapter with `beaconConfigs` and removes the disabled state.
 
 ## Open questions
 
@@ -38,7 +38,7 @@ None to build. The [recipe table redesign](../archive/recipe-table-redesign/plan
 
 ## Phases
 
-- [ ] **1. Schema, migration and solver.** `beaconConfigs`, idempotent load-time migration, the loop in `computeNodeEffects`, unit tests for several configurations, the migration and per-configuration `effectAllowed` filtering, [data-model.md](../../spec/data-model.md) and [solver.md](../../spec/solver.md).
-- [ ] **2. Store.** `updateNodeBeacon`, row settings copy and duplication on the list, undo.
-- [ ] **3. Enable the UI.** Replace the redesign's adapter, remove the disabled "+ Add beacon configuration", [ui.md](../../spec/ui.md), a Playwright spec with two configurations.
-- [ ] **4. Snapshot.** Whatever the open question settles on, with `npm run contract` if the contract changes.
+- [x] **1. Schema, migration and solver.** `beaconConfigs`, idempotent load-time migration, the loop in `computeNodeEffects`, unit tests for several configurations, the migration and per-configuration `effectAllowed` filtering, [data-model.md](../../../spec/data-model.md) and [solver.md](../../../spec/solver.md).
+- [x] **2. Store.** `updateNodeBeacon`, row settings copy and duplication on the list, undo.
+- [x] **3. Enable the UI.** Replace the redesign's adapter, remove the disabled "+ Add beacon configuration", [ui.md](../../../spec/ui.md), a Playwright spec with two configurations.
+- [x] **4. Snapshot.** Whatever the open question settles on, with `npm run contract` if the contract changes.

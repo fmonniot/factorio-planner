@@ -34,6 +34,7 @@ interface GameData {
   modules: Record<string, Module>
   beacons: Record<string, BeaconEntity>       // default {}
   defaultMachines: Record<string, string>     // recipe category -> machine id
+  defaultFuels?: Record<string, string>       // runtime-only: burner machine id -> default fuel id; never exported
   itemGroups: Record<string, ItemGroup>       // default {}
   itemSubgroups: Record<string, ItemSubgroup> // default {}
   technologies: Record<string, Technology>    // default {}
@@ -44,6 +45,11 @@ interface GameData {
 `defaultMachines` maps each recipe category to the machine with the highest
 `craftingSpeed` among the machines that list that category (ties keep the first
 one found). It is used whenever a node has no `machineId` override.
+
+`defaultFuels` is a runtime-only overlay, never written by the build scripts: it maps a burner machine
+id to the fuel that replaces the machine's lowest-value accepted fuel as its default. It is derived from
+the research horizon by `horizonDefaultFuels` and absent when the unrestricted default applies (see
+[Technology](#technology)). A bundle that carries it acts as a static override: it applies whenever the horizon yields no overlay of its own (the horizon's map, when there is one, replaces it as a whole).
 
 ### Item
 
@@ -324,7 +330,14 @@ category has no entry). A category the data has no default for at all is not aff
 is not hidden, crafts the category and is inside the horizon; any other override is ignored but kept,
 so it applies again when the horizon widens. `horizonFor` (`src/store/horizon.ts`) returns the horizon
 with the overrides applied, and every reader (the solver wiring, the table, the machine and beacon
-modals) goes through it. Machine,
+modals) goes through it. The horizon likewise picks a default fuel for burner rows (`horizonDefaultFuels`,
+`Horizon.defaultFuels`): the lowest `fuelValueKj` (then id) among the machine's accepted fuels that are
+inside the horizon (`withinHorizon` over `itemIds`, fluids included), instead of the lowest overall.
+If no accepted fuel is inside the horizon the unrestricted default applies (the row is then flagged
+"Beyond research horizon"), and with no limit nothing changes. Only machines whose default differs get
+an entry; the result is undefined when none does. The solver (through `wireSolver`, which overlays it on
+the effective game data as `defaultFuels`) and the fuel picker read the same map. An explicit
+`fuelItemId` is never overridden. Machine,
 module and beacon choices already stored in the plan are never rewritten when the horizon
 narrows; they are kept and flagged in the UI.
 
@@ -642,10 +655,10 @@ interface GameRecipeNode {
   recipeId: string
   machineId?: string            // undefined = the plan's effective default for recipe.category (horizon default, then defaultMachineOverrides)
   modules: ModuleConfig[]
-  beaconConfig?: BeaconConfig
+  beaconConfigs?: BeaconConfig[]   // absent = no beacon (never []); the solver sums them
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute
   neighbourCount?: number       // reactor rows: average adjacent working reactors; > 0 (0 → undefined)
-  fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel
+  fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel (horizon-aware)
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
   byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
@@ -660,13 +673,23 @@ interface SubPlanNode {
 
 - **Legacy nodes.** `RecipeNodeSchema` injects `kind: 'game-recipe'` into any
   node that has no `kind`, so plans saved before sub-plans existed still load.
+- **`beaconConfigs`.** The beacon configurations around the machine; the solver sums their
+  effects (see [solver.md](solver.md#machine-count-and-power)). Absent means no
+  beacon: the store removes the key when the last configuration goes, the load migration drops
+  an empty list, and readers still treat a missing key as `[]`. Order is kept and matters to "apply to every row" and to the snapshot.
+  There is no cap on the count. Plans saved with the former single `beaconConfig` load as a
+  one-element list: the node preprocess (`migrateRecipeNode`, run for every node at any
+  sub-plan depth) always drops `beaconConfig` and, when `beaconConfigs` is absent, sets it to
+  `[beaconConfig]`. The migration is pure and idempotent, a non-empty `beaconConfigs` wins when both keys are
+  present (an empty one is dropped first, so it does not hide the legacy value), and an invalid legacy value (including `null`) is wrapped as it is, so the schema
+  rejects it as before.
 - **`pinnedRate`.** The solver uses it as an equality constraint on the recipe's
   throughput (executions per minute). The preprocess coerces `0` to `undefined`
   so a plan saved with a zero pin still loads. The unit is runs, not items: the UI
   shows and edits the primary product's rate and converts with that product's
   items per run.
 - **`neighbourCount`.** Reactor rows: the average number of adjacent working reactors per reactor (fractional allowed). The heat product is multiplied by `1 + Machine.neighbourBonus × neighbourCount`; ignored when the row's machine has no `neighbourBonus`. The preprocess coerces `0` to `undefined`; negatives fail to load. Optional, so older plans load unchanged. See [solver.md](solver.md#machine-count-and-power).
-- **`fuelItemId`.** Burner and fluid-burner rows: the item or fluid the machine burns. An id the row's machine does not accept (unknown, hidden, wrong category, burnt result, not a fuel) is ignored (an item id on a fluid-burner too), so the row burns the machine's default fuel (the lowest `fuelValueKj`, then id); the id is kept, so changing the machine does not clear it. Optional, so older plans load unchanged. See [solver.md](solver.md#burner-fuel).
+- **`fuelItemId`.** Burner and fluid-burner rows: the item or fluid the machine burns. An id the row's machine does not accept (unknown, hidden, wrong category, burnt result, not a fuel) is ignored (an item id on a fluid-burner too), so the row burns the machine's default fuel (the lowest `fuelValueKj`, then id, among the accepted fuels inside the research horizon, or among all of them when none is inside); the id is kept, so changing the machine does not clear it. Optional, so older plans load unchanged. See [solver.md](solver.md#burner-fuel).
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Override of the recipe's main product: it decides which
@@ -696,6 +719,7 @@ interface BeaconConfig {
 
 A `BeaconConfig` without a `moduleId` is valid (older plans always have one and load unchanged): the
 beacon is placed but holds no module, so the solver ignores it and the snapshot does not send it.
+A node holds a list of them (`beaconConfigs`).
 
 The total module count on a node is kept within the machine's `moduleSlots` by the
 UI, not by the schema. When `beaconId` is set, the beacon modal copies the
@@ -875,7 +899,7 @@ Rules:
 - **Rates** (rates, machine counts, throughput) are rounded to three decimals. A solved value that is not a finite non-negative number (or, for `machinesCeil`, not an integer) is omitted from its row; a required rate (product, import) with such a value is sent as 0, so one bad value never invalidates the snapshot.
 - **No exporter-invented ids.** The `mining:*`, `offshore:*` and `power:*` recipes (`src/data/syntheticRecipes.ts`) and the `power:electricity` and `power:heat` items (`src/data/electricity.ts`) are not game prototypes, so no game-id field contains `:`. A row of such a recipe has `kind` and `product` instead of `recipe`; electricity and heat are sent as `{ id: 'electricity', type: 'virtual' }` and `{ id: 'heat', type: 'virtual' }` everywhere an item appears, and the reader exempts `virtual` from its id check and draws it itself.
 - **Item rates per row.** `inputs` and `outputs` come from the solver's `inputRates` and `outputRates`, in the solver's order, rounded to three decimals. Rates that are zero (also after rounding) or not a finite non-negative number are dropped, and so are the electricity and heat items (their rate is MJ per minute, not an item count). A solar panel or other electricity-only power row therefore has neither list, while a boiler or steam-engine row of the Seablock data set keeps its water, fuel and steam. A list with nothing left, and a row with no solved node, omit the key.
-- **Modules and beacon.** `modules` is the node's own modules (`moduleId` as `id`). `beacon` is the node's `beaconConfig` as `{ id: beaconId, count: beaconCount, module: moduleId, modules: modulesPerBeacon }`; a config with no `beaconId` (made without beacon data), no `moduleId` or a `beaconCount` of 0 is not sent, since there is nothing to place. A module entry with an empty `moduleId` (an empty slot) is skipped. Both keys are sent for solved and unsolved rows alike, since they come from the plan.
+- **Modules and beacon.** `modules` is the node's own modules (`moduleId` as `id`). `beacon` is the node's first sendable beacon configuration (not necessarily index 0) as `{ id: beaconId, count: beaconCount, module: moduleId, modules: modulesPerBeacon }`; a config with no `beaconId` (made without beacon data), no `moduleId` or a `beaconCount` of 0 is not sendable, since there is nothing to place, and a row with no sendable configuration sends no `beacon`. The wire format carries one beacon, so the other configurations are not sent. A module entry with an empty `moduleId` (an empty slot) is skipped. Both keys are sent for solved and unsolved rows alike, since they come from the plan.
 - **Sub-factory groups.** A sub-plan that holds a recipe row at any depth becomes a group, numbered on entering it while walking in table order, so a parent has a lower index than its children. `parent` is the enclosing sub-plan's group (absent at the top level, where the root plan is not a group) and `area: true` marks a separate area. A sub-plan with no rows at any depth is not sent, and a block without any sends no `groups`. Rows stay in table order, which is not contiguous per group: a sub-factory's rows sit where its handle is, so the plan `P[a, S, b]` gives the rows' groups `P, S, P`. A group's rows are only ever interrupted by its own descendants. `group` on a row is the innermost group it sits in.
 - **Item types** come from the loaded game data; an item id it does not know is sent as `item`.
 - **The machine** of a row is resolved as the solver wiring does (`resolveRowMachine`, over the plan's `horizonTechnologyIds` and `defaultMachineOverrides`), so it is the machine the solve used.

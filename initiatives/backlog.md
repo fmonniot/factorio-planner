@@ -33,6 +33,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
   - *Data-set badge versus `mod.stored`.* The "Data set mismatch" badge comes from the mod's `unknownIds` count in `status`, and is not checked against the plan id the mod reports as stored (`mod.stored`), so the badge can describe a plan other than the one the planner holds. Decide whether the badge should only show when the stored plan is the planner's.
   - *Rebuild debounce.* `src/viewer/viewer.ts` rebuilds the snapshot on every new solver result, with no debounce. Debouncing it would save work while the player edits a big plan. Performance only.
 - [ ] **In-game viewer: remember the bridge connection across page loads.** When the user turns on "connect to the bridge", the planner should reconnect automatically on the next page load, without the user toggling it again. Persist the toggle state (per browser, so a `localStorage` flag is enough) and restore it at startup. Turning it off must also be remembered.
+- [ ] **In-game viewer: every beacon configuration.** A row can hold several beacon configurations, but the snapshot sends only the first one that has something to place (`beacon`). Send a `beacons` list instead: the snapshot schema (`src/snapshot/schema.ts`), `npm run contract`, the bridge fixtures, and the mod (`mod/lib/blueprint.lua`, `mod/scripts/cursor.lua`).
 
 ## Sourcing priority
 
@@ -49,7 +50,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Mining productivity research.** Extraction rows use the drill's base mining speed. Mining productivity research and a drill's base `effect_receiver` are ignored.
 - [ ] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`.
 - [ ] **Wind turbines and other `electric-energy-interface` generators.** Seablock's `wind-turbine-2` (15 kW) and Nullius' wind turbines and Stirling engines are `electric-energy-interface` entities whose output is set by script (wind, altitude, heat). Decide an average per entity and export them as generation recipes.
-- [ ] **Horizon-aware default fuel.** A burner row without a choice burns the lowest-value accepted fuel, whatever the research horizon. Make the default horizon-aware (the best fuel inside the horizon).
 - [ ] **Burnt results of fuels.** A fuel with a `burnt_result` is never offered. Model the burnt item as an output of the burner row.
 - [ ] **Fluid-burning non-crafting machines.** Drills and pumps with a `burns_fluid` source are exported as `fluid-burner` but have no UI or tests.
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
@@ -65,7 +65,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [ ] **Localised crafting-category names.** The default-machines flyout and the machine picker label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
-- [ ] **Beacons: several beacon configuration per recipe.** `RecipeNode.beaconConfig` holds a single beacon config today. Tracked in [multiple-beacon-configs](multiple-beacon-configs/plan.md); it follows the [recipe table redesign](archive/recipe-table-redesign/plan.md).
 - [ ] **Touch alternatives for right-click menus.** The row, product, block tab and connection menus open on right-click only; add a long-press or a visible "..." button.
 - [ ] **Touch drag-and-drop.** Row and block-tab reordering relies on mouse drag events and has no touch path.
 - [ ] **Hover-only UI on touch.** `IconButton` tooltips and `useHoverPopup` popups appear on hover and focus only; make them reachable on tap.

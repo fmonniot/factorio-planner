@@ -56,6 +56,30 @@ describe('horizonFor', () => {
     expect(before.defaultMachines.crafting).toBe('asm1')
     expect(after.defaultMachines.crafting).toBe('asm2')
   })
+  it('keeps the default fuels when only the machine overrides change', () => {
+    const fuel = (id: string, fuelValueKj: number) => ({
+      id, name: id, type: 'item', iconPath: '', hidden: false, subgroup: '', order: '', fuelValueKj, fuelCategory: 'chemical',
+    })
+    const d: GameData = {
+      ...makeGameDataWithMachines(),
+      items: { wood: fuel('wood', 2000), coal: fuel('coal', 4000) } as unknown as GameData['items'],
+      recipes: {
+        'r-wood': {
+          id: 'r-wood', name: 'r-wood', category: 'crafting', craftingTime: 1, ingredients: [],
+          products: [{ itemId: 'wood', type: 'item', amount: 1 }],
+          madeIn: [], allowProductivity: false, hidden: false, mainProduct: undefined, subgroup: '', order: '',
+        },
+      },
+      technologies: {
+        base: { id: 'base', name: 'base', prerequisites: [], unlockedRecipes: [], iconPath: '' },
+        forestry: { id: 'forestry', name: 'forestry', prerequisites: [], unlockedRecipes: ['r-wood'], iconPath: '' },
+      },
+    }
+    d.machines.asm1 = { ...d.machines.asm1, energyType: 'burner', fuelCategories: ['chemical'] }
+    const targets = ['base']
+    expect(horizonFor(d, targets, NO_OVERRIDES).defaultFuels).toEqual({ asm1: 'coal' })
+    expect(horizonFor(d, targets, { crafting: 'asm2' }).defaultFuels).toEqual({ asm1: 'coal' })
+  })
   it('empty overrides give back the base horizon', () => {
     const d = makeGameDataWithMachines()
     const targets: string[] = []

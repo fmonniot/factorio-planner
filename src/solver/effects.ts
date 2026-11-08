@@ -5,10 +5,10 @@ import { resolveRowFuel } from '../data/fuel'
 // Module and beacon effects
 //
 // Computes the effective bonuses (speed, productivity, consumption) for a
-// recipe node from its configured machine modules and optional beacon.
+// recipe node from its configured machine modules and its beacon configurations.
 //
 // Machine modules: each module contributes its full effect.
-// Beacon modules:  each beacon contributes:
+// Beacon modules:  each beacon configuration contributes (the contributions are summed):
 //   effect × distributionEfficiency × modulesPerBeacon × beaconCount
 //
 // All bonuses are additive (summed, then added to 1 for the multiplier).
@@ -98,21 +98,20 @@ export function computeNodeEffects(node: GameRecipeNode, gameData: GameData): No
     if (allowed('consumption', machineAllowed)) consumptionBonus += (mod.effects.consumption ?? 0) * mc.count
   }
 
-  // Beacon contributions: capped by both the beacon entity's and the machine's allowed effects.
-  const beacon = node.beaconConfig
-  if (beacon?.moduleId) {
+  // Beacon contributions, summed over the configurations: capped by both the beacon entity's and the machine's allowed effects.
+  for (const beacon of node.beaconConfigs ?? []) {
+    if (!beacon.moduleId) continue
     const mod = gameData.modules[beacon.moduleId]
-    if (mod) {
-      const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined
-      const multiplier =
-        beacon.distributionEfficiency * beacon.modulesPerBeacon * beacon.beaconCount
-      if (allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)) {
-        productivityBonus += (mod.effects.productivity ?? 0) * multiplier
-      }
-      if (allowed('speed', beaconAllowed, machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * multiplier
-      if (allowed('consumption', beaconAllowed, machineAllowed)) {
-        consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
-      }
+    if (!mod) continue
+    const beaconAllowed = beacon.beaconId ? gameData.beacons[beacon.beaconId]?.allowedEffects : undefined
+    const multiplier =
+      beacon.distributionEfficiency * beacon.modulesPerBeacon * beacon.beaconCount
+    if (allowProductivity && allowed('productivity', beaconAllowed, machineAllowed)) {
+      productivityBonus += (mod.effects.productivity ?? 0) * multiplier
+    }
+    if (allowed('speed', beaconAllowed, machineAllowed)) speedBonus += (mod.effects.speed ?? 0) * multiplier
+    if (allowed('consumption', beaconAllowed, machineAllowed)) {
+      consumptionBonus += (mod.effects.consumption ?? 0) * multiplier
     }
   }
 

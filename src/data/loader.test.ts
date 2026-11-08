@@ -495,25 +495,25 @@ describe('parsePlan', () => {
 
   it('accepts a node with optional beacon config', () => {
     const plan = minimalPlan()
-    ;(plan.nodes[0] as GameRecipeNode).beaconConfig = {
+    ;(plan.nodes[0] as GameRecipeNode).beaconConfigs = [{
       moduleId: 'speed-module-3',
       beaconCount: 8,
       modulesPerBeacon: 2,
       distributionEfficiency: 1.0,
-    }
+    }]
     expect(() => parsePlan(plan)).not.toThrow()
   })
 
   it('accepts a beacon config without a module and keeps it without one', () => {
     const plan = minimalPlan()
-    ;(plan.nodes[0] as GameRecipeNode).beaconConfig = {
+    ;(plan.nodes[0] as GameRecipeNode).beaconConfigs = [{
       beaconId: 'beacon',
       beaconCount: 4,
       modulesPerBeacon: 2,
       distributionEfficiency: 1.5,
-    }
+    }]
     const parsed = parsePlan(plan)
-    const cfg = (parsed.nodes[0] as GameRecipeNode).beaconConfig
+    const cfg = (parsed.nodes[0] as GameRecipeNode).beaconConfigs?.[0]
     expect(cfg).toBeDefined()
     expect(cfg?.moduleId).toBeUndefined()
   })
@@ -601,6 +601,84 @@ describe('loadPlanFromJson', () => {
 // ---------------------------------------------------------------------------
 // AppState — block connections
 // ---------------------------------------------------------------------------
+
+describe('beacon configuration migration', () => {
+  const now = '2026-01-01T00:00:00.000Z'
+  const legacy = { moduleId: 'speed-module-3', beaconCount: 8, modulesPerBeacon: 2, distributionEfficiency: 0.5 }
+  const other = { beaconId: 'beacon', moduleId: 'efficiency-module', beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }
+  const nodeJson = (extra: Record<string, unknown> = {}) => ({
+    kind: 'game-recipe', id: 'n1', recipeId: 'r', modules: [], byproductPolicy: {}, ...extra,
+  })
+  const planJson = (nodes: unknown[], subPlans: unknown[] = []) => ({
+    id: 'p', name: 'P', nodes, subPlans, createdAt: now, updatedAt: now,
+  })
+  const firstNode = (raw: unknown) => parsePlan(raw).nodes[0] as GameRecipeNode
+
+  it('turns a legacy beaconConfig into a one-element list and drops the legacy key', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfig: legacy })]))
+    expect(node.beaconConfigs).toEqual([legacy])
+    expect('beaconConfig' in node).toBe(false)
+  })
+
+  it('leaves a node with neither key without a beaconConfigs key', () => {
+    expect('beaconConfigs' in firstNode(planJson([nodeJson()]))).toBe(false)
+  })
+
+  it('drops an empty beaconConfigs list, so no beacon is always an absent key', () => {
+    expect('beaconConfigs' in firstNode(planJson([nodeJson({ beaconConfigs: [] })]))).toBe(false)
+  })
+
+  it('does not let an empty beaconConfigs hide a legacy beaconConfig', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [] })]))
+    expect(node.beaconConfigs).toEqual([legacy])
+    expect('beaconConfig' in node).toBe(false)
+  })
+
+  it('lets a non-empty beaconConfigs win when both keys are present', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfig: legacy, beaconConfigs: [other] })]))
+    expect(node.beaconConfigs).toEqual([other])
+    expect('beaconConfig' in node).toBe(false)
+  })
+
+  it('round-trips a two-element list in order', () => {
+    const node = firstNode(planJson([nodeJson({ beaconConfigs: [other, legacy] })]))
+    expect(node.beaconConfigs).toEqual([other, legacy])
+  })
+
+  it('migrates a legacy node in a sub-plan', () => {
+    const sub = planJson([nodeJson({ id: 's1', beaconConfig: legacy })])
+    const parsed = parsePlan(planJson([], [sub]))
+    expect((parsed.subPlans[0].nodes[0] as GameRecipeNode).beaconConfigs).toEqual([legacy])
+  })
+
+  it('is idempotent', () => {
+    const once = parsePlan(planJson([nodeJson({ beaconConfig: legacy })]))
+    expect(parsePlan(JSON.parse(JSON.stringify(once)))).toEqual(once)
+  })
+
+  it('does not mutate its input', () => {
+    const raw = planJson([nodeJson({ beaconConfig: legacy })])
+    const copy = structuredClone(raw)
+    parsePlan(raw)
+    expect(raw).toEqual(copy)
+  })
+
+  it('still rejects an invalid legacy beaconConfig, null included', () => {
+    const block = (beaconConfig: unknown) => ({
+      id: 'b1', name: 'Block', products: [], noImportItems: [], rootPlan: planJson([nodeJson({ beaconConfig })]),
+    })
+    expect(() => parseAppState({ blocks: [block(null)], activeBlockId: 'b1' })).toThrow(AppStateLoadError)
+    expect(() => parseAppState({ blocks: [block({ beaconCount: -1 })], activeBlockId: 'b1' })).toThrow(AppStateLoadError)
+  })
+
+  it('migrates the legacy e2e fixture', () => {
+    const raw = JSON.parse(readFileSync('e2e/fixtures/pin-recipe-not-working.json', 'utf8'))
+    const state = parseAppState(raw)
+    const nodes = state.blocks.flatMap(b => b.rootPlan.nodes)
+    const migrated = nodes.find(n => n.kind === 'game-recipe' && n.beaconConfigs) as GameRecipeNode
+    expect(migrated.beaconConfigs).toMatchObject([{ moduleId: 'efficiency-module', beaconCount: 4 }])
+  })
+})
 
 describe('parseAppState — inputConnections', () => {
   const now = '2026-01-01T00:00:00.000Z'

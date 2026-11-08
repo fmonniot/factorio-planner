@@ -1,3 +1,4 @@
+import { acceptedFuels, burnsFuel } from './fuel'
 import { acceptsTemperature, effectiveTemperature, hasTemperatureBound } from './temperature'
 import type { BeaconEntity, GameData, Ingredient, Machine, Recipe, Technology } from './types'
 
@@ -333,6 +334,27 @@ export function horizonDefaultMachines(
 }
 
 /**
+ * Default fuel per burner machine under a horizon: the lowest-value accepted fuel that is inside the horizon.
+ * Only machines where that differs from the unrestricted default (the lowest-value accepted fuel) get an entry; a
+ * machine with no accepted fuel inside the horizon keeps the unrestricted default. Undefined when there is no limit
+ * or nothing differs.
+ */
+export function horizonDefaultFuels(
+  gameData: GameData,
+  itemIds: ReadonlySet<string> | null,
+): GameData['defaultFuels'] {
+  if (!itemIds) return undefined
+  const result: Record<string, string> = {}
+  for (const machine of Object.values(gameData.machines)) {
+    if (!burnsFuel(machine)) continue
+    const accepted = acceptedFuels(gameData, machine)
+    const best = accepted.find(fuel => withinHorizon(itemIds, fuel.id))
+    if (best && best !== accepted[0]) result[machine.id] = best.id
+  }
+  return Object.keys(result).length > 0 ? result : undefined
+}
+
+/**
  * Layers the plan's default-machine overrides over the horizon defaults. An override
  * applies iff its machine exists, is not hidden, crafts the category and is inside the
  * horizon; the others are ignored. Returns `defaults` itself when nothing applies and
@@ -364,6 +386,9 @@ export interface Horizon {
   /** category -> machine id. === gameData.defaultMachines when there is no limit; otherwise a
    *  category whose machines are all outside the horizon has no key. */
   defaultMachines: Record<string, string>
+  /** machine id -> default fuel id for burner machines whose lowest-value accepted fuel is outside the horizon.
+   *  Undefined when no limit or nothing differs. */
+  defaultFuels?: GameData['defaultFuels']
 }
 
 export function computeHorizon(gameData: GameData, targetIds: readonly string[]): Horizon {
@@ -378,6 +403,7 @@ export function computeHorizon(gameData: GameData, targetIds: readonly string[])
     beaconIds: availableBeaconIds(gameData, itemIds, placers),
     moduleIds: availableModuleIds(gameData, itemIds),
     defaultMachines: horizonDefaultMachines(gameData, machineIds),
+    defaultFuels: horizonDefaultFuels(gameData, itemIds),
   }
 }
 

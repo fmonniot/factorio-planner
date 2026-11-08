@@ -8,7 +8,7 @@ The production table is hard to read at the block level and its editing lives be
 
 - A block with many rows needs a lot of scrolling, and the Machine and Beacon columns repeat the same icon-and-badge idea differently.
 - Machine, module and beacon settings open in separate modals ([Edit machine](../../../spec/ui.md#edit-machine-modal), [Edit beacon](../../../spec/ui.md#edit-beacon-modal)). The effects of the two add up to one result, but nothing shows that.
-- A row holds a single beacon configuration (`beaconConfig`) and a beacon cannot exist without a module. The redesign builds the final UI of the design canvas, which draws several configurations, on top of the single one; several come afterwards, see [multiple beacon configurations](../../multiple-beacon-configs/plan.md).
+- A row holds a single beacon configuration (`beaconConfig`) and a beacon cannot exist without a module. The redesign builds the final UI of the design canvas, which draws several configurations, on top of the single one; several come afterwards, see [multiple beacon configurations](../multiple-beacon-configs/plan.md).
 - How an item is sourced (own recipes, byproducts, connections) is set from a right-click menu on an item chip, and is only visible as a small `B` / `C` badge.
 - Nested sub-factories have no visual structure beyond indentation.
 
@@ -25,7 +25,7 @@ Real scale means the planner's own sizes: recipe, machine, module and beacon ico
 One reusable component for every icon-with-a-number in the table: the icon, a quantity in its **bottom-right** corner (9px bold monospace with a dark outline, as Factorio draws stack counts), and an optional badge in its **top-right** corner. It replaces `ItemTile`'s side-by-side icon and rate in the table.
 
 - Bottom-right is always a quantity: an item rate, the machine count, a module chip's used/slots, a beacon count, a beacon module chip's modules per beacon over slots.
-- Top-right is always a badge: amber pin (the product's rate is pinned), lavender `+N` (the row has N more beacon configurations; built, but never shown until [several are supported](../../multiple-beacon-configs/plan.md)), amber `B` or `C` (the item is not on Own recipes first).
+- Top-right is always a badge: amber pin (the product's rate is pinned), lavender `+N` (the row has N more beacon configurations; built, but never shown until [several are supported](../multiple-beacon-configs/plan.md)), amber `B` or `C` (the item is not on Own recipes first).
 - A cell that holds chips must not use `overflow: hidden`; it clips the badges.
 
 ### Columns
@@ -120,7 +120,7 @@ The design canvas is the final UI, including its several beacon configurations. 
 
 - The components take the configurations as a list. A small adapter gives them `beaconConfig ? [beaconConfig] : []` and writes edits back to `beaconConfig`. The `+N` badge, the tooltip listing all configurations, the per-configuration cards and the per-configuration Effects columns exist but only ever render one configuration.
 - The "+ Add beacon configuration" button is disabled once a row has a configuration, with the title "One beacon configuration per recipe for now". Removing the card re-enables it.
-- [Multiple beacon configurations](../../multiple-beacon-configs/plan.md) then replaces the adapter with `beaconConfigs` and removes the disabled state; the UI itself does not change.
+- [Multiple beacon configurations](../multiple-beacon-configs/plan.md) then replaces the adapter with `beaconConfigs` and removes the disabled state; the UI itself does not change.
 
 `BeaconConfig.moduleId` also becomes optional, so a beacon can exist without a module. The configuration then contributes nothing. This is the state after the fill-all picker's `+` is used for the beacon but not for its modules, and the panel's per-slot buttons can be emptied.
 
