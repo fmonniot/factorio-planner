@@ -1110,7 +1110,7 @@ The same component in recipes mode (`source="recipes"`).
 
 ## Shared pieces
 
-- **Dim text.** Secondary text (hints such as "click a row to trace it", counts, table header and side-panel section labels, units, the `–` cells, empty-state notes) is `text-gray-400`, at least 4.5:1 on the gray-800 and gray-900 surfaces it sits on.
+- **Dim text.** Secondary text (hints such as "click a row to trace it", counts, table header and side-panel section labels, units, the `–` cells, empty-state notes) is `text-gray-400`, at least 4.5:1 on the gray-800 and gray-900 surfaces it sits on; search-input placeholders are `gray-400` too. The exception is detail text in a picker or menu row that is hovered (`hover:bg-gray-700`): there it is 3.96:1.
 - `IconChip.tsx` and `ItemChip.tsx` — the [icon chip](#icon-chip) and the item chip of the production table (variants product,
   byproduct, ingredient; the chip carries `data-variant`). `ItemTile.tsx` holds the rate formatters they use: `fmtRate` and `fmtPower`. Rates show
   0–2 decimals depending on magnitude, and two significant digits for a non-zero rate below 0.005 ("0.00082", never "0.00"). `fmtItemRate(itemId, ratePerSec, unit)` / `fmtItemRateText` format a

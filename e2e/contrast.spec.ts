@@ -22,8 +22,8 @@ const row = (page: Page, id: string) => page.locator(`main tr[data-node-id="${id
 interface Measured { fg: number[]; bg: number[]; ratio: number }
 
 /** The WCAG ratio of the element's text colour on the first opaque background behind it. Colours are resolved through a canvas, so oklch() and friends come out as sRGB. */
-async function measure(target: Locator): Promise<Measured> {
-  return target.evaluate((el: Element) => {
+async function measure(target: Locator, pseudo?: string): Promise<Measured> {
+  return target.evaluate((el: Element, pseudo?: string) => {
     const ctx = document.createElement('canvas').getContext('2d', { willReadFrequently: true })!
     const rgba = (css: string): number[] => {
       ctx.clearRect(0, 0, 1, 1)
@@ -37,16 +37,16 @@ async function measure(target: Locator): Promise<Measured> {
       const c = rgba(getComputedStyle(n).backgroundColor)
       if (c[3] === 255) { bg = c; break }
     }
-    const fg = rgba(getComputedStyle(el).color)
+    const fg = rgba(getComputedStyle(el, pseudo).color)
     const lin = (v: number) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4) }
     const lum = (c: number[]) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2])
     const a = lum(fg), b = lum(bg)
     return { fg: fg.slice(0, 3), bg: bg.slice(0, 3), ratio: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) }
-  })
+  }, pseudo)
 }
 
-async function expectRatio(target: Locator, min: number, what: string) {
-  const m = await measure(target)
+async function expectRatio(target: Locator, min: number, what: string, pseudo?: string) {
+  const m = await measure(target, pseudo)
   expect(m.ratio, `${what}: rgb(${m.fg}) on rgb(${m.bg}) is ${m.ratio.toFixed(2)}:1, wanted ${min}:1`).toBeGreaterThanOrEqual(min)
   return m
 }
@@ -99,6 +99,18 @@ test('the side-panel section labels read at 4.5:1', async ({ page }) => {
   await expect(panel).toBeVisible()
 })
 
+test('the toolbar filter and the item-picker search placeholders read at 4.5:1', async ({ page }) => {
+  const filter = page.getByPlaceholder('Filter recipes or items')
+  const f = await expectRatio(filter, 4.5, 'toolbar filter placeholder', '::placeholder')
+  expect(f.fg).toEqual(GRAY_400)
+
+  await page.getByTitle('Add product').click()
+  const search = page.getByPlaceholder('Search…')
+  await expect(search).toBeVisible()
+  const s = await expectRatio(search, 4.5, 'item picker placeholder', '::placeholder')
+  expect(s.fg).toEqual(GRAY_400)
+})
+
 test('the Areas tool is gray-300 and reads at 3:1', async ({ page }) => {
   const tool = page.getByTestId('top-bar').getByRole('button', { name: 'Areas in every block' })
   const m = await expectRatio(tool, 3, 'Areas tool')
@@ -115,4 +127,10 @@ test('the Horizon, Graph and Tech tree tools are gray-300 and read at 3:1', asyn
     const m = await expectRatio(tool, 3, `tool ${name}`)
     expect(m.fg).toEqual(GRAY_300)
   }
+
+  await page.getByTestId('top-bar').getByRole('button', { name: 'Tech tree' }).click()
+  const search = page.getByTestId('tech-tree-search')
+  await expect(search).toBeVisible()
+  const m = await expectRatio(search, 4.5, 'tech tree search placeholder', '::placeholder')
+  expect(m.fg).toEqual(GRAY_400)
 })

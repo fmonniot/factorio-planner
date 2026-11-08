@@ -488,7 +488,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -700,7 +700,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
           type="button"
