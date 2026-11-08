@@ -34,7 +34,7 @@ PR 0 is the branch that holds this file (docs, tooling and the artifact; nothing
 | 8 | Summary detail and bars | main | Independent of the table |
 | 9 | Collapsed summary | stacked on 8 | `sumStack` needs `sumLine`; the one-line chips reuse the pane code PR 8 touches |
 
-Every row is its own PR, however small (decided by the owner, 2026-11-08): it keeps the release notes readable. Do not merge neighbours.
+Each of the nine PRs below stays its own PR, however small (owner, 2026-11-08): it keeps the release notes readable. Do not merge neighbours; do not split one either.
 
 ---
 
