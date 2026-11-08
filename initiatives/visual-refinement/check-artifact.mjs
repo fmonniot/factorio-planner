@@ -145,7 +145,7 @@ await check('6 phQuiet: placeholders are fainter, come back on hover, selection 
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the fourteen accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the eighteen accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -153,13 +153,13 @@ await check('decided: the fourteen accepted changes are on at the start, in a cl
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all fourteen are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 14, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all eighteen are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 18, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 14, 'Decided only puts the fourteen back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 18, 'Decided only puts the eighteen back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)
@@ -502,6 +502,24 @@ await check('3 chipFmt: compact numbers, exact rate still in the tooltip', async
   ok(/\d+k/.test(q), 'large rates read as 12k etc: ' + q.slice(0, 120))
   const title = await a.page.evaluate(() => [...document.querySelectorAll('#frame .row .chip')].map(c => c.title).find(t => /Purified water/.test(t)))
   ok(/14\d\d\d\/m|1\d\d\d\d\/m/.test(title || ''), 'tooltip keeps the exact rate: ' + title)
+})
+
+await check('3 chipNum and chipPlate: larger numbers and a faint plate, independent', async a => {
+  await a.block('Ores')
+  const qty = () => a.page.evaluate(() => {
+    const q = [...document.querySelectorAll('#frame .row .chip span')].find(e => e.style.position === 'absolute' && e.style.fontWeight === '700' && e.textContent.trim())
+    return parseFloat(getComputedStyle(q).fontSize)
+  })
+  const plate = () => a.page.evaluate(() => getComputedStyle([...document.querySelectorAll('#frame .row .chip')][0]).backgroundColor)
+  ok(await qty() === 9, 'baseline: 9 px')
+  await a.toggle('Larger numbers')
+  ok(await qty() === 11, 'chipNum: 11 px')
+  ok(/0, 0, 0, 0\)|transparent/.test(await plate()), 'no plate until chipPlate is on')
+  await a.toggle('Washed-out chip plate')
+  const pl = await plate()
+  const alpha = Number((pl.match(/,\s*([\d.]+)\)$/) || [])[1])
+  ok(alpha > 0 && alpha <= 0.1, 'chipPlate: a faint plate (alpha at most 0.10) ' + pl)
+  ok(await qty() === 11, 'the plate does not change the number size')
 })
 
 // ---------------------------------------------------------------- 7 side panel

@@ -446,7 +446,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -476,10 +476,10 @@ const GROUPS = [
     ['sumStack', 'Stack the collapsed summary on phones', 'Needs the collapsible summary above. Under 768 px its three lines sit on top of each other instead of scrolling sideways, and the handle row expands them. Expanded, the panes scroll sideways as before; the Fold inner screen keeps its three columns.', 'Try: Fold 8 cover with the collapsible summary on, then this one; Expand.'] ] },
   { title: '2 · Column spread', decided: true, items: [
     ['ingLeft', 'Ingredients aligned to the left of their column', 'The ingredient chips start at the left of the Ingredients column instead of ending at its right edge, at the same x on area and recipe rows. Power stays at the right.', 'Try: Desktop 1920, Ores or Metals; watch Products to ingredients in the readout.'] ] },
-  { title: '3 · Chips', items: [
+  { title: '3 · Chips', decided: true, items: [
     ['chipFmt', 'Compact rates', '12k, 1.1k, <.01: every rate fits its chip. Hover a chip: its tooltip still has the exact rate, as in the app.', 'Try: Ores, Chunks row (12360 and 14100); Metals, Cobalt steel (0.0000016).'],
-    ['chipPill', 'Dark pill behind numbers', 'Readable on red and green icons.', 'Try: Ores (byproduct rows with red numbers).'],
-    ['chipPlate', 'Lighter chip plate', 'Dark icons (carbon, coal) stop reading as holes.', 'Try: Ores, the Crystals row and any row with coal or carbon.'],
+    ['chipNum', 'Larger numbers', 'The quantity goes from 9 px to 11 px bold, still outlined in black.', 'Try: Ores (byproduct rows with red numbers).'],
+    ['chipPlate', 'Washed-out chip plate', 'A faint cool-grey plate behind each icon: dark icons (carbon, coal) stop reading as holes, without a bright square around every chip.', 'Try: Ores, the Crystals row and any row with coal or carbon.'],
     ['chipBig', '32 px chips', 'Rows grow by 4 px and each line holds fewer chips.', 'Try: watch Average row height and Rows visible.'] ] },
   { title: '4 · Contrast', items: [
     ['contrast', 'Lighter secondary text and controls', 'Hints, counts, reorder arrows, header and panel labels, the + and All blocks buttons.', 'Try: the ▲▼ at the left of each row and the table header; the readout shows the lowest ratio.'] ] },
@@ -622,7 +622,7 @@ class Component extends DCLogic {
     const fmt = tg.chipFmt ? fmtCompact : fmtBase;
     const color = tone === 'p' ? '#e5e7eb' : tone === 'b' ? '#ffa2a2' : '#7bf1a8';
     let box = 'position:relative;flex:none;width:' + cs + 'px;height:' + cs + 'px;margin-right:6px;';
-    if (tg.chipPlate) box += 'background:rgba(255,255,255,0.12);border-radius:5px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10);';
+    if (tg.chipPlate) box += 'background:rgba(148,163,184,0.09);border-radius:5px;box-shadow:inset 0 0 0 1px rgba(148,163,184,0.10);';
     let ic = 'width:' + cs + 'px;height:' + cs + 'px;';
     if (si >= 0) {
       const x = (si % D.cols) * cs, y = Math.floor(si / D.cols) * cs;
@@ -631,9 +631,7 @@ class Component extends DCLogic {
     let q = 'display:none;', qt = '';
     if (tone) {
       qt = fmt(rate);
-      const pill = tg.chipPill
-        ? 'background:rgba(8,12,22,0.9);border-radius:3px;padding:0 2px;font-size:10px;right:-1px;bottom:-1px;'
-        : 'font-size:9px;padding:0 1px;right:0;bottom:0;text-shadow:-1px 0 #000,1px 0 #000,0 -1px #000,0 1px #000;';
+      const pill = 'font-size:' + (tg.chipNum ? 11 : 9) + 'px;padding:0 1px;right:0;bottom:0;text-shadow:-1px 0 #000,1px 0 #000,0 -1px #000,0 1px #000;';
       q = 'position:absolute;line-height:1.1;font-family:ui-monospace,Menlo,monospace;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:' + color + ';' + pill;
     }
     return {

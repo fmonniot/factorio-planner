@@ -75,6 +75,8 @@ Seen in: `metals-1920.png`, `ores.png`. Files: `ProductionTable.tsx` (`COLUMNS`,
 
 Ideas to compare: a small dark pill behind the number; compact number formatting; a lighter chip background; a 32 px chip (cost: one fewer chip per line in Byproducts and Ingredients, see the 34 px chip slot in the spec).
 
+*Decision (2026-11-08, after trying the toggles):* **accepted:** `chipFmt` (compact rates), `chipNum` (the quantity goes from 9 px to 11 px, still outlined in black), `chipPlate` (a washed-out plate behind each icon, `rgba(148,163,184,0.09)`; the first version, white at 0.12, was too distracting) and `chipBig` (32 px chips). **Rejected:** the dark background behind the numbers (`chipPill`); it was first split from the size increase (`chipNum`) so each could be judged alone. All four accepted toggles are on when the page opens, in the closed "Decided" section.
+
 Seen in: `metals.png`, `ores.png`. Files: `IconChip.tsx` (the `text-[9px]` quantity, `QUANTITY_COLOR`), `ItemChip.tsx`, the rate formatter used by the chips.
 
 ### 4. Secondary text and some controls have low contrast
