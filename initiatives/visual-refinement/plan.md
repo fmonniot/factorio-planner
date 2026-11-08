@@ -97,6 +97,10 @@ Every plain recipe row shows a dashed `+ 0/3` module chip and a dashed `+` beaco
 
 Files: `MachineCell.tsx`, `ModuleCell.tsx`, `BeaconPopover.tsx` (`BeaconCell`).
 
+*Owner's review (2026-11-08):* **rejected:** `hideEmpty` (dashed chips only on hover, selection or focus): the placeholders should stay visible. Removed from the replica. Two ideas from the owner replace it: `phPair` (an empty Beacons cell shows two placeholders, the beacon `+` and its module slot `+ 0/2`, like the Machine cell; the app today shows one `+` until a beacon exists, then the beacon chip and its module chip) and `phQuiet` (the dashed border and glyph get fainter, from 2.35:1 and 3.67:1 against the row to 1.72:1 and 2.35:1; back to the usual tone on row hover, selection and keyboard focus, brighter on the chip itself; never hidden, so touch screens look the same). `phQuiet` knowingly goes below 3:1 for a decorative empty-state hint; the readout's contrast card does not count it.
+
+*Decision (2026-11-08, after trying both):* **accepted:** `phPair` and `phQuiet`. Both are on when the page opens, in the closed "Decided" section.
+
 ### 7. The side panel is long, has dead space, and covers everything below `xl`
 
 - For a recipe row, the Effects table is a grid of dashes while no module or beacon is set; hide or collapse it until there is something to show. "Where inputs come from" then moves up from the bottom edge of a 900 px screen.
