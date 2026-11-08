@@ -42,7 +42,7 @@ const PRIMARY_AREA_HINT = '; the primary product decides what this row builds fo
 
 /**
  * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
- * Products and Byproducts columns (spanning both columns, right-aligned), receives under Ingredients.
+ * Products and Byproducts columns (spanning both columns, left-aligned so they start under the recipe rows' product chips), receives under Ingredients.
  */
 const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
@@ -819,7 +819,7 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
       data-testid={testId}
       role="group"
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
-      className="flex flex-wrap items-center justify-end gap-1.5"
+      className={`flex flex-wrap items-center gap-1.5 ${direction === 'sends' ? 'justify-start' : 'justify-end'}`}
     >
       {flows.slice(0, AREA_CHIP_CAP[direction]).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />

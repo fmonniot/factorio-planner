@@ -252,3 +252,20 @@ test.describe('column widths', () => {
     }
   })
 })
+
+test.describe('area row alignment', () => {
+  test.use({ viewport: { width: 1470, height: 900 } })
+
+  test('the items an area sends start under the recipe rows\' product chips', async ({ page }) => {
+    await load(page)
+    const chip = page.locator('main table tbody tr').filter({ hasText: 'Compression' })
+      .getByTestId('area-chips-out').locator('[data-direction="sends"]').first()
+    const productCell = row(page).locator('td').nth(4)
+    await expect(chip).toBeVisible()
+    const cell = (await productCell.boundingBox())!
+    const sent = (await chip.boundingBox())!
+    // The chip starts inside the Products column, not at the right edge of the Byproducts column.
+    expect(sent.x).toBeGreaterThanOrEqual(cell.x - 1)
+    expect(sent.x).toBeLessThan(cell.x + cell.width)
+  })
+})
