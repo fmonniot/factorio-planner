@@ -27,7 +27,7 @@ test('ingredient tiles show the temperature a recipe requires', async ({ page })
 /** Two Seablock blocks making electricity from a carbon boiler (steam at 165°C): one with a steam turbine (needs ≥465°C), one with a steam engine (needs ≥165°C). */
 const POWER_FIXTURE = path.resolve('e2e/fixtures/power-temperature-seablock.json')
 
-test('a steam turbine on boiler steam warns, and shows the boiler temperature', async ({ page }) => {
+test('a steam turbine on boiler steam imports its steam, warns why, and shows the boiler temperature', async ({ page }) => {
   await loadPlanFixture(page, POWER_FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main table tbody tr').first()).toBeVisible({ timeout: 10000 })
 
@@ -40,7 +40,8 @@ test('a steam turbine on boiler steam warns, and shows the boiler temperature', 
   await expect(page.getByText('Fluid temperature does not fit')).toBeVisible()
   const body = page.getByText(/needs Steam at/)
   await expect(body).toContainText('465°C')
-  await expect(body).toContainText('165°C')
+  await expect(body).toContainText('only made at 165°C')
+  await expect(body).toContainText('is imported')
 })
 
 test('a steam engine on boiler steam raises no warning', async ({ page }) => {

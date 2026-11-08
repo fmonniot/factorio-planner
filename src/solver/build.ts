@@ -161,12 +161,16 @@ export function buildClassifiedSystem(
 
 /**
  * Apply `byproductPolicy = 'discard'` of column `colId` to `itemId`: its positive net coefficient
- * becomes 0, and what it makes of the item no longer counts towards a fluid's temperature rows.
+ * becomes 0, so the column neither makes nor takes the item in the LP; the fluid's temperature rows
+ * drop it on both sides as well (and the fluid, once nothing makes or bounds it).
  */
 export function discardProduct(system: ClassifiedSystem, itemId: string, colId: string): void {
   const row = system.S.get(itemId)
   if (!row || (row.get(colId) ?? 0) <= 0) return
   row.set(colId, 0)
   const f = system.fluidTemperatures?.get(itemId)
-  if (f) f.producers = f.producers.filter(p => p.colId !== colId)
+  if (!f) return
+  f.producers = f.producers.filter(p => p.colId !== colId)
+  f.consumers = f.consumers.filter(c => c.colId !== colId)
+  if (f.producers.length === 0 || f.consumers.length === 0) system.fluidTemperatures!.delete(itemId)
 }

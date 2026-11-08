@@ -41,14 +41,21 @@ export function productTemperatureLabels(recipe: Recipe): Record<string, string>
   return Object.fromEntries(Object.entries(perItem).map(([id, labels]) => [id, labels.join(', ')]))
 }
 
-/** Sentence for a `temperature-mismatch` warning, e.g. "Steam Turbine (Steam) needs Steam at ≥465°C, but it is only supplied at 165°C." */
+/**
+ * Sentence for a `temperature-mismatch` warning, e.g. "Steam Turbine (Steam) needs Steam at ≥465°C, but it is
+ * only supplied at 165°C." When the block imports the fluid instead: "…, but it is only made at 165°C, so
+ * 666.7/min is imported and the 60/min made is left unused." `fmtRate` formats an items/min rate.
+ */
 export function fmtTemperatureWarning(
   w: Extract<SolverWarning, { type: 'temperature-mismatch' }>,
   gameData: GameData,
+  fmtRate: (perMin: number) => string = r => `${Math.round(r * 10) / 10}/min`,
 ): string {
   const recipe = gameData.recipes[w.recipeId]?.name ?? w.recipeId
   const item = gameData.items[w.itemId]?.name ?? w.itemId
   const need = fmtTemperatureRange(w.minimum, w.maximum) ?? ''
   const supplied = w.supplied.map(t => `${fmtTemperatureValue(t)}°C`).join(', ')
-  return `${recipe} needs ${item} at ${need}, but it is only supplied at ${supplied}.`
+  if (w.imported === undefined) return `${recipe} needs ${item} at ${need}, but it is only supplied at ${supplied}.`
+  const unused = w.unused === undefined ? '' : ` and the ${fmtRate(w.unused)} made is left unused`
+  return `${recipe} needs ${item} at ${need}, but it is only made at ${supplied}, so ${fmtRate(w.imported)} is imported${unused}.`
 }

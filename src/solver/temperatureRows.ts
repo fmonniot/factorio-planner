@@ -56,28 +56,17 @@ export class FluidTemperatureCollector {
   }
 }
 
-/** Safety net on the number of rows of one fluid; beyond it only single classes and the whole are checked. */
+/** Safety net on the number of rows of one fluid; beyond it only single classes are checked (a weaker test). */
 const MAX_ROWS = 4096
 
-const rowCache = new WeakMap<FluidTemperatures, TemperatureRow[]>()
-
 /**
- * Hall's condition rows of one fluid (memoised: the producers do not change once the solve starts).
- * Consumers that accept the same set of the temperatures made form a class. For every set of classes
- * that has the same accepted temperatures N (the union of its members' sets, taking every class that
- * fits inside N), what is made at a temperature in N, or at an unknown one, must cover what those
- * classes consume (imports and supply are added by the LP). A N that holds every temperature made is
- * skipped: the item's balance row implies it.
+ * Hall's condition rows of one fluid. Consumers that accept the same set of the temperatures made form
+ * a class. For every set of classes that has the same accepted temperatures N (the union of its members'
+ * sets, taking every class that fits inside N), what is made at a temperature in N, or at an unknown one,
+ * must cover what those classes consume (imports and supply are added by the LP). A N that holds every
+ * temperature made is skipped: the item's balance row implies it.
  */
 export function temperatureRows(f: FluidTemperatures): TemperatureRow[] {
-  const cached = rowCache.get(f)
-  if (cached) return cached
-  const rows = buildRows(f)
-  rowCache.set(f, rows)
-  return rows
-}
-
-function buildRows(f: FluidTemperatures): TemperatureRow[] {
   const temps = [...new Set(f.producers.map(p => p.temperature).filter((t): t is number => t !== undefined))].sort((a, b) => a - b)
   const classes = new Map<string, { accepted: Set<number>; cons: Map<string, number> }>()
   for (const c of f.consumers) {
@@ -103,9 +92,7 @@ function buildRows(f: FluidTemperatures): TemperatureRow[] {
   }
   if (!complete) {
     unions.clear()
-    const all = new Set<number>()
-    for (const cls of list) { unions.set(keyOf(cls.accepted), cls.accepted); for (const t of cls.accepted) all.add(t) }
-    unions.set(keyOf(all), all)
+    for (const cls of list) unions.set(keyOf(cls.accepted), cls.accepted)
   }
 
   const rows: TemperatureRow[] = []

@@ -174,7 +174,7 @@ function warningBody(
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The supply around the loop ${names.join(' → ')} still changed after ${w.rounds} rounds. Rates are from the last round and may not add up.`
     }
-    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData)
+    case 'temperature-mismatch': return fmtTemperatureWarning(w, gameData, r => fmtItemRateText(w.itemId, r / 60, rateUnit))
     case 'request-loop-not-converged': {
       const names = [...w.blockIds, w.blockIds[0]].map(blockName)
       return `The requests around the loop ${names.join(' → ')} did not settle after ${w.rounds} rounds: the blocks need more of each other than the loop can give back. The requests that close the loop only take what is left over.`

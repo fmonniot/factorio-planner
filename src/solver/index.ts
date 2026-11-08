@@ -1177,12 +1177,19 @@ export function solveAll(
 
   if (hasTemperatureData(gameData)) {
     const recipeIdOfNode = new Map<string, Map<string, string>>()
+    const discarded = new Map<string, Set<string>>()
     for (const b of blocks) {
       const recipes = new Map<string, string>()
-      for (const n of flattenBlock(b).nodes) if (n.kind === 'game-recipe') recipes.set(n.id, n.recipeId)
+      const dropped = new Set<string>()
+      for (const n of flattenBlock(b).nodes) {
+        if (n.kind !== 'game-recipe') continue
+        recipes.set(n.id, n.recipeId)
+        for (const [itemId, policy] of Object.entries(n.byproductPolicy)) if (policy === 'discard') dropped.add(`${n.id}\0${itemId}`)
+      }
       recipeIdOfNode.set(b.id, recipes)
+      if (dropped.size > 0) discarded.set(b.id, dropped)
     }
-    for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode)) {
+    for (const [id, list] of temperatureWarnings(blocks, results, flows, gameData, recipeIdOfNode, discarded)) {
       results[id] = withExtraWarnings(results[id], list)
     }
   }

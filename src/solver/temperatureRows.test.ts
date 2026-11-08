@@ -2,7 +2,8 @@ import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem, discardProduct } from './build'
 import { temperatureRows } from './temperatureRows'
-import type { GameData, GameRecipeNode, SolverPlan } from '../data/types'
+import type { GameData, GameRecipeNode } from '../data/types'
+import type { SolverPlan } from './blockResult'
 
 type GameRecipe = GameData['recipes'][string]
 
@@ -56,19 +57,16 @@ describe('fluid temperatures in the LP', () => {
     expect(rate(r, 'hot'), 'the hot step is not run for nothing').toBeCloseTo(0)
   })
 
-  it('shares a temperature between consumers that accept it', () => {
-    // both coolers accept 200..250? no: cool200 takes 150..250, filter-b takes up to 250 as well
+  it('cools the fluid before a consumer that takes several temperatures', () => {
+    // `wide` takes up to 250°: the 200° and 25° outputs, not the 300° coolant. Without the rows the
+    // LP would feed it straight from `hot` and leave cool300 idle.
     const wide = recipe('wide', [fluid('used', 100, { maximumTemperature: 250 })], [{ itemId: 'other', type: 'item', amount: 1 }])
-    const both = gameData([hot, cool300, cool200, wide])
-    const r = solve({
-      nodes: ['hot', 'cool300', 'cool200', 'wide'].map(id => node(`n-${id}`, id)),
-      goals: [{ id: 'g', itemId: 'other', rate: 30 }],
-      noImportItems: [],
-    } as unknown as SolverPlan, both)
+    const r = solve(plan(['hot', 'cool300', 'cool200', 'wide'], 'other', 30), gameData([hot, cool300, cool200, wide]))
     expect(rate(r, 'wide')).toBeCloseTo(30)
-    // `wide` takes the 200° (or 25°) output, never the 300° coolant.
-    expect(rate(r, 'cool300') + rate(r, 'cool200')).toBeGreaterThan(29)
     expect(rate(r, 'hot')).toBeCloseTo(30)
+    expect(rate(r, 'cool300'), 'the 300° coolant is cooled first').toBeCloseTo(30)
+    expect(rate(r, 'cool200'), 'one step is enough').toBeCloseTo(0)
+    expect(r.unsatisfied).toEqual([])
   })
 
   it('leaves a fluid nobody bounds to the plain balance', () => {
@@ -97,10 +95,9 @@ describe('temperatureRows', () => {
     const f = rows(gd, ['hot', 'cool300', 'cool200', 'filter'])!
     // temperatures made: 300, 200, 25; classes accept {300}, {200}, {25}: 7 unions, 1 of them everything.
     expect(temperatureRows(f)).toHaveLength(6)
-    expect(temperatureRows(f), 'memoised').toBe(temperatureRows(f))
   })
 
-  it('checks pairs of classes beyond 8 classes', () => {
+  it('enumerates every union of 10 single-temperature classes', () => {
     const temps = Array.from({ length: 10 }, (_, i) => (i + 1) * 10)
     const makers = temps.map(t => recipe(`make${t}`, [], [fluid('used', 1, { temperature: t })]))
     const takers = temps.map(t => recipe(`take${t}`, [fluid('used', 1, { minimumTemperature: t, maximumTemperature: t })], []))
@@ -108,6 +105,15 @@ describe('temperatureRows', () => {
     const all = temperatureRows(f)
     expect(all, '2^10 - 1 unions, the whole one skipped').toHaveLength(1022)
     expect(all.some(r => r.size === 4 && r.get('take10') === -1 && r.get('take20') === -1 && r.get('make10') === 1 && r.get('make20') === 1), 'the pair').toBe(true)
+  })
+
+  it('falls back to single classes beyond MAX_ROWS unions', () => {
+    // 13 single-temperature classes have 2^13 - 1 = 8191 unions: only the 13 classes are checked.
+    const temps = Array.from({ length: 13 }, (_, i) => (i + 1) * 10)
+    const makers = temps.map(t => recipe(`make${t}`, [], [fluid('used', 1, { temperature: t })]))
+    const takers = temps.map(t => recipe(`take${t}`, [fluid('used', 1, { minimumTemperature: t, maximumTemperature: t })], []))
+    const f = rows(gameData([...makers, ...takers]), [...makers, ...takers].map(r => r.id))!
+    expect(temperatureRows(f)).toHaveLength(13)
   })
 
   it('ignores a fluid nothing makes', () => {
@@ -125,7 +131,7 @@ describe('temperatureRows', () => {
 describe('goals and discarded products', () => {
   const gd = gameData([hot, filter])
 
-  it('leaves a goal fluid to the warning rather than making the LP infeasible', () => {
+  it('gives a goal fluid no rows rather than making the LP infeasible', () => {
     // The goal takes 100 of the 300° coolant, the pinned filter wants 100 that cannot be at ≤ 50°.
     const goalPlan = plan(['hot', 'filter'], 'used', 100) as unknown as { nodes: Record<string, unknown>[] }
     goalPlan.nodes[1].pinnedRate = 1
@@ -137,7 +143,14 @@ describe('goals and discarded products', () => {
   it('keeps a discarded product out of the rows', () => {
     const c = buildClassifiedSystem(gd, ['hot', 'filter'], new Map())
     discardProduct(c, 'used', 'hot')
-    expect(c.fluidTemperatures!.get('used')!.producers).toEqual([])
+    expect(c.fluidTemperatures?.has('used'), 'nothing makes it any more').toBe(false)
+    // A net producer that also takes the fluid within bounds drops out of both sides, as in `S`.
+    const loop = recipe('loop', [fluid('used', 50, { maximumTemperature: 50 })], [fluid('used', 100)])
+    const l = buildClassifiedSystem(gameData([hot, loop, filter]), ['hot', 'loop', 'filter'], new Map())
+    discardProduct(l, 'used', 'loop')
+    const f = l.fluidTemperatures!.get('used')!
+    expect(f.producers.map(p => p.colId)).toEqual(['hot'])
+    expect(f.consumers.map(c => c.colId)).toEqual(['filter'])
     const net = recipe('net', [fluid('used', 5)], [fluid('used', 1)])
     const d = buildClassifiedSystem(gameData([net, filter]), ['net', 'filter'], new Map())
     discardProduct(d, 'used', 'net')
