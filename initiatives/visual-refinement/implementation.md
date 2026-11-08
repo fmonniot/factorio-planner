@@ -34,7 +34,7 @@ PR 0 is the branch that holds this file (docs, tooling and the artifact; nothing
 | 8 | Summary detail and bars | main | Independent of the table |
 | 9 | Collapsed summary | stacked on 8 | `sumStack` needs `sumLine`; the one-line chips reuse the pane code PR 8 touches |
 
-PRs 2, 3, 4 and 8 are small enough that merging neighbours is fine; keep the ledger's PR column truthful if you do (and change the table in the same commit).
+Every row is its own PR, however small (decided by the owner, 2026-11-08): it keeps the release notes readable. Do not merge neighbours.
 
 ---
 
@@ -100,7 +100,7 @@ The first `grpBand` (band on every group row, heavier name) was also rejected an
 Base: main. Finding 4. Files: wherever the dim greys live (search `text-gray-500`, `text-gray-600`, `border-gray-600` under `src/components/`); the ▲/▼ cells in `RecipeRow.tsx`, the header in `ProductionTable.tsx`, the side-panel section labels in `sidePanel/PanelParts.tsx`, `FactorySummary.tsx` hints and counts, the tool buttons (`IconButton.tsx`).
 
 - **`contrast`**: dim text (hints such as "click a row to trace it", overview item counts, header labels, the RATE / MACHINE / BEACONS panel labels, the `–` cells) goes from gray-500 `#6a7282` to gray-400 `#99a1af`; the reorder arrows from gray-600 `#4a5565` to gray-400; the tool icons (Horizon, Graph, Areas, Tech tree) from gray-400 to gray-300 `#d1d5dc`. Check each result against 4.5:1 for text and 3:1 for controls on its surface (the artifact computes WCAG ratios in its readout; its lowest ratio with the change is the target). Proof: `4 contrast`; also assert that the arrows still reorder.
-  - The replica also draws the `+` (new block) and the All blocks `▾` as bordered buttons (`1px solid #4a5565`, gray-300 icon, 34 px wide for All blocks). In the accepted state those two buttons no longer exist: `addTool` and `blockList` (PR 3) replace them, with gray-300 icons. So PR 1 does not restyle them; PR 3 builds the replacements in the new colour.
+  - The replica also draws the `+` (new block) and the All blocks `▾` as bordered buttons (`1px solid #4a5565`, gray-300 icon, 34 px wide for All blocks). In the accepted state those two buttons no longer exist and stay gone (owner, 2026-11-08): `addTool` and `blockList` (PR 3) replace them, with gray-300 icons and no border. So PR 1 does not restyle them; PR 3 builds the replacements in the new colour.
   - `phQuiet` (PR 5) deliberately goes below 3:1 on the placeholders; do not "fix" it here.
 
 ## PR 2 · Selected row
@@ -167,7 +167,7 @@ Base: main. Finding 1. Files: `SummaryDetailStrip.tsx`, `SummaryPane.tsx`, `Fact
 
 Base: stacked on PR 8. Finding 1. Files: `FactorySummary.tsx`, `SummaryPane.tsx`, the layout code that measures the space above the table.
 
-- **`sumLine`**: a persistent collapse / expand toggle (not an overlay). Collapsed: one 40 px line per pane (counts and as many 24 px chips, in 30 px slots, as fit, then a `+N` that opens the list of every item with its rate; informational, not clickable per item) and an Expand button (68 px) at the right, which sticks to the right edge when the panes scroll sideways on narrow screens. Expanded: the three panes as before plus an 18 px handle row with "Collapse summary". Expanding pushes the table down. The choice survives block switches. **Not in the artifact:** it also survives a reload (owner, 2026-11-08); the replica does not store it. Open question for the PR: the replica opens collapsed; confirm the default for existing users when implementing. Under 768 px the one-line summary drops its chips and scrolls. Proof: `1 sumLine`.
+- **`sumLine`**: a persistent collapse / expand toggle (not an overlay). Collapsed: one 40 px line per pane (counts and as many 24 px chips, in 30 px slots, as fit, then a `+N` that opens the list of every item with its rate; informational, not clickable per item) and an Expand button (68 px) at the right, which sticks to the right edge when the panes scroll sideways on narrow screens. Expanded: the three panes as before plus an 18 px handle row with "Collapse summary". Expanding pushes the table down. The choice survives block switches. **Not in the artifact:** it also survives a reload (owner, 2026-11-08); the replica does not store it. The default is collapsed, for everyone who has not set it (owner, 2026-11-08), as in the replica. Under 768 px the one-line summary drops its chips and scrolls. Proof: `1 sumLine`.
 - **`sumStack`** (needs `sumLine`): under 768 px the three collapsed lines (34 px each) sit on top of each other instead of scrolling sideways, and the 18 px handle row carries Expand / Collapse in both states. Expanded, the panes scroll sideways as before (a stacked expanded strip would be about 720 px, more than the Fold cover's 657). From 768 px up (the Fold inner screen) the three columns stay. Proof: `1 sumStack`.
 
 ---
