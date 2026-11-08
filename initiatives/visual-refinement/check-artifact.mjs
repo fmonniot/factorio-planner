@@ -126,7 +126,7 @@ await check('6 hideEmpty: touch screens keep the placeholders and say why', asyn
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the six accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the seven accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -134,13 +134,13 @@ await check('decided: the six accepted changes are on at the start, in a closed 
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all six are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 6, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all seven are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 7, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 6, 'Decided only puts the six back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 7, 'Decided only puts the seven back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)
@@ -471,19 +471,64 @@ await check('7 drawer closes with Escape and its backdrop', async a => {
   ok(await a.page.getByRole('button', { name: 'Close the panel' }).count() === 0, 'Escape closes the drawer')
 })
 
-// ---------------------------------------------------------------- 2 columns, 10 narrow, 8 selection
-await check('2 columns: colTrail brings ingredients closer, colCap stops at 1160 px', async a => {
-  await a.block('Ores')
+// ---------------------------------------------------------------- 10 narrow, 8 selection
+await check('2 ingLeft: ingredients start at the left of their column and the gap shrinks', async a => {
   await a.screen('Desktop 1920')
   const gap = async () => +(((await readout(a.page, 'Products to ingredients')) || '').match(/\n(\d+)/) || [])[1]
-  const g0 = await gap()
-  await a.toggle('Chip columns stay together, spare width at the right')
-  const g1 = await gap()
-  ok(g1 < g0, `gap shrinks from ${g0} to ${g1}`)
-  await a.toggle('Chip columns stay together, spare width at the right')
-  await a.toggle('Cap the table at 1160 px')
-  const w = await a.page.evaluate(() => Math.round(document.querySelector('#tbl > div').getBoundingClientRect().width * 1920 / document.querySelector('#frame').getBoundingClientRect().width))
-  ok(w <= 1161, 'the table is capped at 1160 px, got ' + w)
+  const res = {}
+  for (const b of ['Ores', 'Metals']) {
+    await a.block(b)
+    const g0 = await gap()
+    await a.toggle('Ingredients aligned to the left of their column')
+    const g1 = await gap()
+    console.log(`  ${b}: gap ${g0} -> ${g1}`)
+    ok(g1 < g0, `${b}: gap shrinks from ${g0} to ${g1}`)
+    res[b] = [g0, g1]
+    await a.toggle('Ingredients aligned to the left of their column')
+  }
+  await a.block('Ores')
+  const offset = () => a.page.evaluate(() => {
+    const k = document.querySelector('#frame').getBoundingClientRect().width / 1920
+    let best = -1
+    for (const c of document.querySelectorAll('#tbl .cell')) {
+      const cs = getComputedStyle(c)
+      if (cs.flexWrap !== 'wrap' || !/^flex-(start|end)$/.test(cs.justifyContent) || !c.children.length) continue
+      const cb = c.getBoundingClientRect(), fb = c.children[0].getBoundingClientRect()
+      if (cb.width < 100 * k) continue
+      best = Math.round((fb.left - cb.left) / k)
+      break
+    }
+    return best
+  })
+  const o0 = await offset()
+  await a.toggle('Ingredients aligned to the left of their column')
+  const o1 = await offset()
+  ok(o1 >= 0 && o1 <= 40 && o1 < o0, `first ingredient chip sits ${o1} px from the column's left edge (was ${o0})`)
+  // area and recipe rows start their first ingredient at the same x
+  await a.block('Metals')
+  await a.page.getByRole('button', { name: 'Expand Aluminium' }).click()
+  const starts = () => a.page.evaluate(() => {
+    const k = document.querySelector('#frame').getBoundingClientRect().width / 1920
+    const out = []
+    for (const c of document.querySelectorAll('#tbl .cell')) {
+      const cs = getComputedStyle(c)
+      if (cs.flexWrap !== 'wrap' || cs.justifyContent !== 'flex-start' || !c.children.length) continue
+      const cb = c.getBoundingClientRect()
+      if (cb.width < 100 * k) continue
+      out.push(Math.round(c.children[0].getBoundingClientRect().left / k))
+    }
+    return out
+  })
+  const xs = await starts()
+  ok(xs.length >= 3 && new Set(xs).size === 1, `first ingredient chip x on area and recipe rows: ${[...new Set(xs)].join(', ')} (${xs.length} rows)`)
+  const hx = await a.page.evaluate(() => {
+    const k = document.querySelector('#frame').getBoundingClientRect().width / 1920
+    const h = [...document.querySelectorAll('#tbl span')].find(e => e.children.length === 0 && e.textContent.trim() === 'Ingredients')
+    const cs = getComputedStyle(h)
+    return { align: cs.textAlign, x: Math.round((h.getBoundingClientRect().left / k) + parseFloat(cs.paddingLeft)) }
+  })
+  ok(hx.align === 'left' && Math.abs(hx.x - xs[0]) <= 1, `the Ingredients header starts at ${hx.x} (${hx.align}), the chips at ${xs[0]}`)
+  await a.toggle('Ingredients aligned to the left of their column')
 })
 await check('10 narrowStack: Products are reachable and stacked machine chips exist', async a => {
   await a.block('Extra Sulfur')

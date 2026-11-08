@@ -440,7 +440,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -468,10 +468,8 @@ const GROUPS = [
     ['ovBar', 'Overview as one bar', 'Overview rows become a single stacked bar, like a selected item, sized by share of the pane\'s total. Hover or click a segment to trace it. It uses whichever legend option is on above; with none, the key line under the bar.', 'Try: Metals, look at the Ingredients pane, click a segment; then turn on a legend option.'],
     ['sumLine', 'Collapsible summary', 'A one-line summary (counts and as many chips as fit, then a +N like the area rows) that replaces the strip until you expand it. Expanding pushes the table down and the choice stays across blocks, so you can leave it open while you work through connections.', 'Try: click a +N to list every item with its rate, then Expand, switch blocks and click Collapse summary.'],
     ['sumStack', 'Stack the collapsed summary on phones', 'Needs the collapsible summary above. Under 768 px its three lines sit on top of each other instead of scrolling sideways, and the handle row expands them. Expanded, the panes scroll sideways as before; the Fold inner screen keeps its three columns.', 'Try: Fold 8 cover with the collapsible summary on, then this one; Expand.'] ] },
-  { title: '2 · Column spread', items: [
-    ['colRecipe', 'Extra width goes to Recipe', 'Byproducts and Ingredients get fixed widths (140 and 340 px) on wide screens.', 'Try: Desktop 1920, watch Products to ingredients in the readout.'],
-    ['colTrail', 'Chip columns stay together, spare width at the right', 'Columns keep their natural widths and Power follows Ingredients; the empty space ends the row.', 'Try: Desktop 1920. Turn on with the previous one to see which wins (this one).'],
-    ['colCap', 'Cap the table at 1160 px', 'Rows stop at 1160 px with the side panel closed (a docked panel keeps the full width).', 'Try: Desktop 1920, then open the side panel.'] ] },
+  { title: '2 · Column spread', decided: true, items: [
+    ['ingLeft', 'Ingredients aligned to the left of their column', 'The ingredient chips start at the left of the Ingredients column instead of ending at its right edge, at the same x on area and recipe rows. Power stays at the right.', 'Try: Desktop 1920, Ores or Metals; watch Products to ingredients in the readout.'] ] },
   { title: '3 · Chips', items: [
     ['chipFmt', 'Compact rates', '12k, 1.1k, <.01: every rate fits its chip. Hover a chip: its tooltip still has the exact rate, as in the app.', 'Try: Ores, Chunks row (12360 and 14100); Metals, Cobalt steel (0.0000016).'],
     ['chipPill', 'Dark pill behind numbers', 'Readable on red and green icons.', 'Try: Ores (byproduct rows with red numbers).'],
@@ -916,18 +914,14 @@ class Component extends DCLogic {
     const fixedSum = 32 + 2 * mW + 72 + 72;
     const MINW = fixedSum + 150 + 80 + 148;
     const availW = vw - dockW;
-    const capOn = !!tg.colCap && mode !== 'docked';
-    const tableW = Math.max(capOn ? Math.min(availW, 1160) : availW, MINW);
+    const tableW = Math.max(availW, MINW);
     const extra = Math.max(0, tableW - MINW);
-    let rW, bW, iW, filler = 0;
-    if (tg.colTrail && tableW >= fixedSum + 220 + 140 + 340) { rW = 220; bW = 140; iW = 340; filler = tableW - fixedSum - rW - bW - iW; }
-    else if (tg.colRecipe && tableW >= fixedSum + 150 + 140 + 340) { bW = 140; iW = 340; rW = tableW - fixedSum - 140 - 340; }
-    else { rW = 150 + extra * 3 / 9; bW = 80 + extra * 2 / 9; iW = 148 + extra * 4 / 9; }
+    const rW = 150 + extra * 3 / 9, bW = 80 + extra * 2 / 9, iW = 148 + extra * 4 / 9;
     const prodX = 32 + rW + 2 * mW, bypX = prodX + 72, ingX = bypX + bW, endX = ingX + iW;
     const hdrDefs = [['', 32, 0], ['Recipe', rW, 0]];
     if (!narrowSt) { hdrDefs.push(['Machine', 88, 0]); hdrDefs.push(['Beacons', 88, 0]); }
-    hdrDefs.push(['Products', 72, 0], ['Byproducts', bW, 0], ['Ingredients', iW, 1], ['Power', 72, 1]);
-    const hdr = hdrDefs.map(h => ({ t: h[0], s: 'flex:none;box-sizing:border-box;padding:0 8px;text-align:' + (h[2] ? 'right' : 'left') + ';width:' + h[1] + 'px' }));
+    hdrDefs.push(['Products', 72, 0], ['Byproducts', bW, 0], tg.ingLeft ? ['Ingredients', iW, 0, 8 + AREA_PAD] : ['Ingredients', iW, 1], ['Power', 72, 1]);
+    const hdr = hdrDefs.map(h => ({ t: h[0], s: 'flex:none;box-sizing:border-box;padding:0 8px;text-align:' + (h[2] ? 'right' : 'left') + ';width:' + h[1] + 'px' + (h[3] ? ';padding-left:' + h[3] + 'px' : '') }));
 
     // ---- rows
     const flat = flatten(B.rows, st.open, blk, 0, '', []);
@@ -952,17 +946,17 @@ class Component extends DCLogic {
         h = tg.grpFixed ? lineH : Math.max(P.lines, I.lines) * lineH;
         if (P.shown && I.shown) {
           const pEnd = prodX + 8 + Math.min(P.shown, Math.max(1, Lp)) * slot;
-          const iStart = ingX + iW - 8 - Math.min(I.shown, Math.max(1, Li)) * slot;
+          const iStart = tg.ingLeft ? ingX + AREA_PAD + 8 : ingX + iW - 8 - Math.min(I.shown, Math.max(1, Li)) * slot;
           gapSum += Math.max(0, iStart - pEnd); gapN++;
         }
         rm = { P: P, I: I };
       } else {
-        const Lp = Math.max(1, Math.floor(56 / slot)), Lb = Math.max(1, Math.floor((bW - 16) / slot)), Li = Math.max(1, Math.floor((iW - 16) / slot));
+        const Lp = Math.max(1, Math.floor(56 / slot)), Lb = Math.max(1, Math.floor((bW - 16) / slot)), Li = Math.max(1, Math.floor((iW - 16 - (tg.ingLeft ? AREA_PAD : 0)) / slot));
         const lines = Math.max(1, Math.ceil(r.pr.length / Lp), Math.ceil(r.bp.length / Lb), Math.ceil(r.ig.length / Li));
         h = (tg.chipBig ? 41 : 37) + (lines - 1) * slot + (narrowSt ? 36 : 0);
         if (r.ig.length && (r.pr.length || r.bp.length)) {
           const pEnd = r.bp.length ? bypX + 8 + Math.min(r.bp.length, Lb) * slot : prodX + 8 + Math.min(r.pr.length, Lp) * slot;
-          const iStart = ingX + iW - 8 - Math.min(r.ig.length, Li) * slot;
+          const iStart = tg.ingLeft ? ingX + 8 + AREA_PAD : ingX + iW - 8 - Math.min(r.ig.length, Li) * slot;
           gapSum += Math.max(0, iStart - pEnd); gapN++;
         }
         rm = { lines: lines };
@@ -1015,7 +1009,7 @@ class Component extends DCLogic {
         toggle: () => { const o2 = Object.assign({}, st.open); o2[blk + ':' + m.key] = !f.isOpen; this.setState({ open: o2, pop: null }); },
         prodS: cellBase + 'width:' + (m.isArea ? 72 + bW + AREA_PAD : 72) + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;',
         bypS: cellBase + 'width:' + bW + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;',
-        ingS: cellBase + 'width:' + (m.isArea ? iW - AREA_PAD : iW) + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;justify-content:flex-end;',
+        ingS: cellBase + 'width:' + (m.isArea ? iW - AREA_PAD : iW) + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;justify-content:' + (tg.ingLeft ? 'flex-start' : 'flex-end') + ';' + (tg.ingLeft && !m.isArea ? 'padding-left:' + (8 + AREA_PAD) + 'px;' : ''),
         mchS: cellBase + 'width:88px;gap:6px;', bcnS: cellBase + 'width:88px;',
         powS: cellBase + 'width:72px;justify-content:flex-end;',
         powTxt: 'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + (m.isArea ? '#99a1af' : '#53eafd'),
@@ -1070,7 +1064,7 @@ class Component extends DCLogic {
       };
     }
 
-    return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B, filler: filler,
+    return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B,
       prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, sheetH: sheetH, panel: panel, panelH: pm ? pm.height : 0,
       inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, rightW: rightW, toolW: toolW, toolLbl: toolLbl, labelsOn: labelsOn, wsW: wsW },
       md: md, xl: xl, narrow: narrow, cc: cc, touch: touch, rowCount: rows.length };
@@ -1102,7 +1096,7 @@ class Component extends DCLogic {
     const common = {
       viewports: viewports, groups: openGroups, decGroups: decGroups,
       decOpen: st.decOpen, decMark: st.decOpen ? '▾' : '▸',
-      decLabel: 'Decided: 1 · Summary strip (' + DECIDED.length + ' changes, on by default)',
+      decLabel: 'Decided: ' + GROUPS.filter(g => g.decided).map(g => g.title).join(', ') + ' (' + DECIDED.length + ' changes, on by default)',
       toggleDec: () => this.setState({ decOpen: !st.decOpen }),
       decidedOnly: () => this.setState(Object.assign({ tg: DEFAULT_TG, flip: false }, closeAll)),
       flipCls: 'flip' + (st.flip ? ' base' : ''), flipPressed: st.flip,
@@ -1322,7 +1316,7 @@ class Component extends DCLogic {
       panelOpen: panelOpen, panel: cur.panel || { style: '', sections: [] },
       tableWrap: 'flex:1;min-height:0;overflow:auto;position:relative',
       tableInner: 'width:' + cur.tableW + 'px',
-      hdr: cur.hdr.concat(cur.filler > 0 ? [{ t: '', s: 'flex:none;width:' + Math.round(cur.filler) + 'px' }] : []),
+      hdr: cur.hdr,
       rows: cur.rows, readout: readout
     });
   }
