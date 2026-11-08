@@ -187,7 +187,9 @@ node scripts/build-game-data.js --patch-fuel \
 
 `--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`), power recipes (`<machine> (<fuel>)`) and of drills, pumps and generation machines.
 
-The paths above are the macOS defaults. Adjust them for your platform. [spec/data-model.md](spec/data-model.md) documents the output format.
+The paths above are the macOS defaults. Adjust them for your platform.
+
+`--factorio-dir` must be the `Contents` folder of the install that has the `data/` directory (the game's built-in mods, `base`, `elevated-rails`, `quality` and `space-age`, are read from `<factorio-dir>/data`), and `--mods-dir` the user directory's `mods/` folder whose `mod-list.json` says which mods are enabled. The Steam install on macOS is `~/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents`; the same folder holds the binary to run `--dump-data` with, in `MacOS/factorio`. A wrong `--factorio-dir` does not fail on its own: the build warns that `<factorio-dir>/data` is missing, then the patch modes stop with a mod-set mismatch listing a built-in mod as `dump=(missing)` (for example `elevated-rails`). That means the path is wrong, not that the enabled mods or the dump changed, so fix the path before regenerating anything. Re-dumping is only needed when the mod set or the game version really changed. [spec/data-model.md](spec/data-model.md) documents the output format.
 
 After re-exporting the Seablock bundle, run `npm run contract`: the in-game viewer's fixtures in `contract/fixtures/` are solved from it, `contract/datagrams/` is cut from those, and a unit test fails while either differs from a fresh generation.
 

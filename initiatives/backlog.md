@@ -80,7 +80,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Data sets
 
 - [ ] **Icon layers with 0 < `tint` alpha < 1 are composited as opaque.** `compositeIconLayers` ignores a fractional tint alpha, so such layers are drawn too strongly (565 items, 588 recipes, 119 fluids and 24 technologies in the Seablock dump). Fixing it changes the `nullius-ethylene` golden (layer 0 has alpha 0.7) and needs a re-export of the affected icons.
-- [ ] **Re-export the Seablock bundle with research trigger conditions.** The Seablock bundle could not be re-exported on the machine that added trigger conditions (no Factorio install; the existing dump's mod set does not match the bundle: `elevated-rails` is missing). Run the `--patch-technologies` command from README "Exporting game data" against a fresh dump with the full Seablock mod set. Expect exactly 13 technologies to gain `trigger` (none for `sct-lab-t1`), then run `npm run contract`. Until then the cards keep the bare "Trigger".
 - [ ] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 
 ## Tests and tooling
