@@ -1,4 +1,5 @@
 import { Fragment, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
 
 // ---------------------------------------------------------------------------
@@ -32,6 +33,7 @@ interface RowActionsMenuProps {
 }
 
 export function RowActionsMenu({ x, y, actions, onClose }: RowActionsMenuProps) {
+  useOverlayOpen()
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x, y })
 

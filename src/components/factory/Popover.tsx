@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 import type { ReactNode, RefObject } from 'react'
 
 interface PopoverProps {
@@ -15,6 +16,7 @@ interface PopoverProps {
  * The trigger element should be in a `relative`-positioned container.
  */
 export function Popover({ onClose, children, className = '', ignoreRef }: PopoverProps) {
+  useOverlayOpen()
   const ref = useRef<HTMLDivElement>(null)
   // Latest callback, so inline arrows do not re-subscribe the window listeners on every render.
   const onCloseRef = useRef(onClose)

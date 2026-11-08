@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -29,6 +30,7 @@ interface ConnectionMenuProps {
 }
 
 export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: ConnectionMenuProps) {
+  useOverlayOpen()
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)

@@ -1,4 +1,5 @@
 import { useRef, useState, useEffect, useLayoutEffect, useId, type ReactNode } from 'react'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 import { ChevronDownIcon } from './icons'
 
 export const ITEM_SELECTOR = '[role^="menuitem"]:not(:disabled)'
@@ -56,6 +57,7 @@ function PanelItems({ render, close }: { render: MenuButtonProps['children']; cl
  */
 export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, triggerClassName, caret, panelClassName = '', openSignal, children }: MenuButtonProps) {
   const [open, setOpen] = useState(false)
+  useOverlayOpen(open)
   const menuId = useId()
   const wrapperRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -344,7 +346,7 @@ export function SubmenuItem({ label, menuLabel, panelClassName = '', variant = '
           role={variant === 'controls' ? 'dialog' : 'menu'}
           data-flyout-controls={variant === 'controls' ? '' : undefined}
           aria-label={menuLabel}
-          className={`absolute right-full top-0 mr-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg ${variant === 'controls' ? 'p-3.5 gap-3' : 'py-1'} flex flex-col text-xs max-h-[calc(100vh-4rem)] overflow-y-auto ${panelClassName}`}
+          className={`absolute right-full top-0 mr-1 max-md:fixed max-md:inset-x-2 max-md:top-14 max-md:mr-0 max-md:w-auto! z-50 bg-gray-800 border border-gray-600 rounded shadow-lg ${variant === 'controls' ? 'p-3.5 gap-3' : 'py-1'} flex flex-col text-xs max-h-[calc(100dvh-4rem)] overflow-y-auto ${panelClassName}`}
         >
           {children}
         </div>

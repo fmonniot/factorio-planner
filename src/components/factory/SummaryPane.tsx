@@ -32,6 +32,8 @@ interface SummaryPaneProps {
   renderKeyExtra?: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
+  /** Extra classes for the pane root (layout inside the summary strip). */
+  className?: string
 }
 
 // A pane: header, a grid of item slots, and a fixed-height strip below that
@@ -53,6 +55,7 @@ export function SummaryPane({
   renderKeyExtra,
   onOpenBlock,
   onConnectionContextMenu,
+  className = '',
 }: SummaryPaneProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -124,7 +127,7 @@ export function SummaryPane({
       data-testid="summary-pane"
       data-pane={pane}
       data-overflow={hasMore ? 'true' : undefined}
-      className="border border-gray-700 rounded-md flex flex-col min-h-0"
+      className={`border border-gray-700 rounded-md flex flex-col min-h-0 ${className}`}
     >
       <div className="flex items-center justify-between gap-2 min-h-8 px-2 pt-2 pb-1 text-[10px] uppercase tracking-[0.06em] text-gray-400 shrink-0">
         <div>

@@ -16,13 +16,34 @@ import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 /** How long a revealed row stays highlighted. */
 const REVEAL_HIGHLIGHT_MS = 2000
 
-// Column widths in px, padding included, in column order (reorder, recipe, machine, beacons, products, byproducts,
-// ingredients, power). A chip slot is 34px (28px icon + 6px gap), so a chip cell is 34n + 10 wide: products and
-// byproducts hold 2 chips per line, ingredients (no width: it takes the rest) at least 4. The table is
-// `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
-const COLUMN_WIDTHS: (number | undefined)[] = [32, 150, 88, 88, 80, 80, undefined, 72]
-const INGREDIENTS_MIN_WIDTH = 148
-const TABLE_MIN_WIDTH = COLUMN_WIDTHS.reduce<number>((sum, w) => sum + (w ?? INGREDIENTS_MIN_WIDTH), 0)
+// Column widths, in column order (reorder, recipe, machine, beacons, products, byproducts, ingredients, power).
+// Reorder, machine, beacons, products and power are fixed px, padding included. Products holds at most one chip (the
+// primary product; everything else is a byproduct), so it is sized for one chip, the right-aligned header and the pin
+// badge. Recipe, byproducts and ingredients share the rest of the width by weight and never get narrower than their
+// minimum px (so the table's minimum width is the sum of all the minimums, and it scrolls sideways in its wrapper below
+// that). A chip slot is 34px (28px icon + 6px gap), so a chip cell is 34n + 10 wide: the minimums hold 2 byproduct chips
+// and 4 ingredient chips per line. The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
+const PRODUCTS_WIDTH = 72
+type Column = { fixed: number } | { min: number; weight: number }
+const COLUMNS: Column[] = [
+  { fixed: 32 },
+  { min: 150, weight: 3 }, // recipe
+  { fixed: 88 },
+  { fixed: 88 },
+  { fixed: PRODUCTS_WIDTH },
+  { min: 80, weight: 2 }, // byproducts
+  { min: 148, weight: 4 }, // ingredients
+  { fixed: 72 },
+]
+const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + ('fixed' in c ? c.fixed : c.min), 0)
+const TOTAL_WEIGHT = COLUMNS.reduce((sum, c) => sum + ('weight' in c ? c.weight : 0), 0)
+
+/** A shared column's width: its minimum plus its share of whatever the table has beyond TABLE_MIN_WIDTH. `cqw` is the width
+ * of the scrolling wrapper (a size container): a percentage in a <col> calc() is ignored by the browser. */
+function columnWidth(c: Column): string {
+  if ('fixed' in c) return `${c.fixed}px`
+  return `calc(${c.min}px + max(0px, 100cqw - ${TABLE_MIN_WIDTH}px) * ${c.weight / TOTAL_WEIGHT})`
+}
 
 // ---------------------------------------------------------------------------
 // ProductionTable
@@ -97,7 +118,9 @@ export function ProductionTable() {
       <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
         <TableToolbar rootPlan={rootPlan} solvedNodes={solverResult?.nodes ?? []} onAddRecipe={() => setPicker({})} />
         {/* Scrollable table body */}
-        <div ref={scrollRef} className="flex-1 overflow-auto">
+        {/* container-type also applies layout containment: a position:fixed descendant would be placed against (and clipped by)
+            this wrapper. Popups are portalled to body, so none exists; keep it that way or compute widths another way. */}
+        <div ref={scrollRef} className="flex-1 overflow-auto overscroll-x-contain [container-type:inline-size]">
           {nodes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
               <span className="text-sm">No recipes yet</span>
@@ -106,7 +129,7 @@ export function ProductionTable() {
             <RecipeDndProvider>
               <table className="w-full border-collapse text-xs table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
                 <colgroup>
-                  {COLUMN_WIDTHS.map((w, i) => <col key={i} style={w === undefined ? undefined : { width: w }} />)}
+                  {COLUMNS.map((c, i) => <col key={i} style={{ width: columnWidth(c) }} />)}
                 </colgroup>
                 <thead>
                   <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
@@ -118,9 +141,9 @@ export function ProductionTable() {
                     </th>
                     <th className="px-2 py-1">Machine</th>
                     <th className="px-2 py-1">Beacons</th>
-                    <th className="px-2 py-1 text-right">Products</th>
+                    <th className="px-2 py-1">Products</th>
                     <th className="px-2 py-1">Byproducts</th>
-                    <th className="px-2 py-1">Ingredients</th>
+                    <th className="px-2 py-1 text-right">Ingredients</th>
                     <th className="px-2 py-1 text-right whitespace-nowrap">Power</th>
                   </tr>
                 </thead>

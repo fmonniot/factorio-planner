@@ -195,7 +195,7 @@ export function ViewerMenuItem({ onTroubleshoot }: { onTroubleshoot: () => void 
       }
       menuLabel="In-game viewer"
       variant="controls"
-      panelClassName="w-80"
+      panelClassName="w-80 max-w-[calc(100vw-1rem)]"
       initialFocus={flyout => flyout.querySelector<HTMLElement>('[role="switch"]')}
     >
       <ViewerFlyout onTroubleshoot={onTroubleshoot} />

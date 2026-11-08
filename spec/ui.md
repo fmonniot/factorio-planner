@@ -57,7 +57,7 @@ session (see [Game data set](#game-data-set)).
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The side panel appears to the right of the table only while a row is selected. The layout is designed for desktop widths (the table and the panel need about 1280px); there is no mobile layout.
+The side panel appears to the right of the table only while a row is selected. The layout supports viewports from 360px wide; 768px and up is comfortable. It is pure CSS with two breakpoints: `md` (768px) sets the density of the chrome and the shape of the summary strip, and `xl` (1280px) decides whether the side panel sits beside the table (from `xl`) or floats over it as a drawer (below). The shell is `h-dvh` with clipped overflow, so no region may grow wider than the viewport: the production table scrolls inside its own wrapper (`overscroll-x-contain`) and the summary strip scrolls inside itself. Hover-only and right-click-only interactions have no touch alternative yet (see the backlog).
 
 ---
 
@@ -70,7 +70,7 @@ shown only while some block has areas and the [tech tree](#technology-tree)), a 
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
-carries `data-testid="top-bar"`.
+carries `data-testid="top-bar"`. Below `md` the gaps are tighter and the workspace button shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
@@ -668,7 +668,7 @@ warnings pill is in the [table toolbar](#table-toolbar).
 
 Each of the three panes is a `SummaryPane` (a `section` region named after its label) with a header (label, an item count `· N`, and for Products the `+` button, as far from the pane's top border as from its right one), a grid of **item slots** and a **detail strip**. Panes are keyed by the active block, so changing block resets them.
 
-**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** (segments 1px apart) along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal (with a dark teal fill) when selected, amber for a short product or a limited connection, grey otherwise; a short product's rate is amber. A locked item or an unused connection dims the slot. An empty product slot (see [Products pane](#products-pane)) is dimmed, has a dashed border and the tooltip `<item> — nothing requested yet`. The grid grows to fill the pane, so the three detail strips line up at the bottom of the row. The grid is capped at one row of slots plus half of the next (`max-h-[97px]`), to leave room for the production table, and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes (`useMoreBelow`).
+**Slot grid.** One 50×54 slot per item, in row order, wrapping. A slot shows the item icon (the name when there is none), the rate in the bottom-right corner, a status badge in the top-right corner and a 4px **micro-bar** (segments 1px apart) along the bottom edge. Its accessible name is "<item>, <rate> per minute|second", with ", short", ", limited" or ", locked" appended when the slot has a status (the badge itself is decorative), and its tooltip the item name. The border is teal (with a dark teal fill) when selected, amber for a short product or a limited connection, grey otherwise; a short product's rate is amber. A locked item or an unused connection dims the slot. An empty product slot (see [Products pane](#products-pane)) is dimmed, has a dashed border and the tooltip `<item> — nothing requested yet`. The grid grows to fill the pane, so the three detail strips line up at the bottom of the row. Below `md` the three panes form a horizontal swipe strip (`overflow-x-auto`, scroll snap, each pane 85% of the width so the next one peeks in); from `md` they share a three-column grid. The strip keeps its fixed heights. The grid is capped at one row of slots plus half of the next (`max-h-[97px]`), to leave room for the production table, and scrolls vertically while the header and the strip stay put; a gradient fades the bottom edge (the pane has `data-overflow="true"`) while more slots sit below. The fade is re-measured after every render and whenever the grid's content resizes (`useMoreBelow`).
 
 **Allocation segments.** Every item is a bar whose segments add up to the bar's scale. The micro-bar, the detail bar and the overview all use the same encoding:
 
@@ -739,7 +739,7 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Warnings popover
 
-`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
+`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals; below `md` its list is anchored to the toolbar and spans its width, so it stays on screen. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
 `aria-expanded`), amber, or red when any warning is
 `infeasible-pins`; it renders only while the last solve produced warnings. Clicking it opens a list where each warning has a title, an
 explanation naming the items or recipes involved, and a hint:
@@ -766,7 +766,7 @@ The popover closes on Escape or a click outside.
 
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one).
-- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width.
+- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. The table is at least 730px wide (the sum of the column minimums); when its wrapper is narrower, the wrapper scrolls horizontally while the sticky header stays at its top. Above 730px the free width is shared by the Recipe, Byproducts and Ingredients columns in the proportions 3 : 2 : 4 (Products is fixed), on top of their minimums (see [Columns](#columns)).
 
 The toolbar's `+ Recipe` button opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -777,9 +777,9 @@ plan as a new node with default settings.
 `TableToolbar.tsx` (`factory/`) is the row just above the table, 44px high, shown whenever game data is loaded. It is separate from the [TopBar](#topbar), which it does not change. From left to right:
 
 - **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
-- **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so.
+- **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so. Hidden below `md`.
 - **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit.
-- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
+- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count; hidden below `md`), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
 
@@ -792,15 +792,15 @@ The reorder column comes first (▲/▼ buttons), then:
 
 | Column | Content |
 |---|---|
-| Recipe (150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
+| Recipe (min 150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
 | Machine (88px) | The machine chip (count in its corner), then the module chip (used / slots). |
 | Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
-| Products (80px) | Product chips, right-aligned. |
-| Byproducts (80px) | Byproduct chips (red rates). |
-| Ingredients | Ingredient chips (green rates); takes the remaining width, at least 148px. |
+| Products (72px) | The single product chip, left-aligned (it sits above the items a collapsed area sends); wide enough for the header and the chip's pin badge. |
+| Byproducts (min 80px) | Byproduct chips (red rates). |
+| Ingredients (min 148px) | Ingredient chips (green rates), right-aligned like the items a collapsed area receives; the largest share of the free width. |
 | Power (72px) | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
-The table is `table-fixed` with a `<colgroup>` (`COLUMN_WIDTHS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns; its minimum width is the sum of the widths with Ingredients at 148px, below which the table scrolls. A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products and Byproducts hold 2 chips per line and wrap beyond, Ingredients at least 4.
+The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons, Products and Power are fixed; the other three are their minimum plus a share (weights 3 : 2 : 4) of the width beyond the 730px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). Container query units in a `<col>` need Safari 16+ / Firefox 110+ / Chrome 105+; older browsers drop the declaration, and the three shared columns then split the leftover width equally (no fallback is provided). The container's layout containment would also make a `position: fixed` descendant of the wrapper position against it; popups are portalled to `body`, so none exists. A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products holds exactly one (its fixed 72px), at the minimum Byproducts holds 2 chips per line and wraps beyond, Ingredients 4; at 1470px with the panel closed Byproducts and Ingredients hold about 6 and 13.
 
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
 
@@ -868,7 +868,7 @@ an item.
 - Without a beacon, a dashed `+` chip (title and name "Add beacon") opens a fill-all picker headed "Add 4 × Beacon, fill its slots with", listing the modules the default beacon type accepts. Choosing one creates a configuration with the first non-hidden beacon type inside the research horizon (by name), 4 beacons and that module in every slot, as one command. The chip is disabled, with a title giving the reason, when the row has no machine within the horizon ("No machine within research horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or no module is ("No module within the research horizon"; only when a horizon is active).
 - With a beacon, the **beacon chip** (the beacon's icon, `N` beacons in its corner; title "Edit beacon") and the **beacon module chip** (`data-testid="beacon-module-chip"`, the module's icon, modules per beacon over the beacon's slots; title "<module> × N per beacon") follow. Both open the panel on the highlighted Beacons section. A configuration without a module (the beacon's `moduleId` is optional) shows the beacon module chip as a dashed `+` reading `0/N` (title "Beacon without a module"), whose click opens a fill-all picker headed "Fill its slots with" limited to the modules the beacon accepts (speed and efficiency, never productivity); it contributes nothing to the row until it has a module. A configured beacon whose type or module is outside the horizon gets an amber ring.
 
-**Products column.** The output that counts as the primary product (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an item chip. When `primaryProduct` is explicitly `null` (a multi-output recipe with no primary) every output shows here. A pinned row's chip carries the pin badge; the pinned rate is not editable in the table. A product chip has no right-click menu and no click action.
+**Products column.** The output that counts as the primary product (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an item chip. The cell holds at most that one chip; every other output is a byproduct. A pinned row's chip carries the pin badge; the pinned rate is not editable in the table. A product chip has no right-click menu and no click action.
 
 **Byproducts column.** Every other output, as chips. On multi-output recipes, clicking a byproduct makes it the primary product (it swaps places with the current one). In a block with areas the chip's tooltip adds "; the primary product decides what this row builds for its area" after "Set as primary". Right-clicking a byproduct chip opens a `RowActionsMenu` with the single entry **Add consumer recipe…** (when the row can add one), which opens the recipe picker filtered to recipes consuming that item; the chosen recipe is added to the same sub-plan as the row. The chip's tooltip hint reads "; right-click to add a consumer recipe" when the row can. The menu follows the same closing rules as the recipe-cell menu, and only one of the two is open at a time. A single-output recipe's rare byproduct chip toggles its feed-back / discard policy on click.
 
@@ -885,7 +885,7 @@ reach) the rate cells are empty and the machine count is 0.
 
 ### Side panel
 
-`sidePanel/SidePanel.tsx`, an `aside` (`data-testid="side-panel"`, `aria-label="Row details"`) 380px wide at the right of the table. It exists only while a row is selected: there is no empty state, and the close button (✕, "Close panel") clears the selection and gives the table its full width. Opening it does not move or resize the rows. Selection is transient UI state (`uiStore.selectedRow`: a block id and a node id); the panel of another block, or of a node that no longer exists, counts as none and the selection is cleared (removing the selected row closes the panel). Escape does not close it.
+`sidePanel/SidePanel.tsx`, an `aside` (`data-testid="side-panel"`, `aria-label="Row details"`) 380px wide at the right of the table from `xl`. Below `xl` it is a drawer: `position: fixed` against the right edge (380px, or the full width below 640px) above the table, with a dimmed backdrop (`data-testid="side-panel-backdrop"`) under it that clears the selection when clicked (not when the press only dismissed a picker, menu or popover opened over the drawer: `useDismiss.ts` samples, in a window capture listener installed before any overlay's own listener, whether a `useDismiss` user or a `useOverlayOpen` registrant (the row and connection menus, the block tab menu, `MenuButton` panels, `Popover`, the warnings popover) was open when the press began, and the backdrop's click honours that sample for pointer clicks only; a keyboard click always closes the drawer. A new overlay that closes itself on an outside press must call `useOverlayOpen`; hover popups are not registered, as a press on the backdrop never starts over their trigger), so the table does not resize. While the drawer is up the backdrop also covers the top bar and the table toolbar: the first tap there only closes the drawer. Both sit below modals and pickers. It exists only while a row is selected: there is no empty state, and the close button (✕, "Close panel") clears the selection and gives the table its full width. Opening it does not move or resize the rows. Selection is transient UI state (`uiStore.selectedRow`: a block id and a node id); the panel of another block, or of a node that no longer exists, counts as none and the selection is cleared (removing the selected row closes the panel). Escape does not close it, and the drawer has no focus management yet (no focus trap, no `aria-modal`: Tab still reaches the table behind the backdrop); both are in the backlog.
 
 The panel shows exactly one of a recipe row, an organising sub-factory or a separate area. Its header shows the title (`data-testid="panel-title"`) with the row's icon.
 
@@ -956,7 +956,7 @@ A `SubPlanNode` renders as a group row in the same grid as the recipe rows:
 - Clicking the group row anywhere that is not a button or field selects it and opens the [group panel](#group-panel). The chevron only expands or collapses.
 - A collapsed group hides everything below it until the next node at its depth or shallower; expanding it shows its nodes (including nested sub-factories) with their own expanded state kept. An empty expanded group shows a "Drop here" target. Expanded or collapsed state is local to the table and not saved.
 
-A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacons columns with its name, marker and summary. The items it sends sit under the Products and Byproducts columns, which the cell spans (160px, 4 chips per line; `data-testid="area-chips-out"`), and the items it receives in the Ingredients column (`data-testid="area-chips-in"`). The chips wrap and line up with the recipe rows' chips on the same right edge, are display-only (`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips included, opens the row menu. At most two lines of chips per direction (8 sent, 16 received); the
+A sub-factory that is a separate area, collapsed or expanded, spans the Recipe, Machine and Beacons columns with its name, marker and summary. The items it sends sit under the Products and Byproducts columns, which the cell spans (at least 152px; `data-testid="area-chips-out"`), and the items it receives in the Ingredients column (`data-testid="area-chips-in"`). The sent chips are left-aligned in their cell, so they start at the same x as the recipe rows' product chips; the received chips are right-aligned. The chips wrap, are display-only (`<span>`s), with no visible "in" or "out" label (the column header says it); each group is `role="group"` with `aria-label` "Sends" or "Receives". Right-clicking any cell of the row, chips included, opens the row menu. At most two lines of chips per direction (8 sent, 16 received); the
 rest is a "+N" button (`data-testid="area-chips-more"`, `aria-label` "N more received items"
 or "N more sent items") that opens a popup (`AreaChipsMore.tsx`, `data-testid="area-chips-popup"`,
 `role="tooltip"`) headed "Also receives" or "Also sends". It lists only the hidden items, one per
@@ -1022,7 +1022,7 @@ Every row (recipe or sub-factory) is draggable with native HTML5 drag-and-drop.
 ## Modals and pickers
 
 Modals (`Modal.tsx`, and the item and recipe pickers' own frame) are centred over a dimmed
-backdrop and close on Escape or a click on the backdrop.
+backdrop and close on Escape or a click on the backdrop. They never exceed the viewport: modals are capped at the viewport minus 0.5rem on each side and scroll vertically (`Modal` adds the width cap only when the caller's `className` has no `max-w-` class, variant-prefixed ones included, and `overflow-y-auto` only when it has no `overflow-y-*` or both-axis `overflow-*` class; `overflow-x-*` alone keeps the vertical scroll), the item and recipe picker frame is `w-[32rem]` with the cap in the frame itself (so a custom width keeps it), starts closer to the top below `md`, and its recipe grids use 6, 8 then 10 columns (`sm`, `md`). The recipe picker's floating detail panel is shown from `xl` only (below it hovering a recipe shows no detail; see the backlog). The summary strip below `md` snaps to its panes with the `px-3` end padding as scroll padding and does not scroll vertically. Menu flyouts that open to the left of their menu (`MenuButton`) are pinned to the viewport's edges below `md`.
 
 ### Item picker
 

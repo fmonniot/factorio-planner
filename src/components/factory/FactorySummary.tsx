@@ -122,6 +122,9 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
 // FactorySummary
 // ---------------------------------------------------------------------------
 
+/** Below `md` the panes form a horizontal snap strip; from `md` they share a three-column grid. */
+const PANE_RESPONSIVE = 'shrink-0 basis-[85%] snap-start md:basis-auto'
+
 export function FactorySummary() {
   const activeBlock = useBlockStore(selectActiveBlock)
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
@@ -268,10 +271,11 @@ export function FactorySummary() {
   return (
     <div className="border-b border-gray-700 bg-gray-900 shrink-0">
       {/* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */}
-      <div className="grid grid-cols-3 gap-2 px-3 pb-2 pt-2">
+      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 md:grid md:grid-cols-3 md:overflow-visible">
         <SummaryPane
           key={`products-${activeBlock?.id}`}
           pane="products"
+          className={PANE_RESPONSIVE}
           label="Products"
           action={
             <button
@@ -338,6 +342,7 @@ export function FactorySummary() {
         <SummaryPane
           key={`byproducts-${activeBlock?.id}`}
           pane="byproducts"
+          className={PANE_RESPONSIVE}
           label="Byproducts"
           slots={byproductSlots}
           items={gameData.items}
@@ -365,6 +370,7 @@ export function FactorySummary() {
         <SummaryPane
           key={`ingredients-${activeBlock?.id}`}
           pane="ingredients"
+          className={PANE_RESPONSIVE}
           label="Ingredients"
           slots={ingredientSlots}
           items={gameData.items}

@@ -42,7 +42,7 @@ const PRIMARY_AREA_HINT = '; the primary product decides what this row builds fo
 
 /**
  * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
- * Products and Byproducts columns (160px, 4 chips per line), receives under Ingredients (about 8 per line).
+ * Products and Byproducts columns (spanning both columns, left-aligned so they start under the recipe rows' product chips), receives under Ingredients.
  */
 const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
@@ -675,9 +675,9 @@ export function RecipeRow({
         />
       </td>
 
-      {/* Products — primary output(s), right-aligned; the pin badge sits on the chip */}
+      {/* Products — the single primary product, left-aligned so it sits above the items a collapsed area sends; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5 items-center justify-end">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {productEntries.map(([itemId, ratePerMin]) => {
             const showPin = isPinned && !isByproductConsumer
             const productTemp = productTemperatures[itemId]
@@ -759,9 +759,9 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients */}
+      {/* Ingredients, right-aligned like the items a collapsed area receives */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 justify-end">
           {inputEntries.map(([itemId, ratePerMin]) => {
             const itemName = gameData.items[itemId]?.name ?? itemId
             const temp = temperatureLabels[itemId]
@@ -819,7 +819,7 @@ function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
       data-testid={testId}
       role="group"
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
-      className="flex flex-wrap items-center justify-end gap-1.5"
+      className={`flex flex-wrap items-center gap-1.5 ${direction === 'sends' ? 'justify-start' : 'justify-end'}`}
     >
       {flows.slice(0, AREA_CHIP_CAP[direction]).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />

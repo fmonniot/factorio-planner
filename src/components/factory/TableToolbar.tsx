@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { useOverlayOpen } from './sidePanel/useDismiss'
 import { useShallow } from 'zustand/react/shallow'
 import { useUiStore } from '../../store/uiStore'
 import type { RateUnit } from '../../store/uiStore'
@@ -40,7 +41,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
   const power = powerKw > 0 ? fmtPower(powerKw) : null
 
   return (
-    <div data-testid="table-toolbar" className="flex items-center gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
+    <div data-testid="table-toolbar" className="relative flex items-center gap-1.5 md:gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
       <button
         type="button"
         onClick={onAddRecipe}
@@ -51,7 +52,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
       </button>
 
       {/* Not implemented yet: the filter does not narrow the table. Typing here has no effect. */}
-      <label className="relative inline-flex items-center">
+      <label className="relative hidden md:inline-flex items-center">
         <span className="sr-only">Filter recipes or items</span>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="absolute left-2 pointer-events-none">
           <circle cx="5" cy="5" r="3.6" fill="none" stroke="currentColor" strokeWidth="1.3" className="text-gray-400" />
@@ -78,12 +79,12 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         ))}
       </span>
 
-      <span className="ml-auto flex items-center gap-4 text-[11px] text-gray-400">
+      <span className="ml-auto flex items-center gap-2 md:gap-4 text-[11px] text-gray-400">
         <WarningsPopover />
         <span data-testid="block-recipe-count">
           <span className="font-mono tabular-nums text-gray-100">{recipes}</span> {recipes === 1 ? 'recipe' : 'recipes'}
         </span>
-        <span data-testid="block-machine-count">
+        <span data-testid="block-machine-count" className="hidden md:inline">
           <span className="font-mono tabular-nums text-gray-100">{machines}</span> {machines === 1 ? 'machine' : 'machines'}
         </span>
         {power && (
@@ -219,6 +220,7 @@ export function WarningsPopover() {
     return i >= 0 && i % 2 === 0 ? idNames[i + 1] : id
   }
   const [open, setOpen] = useState(false)
+  useOverlayOpen(open)
   const ref = useRef<HTMLDivElement>(null)
 
   const warnings = result?.warnings ?? []
@@ -275,7 +277,7 @@ export function WarningsPopover() {
     : 'bg-yellow-500/10 border-yellow-500/40 text-yellow-300 hover:bg-yellow-500/20'
 
   return (
-    <div ref={ref} className="relative shrink-0 mr-1.5">
+    <div ref={ref} className="relative max-md:static shrink-0 mr-1.5">
       <button
         onClick={() => setOpen(o => !o)}
         aria-haspopup="dialog"
@@ -289,7 +291,7 @@ export function WarningsPopover() {
       </button>
 
       {open && (
-        <div className="absolute top-full right-0 mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
+        <div data-testid="warnings-popover" className="absolute top-full right-0 max-md:right-2 max-md:left-2 max-md:w-auto mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
           <div className="px-3 py-2 border-b border-gray-700 font-medium text-gray-300">
             Solver warnings
           </div>
