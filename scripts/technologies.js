@@ -33,6 +33,34 @@ export function technologyCost(proto) {
   }
 }
 
+/** An id given as a string or as an object with a string `name` (e.g. `{name, quality}`); else undefined. */
+function idOf(v) {
+  if (typeof v === 'string') return v
+  if (v && typeof v === 'object' && typeof v.name === 'string') return v.name
+  return undefined
+}
+
+/**
+ * Research trigger of a technology (`research_trigger`): the in-game condition that completes it.
+ * `count` comes from `count` (craft-item, build-entity) or `amount` (craft-fluid). Only defined keys are
+ * set; quality fields are dropped. Null when there is no trigger object with a string `type`.
+ * @returns {{type:string, item?:string, entity?:string, fluid?:string, count?:number} | null}
+ */
+export function researchTrigger(proto) {
+  const r = proto.research_trigger
+  if (!r || typeof r !== 'object' || typeof r.type !== 'string') return null
+  const out = { type: r.type }
+  const item = idOf(r.item)
+  if (item !== undefined) out.item = item
+  const entity = idOf(r.entity)
+  if (entity !== undefined) out.entity = entity
+  const fluid = idOf(r.fluid)
+  if (fluid !== undefined) out.fluid = fluid
+  const n = typeof r.count === 'number' ? r.count : r.amount
+  if (typeof n === 'number' && n > 0) out.count = n
+  return out
+}
+
 /**
  * Add the `iconPath` of each technology, resolved from its prototype. Returns a
  * new record; the input is not modified.
@@ -54,7 +82,7 @@ export async function attachTechnologyIcons(technologies, raw, resolveIcon) {
  * @param recipeIds    Set<string> of the recipe ids in the bundle
  * @param resolveName  (proto) => string  display name of a technology
  * @returns {{ technologies: Record<string,{id:string,name:string,prerequisites:string[],unlockedRecipes:string[],
- *               cost:ReturnType<typeof technologyCost>}>,
+ *               cost:ReturnType<typeof technologyCost>, trigger?:ReturnType<typeof researchTrigger>}>,
  *             startingRecipes: string[] }}
  */
 export function exportTechnologies(raw, recipeIds, resolveName) {
@@ -92,13 +120,17 @@ export function exportTechnologies(raw, recipeIds, resolveName) {
       if (!recipeIds.has(effect.recipe) || unlocked.includes(effect.recipe)) continue
       unlocked.push(effect.recipe)
     }
+    const cost = technologyCost(proto)
     all[id] = {
       id,
       name: resolveName(proto),
       prerequisites: luaList(proto.prerequisites).filter(p => p in researchable),
       unlockedRecipes: unlocked,
-      cost: technologyCost(proto),
+      cost,
     }
+    // The trigger condition is only exported for technologies that have no lab cost.
+    const trigger = cost === null ? researchTrigger(proto) : null
+    if (trigger) all[id].trigger = trigger
   }
 
   // 3. Keep technologies that unlock a recipe, plus all their prerequisites (transitively).

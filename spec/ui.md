@@ -418,7 +418,10 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
 - **Cards**: icon (a letter placeholder when the bundle has none), name, and the
   cost: one chip per science pack (the pack's item icon, tooltip `<pack> ×amount`)
   followed by `×count · time s` (`×?` for a formula count). A research-trigger
-  technology shows "Trigger"; a bundle without cost data shows nothing. The cost is
+  technology shows its condition in place of the cost: the subject's icon and a one-line text
+  such as "Craft 10 × Steel plate" (truncated to the card, full sentence in the `title`); it
+  shows a bare "Trigger" when the bundle has no condition or the type is unknown. A bundle
+  without cost data shows nothing. The cost is
   rendered by the shared `TechCost` component (`TechCost.tsx`), which the recipe
   picker also uses, without the time.
   The icon (or a letter placeholder) comes from the shared `TechIcon` component
@@ -436,7 +439,7 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   focus shows it at once (not for a card outside the visible canvas, and not for the focus a
   pointer press causes, whatever the button), and moving the pointer between cards switches
   without the delay: leaving a card keeps a shown popup for a 100 ms grace period, which entering
-  another card cancels. The header repeats the icon, the full name and the cost with its time. **Recipes** lists
+  another card cancels. The header repeats the icon, the full name and the cost with its time; a trigger technology shows the full sentence instead ("Researched by crafting 10 × Steel plate"). **Recipes** lists
   up to 8 with the icon of `recipeIconItem` (`src/data/recipeIcon.ts`, shared with the recipe
   picker) and a "+N more" row; a technology without recipes says "Unlocks no recipes".
   **Machines** (only when there are any) lists the non-hidden machines and beacons placed by an
@@ -1072,7 +1075,8 @@ The same component in recipes mode (`source="recipes"`).
   section. Each technology that unlocks the recipe is listed (fewest science-pack
   types first, then by name; technologies with no cost data or a research
   trigger sort last) with its icon, its name and its science packs (pack
-  icons, then `×count`; `×?` for a formula count; "Trigger" for a research-trigger
+  icons, then `×count`; `×?` for a formula count; the short trigger condition
+  ("Craft 10 × Steel plate", or a bare "Trigger" when unknown) for a research-trigger
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".

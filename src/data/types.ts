@@ -17,6 +17,7 @@ export type {
   ItemSubgroup,
   Technology,
   TechnologyCost,
+  ResearchTrigger,
   GameData,
   ModuleConfig,
   BeaconConfig,

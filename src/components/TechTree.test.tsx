@@ -89,6 +89,37 @@ describe('TechTreeButton', () => {
     expect(within(card('rocket-silo')).getByTestId('tech-icon-placeholder')).toBeInTheDocument()
   })
 
+  it('shows the trigger condition of a trigger technology', () => {
+    const data = makeGameData()
+    data.items.plate = { id: 'plate', name: 'Steel plate', type: 'item', iconPath: '/i/steel.png', hidden: false, subgroup: '', order: '' }
+    data.technologies['rocket-silo'].cost = null
+    data.technologies['rocket-silo'].trigger = { type: 'craft-item', item: 'plate', count: 10 }
+    load(data)
+    open()
+    const cost = within(card('rocket-silo')).getByTestId('tech-cost')
+    expect(cost).toHaveTextContent('Craft 10 × Steel plate')
+    expect(cost.querySelector('img')).not.toBeNull()
+  })
+
+  it('keeps the plain Trigger for an unknown trigger type or no trigger', () => {
+    const data = makeGameData()
+    data.technologies['rocket-silo'].cost = null
+    data.technologies['rocket-silo'].trigger = { type: 'scripted' }
+    data.technologies.electronics.cost = null
+    load(data)
+    open()
+    expect(within(card('rocket-silo')).getByTestId('tech-cost').textContent).toBe('Trigger')
+    expect(within(card('electronics')).getByTestId('tech-cost').textContent).toBe('Trigger')
+  })
+
+  it('shows the cost when a technology has both a cost and a trigger', () => {
+    const data = makeGameData()
+    data.technologies.electronics.trigger = { type: 'craft-item', item: 'asm' }
+    load(data)
+    open()
+    expect(within(card('electronics')).getByTestId('tech-cost')).toHaveTextContent('×10 · 5s')
+  })
+
   it('clicking a card toggles it as a horizon target', () => {
     open()
     fireEvent.click(card('rocket-silo'))

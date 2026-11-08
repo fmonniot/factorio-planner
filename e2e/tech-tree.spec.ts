@@ -47,7 +47,7 @@ test.describe('Technology tree', () => {
     await expect(card(page, 'electronics')).toHaveAttribute('data-state', 'available')
     await expect(card(page, 'rocket-silo')).toHaveAttribute('data-state', 'locked')
     await expect(card(page, 'space-science-pack')).toHaveAttribute('data-state', 'locked')
-    await expect(card(page, 'space-science-pack').getByTestId('tech-cost')).toHaveText('Trigger')
+    await expect(card(page, 'space-science-pack').getByTestId('tech-cost')).toHaveText('Craft 10 × Rocket part')
     await expect(card(page, 'advanced-material-processing').getByTestId('tech-cost')).toHaveCount(0)
   })
 
@@ -225,6 +225,12 @@ test.describe('Technology tree hover popup', () => {
     expect(box.y).toBeGreaterThanOrEqual(0)
     expect(box.x + box.width).toBeLessThanOrEqual(vp.width)
     expect(box.y + box.height).toBeLessThanOrEqual(vp.height)
+  })
+
+  test('the header of a trigger technology reads the full condition', async ({ page }) => {
+    await card(page, 'space-science-pack').hover()
+    await expect(popup(page)).toBeVisible()
+    await expect(popup(page).getByTestId('tech-cost')).toHaveText('Researched by crafting 10 × Rocket part')
   })
 
   test('moving off the card hides it', async ({ page }) => {

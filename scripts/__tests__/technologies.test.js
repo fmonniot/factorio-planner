@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { luaList, exportTechnologies, technologyCost, attachTechnologyIcons } from '../technologies.js'
+import { luaList, exportTechnologies, technologyCost, researchTrigger, attachTechnologyIcons } from '../technologies.js'
 
 // ---------------------------------------------------------------------------
 // Helpers — each call returns a fresh dump
@@ -151,6 +151,78 @@ describe('technologyCost', () => {
   it('filters out amounts of 0', () => {
     expect(technologyCost({ unit: { count: 1, time: 1, ingredients: [['a', 0], ['b', 1]] } }).ingredients)
       .toEqual([{ itemId: 'b', amount: 1 }])
+  })
+})
+
+describe('researchTrigger', () => {
+  it('reads craft-item with a count', () => {
+    const r = researchTrigger({ research_trigger: { type: 'craft-item', item: 'steel-plate', count: 10 } })
+    expect(r, 'craft-item with count').toEqual({ type: 'craft-item', item: 'steel-plate', count: 10 })
+  })
+  it('leaves count out when craft-item has none', () => {
+    const r = researchTrigger({ research_trigger: { type: 'craft-item', item: 'wood' } })
+    expect(r, 'no count').toEqual({ type: 'craft-item', item: 'wood' })
+    expect(r && 'count' in r, 'no count key').toBe(false)
+  })
+  it('reads mine-entity', () => {
+    const r = researchTrigger({ research_trigger: { type: 'mine-entity', entity: 'crude-oil' } })
+    expect(r, 'mine-entity').toEqual({ type: 'mine-entity', entity: 'crude-oil' })
+  })
+  it('reads build-entity with entity and count', () => {
+    const r = researchTrigger({ research_trigger: { type: 'build-entity', entity: 'boiler', count: 2 } })
+    expect(r, 'build-entity').toEqual({ type: 'build-entity', entity: 'boiler', count: 2 })
+  })
+  it('turns the amount of craft-fluid into count', () => {
+    const r = researchTrigger({ research_trigger: { type: 'craft-fluid', fluid: 'water', amount: 100 } })
+    expect(r, 'craft-fluid').toEqual({ type: 'craft-fluid', fluid: 'water', count: 100 })
+  })
+  it('accepts an id given as an object and drops quality', () => {
+    const r = researchTrigger({ research_trigger: { type: 'craft-item', item: { name: 'x', quality: 'normal' } } })
+    expect(r, 'object id').toEqual({ type: 'craft-item', item: 'x' })
+  })
+  it('allows capture-spawner without an entity', () => {
+    expect(researchTrigger({ research_trigger: { type: 'capture-spawner' } }), 'bare').toEqual({ type: 'capture-spawner' })
+  })
+  it('returns null without a usable trigger', () => {
+    expect(researchTrigger({}), 'missing').toBeNull()
+    expect(researchTrigger({ research_trigger: 'craft-item' }), 'non-object').toBeNull()
+    expect(researchTrigger({ research_trigger: { item: 'x' } }), 'typeless').toBeNull()
+  })
+  it('passes an unknown type through', () => {
+    expect(researchTrigger({ research_trigger: { type: 'scripted' } }), 'unknown').toEqual({ type: 'scripted' })
+  })
+})
+
+describe('exportTechnologies — trigger', () => {
+  function rawWithTriggers() {
+    const raw = makeRaw()
+    raw.technology.electronics.research_trigger = { type: 'craft-item', item: 'iron-plate', count: 5 }
+    raw.technology['sct-lab-t1'] = {
+      name: 'sct-lab-t1',
+      unit: { count: 1, time: 1, ingredients: [['automation-science-pack', 1]] },
+      research_trigger: { type: 'craft-item', item: 'iron-plate' },
+      effects: [{ type: 'unlock-recipe', recipe: 'gear' }],
+    }
+    return raw
+  }
+
+  it('exports the trigger of a technology without a unit', () => {
+    const { technologies } = exportTechnologies(rawWithTriggers(), ids, resolveName)
+    expect(technologies.electronics.trigger).toEqual({ type: 'craft-item', item: 'iron-plate', count: 5 })
+  })
+  it('does not export the trigger when the technology has a unit', () => {
+    const { technologies } = exportTechnologies(rawWithTriggers(), ids, resolveName)
+    expect(technologies['sct-lab-t1'].cost, 'keeps its cost').not.toBeNull()
+    expect('trigger' in technologies['sct-lab-t1'], 'no trigger key').toBe(false)
+  })
+  it('adds no trigger key to a normal technology', () => {
+    const { technologies } = exportTechnologies(rawWithTriggers(), ids, resolveName)
+    expect('trigger' in technologies.radar, 'no trigger key').toBe(false)
+  })
+  it('keeps the trigger when icons are attached', async () => {
+    const { technologies } = exportTechnologies(rawWithTriggers(), ids, resolveName)
+    const out = await attachTechnologyIcons(technologies, rawWithTriggers(), async () => '/i.png')
+    expect(out.electronics.trigger).toEqual({ type: 'craft-item', item: 'iron-plate', count: 5 })
   })
 })
 

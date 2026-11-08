@@ -59,14 +59,14 @@ interface TechCardProps {
   state: TechState
   isTarget: boolean
   isHighlight: boolean
-  items: GameData['items']
+  gameData: GameData
   movedRef: MutableRefObject<boolean>
   onToggle: (id: string) => void
   onPreviewStart: (id: string, el: HTMLElement, immediate: boolean) => void
   onPreviewEnd: (id: string, immediate?: boolean) => void
 }
 
-const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlight, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
+const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlight, gameData, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
   return (
     <button
       type="button"
@@ -96,7 +96,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlig
       <TechIcon tech={tech} className="w-10 h-10 text-sm" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{tech.name}</span>
-        <TechCost cost={tech.cost} items={items} />
+        <TechCost cost={tech.cost} trigger={tech.trigger} lookup={gameData} />
       </span>
     </button>
   )
@@ -416,7 +416,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           state={states[n.id]}
           isTarget={targets.includes(n.id)}
           isHighlight={n.id === highlightId}
-          items={gameData.items}
+          gameData={gameData}
           movedRef={movedRef}
           onToggle={onToggle}
           onPreviewStart={onPreviewStart}

@@ -989,6 +989,14 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     expect(screen.getByTestId('tech-cost').textContent).toBe('Trigger')
   })
 
+  it('shows the short trigger condition when the technology has one', () => {
+    const data = fixtureWithTechnologies()
+    data.technologies.smelting.cost = null
+    data.technologies.smelting.trigger = { type: 'craft-item', item: 'iron-ore', count: 5 }
+    hover(data, 'iron-plate')
+    expect(screen.getByTestId('tech-cost')).toHaveTextContent('Craft 5 ×')
+  })
+
   it('reads "No technology" for a recipe nothing unlocks', () => {
     useGameDataStore.setState({ status: { type: 'loaded', gameData: fixtureWithTechnologies(), sourceId: 'test' } })
     render(<ItemPicker source="recipes" onSelect={() => {}} onClose={() => {}} />)

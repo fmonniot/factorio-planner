@@ -61,7 +61,7 @@ export function TechUnlocksPopup({ tech, anchor, gameData, placers }: TechUnlock
         <TechIcon tech={tech} className="w-8 h-8 text-sm" />
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-gray-100">{tech.name}</span>
-          <TechCost cost={tech.cost} items={gameData.items} />
+          <TechCost cost={tech.cost} trigger={tech.trigger} triggerText="full" lookup={gameData} />
         </span>
       </div>
 
