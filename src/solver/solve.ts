@@ -1,6 +1,7 @@
 import solver, { type SolveResult } from 'javascript-lp-solver'
 import type { ClassifiedSystem } from './build'
 import type { SolverWarning } from '../data/types'
+import { temperatureRows } from './temperatureRows'
 
 // ---------------------------------------------------------------------------
 // LP construction and solve
@@ -186,6 +187,28 @@ export function buildLPModel(
           }
         }
       }
+    }
+  }
+
+  // Fluid temperatures: Σ made at an acceptable temperature + imports + supply ≥ Σ taken by each set of
+  // temperature-bounded consumers. Imports and supply fit any bound, so they sit in every row.
+  for (const [itemId, f] of system.fluidTemperatures ?? []) {
+    // An import or supply is what lets a mismatched fluid fall back to something; a row without one (a goal,
+    // a fluid that cannot be imported) would force its consumers to zero or make the LP infeasible, so it
+    // is left to the `temperature-mismatch` warning.
+    if (!classification.intermediates.has(itemId)) continue
+    const slackName = itemToSlack.get(itemId)
+    const supplyName = itemToSupply.get(itemId)
+    if (!slackName && !supplyName) continue
+    for (const row of temperatureRows(f)) {
+      const cName = `c${constraintIdx++}`
+      constraints[cName] = { min: 0 }
+      for (const [colId, coeff] of row) {
+        const varName = recipeToVar.get(colId)
+        if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
+      }
+      if (slackName) variables[slackName][cName] = 1
+      if (supplyName) variables[supplyName][cName] = 1
     }
   }
 

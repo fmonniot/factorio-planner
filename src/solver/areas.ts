@@ -10,8 +10,9 @@ import type {
   SolverWarning,
   SubPlan,
 } from '../data/types'
-import { buildClassifiedSystem, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
+import { buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
 import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
+import { FluidTemperatureCollector } from './temperatureRows'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -205,18 +206,25 @@ function buildColumnSystem(
     if (!S.has(itemId)) S.set(itemId, new Map())
     S.get(itemId)!.set(columnId, (S.get(itemId)!.get(columnId) ?? 0) + delta)
   }
+  const temperatures = new FluidTemperatureCollector()
   for (const col of columns) {
     const recipe = col.recipe
     if (!recipe) continue
     for (const prod of recipe.products) {
       const amount = rowProductAmount(prod, col.effects.productivityBonus, col.effects.heatBonus)
-      if (amount > 0) addCoeff(prod.itemId, col.id, amount)
+      if (amount > 0) {
+        addCoeff(prod.itemId, col.id, amount)
+        temperatures.addProduct(col.id, prod, amount, gameData.items[prod.itemId])
+      }
     }
     for (const ing of rowIngredients(recipe, col.effects)) {
-      if (ing.amount > 0) addCoeff(ing.itemId, col.id, -ing.amount)
+      if (ing.amount > 0) {
+        addCoeff(ing.itemId, col.id, -ing.amount)
+        temperatures.addIngredient(col.id, ing)
+      }
     }
   }
-  return { S, recipes: columns.map(c => c.id), classification }
+  return { S, recipes: columns.map(c => c.id), classification, fluidTemperatures: temperatures.finish() }
 }
 
 export type AreaLPResult = LPResult & {
@@ -501,13 +509,7 @@ export function solveAreaBlock(
 
   for (const col of columns) {
     for (const [itemId, policy] of Object.entries(col.node.byproductPolicy)) {
-      if (policy === 'discard') {
-        const row = system.S.get(itemId)
-        if (row) {
-          const coeff = row.get(col.id) ?? 0
-          if (coeff > 0) row.set(col.id, 0)
-        }
-      }
+      if (policy === 'discard') discardProduct(system, itemId, col.id)
     }
   }
 
