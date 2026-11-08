@@ -4,7 +4,7 @@ Status: Active
 
 The follow-up plan to [plan.md](plan.md). The design artifact is judged: 28 changes accepted, 11 variants rejected (2026-11-08). This document is the input for the sessions that put the accepted changes into `src/components/`, one pull request each. Nothing is implemented yet.
 
-**How to use it.** Read [Ground rules](#ground-rules), then work one PR section at a time. The [ledger](#ledger) lists every accepted change exactly once and `npm run lint:docs` fails when it drifts from the artifact (see [Not missing anything](#not-missing-anything)). Fill the *Landed* column in the PR that implements a change.
+**How to use it.** Read [Ground rules](#ground-rules), then work one PR section at a time. The [ledger](#ledger) lists every accepted change exactly once and `npm run lint:docs` fails when it drifts from the artifact (see [Not missing anything](#not-missing-anything)). The *Landed* column is ticked by the orchestrator after the merges, not by the PRs (see [Orchestration](#orchestration)).
 
 ---
 
@@ -15,7 +15,7 @@ The follow-up plan to [plan.md](plan.md). The design artifact is judged: 28 chan
 3. **Look at the real component first.** Names below are the places the plan points at; the current classes and structure may differ from what plan.md assumed. Where the app already does what a change asks, say so in the PR and move on (`dedicatedProduct` below is such a case).
 4. **Row density is a budget (finding 11).** Every PR that changes a height or a width states in its description the cost per row and the rows visible at 1440 × 900, against `main`.
 5. **Tests.** A unit test beside the source where the logic is pure (formatters, layout arithmetic), a Playwright spec in `e2e/` for what a user sees or does (CLAUDE.md prefers it over manual checks). Each ledger row names the artifact check that proves the claim in the replica; the app test should assert the same thing. `e2e/fixtures/` has plans; [../share-by-url/sample-plan-middle-ring.json](../share-by-url/sample-plan-middle-ring.json) is a Seablock plan from the same game. The block names in the artifact's "Try:" lines (Hub, Metals, Ores, Extra Sulfur) come from the owner's personal save, which is not in the repository; they are a guide, not the test input.
-6. **Docs travel with the code.** Per CLAUDE.md "Spec maintenance": UI changes update [../../spec/ui.md](../../spec/ui.md) (it quotes sizes) and, when user-visible, README "Using the planner". Tick the *Landed* column in this file in the same PR.
+6. **Docs travel with the code.** Per CLAUDE.md "Spec maintenance": UI changes update [../../spec/ui.md](../../spec/ui.md) (it quotes sizes) and, when user-visible, README "Using the planner". Do not edit the ledger or its *Landed* column in a PR: all nine PRs would edit adjacent lines of one table and conflict.
 7. **Settings and state.** Wherever this document says a choice "survives a reload", follow how the app already stores UI state; do not invent a new store.
 
 ## Branching and order
@@ -35,6 +35,18 @@ PR 0 is the branch that holds this file (docs, tooling and the artifact; nothing
 | 9 | Collapsed summary | stacked on 8 | `sumStack` needs `sumLine`; the one-line chips reuse the pane code PR 8 touches |
 
 Each of the nine PRs below stays its own PR, however small (owner, 2026-11-08): it keeps the release notes readable. Do not merge neighbours; do not split one either.
+
+## Orchestration
+
+The nine PRs are run by one orchestrator session that writes no app code and spawns agents. That session may be restarted from scratch at any time (token limits), so it keeps no state of its own: GitHub is the state.
+
+- Names: branch `visual-refinement/pr-N-<slug>`, PR title `Visual refinement N/9: <theme>`. After a restart, find the state with `gh pr list --state all --search "Visual refinement in:title"` and `git branch -r`; continue from there and never redo a PR that exists.
+- Implementer agents, one per PR, each in its own git worktree. An implementer gets only its PR section verbatim (every "Not in the artifact" note included), the ground rules and the artifact path. It writes the code and its tests, updates the docs the ground rules name, runs lint, lint:docs, test:unit, test:e2e and build, opens the PR and reports the cost per row and rows visible at 1440 × 900 against `main` (ground rule 4).
+- Waves: PRs 1, 2, 3, 4, 5 and 8 in parallel; 6, 7 and 9 start once their base PR is open (6 on 5, 7 on 6, 9 on 8), from that PR's branch, without waiting for it to merge. The owner merges in order 1 to 9; when a merge makes another branch conflict, its agent rebases it.
+- Review: one round per PR, enough given how much the artifact already settles. A reviewer agent runs the code-review skill at medium on the PR; a separate fix agent applies the confirmed findings and pushes. The orchestrator then posts a PR comment starting `Review round done:` with whatever is left; the comment's absence means the round is not done. Never max or ultra.
+- Never merge, never push to `main`, never force-push a branch other work is based on. Stop and ask the owner when the section contradicts the app's code or the artifact, or a test cannot be made to pass.
+- Report as a table (PR, branch, number, review state, open findings, blockers) after each wave.
+- Closing: once all nine are merged, tick the *Landed* column in one commit on a branch of its own, then run `node initiatives/visual-refinement/check-ledger.mjs --audit`.
 
 ---
 

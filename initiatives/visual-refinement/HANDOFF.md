@@ -133,7 +133,7 @@ Checked values (baseline): Metals 1440 × 900 gives 302 px above the table (asse
 
 ## Next steps
 
-1. Implement the accepted changes, one PR per section of [implementation.md](implementation.md). Fill its *Landed* column in each PR.
+1. Implement the accepted changes, one PR per section of [implementation.md](implementation.md). The orchestration (agents, waves, review, restarts) is in its "Orchestration" section; the *Landed* column is ticked once, after the merges.
 2. When all are in: `node initiatives/visual-refinement/check-ledger.mjs --audit`, update `spec/ui.md`, trim `baseline/` (2.3 MB), remove the ledger check from `lint:docs`, and `git mv` this folder to `initiatives/archive/`.
 3. Not covered yet: pickers and modals, the block graph with 11 blocks, a light theme, the Nullius data set, areas inside areas.
 
