@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { solveAll } from './index'
+import { HEAT_ITEM_ID } from '../data/electricity'
 import { temperatureWarnings } from './temperature'
 import { createSolveCache } from './solveCache'
 import type { Block, ConnectionFlow, GameData, GameRecipeNode, Product, RecipeNode, SolverResult, SolverWarning } from '../data/types'
@@ -129,18 +130,20 @@ describe('temperature-mismatch warning', () => {
 
 /** A reactor: no ingredients, 1 heat per run at `temperature` (absent: unknown). */
 function reactor(id: string, temperature?: number): GameRecipe {
-  return recipe(id, [], [{ itemId: 'heat', type: 'fluid', amount: 1, ...(temperature === undefined ? {} : { temperature }) }])
+  return recipe(id, [], [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1, ...(temperature === undefined ? {} : { temperature }) }])
 }
 /** A heat exchanger: 1 heat per run, heat of at least `min`, makes electricity. */
 function exchanger(id: string, min: number): GameRecipe {
-  return recipe(id, [{ itemId: 'heat', type: 'fluid', amount: 1, minimumTemperature: min }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
+  return recipe(id, [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1, minimumTemperature: min }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
 }
 
 describe('heat', () => {
-  it('imports the heat when the reactor is cooler than the exchanger needs', () => {
+  it('warns, without changing the plan, when the reactor is cooler than the exchanger needs', () => {
     const gd = gameData([reactor('r750', 750), exchanger('x765', 765)])
     const all = solveAll([block('A', [node('r', 'r750'), node('x', 'x765')])], gd)
-    expect(all.results.A.unsatisfied.some(u => u.itemId === 'heat'), 'heat is imported').toBe(true)
+    expect(mismatches(all.results.A.warnings)).toEqual([
+      expect.objectContaining({ recipeId: 'x765', itemId: HEAT_ITEM_ID, supplied: [750], minimum: 765 }),
+    ])
   })
 
   it('accepts a reactor exactly at the exchanger minimum or above it', () => {
@@ -165,10 +168,10 @@ describe('heat', () => {
 
   it('warns on the exchanger block of a connection, not on the reactor block', () => {
     const gd = gameData([reactor('r750', 750), exchanger('x765', 765)])
-    const heatGoal: Product[] = [{ id: 'gh', itemId: 'heat', extraRate: 1 }]
+    const heatGoal: Product[] = [{ id: 'gh', itemId: HEAT_ITEM_ID, extraRate: 1 }]
     const all = solveAll([
       block('A', [node('r', 'r750')], heatGoal),
-      block('B', [node('x', 'x765')], undefined, [{ id: 'c1', itemId: 'heat', fromBlockId: 'A' }]),
+      block('B', [node('x', 'x765')], undefined, [{ id: 'c1', itemId: HEAT_ITEM_ID, fromBlockId: 'A' }]),
     ], gd)
     expect(mismatches(all.results.A.warnings)).toHaveLength(0)
     const w = mismatches(all.results.B.warnings)
@@ -242,8 +245,8 @@ describe('temperature-mismatch warning (more)', () => {
   })
 
   it('stays silent when the consumer bound is on a fluid nobody gives a temperature', () => {
-    const heater = recipe('heater', [], [{ itemId: 'heat', type: 'fluid', amount: 1 }])
-    const consumer = recipe('exchanger', [{ itemId: 'heat', type: 'fluid', amount: 1, minimumTemperature: 500 }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
+    const heater = recipe('heater', [], [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1 }])
+    const consumer = recipe('exchanger', [{ itemId: HEAT_ITEM_ID, type: 'fluid', amount: 1, minimumTemperature: 500 }], [{ itemId: 'electricity', type: 'item', amount: 1 }])
     const gd = gameData([heater, consumer])
     const all = solveAll([block('A', [node('h', 'heater'), node('e', 'exchanger')])], gd)
     expect(mismatches(all.results.A.warnings)).toHaveLength(0)

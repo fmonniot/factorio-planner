@@ -193,9 +193,13 @@ export function buildLPModel(
   // Fluid temperatures: Σ made at an acceptable temperature + imports + supply ≥ Σ taken by each set of
   // temperature-bounded consumers. Imports and supply fit any bound, so they sit in every row.
   for (const [itemId, f] of system.fluidTemperatures ?? []) {
-    if (!classification.goals.has(itemId) && !classification.intermediates.has(itemId)) continue
+    // An import or supply is what lets a mismatched fluid fall back to something; a row without one (a goal,
+    // a fluid that cannot be imported) would force its consumers to zero or make the LP infeasible, so it
+    // is left to the `temperature-mismatch` warning.
+    if (!classification.intermediates.has(itemId)) continue
     const slackName = itemToSlack.get(itemId)
     const supplyName = itemToSupply.get(itemId)
+    if (!slackName && !supplyName) continue
     for (const row of temperatureRows(f)) {
       const cName = `c${constraintIdx++}`
       constraints[cName] = { min: 0 }

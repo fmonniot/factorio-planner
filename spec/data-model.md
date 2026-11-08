@@ -105,7 +105,7 @@ interface Ingredient {
   itemId: string
   type: 'item' | 'fluid'
   amount: number                // > 0
-  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read only by the `temperature-mismatch` warning, not by the LP
+  minimumTemperature?: number   // shown on the recipe row's ingredient tile and in the recipe picker's detail panel; read by the solver (temperature rows in the LP, see [solver.md](solver.md#fluid-temperatures)) and the `temperature-mismatch` warning
   maximumTemperature?: number
 }
 
@@ -124,7 +124,7 @@ interface RecipeProduct {
 Recipe ingredients carry optional temperature bounds. Fluid items carry
 `defaultTemperature` / `maxTemperature`. A fluid product carries `temperature` only when
 the recipe sets one; otherwise the fluid is at its `defaultTemperature`. All of these are
-shown in the UI and read by the `temperature-mismatch` warning after the solve; the LP ignores them. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
+shown in the UI, read by the LP (a fluid's balance cannot be met with a temperature no consumer accepts, see [solver.md](solver.md#fluid-temperatures)) and by the `temperature-mismatch` warning after the solve. The *effective temperature* of a product is `temperature` if set, else its fluid's `defaultTemperature`, and is unknown when neither exists. The generated extraction recipes set no product
 `temperature`; the power recipes set it only on boiler and heat-exchanger steam (the machine's
 `target_temperature`) and on reactor heat (the reactor's `heat_buffer.max_temperature`, left absent when the
 prototype has none).

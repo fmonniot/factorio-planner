@@ -1,7 +1,7 @@
 import type { GameData, GameRecipeNode, Ingredient, Recipe, RecipeProduct } from '../data/types'
 import type { NodeEffects } from './effects'
 import { HEAT_ITEM_ID } from '../data/electricity'
-import type { FluidTemperatures } from './temperatureRows'
+import { FluidTemperatureCollector, type FluidTemperatures } from './temperatureRows'
 
 // ---------------------------------------------------------------------------
 // Item classification for the LP solver
@@ -28,7 +28,7 @@ export interface ClassifiedSystem {
   /** Ordered recipe ids */
   recipes: string[]
   classification: ItemClassification
-  /** Fluids whose temperature some column bounds (set by the solver entry points; see temperatureRows.ts). */
+  /** Fluids whose temperature some column bounds and some column makes (see temperatureRows.ts). */
   fluidTemperatures?: Map<string, FluidTemperatures>
 }
 
@@ -92,6 +92,7 @@ export function buildClassifiedSystem(
   /** Per recipe: its row's productivity, heat bonus and fuel (an ingredient that is not the recipe's own). */
   effectsMap: Map<string, RowEffects> = new Map(),
 ): ClassifiedSystem {
+  const temperatures = new FluidTemperatureCollector()
   const producers = new Map<string, Set<string>>() // itemId → recipeIds that produce it
   const consumers = new Map<string, Set<string>>() // itemId → recipeIds that consume it
 
@@ -114,6 +115,7 @@ export function buildClassifiedSystem(
       const amount = rowProductAmount(prod, prodBonus, rowEffects?.heatBonus ?? 0)
       if (amount > 0) {
         addCoeff(prod.itemId, recipeId, amount)
+        temperatures.addProduct(recipeId, prod, amount, gameData.items[prod.itemId])
         if (!producers.has(prod.itemId)) producers.set(prod.itemId, new Set())
         producers.get(prod.itemId)!.add(recipeId)
       }
@@ -122,6 +124,7 @@ export function buildClassifiedSystem(
     for (const ing of [...recipe.ingredients, ...(fuel === undefined ? [] : Array.isArray(fuel) ? fuel : [fuel])]) {
       if (ing.amount > 0) {
         addCoeff(ing.itemId, recipeId, -ing.amount)
+        temperatures.addIngredient(recipeId, ing)
         if (!consumers.has(ing.itemId)) consumers.set(ing.itemId, new Set())
         consumers.get(ing.itemId)!.add(recipeId)
       }
@@ -150,5 +153,20 @@ export function buildClassifiedSystem(
     }
   }
 
-  return { S, recipes: recipeIds, classification: { goals, intermediates, raw, byproducts } }
+  return {
+    S, recipes: recipeIds, classification: { goals, intermediates, raw, byproducts },
+    fluidTemperatures: temperatures.finish(),
+  }
+}
+
+/**
+ * Apply `byproductPolicy = 'discard'` of column `colId` to `itemId`: its positive net coefficient
+ * becomes 0, and what it makes of the item no longer counts towards a fluid's temperature rows.
+ */
+export function discardProduct(system: ClassifiedSystem, itemId: string, colId: string): void {
+  const row = system.S.get(itemId)
+  if (!row || (row.get(colId) ?? 0) <= 0) return
+  row.set(colId, 0)
+  const f = system.fluidTemperatures?.get(itemId)
+  if (f) f.producers = f.producers.filter(p => p.colId !== colId)
 }

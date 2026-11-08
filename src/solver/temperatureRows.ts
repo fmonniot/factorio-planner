@@ -1,16 +1,16 @@
-import type { GameData, Ingredient, Recipe } from '../data/types'
+import type { Ingredient, Item, RecipeProduct } from '../data/types'
+import { HEAT_ITEM_ID } from '../data/electricity'
 import { acceptsTemperature, effectiveTemperature, hasTemperatureBound } from '../data/temperature'
-import { rowProductAmount } from './build'
-import type { NodeEffects } from './effects'
 
 // ---------------------------------------------------------------------------
 // Fluid temperatures in the LP
 //
 // A fluid made at several temperatures is one item in the LP (one balance row), but a consumer that
-// bounds the temperature it takes can only use some of what is made. `FluidTemperatures` records, for
-// each such fluid, who makes it at which temperature and who bounds what; `temperatureRows` turns that
-// into extra LP rows (Hall's condition for a supply that can go to any acceptable consumer), so the
-// balance cannot be met with the wrong temperature. See spec/solver.md, "Fluid temperatures".
+// bounds the temperature it takes can only use some of what is made. `FluidTemperatureCollector`
+// records, while the stoichiometry is built, who makes each such fluid at which temperature and who
+// bounds what; `temperatureRows` turns that into extra LP rows (Hall's condition for a supply that can
+// go to any acceptable consumer), so the balance cannot be met with the wrong temperature. See
+// spec/solver.md, "Fluid temperatures".
 // ---------------------------------------------------------------------------
 
 export interface FluidTemperatures {
@@ -23,59 +23,62 @@ export interface FluidTemperatures {
 /** A row of the LP: `Σ coeff_j · x_j + imports ≥ 0` over the columns. */
 export type TemperatureRow = Map<string, number>
 
-export interface TemperatureColumn {
-  id: string
-  recipe: Recipe | undefined
-  effects: Pick<NodeEffects, 'productivityBonus' | 'heatBonus'>
-}
-
 /**
- * The fluids some column bounds the temperature of and some column makes. Fluids with no
- * bounded consumer, or no producer in the columns (imported, at an unknown temperature), are left out.
+ * Collects the producers and bounded consumers of fluids from the same calls that fill the
+ * stoichiometry (`addProduct` / `addIngredient` with the amounts that go into it).
  */
-export function collectFluidTemperatures(
-  gameData: GameData,
-  columns: TemperatureColumn[],
-): Map<string, FluidTemperatures> | undefined {
-  const out = new Map<string, FluidTemperatures>()
-  const get = (itemId: string): FluidTemperatures => {
-    let f = out.get(itemId)
-    if (!f) out.set(itemId, (f = { producers: [], consumers: [] }))
-    return f
+export class FluidTemperatureCollector {
+  private readonly producers: { itemId: string; colId: string; temperature: number | undefined; amount: number }[] = []
+  private readonly consumers = new Map<string, FluidTemperatures['consumers']>()
+
+  addProduct(colId: string, prod: RecipeProduct, amount: number, item: Pick<Item, 'defaultTemperature'> | undefined): void {
+    if (amount <= 0) return
+    // A reactor's heat carries its buffer's maximum, which is not the temperature it settles at: unknown.
+    const temperature = prod.itemId === HEAT_ITEM_ID ? undefined : effectiveTemperature(prod, item)
+    this.producers.push({ itemId: prod.itemId, colId, temperature, amount })
   }
-  for (const col of columns) {
-    const recipe = col.recipe
-    if (!recipe) continue
-    for (const ing of recipe.ingredients) { // a fuel never bounds a temperature
-      if (ing.amount > 0 && hasTemperatureBound(ing)) get(ing.itemId).consumers.push({ colId: col.id, amount: ing.amount, ingredient: ing })
+
+  addIngredient(colId: string, ing: Ingredient): void {
+    if (ing.amount <= 0 || !hasTemperatureBound(ing)) return
+    const list = this.consumers.get(ing.itemId) ?? []
+    list.push({ colId, amount: ing.amount, ingredient: ing })
+    this.consumers.set(ing.itemId, list)
+  }
+
+  /** The fluids some column bounds the temperature of and some column makes; undefined when there are none. */
+  finish(): Map<string, FluidTemperatures> | undefined {
+    const out = new Map<string, FluidTemperatures>()
+    for (const [itemId, consumers] of this.consumers) {
+      const producers = this.producers.filter(p => p.itemId === itemId).map(({ colId, temperature, amount }) => ({ colId, temperature, amount }))
+      if (producers.length > 0) out.set(itemId, { producers, consumers })
     }
+    return out.size > 0 ? out : undefined
   }
-  if (out.size === 0) return undefined
-  for (const col of columns) {
-    const recipe = col.recipe
-    if (!recipe) continue
-    for (const prod of recipe.products) {
-      const f = out.get(prod.itemId)
-      if (!f) continue
-      const amount = rowProductAmount(prod, col.effects.productivityBonus, col.effects.heatBonus)
-      if (amount > 0) f.producers.push({ colId: col.id, temperature: effectiveTemperature(prod, gameData.items[prod.itemId]), amount })
-    }
-  }
-  for (const [itemId, f] of out) if (f.producers.length === 0) out.delete(itemId)
-  return out.size > 0 ? out : undefined
 }
 
-/** Most distinct consumer classes of one fluid that get every subset checked; beyond it only singletons and the whole. */
-const MAX_CLASSES = 8
+/** Safety net on the number of rows of one fluid; beyond it only single classes and the whole are checked. */
+const MAX_ROWS = 4096
+
+const rowCache = new WeakMap<FluidTemperatures, TemperatureRow[]>()
 
 /**
- * Hall's condition rows of one fluid. Consumers that accept the same set of the temperatures made
- * form a class. For every set C of classes, what is made at a temperature some class of C accepts
- * (plus imports and supply, which fit any bound) must cover what C consumes; a set whose acceptable
- * temperatures include every temperature made is already implied by the item's balance row.
+ * Hall's condition rows of one fluid (memoised: the producers do not change once the solve starts).
+ * Consumers that accept the same set of the temperatures made form a class. For every set of classes
+ * that has the same accepted temperatures N (the union of its members' sets, taking every class that
+ * fits inside N), what is made at a temperature in N, or at an unknown one, must cover what those
+ * classes consume (imports and supply are added by the LP). A N that holds every temperature made is
+ * skipped: the item's balance row implies it.
  */
 export function temperatureRows(f: FluidTemperatures): TemperatureRow[] {
-  const temps = [...new Set(f.producers.map(p => p.temperature).filter((t): t is number => t !== undefined))]
+  const cached = rowCache.get(f)
+  if (cached) return cached
+  const rows = buildRows(f)
+  rowCache.set(f, rows)
+  return rows
+}
+
+function buildRows(f: FluidTemperatures): TemperatureRow[] {
+  const temps = [...new Set(f.producers.map(p => p.temperature).filter((t): t is number => t !== undefined))].sort((a, b) => a - b)
   const classes = new Map<string, { accepted: Set<number>; cons: Map<string, number> }>()
   for (const c of f.consumers) {
     const accepted = temps.filter(t => acceptsTemperature(c.ingredient, t))
@@ -85,23 +88,37 @@ export function temperatureRows(f: FluidTemperatures): TemperatureRow[] {
     cls.cons.set(c.colId, (cls.cons.get(c.colId) ?? 0) + c.amount)
   }
   const list = [...classes.values()]
-  const subsets: number[][] = []
-  if (list.length <= MAX_CLASSES) {
-    for (let mask = 1; mask < 1 << list.length; mask++) subsets.push(list.map((_, i) => i).filter(i => mask & (1 << i)))
-  } else {
-    list.forEach((_, i) => subsets.push([i]))
-    subsets.push(list.map((_, i) => i))
+
+  // Every distinct union of accepted sets, closed under adding one class at a time.
+  const unions = new Map<string, Set<number>>()
+  const keyOf = (s: Set<number>) => [...s].sort((a, b) => a - b).join(',')
+  let complete = true
+  outer: for (const cls of list) {
+    for (const u of [...unions.values()]) {
+      const merged = new Set([...u, ...cls.accepted])
+      unions.set(keyOf(merged), merged)
+      if (unions.size > MAX_ROWS) { complete = false; break outer }
+    }
+    unions.set(keyOf(cls.accepted), cls.accepted)
   }
+  if (!complete) {
+    unions.clear()
+    const all = new Set<number>()
+    for (const cls of list) { unions.set(keyOf(cls.accepted), cls.accepted); for (const t of cls.accepted) all.add(t) }
+    unions.set(keyOf(all), all)
+  }
+
   const rows: TemperatureRow[] = []
-  for (const subset of subsets) {
-    const neighbourhood = new Set<number>()
-    for (const i of subset) for (const t of list[i].accepted) neighbourhood.add(t)
-    if (neighbourhood.size >= temps.length) continue // implied by the balance row
+  for (const n of unions.values()) {
+    if (n.size >= temps.length) continue // implied by the balance row
     const row: TemperatureRow = new Map()
     for (const p of f.producers) {
-      if (p.temperature === undefined || neighbourhood.has(p.temperature)) row.set(p.colId, (row.get(p.colId) ?? 0) + p.amount)
+      if (p.temperature === undefined || n.has(p.temperature)) row.set(p.colId, (row.get(p.colId) ?? 0) + p.amount)
     }
-    for (const i of subset) for (const [colId, amount] of list[i].cons) row.set(colId, (row.get(colId) ?? 0) - amount)
+    for (const cls of list) {
+      if (![...cls.accepted].every(t => n.has(t))) continue
+      for (const [colId, amount] of cls.cons) row.set(colId, (row.get(colId) ?? 0) - amount)
+    }
     rows.push(row)
   }
   return rows
