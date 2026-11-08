@@ -17,21 +17,22 @@ import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 const REVEAL_HIGHLIGHT_MS = 2000
 
 // Column widths, in column order (reorder, recipe, machine, beacons, products, byproducts, ingredients, power).
-// Reorder, machine, beacons and power are fixed px, padding included. Recipe, products, byproducts and ingredients
-// share the rest of the width by weight and never get narrower than their minimum px (so the table's minimum width
-// is the sum of all the minimums, and it scrolls sideways in its wrapper below that). A chip slot is 34px (28px icon
-// + 6px gap), so a chip cell is 34n + 10 wide: the minimums hold 2 chips per line for products and byproducts and 4
-// for ingredients, and at 1470px with the side panel closed they hold about 5, 5 and 12. The table is `table-fixed`,
-// so a wide area row cannot move the columns of the recipe rows.
+// Reorder, machine, beacons, products and power are fixed px, padding included. Products holds at most one chip (the
+// primary product; everything else is a byproduct), so it is sized for one chip, the right-aligned header and the pin
+// badge. Recipe, byproducts and ingredients share the rest of the width by weight and never get narrower than their
+// minimum px (so the table's minimum width is the sum of all the minimums, and it scrolls sideways in its wrapper below
+// that). A chip slot is 34px (28px icon + 6px gap), so a chip cell is 34n + 10 wide: the minimums hold 2 byproduct chips
+// and 4 ingredient chips per line. The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
+const PRODUCTS_WIDTH = 72
 type Column = { fixed: number } | { min: number; weight: number }
 const COLUMNS: Column[] = [
   { fixed: 32 },
-  { min: 150, weight: 2 }, // recipe
+  { min: 150, weight: 3 }, // recipe
   { fixed: 88 },
   { fixed: 88 },
-  { min: 80, weight: 3 }, // products
+  { fixed: PRODUCTS_WIDTH },
   { min: 80, weight: 2 }, // byproducts
-  { min: 148, weight: 5 }, // ingredients
+  { min: 148, weight: 4 }, // ingredients
   { fixed: 72 },
 ]
 const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + ('fixed' in c ? c.fixed : c.min), 0)

@@ -212,7 +212,7 @@ test.describe('side panel below xl', () => {
 })
 
 test.describe('column widths', () => {
-  const TABLE_MIN_WIDTH = 738
+  const TABLE_MIN_WIDTH = 730
   const widths = (page: Page) =>
     page.locator('main table thead th').evaluateAll(els => els.map(e => e.getBoundingClientRect().width))
   // Column order: reorder, recipe, machine, beacons, products, byproducts, ingredients, power.
@@ -220,16 +220,17 @@ test.describe('column widths', () => {
   test.describe('wide, panel closed', () => {
     test.use({ viewport: { width: 1470, height: 900 } })
 
-    test('recipe, products, byproducts and ingredients share the free width', async ({ page }) => {
+    test('recipe, byproducts and ingredients share the free width; products stays one chip wide', async ({ page }) => {
       await load(page)
       const w = await widths(page)
       const table = w.reduce((a, b) => a + b, 0)
       expect(w[1], 'recipe grew').toBeGreaterThan(150 * 1.3)
-      expect(w[4], 'products grew').toBeGreaterThanOrEqual(80 * 1.5)
+      expect(w[4], 'products is fixed and narrow').toBeCloseTo(72, 0)
       expect(w[5], 'byproducts grew').toBeGreaterThanOrEqual(80 * 1.5)
       expect(w[6], 'ingredients is not the only column that grew').toBeLessThan(table * 0.5)
-      expect(w[6], 'ingredients is still the widest').toBeGreaterThan(Math.max(w[1], w[4], w[5]))
-      expect([w[0], w[2], w[3], w[7]], 'fixed columns stay fixed').toEqual([32, 88, 88, 72])
+      expect(w[6], 'ingredients is still the widest').toBeGreaterThan(Math.max(w[1], w[5]))
+      const fixed: [number, number][] = [[0, 32], [2, 88], [3, 88], [4, 72], [7, 72]]
+      for (const [i, px] of fixed) expect(w[i], `column ${i} stays fixed`).toBeCloseTo(px, 0)
     })
   })
 
@@ -242,7 +243,7 @@ test.describe('column widths', () => {
         const w = await widths(page)
         expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(TABLE_MIN_WIDTH - 0.5)
         expect(w[1]).toBeGreaterThanOrEqual(149.5)
-        expect(w[4]).toBeGreaterThanOrEqual(79.5)
+        expect(w[4]).toBeCloseTo(72, 0)
         expect(w[5]).toBeGreaterThanOrEqual(79.5)
         expect(w[6]).toBeGreaterThanOrEqual(147.5)
         const [sw, cw] = await tableScroller(page).evaluate(el => [el.scrollWidth, el.clientWidth])

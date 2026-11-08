@@ -42,7 +42,7 @@ const PRIMARY_AREA_HINT = '; the primary product decides what this row builds fo
 
 /**
  * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
- * Products and Byproducts columns (160px, 4 chips per line), receives under Ingredients (about 8 per line).
+ * Products and Byproducts columns (spanning both columns, right-aligned), receives under Ingredients.
  */
 const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
@@ -675,7 +675,7 @@ export function RecipeRow({
         />
       </td>
 
-      {/* Products — primary output(s), right-aligned; the pin badge sits on the chip */}
+      {/* Products — the single primary product, right-aligned; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
         <div className="flex flex-wrap gap-1.5 items-center justify-end">
           {productEntries.map(([itemId, ratePerMin]) => {
