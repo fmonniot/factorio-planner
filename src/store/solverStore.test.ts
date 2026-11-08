@@ -468,10 +468,11 @@ describe('wireSolver — research horizon default fuel', () => {
   const tech = (id: string, unlockedRecipes: string[]) =>
     ({ id, name: id, prerequisites: [], unlockedRecipes, iconPath: '' })
 
-  function setup() {
+  function setup(extra: Partial<GameData> = {}) {
     useBlockStore.getState().setHorizonTechnologyIds([])
     useBlockStore.getState().resetDefaultMachines()
     loadGameData({
+      ...extra,
       items: { wood: fuelItem('wood', 2000), coal: fuelItem('coal', 4000) },
       recipes: {
         smelt: recipe('smelt', 'smelting', 'plate'),
@@ -525,5 +526,14 @@ describe('wireSolver — research horizon default fuel', () => {
     vi.runAllTimers()
     expect(solvedNode().fuelItemId).toBe('coal')
     expect(useSolverStore.getState().lastResults[id], 'same effective default fuel').toBe(before)
+  })
+
+  it('keeps a bundle-supplied defaultFuels whether or not the machine defaults change', () => {
+    setup({ defaultFuels: { furnace: 'coal' } })
+    expect(solvedNode().fuelItemId, 'raw data passthrough').toBe('coal')
+    // 'extra' unlocks nothing, so the horizon drops the smelting default and a derived data object is built.
+    useBlockStore.getState().setHorizonTechnologyIds(['extra'])
+    vi.runAllTimers()
+    expect(solvedNode().fuelItemId, 'derived data').toBe('coal')
   })
 })

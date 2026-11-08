@@ -74,7 +74,10 @@ export function defaultFuel(
   machine: Machine,
   defaultFuels: GameData['defaultFuels'] = gameData.defaultFuels,
 ): Item | undefined {
-  const accepted = acceptedFuels(gameData, machine)
+  return pickDefault(machine, acceptedFuels(gameData, machine), defaultFuels)
+}
+
+function pickDefault(machine: Machine, accepted: Item[], defaultFuels: GameData['defaultFuels']): Item | undefined {
   return accepted.find(item => item.id === defaultFuels?.[machine.id]) ?? accepted[0]
 }
 
@@ -90,7 +93,8 @@ export function resolveRowFuel(
   defaultFuels: GameData['defaultFuels'] = gameData.defaultFuels,
 ): Item | undefined {
   if (!machine) return undefined
-  return acceptedFuels(gameData, machine).find(item => item.id === fuelItemId) ?? defaultFuel(gameData, machine, defaultFuels)
+  const accepted = acceptedFuels(gameData, machine)
+  return accepted.find(item => item.id === fuelItemId) ?? pickDefault(machine, accepted, defaultFuels)
 }
 
 /**

@@ -388,7 +388,7 @@ export interface Horizon {
   defaultMachines: Record<string, string>
   /** machine id -> default fuel id for burner machines whose lowest-value accepted fuel is outside the horizon.
    *  Undefined when no limit or nothing differs. */
-  defaultFuels: GameData['defaultFuels']
+  defaultFuels?: GameData['defaultFuels']
 }
 
 export function computeHorizon(gameData: GameData, targetIds: readonly string[]): Horizon {

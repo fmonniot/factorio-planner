@@ -49,7 +49,7 @@ one found). It is used whenever a node has no `machineId` override.
 `defaultFuels` is a runtime-only overlay, never written by the build scripts: it maps a burner machine
 id to the fuel that replaces the machine's lowest-value accepted fuel as its default. It is derived from
 the research horizon by `horizonDefaultFuels` and absent when the unrestricted default applies (see
-[Technology](#technology)). A bundle that carries it would act as a static override.
+[Technology](#technology)). A bundle that carries it acts as a static override: it applies whenever the horizon yields no overlay of its own (the horizon's map, when there is one, replaces it as a whole).
 
 ### Item
 

@@ -85,7 +85,7 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 
 const DEBOUNCE_MS = 150
 
-function sameMachines(a: GameData['defaultMachines'] | undefined, b: GameData['defaultMachines'] | undefined): boolean {
+function sameRecord(a: Record<string, string> | undefined, b: Record<string, string> | undefined): boolean {
   if (a === b) return true
   if (!a || !b) return false
   const keys = Object.keys(a)
@@ -111,10 +111,10 @@ export function wireSolver(): () => void {
     }
     if (
       solverDataMemo?.gameData !== gameData
-      || !sameMachines(solverDataMemo.defaultMachines, defaultMachines)
-      || !sameMachines(solverDataMemo.defaultFuels, defaultFuels)
+      || !sameRecord(solverDataMemo.defaultMachines, defaultMachines)
+      || !sameRecord(solverDataMemo.defaultFuels, defaultFuels)
     ) {
-      solverDataMemo = { gameData, defaultMachines, defaultFuels, data: { ...gameData, defaultMachines, defaultFuels } }
+      solverDataMemo = { gameData, defaultMachines, defaultFuels, data: { ...gameData, defaultMachines, defaultFuels: defaultFuels ?? gameData.defaultFuels } }
     }
     return solverDataMemo.data
   }
