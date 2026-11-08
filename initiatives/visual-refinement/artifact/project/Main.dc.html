@@ -147,17 +147,21 @@ button{font-family:inherit;cursor:pointer}
 <div id="frame" style="{{frameInner}}">
 
 <div style="{{topBarStyle}}">
+<div style="{{leftStyle}}">
+<sc-if value="{{showBlockList}}" hint-placeholder-val="{{ false }}"><span class="tw" style="position:relative;display:flex;margin-bottom:8px"><button class="tl" style="{{blockListStyle}}" aria-label="All blocks" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"></path></svg></button><span class="tt" style="{{blockListTip}}">All blocks</span></span></sc-if>
 <div id="tabstrip" class="strip" style="{{stripStyle}}">
 <sc-for list="{{tabs}}" as="t" hint-placeholder-count="11"><button class="tab" style="{{t.s}}" title="{{t.title}}" aria-label="{{t.n}}" aria-current="{{t.current}}" onClick="{{t.pick}}" onMouseEnter="{{t.enter}}" onMouseLeave="{{t.leave}}"><span style="{{t.stripe}}"></span><span class="ic" style="{{t.ic}}"></span><span style="{{t.nameStyle}}">{{t.label}}</span></button></sc-for>
 </div>
+</div>
 <div style="{{rightStyle}}">
 <sc-if value="{{showAllBlocks}}" hint-placeholder-val="{{ true }}"><button class="tl" style="{{allBlkStyle}}" title="All blocks" aria-label="All blocks" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}">{{allBlkTxt}}</button></sc-if>
-<button class="tl" style="{{newBlkStyle}}" title="Add block" aria-label="Add block" onClick="{{deadAddBlock}}">+</button>
-<span style="width:16px;flex:none"></span>
+<sc-if value="{{addPlain}}" hint-placeholder-val="{{ true }}"><button class="tl" style="{{newBlkStyle}}" title="Add block" aria-label="Add block" onClick="{{deadAddBlock}}">+</button>
+<span style="width:16px;flex:none"></span></sc-if>
 <div style="display:flex;align-items:center;gap:2px">
+<sc-if value="{{addTool}}" hint-placeholder-val="{{ false }}"><span class="tw" style="position:relative;display:flex"><button class="tl" style="{{addToolStyle}}" aria-label="Add block" onClick="{{deadAddBlock}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 5v14M5 12h14"></path></svg></button><span class="tt" style="{{tipStyleAdd}}">Add block</span></span></sc-if>
 <sc-for list="{{tools}}" as="t" hint-placeholder-count="4">
 <span class="tw" style="position:relative;display:flex">
-<button class="tl" style="{{t.btn}}" aria-label="{{t.tip}}" onClick="{{t.click}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><sc-if value="{{t.isFlag}}" hint-placeholder-val="{{ true }}"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></sc-if><sc-if value="{{t.isGraph}}" hint-placeholder-val="{{ false }}"><path d="M3 3h6v6H3zM15 3h6v6h-6zM15 15h6v6h-6zM9 6h6M18 9v6"></path></sc-if><sc-if value="{{t.isAreas}}" hint-placeholder-val="{{ false }}"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></sc-if><sc-if value="{{t.isFlask}}" hint-placeholder-val="{{ false }}"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"></path></sc-if></svg><span style="{{t.lblStyle}}">{{t.label}}</span></button>
+<button class="tl" style="{{t.btn}}" aria-label="{{t.tip}}" onClick="{{t.click}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><sc-if value="{{t.isFlag}}" hint-placeholder-val="{{ true }}"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></sc-if><sc-if value="{{t.isGraph}}" hint-placeholder-val="{{ false }}"><path d="M3 3h6v6H3zM15 3h6v6h-6zM15 15h6v6h-6zM9 6h6M18 9v6"></path></sc-if><sc-if value="{{t.isAreas}}" hint-placeholder-val="{{ false }}"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></sc-if><sc-if value="{{t.isFlask}}" hint-placeholder-val="{{ false }}"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"></path></sc-if></svg></button>
 <span style="{{t.dot}}"></span>
 <span class="tt" style="{{t.tipStyle}}">{{t.tip}}</span>
 </span>
@@ -442,7 +446,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'phPair', 'phQuiet'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -494,9 +498,11 @@ const GROUPS = [
     ['panSheet', 'Bottom sheet below 1280 px', 'Docked under the table, at most 45% of the height; the table shrinks and keeps the selected row in view.', 'Try: iPad A16 portrait, open the side panel, click another row.'] ] },
   { title: '8 · Selection', items: [
     ['selStrong', 'Stronger selected row', 'Full-row tint, teal outline and a brighter name.', 'Try: click any row (anywhere on it).'] ] },
-  { title: '9 · Top bar', items: [
+  { title: '9 · Top bar', decided: true, items: [
     ['tabsFit', 'All tabs fit', 'Inactive tabs show their icon; the name is in a tooltip like the one the tool buttons have (the app uses the browser title on tabs today).', 'Try: hover a compact tab, click it, click All blocks ▾ (it appears only while tabs overflow).'],
-    ['topLabels', 'Labels on tool buttons, lighter workspace button', 'Labels from 1280 px up. They cost tab space: watch Tabs cut off.', 'Try: Laptop 1440, with and without All tabs fit.'] ] },
+    ['wsLight', 'Lighter workspace button', 'No fill and no border on the button that opens the workspace menu, 32 px high like the tool buttons; the menu behind it is unchanged (and not drawn here). From 768 px up.', 'Try: Laptop 1440, compare the right end of the top bar with the baseline.'],
+    ['blockList', 'Block list button on the left', 'An icon before the first tab opens the list of all blocks (icon and name), whether the tabs fit or not. It replaces the All blocks button at the right of the tabs, which only exists while they overflow.', 'Try: click the icon at the left of the tabs, pick a block, press Escape on the open list; then turn All tabs fit off to see the old button go.'],
+    ['addTool', 'Add block as a regular tool button', 'The + that creates a block becomes a 32 px icon button in the same row as Horizon, Graph, Areas and Tech tree: same size, same spacing (no 16 px gap before the group), same black tooltip.', 'Try: Laptop 1440, compare the + with the four icons to its right; hover it.'] ] },
   { title: '10 · Narrow screens (under 768 px)', items: [
     ['narrowStack', 'Drop Machine and Beacons columns', 'Machine and beacon chips sit under the recipe name; group rows lose 176 px of empty space.', 'Try: Fold 8 cover; scroll the table sideways to find Products.'],
     ['narrowToolbar', 'Toolbar that does not wrap', 'Compact counts and warning pill on one line.', 'Try: Fold 8 cover, look at the strip under the summary.'] ] }
@@ -736,19 +742,21 @@ class Component extends DCLogic {
 
     // ---- top bar: every width below is a drawn width, so the "cut" count is what is on screen
     const tabW = n => Math.min(176, Math.max(96, 58 + n.length * 6.4));
-    const labelsOn = !!tg.topLabels && xl;
-    const toolLbl = ['Horizon', 'Graph', 'Areas', 'Tech tree'];
-    const toolW = toolLbl.map(l => labelsOn ? 8 + 17 + 4 + Math.ceil(l.length * 6.4) + 8 : 32);
+    const toolW = [32, 32, 32, 32];
     const toolsW = toolW.reduce((a, w) => a + w, 0) + 6;
-    const wsW = !md ? 62 : tg.topLabels ? 132 : 136;
+    const wsW = !md ? 62 : tg.wsLight ? 132 : 136;
     const allBlkW = tg.contrast ? 34 : 22;
-    const rightW = 8 + allBlkW + 2 + 28 + 16 + toolsW + 13 + wsW + 8;
-    const stripW = vw - 16 - 16 - rightW + allBlkW + 2;
+    const blockList = !!tg.blockList;
+    const listW = blockList ? 28 + 4 : 0;
+    const ovW = blockList ? 0 : allBlkW + 2;
+    const addTool = !!tg.addTool;
+    const rightW = 8 + ovW + (addTool ? 32 + 2 : 28 + 16) + toolsW + 13 + wsW + 8;
+    const stripW = vw - 16 - 16 - rightW + ovW - listW;
     const widths = TABS.map(n => (tg.tabsFit && n !== blk) ? 44 : tabW(n));
     const totalT = widths.reduce((a, w) => a + w + 4, 0) - 4;
     let off = 0, cut = 0;
-    const overflowing = totalT > stripW - allBlkW - 2;
-    const availT = overflowing ? stripW - allBlkW - 2 : totalT;
+    const overflowing = totalT > stripW - ovW;
+    const availT = overflowing ? stripW - ovW : totalT;
     if (overflowing) {
       const ai = Math.max(0, TABS.indexOf(blk));
       const acx = widths.slice(0, ai).reduce((a, w) => a + w + 4, 0) + widths[ai] / 2;
@@ -1068,7 +1076,7 @@ class Component extends DCLogic {
 
     return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B,
       prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, sheetH: sheetH, panel: panel, panelH: pm ? pm.height : 0,
-      inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, rightW: rightW, toolW: toolW, toolLbl: toolLbl, labelsOn: labelsOn, wsW: wsW },
+      inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, addTool: addTool, listW: listW, blockList: blockList, rightW: rightW, toolW: toolW, wsW: wsW },
       md: md, xl: xl, narrow: narrow, cc: cc, touch: touch, rowCount: rows.length };
   }
 
@@ -1125,7 +1133,7 @@ class Component extends DCLogic {
 
     if (!D) {
       return Object.assign(common, {
-        tabs: [], topBarStyle: '', stripStyle: '', rightStyle: '', tools: [], showAllBlocks: false, allBlkStyle: '', allBlkTxt: '', menuOpen: false, newBlkStyle: '', wsStyle: '', wsText: '',
+        tabs: [], addPlain: true, addTool: false, addToolStyle: '', tipStyleAdd: '', showBlockList: false, leftStyle: '', blockListStyle: '', blockListTip: '', topBarStyle: '', stripStyle: '', rightStyle: '', tools: [], showAllBlocks: false, allBlkStyle: '', allBlkTxt: '', menuOpen: false, newBlkStyle: '', wsStyle: '', wsText: '',
         sumLine: false, sumFull: false, showHandle: false, lineBtn: true, handleOpen: false, handleText: '', handleAria: '', handleIcon: '', panes: [], sumWrap: '', lineWrap: '', hasPop: false, popItems: [], popStyle: '', popTitle: '', backdropStyle: '',
         hasMenu: false, menuBackdrop: '', menuStyle: '', menuItems: [], hasTip: false, tipStyle: '', tipTitle: '', tipDesc: '', hasToast: false, toastStyle: '', toastTxt: '',
         bodyStyle: 'flex:1;display:grid', panelOpen: false, panel: { style: '', sections: [] }, drawer: false, drawerBackdrop: '',
@@ -1182,22 +1190,29 @@ class Component extends DCLogic {
     common.topBarStyle = 'position:relative;height:44px;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 8px;background:#0d1423;border-bottom:1px solid #364153;flex:none';
     common.stripStyle = 'align-self:stretch;margin-bottom:-1px;display:flex;align-items:flex-end;overflow-x:auto;overflow-y:hidden;flex:none;width:' + Math.max(0, Math.round(tb.availT)) + 'px';
     common.rightStyle = 'align-self:center;flex:none;display:flex;align-items:center;gap:2px';
-    common.showAllBlocks = tb.overflowing;
+    common.showAllBlocks = tb.overflowing && !tb.blockList;
+    common.showBlockList = tb.blockList;
+    common.leftStyle = 'align-self:stretch;display:flex;align-items:flex-end;gap:4px;flex:none';
+    common.blockListStyle = 'flex:none;justify-content:center;width:28px;height:28px;--tlc:' + (tg.contrast ? '#d1d5dc' : '#99a1af');
+    common.blockListTip = (st.menu ? 'display:none !important;' : '') + 'position:absolute;z-index:40;top:100%;left:0;margin-top:4px;background:#000000;color:#f3f4f6;font-size:12px;border:1px solid #364153;border-radius:4px;padding:4px 8px;white-space:nowrap;pointer-events:none';
     common.menuOpen = st.menu;
     common.toggleMenu = () => this.setState({ menu: !st.menu, pop: null });
     common.allBlkStyle = 'flex:none;justify-content:center;height:28px;width:' + tb.allBlkW + 'px;' + (tg.contrast ? 'border:1px solid #4a5565;--tlc:#d1d5dc;font-size:12px' : '--tlc:#6a7282;font-size:12px');
     common.allBlkTxt = tg.contrast ? '▾' : '·';
+    common.addPlain = !tb.addTool;
+    common.addTool = tb.addTool;
+    common.addToolStyle = 'flex:none;justify-content:center;height:32px;width:32px;--tlc:' + (tg.contrast ? '#d1d5dc' : '#99a1af');
+    common.tipStyleAdd = 'position:absolute;z-index:40;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;background:#000000;color:#f3f4f6;font-size:12px;border:1px solid #364153;border-radius:4px;padding:4px 8px;white-space:nowrap;pointer-events:none';
     common.newBlkStyle = 'flex:none;justify-content:center;width:28px;height:28px;font-size:18px;line-height:1;' + (tg.contrast ? 'border:1px solid #4a5565;--tlc:#d1d5dc' : '--tlc:#6a7282');
     const tools = [['Horizon: none', 'Horizon'], ['Block graph', 'Graph'], ['Areas in every block', 'Areas'], ['Tech tree', 'Tech tree']];
     common.tools = tools.map((t, i) => ({
-      tip: t[0], label: tb.labelsOn ? t[1] : '', isFlag: i === 0, isGraph: i === 1, isAreas: i === 2, isFlask: i === 3,
+      tip: t[0], isFlag: i === 0, isGraph: i === 1, isAreas: i === 2, isFlask: i === 3,
       btn: 'justify-content:center;gap:4px;height:32px;width:' + tb.toolW[i] + 'px;font-size:12px;--tlc:' + (tg.contrast ? '#d1d5dc' : '#99a1af'),
-      lblStyle: tb.labelsOn ? 'white-space:nowrap' : 'display:none',
-      dot: i === 0 ? 'position:absolute;top:6px;' + (tb.labelsOn ? 'left:21px;' : 'right:6px;') + 'width:7px;height:7px;border-radius:4px;background:#60a5fa;box-shadow:0 0 0 2px #0d1423;pointer-events:none' : 'display:none',
+      dot: i === 0 ? 'position:absolute;top:6px;' + 'right:6px;' + 'width:7px;height:7px;border-radius:4px;background:#60a5fa;box-shadow:0 0 0 2px #0d1423;pointer-events:none' : 'display:none',
       tipStyle: 'position:absolute;z-index:40;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;background:#000000;color:#f3f4f6;font-size:12px;border:1px solid #364153;border-radius:4px;padding:4px 8px;white-space:nowrap;pointer-events:none',
       click: () => this.toast(t[0] + ': opens its dialog. Not drawn here.')
     }));
-    common.wsStyle = tg.topLabels && wide
+    common.wsStyle = tg.wsLight && wide
       ? 'height:32px;width:' + tb.wsW + 'px;gap:6px;padding:0 6px;justify-content:center;--tlc:#d1d5dc;font-size:11px'
       : (wide ? 'height:36px;width:' + tb.wsW + 'px;gap:8px;padding:0 8px;background:#1e2939;border:1px solid #4a5565;border-radius:8px;--tlc:#d1d5dc;font-size:11px;justify-content:center' : 'height:36px;width:' + tb.wsW + 'px;gap:6px;padding:0 6px;background:#1e2939;border:1px solid #4a5565;border-radius:8px;--tlc:#d1d5dc;justify-content:center');
     common.wsText = 'display:flex;flex-direction:column;line-height:1.2;white-space:nowrap;text-align:left;font-size:11px;min-width:0;flex:1';
@@ -1214,9 +1229,9 @@ class Component extends DCLogic {
     common.toastStyle = 'position:absolute;z-index:50;left:50%;bottom:16px;transform:translateX(-50%);max-width:' + Math.round(vw - 32) + 'px;background:#000000;color:#f3f4f6;border:1px solid #4a5565;border-radius:6px;padding:8px 12px;font-size:12px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,0.6)';
 
     // ---- All blocks menu
-    common.hasMenu = st.menu && tb.overflowing;
+    common.hasMenu = st.menu && (tb.overflowing || tb.blockList);
     common.menuBackdrop = 'position:absolute;left:0;right:0;top:44px;bottom:0;z-index:20;border:0;padding:0;background:transparent;cursor:default';
-    common.menuStyle = 'position:absolute;z-index:21;top:44px;left:' + Math.max(8, Math.min(vw - 232, Math.round(8 + tb.availT + 2 + tb.allBlkW - 224))) + 'px;width:224px;max-height:' + Math.min(420, vh - 70) + 'px;overflow-y:auto;box-sizing:border-box;background:#1e2939;border:1px solid #4a5565;border-radius:8px;padding:4px 0;box-shadow:0 14px 34px rgba(0,0,0,0.65)';
+    common.menuStyle = 'position:absolute;z-index:21;top:44px;left:' + (tb.blockList ? 8 : Math.max(8, Math.min(vw - 232, Math.round(8 + tb.availT + 2 + tb.allBlkW - 224)))) + 'px;width:224px;max-height:' + Math.min(420, vh - 70) + 'px;overflow-y:auto;box-sizing:border-box;background:#1e2939;border:1px solid #4a5565;border-radius:8px;padding:4px 0;box-shadow:0 14px 34px rgba(0,0,0,0.65)';
     common.menuItems = TABS.map((n, i) => {
       const first = D.blocks[n].panes.p.slots[0];
       return { name: n, on: n === st.block, weight: n === st.block ? 600 : 400,

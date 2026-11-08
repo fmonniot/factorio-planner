@@ -122,7 +122,13 @@ A selected row has a 3 px teal bar on the left of the reorder cell and a faint t
 
 Ideas to compare: a smaller minimum tab width or two-line tabs; icon-only tabs for inactive blocks; a lighter workspace button; a text label on the view buttons at wide widths.
 
-*Owner's note (2026-11-08):* if compact tabs get the styled tooltip (`tabsFit`), it must show on keyboard focus as well as on hover. The finding itself is not judged yet.
+*Owner's note (2026-11-08):* if compact tabs get the styled tooltip (`tabsFit`), it must show on keyboard focus as well as on hover.
+
+*Decision (2026-11-08, after trying both):* **accepted:** `tabsFit` (inactive tabs show their icon only, the name in the styled tooltip; "it looks so much better") and a lighter workspace button, now `wsLight` (no fill and no border, 32 px high like the tool buttons). **Rejected:** the text labels on the tool buttons: they take too much width, and hovering the icon already says what a button does. The toggle `topLabels` is split: the labels are removed, the workspace button stays as `wsLight`. `wsLight` only changes the button that opens the workspace menu; `WorkspaceMenu.tsx` and its contents are untouched. Both are on when the page opens, in the closed "Decided" section.
+
+*Follow-up (2026-11-08):* with all tabs fitting, the "All blocks ▾" overflow button no longer exists. The owner is fine with that but wants a way to list every block, so a new proposal `blockList` adds an icon before the first tab that opens the list of all blocks (icon and name per row), whether tabs fit or not; it replaces the overflow button when on. *Accepted (2026-11-08):* `blockList`, on when the page opens in the "Decided" section.
+
+*Follow-up (2026-11-08):* the owner asked for the `+` that adds a block to be a regular top-bar icon: today it is a 28 px text `+` followed by a 16 px gap, so it floats to the left of the four tool icons. New proposal `addTool`: a 32 px icon button in the same row and spacing as Horizon, Graph, Areas and Tech tree, with the same black tooltip. *Accepted (2026-11-08):* `addTool`, on when the page opens in the "Decided" section.
 
 Files: `BlockTabs.tsx`, `TopBar.tsx`, `WorkspaceMenu.tsx`, `IconButton.tsx`.
 
