@@ -76,15 +76,15 @@ export function RateSection({ node, solved, gameData }: {
               onChange={e => change(e.target.value)}
               className="w-24 bg-gray-700 text-yellow-300 text-xs rounded px-1.5 py-0.5 border border-yellow-700 outline-none focus:ring-1 focus:ring-yellow-500 text-right tabular-nums"
             />
-            <span className="text-gray-500 text-[11px]">{unitLabel}</span>
+            <span className="text-gray-400 text-[11px]">{unitLabel}</span>
           </>
         )}
-        <span data-testid="runs-per-min" className="text-[11px] text-gray-500 tabular-nums">
+        <span data-testid="runs-per-min" className="text-[11px] text-gray-400 tabular-nums">
           = {fmtRate(runs / 60, 'min')} runs/min
         </span>
       </div>
       {pinned && (
-        <p className="mt-1.5 text-[11px] text-gray-500">
+        <p className="mt-1.5 text-[11px] text-gray-400">
           The row always runs at this rate, whatever the block needs.
         </p>
       )}

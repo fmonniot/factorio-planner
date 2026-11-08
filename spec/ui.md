@@ -74,7 +74,7 @@ carries `data-testid="top-bar"`. Below `md` the gaps are tighter and the workspa
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
-The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
+The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, `text-gray-300` icons (3:1 on the top bar), with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
 glyphs come from `icons.tsx`, a set of small stroke SVG icons for the UI chrome (the game images
 are `Icon.tsx` / `TechIcon.tsx`).
@@ -835,7 +835,7 @@ Products, Byproducts and Ingredients are adjacent on purpose: everything a machi
 
 **Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`: a teal bar on the left of the reorder cell and a tinted background) and opens the [side panel](#side-panel). The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
 
-**Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends).
+**Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends). They are `text-gray-400`, 3:1 on the row.
 
 **Recipe cell.** The icon of the primary product (falls back to the first two letters of the recipe name) and the recipe name (ellipsis, the name as tooltip), indented by one 12px guide per nesting level (`data-guide-levels`; see [sub-factory rows](#sub-factory-rows)). Byproduct-consumer rows carry a small amber "↓" badge at the icon's bottom-right corner, whose tooltip explains the mode. In a block with areas, a recipe that has rows in two or more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the number of areas) after the name. Its tooltip names the recipe and splits its buildings per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel" ("here" is the row's own area and comes first, the others follow in table order, the root is "Top level"; several rows in one area are summed, a row with no solve result counts as 0). The badge is display-only.
 
@@ -1110,6 +1110,7 @@ The same component in recipes mode (`source="recipes"`).
 
 ## Shared pieces
 
+- **Dim text.** Secondary text (hints such as "click a row to trace it", counts, table header and side-panel section labels, units, the `–` cells, empty-state notes) is `text-gray-400`, at least 4.5:1 on the gray-800 and gray-900 surfaces it sits on.
 - `IconChip.tsx` and `ItemChip.tsx` — the [icon chip](#icon-chip) and the item chip of the production table (variants product,
   byproduct, ingredient; the chip carries `data-variant`). `ItemTile.tsx` holds the rate formatters they use: `fmtRate` and `fmtPower`. Rates show
   0–2 decimals depending on magnitude, and two significant digits for a non-zero rate below 0.005 ("0.00082", never "0.00"). `fmtItemRate(itemId, ratePerSec, unit)` / `fmtItemRateText` format a
