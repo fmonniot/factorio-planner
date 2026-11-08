@@ -58,7 +58,8 @@ try {
             children: build(sp, depth + 1) })
         } else {
           const s = byNode.get(n.id); const r = rec(n.recipeId); if (!s) continue
-          const main = r?.mainProduct
+          // Same rule as RecipeRow.tsx: the row's primaryProduct, else the recipe's mainProduct, else its first product (dedicatedProduct in solver/areas.ts).
+          const main = n.primaryProduct ?? r?.mainProduct ?? r?.products?.[0]?.itemId
           const outs = chips(s.outputRates, 0)
           const prods = main ? outs.filter(([k]) => k === main) : outs
           const byp = main ? outs.filter(([k]) => k !== main) : []

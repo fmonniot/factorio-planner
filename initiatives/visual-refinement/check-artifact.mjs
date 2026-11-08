@@ -145,7 +145,7 @@ await check('6 phQuiet: placeholders are fainter, come back on hover, selection 
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the twenty-six accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the twenty-eight accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -153,13 +153,13 @@ await check('decided: the twenty-six accepted changes are on at the start, in a 
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips', 'Lighter secondary text', 'One fixed row height', 'Icon instead of the Area tag', 'Open groups: faint band', 'Hide the empty Effects table', 'Styled Pin rate switch', 'Cap long lists at 6', 'Narrower drawer']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all twenty-six are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 26, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips', 'Lighter secondary text', 'One fixed row height', 'Icon instead of the Area tag', 'Open groups: faint band', 'Hide the empty Effects table', 'Styled Pin rate switch', 'Cap long lists at 6', 'Narrower drawer', 'Drop Machine and Beacons columns', 'Toolbar that does not wrap']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all twenty-eight are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 28, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 26, 'Decided only puts the twenty-six back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 28, 'Decided only puts the twenty-eight back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)
@@ -660,6 +660,59 @@ await check('10 narrowStack: Products are reachable and stacked machine chips ex
   await a.toggle('Drop Machine and Beacons columns')
   const w1 = await a.tbl().evaluate(e => e.scrollWidth)
   ok(w1 < w0, `the table is narrower: ${w0} to ${w1}`)
+})
+await check('10 narrowStack: recipe rows keep one height, at most two lines of chips per column, +N opens the rest', async a => {
+  await a.block('Extra Sulfur')
+  await a.screen('Fold 8 cover')
+  const measure = () => a.page.evaluate(() => {
+    const rows = [...document.querySelectorAll('#frame .row')].filter(r => !r.querySelector('.chev'))
+    const heights = new Set(rows.map(r => r.offsetHeight))
+    let maxLines = 0
+    for (const r of rows) for (const cell of r.querySelectorAll('.cell')) {
+      const tops = new Set([...cell.querySelectorAll('.chip')].map(c => Math.round(c.getBoundingClientRect().top)))
+      maxLines = Math.max(maxLines, tops.size)
+    }
+    return { heights: [...heights], maxLines, rows: rows.length }
+  })
+  const m0 = await measure()
+  ok(m0.heights.length > 1 && m0.maxLines > 2, `without the toggle the rows differ (heights ${m0.heights}, up to ${m0.maxLines} lines), otherwise this check proves nothing`)
+  await a.toggle('Drop Machine and Beacons columns')
+  const m1 = await measure()
+  ok(m1.heights.length === 1, `recipe rows have one height: ${m1.heights}`)
+  ok(m1.maxLines <= 2, `at most two lines of chips per column, found ${m1.maxLines}`)
+  const more = a.page.getByRole('button', { name: /more (byproducts|ingredients)$/ })
+  ok(await more.count() > 0, 'a +N button stands where chips were cut')
+  const label = await more.first().getAttribute('aria-label')
+  const n = +label.match(/^(\d+)/)[1]
+  // The row of the first +N may be anywhere: scroll the last one into view too, so both a top and a bottom row are tried.
+  for (const which of ['first', 'last']) {
+    const btn = more[which]()
+    await btn.scrollIntoViewIfNeeded()
+    await btn.click()
+    const d = a.page.getByRole('dialog', { name: /^More (byproducts|ingredients)$/ })
+    ok(await d.isVisible(), `the ${which} +N opens its list`)
+    const [fb, bb, db] = await Promise.all([a.frame.boundingBox(), btn.boundingBox(), d.boundingBox()])
+    ok(db.x >= fb.x - 1 && db.y >= fb.y - 1 && db.x + db.width <= fb.x + fb.width + 1 && db.y + db.height <= fb.y + fb.height + 1, `the ${which} list stays inside the screen: ${JSON.stringify(db)} in ${JSON.stringify(fb)}`)
+    ok(db.y >= bb.y + bb.height - 1 || db.y + db.height <= bb.y + 1, `the ${which} list does not cover its +N`)
+    ok(db.x <= bb.x + bb.width && db.x + db.width >= bb.x, `the ${which} list is horizontally next to its +N`)
+    await a.page.keyboard.press('Escape')
+  }
+  await more.first().click()
+  const dlg = a.page.getByRole('dialog', { name: /^More (byproducts|ingredients)$/ })
+  ok(await dlg.isVisible(), 'the +N opens the list of the hidden items')
+  const items = await dlg.locator('> *').count().catch(() => -1)
+  ok(items === -1 || items >= 1, 'the list has items')
+  await a.page.keyboard.press('Escape')
+  ok(!(await dlg.isVisible()), 'Escape closes the list')
+  // the Metals block (its rows have long ingredient lists) obeys the same rule
+  await a.block('Metals')
+  for (let i = 0; i < 4; i++) {
+    await a.page.evaluate(() => document.querySelectorAll('#frame button.chev[aria-expanded="false"]').forEach(b => b.click()))
+    await a.page.waitForTimeout(150)
+  }
+  const m2 = await measure()
+  ok(m2.rows > 5, `Metals has ${m2.rows} recipe rows once opened`)
+  ok(m2.heights.length === 1 && m2.maxLines <= 2, `Metals: heights ${m2.heights}, ${m2.maxLines} lines`)
 })
 await check('8 selStrong: the selected row is clearly different', async a => {
   const bg = () => a.page.evaluate(() => getComputedStyle(document.querySelector('#frame .row.sel')).backgroundColor)

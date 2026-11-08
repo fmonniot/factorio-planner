@@ -298,11 +298,11 @@ button{font-family:inherit;cursor:pointer}
 </div>
 <div class="cell" style="{{r.prodS}}">
 <sc-for list="{{r.chipsP}}" as="c" hint-placeholder-count="5"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
-<sc-if value="{{r.moreBtnP}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" onClick="{{r.openP}}" aria-label="{{r.moreLabelP}}">+{{r.moreP}}</button></sc-if>
+<sc-if value="{{r.moreBtnP}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" data-more="{{r.moreIdP}}" onClick="{{r.openP}}" aria-label="{{r.moreLabelP}}">+{{r.moreP}}</button></sc-if>
 </div>
 <div class="cell" style="{{r.ingS}}">
 <sc-for list="{{r.chipsI}}" as="c" hint-placeholder-count="5"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
-<sc-if value="{{r.moreBtnI}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" onClick="{{r.openI}}" aria-label="{{r.moreLabelI}}">+{{r.moreI}}</button></sc-if>
+<sc-if value="{{r.moreBtnI}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" data-more="{{r.moreIdI}}" onClick="{{r.openI}}" aria-label="{{r.moreLabelI}}">+{{r.moreI}}</button></sc-if>
 </div>
 </sc-if>
 
@@ -334,9 +334,11 @@ button{font-family:inherit;cursor:pointer}
 </div>
 <div class="cell" style="{{r.bypS}}">
 <sc-for list="{{r.chipsB}}" as="c" hint-placeholder-count="2"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+<sc-if value="{{r.moreBtnB}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyleR}}" data-more="{{r.moreIdB}}" onClick="{{r.openB}}" aria-label="{{r.moreLabelB}}">+{{r.moreB}}</button></sc-if>
 </div>
 <div class="cell" style="{{r.ingS}}">
 <sc-for list="{{r.chipsI}}" as="c" hint-placeholder-count="3"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+<sc-if value="{{r.moreBtnI}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyleR}}" data-more="{{r.moreIdI}}" onClick="{{r.openI}}" aria-label="{{r.moreLabelI}}">+{{r.moreI}}</button></sc-if>
 </div>
 </sc-if>
 
@@ -448,9 +450,9 @@ button{font-family:inherit;cursor:pointer}
 </div>
 </x-dc>
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
-const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
+const DATA_URL = '/_blob/d6f3c7f0f88c6ac975c23cf8d860e52b';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'contrast', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong', 'grpFixed', 'grpIcon', 'grpBand', 'panDash', 'panSwitch', 'panLists', 'panNarrow'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'contrast', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong', 'narrowStack', 'narrowToolbar', 'grpFixed', 'grpIcon', 'grpBand', 'panDash', 'panSwitch', 'panLists', 'panNarrow'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -506,8 +508,8 @@ const GROUPS = [
     ['wsLight', 'Lighter workspace button', 'No fill and no border on the button that opens the workspace menu, 32 px high like the tool buttons; the menu behind it is unchanged (and not drawn here). From 768 px up.', 'Try: Laptop 1440, compare the right end of the top bar with the baseline.'],
     ['blockList', 'Block list button on the left', 'An icon before the first tab opens the list of all blocks (icon and name), whether the tabs fit or not. It replaces the All blocks button at the right of the tabs, which only exists while they overflow.', 'Try: click the icon at the left of the tabs, pick a block, press Escape on the open list; then turn All tabs fit off to see the old button go.'],
     ['addTool', 'Add block as a regular tool button', 'The + that creates a block becomes a 32 px icon button in the same row as Horizon, Graph, Areas and Tech tree: same size, same spacing (no 16 px gap before the group), same black tooltip.', 'Try: Laptop 1440, compare the + with the four icons to its right; hover it.'] ] },
-  { title: '10 · Narrow screens (under 768 px)', items: [
-    ['narrowStack', 'Drop Machine and Beacons columns', 'Machine and beacon chips sit under the recipe name; group rows lose 176 px of empty space.', 'Try: Fold 8 cover; scroll the table sideways to find Products.'],
+  { title: '10 · Narrow screens (under 768 px)', decided: true, items: [
+    ['narrowStack', 'Drop Machine and Beacons columns', 'Machine and beacon chips sit under the recipe name; group rows lose 176 px of empty space. Recipe rows keep one height: at most two lines of chips per column, the rest behind a +N that opens a list.', 'Try: Fold 8 cover, Extra Sulfur; scroll the table sideways to find Products; click a +N on Byproducts or Ingredients.'],
     ['narrowToolbar', 'Toolbar that does not wrap', 'Compact counts and warning pill on one line.', 'Try: Fold 8 cover, look at the strip under the summary.'] ] }
 ];
 const ALL_IDS = GROUPS.reduce((a, g) => a.concat(g.items.map(i => i[0])), []);
@@ -965,14 +967,18 @@ class Component extends DCLogic {
         rm = { P: P, I: I };
       } else {
         const Lp = Math.max(1, Math.floor(56 / slot)), Lb = Math.max(1, Math.floor((bW - 16) / slot)), Li = Math.max(1, Math.floor((iW - 16 - (tg.ingLeft ? AREA_PAD : 0)) / slot));
-        const lines = Math.max(1, Math.ceil(r.pr.length / Lp), Math.ceil(r.bp.length / Lb), Math.ceil(r.ig.length / Li));
-        h = (tg.chipBig ? 41 : 37) + (lines - 1) * slot + (narrowSt ? 36 : 0);
+        // narrowStack: no more than two lines of chips per column. A column that has more shows (two lines - 1) chips and a +N in the last slot,
+        // so the row keeps one height (the stacked name cell, 37 + 36 px, already holds two lines of chips).
+        const cap2 = (n, L) => (n <= 2 * L ? n : Math.max(0, 2 * L - 1));
+        const shB = narrowSt ? cap2(r.bp.length, Lb) : r.bp.length, shI = narrowSt ? cap2(r.ig.length, Li) : r.ig.length;
+        const lines = Math.max(1, Math.ceil(r.pr.length / Lp), Math.ceil((shB + (shB < r.bp.length ? 1 : 0)) / Lb), Math.ceil((shI + (shI < r.ig.length ? 1 : 0)) / Li));
+        h = (tg.chipBig ? 41 : 37) + (narrowSt ? 36 : (lines - 1) * slot);
         if (r.ig.length && (r.pr.length || r.bp.length)) {
           const pEnd = r.bp.length ? bypX + 8 + Math.min(r.bp.length, Lb) * slot : prodX + 8 + Math.min(r.pr.length, Lp) * slot;
           const iStart = tg.ingLeft ? ingX + 8 + AREA_PAD : ingX + iW - 8 - Math.min(r.ig.length, Li) * slot;
           gapSum += Math.max(0, iStart - pEnd); gapN++;
         }
-        rm = { lines: lines };
+        rm = { lines: lines, shB: shB, shI: shI };
       }
       const top = hSum;
       hSum += h;
@@ -1027,8 +1033,10 @@ class Component extends DCLogic {
         powS: cellBase + 'width:72px;justify-content:flex-end;',
         powTxt: 'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + (m.isArea ? '#99a1af' : '#53eafd'),
         pw: pw[0], pu: pw[1],
-        showTag: false, iconArea: false, iconGroup: false, iconStyle: '', sub: '', moreP: 0, moreI: 0, moreLabelP: '', moreLabelI: '',
-        moreBtnP: false, moreBtnI: false, _top: m.top, _h: m.h, _shP: 0, _shI: 0,
+        showTag: false, iconArea: false, iconGroup: false, iconStyle: '', sub: '', moreP: 0, moreI: 0, moreB: 0, moreLabelP: '', moreLabelI: '', moreLabelB: '',
+        moreBtnP: false, moreBtnI: false, moreBtnB: false, _top: m.top, _h: m.h, _shP: 0, _shI: 0, _shB: 0,
+        moreIdP: m.key + ':P', moreIdI: m.key + ':I', moreIdB: m.key + ':B',
+        moreBtnStyleR: 'font-size:10px;line-height:1;color:' + cc.dim + ';background:transparent;border:0;padding:3px 0;width:' + (slot - 6) + 'px;margin-right:6px;text-align:center;cursor:pointer;font-family:inherit;flex:none',
         moreBtnStyle: 'font-size:10px;line-height:1;color:' + cc.dim + ';background:transparent;border:0;padding:3px 4px;cursor:pointer;font-family:inherit;flex:none',
         chipsP: [], chipsB: [], chipsI: [], nameChip: [],
         mchBox: 'position:relative;flex:none;width:32px;height:32px;border-radius:5px;background:#364153;box-shadow:inset 0 0 0 1px #4a5565',
@@ -1057,8 +1065,12 @@ class Component extends DCLogic {
         const first = r.pr[0] || r.bp[0];
         vm.nameChip = first ? [this.chip(D, tg, first[0], 0, null, 24)] : [];
         vm.chipsP = chipsOf(r.pr, 'p', 99);
-        vm.chipsB = chipsOf(r.bp, 'b', 99);
-        vm.chipsI = chipsOf(r.ig, 'i', 99);
+        vm.chipsB = chipsOf(r.bp, 'b', m.rm.shB);
+        vm.chipsI = chipsOf(r.ig, 'i', m.rm.shI);
+        vm.moreB = r.bp.length - m.rm.shB; vm.moreI = r.ig.length - m.rm.shI;
+        vm._shB = m.rm.shB; vm._shI = m.rm.shI;
+        vm.moreBtnB = vm.moreB > 0; vm.moreBtnI = vm.moreI > 0;
+        vm.moreLabelB = vm.moreB + ' more byproducts'; vm.moreLabelI = vm.moreI + ' more ingredients';
       }
       return vm;
     });
@@ -1079,7 +1091,7 @@ class Component extends DCLogic {
     }
 
     return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B,
-      prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, panel: panel, panelH: pm ? pm.height : 0,
+      prodX: prodX, bypX: bypX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, panel: panel, panelH: pm ? pm.height : 0,
       inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, addTool: addTool, listW: listW, blockList: blockList, rightW: rightW, toolW: toolW, wsW: wsW },
       md: md, xl: xl, narrow: narrow, cc: cc, touch: touch, rowCount: rows.length };
   }
@@ -1155,8 +1167,8 @@ class Component extends DCLogic {
     const pw = fmtPower(T.powerKw);
     cur.rows.forEach(r => {
       r.pick = () => this.setState({ sel: r.key, panAll: false, slots: [false, false], beac: false });
-      r.openP = () => this.setState({ pop: { t: 'row', key: r.key, col: 'P', sx: this._sx(), sy: this._sy() } });
-      r.openI = () => this.setState({ pop: { t: 'row', key: r.key, col: 'I', sx: this._sx(), sy: this._sy() } });
+      const openCol = col => () => this.setState({ pop: Object.assign({ t: 'row', key: r.key, col: col, sx: this._sx(), sy: this._sy() }, this._anchor(r.key + ':' + col, s)) });
+      r.openP = openCol('P'); r.openI = openCol('I'); r.openB = openCol('B');
     });
     const showLine = !!tg.sumLine && !st.sumOpen, showHandle = cur.handleH > 0, stk = cur.stacked;
 
@@ -1266,15 +1278,21 @@ class Component extends DCLogic {
     if (st.pop && st.pop.t === 'row') {
       const r = cur.rows.find(x => x.key === st.pop.key);
       if (r) {
-        const raw = findRow(cur.B.rows, st.pop.key), isP = st.pop.col === 'P';
-        const list = isP ? raw.pr.slice(r._shP) : raw.ig.slice(r._shI);
-        const tone = isP ? 'p' : 'i';
-        let left = (isP ? cur.prodX : cur.ingX + cur.iW - POP_W) - (st.pop.sx || 0);
-        left = Math.max(8, Math.min(left, vw - POP_W - 8));
+        const raw = findRow(cur.B.rows, st.pop.key), col = st.pop.col, isP = col === 'P', isB = col === 'B', isRec = raw.k === 'recipe';
+        const list = isP ? raw.pr.slice(r._shP) : isB ? raw.bp.slice(r._shB) : raw.ig.slice(r._shI);
+        const tone = isP ? 'p' : isB ? 'b' : 'i';
+        let left = (isP ? cur.prodX : isB ? cur.bypX : cur.ingX + cur.iW - POP_W) - (st.pop.sx || 0);
         const y = cur.above + 44 + 26 + r._top - (st.pop.sy || 0);
         let top = y + r._h - 2;
-        if (top + 280 > vh) top = Math.max(8, y - 282);
-        pv = { title: isP ? 'Also sends' : 'Also receives', left: left, top: top, items: list.map(x => this.listItem(D, x, tone)) };
+        if (st.pop.abot !== undefined) {
+          // Next to the +N button: below it, above it when there is no room, else pushed up to stay on screen.
+          const popH = Math.min(270, 44 + list.length * 32);
+          left = st.pop.ax - 16;
+          top = st.pop.abot + 4;
+          if (top + popH > vh - 8) top = st.pop.atop - popH - 4 >= 8 ? st.pop.atop - popH - 4 : Math.max(8, vh - popH - 8);
+        } else if (top + 280 > vh) top = Math.max(8, y - 282);
+        left = Math.max(8, Math.min(left, vw - POP_W - 8));
+        pv = { title: isRec ? (isB ? 'More byproducts' : 'More ingredients') : (isP ? 'Also sends' : 'Also receives'), left: left, top: top, items: list.map(x => this.listItem(D, x, tone)) };
       }
     }
 
@@ -1340,6 +1358,13 @@ class Component extends DCLogic {
   }
 
   // Scroll position of the table, to anchor a popup to the row it belongs to.
+  // Where the +N button is, in the frame's own (unscaled) pixels, so the list opens next to it.
+  _anchor(id, scale) {
+    const b = document.querySelector('#frame [data-more="' + id + '"]'), f = document.getElementById('frame');
+    if (!b || !f) return {};
+    const br = b.getBoundingClientRect(), fr = f.getBoundingClientRect();
+    return { ax: (br.left - fr.left) / scale, atop: (br.top - fr.top) / scale, abot: (br.bottom - fr.top) / scale };
+  }
   _sx() { const t = document.getElementById('tbl'); return t ? t.scrollLeft : 0; }
   _sy() { const t = document.getElementById('tbl'); return t ? t.scrollTop : 0; }
 }
