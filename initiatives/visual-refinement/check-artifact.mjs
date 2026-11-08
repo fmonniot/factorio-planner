@@ -145,7 +145,7 @@ await check('6 phQuiet: placeholders are fainter, come back on hover, selection 
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the thirteen accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the fourteen accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -153,13 +153,13 @@ await check('decided: the thirteen accepted changes are on at the start, in a cl
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all thirteen are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 13, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all fourteen are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 14, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 13, 'Decided only puts the thirteen back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 14, 'Decided only puts the fourteen back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)

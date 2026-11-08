@@ -446,7 +446,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -496,7 +496,7 @@ const GROUPS = [
     ['panLists', 'Cap long lists at 6', 'Receives and Sends on an area.', 'Try: open the side panel on Hub, Top Row: Show all 26.'],
     ['panNarrow', 'Narrower drawer', 'Below 1280 px: 300 px at most, so part of the table stays visible.', 'Try: iPad A16 portrait, open the side panel.'],
     ['panSheet', 'Bottom sheet below 1280 px', 'Docked under the table, at most 45% of the height; the table shrinks and keeps the selected row in view.', 'Try: iPad A16 portrait, open the side panel, click another row.'] ] },
-  { title: '8 · Selection', items: [
+  { title: '8 · Selection', decided: true, items: [
     ['selStrong', 'Stronger selected row', 'Full-row tint, teal outline and a brighter name.', 'Try: click any row (anywhere on it).'] ] },
   { title: '9 · Top bar', decided: true, items: [
     ['tabsFit', 'All tabs fit', 'Inactive tabs show their icon; the name is in a tooltip like the one the tool buttons have (the app uses the browser title on tabs today).', 'Try: hover a compact tab, click it, click All blocks ▾ (it appears only while tabs overflow).'],

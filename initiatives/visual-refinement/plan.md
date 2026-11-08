@@ -114,6 +114,8 @@ Files: `src/components/factory/sidePanel/`, `FactoryShell.tsx`.
 
 A selected row has a 3 px teal bar on the left of the reorder cell and a faint tint. With dozens of rows and the panel open it is easy to lose which row the panel is about (`metals-area-selected.png`: Aluminium is selected, and you have to look for the bar). Ideas: a stronger tint, a teal outline, or a brighter name.
 
+*Decision (2026-11-08):* **accepted as is:** `selStrong` (full-row tint, teal outline and a brighter name). On when the page opens, in the closed "Decided" section.
+
 ### 9. The block tabs overflow on a real plan and the top bar is unbalanced
 
 - With 11 blocks at 1440 px the strip is cut at both ends: the first tab reads "nces" and the active tab "Extr" (`hub.png`). At 1920 px they fit. The cut-off tab names are what the user sees most of the time.
