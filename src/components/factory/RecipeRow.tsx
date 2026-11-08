@@ -539,7 +539,7 @@ export function RecipeRow({
       data-node-id={planNode.id}
       {...highlightProps}
       data-selected={isSelected ? 'true' : undefined}
-      className={`border-b border-gray-800 hover:bg-gray-800/40 group relative ${isSelected ? SELECTED_ROW_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
+      className={`border-b border-gray-800 hover:bg-gray-800/40 group group/row relative ${isSelected ? SELECTED_ROW_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
       onClick={handleRowClick}
       draggable
       onDragStart={handleDragStart}
