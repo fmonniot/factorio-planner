@@ -759,9 +759,9 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients */}
+      {/* Ingredients, right-aligned like the items a collapsed area receives */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 justify-end">
           {inputEntries.map(([itemId, ratePerMin]) => {
             const itemName = gameData.items[itemId]?.name ?? itemId
             const temp = temperatureLabels[itemId]

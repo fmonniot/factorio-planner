@@ -797,7 +797,7 @@ The reorder column comes first (▲/▼ buttons), then:
 | Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
 | Products (72px) | The single product chip, right-aligned; wide enough for the header and the chip's pin badge. |
 | Byproducts (min 80px) | Byproduct chips (red rates). |
-| Ingredients (min 148px) | Ingredient chips (green rates); the largest share of the free width. |
+| Ingredients (min 148px) | Ingredient chips (green rates), right-aligned like the items a collapsed area receives; the largest share of the free width. |
 | Power (72px) | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
 The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons, Products and Power are fixed; the other three are their minimum plus a share (weights 3 : 2 : 4) of the width beyond the 730px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products holds exactly one (its fixed 72px), at the minimum Byproducts holds 2 chips per line and wraps beyond, Ingredients 4; at 1470px with the panel closed Byproducts and Ingredients hold about 6 and 13.

@@ -141,7 +141,7 @@ export function ProductionTable() {
                     <th className="px-2 py-1">Beacons</th>
                     <th className="px-2 py-1 text-right">Products</th>
                     <th className="px-2 py-1">Byproducts</th>
-                    <th className="px-2 py-1">Ingredients</th>
+                    <th className="px-2 py-1 text-right">Ingredients</th>
                     <th className="px-2 py-1 text-right whitespace-nowrap">Power</th>
                   </tr>
                 </thead>

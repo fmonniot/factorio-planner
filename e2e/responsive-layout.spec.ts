@@ -269,3 +269,18 @@ test.describe('area row alignment', () => {
     expect(sent.x).toBeLessThan(cell.x + cell.width)
   })
 })
+
+test.describe('ingredients alignment', () => {
+  test.use({ viewport: { width: 1470, height: 900 } })
+
+  test('a recipe row\'s ingredients end at the right edge of their column, like the items an area receives', async ({ page }) => {
+    await load(page)
+    const cell = row(page).locator('td').nth(6)
+    const last = cell.locator(':scope > div > *').last()
+    await expect(last).toBeVisible()
+    const box = (await cell.boundingBox())!
+    const chip = (await last.boundingBox())!
+    // Within the cell padding (8px) of the right edge, not at the left.
+    expect(box.x + box.width - (chip.x + chip.width)).toBeLessThanOrEqual(12)
+  })
+})
