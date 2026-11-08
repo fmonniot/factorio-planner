@@ -442,3 +442,53 @@ test.describe('Default machines', () => {
     await expect(flyout.getByRole('group', { name: 'Crafting' }).getByRole('menuitemradio', { checked: true })).toBeFocused()
   })
 })
+
+// ---------------------------------------------------------------------------
+// The default fuel of a burner row follows the horizon
+// ---------------------------------------------------------------------------
+
+/** The machine fixture with a burner stone furnace, wood (2 MJ, made by the late `forestry` technology) and coal (4 MJ, no recipe). */
+function fuelFixture() {
+  const data = machineFixture()
+  data.machines['stone-furnace'] = {
+    ...data.machines['stone-furnace'], energyType: 'burner', fuelCategories: ['chemical'], effectivity: 1,
+  }
+  const fuel = (id: string, name: string, fuelValueKj: number) => ({
+    id, name, type: 'item', iconPath: '', hidden: false, subgroup: 'intermediate', order: 'z', fuelValueKj, fuelCategory: 'chemical',
+  })
+  data.items.wood = fuel('wood', 'Wood', 2000)
+  data.items.coal = fuel('coal', 'Coal', 4000)
+  data.recipes.wood = {
+    ...data.recipes['iron-gear-wheel'], id: 'wood', name: 'wood', ingredients: [], products: [{ itemId: 'wood', type: 'item', amount: 1 }],
+  }
+  data.technologies.forestry = { id: 'forestry', name: 'Forestry', prerequisites: [], unlockedRecipes: ['wood'], iconPath: '' }
+  return data
+}
+
+test.describe('Plan horizon: default fuel', () => {
+  test('a burner row burns the cheapest fuel inside the horizon', async ({ page }) => {
+    await page.goto('/')
+    await upload(page, Buffer.from(JSON.stringify(fuelFixture())))
+    await setHorizon(page, 'electronics', 'smelting')
+    await addGoal(page, 'iron-plate')
+    await addRecipe(page, 'iron-plate')
+    const row = page.locator('main table tbody tr').first()
+    const fuel = row.locator('[data-fuel="true"]')
+    await expect(fuel).toHaveAttribute('title', /^Fuel: Coal/)
+
+    await selectRow(page, row)
+    await page.getByTestId('fuel-button').click()
+    await expect(page.getByTestId('fuel-default')).toHaveText(/Default \(Coal\)/)
+    await page.keyboard.press('Escape')
+
+    await setHorizon(page, 'electronics', 'smelting', 'forestry')
+    await expect(fuel).toHaveAttribute('title', /^Fuel: Wood/)
+    await selectRow(page, row)
+    await page.getByTestId('fuel-button').click()
+    await expect(page.getByTestId('fuel-default')).toHaveText(/Default \(Wood\)/)
+    await page.keyboard.press('Escape')
+
+    await setHorizon(page)
+    await expect(fuel).toHaveAttribute('title', /^Fuel: Wood/)
+  })
+})

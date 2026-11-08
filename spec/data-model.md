@@ -34,6 +34,7 @@ interface GameData {
   modules: Record<string, Module>
   beacons: Record<string, BeaconEntity>       // default {}
   defaultMachines: Record<string, string>     // recipe category -> machine id
+  defaultFuels?: Record<string, string>       // runtime-only: burner machine id -> default fuel id; never exported
   itemGroups: Record<string, ItemGroup>       // default {}
   itemSubgroups: Record<string, ItemSubgroup> // default {}
   technologies: Record<string, Technology>    // default {}
@@ -44,6 +45,11 @@ interface GameData {
 `defaultMachines` maps each recipe category to the machine with the highest
 `craftingSpeed` among the machines that list that category (ties keep the first
 one found). It is used whenever a node has no `machineId` override.
+
+`defaultFuels` is a runtime-only overlay, never written by the build scripts: it maps a burner machine
+id to the fuel that replaces the machine's lowest-value accepted fuel as its default. It is derived from
+the research horizon by `horizonDefaultFuels` and absent when the unrestricted default applies (see
+[Technology](#technology)). A bundle that carries it acts as a static override: it applies whenever the horizon yields no overlay of its own (the horizon's map, when there is one, replaces it as a whole).
 
 ### Item
 
@@ -324,7 +330,14 @@ category has no entry). A category the data has no default for at all is not aff
 is not hidden, crafts the category and is inside the horizon; any other override is ignored but kept,
 so it applies again when the horizon widens. `horizonFor` (`src/store/horizon.ts`) returns the horizon
 with the overrides applied, and every reader (the solver wiring, the table, the machine and beacon
-modals) goes through it. Machine,
+modals) goes through it. The horizon likewise picks a default fuel for burner rows (`horizonDefaultFuels`,
+`Horizon.defaultFuels`): the lowest `fuelValueKj` (then id) among the machine's accepted fuels that are
+inside the horizon (`withinHorizon` over `itemIds`, fluids included), instead of the lowest overall.
+If no accepted fuel is inside the horizon the unrestricted default applies (the row is then flagged
+"Beyond research horizon"), and with no limit nothing changes. Only machines whose default differs get
+an entry; the result is undefined when none does. The solver (through `wireSolver`, which overlays it on
+the effective game data as `defaultFuels`) and the fuel picker read the same map. An explicit
+`fuelItemId` is never overridden. Machine,
 module and beacon choices already stored in the plan are never rewritten when the horizon
 narrows; they are kept and flagged in the UI.
 
@@ -645,7 +658,7 @@ interface GameRecipeNode {
   beaconConfigs?: BeaconConfig[]   // absent = no beacon (never []); the solver sums them
   pinnedRate?: number           // > 0; fixes the recipe's executions per minute
   neighbourCount?: number       // reactor rows: average adjacent working reactors; > 0 (0 → undefined)
-  fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel
+  fuelItemId?: string           // burner rows: the fuel item burnt; absent or not accepted = the machine's default fuel (horizon-aware)
   byproductPolicy: Record<string, 'discard' | 'feed-back'>   // per product item id
   primaryProduct?: string       // which output the UI treats as the product
   byproductConsumer?: boolean   // run only to absorb surplus, see solver.md
@@ -676,7 +689,7 @@ interface SubPlanNode {
   shows and edits the primary product's rate and converts with that product's
   items per run.
 - **`neighbourCount`.** Reactor rows: the average number of adjacent working reactors per reactor (fractional allowed). The heat product is multiplied by `1 + Machine.neighbourBonus × neighbourCount`; ignored when the row's machine has no `neighbourBonus`. The preprocess coerces `0` to `undefined`; negatives fail to load. Optional, so older plans load unchanged. See [solver.md](solver.md#machine-count-and-power).
-- **`fuelItemId`.** Burner and fluid-burner rows: the item or fluid the machine burns. An id the row's machine does not accept (unknown, hidden, wrong category, burnt result, not a fuel) is ignored (an item id on a fluid-burner too), so the row burns the machine's default fuel (the lowest `fuelValueKj`, then id); the id is kept, so changing the machine does not clear it. Optional, so older plans load unchanged. See [solver.md](solver.md#burner-fuel).
+- **`fuelItemId`.** Burner and fluid-burner rows: the item or fluid the machine burns. An id the row's machine does not accept (unknown, hidden, wrong category, burnt result, not a fuel) is ignored (an item id on a fluid-burner too), so the row burns the machine's default fuel (the lowest `fuelValueKj`, then id, among the accepted fuels inside the research horizon, or among all of them when none is inside); the id is kept, so changing the machine does not clear it. Optional, so older plans load unchanged. See [solver.md](solver.md#burner-fuel).
 - **`byproductPolicy`.** Missing entries mean `'feed-back'`. See
   [solver.md](solver.md) for how `'discard'` is applied.
 - **`primaryProduct`.** Override of the recipe's main product: it decides which

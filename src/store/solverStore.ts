@@ -85,7 +85,9 @@ export const useSolverStore = create<SolverStoreState>((set) => ({
 
 const DEBOUNCE_MS = 150
 
-function sameMachines(a: GameData['defaultMachines'], b: GameData['defaultMachines']): boolean {
+function sameRecord(a: Record<string, string> | undefined, b: Record<string, string> | undefined): boolean {
+  if (a === b) return true
+  if (!a || !b) return false
   const keys = Object.keys(a)
   return keys.length === Object.keys(b).length && keys.every(k => Object.hasOwn(b, k) && a[k] === b[k])
 }
@@ -95,16 +97,24 @@ export function wireSolver(): () => void {
   const cache = createSolveCache()
   // Keeps the effective game data object stable across solves so cache hits survive.
   let solverDataMemo:
-    | { gameData: GameData; defaultMachines: GameData['defaultMachines']; data: GameData }
+    | { gameData: GameData; defaultMachines: GameData['defaultMachines']; defaultFuels: GameData['defaultFuels']; data: GameData }
     | undefined
 
-  function solverDataFor(gameData: GameData, defaultMachines: GameData['defaultMachines']): GameData {
-    if (defaultMachines === gameData.defaultMachines) {
+  function solverDataFor(
+    gameData: GameData,
+    defaultMachines: GameData['defaultMachines'],
+    defaultFuels: GameData['defaultFuels'],
+  ): GameData {
+    if (defaultMachines === gameData.defaultMachines && defaultFuels === undefined) {
       solverDataMemo = undefined
       return gameData
     }
-    if (solverDataMemo?.gameData !== gameData || !sameMachines(solverDataMemo.defaultMachines, defaultMachines)) {
-      solverDataMemo = { gameData, defaultMachines, data: { ...gameData, defaultMachines } }
+    if (
+      solverDataMemo?.gameData !== gameData
+      || !sameRecord(solverDataMemo.defaultMachines, defaultMachines)
+      || !sameRecord(solverDataMemo.defaultFuels, defaultFuels)
+    ) {
+      solverDataMemo = { gameData, defaultMachines, defaultFuels, data: { ...gameData, defaultMachines, defaultFuels: defaultFuels ?? gameData.defaultFuels } }
     }
     return solverDataMemo.data
   }
@@ -126,9 +136,9 @@ export function wireSolver(): () => void {
       }
 
       try {
-        // Rows without an explicit machine solve with the horizon's default machine.
-        const { defaultMachines } = horizonFor(gameData, horizonTechnologyIds, defaultMachineOverrides)
-        const solverData = solverDataFor(gameData, defaultMachines)
+        // Rows without an explicit machine or fuel solve with the horizon's default machine and fuel.
+        const { defaultMachines, defaultFuels } = horizonFor(gameData, horizonTechnologyIds, defaultMachineOverrides)
+        const solverData = solverDataFor(gameData, defaultMachines, defaultFuels)
         useSolverStore.getState()._setSolved(solveAll(blocks, solverData, cache), activeBlockId)
       } catch (err) {
         useSolverStore.getState()._setStatus({

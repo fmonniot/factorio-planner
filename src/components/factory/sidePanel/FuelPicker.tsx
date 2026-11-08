@@ -22,8 +22,8 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
   const ref = useRef<HTMLDivElement>(null)
   useDismiss(ref, open, () => setOpen(false))
 
-  const fuel = resolveRowFuel(gameData, machine, fuelItemId)
-  const fuelDefault = machine ? defaultFuel(gameData, machine) : undefined
+  const fuel = resolveRowFuel(gameData, machine, fuelItemId, horizon.defaultFuels)
+  const fuelDefault = machine ? defaultFuel(gameData, machine, horizon.defaultFuels) : undefined
   const fuelOptions = machine ? acceptedFuels(gameData, machine).filter(f => withinHorizon(horizon.itemIds, f.id)) : []
   // A machine with fuel categories whose every accepted fuel is filtered out (burnt result, hidden) is not "no data".
   const hasData = hasFuelData(gameData, machine)

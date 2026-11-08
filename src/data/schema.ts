@@ -203,6 +203,12 @@ export const GameDataSchema = z.object({
   modules: z.record(z.string(), ModuleSchema),
   beacons: z.record(z.string(), BeaconEntitySchema).default({}),
   defaultMachines: z.record(z.string(), z.string()),
+  /**
+   * Runtime-only overlay, never exported: machine id -> the fuel item id a burner row burns by default, when that
+   * differs from the lowest-value accepted fuel. Derived from the research horizon by `horizonDefaultFuels`;
+   * absent means the unrestricted default.
+   */
+  defaultFuels: z.record(z.string(), z.string()).optional(),
   itemGroups: z.record(z.string(), ItemGroupSchema).default({}),
   itemSubgroups: z.record(z.string(), ItemSubgroupSchema).default({}),
   technologies: z.record(z.string(), TechnologySchema).default({}),

@@ -503,6 +503,20 @@ describe('computeNodeEffects — burner fuel', () => {
     expect(fx.fuel).toEqual({ itemId: 'coal', type: 'item', amount: 0.072 })
   })
 
+  it('burns the default fuel of the defaultFuels overlay, but an explicit choice still wins', () => {
+    const gd = burnerGameData()
+    gd.defaultFuels = { 'stone-furnace': 'solid-fuel' }
+    // 90 kW x 3.2 s / 12000 kJ
+    expect(computeNodeEffects(smeltNode(), gd).fuel).toEqual({ itemId: 'solid-fuel', type: 'item', amount: 0.024 })
+    expect(computeNodeEffects(smeltNode({ fuelItemId: 'coal' }), gd).fuel?.amount).toBeCloseTo(0.072)
+  })
+
+  it('falls back to the lowest-value fuel for a stale overlay entry', () => {
+    const gd = burnerGameData()
+    gd.defaultFuels = { 'stone-furnace': 'ghost' }
+    expect(computeNodeEffects(smeltNode(), gd).fuel).toEqual({ itemId: 'coal', type: 'item', amount: 0.072 })
+  })
+
   it('scales with speed and consumption bonuses', () => {
     // 90 x 1.5 x 3.2 / 1.2 / 4000
     const fx = computeNodeEffects(smeltNode({ modules: [{ moduleId: 'fuel-module', count: 1 }] }), burnerGameData())

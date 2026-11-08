@@ -167,3 +167,42 @@ describe('fluid burners', () => {
     expect(resolveRowFuel(gd, fluidBurner(), 'hidden-gas')?.id).toBe('crude')
   })
 })
+
+describe('defaultFuels overlay', () => {
+  const withOverlay = (defaultFuels: Record<string, string>): GameData => ({ ...makeGameData(), defaultFuels })
+
+  it('is the lowest-value fuel without an overlay', () => {
+    const gd = makeGameData()
+    expect(defaultFuel(gd, gd.machines.furnace)?.id).toBe('wood')
+    expect(resolveRowFuel(gd, gd.machines.furnace, undefined)?.id).toBe('wood')
+  })
+
+  it('replaces the default for the machine it names', () => {
+    const gd = withOverlay({ furnace: 'coal' })
+    expect(defaultFuel(gd, gd.machines.furnace)?.id).toBe('coal')
+    expect(resolveRowFuel(gd, gd.machines.furnace, undefined)?.id).toBe('coal')
+  })
+
+  it('lets an explicit accepted choice win', () => {
+    const gd = withOverlay({ furnace: 'coal' })
+    expect(resolveRowFuel(gd, gd.machines.furnace, 'solid-fuel')?.id).toBe('solid-fuel')
+  })
+
+  it('ignores a stale entry the machine no longer accepts', () => {
+    const gd = withOverlay({ furnace: 'uranium' })
+    expect(defaultFuel(gd, gd.machines.furnace)?.id).toBe('wood')
+    expect(resolveRowFuel(gd, gd.machines.furnace, undefined)?.id).toBe('wood')
+  })
+
+  it('prefers an explicit argument over gameData.defaultFuels', () => {
+    const gd = withOverlay({ furnace: 'coal' })
+    expect(defaultFuel(gd, gd.machines.furnace, { furnace: 'solid-fuel' })?.id).toBe('solid-fuel')
+    expect(resolveRowFuel(gd, gd.machines.furnace, undefined, { furnace: 'solid-fuel' })?.id).toBe('solid-fuel')
+  })
+
+  it('applies to fluid burners', () => {
+    const gd = withOverlay({ 'fluid-furnace': 'oil' })
+    expect(defaultFuel(gd, fluidBurner())?.id).toBe('oil')
+    expect(defaultFuel(makeGameData(), fluidBurner())?.id).toBe('crude')
+  })
+})
