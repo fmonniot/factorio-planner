@@ -1,8 +1,8 @@
 # Initiative: Visual refinement of the main screen
 
-Status: Future
+Status: Active
 
-Eleven visual refinements of the production-table screen (summary strip, table, side panel, top bar), found by reviewing screenshots of the running app on a real, mid-game Seablock plan. The goal is to judge them in a design artifact first, mainly for their effect on **compactness**, before touching `src/components/`. Nothing is implemented, and the artifact does not exist yet: this document is the brief for the session that builds it.
+Eleven visual refinements of the production-table screen (summary strip, table, side panel, top bar), found by reviewing screenshots of the running app on a real, mid-game Seablock plan. The goal is to judge them in a design artifact first, mainly for their effect on **compactness**, before touching `src/components/`. Nothing is implemented in `src/components/`. The artifact exists and is waiting for the owner's feedback: this document is the brief, and [HANDOFF.md](HANDOFF.md) holds the state of the work (what is built, how to restart, next steps).
 
 Incomplete on purpose. These are first impressions from one plan, one data set and the dark theme; see [Not covered yet](#not-covered-yet).
 
@@ -33,7 +33,7 @@ Start with `Artifact` `action: "quickstart"` and `intent: "design"` (a visual de
 1. **Rebuild the baseline faithfully.** Use the screenshots in [baseline/](baseline/) as the reference (re-capture with the script if the UI has changed). Keep the real Tailwind palette (gray-800/900 surfaces, teal accent, cyan power, green ingredient rates, red byproduct rates, amber warnings) and the real sizes under [Baseline measurements](#baseline-measurements).
 2. **Make each finding a toggle**, so changes can be turned on one at a time and together. The ranking is a suggestion; the owner decides.
 3. **Show the compactness effect.** A small readout that updates with the toggles: pixels above the table, pixels per row, rows visible at 900 px high, and whether Products, Byproducts and Ingredients are within one eye span. The point of the artifact is these numbers next to the pictures.
-4. **Use the real content.** Rebuild at least one busy block (Metals: area rows with 6 to 13 chips each), one dense one (Hub: 73 products, rows that wrap to two lines) and one sparse one (Extra Sulfur), at 1440 px, plus 390 px and 1920 px views.
+4. **Use the real content.** Rebuild at least one busy block (Metals: area rows with 6 to 13 chips each), one dense one (Hub: 73 products, rows that wrap to two lines) and one sparse one (Extra Sulfur), at 1440 px, plus the owner's devices: Galaxy Z Fold8 (cover 416 × 657 and inner 816 × 616, as measured; it is the owner's phone, so no separate 390 px view), iPad A16 (portrait and landscape), and a 1920 px view.
 5. Record the owner's accept / reject / tweak decisions back in this document, then turn the accepted ones into backlog items or a follow-up plan.
 
 ## Findings
@@ -49,6 +49,10 @@ About 300 px of a 900 px viewport (a third) sits above the table's first row on 
 - The detail strip is a fixed `h-[110px]` so slots never move when the selection changes; that is deliberate (no layout shift), so a variant must keep selection from moving the table.
 
 Ideas to compare: let a pane's height follow its content (an empty pane collapses to its header); a one-line summary mode that expands on click (overlaps the backlog item "Short viewports"); show the count and the top few items instead of a scrolling grid; stop summing unlike items in the overview.
+
+*Owner's review (2026-11-08):* the grid already scrolls inside its box (`max-h-[97px] overflow-y-auto`), so every slot is reachable and clickable; "16 of 73 are visible" means 16 without scrolling. The one-line summary should be a persistent collapse/expand toggle rather than an overlay opened by "Show all": connection work happens in batches, and an overlay needs a click every time (the replica's `sumLine`). Rejected: "Counts instead of sums" (the item count is key information in the strip) and "Height follows content" (the `+N` tile made hidden items harder to click than scrolling does; once the scroll was kept, the height barely changed on any block, since the strip is as tall as its fullest pane).
+
+*Decision (2026-11-08, after trying every toggle of the replica):* **accepted:** `sumShort` (colour key and actions on one line, 72 px detail strip), `legTip` (black tooltip on a bar segment), `legInBar` (16 px bar with the name and amount inside by segment width), `ovBar` (overview rows as one stacked bar sized by share), `sumLine` (persistent collapse/expand one-line summary) and `sumStack` (phones stack the three collapsed panes). **Rejected:** `legMenu` (36 px two-line bar with the actions as icon buttons in the item header). Settled for the implementation: `legTip` and `legInBar` are combined. The text inside the bar (name and amount, amount alone, or nothing, by segment width) is the directly visible information and is dropped when a segment is too short; the black tooltip on hover or focus always carries the full information (name, amount, key line) but is less directly accessible. The collapsed state of `sumLine` survives a reload, like other UI state (the replica does not store it across reloads).
 
 Seen in: `hub.png`, `metals.png`, `ores.png`, `metals-390-phone.png`. Files: `FactorySummary.tsx`, `SummaryPane.tsx`, `SummaryDetailStrip.tsx`, `summarySegments.ts`.
 
@@ -78,10 +82,10 @@ Noticed: the "click a row to trace it" hint and the item counts in the overview;
 ### 5. Collapsed group rows are noisy and change height
 
 - Every area row carries an "Area" tag, then "N recipes · N machines", and in Hub both numbers are the same ("114 recipes · 114 machines"). When every row of a table is an area, the tag adds nothing.
-- Row height jumps from 33 px to 66 px (Hub, Metal Ores) when a group's chips wrap onto a second line, and a long list ends in a small dim "+30" / "+33" / "+6". The player cannot tell which items hide behind it.
-- Group rows and recipe rows differ only by the tag; a subtle background band and a heavier name would make the tree readable at a glance.
+- Row height jumps from 33 px to 66 px (Hub, Metal Ores) when a group's chips wrap onto a second line, and a long list ends in a small dim "+30" / "+33" / "+6". *Corrected while building the artifact:* the +N is already a button that opens a popup with every hidden item and its rate ("Also sends" / "Also receives", `AreaChipsMore.tsx`), so the information is not lost; the cost is the second line. The cap is a fixed count (8 sent, 16 received), not "two lines".
+- Group rows and recipe rows differ by the tag and a faint tint (`groupRowTint`, gray-800 at 30%, fainter with depth); only areas carry the Area tag and flow chips, plain sub-factories show counts and power only. A stronger band and a heavier name would make the tree readable at a glance.
 
-Ideas to compare: drop the tag when all siblings are areas, or move it to an icon; show "114 recipes" only when it differs from the machine count; one fixed row height with the overflow in a popover; a band for group rows.
+Ideas to compare: drop the tag when all siblings are areas, or move it to an icon; show "114 recipes" only when it differs from the machine count; one fixed row height (the popup stays as it is); a band for group rows.
 
 Seen in: `hub.png`, `ores.png`. Files: `RecipeRow.tsx` (sub-factory row), `AreaChipsMore.tsx`, `treeGuides.ts`.
 
@@ -111,6 +115,8 @@ A selected row has a 3 px teal bar on the left of the reorder cell and a faint t
 - The workspace button on the right carries more visual weight than the tabs. The block graph, areas and tech tree buttons are unlabeled icons that only a tooltip explains.
 
 Ideas to compare: a smaller minimum tab width or two-line tabs; icon-only tabs for inactive blocks; a lighter workspace button; a text label on the view buttons at wide widths.
+
+*Owner's note (2026-11-08):* if compact tabs get the styled tooltip (`tabsFit`), it must show on keyboard focus as well as on hover. The finding itself is not judged yet.
 
 Files: `BlockTabs.tsx`, `TopBar.tsx`, `WorkspaceMenu.tsx`, `IconButton.tsx`.
 
@@ -172,9 +178,9 @@ node initiatives/visual-refinement/capture-baseline.mjs <plan.json> /tmp/shots -
 - The Nullius data set; the reference plan is Seablock.
 - Modals and pickers (recipe picker, item picker, machine picker), the block graph, the areas matrix and the tech tree. With 11 blocks the block graph in particular is worth a look.
 - The empty states ("No recipes yet", "Load game data to begin").
-- Expanded sub-factories and deep nesting: the screenshots show collapsed areas only.
-- Accessibility measurements: contrast ratios were judged by eye, not computed.
-- The remaining blocks of the reference plan (Sciences, Circuits, Agricultural Science, Mod 1, Sludge, Bean 1, Clay Brick) were captured but not reviewed.
+- Deep nesting: the artifact expands groups (Hub's Top Row has three plain sub-factories below it) but the reference plan has no area inside an area.
+- Accessibility measurements beyond the dim greys: the artifact computes WCAG ratios for the hints, counts, arrows and labels only.
+- The smaller blocks (Sciences, Circuits, Agricultural Science, Mod 1, Sludge, Bean 1, Clay Brick) are in the artifact because every tab opens, but they were not reviewed against screenshots.
 
 ## After the artifact
 

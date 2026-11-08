@@ -1,0 +1,1320 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Production table refinement</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0;background:#0b0f19}
+.ic{display:block;background-image:url(/_blob/db38fcafe13471c71c1403f5beb9771c);background-repeat:no-repeat}
+.chip{display:block;border:0;padding:0;background:transparent;font:inherit;color:inherit;cursor:pointer}
+.chip:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px;border-radius:4px}
+button{font-family:inherit;cursor:pointer}
+.row:hover{background-color:rgba(255,255,255,0.03)}
+.rowhit{position:absolute;left:0;top:0;width:100%;height:100%;padding:0;margin:0;border:0;background:transparent;cursor:pointer;z-index:0}
+.rowhit:focus-visible{outline:2px solid #2dd4bf;outline-offset:-2px}
+.cell{position:relative;z-index:1;pointer-events:none}
+.cell button,.cell .chip{pointer-events:auto}
+.ph{position:relative;flex:none;box-sizing:border-box;width:32px;height:32px;border:1px dashed #4a5565;border-radius:5px;background:transparent;display:flex;align-items:center;justify-content:center;padding:0;font-size:13px;line-height:1;color:#99a1af}
+.ph.dim{color:#6a7282}
+.ph:hover{border-color:#99a1af;color:#e5e7eb}
+.ph.hid{opacity:0}
+.row:hover .ph.hid,.row.sel .ph.hid,.row:focus-within .ph.hid,.ph.hid:focus-visible{opacity:1}
+.arw{all:unset;cursor:pointer;display:block;font-size:7px;line-height:7px;padding:1px 4px;color:var(--arw)}
+.arw:hover{color:#d1d5dc}
+.chev{all:unset;cursor:pointer;flex:none;width:22px;height:22px;display:flex;align-items:center;justify-content:center;color:#99a1af}
+.chev:hover{color:#e5e7eb}
+.namebtn{all:unset;cursor:pointer;min-width:0;box-sizing:border-box;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.namebtn:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px;border-radius:3px}
+.seg{display:flex;border:1px solid #364153;border-radius:8px;overflow:hidden}
+.seg button{flex:1;padding:9px 6px;min-height:44px;background:#101828;color:#d1d5dc;border:0;border-right:1px solid #364153;font-size:12px}
+.seg button:last-child{border-right:0}
+.seg button.on{background:#0f766e;color:#ffffff;font-weight:600}
+.vps{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:6px}
+.vps button{min-height:44px;padding:6px 8px;background:#101828;color:#d1d5dc;border:1px solid #364153;border-radius:8px;font-size:12px;text-align:left;line-height:1.3}
+.vps button.on{background:#0f766e;color:#ffffff;border-color:#14b8a6;font-weight:600}
+.tg{display:flex;gap:10px;align-items:flex-start;width:100%;text-align:left;background:#101828;border:1px solid #364153;border-radius:8px;padding:8px 10px;color:#d1d5dc;min-height:44px}
+.tg:hover{border-color:#4a5565}
+.tg.on{border-color:#2dd4bf;background:#0f2a2c}
+.sw{flex:none;width:30px;height:18px;border-radius:9px;background:#364153;position:relative;margin-top:1px}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:7px;background:#d1d5dc}
+.tg.on .sw{background:#14b8a6}
+.tg.on .sw::after{left:14px;background:#ffffff}
+.act{background:#101828;color:#d1d5dc;border:1px solid #364153;border-radius:8px;padding:8px 12px;min-height:44px;font-size:12px}
+.act:hover{border-color:#4a5565}
+.mini{background:#101828;color:#d1d5dc;border:1px solid #4a5565;border-radius:4px;padding:2px 7px;font-size:11px;line-height:16px;white-space:nowrap}
+.mini:hover{border-color:#99a1af;color:#f3f4f6}
+.flip{width:100%;min-height:44px;border-radius:8px;border:1px solid #364153;background:#101828;color:#e5e7eb;font-size:13px;font-weight:600}
+.flip.base{border-color:#f59e0b;color:#fbbf24}
+.thin::-webkit-scrollbar{width:6px;height:6px}
+.thin::-webkit-scrollbar-thumb{background:#364153;border-radius:3px}
+.thin::-webkit-scrollbar-corner{background:transparent}
+.strip{scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.tab:hover{color:#e5e7eb}
+.tw .tt{display:none}
+.tw:hover .tt,.tw:focus-within .tt{display:block}
+.tl{all:unset;cursor:pointer;display:flex;align-items:center;box-sizing:border-box;border-radius:6px;color:var(--tlc)}
+.tl:hover,.tl:focus-visible{background:#1e2939;color:#f3f4f6}
+.tl:focus-visible{outline:2px solid #2dd4bf;outline-offset:-2px}
+.slot{all:unset;cursor:pointer;box-sizing:border-box}
+.slot:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px}
+.ovrow{all:unset;cursor:pointer;box-sizing:border-box;flex:none}
+.ovrow:hover{background:#101828}
+.seg{all:unset;cursor:pointer;box-sizing:border-box;position:relative;display:flex;align-items:center;flex:none}
+.seg:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px}
+.seg .tip{display:none}
+.seg:hover .tip,.seg:focus .tip{display:flex}
+.ibtn{all:unset;cursor:pointer;box-sizing:border-box;flex:none;width:22px;height:20px;display:flex;align-items:center;justify-content:center;background:#101828;color:#d1d5dc;border:1px solid #4a5565;border-radius:4px}
+.ibtn:hover{border-color:#99a1af;color:#f3f4f6}
+.ibtn:focus-visible{outline:2px solid #2dd4bf;outline-offset:1px}
+.menuitem{all:unset;cursor:pointer;box-sizing:border-box;display:flex;align-items:center;gap:8px;width:100%;height:30px;padding:0 10px;font-size:12px;color:#d1d5dc}
+.menuitem:hover,.menuitem:focus-visible{background:#364153;color:#f9fafb}
+</style>
+</helmet>
+<div style="width:2340px;height:1720px;box-sizing:border-box;padding:32px;display:flex;gap:32px;background:#0b0f19;color:#d1d5dc;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:13px">
+
+<aside style="width:704px;flex:none;display:flex;flex-direction:column;gap:14px">
+<div>
+<h1 style="margin:0 0 6px;font-size:20px;line-height:1.2;color:#f9fafb">Production table refinement</h1>
+<p style="margin:0;color:#99a1af;line-height:1.45;font-size:12px">Turn each change on and use the screen: it is interactive (switch block with the tabs on the screen). Every toggle says what to try. Content is the 2026-11-08 Seablock plan, solved with the app's own solver and summary code.</p>
+</div>
+
+<div style="display:flex;flex-direction:column;gap:6px">
+<span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af">Screen</span>
+<div class="vps">
+<sc-for list="{{viewports}}" as="v" hint-placeholder-count="7"><button class="{{v.cls}}" aria-pressed="{{v.pressed}}" onClick="{{v.pick}}">{{v.label}}</button></sc-for>
+</div>
+</div>
+
+<button class="{{flipCls}}" aria-pressed="{{flipPressed}}" onClick="{{toggleFlip}}">{{flipLabel}}</button>
+
+<div style="display:flex;gap:8px">
+<button class="act" style="flex:1" onClick="{{allOn}}">All changes on</button>
+<button class="act" style="flex:1" onClick="{{allOff}}">All off</button>
+</div>
+
+<div style="column-count:2;column-gap:24px">
+<sc-for list="{{groups}}" as="g" hint-placeholder-count="11">
+<div style="display:flex;flex-direction:column;gap:6px;break-inside:avoid;margin-bottom:14px">
+<span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af">{{g.title}}</span>
+<sc-for list="{{g.items}}" as="t" hint-placeholder-count="2">
+<button class="{{t.cls}}" aria-pressed="{{t.pressed}}" onClick="{{t.toggle}}">
+<span class="sw"></span>
+<span style="display:flex;flex-direction:column;gap:3px;min-width:0">
+<span style="font-size:13px;font-weight:600;color:#f3f4f6">{{t.label}}</span>
+<span style="font-size:11px;line-height:1.35;color:#99a1af">{{t.desc}}</span>
+<span style="font-size:11px;line-height:1.35;color:#5eead4">{{t.tryIt}}</span>
+</span>
+</button>
+</sc-for>
+</div>
+</sc-for>
+</div>
+</aside>
+
+<main style="flex:1;min-width:0;display:flex;flex-direction:column;gap:16px">
+
+<div style="display:flex;align-items:baseline;justify-content:space-between;gap:16px">
+<span style="font-size:15px;font-weight:600;color:#f3f4f6">{{viewLabel}}</span>
+<sc-if value="{{loading}}" hint-placeholder-val="{{ false }}"><span style="color:#fbbf24">Loading the plan content…</span></sc-if>
+</div>
+<sc-if value="{{hasNote}}" hint-placeholder-val="{{ false }}"><div style="margin-top:-8px;font-size:12px;color:#fbbf24">{{viewNote}}</div></sc-if>
+
+<div style="{{frameOuter}}">
+<div id="frame" style="{{frameInner}}">
+
+<div style="{{topBarStyle}}">
+<div id="tabstrip" class="strip" style="{{stripStyle}}">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="11"><button class="tab" style="{{t.s}}" title="{{t.title}}" aria-label="{{t.n}}" aria-current="{{t.current}}" onClick="{{t.pick}}" onMouseEnter="{{t.enter}}" onMouseLeave="{{t.leave}}"><span style="{{t.stripe}}"></span><span class="ic" style="{{t.ic}}"></span><span style="{{t.nameStyle}}">{{t.label}}</span></button></sc-for>
+</div>
+<div style="{{rightStyle}}">
+<sc-if value="{{showAllBlocks}}" hint-placeholder-val="{{ true }}"><button class="tl" style="{{allBlkStyle}}" title="All blocks" aria-label="All blocks" aria-haspopup="menu" aria-expanded="{{menuOpen}}" onClick="{{toggleMenu}}">{{allBlkTxt}}</button></sc-if>
+<button class="tl" style="{{newBlkStyle}}" title="Add block" aria-label="Add block" onClick="{{deadAddBlock}}">+</button>
+<span style="width:16px;flex:none"></span>
+<div style="display:flex;align-items:center;gap:2px">
+<sc-for list="{{tools}}" as="t" hint-placeholder-count="4">
+<span class="tw" style="position:relative;display:flex">
+<button class="tl" style="{{t.btn}}" aria-label="{{t.tip}}" onClick="{{t.click}}"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><sc-if value="{{t.isFlag}}" hint-placeholder-val="{{ true }}"><path d="M5 21V4M5 4h11l-2 4 2 4H5"></path></sc-if><sc-if value="{{t.isGraph}}" hint-placeholder-val="{{ false }}"><path d="M3 3h6v6H3zM15 3h6v6h-6zM15 15h6v6h-6zM9 6h6M18 9v6"></path></sc-if><sc-if value="{{t.isAreas}}" hint-placeholder-val="{{ false }}"><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></sc-if><sc-if value="{{t.isFlask}}" hint-placeholder-val="{{ false }}"><path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.7 3h10.6a2 2 0 0 0 1.7-3l-5-9V3M7.5 14h9"></path></sc-if></svg><span style="{{t.lblStyle}}">{{t.label}}</span></button>
+<span style="{{t.dot}}"></span>
+<span class="tt" style="{{t.tipStyle}}">{{t.tip}}</span>
+</span>
+</sc-for>
+</div>
+<span style="width:1px;height:20px;background:#364153;margin:0 6px;flex:none"></span>
+<button class="tl" style="{{wsStyle}}" title="Plans, game data, in-game viewer, export and import" aria-label="Plan and game data" onClick="{{deadWorkspace}}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="#d1d5dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="M12 3 3 8l9 5 9-5-9-5z"></path><path d="m3 13 9 5 9-5"></path></svg><sc-if value="{{wide}}" hint-placeholder-val="{{ true }}"><span style="{{wsText}}"><span style="color:#e5e7eb">Plan 1</span><span style="color:#99a1af">Seablock</span></span></sc-if><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="#99a1af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex:none"><path d="m6 9 6 6 6-6"></path></svg></button>
+</div>
+</div>
+
+<sc-if value="{{sumLine}}" hint-placeholder-val="{{ false }}">
+<div style="{{lineWrap}}">
+<sc-for list="{{panes}}" as="p" hint-placeholder-count="3">
+<div style="{{p.lineStyle}}">
+<span style="font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af;white-space:nowrap">{{p.title}}</span>
+<span style="font-size:12px;color:#e5e7eb;font-weight:600">{{p.count}}</span>
+<div style="display:flex;min-width:0;overflow:hidden">
+<sc-for list="{{p.lineChips}}" as="c" hint-placeholder-count="4"><div class="chip" style="{{c.box}}" title="{{c.title}}"><div class="ic" style="{{c.ic}}"></div><span style="{{c.abStyle}}">{{c.abbr}}</span></div></sc-for>
+</div>
+<sc-if value="{{p.hasLineMore}}" hint-placeholder-val="{{ false }}"><button style="{{p.lineMoreStyle}}" onClick="{{p.openLine}}" aria-label="{{p.lineMoreLabel}}">+{{p.lineMore}}</button></sc-if>
+</div>
+</sc-for>
+<sc-if value="{{lineBtn}}" hint-placeholder-val="{{ true }}"><button class="act" style="flex:none;align-self:center;min-height:30px;padding:4px 12px;position:sticky;right:0;z-index:1;margin-left:auto;box-shadow:-10px 0 8px -2px #101828" aria-expanded="false" aria-label="Expand the summary" onClick="{{toggleSum}}">Expand</button></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{sumFull}}" hint-placeholder-val="{{ true }}">
+<div class="thin" style="{{sumWrap}}">
+<sc-for list="{{panes}}" as="p" hint-placeholder-count="3">
+<div style="{{p.style}}">
+<div style="height:32px;box-sizing:border-box;padding:8px 8px 0;display:flex;align-items:center;justify-content:space-between;font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af;flex:none">
+<span>{{p.title}} · {{p.count}}</span>
+<sc-if value="{{p.hasAdd}}" hint-placeholder-val="{{ false }}"><button style="width:22px;height:20px;border:1px solid #4a5565;border-radius:4px;background:transparent;color:#99a1af;display:flex;align-items:center;justify-content:center;padding:0" title="Add product" aria-label="Add product" onClick="{{p.addProduct}}"><svg width="10" height="10" viewBox="0 0 10 10"><path d="M5 1v8M1 5h8" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg></button></sc-if>
+</div>
+<sc-if value="{{p.hasGrid}}" hint-placeholder-val="{{ true }}">
+<div style="{{p.gridStyle}}">
+<sc-if value="{{p.empty}}" hint-placeholder-val="{{ false }}"><span style="font-size:11px;color:{{p.dim}};padding:6px 2px">Nothing here yet</span></sc-if>
+<sc-for list="{{p.slots}}" as="s" hint-placeholder-count="8">
+<button class="slot" style="{{s.style}}" title="{{s.title}}" aria-pressed="{{s.pressed}}" onClick="{{s.pick}}" onMouseEnter="{{s.enter}}" onMouseLeave="{{s.leave}}">
+<span class="ic" style="{{s.ic}}"></span>
+<span style="{{s.numStyle}}">{{s.num}}</span>
+<span style="{{s.barWrap}}"><sc-for list="{{s.segs}}" as="g" hint-placeholder-count="2"><span style="{{g.style}}"></span></sc-for></span>
+</button>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{p.hasDetail}}" hint-placeholder-val="{{ true }}">
+<div style="{{p.detailStyle}}">
+<sc-if value="{{p.isOverview}}" hint-placeholder-val="{{ true }}">
+<div style="display:flex;align-items:center;justify-content:space-between;height:20px;flex:none"><span style="font-weight:600;color:#f3f4f6;font-size:12px">Overview</span><sc-if value="{{p.hasOv}}" hint-placeholder-val="{{ true }}"><span style="{{p.hintStyle}}">{{p.hintTxt}}</span></sc-if></div>
+<sc-if value="{{p.noOv}}" hint-placeholder-val="{{ false }}"><div style="color:{{p.dim}};margin-top:6px">Nothing here yet</div></sc-if>
+<sc-if value="{{p.ovRowsOn}}" hint-placeholder-val="{{ true }}">
+<div class="thin" style="{{p.ovScroll}}">
+<sc-for list="{{p.ov}}" as="o" hint-placeholder-count="3">
+<button class="ovrow" style="{{o.style}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}"><span style="{{o.sw}}"></span><span style="{{o.lblS}}">{{o.l}}</span><span style="{{o.barWrap}}"><span style="{{o.bar}}"></span></span><span style="{{o.totS}}">{{o.t}}</span><span style="{{o.cntS}}">{{o.cnt}}</span></button>
+</sc-for>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{p.isItem}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:8px;height:20px;flex:none;min-width:0">
+<span class="ic" style="{{p.itIc}}"></span>
+<span style="font-size:12px;font-weight:600;color:#f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{p.itName}}</span>
+<sc-if value="{{p.itPreview}}" hint-placeholder-val="{{ false }}"><span style="flex:none;font-size:10px;color:#99a1af;border:1px solid #364153;border-radius:3px;padding:0 4px">preview</span></sc-if>
+<span style="flex:1;text-align:right;font-family:ui-monospace,Menlo,monospace;color:#e5e7eb;white-space:nowrap">{{p.itRate}}</span>
+<sc-for list="{{p.actIcons}}" as="a" hint-placeholder-count="2"><button class="ibtn" title="{{a.label}}" aria-label="{{a.label}}" onClick="{{a.go}}">
+<sc-if value="{{a.search}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="4"></circle><path d="M9 9l3.5 3.5"></path></svg></sc-if>
+<sc-if value="{{a.trash}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 4h9M5.5 4V2.5h3V4M4 4l.5 8h5l.5-8"></path></svg></sc-if>
+<sc-if value="{{a.plus}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><path d="M7 2.5v9M2.5 7h9"></path></svg></sc-if>
+<sc-if value="{{a.up}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 10.5l7-7M5 3.5h5.5V9"></path></svg></sc-if>
+<sc-if value="{{a.inn}}" hint-placeholder-val="{{ false }}"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2v7M4 6.5l3 3 3-3M2.5 12h9"></path></svg></sc-if>
+</button></sc-for>
+<sc-if value="{{p.itSel}}" hint-placeholder-val="{{ false }}"><button style="flex:none;all:unset;cursor:pointer;color:#99a1af;padding:0 0 0 4px;display:flex" aria-label="Back to overview" onClick="{{p.itBack}}"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" fill="none"></path></svg></button></sc-if>
+</div>
+<sc-if value="{{p.itBase}}" hint-placeholder-val="{{ true }}">
+<div style="{{p.itBar}}"><sc-for list="{{p.itSegs}}" as="g" hint-placeholder-count="2"><span style="{{g.style}}"></span></sc-for></div>
+<div style="{{p.itRow}}">
+<div style="{{p.itKey}}"><sc-for list="{{p.itEntries}}" as="e" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><span style="{{e.sw}}"></span><span style="{{e.lblS}}">{{e.l}}</span><span style="font-family:ui-monospace,Menlo,monospace;color:#e5e7eb">{{e.a}}</span><span style="{{e.lblS}}">{{e.n}}</span></span></sc-for></div>
+<sc-if value="{{p.itSel}}" hint-placeholder-val="{{ false }}"><div style="display:flex;gap:6px;flex:none"><sc-for list="{{p.itActions}}" as="a" hint-placeholder-count="2"><button class="mini" onClick="{{a.go}}">{{a.label}}</button></sc-for></div></sc-if>
+</div>
+</sc-if>
+</sc-if>
+<sc-if value="{{p.hasBar}}" hint-placeholder-val="{{ false }}">
+<div style="{{p.barWrap}}"><sc-for list="{{p.barSegs}}" as="g" hint-placeholder-count="3">
+<button class="seg" style="{{g.style}}" title="{{g.title}}" aria-label="{{g.aria}}" aria-pressed="{{g.on}}" onClick="{{g.pick}}">
+<sc-if value="{{g.showName}}" hint-placeholder-val="{{ false }}"><span style="{{g.nameS}}">{{g.name}}</span></sc-if>
+<sc-if value="{{g.showAmt}}" hint-placeholder-val="{{ false }}"><span style="{{g.amtS}}">{{g.amt}}</span></sc-if>
+<sc-if value="{{g.hasTip}}" hint-placeholder-val="{{ false }}"><span class="tip" style="{{g.tipS}}"><span>{{g.tipName}}</span><span style="font-family:ui-monospace,Menlo,monospace;font-weight:700">{{g.tipAmt}}</span><span style="{{g.tipNoteS}}">{{g.tipNote}}</span></span></sc-if>
+</button></sc-for></div>
+</sc-if>
+<sc-if value="{{p.hasLegend}}" hint-placeholder-val="{{ false }}">
+<div style="{{p.legStyle}}"><sc-for list="{{p.legEntries}}" as="e" hint-placeholder-count="2"><span style="display:inline-flex;align-items:center;gap:5px;white-space:nowrap"><span style="{{e.sw}}"></span><span style="{{e.lblS}}">{{e.l}}</span><span style="font-family:ui-monospace,Menlo,monospace;color:#e5e7eb">{{e.a}}</span><span style="{{e.lblS}}">{{e.n}}</span></span></sc-for></div>
+</sc-if>
+<sc-if value="{{p.hasActLine}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:6px;flex:none;height:22px;align-items:center"><sc-for list="{{p.itActions}}" as="a" hint-placeholder-count="2"><button class="mini" onClick="{{a.go}}">{{a.label}}</button></sc-for></div>
+</sc-if>
+</div>
+</sc-if>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{showHandle}}" hint-placeholder-val="{{ false }}">
+<button style="height:18px;flex:none;display:flex;align-items:center;justify-content:center;gap:6px;width:100%;border:0;border-bottom:1px solid #364153;background:#101828;color:#99a1af;font-size:10px;letter-spacing:0.04em;font-family:inherit;padding:0;cursor:pointer" aria-expanded="{{handleOpen}}" aria-label="{{handleAria}}" onClick="{{toggleSum}}"><svg style="{{handleIcon}}" width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M2 6.5 5 3.5l3 3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" fill="none"></path></svg>{{handleText}}</button>
+</sc-if>
+
+<div style="{{bodyStyle}}">
+<div style="grid-column:1;grid-row:1;min-width:0;min-height:0;display:flex;flex-direction:column">
+
+<div style="height:44px;flex:none;box-sizing:border-box;display:flex;align-items:center;gap:8px;padding:0 10px;border-top:1px solid #1e2939;border-bottom:1px solid #1e2939;background:#101828;overflow:hidden">
+<button style="{{tbAdd}}" onClick="{{deadAddRecipe}}">+ Recipe</button>
+<sc-if value="{{tbSearch}}" hint-placeholder-val="{{ true }}"><button style="flex:none;width:200px;height:28px;box-sizing:border-box;display:flex;align-items:center;padding:0 10px;border:1px solid #364153;border-radius:6px;background:#0b0f19;color:#6a7282;font-size:12px;white-space:nowrap;overflow:hidden;text-align:left" onClick="{{deadFilter}}">Filter recipes or items</button></sc-if>
+<span style="flex:none;display:flex;height:28px;border:1px solid #364153;border-radius:6px;overflow:hidden;font-size:11px"><span style="padding:0 8px;display:flex;align-items:center;background:#364153;color:#f3f4f6">/min</span><button style="padding:0 8px;display:flex;align-items:center;color:#99a1af;background:transparent;border:0;font-size:11px" onClick="{{deadUnit}}">/sec</button></span>
+<span style="flex:1;min-width:0"></span>
+<span style="{{tbWarn}}">{{tbWarnTxt}}</span>
+<span style="{{tbTxt}}">{{tbCountTxt}}</span>
+<sc-if value="{{tbMachinesShow}}" hint-placeholder-val="{{ true }}"><span style="{{tbTxt}}">{{tbMachines}} machines</span></sc-if>
+<span style="{{tbPowerStyle}}">{{tbPower}}</span>
+</div>
+
+<div id="tbl" class="thin" style="{{tableWrap}}">
+<div style="{{tableInner}}">
+<div style="{{hdrStyle}}">
+<sc-for list="{{hdr}}" as="h" hint-placeholder-count="8"><span style="{{h.s}}">{{h.t}}</span></sc-for>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+<div class="{{r.cls}}" style="{{r.rowStyle}}">
+<button class="rowhit" aria-label="{{r.hitLabel}}" aria-pressed="{{r.selected}}" onClick="{{r.pick}}"></button>
+<div class="cell" style="{{r.gripS}}"><span style="{{r.arrowStyle}}"><button class="arw" aria-label="Move up" onClick="{{r.up}}">▲</button><button class="arw" aria-label="Move down" onClick="{{r.down}}">▼</button></span></div>
+
+<sc-if value="{{r.isArea}}" hint-placeholder-val="{{ true }}">
+<div class="cell" style="{{r.nameS}}">
+<div style="{{r.nameInner}}">
+<button class="chev" aria-expanded="{{r.isOpen}}" aria-label="{{r.chevLabel}}" onClick="{{r.toggle}}"><span style="{{r.chevStyle}}">›</span></button>
+<button class="namebtn" style="{{r.nameTxt}}" onClick="{{r.pick}}">{{r.name}}</button>
+<sc-if value="{{r.showTag}}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-size:10px;line-height:1;padding:2px 5px;border:1px solid #0f766e;border-radius:3px;color:#5eead4">Area</span></sc-if>
+<span style="{{r.subStyle}}">{{r.sub}}</span>
+</div>
+</div>
+<div class="cell" style="{{r.prodS}}">
+<sc-for list="{{r.chipsP}}" as="c" hint-placeholder-count="5"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+<sc-if value="{{r.moreBtnP}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" onClick="{{r.openP}}" aria-label="{{r.moreLabelP}}">+{{r.moreP}}</button></sc-if>
+</div>
+<div class="cell" style="{{r.ingS}}">
+<sc-for list="{{r.chipsI}}" as="c" hint-placeholder-count="5"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+<sc-if value="{{r.moreBtnI}}" hint-placeholder-val="{{ false }}"><button style="{{r.moreBtnStyle}}" onClick="{{r.openI}}" aria-label="{{r.moreLabelI}}">+{{r.moreI}}</button></sc-if>
+</div>
+</sc-if>
+
+<sc-if value="{{r.isRecipe}}" hint-placeholder-val="{{ false }}">
+<div class="cell" style="{{r.nameS}}">
+<div style="{{r.nameInner}}">
+<sc-for list="{{r.nameChip}}" as="c" hint-placeholder-count="1"><div style="{{c.box}}"><div class="ic" style="{{c.ic}}"></div></div></sc-for>
+<button class="namebtn" style="{{r.nameTxt}}" onClick="{{r.pick}}">{{r.name}}</button>
+</div>
+<sc-if value="{{r.stack}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:6px;align-items:center;height:36px;flex:none">
+<div style="{{r.mchBox}}"><span style="position:absolute;right:1px;bottom:0;font-size:9px;font-weight:700;color:#e5e7eb;font-family:ui-monospace,monospace">{{r.mc}}</span></div>
+<button class="{{r.phCls}}" aria-label="Add module" onClick="{{r.deadModule}}"><span>+</span><span style="position:absolute;right:1px;bottom:0;font-size:8px;line-height:1">0/2</span></button>
+<button class="{{r.phCls}}" aria-label="Add beacon" onClick="{{r.deadBeacon}}"><span>+</span></button>
+</div>
+</sc-if>
+</div>
+<sc-if value="{{r.unstack}}" hint-placeholder-val="{{ true }}">
+<div class="cell" style="{{r.mchS}}">
+<div style="{{r.mchBox}}"><span style="position:absolute;right:1px;bottom:0;font-size:9px;font-weight:700;color:#e5e7eb;font-family:ui-monospace,monospace">{{r.mc}}</span></div>
+<button class="{{r.phCls}}" aria-label="Add module" onClick="{{r.deadModule}}"><span>+</span><span style="position:absolute;right:1px;bottom:0;font-size:8px;line-height:1">0/2</span></button>
+</div>
+<div class="cell" style="{{r.bcnS}}"><button class="{{r.phCls}}" aria-label="Add beacon" onClick="{{r.deadBeacon}}"><span>+</span></button></div>
+</sc-if>
+<div class="cell" style="{{r.prodS}}">
+<sc-for list="{{r.chipsP}}" as="c" hint-placeholder-count="2"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+</div>
+<div class="cell" style="{{r.bypS}}">
+<sc-for list="{{r.chipsB}}" as="c" hint-placeholder-count="2"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+</div>
+<div class="cell" style="{{r.ingS}}">
+<sc-for list="{{r.chipsI}}" as="c" hint-placeholder-count="3"><button class="chip" style="{{c.box}}" title="{{c.title}}" aria-label="{{c.title}}" onClick="{{r.pick}}"><span class="ic" style="{{c.ic}}"></span><span style="{{c.abStyle}}">{{c.abbr}}</span><span style="{{c.q}}">{{c.qt}}</span></button></sc-for>
+</div>
+</sc-if>
+
+<div class="cell" style="{{r.powS}}"><span style="{{r.powTxt}}">{{r.pw}}</span><span style="font-size:9px;color:#6a7282;margin-left:1px">{{r.pu}}</span></div>
+</div>
+</sc-for>
+</div>
+</div>
+</div>
+
+<sc-if value="{{panelOpen}}" hint-placeholder-val="{{ false }}">
+<aside style="{{panel.style}}" aria-label="Row details">
+<div style="height:56px;flex:none;box-sizing:border-box;display:flex;align-items:center;gap:10px;padding:0 12px;border-bottom:1px solid #364153">
+<div style="{{panel.iconBox}}"><div class="ic" style="{{panel.icon}}"></div></div>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:2px"><span style="font-size:13px;font-weight:600;color:#f9fafb;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{panel.title}}</span><span style="font-size:11px;color:#99a1af">{{panel.subtitle}}</span></div>
+<button style="flex:none;width:28px;height:28px;border:1px solid #4a5565;border-radius:6px;background:transparent;color:#d1d5dc;font-size:14px;line-height:1" aria-label="Close panel" onClick="{{closePanel}}">✕</button>
+</div>
+<div class="thin" style="flex:1;min-height:0;overflow-y:auto">
+<sc-for list="{{panel.sections}}" as="s" hint-placeholder-count="5">
+<div style="{{s.style}}">
+<div style="{{s.headStyle}}">{{s.head}}</div>
+<sc-if value="{{s.isRate}}" hint-placeholder-val="{{ false }}">
+<button style="all:unset;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#e5e7eb;min-height:28px" aria-pressed="{{s.pinned}}" onClick="{{s.togglePin}}">
+<sc-if value="{{s.useBox}}" hint-placeholder-val="{{ true }}"><span style="{{s.boxStyle}}">{{s.boxMark}}</span></sc-if>
+<sc-if value="{{s.useSwitch}}" hint-placeholder-val="{{ false }}"><span style="{{s.trackStyle}}"><span style="{{s.knobStyle}}"></span></span></sc-if>
+<span>Pin rate</span>
+</button>
+<sc-if value="{{s.pinned}}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:90px;height:26px;box-sizing:border-box;border:1px solid #4a5565;border-radius:5px;background:#0b0f19;display:flex;align-items:center;padding:0 8px;font-family:ui-monospace,monospace;font-size:11px;color:#e5e7eb">12.0</span><span style="font-size:11px;color:#99a1af">/min</span></div></sc-if>
+</sc-if>
+<sc-if value="{{s.isMachine}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;align-items:center;gap:10px"><div style="{{s.mchBox}}"><span style="position:absolute;right:1px;bottom:0;font-size:9px;font-weight:700;color:#e5e7eb;font-family:ui-monospace,monospace">{{s.mc}}</span></div><span style="font-size:12px;color:#e5e7eb">{{s.mText}}</span></div>
+<div style="display:flex;gap:6px;margin-top:8px;align-items:center"><sc-for list="{{s.slots}}" as="m" hint-placeholder-count="2"><button style="{{m.style}}" aria-pressed="{{m.on}}" aria-label="{{m.label}}" title="{{m.label}}" onClick="{{m.click}}">{{m.txt}}</button></sc-for><span style="font-size:11px;color:#99a1af;margin-left:4px">{{s.slotHint}}</span></div>
+</sc-if>
+<sc-if value="{{s.isBeacons}}" hint-placeholder-val="{{ false }}"><button style="{{s.beaconStyle}}" aria-pressed="{{s.beaconOn}}" onClick="{{s.beaconClick}}">{{s.beaconTxt}}</button></sc-if>
+<sc-if value="{{s.isEffects}}" hint-placeholder-val="{{ false }}">
+<div style="display:grid;grid-template-columns:1.4fr 1fr 1fr 1fr;gap:4px 8px;font-size:11px;color:#99a1af;align-items:center">
+<sc-for list="{{s.cells}}" as="c" hint-placeholder-count="16"><span style="{{c.s}}">{{c.t}}</span></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{s.isInputs}}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{s.items}}" as="x" hint-placeholder-count="4">
+<div style="height:54px;box-sizing:border-box;display:flex;flex-direction:column;justify-content:center;gap:5px">
+<div style="display:flex;align-items:center;gap:8px;font-size:12px;color:#d1d5dc"><div style="{{x.box}}"><div class="ic" style="{{x.ic}}"></div></div><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{x.name}}</span><span style="{{x.rateStyle}}">{{x.rate}}</span></div>
+<div style="display:flex;gap:4px;font-size:10px"><span style="padding:2px 7px;border-radius:9px;background:#0f766e;color:#ffffff">Own recipes</span><span style="padding:2px 7px;border-radius:9px;border:1px solid #4a5565;color:#99a1af">Byproducts</span><span style="padding:2px 7px;border-radius:9px;border:1px solid #4a5565;color:#99a1af">Connections</span></div>
+</div>
+</sc-for>
+</sc-if>
+<sc-if value="{{s.isSummary}}" hint-placeholder-val="{{ false }}">
+<div style="display:flex;gap:10px">
+<sc-for list="{{s.stats}}" as="x" hint-placeholder-count="3"><div style="flex:1;background:#1e2939;border-radius:6px;padding:8px 10px;display:flex;flex-direction:column;gap:2px"><span style="font-size:10px;color:#99a1af;text-transform:uppercase;letter-spacing:0.06em">{{x.l}}</span><span style="font-size:14px;color:#f3f4f6;font-family:ui-monospace,monospace">{{x.v}}</span></div></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{s.isList}}" hint-placeholder-val="{{ false }}">
+<sc-for list="{{s.items}}" as="x" hint-placeholder-count="6">
+<div style="height:28px;display:flex;align-items:center;gap:8px;font-size:12px;color:#d1d5dc"><div style="{{x.box}}"><div class="ic" style="{{x.ic}}"></div></div><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{x.name}}</span><span style="{{x.rateStyle}}">{{x.rate}}</span></div>
+</sc-for>
+<sc-if value="{{s.hasBtn}}" hint-placeholder-val="{{ false }}"><button class="act" style="width:100%;min-height:28px;padding:3px 8px;margin-top:6px;font-size:11px" onClick="{{s.toggleAll}}">{{s.btnText}}</button></sc-if>
+</sc-if>
+<sc-if value="{{s.isInside}}" hint-placeholder-val="{{ false }}"><div style="font-size:12px;color:#d1d5dc;line-height:1.4">{{s.text}}</div></sc-if>
+</div>
+</sc-for>
+</div>
+</aside>
+</sc-if>
+
+</div>
+
+<sc-if value="{{drawer}}" hint-placeholder-val="{{ false }}"><button style="{{drawerBackdrop}}" aria-label="Close the panel" onClick="{{closePanel}}"></button></sc-if>
+<sc-if value="{{hasPop}}" hint-placeholder-val="{{ false }}">
+<button style="{{backdropStyle}};z-index:11" aria-label="Close the list" onClick="{{closePop}}"></button>
+<div style="{{popStyle}}" role="dialog" aria-label="{{popTitle}}">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px"><span style="font-size:11px;color:#99a1af">{{popTitle}}</span><button class="mini" style="min-height:22px" onClick="{{closePop}}">Close</button></div>
+<sc-for list="{{popItems}}" as="x" hint-placeholder-count="6">
+<div style="display:flex;align-items:center;gap:8px;height:28px;font-size:12px;color:#d1d5dc"><div style="{{x.box}}"><div class="ic" style="{{x.ic}}"></div></div><span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{x.name}}</span><span style="{{x.rateStyle}}">{{x.rate}}</span></div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{hasMenu}}" hint-placeholder-val="{{ false }}">
+<button style="{{menuBackdrop}}" aria-label="Close the menu" onClick="{{closeMenu}}"></button>
+<div style="{{menuStyle}}" role="menu" aria-label="All blocks">
+<sc-for list="{{menuItems}}" as="m" hint-placeholder-count="11"><button class="menuitem" role="menuitemradio" aria-checked="{{m.on}}" onClick="{{m.pick}}"><span style="{{m.dot}}"></span><span class="ic" style="{{m.ic}}"></span><span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:{{m.weight}}">{{m.name}}</span></button></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{hasTip}}" hint-placeholder-val="{{ false }}"><div style="{{tipStyle}}" role="tooltip"><div style="color:#f3f4f6">{{tipTitle}}</div><div style="color:#99a1af;font-size:11px">{{tipDesc}}</div></div></sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div style="{{toastStyle}}" role="status">{{toastTxt}}</div></sc-if>
+
+</div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px">
+<sc-for list="{{readout}}" as="m" hint-placeholder-count="8">
+<div style="background:#101828;border:1px solid #364153;border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;min-width:0">
+<span style="font-size:11px;letter-spacing:0.06em;text-transform:uppercase;color:#99a1af">{{m.label}}</span>
+<span style="font-size:28px;font-weight:700;line-height:1.1;color:#f9fafb;font-variant-numeric:tabular-nums">{{m.cur}}<span style="font-size:13px;font-weight:500;color:#99a1af"> {{m.unit}}</span></span>
+<span style="font-size:12px;color:#99a1af">baseline {{m.base}} · <span style="{{m.deltaStyle}}">{{m.delta}}</span></span>
+<span style="font-size:11px;color:#99a1af;line-height:1.35">{{m.note}}</span>
+</div>
+</sc-for>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:24px">
+<div style="font-size:11px;line-height:1.5;color:#99a1af"><span style="color:#d1d5dc;font-weight:600">What is real.</span> Block content, rates, summary panes, overview rows and detail strips come from the app's own solver and summary code. Layout comes from a model calibrated on the baseline screenshots (302 px above the table on Metals at 1440 × 900); the readout is computed from what is drawn. Chips use the app's tooltip (name and exact rate). The +N on an area row opens the app's popup today; here it opens on click, not hover.</div>
+<div style="font-size:11px;line-height:1.5;color:#99a1af"><span style="color:#d1d5dc;font-weight:600">What is not drawn.</span> The Fold 8 sizes are the ones measured on the owner's device (cover 416 × 657, inner 816 × 616); the iPad A16 is its published 820 × 1180. Machine chips show ×count on a grey plate, not the machine icon. Pickers, modals, menus behind + Recipe, the tool buttons and the workspace button are not drawn: clicking them shows a note. Row reordering, drag and drop, and the light theme are not drawn. Totals are the solver's and can differ slightly from the app's toolbar.</div>
+</div>
+
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
+const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
+const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: {}, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
+  open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
+const TABS = ['Sciences','Hub','Agricultural Science','Circuits','Mod 1','Metals','Ores','Sludge','Bean 1','Clay Brick','Extra Sulfur'];
+const STRIPES = ['#38bdf8','#a78bfa','#4ade80','#60a5fa','#f472b6','#7dd3fc','#2dd4bf','#fb923c','#c084fc','#f87171','#facc15'];
+// Screens: [id, css width, css height, label]. The Fold 8 sizes were measured on the owner's device.
+const DEVICES = [
+  ['fc', 416, 657, 'Fold 8 cover 416 × 657'],
+  ['fi', 816, 616, 'Fold 8 inner 816 × 616'],
+  ['ip', 820, 1180, 'iPad A16 820 × 1180'],
+  ['il', 1180, 820, 'iPad A16 landscape 1180 × 820'],
+  ['1440', 1440, 900, 'Laptop 1440 × 900'],
+  ['1920', 1920, 1080, 'Desktop 1920 × 1080']
+];
+// No hover on these: the placeholders that hide until hover stay visible.
+const TOUCH = ['fc', 'fi', 'ip', 'il'];
+// An area row's chip cells borrow this much from the empty gap so the +N stays on the chips' line.
+const AREA_PAD = 28;
+const PANES = [['p', 'Products', '#2dd4bf'], ['b', 'Byproducts', '#6a7282'], ['i', 'Ingredients', '#a78bfa']];
+const GROUPS = [
+  { title: '1 · Summary strip', items: [
+    ['sumShort', 'Shorter detail strip (110 to 72 px)', 'Still a fixed height, so the table never moves. Here the colour key and the actions share one line; the overview shows about one row instead of three.', 'Try: click an item in a pane (it is selected, then ✕ clears it), and scroll the overview rows.'],
+    ['legTip', 'Legend as a tooltip on the bar', 'The key line goes; hovering (or tapping) a segment of the bar names it with its amount and note, in the same black tooltip as the tool buttons. The actions keep their line.', 'Try: select an item with two or three sources (the first Metals product), hover the segments.'],
+    ['legInBar', 'Legend written in the bar', 'The bar grows to 16 px and carries the text itself: name and amount when the segment is wide enough, the amount alone when it is narrower, nothing when tiny (the native tooltip names it). The actions keep their line.', 'Try: select the first Metals product, then the first Ingredients item.'],
+    ['legMenu', 'Two-line bar, actions as icons', 'The bar grows to 36 px with the name over the amount; the actions become two icon buttons in the item header, which frees the line. Wins over the previous option for the text.', 'Try: select an item and hover the icon buttons (they say what they do).'],
+    ['ovBar', 'Overview as one bar', 'Overview rows become a single stacked bar, like a selected item, sized by share of the pane\'s total. Hover or click a segment to trace it. It uses whichever legend option is on above; with none, the key line under the bar.', 'Try: Metals, look at the Ingredients pane, click a segment; then turn on a legend option.'],
+    ['sumLine', 'Collapsible summary', 'A one-line summary (counts and as many chips as fit, then a +N like the area rows) that replaces the strip until you expand it. Expanding pushes the table down and the choice stays across blocks, so you can leave it open while you work through connections.', 'Try: click a +N to list every item with its rate, then Expand, switch blocks and click Collapse summary.'],
+    ['sumStack', 'Stack the collapsed summary on phones', 'Needs the collapsible summary above. Under 768 px its three lines sit on top of each other instead of scrolling sideways, and the handle row expands them. Expanded, the panes scroll sideways as before; the Fold inner screen keeps its three columns.', 'Try: Fold 8 cover with the collapsible summary on, then this one; Expand.'] ] },
+  { title: '2 · Column spread', items: [
+    ['colRecipe', 'Extra width goes to Recipe', 'Byproducts and Ingredients get fixed widths (140 and 340 px) on wide screens.', 'Try: Desktop 1920, watch Products to ingredients in the readout.'],
+    ['colTrail', 'Chip columns stay together, spare width at the right', 'Columns keep their natural widths and Power follows Ingredients; the empty space ends the row.', 'Try: Desktop 1920. Turn on with the previous one to see which wins (this one).'],
+    ['colCap', 'Cap the table at 1160 px', 'Rows stop at 1160 px with the side panel closed (a docked panel keeps the full width).', 'Try: Desktop 1920, then open the side panel.'] ] },
+  { title: '3 · Chips', items: [
+    ['chipFmt', 'Compact rates', '12k, 1.1k, <.01: every rate fits its chip. Hover a chip: its tooltip still has the exact rate, as in the app.', 'Try: Ores, Chunks row (12360 and 14100); Metals, Cobalt steel (0.0000016).'],
+    ['chipPill', 'Dark pill behind numbers', 'Readable on red and green icons.', 'Try: Ores (byproduct rows with red numbers).'],
+    ['chipPlate', 'Lighter chip plate', 'Dark icons (carbon, coal) stop reading as holes.', 'Try: Ores, the Crystals row and any row with coal or carbon.'],
+    ['chipBig', '32 px chips', 'Rows grow by 4 px and each line holds fewer chips.', 'Try: watch Average row height and Rows visible.'] ] },
+  { title: '4 · Contrast', items: [
+    ['contrast', 'Lighter secondary text and controls', 'Hints, counts, reorder arrows, header and panel labels, the + and All blocks buttons.', 'Try: the ▲▼ at the left of each row and the table header; the readout shows the lowest ratio.'] ] },
+  { title: '5 · Group rows', items: [
+    ['grpTag', 'Quieter labels', 'No Area tag when every sibling is an area; machines only when equal to recipes.', 'Try: Hub and Metals (all areas) against Ores (mixed). Expand a group: its children are recipes, so no tag.'],
+    ['grpBand', 'Band and heavier name', 'Group rows read apart from recipe rows.', 'Try: click the › of an area to open it and read the tree.'],
+    ['grpFixed', 'One fixed row height', 'Area chips stay on one line. The +N popup is the one the app has today.', 'Try: Hub, click the +N on a row; then compare the row heights with the baseline.'] ] },
+  { title: '6 · Placeholders', items: [
+    ['hideEmpty', 'Dashed chips on hover, selection or focus', 'Touch screens (Fold, iPad) have no hover, so the chips stay visible there.', 'Try: Extra Sulfur, move the pointer over rows, or Tab into a row. Switch to the Fold 8 cover to see the fallback.'] ] },
+  { title: '7 · Side panel', items: [
+    ['panDash', 'Hide the empty Effects table', 'Until a module or beacon is set. Where inputs come from moves up.', 'Try: open the side panel on Extra Sulfur, then click a + slot in Machine: Effects appears.'],
+    ['panSwitch', 'Styled Pin rate switch', 'Replaces the white native checkbox.', 'Try: open the side panel on a recipe row and click Pin rate.'],
+    ['panLists', 'Cap long lists at 6', 'Receives and Sends on an area.', 'Try: open the side panel on Hub, Top Row: Show all 26.'],
+    ['panNarrow', 'Narrower drawer', 'Below 1280 px: 300 px at most, so part of the table stays visible.', 'Try: iPad A16 portrait, open the side panel.'],
+    ['panSheet', 'Bottom sheet below 1280 px', 'Docked under the table, at most 45% of the height; the table shrinks and keeps the selected row in view.', 'Try: iPad A16 portrait, open the side panel, click another row.'] ] },
+  { title: '8 · Selection', items: [
+    ['selStrong', 'Stronger selected row', 'Full-row tint, teal outline and a brighter name.', 'Try: click any row (anywhere on it).'] ] },
+  { title: '9 · Top bar', items: [
+    ['tabsFit', 'All tabs fit', 'Inactive tabs show their icon; the name is in a tooltip like the one the tool buttons have (the app uses the browser title on tabs today).', 'Try: hover a compact tab, click it, click All blocks ▾ (it appears only while tabs overflow).'],
+    ['topLabels', 'Labels on tool buttons, lighter workspace button', 'Labels from 1280 px up. They cost tab space: watch Tabs cut off.', 'Try: Laptop 1440, with and without All tabs fit.'] ] },
+  { title: '10 · Narrow screens (under 768 px)', items: [
+    ['narrowStack', 'Drop Machine and Beacons columns', 'Machine and beacon chips sit under the recipe name; group rows lose 176 px of empty space.', 'Try: Fold 8 cover; scroll the table sideways to find Products.'],
+    ['narrowToolbar', 'Toolbar that does not wrap', 'Compact counts and warning pill on one line.', 'Try: Fold 8 cover, look at the strip under the summary.'] ] }
+];
+const ALL_IDS = GROUPS.reduce((a, g) => a.concat(g.items.map(i => i[0])), []);
+
+// The app's fmtRate for items per minute (ItemTile.tsx).
+function fmtBase(v) {
+  if (v >= 100) return v.toFixed(0);
+  if (v >= 10) return v.toFixed(1);
+  if (v >= 1e-6 && v < 0.005) return v.toPrecision(2);
+  return v.toFixed(2);
+}
+function fmtCompact(v) {
+  if (v >= 10000) return Math.round(v / 1000) + 'k';
+  if (v >= 1000) return (v / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+  if (v >= 100) return v.toFixed(0);
+  if (v >= 10) return v.toFixed(1);
+  if (v >= 1) return v.toFixed(1);
+  if (v >= 0.01) return v.toFixed(2).replace(/^0/, '');
+  return '<.01';
+}
+function fmtPower(kw) { return kw >= 1000 ? [(kw / 1000).toFixed(1), 'MW'] : [kw.toFixed(1), 'kW']; }
+function lin(c) { c /= 255; return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+function lum(h) { const n = parseInt(h.slice(1), 16); return 0.2126 * lin(n >> 16) + 0.7152 * lin((n >> 8) & 255) + 0.0722 * lin(n & 255); }
+function ratio(a, b) { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); }
+function colors(tg) {
+  return tg.contrast
+    ? { dim: '#99a1af', arrow: '#99a1af', hint: '#99a1af', hdr: '#99a1af' }
+    : { dim: '#6a7282', arrow: '#4a5565', hint: '#6a7282', hdr: '#6a7282' };
+}
+// The visible rows of a block, in order: groups the owner has opened show their children.
+function flatten(rows, open, blk, depth, path, out) {
+  const allArea = rows.every(r => r.k === 'area');
+  rows.forEach((r, i) => {
+    const key = path ? path + '.' + i : String(i);
+    const isArea = r.k !== 'recipe';
+    const kids = !!(r.ch && r.ch.length);
+    const isOpen = isArea && kids && !!open[blk + ':' + key];
+    out.push({ r: r, key: key, depth: depth, isArea: isArea, isOpen: isOpen, kids: kids, allArea: allArea, first: i === 0, last: i === rows.length - 1 });
+    if (isOpen) flatten(r.ch, open, blk, depth + 1, key, out);
+  });
+  return out;
+}
+function findRow(rows, key) {
+  let cur = { ch: rows };
+  const parts = String(key).split('.');
+  for (let i = 0; i < parts.length; i++) { cur = cur.ch && cur.ch[+parts[i]]; if (!cur) return null; }
+  return cur;
+}
+// A group's indent: 12 px per level and a 1 px guide per level, like treeGuides.ts.
+function guides(depth) {
+  const n = Math.min(depth, 4);
+  let css = 'padding-left:' + (8 + n * 12) + 'px;';
+  if (n > 0) {
+    const each = f => Array.from({ length: n }, (_, i) => f(i)).join(',');
+    css += 'background-image:' + each(() => 'linear-gradient(#2b3445,#2b3445)') + ';background-size:' + each(() => '1px 100%') + ';background-position:' + each(i => (8 + i * 12) + 'px 0') + ';background-repeat:no-repeat;';
+  }
+  return css;
+}
+
+class Component extends DCLogic {
+  componentDidMount() {
+    fetch(DATA_URL).then(r => r.json()).then(d => this.setState({ data: d })).catch(() => this.setState({ err: true }));
+    this._esc = e => {
+      if (e.key !== 'Escape') return;
+      const st = Object.assign({}, INIT, this.state || {});
+      if (st.pop) this.setState({ pop: null });
+      else if (st.menu) this.setState({ menu: false });
+      else if (st.panel) this.setState({ panel: false });
+    };
+    document.addEventListener('keydown', this._esc);
+  }
+
+  componentWillUnmount() {
+    document.removeEventListener('keydown', this._esc);
+    clearTimeout(this._tt);
+  }
+
+  // Keeps the scrolled parts where the model says: the tab strip on the active tab, the table at the top of a new
+  // block and on the selected row.
+  componentDidUpdate() {
+    const st = Object.assign({}, INIT, this.state || {});
+    if (!st.data) return;
+    const strip = document.getElementById('tabstrip');
+    const tbl = document.getElementById('tbl');
+    const tk = [st.block, st.vp, !!st.flip, JSON.stringify(st.tg)].join('|');
+    if (strip && this._tk !== tk && this._off !== undefined) { strip.scrollLeft = this._off; }
+    this._tk = tk;
+    const bk = st.block + '|' + st.vp;
+    if (tbl && this._bk !== bk) { tbl.scrollTop = 0; tbl.scrollLeft = 0; }
+    this._bk = bk;
+    const sk = [st.sel, st.panel, this._mode].join('|');
+    if (tbl && this._sk !== sk) {
+      const row = tbl.querySelector('.row.sel');
+      if (row) {
+        const head = 26, rb = row.getBoundingClientRect(), tb = tbl.getBoundingClientRect();
+        const scale = tb.height / tbl.clientHeight || 1;
+        if (rb.top < tb.top + head * scale) tbl.scrollTop -= (tb.top + head * scale - rb.top) / scale;
+        else if (rb.bottom > tb.bottom) tbl.scrollTop += (rb.bottom - tb.bottom) / scale;
+      }
+    }
+    this._sk = sk;
+  }
+
+  toast(txt) {
+    this.setState({ toast: txt });
+    clearTimeout(this._tt);
+    this._tt = setTimeout(() => this.setState({ toast: null }), 3200);
+  }
+
+  chip(D, tg, it, rate, tone, size, name) {
+    const cs = size || (tg.chipBig ? 32 : 28);
+    const meta = D.items[it] || ['?', -1];
+    const si = meta[1];
+    const rows = Math.ceil(D.items.length / D.cols);
+    const fmt = tg.chipFmt ? fmtCompact : fmtBase;
+    const color = tone === 'p' ? '#e5e7eb' : tone === 'b' ? '#ffa2a2' : '#7bf1a8';
+    let box = 'position:relative;flex:none;width:' + cs + 'px;height:' + cs + 'px;margin-right:6px;';
+    if (tg.chipPlate) box += 'background:rgba(255,255,255,0.12);border-radius:5px;box-shadow:inset 0 0 0 1px rgba(255,255,255,0.10);';
+    let ic = 'width:' + cs + 'px;height:' + cs + 'px;';
+    if (si >= 0) {
+      const x = (si % D.cols) * cs, y = Math.floor(si / D.cols) * cs;
+      ic += 'background-size:' + (D.cols * cs) + 'px ' + (rows * cs) + 'px;background-position:-' + x + 'px -' + y + 'px;';
+    }
+    let q = 'display:none;', qt = '';
+    if (tone) {
+      qt = fmt(rate);
+      const pill = tg.chipPill
+        ? 'background:rgba(8,12,22,0.9);border-radius:3px;padding:0 2px;font-size:10px;right:-1px;bottom:-1px;'
+        : 'font-size:9px;padding:0 1px;right:0;bottom:0;text-shadow:-1px 0 #000,1px 0 #000,0 -1px #000,0 1px #000;';
+      q = 'position:absolute;line-height:1.1;font-family:ui-monospace,Menlo,monospace;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;color:' + color + ';' + pill;
+    }
+    return {
+      box: box, ic: ic, q: q, qt: qt,
+      // The app's chip title: the name and the full rate.
+      title: tone ? meta[0] + ' — ' + fmtBase(rate) + '/m' : meta[0],
+      abbr: si < 0 ? meta[0].slice(0, 2).toUpperCase() : '',
+      abStyle: si < 0 ? 'position:absolute;left:0;top:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:9px;background:#364153;border-radius:4px;color:#d1d5dc' : 'display:none'
+    };
+  }
+
+  listItem(D, x, tone) {
+    const c = this.chip(D, {}, x[0], x[1], null, 24);
+    return { box: 'position:relative;flex:none;width:24px;height:24px', ic: c.ic, name: c.title, rate: fmtBase(x[1]) + '/m', rateStyle: 'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + (tone === 'p' ? '#e5e7eb' : tone === 'b' ? '#ffa2a2' : '#7bf1a8') };
+  }
+
+  // The side panel of the selected row: sections with fixed heights, so the model height is what is drawn.
+  panelModel(D, tg, raw, st) {
+    const cc = colors(tg);
+    const sec = o => Object.assign({ isRate: false, isMachine: false, isBeacons: false, isEffects: false, isInputs: false, isSummary: false, isList: false, isInside: false, hasBtn: false, items: [], cells: [], stats: [], slots: [] }, o);
+    const secs = [];
+    const mk = (h, o) => {
+      const s = sec(o);
+      s.h = h;
+      s.style = 'box-sizing:border-box;height:' + h + 'px;padding:10px 12px 0;border-bottom:1px solid rgba(54,65,83,0.6);overflow:hidden';
+      s.headStyle = 'font-size:10px;letter-spacing:0.06em;text-transform:uppercase;color:' + cc.hdr + ';margin-bottom:6px;height:14px';
+      secs.push(s);
+    };
+    let h = 56;
+    if (raw.k === 'recipe') {
+      const nMod = st.slots.filter(Boolean).length;
+      const anyFx = nMod > 0 || st.beac;
+      const pinH = st.pinned ? 98 : 66;
+      mk(pinH, { head: 'Rate', isRate: true, pinned: st.pinned, useBox: !tg.panSwitch, useSwitch: !!tg.panSwitch,
+        boxStyle: 'width:16px;height:16px;box-sizing:border-box;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;' + (st.pinned ? 'background:#ffffff;color:#101828;' : 'background:#ffffff;'), boxMark: st.pinned ? '✓' : '',
+        trackStyle: 'position:relative;width:34px;height:20px;border-radius:10px;flex:none;background:' + (st.pinned ? '#14b8a6' : '#364153'),
+        knobStyle: 'position:absolute;top:2px;width:16px;height:16px;border-radius:8px;background:#ffffff;left:' + (st.pinned ? '16px' : '2px'),
+        togglePin: () => this.setState({ pinned: !st.pinned }) });
+      mk(116, { head: 'Machine', isMachine: true, mc: '×' + raw.m, mText: raw.m + ' needed',
+        mchBox: 'position:relative;flex:none;width:32px;height:32px;border-radius:5px;background:#364153;box-shadow:inset 0 0 0 1px #4a5565',
+        slotHint: nMod ? nMod + ' of 2 slots used' : 'Click a slot to add a module',
+        slots: [0, 1].map(i => ({
+          on: st.slots[i], label: st.slots[i] ? 'Remove the speed module' : 'Add a speed module',
+          txt: st.slots[i] ? 'S3' : '+',
+          style: 'all:unset;cursor:pointer;box-sizing:border-box;width:32px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:' + (st.slots[i] ? 11 : 13) + 'px;font-weight:' + (st.slots[i] ? 700 : 400) + ';' + (st.slots[i] ? 'background:#0f766e;color:#ffffff;border:1px solid #2dd4bf' : 'border:1px dashed #4a5565;color:' + cc.dim),
+          click: () => { const s2 = st.slots.slice(); s2[i] = !s2[i]; this.setState({ slots: s2 }); }
+        })) });
+      mk(76, { head: 'Beacons', isBeacons: true, beaconOn: st.beac,
+        beaconTxt: st.beac ? '1 beacon · 2 × speed module 3 (click to remove)' : '+ Add beacon configuration',
+        beaconStyle: 'all:unset;cursor:pointer;box-sizing:border-box;width:100%;height:34px;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:12px;' + (st.beac ? 'border:1px solid #2dd4bf;background:#0f2a2c;color:#e5e7eb' : 'border:1px dashed #4a5565;color:#99a1af'),
+        beaconClick: () => this.setState({ beac: !st.beac }) });
+      if (!tg.panDash || anyFx) {
+        const cells = [];
+        ['', 'Machine', 'Beacons', 'Total'].forEach(t => cells.push({ t: t, s: 'color:' + cc.hdr + ';font-size:10px;text-align:' + (t ? 'right' : 'left') }));
+        // Speed module 3: +50% speed, +70% energy. One beacon with two of them: effectivity 1.5, so three times one module.
+        const fx = (label, m, b) => {
+          const pct = v => v ? '+' + v + '%' : '–';
+          cells.push({ t: label, s: 'color:#d1d5dc' });
+          [m, b, m + b].forEach(v => cells.push({ t: pct(v), s: 'text-align:right;color:' + (v ? '#e5e7eb' : cc.dim) }));
+        };
+        fx('Speed', 50 * nMod, st.beac ? 150 : 0);
+        fx('Productivity', 0, 0);
+        fx('Energy', 70 * nMod, st.beac ? 210 : 0);
+        mk(132, { head: 'Effects on this row', isEffects: true, cells: cells });
+      }
+      const n = Math.min(raw.ig.length, 12);
+      mk(34 + n * 54, { head: 'Where inputs come from', isInputs: true, items: raw.ig.slice(0, n).map(x => this.listItem(D, x, 'i')) });
+    } else {
+      const pw = fmtPower(raw.p);
+      mk(84, { head: 'Summary', isSummary: true, stats: [{ l: 'Recipes', v: raw.rc }, { l: 'Machines', v: raw.m }, { l: 'Power', v: pw[0] + pw[1] }] });
+      const lists = [['Receives', raw.ig, 'i'], ['Sends', raw.pr, 'p']];
+      lists.forEach(L => {
+        const capped = !!tg.panLists && !st.panAll && L[1].length > 6;
+        const shown = capped ? 6 : L[1].length;
+        const btn = !!tg.panLists && L[1].length > 6;
+        mk(34 + shown * 28 + (btn ? 36 : 0), {
+          head: L[0] + ' · ' + L[1].length, isList: true, hasBtn: btn,
+          btnText: st.panAll ? 'Show fewer' : 'Show all ' + L[1].length,
+          toggleAll: () => this.setState({ panAll: !st.panAll }),
+          items: L[1].slice(0, shown).map(x => this.listItem(D, x, L[2]))
+        });
+      });
+      mk(76, { head: 'Inside this group', isInside: true, text: raw.rc + ' recipes in ' + raw.m + ' machines. A sub-factory only organises rows; Separate area tracks what it sends and receives.' });
+    }
+    secs.forEach(s => { h += s.h; });
+    return { sections: secs, height: h };
+  }
+
+  lay(D, tg, vw, vh, blk, st) {
+    const B = D.blocks[blk];
+    const cs = tg.chipBig ? 32 : 28, slot = cs + 6;
+    const cc = colors(tg);
+    const md = vw >= 768, xl = vw >= 1280, narrow = !md;
+    const narrowSt = narrow && !!tg.narrowStack;
+    const touch = TOUCH.indexOf(st.vp) >= 0;
+
+    // ---- side panel mode and sizes
+    const raw = findRow(B.rows, st.sel) || B.rows[0];
+    const pm = st.panel && raw ? this.panelModel(D, tg, raw, st) : null;
+    let mode = 'none';
+    if (pm) mode = xl ? 'docked' : (tg.panSheet ? 'sheet' : 'drawer');
+    let drawerW = vw < 640 ? vw : 380;
+    if (tg.panNarrow) drawerW = Math.min(300, Math.max(200, vw - 140));
+    const dockW = mode === 'docked' ? 380 : 0;
+    const sheetH = mode === 'sheet' ? Math.min(pm.height, Math.round(vh * 0.45)) : 0;
+
+    // ---- top bar: every width below is a drawn width, so the "cut" count is what is on screen
+    const tabW = n => Math.min(176, Math.max(96, 58 + n.length * 6.4));
+    const labelsOn = !!tg.topLabels && xl;
+    const toolLbl = ['Horizon', 'Graph', 'Areas', 'Tech tree'];
+    const toolW = toolLbl.map(l => labelsOn ? 8 + 17 + 4 + Math.ceil(l.length * 6.4) + 8 : 32);
+    const toolsW = toolW.reduce((a, w) => a + w, 0) + 6;
+    const wsW = !md ? 62 : tg.topLabels ? 132 : 136;
+    const allBlkW = tg.contrast ? 34 : 22;
+    const rightW = 8 + allBlkW + 2 + 28 + 16 + toolsW + 13 + wsW + 8;
+    const stripW = vw - 16 - 16 - rightW + allBlkW + 2;
+    const widths = TABS.map(n => (tg.tabsFit && n !== blk) ? 44 : tabW(n));
+    const totalT = widths.reduce((a, w) => a + w + 4, 0) - 4;
+    let off = 0, cut = 0;
+    const overflowing = totalT > stripW - allBlkW - 2;
+    const availT = overflowing ? stripW - allBlkW - 2 : totalT;
+    if (overflowing) {
+      const ai = Math.max(0, TABS.indexOf(blk));
+      const acx = widths.slice(0, ai).reduce((a, w) => a + w + 4, 0) + widths[ai] / 2;
+      off = Math.max(0, Math.min(totalT - availT, acx - availT / 2));
+      let x = 0;
+      widths.forEach(w => { if (x < off - 1 || x + w > off + availT + 1) cut++; x += w + 4; });
+    }
+
+    // ---- summary strip
+    const stacked = !!tg.sumStack && !!tg.sumLine && !md && !st.sumOpen; // only the collapsed summary stacks
+    const paneW = md ? (vw - 24 - 16) / 3 : Math.min(vw * 0.85, 330);
+    const perRow = Math.max(1, Math.floor((paneW - 16 + 4) / 54));
+    const detailH = tg.sumShort ? 72 : 110;
+    let paneMax = 0;
+    const paneModels = PANES.map((P, k) => {
+      const n = B.panes[P[0]].slots.length, rowsN = Math.ceil(n / perRow);
+      const gridH = n === 0 ? 67 : Math.min(97, Math.max(67, rowsN * 56 + 10)), h = 32 + gridH + detailH + 1;
+      paneMax = Math.max(paneMax, h);
+      return { P: P, n: n, gridH: gridH, h: h, k: k };
+    });
+    // One-line pane width: the Expand button takes 68 px, except stacked (its handle row carries it).
+    const lineW = stacked ? vw - 24 : (vw - 24 - 24 - 68) / 3;
+    const sLineH = stacked ? 34 : 40;
+    const lineOn = !!tg.sumLine && !st.sumOpen;
+    const handleH = tg.sumLine && (st.sumOpen || stacked) ? 18 : 0;
+    const sumH = lineOn ? sLineH : paneMax;
+    const stripOuter = stacked ? 3 * sLineH + 8 : sumH + 18;
+    const above = 44 + stripOuter + handleH;
+
+    const panes = paneModels.map(pmod => {
+      const P = pmod.P, k = pmod.k, n = pmod.n;
+      const slotsData = B.panes[P[0]].slots, ovData = B.panes[P[0]].ov;
+      const sel = st.det[k], hv = st.hov && st.hov.k === k ? st.hov.i : -1;
+      const tr = st.trace[k];
+      let shown = -1, preview = false;
+      if (hv >= 0 && hv !== sel) { shown = hv; preview = true; } else if (sel >= 0) shown = sel;
+      const slots = slotsData.map((sd, idx) => {
+        const c = this.chip(D, {}, sd.i, sd.r, null, 32);
+        const faded = tr && !sd.en.some(e => e.k === tr);
+        const segs = sd.en.filter(e => e.w > 0).map(e => ({ style: 'display:block;height:3px;border-radius:2px;margin-right:1px;background:' + e.bd + ';width:' + Math.max(2, Math.round(e.w * 100)) + '%' }));
+        const border = sel === idx ? '#2dd4bf' : sd.st === 'short' ? '#fbbf24' : sd.em ? '#4a5565' : '#364153';
+        return {
+          style: 'position:relative;flex:none;width:50px;height:52px;box-sizing:border-box;background:#1e2939;border-radius:6px;box-shadow:inset 0 0 0 ' + (sel === idx ? 2 : 1) + 'px ' + border + ';' + (sd.em ? 'background:transparent;' : '') + 'display:flex;flex-direction:column;align-items:center;padding-top:4px;opacity:' + (faded ? 0.3 : sd.dm ? 0.55 : 1),
+          ic: c.ic + 'flex:none;', title: c.title, num: sd.em ? '—' : fmtBase(sd.r), pressed: sel === idx,
+          numStyle: 'font-family:ui-monospace,Menlo,monospace;font-size:10px;font-weight:700;color:#e5e7eb;margin-top:1px',
+          barWrap: 'position:absolute;left:5px;right:5px;bottom:4px;height:3px;display:flex;overflow:hidden',
+          segs: segs,
+          pick: () => { const d2 = st.det.slice(); d2[k] = sel === idx ? -1 : idx; this.setState({ det: d2, hov: null }); },
+          enter: () => this.setState({ hov: { k: k, i: idx } }),
+          leave: () => this.setState({ hov: null })
+        };
+      });
+      // One-line mode (panes share the row with the Expand button): as many 24 px chips (30 px slots) as fit after the title and count, then a +N like the area rows'.
+      const lineRoom = lineW - 16 - (P[1].length * 7.2 + 6) - (String(n).length * 8 + 4) - 16;
+      const lineFit = md || stacked ? Math.max(0, Math.floor(lineRoom / 30)) : 4;
+      const lineShown = n <= lineFit ? n : md || stacked ? Math.max(0, Math.floor((lineRoom - 34) / 30)) : lineFit;
+      const lineChips = slotsData.slice(0, lineShown).map(sd => this.chip(D, tg, sd.i, sd.r, null, 24));
+
+      // overview rows (the app's) and the detail of the previewed or selected item
+      const ovBase = 'grid-template-columns:10px 96px minmax(0,1fr) 56px 22px;';
+      const ov = ovData.map(o => {
+        const on = tr === o.k;
+        return {
+          on: on,
+          style: 'display:grid;' + ovBase + 'column-gap:8px;align-items:center;width:100%;height:20px;padding:0 4px;border-radius:3px;border:1px solid ' + (on ? '#9ca3af' : 'transparent') + ';text-align:left;font-size:11px;color:' + (o.lim ? '#fbbf24' : '#d1d5dc') + ';opacity:' + (tr && !on ? 0.6 : 1) + (on ? ';background:#101828' : ''),
+          sw: 'width:8px;height:8px;border-radius:2px;box-sizing:border-box;background:' + o.bg + ';border:1px ' + o.bs + ' ' + o.bd,
+          lblS: 'white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0',
+          l: o.l, t: o.t, cnt: String(o.c),
+          barWrap: 'display:flex;height:8px',
+          bar: 'display:block;height:8px;border-radius:2px;box-sizing:border-box;background:' + o.bg + ';border:1px ' + o.bs + ' ' + o.bd + ';width:' + (o.w > 0 ? Math.max(2, Math.round(o.w * 100)) : 0) + '%',
+          totS: 'text-align:right;font-family:ui-monospace,Menlo,monospace;color:#e5e7eb',
+          cntS: 'text-align:right;color:' + cc.dim + ';font-variant-numeric:tabular-nums',
+          pick: () => { const t2 = st.trace.slice(); t2[k] = on ? null : o.k; this.setState({ trace: t2 }); }
+        };
+      });
+      const item = shown >= 0 ? slotsData[shown] : null;
+      const lineGap = tg.sumShort;
+      // The bar design shared by a selected item and (with ovBar) the overview.
+      const legOn = !!(tg.legTip || tg.legInBar || tg.legMenu);
+      const ovBarOn = !item && !!tg.ovBar && ovData.length > 0;
+      const itNew = !!item && legOn;
+      const useBar = ovBarOn || itNew;
+      const twoLine = !!tg.legMenu;
+      const barH = !useBar ? 0 : twoLine ? 36 : tg.legInBar ? 16 : tg.legTip ? 14 : 12;
+      let barSegs = [], legEntries = [];
+      if (useBar) {
+        const innerW = paneW - 20;
+        let src;
+        if (item) src = item.en.filter(e => e.w > 0).map(e => ({ k: null, name: e.l, amt: e.a || '', note: e.n || '', w: e.w, bg: e.bg, bd: e.bd, bs: e.bs, lg: e.lg }));
+        else {
+          const tot = ovData.reduce((a, o) => a + o.w, 0) || 1;
+          src = ovData.map(o => ({ k: o.k, name: o.l, amt: o.t, note: o.c + (o.c === 1 ? ' item' : ' items'), cnt: o.c, w: o.w / tot, bg: o.bg, bd: o.bd, bs: o.bs, lg: o.lg, lim: o.lim }));
+        }
+        const avail = innerW - (src.length - 1);
+        // Tiny segments keep 3 px; the others share what is left, so the bar never spills out of the pane.
+        const tiny = src.filter(g => g.w * avail < 3), bigW = src.reduce((a, g) => a + (g.w * avail < 3 ? 0 : g.w), 0) || 1;
+        const scale = (avail - tiny.length * 3) / bigW;
+        let x = 0;
+        barSegs = src.map(g => {
+          const px = g.w * avail < 3 ? 3 : Math.round(g.w * scale * 10) / 10, cx = x + px / 2;
+          x += px + 1;
+          const on = !item && tr === g.k, faded = !item && !!tr && !on;
+          // The overview's item count rides along with the amount when it fits ("381 · 14").
+          const withCnt = g.cnt != null ? g.amt + ' · ' + g.cnt + (twoLine ? (g.cnt === 1 ? ' item' : ' items') : '') : g.amt;
+          const wantCnt = withCnt !== g.amt && px >= withCnt.length * 6.2 + 14;
+          const amtTxt = wantCnt ? withCnt : g.amt, amtW = amtTxt.length * 6.2 + 10;
+          const showAmt = (tg.legInBar || twoLine) && !!g.amt && px >= amtW + 4;
+          const showName = (tg.legInBar || twoLine) && showAmt && px >= amtW + (twoLine ? 40 : 46);
+          const full = g.name + (g.amt ? ' · ' + g.amt : '') + (g.note ? ' · ' + g.note : '');
+          const anchor = cx < 120 ? 'left:0;' : cx > innerW - 120 ? 'right:0;' : 'left:50%;transform:translateX(-50%);';
+          return {
+            style: 'width:' + px + 'px;height:100%;background:' + g.bg + ';border:1px ' + g.bs + ' ' + (on ? '#f3f4f6' : g.bd) + ';border-radius:3px;padding:0 ' + (px < 24 ? 0 : twoLine ? 5 : 4) + 'px;gap:6px;color:#f3f4f6;font-size:' + (twoLine ? 10 : 10) + 'px;line-height:1.15;' + (twoLine ? 'flex-direction:column;align-items:flex-start;justify-content:center;gap:1px;' : '') + 'opacity:' + (faded ? 0.5 : 1) + ';cursor:' + (item ? 'default' : 'pointer'),
+            title: tg.legTip ? '' : full, aria: full, on: on,
+            pick: item ? () => {} : () => { const t2 = st.trace.slice(); t2[k] = on ? null : g.k; this.setState({ trace: t2 }); },
+            showName: showName, name: g.name.replace(/ requests$/, ''), nameS: 'min-width:0;max-width:100%;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;' + (twoLine ? 'color:#d1d5dc;' : 'flex:1;'),
+            showAmt: showAmt, amt: amtTxt, amtS: 'flex:none;font-family:ui-monospace,Menlo,monospace;font-weight:700;color:#f3f4f6;' + (twoLine ? 'font-size:11px;' : ''),
+            hasTip: !!tg.legTip, tipName: g.name, tipAmt: g.amt, tipNote: g.note,
+            tipS: 'position:absolute;z-index:20;bottom:calc(100% + 6px);' + anchor + 'gap:8px;align-items:center;white-space:nowrap;background:#000;border:1px solid #364153;border-radius:4px;padding:4px 8px;font-size:11px;color:#f3f4f6;pointer-events:none;box-shadow:0 6px 16px rgba(0,0,0,0.6)',
+            tipNoteS: 'color:#99a1af'
+          };
+        });
+        legEntries = src.map(g => ({ sw: 'flex:none;width:8px;height:8px;border-radius:2px;box-sizing:border-box;background:' + g.bg + ';border:1px ' + g.bs + ' ' + g.bd, l: g.name, a: g.amt, n: g.note, lblS: 'color:' + (g.lg || '#d1d5dc') }));
+      }
+      const hasLegend = ovBarOn && !legOn;
+      const hasActLine = itNew && !twoLine;
+      const ovfS = tg.legTip ? 'visible' : 'hidden';
+      const ICONS = { 'Find recipe': 'search', 'Remove product': 'trash', 'Add consumer recipe…': 'plus', 'Make it a product': 'up', 'Receive from…': 'in' };
+      const actionsFor = ['Find recipe,Remove product', 'Add consumer recipe…,Make it a product', 'Find recipe,Receive from…'][k].split(',');
+      const own = paneMax;
+      const itemSegs = item ? item.en.filter(e => e.w > 0).map(e => ({ style: 'display:block;height:100%;box-sizing:border-box;background:' + e.bg + ';border:1px ' + e.bs + ' ' + e.bd + ';width:' + Math.max(2, Math.round(e.w * 100)) + '%' })) : [];
+      return {
+        title: P[1], count: n, hasAdd: P[0] === 'p', dim: cc.dim,
+        addProduct: () => this.toast('Add product: opens the item picker. Not drawn here.'),
+        style: 'flex:none;width:' + paneW + 'px;height:' + own + 'px;box-sizing:border-box;background:#141c2e;border-radius:8px;box-shadow:inset 0 0 0 1px #364153;overflow:' + ovfS + ';display:flex;flex-direction:column;align-self:flex-start',
+        hasGrid: true,
+        gridStyle: 'height:' + pmod.gridH + 'px;overflow-x:hidden;overflow-y:auto;box-sizing:border-box;padding:2px 8px 10px;display:flex;flex-wrap:wrap;gap:4px;align-content:flex-start;flex:none',
+        empty: n === 0, slots: slots,
+        hasDetail: true,
+        detailStyle: 'height:' + detailH + 'px;flex:none;box-sizing:border-box;border-top:1px solid #364153;background:#1e2939;border-radius:0 0 8px 8px;padding:' + (tg.sumShort ? (useBar ? '5px 10px 3px' : '6px 10px 4px') : '8px 10px 6px') + ';margin-top:auto;display:flex;flex-direction:column;gap:' + (tg.sumShort ? (useBar ? 3 : 5) : 7) + 'px;overflow:' + ovfS + ';font-size:11px;color:#d1d5dc',
+        isOverview: !item, isItem: !!item,
+        hasOv: ovData.length > 0, noOv: ovData.length === 0,
+        hintStyle: 'font-size:10px;color:' + cc.hint, hintTxt: tr ? 'click again to clear' : ovBarOn ? 'click a segment to trace it' : 'click a row to trace it',
+        ovRowsOn: ovData.length > 0 && !ovBarOn, ovBarOn: ovBarOn,
+        hasBar: useBar, barWrap: 'position:relative;height:' + barH + 'px;flex:none;display:flex;gap:1px', barSegs: barSegs,
+        hasLegend: hasLegend, legEntries: legEntries, legStyle: lineGap ? 'display:flex;align-items:center;gap:12px;flex:none;height:22px;overflow:hidden;white-space:nowrap' : 'display:flex;flex-wrap:wrap;gap:3px 12px;flex:1;min-height:0;overflow:hidden;align-content:flex-start',
+        itBase: !!item && !itNew, hasActLine: hasActLine && !preview,
+        actIcons: itNew && twoLine && !preview ? actionsFor.map(a => ({ label: a, go: () => this.toast(a + ': opens a picker or a confirmation. Not drawn here.'), search: ICONS[a] === 'search', trash: ICONS[a] === 'trash', plus: ICONS[a] === 'plus', up: ICONS[a] === 'up', inn: ICONS[a] === 'in' })) : [],
+        ovScroll: 'flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:2px',
+        ov: ov,
+        itIc: item ? this.chip(D, {}, item.i, 0, null, 18).ic + 'flex:none;' : '', itName: item ? D.items[item.i][0] : '', itPreview: preview, itSel: !!item && !preview,
+        itRate: item ? (item.em ? '—' : fmtBase(item.r) + '/m') : '',
+        itBack: () => { const d2 = st.det.slice(); d2[k] = -1; this.setState({ det: d2 }); },
+        itBar: 'height:12px;flex:none;display:flex;gap:1px;border-radius:3px;overflow:hidden;background:#101828',
+        itSegs: itemSegs,
+        itRow: lineGap ? 'display:flex;align-items:center;gap:8px;flex:none;height:22px' : 'display:flex;flex-direction:column;gap:5px;flex:1;min-height:0',
+        itKey: lineGap ? 'flex:1;min-width:0;display:flex;gap:12px;overflow:hidden;white-space:nowrap' : 'display:flex;flex-wrap:wrap;gap:3px 12px;flex:1;min-height:0;overflow:hidden;align-content:flex-start',
+        itEntries: item ? item.en.map(e => ({ sw: 'flex:none;width:8px;height:8px;border-radius:2px;box-sizing:border-box;background:' + e.bg + ';border:1px ' + e.bs + ' ' + e.bd, l: e.l, a: e.a || '', n: e.n || '', lblS: 'color:' + e.lg })) : [],
+        itActions: actionsFor.map(a => ({ label: a, go: () => this.toast(a + ': opens a picker or a confirmation. Not drawn here.') })),
+        lineChips: lineChips, hasLineMore: n > lineShown, lineMore: n - lineShown,
+        lineMoreStyle: 'font-size:11px;line-height:1;color:' + cc.dim + ';background:transparent;border:0;padding:4px;cursor:pointer;font-family:inherit;flex:none',
+        lineMoreLabel: 'Show all ' + n + ' ' + P[1].toLowerCase(),
+        openLine: () => this.setState({ pop: { t: 'line', k: k } }),
+        lineStyle: md || stacked ? 'flex:1;min-width:0;display:flex;align-items:center;gap:8px;height:' + sLineH + 'px;flex:none;padding:0 8px;overflow:hidden' + (stacked && k < 2 ? ';border-bottom:1px solid #1e2939' : '') : 'flex:none;display:flex;align-items:center;gap:6px;height:40px;padding:0 6px'
+      };
+    });
+
+    // ---- columns
+    const mW = narrowSt ? 0 : 88;
+    const fixedSum = 32 + 2 * mW + 72 + 72;
+    const MINW = fixedSum + 150 + 80 + 148;
+    const availW = vw - dockW;
+    const capOn = !!tg.colCap && mode !== 'docked';
+    const tableW = Math.max(capOn ? Math.min(availW, 1160) : availW, MINW);
+    const extra = Math.max(0, tableW - MINW);
+    let rW, bW, iW, filler = 0;
+    if (tg.colTrail && tableW >= fixedSum + 220 + 140 + 340) { rW = 220; bW = 140; iW = 340; filler = tableW - fixedSum - rW - bW - iW; }
+    else if (tg.colRecipe && tableW >= fixedSum + 150 + 140 + 340) { bW = 140; iW = 340; rW = tableW - fixedSum - 140 - 340; }
+    else { rW = 150 + extra * 3 / 9; bW = 80 + extra * 2 / 9; iW = 148 + extra * 4 / 9; }
+    const prodX = 32 + rW + 2 * mW, bypX = prodX + 72, ingX = bypX + bW, endX = ingX + iW;
+    const hdrDefs = [['', 32, 0], ['Recipe', rW, 0]];
+    if (!narrowSt) { hdrDefs.push(['Machine', 88, 0]); hdrDefs.push(['Beacons', 88, 0]); }
+    hdrDefs.push(['Products', 72, 0], ['Byproducts', bW, 0], ['Ingredients', iW, 1], ['Power', 72, 1]);
+    const hdr = hdrDefs.map(h => ({ t: h[0], s: 'flex:none;box-sizing:border-box;padding:0 8px;text-align:' + (h[2] ? 'right' : 'left') + ';width:' + h[1] + 'px' }));
+
+    // ---- rows
+    const flat = flatten(B.rows, st.open, blk, 0, '', []);
+    const lineH = tg.chipBig ? 37 : 33;
+    const cellBase = 'flex:none;box-sizing:border-box;padding:0 8px;display:flex;align-items:center;height:100%;';
+    let gapSum = 0, gapN = 0, hSum = 0;
+    // A collapsed area shows at most 8 sends and 16 receives (the app's cap); the rest is a +N. One line: what fits.
+    const fit = (n, L, cap) => {
+      L = Math.max(1, L);
+      const s = Math.min(n, cap);
+      if (tg.grpFixed) return s <= L ? { shown: s, lines: 1 } : { shown: Math.max(0, L - 1), lines: 1 };
+      return { shown: s, lines: Math.max(1, Math.ceil(s / L)) };
+    };
+    const rows = flat.map(f => {
+      const r = f.r;
+      const isArea = f.isArea;
+      let h, rm;
+      if (isArea) {
+        const Lp = Math.floor((72 + bW + AREA_PAD - 16) / slot), Li = Math.floor((iW - AREA_PAD - 16) / slot);
+        const plain = r.k === 'group';
+        const P = plain ? { shown: 0, lines: 1 } : fit(r.pr.length, Lp, 8), I = plain ? { shown: 0, lines: 1 } : fit(r.ig.length, Li, 16);
+        h = tg.grpFixed ? lineH : Math.max(P.lines, I.lines) * lineH;
+        if (P.shown && I.shown) {
+          const pEnd = prodX + 8 + Math.min(P.shown, Math.max(1, Lp)) * slot;
+          const iStart = ingX + iW - 8 - Math.min(I.shown, Math.max(1, Li)) * slot;
+          gapSum += Math.max(0, iStart - pEnd); gapN++;
+        }
+        rm = { P: P, I: I };
+      } else {
+        const Lp = Math.max(1, Math.floor(56 / slot)), Lb = Math.max(1, Math.floor((bW - 16) / slot)), Li = Math.max(1, Math.floor((iW - 16) / slot));
+        const lines = Math.max(1, Math.ceil(r.pr.length / Lp), Math.ceil(r.bp.length / Lb), Math.ceil(r.ig.length / Li));
+        h = (tg.chipBig ? 41 : 37) + (lines - 1) * slot + (narrowSt ? 36 : 0);
+        if (r.ig.length && (r.pr.length || r.bp.length)) {
+          const pEnd = r.bp.length ? bypX + 8 + Math.min(r.bp.length, Lb) * slot : prodX + 8 + Math.min(r.pr.length, Lp) * slot;
+          const iStart = ingX + iW - 8 - Math.min(r.ig.length, Li) * slot;
+          gapSum += Math.max(0, iStart - pEnd); gapN++;
+        }
+        rm = { lines: lines };
+      }
+      const top = hSum;
+      hSum += h;
+      return { f: f, r: r, key: f.key, isArea: isArea, selected: f.key === st.sel, h: h, rm: rm, top: top };
+    });
+    const avgH = rows.length ? hSum / rows.length : 0;
+    const tableH = vh - above - 44 - 26 - sheetH;
+    let used = 0, visible = 0;
+    for (const m of rows) { if (used + m.h <= tableH) { used += m.h; visible++; } else { visible += (tableH - used) / m.h; break; } }
+    const gap = gapN ? Math.round(gapSum / gapN) : 0;
+
+    // ---- how much of Products to Ingredients can be seen
+    const win = mode === 'drawer' ? vw - drawerW : availW;
+    const inView = Math.round(100 * Math.max(0, Math.min(endX, win) - prodX) / (endX - prodX));
+
+    // ---- row view models
+    const chipsOf = (list, tone, cap) => list.slice(0, cap).map(x => this.chip(D, tg, x[0], x[1], tone));
+    const hideEmpty = !!tg.hideEmpty && !touch;
+    const rowVms = rows.map(m => {
+      const r = m.r, f = m.f;
+      const band = tg.grpBand && m.isArea;
+      let bg = m.isArea ? (band ? 'background:rgba(45,212,191,0.06);' : 'background:rgba(30,41,57,' + [0.3, 0.2, 0.1, 0.05][Math.min(f.depth, 3)] + ');') : '';
+      let shadow = band && !m.selected ? 'box-shadow:inset 0 -1px 0 rgba(45,212,191,0.25);' : '';
+      if (m.selected) {
+        if (tg.selStrong) { bg = 'background:rgba(20,184,166,0.22);'; shadow = 'box-shadow:inset 3px 0 0 #2dd4bf,inset 0 0 0 1px rgba(45,212,191,0.65);'; }
+        else { bg = 'background:rgba(19,78,74,0.25);'; shadow = 'box-shadow:inset 3px 0 0 #14b8a6;'; }
+      }
+      const pw = fmtPower(r.p);
+      const stack = narrowSt && !m.isArea;
+      const groupNarrow = m.isArea && rW + 2 * mW < 300;
+      const vm = {
+        key: m.key, isArea: m.isArea, isRecipe: !m.isArea, stack: stack, unstack: !narrowSt, selected: m.selected,
+        cls: 'row' + (m.selected ? ' sel' : ''),
+        hitLabel: 'Select ' + r.n,
+        rowStyle: 'position:relative;display:flex;align-items:stretch;box-sizing:border-box;height:' + m.h + 'px;border-bottom:1px solid rgba(54,65,83,0.55);' + bg + shadow,
+        gripS: cellBase + 'width:32px;padding:0 0 0 4px;--arw:' + cc.arrow,
+        arrowStyle: 'display:flex;flex-direction:column;gap:0',
+        nameS: cellBase + guides(f.depth) + 'width:' + (m.isArea ? rW + 2 * mW : rW) + 'px;padding-right:8px;' + (stack ? 'flex-direction:column;align-items:stretch;justify-content:center;' : ''),
+        nameInner: 'display:flex;align-items:center;gap:' + (m.isArea ? 6 : 8) + 'px;min-width:0;' + (stack ? 'height:34px;flex:none;' : '') + (groupNarrow ? 'flex-wrap:wrap;align-content:center;row-gap:0;' : ''),
+        subStyle: groupNarrow
+          ? 'flex:0 0 100%;box-sizing:border-box;padding-left:28px;font-size:10px;line-height:1.1;color:#99a1af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
+          : 'flex:none;font-size:11px;color:#99a1af;white-space:nowrap',
+        nameTxt: 'font-size:12px;' + (m.selected && tg.selStrong ? 'color:#ffffff;font-weight:700;' : (m.isArea ? (band ? 'color:#f9fafb;font-weight:700;' : 'color:#e5e7eb;font-weight:600;') : 'color:#e5e7eb;font-weight:500;')),
+        name: r.n,
+        chevStyle: 'display:block;font-size:15px;line-height:1;transition:none;transform:rotate(' + (f.isOpen ? 90 : 0) + 'deg);' + (f.kids ? '' : 'opacity:0.3'),
+        isOpen: f.isOpen, chevLabel: (f.isOpen ? 'Collapse ' : 'Expand ') + r.n,
+        toggle: () => { const o2 = Object.assign({}, st.open); o2[blk + ':' + m.key] = !f.isOpen; this.setState({ open: o2, pop: null }); },
+        prodS: cellBase + 'width:' + (m.isArea ? 72 + bW + AREA_PAD : 72) + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;',
+        bypS: cellBase + 'width:' + bW + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;',
+        ingS: cellBase + 'width:' + (m.isArea ? iW - AREA_PAD : iW) + 'px;flex-wrap:wrap;align-content:center;row-gap:3px;justify-content:flex-end;',
+        mchS: cellBase + 'width:88px;gap:6px;', bcnS: cellBase + 'width:88px;',
+        powS: cellBase + 'width:72px;justify-content:flex-end;',
+        powTxt: 'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + (m.isArea ? '#99a1af' : '#53eafd'),
+        pw: pw[0], pu: pw[1],
+        showTag: false, sub: '', moreP: 0, moreI: 0, moreLabelP: '', moreLabelI: '',
+        moreBtnP: false, moreBtnI: false, _top: m.top, _h: m.h, _shP: 0, _shI: 0,
+        moreBtnStyle: 'font-size:10px;line-height:1;color:' + cc.dim + ';background:transparent;border:0;padding:3px 4px;cursor:pointer;font-family:inherit;flex:none',
+        chipsP: [], chipsB: [], chipsI: [], nameChip: [],
+        mchBox: 'position:relative;flex:none;width:32px;height:32px;border-radius:5px;background:#364153;box-shadow:inset 0 0 0 1px #4a5565',
+        mc: '×' + r.m,
+        phCls: 'ph' + (hideEmpty ? ' hid' : '') + (tg.contrast ? '' : ' dim'),
+        up: () => this.toast('Move up: reorders the row. Not drawn here.'),
+        down: () => this.toast('Move down: reorders the row. Not drawn here.'),
+        deadModule: () => this.toast('Modules: opens the module picker (try the side panel on a recipe row).'),
+        deadBeacon: () => this.toast('Beacons: opens the beacon editor (try the side panel on a recipe row).')
+      };
+      if (m.isArea) {
+        // A plain group has no area flows: the app shows its counts and power only.
+        const plain = r.k === 'group';
+        vm.showTag = !plain && !(tg.grpTag && f.allArea);
+        vm.sub = tg.grpTag && r.rc === r.m ? r.m + ' machines' : r.rc + ' recipes · ' + r.m + ' machines';
+        vm.chipsP = chipsOf(r.pr, 'p', m.rm.P.shown);
+        vm.moreP = r.pr.length - m.rm.P.shown;
+        vm.chipsI = chipsOf(r.ig, 'i', m.rm.I.shown);
+        vm.moreI = r.ig.length - m.rm.I.shown;
+        vm._shP = m.rm.P.shown; vm._shI = m.rm.I.shown;
+        vm.moreBtnP = !plain && vm.moreP > 0; vm.moreBtnI = !plain && vm.moreI > 0;
+        vm.moreLabelP = vm.moreP + ' more sent items'; vm.moreLabelI = vm.moreI + ' more received items';
+      } else {
+        const first = r.pr[0] || r.bp[0];
+        vm.nameChip = first ? [this.chip(D, tg, first[0], 0, null, 24)] : [];
+        vm.chipsP = chipsOf(r.pr, 'p', 99);
+        vm.chipsB = chipsOf(r.bp, 'b', 99);
+        vm.chipsI = chipsOf(r.ig, 'i', 99);
+      }
+      return vm;
+    });
+
+    // ---- panel view model
+    let panel = null;
+    if (pm) {
+      const first = raw.pr[0] || raw.bp[0] || raw.ig[0];
+      const ic = first ? this.chip(D, {}, first[0], 0, null, 28).ic : '';
+      let style = 'box-sizing:border-box;background:#141c2e;display:flex;flex-direction:column;min-height:0;overflow:hidden;';
+      if (mode === 'docked') style += 'grid-column:2;grid-row:1;width:380px;border-left:1px solid #364153;';
+      else if (mode === 'sheet') style += 'grid-column:1;grid-row:2;height:' + sheetH + 'px;border-top:1px solid #364153;';
+      else style += 'position:absolute;right:0;top:0;bottom:0;z-index:13;width:' + drawerW + 'px;border-left:1px solid #4a5565;box-shadow:-14px 0 34px rgba(0,0,0,0.55);';
+      panel = {
+        style: style, title: raw.n, subtitle: raw.k === 'recipe' ? 'Recipe' : (raw.k === 'area' ? 'Separate area · level 1 of 4' : 'Sub-factory · level 1 of 4'),
+        icon: 'width:28px;height:28px;' + (ic ? ic.replace('width:28px;height:28px;', '') : ''), iconBox: 'width:28px;height:28px;flex:none',
+        sections: pm.sections
+      };
+    }
+
+    return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B, filler: filler,
+      prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, sheetH: sheetH, panel: panel, panelH: pm ? pm.height : 0,
+      inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, rightW: rightW, toolW: toolW, toolLbl: toolLbl, labelsOn: labelsOn, wsW: wsW },
+      md: md, xl: xl, narrow: narrow, cc: cc, touch: touch, rowCount: rows.length };
+  }
+
+  renderVals() {
+    const st = Object.assign({}, INIT, this.state || {});
+    const D = st.data;
+    const dev = DEVICES.find(d => d[0] === st.vp) || DEVICES.find(d => d[0] === '1440');
+    const vw = dev[1], vh = dev[2];
+    const tg = st.flip ? {} : st.tg;
+    const s = Math.min(1, 1460 / vw, 940 / vh);
+    const closeAll = { pop: null, menu: false, hov: null };
+
+    const pickBlock = b => () => this.setState({ block: b, sel: '0', pop: null, menu: false, panAll: false, det: [-1, -1, -1], hov: null, trace: [null, null, null], slots: [false, false], beac: false, tip: null });
+    const viewports = DEVICES.map(d => ({ label: d[3], cls: d[0] === st.vp ? 'on' : '', pressed: d[0] === st.vp, pick: () => this.setState({ vp: d[0], pop: null, menu: false, tip: null }) }));
+    const groups = [{
+      title: 'Context',
+      items: [{ label: 'Open the side panel', desc: 'Shows the panel of the selected row: docked from 1280 px, a drawer below. Click a row to change the row.', tryIt: 'Try: click a recipe row first for the recipe panel, an area row for the area panel.', cls: 'tg' + (st.panel ? ' on' : ''), pressed: st.panel, toggle: () => this.setState({ panel: !st.panel, pop: null, sumOpen: false }) }]
+    }].concat(GROUPS.map(g => ({
+      title: g.title,
+      items: g.items.map(it => {
+        const on = !!st.tg[it[0]];
+        return { label: it[1], desc: it[2], tryIt: it[3], cls: 'tg' + (on ? ' on' : ''), pressed: on, toggle: () => this.setState(Object.assign({ tg: Object.assign({}, st.tg, { [it[0]]: !on }), flip: false }, closeAll)) };
+      })
+    })));
+    const common = {
+      viewports: viewports, groups: groups,
+      flipCls: 'flip' + (st.flip ? ' base' : ''), flipPressed: st.flip,
+      flipLabel: st.flip ? 'Showing the baseline. Click to show the changes' : 'Showing the changes. Click to flip to the baseline',
+      toggleFlip: () => this.setState(Object.assign({ flip: !st.flip }, closeAll)),
+      allOn: () => { const t = {}; ALL_IDS.forEach(id => { t[id] = true; }); this.setState(Object.assign({ tg: t, flip: false }, closeAll)); },
+      allOff: () => this.setState(Object.assign({ tg: {}, flip: false }, closeAll)),
+      toggleSum: () => this.setState({ sumOpen: !st.sumOpen, pop: null }),
+      closePop: () => this.setState({ pop: null }),
+      closeMenu: () => this.setState({ menu: false }),
+      closePanel: () => this.setState({ panel: false }),
+      loading: !D,
+      frameOuter: 'width:' + Math.round(vw * s) + 'px;height:' + Math.round(vh * s) + 'px;overflow:hidden;border:1px solid #364153;border-radius:8px;flex:none;background:#101828',
+      frameInner: 'width:' + vw + 'px;height:' + vh + 'px;overflow:hidden;background:#101828;color:#d1d5dc;font-size:12px;transform:scale(' + s + ');transform-origin:0 0;position:relative;display:flex;flex-direction:column',
+      deadAddBlock: () => this.toast('Add block: creates an empty block and opens its tab. Not drawn here.'),
+      deadWorkspace: () => this.toast('Workspace menu: plans, game data, in-game viewer, export and import. Not drawn here.'),
+      deadAddRecipe: () => this.toast('+ Recipe: opens the recipe picker. Not drawn here.'),
+      deadFilter: () => this.toast('Filter: narrows the rows as you type. Not drawn here.'),
+      deadUnit: () => this.toast('/sec: switches every rate to per second. Not drawn here.')
+    };
+    const wide = vw >= 768;
+    common.wide = wide;
+    const touch = TOUCH.indexOf(st.vp) >= 0;
+    common.viewLabel = st.block + ' on ' + dev[3] + (st.flip ? ' · baseline' : ' · proposed');
+    common.hasNote = !!tg.hideEmpty && touch;
+    common.viewNote = 'Touch screen: there is no hover, so the dashed placeholder chips stay visible here. Pick Laptop or Desktop to see them hide.';
+
+    if (!D) {
+      return Object.assign(common, {
+        tabs: [], topBarStyle: '', stripStyle: '', rightStyle: '', tools: [], showAllBlocks: false, allBlkStyle: '', allBlkTxt: '', menuOpen: false, newBlkStyle: '', wsStyle: '', wsText: '',
+        sumLine: false, sumFull: false, showHandle: false, lineBtn: true, handleOpen: false, handleText: '', handleAria: '', handleIcon: '', panes: [], sumWrap: '', lineWrap: '', hasPop: false, popItems: [], popStyle: '', popTitle: '', backdropStyle: '',
+        hasMenu: false, menuBackdrop: '', menuStyle: '', menuItems: [], hasTip: false, tipStyle: '', tipTitle: '', tipDesc: '', hasToast: false, toastStyle: '', toastTxt: '',
+        bodyStyle: 'flex:1;display:grid', panelOpen: false, panel: { style: '', sections: [] }, drawer: false, drawerBackdrop: '',
+        tbAdd: '', tbSearch: false, tbWarn: '', tbWarnTxt: '', tbTxt: '', tbCountTxt: '', tbMachinesShow: false, tbMachines: 0, tbPowerStyle: '', tbPower: '', hdrStyle: '',
+        tableWrap: 'flex:1;overflow:hidden', tableInner: '', hdr: [], rows: [], readout: []
+      });
+    }
+
+    const lays = [this.lay(D, tg, vw, vh, st.block, st), this.lay(D, {}, vw, vh, st.block, st)];
+    const cur = lays[0], base = lays[1];
+    this._off = cur.tabs.off;
+    this._mode = cur.mode;
+    const cc = cur.cc;
+    const T = cur.B.totals;
+    const pw = fmtPower(T.powerKw);
+    cur.rows.forEach(r => {
+      r.pick = () => this.setState({ sel: r.key, panAll: false, slots: [false, false], beac: false });
+      r.openP = () => this.setState({ pop: { t: 'row', key: r.key, col: 'P', sx: this._sx(), sy: this._sy() } });
+      r.openI = () => this.setState({ pop: { t: 'row', key: r.key, col: 'I', sx: this._sx(), sy: this._sy() } });
+    });
+    const showLine = !!tg.sumLine && !st.sumOpen, showHandle = cur.handleH > 0, stk = cur.stacked;
+
+    // ---- top bar
+    const tb = cur.tabs;
+    let acc = 0;
+    const tabs = TABS.map((n, i) => {
+      const act = n === st.block;
+      const compact = !!tg.tabsFit && !act;
+      const w = tb.widths[i];
+      const left = acc; acc += w + 4;
+      const bd = D.blocks[n];
+      const first = bd.panes.p.slots[0];
+      const icn = first ? this.chip(D, {}, first.i, 0, null, 20).ic : '';
+      const desc = bd.panes.p.slots.length + ' products · ' + bd.totals.machines + ' machines';
+      return {
+        n: n, label: compact ? '' : n, current: act,
+        // The app names a tab with the browser's title; the proposal uses the tooltip below instead.
+        title: tg.tabsFit ? '' : n,
+        s: 'position:relative;flex:none;display:flex;align-items:center;justify-content:' + (compact ? 'center' : 'flex-start') + ';gap:6px;padding:0 ' + (compact ? 0 : 12) + 'px 0 ' + (compact ? 0 : 8) + 'px;width:' + w + 'px;height:32px;margin-right:4px;box-sizing:border-box;white-space:nowrap;font-size:12px;border-radius:4px 4px 0 0;border:1px solid ' + (act ? '#364153' : 'transparent') + ';border-bottom:0;font-family:inherit;color:' + (act ? '#f3f4f6' : '#99a1af') + ';background:' + (act ? '#1e2939' : 'transparent'),
+        stripe: 'position:absolute;left:-1px;right:-1px;top:-1px;height:' + (act ? 3 : (tg.tabsFit ? 3 : 2)) + 'px;border-radius:4px 4px 0 0;background:' + STRIPES[i] + ';opacity:' + (act ? 1 : (tg.tabsFit ? 0.85 : 0.55)),
+        ic: 'flex:none;width:20px;height:20px;' + icn.replace('width:20px;height:20px;', ''),
+        nameStyle: compact ? 'display:none' : 'overflow:hidden;text-overflow:ellipsis',
+        pick: pickBlock(n),
+        enter: () => {
+          if (!tg.tabsFit || act) return;
+          const strip = document.getElementById('tabstrip');
+          const sl = strip ? strip.scrollLeft : 0;
+          this.setState({ tip: { x: 8 + left + w / 2 - sl, y: 44 + 4, t: n, d: desc } });
+        },
+        leave: () => this.setState({ tip: null })
+      };
+    });
+    common.tabs = tabs;
+    common.topBarStyle = 'position:relative;height:44px;box-sizing:border-box;display:flex;align-items:flex-end;justify-content:space-between;gap:16px;padding:0 8px;background:#0d1423;border-bottom:1px solid #364153;flex:none';
+    common.stripStyle = 'align-self:stretch;margin-bottom:-1px;display:flex;align-items:flex-end;overflow-x:auto;overflow-y:hidden;flex:none;width:' + Math.max(0, Math.round(tb.availT)) + 'px';
+    common.rightStyle = 'align-self:center;flex:none;display:flex;align-items:center;gap:2px';
+    common.showAllBlocks = tb.overflowing;
+    common.menuOpen = st.menu;
+    common.toggleMenu = () => this.setState({ menu: !st.menu, pop: null });
+    common.allBlkStyle = 'flex:none;justify-content:center;height:28px;width:' + tb.allBlkW + 'px;' + (tg.contrast ? 'border:1px solid #4a5565;--tlc:#d1d5dc;font-size:12px' : '--tlc:#6a7282;font-size:12px');
+    common.allBlkTxt = tg.contrast ? '▾' : '·';
+    common.newBlkStyle = 'flex:none;justify-content:center;width:28px;height:28px;font-size:18px;line-height:1;' + (tg.contrast ? 'border:1px solid #4a5565;--tlc:#d1d5dc' : '--tlc:#6a7282');
+    const tools = [['Horizon: none', 'Horizon'], ['Block graph', 'Graph'], ['Areas in every block', 'Areas'], ['Tech tree', 'Tech tree']];
+    common.tools = tools.map((t, i) => ({
+      tip: t[0], label: tb.labelsOn ? t[1] : '', isFlag: i === 0, isGraph: i === 1, isAreas: i === 2, isFlask: i === 3,
+      btn: 'justify-content:center;gap:4px;height:32px;width:' + tb.toolW[i] + 'px;font-size:12px;--tlc:' + (tg.contrast ? '#d1d5dc' : '#99a1af'),
+      lblStyle: tb.labelsOn ? 'white-space:nowrap' : 'display:none',
+      dot: i === 0 ? 'position:absolute;top:6px;' + (tb.labelsOn ? 'left:21px;' : 'right:6px;') + 'width:7px;height:7px;border-radius:4px;background:#60a5fa;box-shadow:0 0 0 2px #0d1423;pointer-events:none' : 'display:none',
+      tipStyle: 'position:absolute;z-index:40;top:100%;left:50%;transform:translateX(-50%);margin-top:4px;background:#000000;color:#f3f4f6;font-size:12px;border:1px solid #364153;border-radius:4px;padding:4px 8px;white-space:nowrap;pointer-events:none',
+      click: () => this.toast(t[0] + ': opens its dialog. Not drawn here.')
+    }));
+    common.wsStyle = tg.topLabels && wide
+      ? 'height:32px;width:' + tb.wsW + 'px;gap:6px;padding:0 6px;justify-content:center;--tlc:#d1d5dc;font-size:11px'
+      : (wide ? 'height:36px;width:' + tb.wsW + 'px;gap:8px;padding:0 8px;background:#1e2939;border:1px solid #4a5565;border-radius:8px;--tlc:#d1d5dc;font-size:11px;justify-content:center' : 'height:36px;width:' + tb.wsW + 'px;gap:6px;padding:0 6px;background:#1e2939;border:1px solid #4a5565;border-radius:8px;--tlc:#d1d5dc;justify-content:center');
+    common.wsText = 'display:flex;flex-direction:column;line-height:1.2;white-space:nowrap;text-align:left;font-size:11px;min-width:0;flex:1';
+
+    // tooltip and note
+    const tip = st.tip && tg.tabsFit ? st.tip : null;
+    common.hasTip = !!tip;
+    common.tipTitle = tip ? tip.t : '';
+    common.tipDesc = tip ? tip.d : '';
+    const tipW = tip ? Math.max(tip.t.length, tip.d.length * 0.9) * 6.4 + 18 : 0;
+    common.tipStyle = tip ? 'position:absolute;z-index:40;left:' + Math.round(Math.max(8, Math.min(vw - 8 - tipW, tip.x - tipW / 2))) + 'px;top:' + tip.y + 'px;background:#000000;border:1px solid #364153;border-radius:4px;padding:4px 8px;font-size:12px;white-space:nowrap;pointer-events:none;line-height:1.35' : '';
+    common.hasToast = !!st.toast;
+    common.toastTxt = st.toast || '';
+    common.toastStyle = 'position:absolute;z-index:50;left:50%;bottom:16px;transform:translateX(-50%);max-width:' + Math.round(vw - 32) + 'px;background:#000000;color:#f3f4f6;border:1px solid #4a5565;border-radius:6px;padding:8px 12px;font-size:12px;line-height:1.35;box-shadow:0 8px 24px rgba(0,0,0,0.6)';
+
+    // ---- All blocks menu
+    common.hasMenu = st.menu && tb.overflowing;
+    common.menuBackdrop = 'position:absolute;left:0;right:0;top:44px;bottom:0;z-index:20;border:0;padding:0;background:transparent;cursor:default';
+    common.menuStyle = 'position:absolute;z-index:21;top:44px;left:' + Math.max(8, Math.min(vw - 232, Math.round(8 + tb.availT + 2 + tb.allBlkW - 224))) + 'px;width:224px;max-height:' + Math.min(420, vh - 70) + 'px;overflow-y:auto;box-sizing:border-box;background:#1e2939;border:1px solid #4a5565;border-radius:8px;padding:4px 0;box-shadow:0 14px 34px rgba(0,0,0,0.65)';
+    common.menuItems = TABS.map((n, i) => {
+      const first = D.blocks[n].panes.p.slots[0];
+      return { name: n, on: n === st.block, weight: n === st.block ? 600 : 400,
+        dot: 'flex:none;width:8px;height:8px;border-radius:4px;background:' + STRIPES[i],
+        ic: 'flex:none;width:16px;height:16px;' + (first ? this.chip(D, {}, first.i, 0, null, 16).ic.replace('width:16px;height:16px;', '') : ''),
+        pick: () => { pickBlock(n)(); } };
+    });
+
+    // ---- table toolbar
+    const narrow = cur.narrow;
+    const compactTb = narrow && !!tg.narrowToolbar;
+    const wrapTb = narrow && !tg.narrowToolbar;
+    common.tbAdd = 'flex:none;height:28px;display:flex;align-items:center;justify-content:center;padding:0 ' + (wrapTb ? 6 : 12) + 'px;background:#0d9488;color:#ffffff;font-weight:600;font-size:' + (wrapTb ? 10 : 12) + 'px;border-radius:6px;border:0;box-sizing:border-box;' + (wrapTb ? 'width:46px;white-space:normal;line-height:1.05;text-align:center;' : 'white-space:nowrap;');
+    common.tbSearch = cur.md;
+    common.tbWarn = 'flex:none;height:26px;display:flex;align-items:center;padding:0 ' + (compactTb ? 8 : 12) + 'px;border:1px solid #92400e;border-radius:13px;color:#fbbf24;font-size:11px;box-sizing:border-box;' + (wrapTb ? 'width:56px;white-space:normal;line-height:1.05;text-align:center;font-size:10px;' : 'white-space:nowrap;');
+    common.tbWarnTxt = compactTb ? '⚠ 1' : '⚠ 1 warning ▾';
+    common.tbTxt = 'flex:none;color:#99a1af;font-size:11px;' + (wrapTb ? 'width:44px;white-space:normal;line-height:1.05;text-align:center;' : 'white-space:nowrap;');
+    common.tbCountTxt = T.recipes + ' recipes';
+    common.tbMachinesShow = cur.md;
+    common.tbMachines = T.machines;
+    common.tbPowerStyle = 'flex:none;color:#53eafd;font-size:11px;' + (wrapTb ? 'width:44px;white-space:normal;line-height:1.05;text-align:center;' : 'white-space:nowrap;');
+    common.tbPower = '⚡ ' + pw[0] + pw[1];
+    common.hdrStyle = 'position:sticky;top:0;z-index:3;height:26px;box-sizing:border-box;display:flex;border-bottom:1px solid #1e2939;background:#101828;font-size:12px;align-items:center;color:' + cc.hdr + ';width:' + cur.tableW + 'px';
+
+    // ---- popover
+    let pv = null;
+    const POP_W = 300;
+    if (st.pop && st.pop.t === 'row') {
+      const r = cur.rows.find(x => x.key === st.pop.key);
+      if (r) {
+        const raw = findRow(cur.B.rows, st.pop.key), isP = st.pop.col === 'P';
+        const list = isP ? raw.pr.slice(r._shP) : raw.ig.slice(r._shI);
+        const tone = isP ? 'p' : 'i';
+        let left = (isP ? cur.prodX : cur.ingX + cur.iW - POP_W) - (st.pop.sx || 0);
+        left = Math.max(8, Math.min(left, vw - POP_W - 8));
+        const y = cur.above + 44 + 26 + r._top - (st.pop.sy || 0);
+        let top = y + r._h - 2;
+        if (top + 280 > vh) top = Math.max(8, y - 282);
+        pv = { title: isP ? 'Also sends' : 'Also receives', left: left, top: top, items: list.map(x => this.listItem(D, x, tone)) };
+      }
+    }
+
+    if (st.pop && st.pop.t === 'line' && showLine) {
+      const kk = st.pop.k, L = cur.B.panes[PANES[kk][0]].slots;
+      const left = cur.md ? 12 + kk * (cur.paneW + 8) : 8;
+      pv = { title: 'All ' + L.length + ' ' + PANES[kk][1].toLowerCase(), left: Math.max(8, Math.min(left, vw - POP_W - 8)), top: cur.stacked ? 44 + 4 + (kk + 1) * cur.lineH - 2 : 44 + 9 + 40 - 2, items: L.map(x => this.listItem(D, [x.i, x.r], PANES[kk][0])) };
+    }
+
+    // ---- readout
+    const mk = (label, curV, baseV, unit, lowerBetter, note, dp) => {
+      const k = dp === 0 ? 1 : 10;
+      const d = Math.round((curV - baseV) * k) / k;
+      const better = lowerBetter ? d < 0 : d > 0;
+      return {
+        label: label, cur: Math.round(curV * k) / k, base: Math.round(baseV * k) / k, unit: unit,
+        delta: d === 0 ? 'no change' : (d > 0 ? '+' : '') + d + ' ' + unit,
+        deltaStyle: 'font-weight:600;color:' + (d === 0 ? '#99a1af' : better ? '#5eead4' : '#fbbf24'),
+        note: note
+      };
+    };
+    const minRatio = c => Math.min(ratio(c.hint, '#1e2939'), ratio(c.dim, '#141c2e'), ratio(c.arrow, '#101828'), ratio(c.hdr, '#101828'));
+    const eye = cur.gap <= 240 ? 'Within one eye span (240 px or less).' : 'Too far apart to read as one line (over 240 px).';
+    const panelCard = st.panel && cur.panelH
+      ? mk('Side panel content', cur.panelH, base.panelH, 'px', true, cur.panelH > vh ? 'Taller than the ' + vh + ' px screen: it scrolls.' : 'Fits in the ' + vh + ' px screen.', 0)
+      : { label: 'Side panel content', cur: '–', base: '–', unit: '', delta: 'closed', deltaStyle: 'color:#99a1af', note: 'Open the side panel (Context) to measure it.' };
+    const modeNote = cur.mode === 'drawer' ? 'Drawer, ' + cur.drawerW + ' px wide, over the table.' : cur.mode === 'sheet' ? 'Bottom sheet, ' + cur.sheetH + ' px high.' : cur.mode === 'docked' ? 'Docked, 380 px.' : 'Products to the last ingredient chip.';
+    const readout = [
+      mk('Above the table', cur.above, base.above, 'px', true, Math.round(cur.above / vh * 100) + '% of the ' + vh + ' px screen.', 0),
+      mk('Average row height', cur.avgH, base.avgH, 'px', true, 'Across the ' + cur.rowCount + ' rows shown in ' + st.block + (cur.rowCount > cur.B.rows.length ? ' (groups opened)' : '') + '.'),
+      mk('Rows visible', cur.visible, base.visible, 'rows', false, 'In ' + Math.max(0, Math.round(cur.tableH)) + ' px of table (was ' + Math.max(0, Math.round(base.tableH)) + ').'),
+      mk('Products to ingredients', cur.gap, base.gap, 'px', true, eye, 0),
+      mk('Tabs cut off', cur.tabs.cut, base.tabs.cut, 'tabs', true, 'Block tabs not fully visible in the top bar.', 0),
+      mk('Row columns in view', cur.inView, base.inView, '%', false, modeNote, 0),
+      panelCard,
+      mk('Lowest text contrast', minRatio(cc), minRatio(colors({})), ':1', false, 'Hints, counts, arrows and labels. 4.5:1 is the target for text.')
+    ];
+
+    // ---- panel and its overlays
+    const drawer = cur.mode === 'drawer';
+    const panelOpen = !!cur.panel;
+    return Object.assign(common, {
+      sumLine: showLine, sumFull: !showLine, showHandle: showHandle, lineBtn: !stk,
+      handleOpen: !!st.sumOpen, handleText: st.sumOpen ? 'Collapse summary' : 'Expand summary', handleAria: st.sumOpen ? 'Collapse the summary' : 'Expand the summary',
+      handleIcon: 'flex:none;transform:rotate(' + (st.sumOpen ? 0 : 180) + 'deg)',
+      panes: cur.panes,
+      sumWrap: 'height:' + (cur.sumH + (wide ? 18 : 28)) + 'px;box-sizing:border-box;padding:9px 12px;display:flex;gap:8px;overflow-x:' + (wide ? 'hidden' : 'auto') + ';overflow-y:hidden;flex:none;border-bottom:1px solid #364153',
+      lineWrap: stk
+        ? 'height:' + cur.stripOuter + 'px;box-sizing:border-box;padding:4px 12px;display:flex;flex-direction:column;flex:none;border-bottom:1px solid #364153;overflow:hidden'
+        : 'height:' + (cur.sumH + 18) + 'px;box-sizing:border-box;padding:9px 12px;display:flex;gap:8px;flex:none;border-bottom:1px solid #364153;overflow-x:auto;overflow-y:hidden',
+      hasPop: !!pv, popTitle: pv ? pv.title : '', popItems: pv ? pv.items : [],
+      popStyle: pv ? 'position:absolute;z-index:12;left:' + pv.left + 'px;top:' + pv.top + 'px;width:' + POP_W + 'px;max-height:270px;overflow:auto;box-sizing:border-box;background:#101828;border-radius:8px;border:1px solid #364153;box-shadow:0 14px 34px rgba(0,0,0,0.65);padding:8px 10px' : '',
+      backdropStyle: 'position:absolute;left:0;right:0;top:44px;bottom:0;z-index:7;border:0;padding:0;background:rgba(0,0,0,0.25);cursor:default',
+      drawer: drawer,
+      drawerBackdrop: 'position:absolute;left:0;right:0;top:0;bottom:0;z-index:9;border:0;padding:0;background:rgba(0,0,0,0.45);cursor:default',
+      bodyStyle: 'flex:1;min-height:0;display:grid;grid-template-columns:' + (cur.mode === 'docked' ? 'minmax(0,1fr) 380px' : 'minmax(0,1fr)') + ';grid-template-rows:' + (cur.mode === 'sheet' ? 'minmax(0,1fr) ' + cur.sheetH + 'px' : 'minmax(0,1fr)'),
+      panelOpen: panelOpen, panel: cur.panel || { style: '', sections: [] },
+      tableWrap: 'flex:1;min-height:0;overflow:auto;position:relative',
+      tableInner: 'width:' + cur.tableW + 'px',
+      hdr: cur.hdr.concat(cur.filler > 0 ? [{ t: '', s: 'flex:none;width:' + Math.round(cur.filler) + 'px' }] : []),
+      rows: cur.rows, readout: readout
+    });
+  }
+
+  // Scroll position of the table, to anchor a popup to the row it belongs to.
+  _sx() { const t = document.getElementById('tbl'); return t ? t.scrollLeft : 0; }
+  _sy() { const t = document.getElementById('tbl'); return t ? t.scrollTop : 0; }
+}
+</script>
+</body>
+</html>
