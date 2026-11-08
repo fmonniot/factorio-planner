@@ -675,9 +675,9 @@ export function RecipeRow({
         />
       </td>
 
-      {/* Products — the single primary product, right-aligned; the pin badge sits on the chip */}
+      {/* Products — the single primary product, left-aligned so it sits above the items a collapsed area sends; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5 items-center justify-end">
+        <div className="flex flex-wrap gap-1.5 items-center">
           {productEntries.map(([itemId, ratePerMin]) => {
             const showPin = isPinned && !isByproductConsumer
             const productTemp = productTemperatures[itemId]

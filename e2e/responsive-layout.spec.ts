@@ -284,3 +284,21 @@ test.describe('ingredients alignment', () => {
     expect(box.x + box.width - (chip.x + chip.width)).toBeLessThanOrEqual(12)
   })
 })
+
+for (const width of [1470, 1280]) {
+  test.describe(`product alignment at ${width}px`, () => {
+    test.use({ viewport: { width, height: 900 } })
+
+    test('a recipe row\'s product chip and the first item an area sends share the same left edge', async ({ page }) => {
+      await load(page)
+      const product = row(page).locator('td').nth(4).locator(':scope > div > *').first()
+      const sent = page.locator('main table tbody tr').filter({ hasText: 'Compression' })
+        .getByTestId('area-chips-out').locator('[data-direction="sends"]').first()
+      await expect(product).toBeVisible()
+      await expect(sent).toBeVisible()
+      const a = (await product.boundingBox())!
+      const b = (await sent.boundingBox())!
+      expect(Math.abs(a.x - b.x)).toBeLessThanOrEqual(1)
+    })
+  })
+}
