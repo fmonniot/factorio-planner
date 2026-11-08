@@ -52,7 +52,7 @@ Component library: none. The production table, popovers, modals and the item pic
 
 ## Build Tooling: Vite
 
-Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` pins the dev server to port 4000 (the bridge's default allowed origin and Playwright's `baseURL` rely on it), sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
+Fast dev server with HMR, native ESM, and simple configuration. `vite.config.ts` pins the dev server to port 4000 (the bridge's default allowed origin relies on it; the e2e suite starts its own server on a random port instead, see `playwright.config.ts`), sets `base: '/factorio-planner/'` for production builds (the GitHub Pages path) and adds a dev-server middleware that converts icon PNGs to WebP on request (re-converting when a PNG changes on disk), mirroring the production build.
 
 `npm run build` type-checks (`tsc -b`), bundles with Vite, then runs `postbuild` → `scripts/build-icons.mjs`, which writes WebP siblings and optimised PNGs for the icons under `dist/data` (using `sharp`). Encoded icons are cached in `.cache/icons` (override with `ICON_CACHE_DIR`) by a hash of the source PNG and the encoder settings, so an unchanged icon is copied instead of re-encoded; entries no icon maps to are pruned after each run.
 
