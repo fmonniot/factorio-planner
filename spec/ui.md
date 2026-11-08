@@ -275,8 +275,7 @@ the group's item count and its totals per column. Within a group rows are ordere
 rate (what the areas send plus what comes from outside), then name. Rows below 1 item/min
 fold into a tail, after at most seven rows: "+ N more, X/m and below: A, B, C, D…" opens
 them (and reads "Show fewer"); a single leftover row of at least 1/min stays in the head.
-Groups start open when 40 rows or fewer are shown or a filter is active; otherwise only
-the first two. A filter turns the tails off. The filter matches item names and area names
+Groups all start open (collapse one with its button). A filter turns the tails off. The filter matches item names and area names
 case-insensitively: an item match keeps those rows, an area match keeps only those
 columns (and the rows that have a cell there). A query that matches the block's own name
 filters nothing (every area and row stays); nothing left shows `No area or item

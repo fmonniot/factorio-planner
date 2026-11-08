@@ -38,7 +38,6 @@ const RECEIVE = 'bg-orange-400/15 text-orange-300'
 const OUTSIDE_COL = 'border-x border-dashed border-gray-600'
 const FOCUS_COL = 'ring-1 ring-inset ring-teal-400 bg-teal-500/10'
 const COUNTERPART = 'ring-1 ring-inset ring-teal-400/60'
-const MANY_ROWS = 40
 
 function groupText(t: GroupTotal, unit: RateUnit): string {
   if (t.kind === 'net') return t.t === 0 ? '' : fmtSigned(t.t, unit)
@@ -197,11 +196,8 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   }
 
   const colSpan = columns.length + 3
-  const totalItems = rows.length
-  const body = grouped.length === 0 ? null : grouped.map((g, gi) => {
-    const open = !grouping
-      ? true
-      : groupOverrides.get(g.id) ?? (totalItems <= MANY_ROWS || query.trim() !== '' || gi < 2)
+  const body = grouped.length === 0 ? null : grouped.map(g => {
+    const open = !grouping ? true : groupOverrides.get(g.id) ?? true
     const tailOpen = openTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
     const fromTotal = g.rows.reduce((n, r) => n + outsideValue(r, 'from'), 0)
