@@ -83,6 +83,8 @@ Seen in: `metals.png`, `ores.png`. Files: `IconChip.tsx` (the `text-[9px]` quant
 
 Noticed: the "click a row to trace it" hint and the item counts in the overview; the ▲/▼ reorder arrows, which are nearly invisible although they are controls; the side-panel section labels (RATE, MACHINE, BEACONS); the `–` cells of the Effects table; the `+` new-block button; and the **All blocks ▾** overflow button at the right of the tab strip, which shows as a tiny dot (visible in `hub.png`, next to "Extr"). Check each against 4.5:1 (text) or 3:1 (controls) before choosing new greys.
 
+*Decision (2026-11-08):* **accepted as is:** `contrast` (lighter hints, counts, reorder arrows, header and panel labels, and the bordered `+` and block-list buttons). On when the page opens, in the closed "Decided" section.
+
 ### 5. Collapsed group rows are noisy and change height
 
 - Every area row carries an "Area" tag, then "N recipes · N machines", and in Hub both numbers are the same ("114 recipes · 114 machines"). When every row of a table is an area, the tag adds nothing.
@@ -90,6 +92,8 @@ Noticed: the "click a row to trace it" hint and the item counts in the overview;
 - Group rows and recipe rows differ by the tag and a faint tint (`groupRowTint`, gray-800 at 30%, fainter with depth); only areas carry the Area tag and flow chips, plain sub-factories show counts and power only. A stronger band and a heavier name would make the tree readable at a glance.
 
 Ideas to compare: drop the tag when all siblings are areas, or move it to an icon; show "114 recipes" only when it differs from the machine count; one fixed row height (the popup stays as it is); a band for group rows.
+
+*Owner's review (2026-11-08):* **accepted:** `grpFixed` (one fixed row height; the popup stays as it is). Now on when the page opens, in the Decided section. **`grpTag`, replaced:** the idea of a quieter label is liked, but "no tag only when every sibling is an area" was confusing; `grpIcon` replaces it: a 12 px icon before the name on every group row, always, so a table of areas and a mixed table look the same. The areas icon of the toolbar marks a separate area, a folder marks a plain sub-factory; the Area tag goes, and the count reads "N machines" when it equals the recipe count (kept from `grpTag`). **`grpBand`, reworked:** the band and heavier name were too noisy (a table of areas turned into a different table when collapsed, and distracted from the content when open); the name weight is no longer touched and only an **open** group gets a faint tint, a hairline under its header and a teal icon, so collapsed rows keep the usual look. *Decision (2026-11-08, after trying both):* **accepted:** `grpIcon` and the reworked `grpBand`. Both are on when the page opens, in the Decided section. Finding 5 is judged.
 
 Seen in: `hub.png`, `ores.png`. Files: `RecipeRow.tsx` (sub-factory row), `AreaChipsMore.tsx`, `treeGuides.ts`.
 

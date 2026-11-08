@@ -289,6 +289,8 @@ button{font-family:inherit;cursor:pointer}
 <div class="cell" style="{{r.nameS}}">
 <div style="{{r.nameInner}}">
 <button class="chev" aria-expanded="{{r.isOpen}}" aria-label="{{r.chevLabel}}" onClick="{{r.toggle}}"><span style="{{r.chevStyle}}">›</span></button>
+<sc-if value="{{r.iconArea}}" hint-placeholder-val="{{ false }}"><svg role="img" aria-label="Separate area" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{r.iconStyle}}"><title>Separate area</title><path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z"></path></svg></sc-if>
+<sc-if value="{{r.iconGroup}}" hint-placeholder-val="{{ false }}"><svg role="img" aria-label="Sub-factory" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="{{r.iconStyle}}"><title>Sub-factory</title><path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"></path></svg></sc-if>
 <button class="namebtn" style="{{r.nameTxt}}" onClick="{{r.pick}}">{{r.name}}</button>
 <sc-if value="{{r.showTag}}" hint-placeholder-val="{{ true }}"><span style="flex:none;font-size:10px;line-height:1;padding:2px 5px;border:1px solid #0f766e;border-radius:3px;color:#5eead4">Area</span></sc-if>
 <span style="{{r.subStyle}}">{{r.sub}}</span>
@@ -446,7 +448,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'contrast', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong', 'grpFixed', 'grpIcon', 'grpBand'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -481,12 +483,12 @@ const GROUPS = [
     ['chipNum', 'Larger numbers', 'The quantity goes from 9 px to 11 px bold, still outlined in black.', 'Try: Ores (byproduct rows with red numbers).'],
     ['chipPlate', 'Washed-out chip plate', 'A faint cool-grey plate behind each icon: dark icons (carbon, coal) stop reading as holes, without a bright square around every chip.', 'Try: Ores, the Crystals row and any row with coal or carbon.'],
     ['chipBig', '32 px chips', 'Rows grow by 4 px and each line holds fewer chips.', 'Try: watch Average row height and Rows visible.'] ] },
-  { title: '4 · Contrast', items: [
+  { title: '4 · Contrast', decided: true, items: [
     ['contrast', 'Lighter secondary text and controls', 'Hints, counts, reorder arrows, header and panel labels, the + and All blocks buttons.', 'Try: the ▲▼ at the left of each row and the table header; the readout shows the lowest ratio.'] ] },
-  { title: '5 · Group rows', items: [
-    ['grpTag', 'Quieter labels', 'No Area tag when every sibling is an area; machines only when equal to recipes.', 'Try: Hub and Metals (all areas) against Ores (mixed). Expand a group: its children are recipes, so no tag.'],
-    ['grpBand', 'Band and heavier name', 'Group rows read apart from recipe rows.', 'Try: click the › of an area to open it and read the tree.'],
-    ['grpFixed', 'One fixed row height', 'Area chips stay on one line. The +N popup is the one the app has today.', 'Try: Hub, click the +N on a row; then compare the row heights with the baseline.'] ] },
+  { title: '5 · Group rows', decided: true, items: [
+    ['grpFixed', 'One fixed row height', 'Area chips stay on one line. The +N popup is the one the app has today.', 'Try: Hub, click the +N on a row; then compare the row heights with the baseline.'],
+    ['grpIcon', 'Icon instead of the Area tag', 'A 12 px icon before the name on every group row: the areas icon of the toolbar for a separate area, a folder for a plain sub-factory. Same on all-area and mixed tables. The count reads "N machines" when it equals the recipe count.', 'Try: Hub and Metals (all areas) against Ores (mixed); hover the icon for its name.'],
+    ['grpBand', 'Open groups: faint band', 'Only a group that is open gets a faint teal tint, a hairline under its header and a teal icon. Collapsed rows (a table of areas) keep the usual look. Needs the icon to show the icon change.', 'Try: click the › of an area to open it, then collapse it.'] ] },
   { title: '6 · Placeholders', decided: true, items: [
     ['phPair', 'Beacons: two placeholders, like Machine', 'An empty Beacons cell shows the beacon + and, next to it, the module slot + 0/2: the pair Machine already shows, and what a filled beacon looks like.', 'Try: Extra Sulfur, compare the Machine and Beacons columns.'],
     ['phQuiet', 'Fainter placeholders', 'Dashed border and glyph drop to a quieter tone and come back to the usual one on row hover, selection or keyboard focus, and brighter on the chip itself. Nothing is hidden, so touch screens look the same.', 'Try: Extra Sulfur, move the pointer over rows, or Tab into a row; the readout is unaffected.'] ] },
@@ -988,9 +990,10 @@ class Component extends DCLogic {
     const chipsOf = (list, tone, cap) => list.slice(0, cap).map(x => this.chip(D, tg, x[0], x[1], tone));
     const rowVms = rows.map(m => {
       const r = m.r, f = m.f;
-      const band = tg.grpBand && m.isArea;
-      let bg = m.isArea ? (band ? 'background:rgba(45,212,191,0.06);' : 'background:rgba(30,41,57,' + [0.3, 0.2, 0.1, 0.05][Math.min(f.depth, 3)] + ');') : '';
-      let shadow = band && !m.selected ? 'box-shadow:inset 0 -1px 0 rgba(45,212,191,0.25);' : '';
+      // grpBand only marks a group that is open: collapsed rows (a table of areas) keep the usual look.
+      const band = tg.grpBand && m.isArea && f.isOpen;
+      let bg = m.isArea ? (band ? 'background:rgba(45,212,191,0.05);' : 'background:rgba(30,41,57,' + [0.3, 0.2, 0.1, 0.05][Math.min(f.depth, 3)] + ');') : '';
+      let shadow = band && !m.selected ? 'box-shadow:inset 0 -1px 0 rgba(45,212,191,0.28);' : '';
       if (m.selected) {
         if (tg.selStrong) { bg = 'background:rgba(20,184,166,0.22);'; shadow = 'box-shadow:inset 3px 0 0 #2dd4bf,inset 0 0 0 1px rgba(45,212,191,0.65);'; }
         else { bg = 'background:rgba(19,78,74,0.25);'; shadow = 'box-shadow:inset 3px 0 0 #14b8a6;'; }
@@ -1010,7 +1013,7 @@ class Component extends DCLogic {
         subStyle: groupNarrow
           ? 'flex:0 0 100%;box-sizing:border-box;padding-left:28px;font-size:10px;line-height:1.1;color:#99a1af;white-space:nowrap;overflow:hidden;text-overflow:ellipsis'
           : 'flex:none;font-size:11px;color:#99a1af;white-space:nowrap',
-        nameTxt: 'font-size:12px;' + (m.selected && tg.selStrong ? 'color:#ffffff;font-weight:700;' : (m.isArea ? (band ? 'color:#f9fafb;font-weight:700;' : 'color:#e5e7eb;font-weight:600;') : 'color:#e5e7eb;font-weight:500;')),
+        nameTxt: 'font-size:12px;' + (m.selected && tg.selStrong ? 'color:#ffffff;font-weight:700;' : (m.isArea ? 'color:#e5e7eb;font-weight:600;' : 'color:#e5e7eb;font-weight:500;')),
         name: r.n,
         chevStyle: 'display:block;font-size:15px;line-height:1;transition:none;transform:rotate(' + (f.isOpen ? 90 : 0) + 'deg);' + (f.kids ? '' : 'opacity:0.3'),
         isOpen: f.isOpen, chevLabel: (f.isOpen ? 'Collapse ' : 'Expand ') + r.n,
@@ -1022,7 +1025,7 @@ class Component extends DCLogic {
         powS: cellBase + 'width:72px;justify-content:flex-end;',
         powTxt: 'font-family:ui-monospace,Menlo,monospace;font-size:11px;color:' + (m.isArea ? '#99a1af' : '#53eafd'),
         pw: pw[0], pu: pw[1],
-        showTag: false, sub: '', moreP: 0, moreI: 0, moreLabelP: '', moreLabelI: '',
+        showTag: false, iconArea: false, iconGroup: false, iconStyle: '', sub: '', moreP: 0, moreI: 0, moreLabelP: '', moreLabelI: '',
         moreBtnP: false, moreBtnI: false, _top: m.top, _h: m.h, _shP: 0, _shI: 0,
         moreBtnStyle: 'font-size:10px;line-height:1;color:' + cc.dim + ';background:transparent;border:0;padding:3px 4px;cursor:pointer;font-family:inherit;flex:none',
         chipsP: [], chipsB: [], chipsI: [], nameChip: [],
@@ -1037,8 +1040,10 @@ class Component extends DCLogic {
       if (m.isArea) {
         // A plain group has no area flows: the app shows its counts and power only.
         const plain = r.k === 'group';
-        vm.showTag = !plain && !(tg.grpTag && f.allArea);
-        vm.sub = tg.grpTag && r.rc === r.m ? r.m + ' machines' : r.rc + ' recipes · ' + r.m + ' machines';
+        vm.showTag = !plain && !tg.grpIcon;
+        vm.iconArea = !!tg.grpIcon && !plain; vm.iconGroup = !!tg.grpIcon && plain;
+        vm.iconStyle = 'flex:none;display:block;color:' + (band ? '#2dd4bf' : '#99a1af');
+        vm.sub = tg.grpIcon && r.rc === r.m ? r.m + ' machines' : r.rc + ' recipes · ' + r.m + ' machines';
         vm.chipsP = chipsOf(r.pr, 'p', m.rm.P.shown);
         vm.moreP = r.pr.length - m.rm.P.shown;
         vm.chipsI = chipsOf(r.ig, 'i', m.rm.I.shown);

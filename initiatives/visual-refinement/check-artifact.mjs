@@ -145,7 +145,7 @@ await check('6 phQuiet: placeholders are fainter, come back on hover, selection 
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the eighteen accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the twenty-two accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -153,13 +153,13 @@ await check('decided: the eighteen accepted changes are on at the start, in a cl
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all eighteen are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 18, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips', 'Lighter secondary text', 'One fixed row height', 'Icon instead of the Area tag', 'Open groups: faint band']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all twenty-two are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 22, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 18, 'Decided only puts the eighteen back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 22, 'Decided only puts the twenty-two back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)
@@ -205,15 +205,43 @@ await check('5 groups expand (chevron) and show an indented tree', async a => {
   await a.page.getByRole('button', { name: 'Collapse Aluminium' }).click()
   ok((await a.rows().count()) === n0, 'collapse restores the rows')
 })
-await check('5 grpBand and grpTag: visible differences, tags follow the siblings', async a => {
-  await a.block('Ores')
-  const tagsBase = await a.page.locator('#frame .row', { hasText: 'Area' }).count()
-  await a.toggle('Quieter labels')
-  const tagsAll = await a.page.evaluate(() => [...document.querySelectorAll('#frame .row')].filter(r => r.innerText.split('\n').includes('Area')).length)
-  ok(tagsAll === tagsBase, 'Ores mixes areas and recipes: the tag stays (a sibling is not an area)')
-  await a.block('Hub')
-  const hubTags = await a.page.evaluate(() => [...document.querySelectorAll('#frame .row')].filter(r => r.innerText.split('\n').includes('Area')).length)
-  ok(hubTags === 0, 'Hub is all areas: no tag, got ' + hubTags)
+await check('5 grpIcon: an icon on every group row replaces the Area tag, the same on all-area and mixed tables', async a => {
+  const tags = () => a.page.evaluate(() => [...document.querySelectorAll('#frame .row')].filter(r => r.innerText.split('\n').includes('Area')).length)
+  const icons = () => a.page.evaluate(() => ({ area: document.querySelectorAll('#frame .row svg[aria-label="Separate area"]').length, group: document.querySelectorAll('#frame .row svg[aria-label="Sub-factory"]').length, rows: [...document.querySelectorAll('#frame .row')].filter(r => r.querySelector('button.chev')).length }))
+  for (const blk of ['Ores', 'Hub']) {
+    await a.block(blk)
+    const tagsBase = await tags()
+    ok(tagsBase > 0, blk + ' shows the Area tag in the baseline')
+    ok((await icons()).area === 0, blk + ' has no icon in the baseline')
+    await a.toggle('Icon instead of the Area tag')
+    ok((await tags()) === 0, blk + ' no longer has the tag')
+    const i = await icons()
+    ok(i.area === tagsBase, blk + ' has one areas icon per area row (' + tagsBase + '), got ' + i.area)
+    const sz = await a.page.locator('#frame .row svg[aria-label="Separate area"]').first().evaluate(e => e.getBoundingClientRect().width)
+    ok(sz <= 12.5, 'the icon is small, ' + sz + ' px')
+    await a.toggle('Icon instead of the Area tag')
+  }
+  await a.toggle('Icon instead of the Area tag')
+  const sub = await a.page.evaluate(() => [...document.querySelectorAll('#frame .row')].map(r => r.innerText).join('\n'))
+  ok(!/(\d+) recipes · \1 machines/.test(sub), 'the count reads "N machines" when recipes and machines are equal')
+})
+await check('5 grpBand: only an open group gets the band; collapsed rows keep the usual look', async a => {
+  // The first row is the selected one (its selection style wins), so the check reads the second area row.
+  const name = await a.page.locator('#frame .row button.chev').nth(1).getAttribute('aria-label').then(l => l.replace(/^Expand /, ''))
+  const state = () => a.page.evaluate(n => { const r = [...document.querySelectorAll('#frame .row')].find(r => r.querySelector(`button[aria-label$=" ${n}"]`)); const ic = r.querySelector('svg[aria-label]'); return { bg: getComputedStyle(r).backgroundColor, sh: getComputedStyle(r).boxShadow, ic: ic ? getComputedStyle(ic).color : '' } }, name)
+  await a.toggle('Icon instead of the Area tag')
+  const before = await state()
+  await a.toggle('Open groups: faint band')
+  const collapsed = await state()
+  ok(collapsed.bg === before.bg && collapsed.sh === before.sh && collapsed.ic === before.ic, 'a collapsed row is unchanged: ' + JSON.stringify([before, collapsed]))
+  await a.page.getByRole('button', { name: 'Expand ' + name, exact: true }).click()
+  const open = await state()
+  ok(open.sh.includes('-1px'), 'an open group has a hairline under its header: ' + open.sh)
+  ok(open.bg !== before.bg, 'and a faint tint: ' + open.bg + ' vs ' + before.bg)
+  ok(open.ic !== before.ic, 'its icon turns teal: ' + open.ic + ' vs ' + before.ic)
+  await a.page.getByRole('button', { name: 'Collapse ' + name, exact: true }).click()
+  const back = await state()
+  ok(back.sh === before.sh && back.bg === before.bg && back.ic === before.ic, 'collapsing restores the usual look')
 })
 await check('5 grpFixed: one row height, +N popup exists in the baseline and the proposal', async a => {
   await a.block('Hub')
