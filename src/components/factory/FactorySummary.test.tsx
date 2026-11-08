@@ -74,10 +74,13 @@ const strip = (paneName: string) => within(pane(paneName)).getByTestId('summary-
 const select = (paneName: string, item: string) => fireEvent.click(slot(paneName, item))
 const segments = (paneName: string, kind?: string) =>
   within(strip(paneName)).queryAllByTestId('summary-segment').filter(el => !kind || el.dataset.kind === kind)
-const keyEntries = (paneName: string, kind?: string) =>
-  within(strip(paneName)).queryAllByTestId('summary-key-entry').filter(el => !kind || el.dataset.kind === kind)
+// A segment's tooltip is in the DOM (CSS shows it on hover or focus): its first line reads name, amount, note.
+const keyEntries = segments
+const entryText = (el: HTMLElement) => el.querySelector('[data-testid="summary-segment-tip"]')!.textContent
+/** The tooltip's second line: what a click does, why a source is limited. */
+const entryDetail = (el: HTMLElement) => el.querySelector('[data-testid="summary-segment-detail"]')?.textContent ?? ''
 const overviewRow = (paneName: string, key: string) =>
-  within(strip(paneName)).getAllByTestId('summary-overview-row').find(r => r.dataset.key === key)!
+  within(strip(paneName)).getAllByTestId('summary-overview-segment').find(r => r.dataset.key === key)!
 
 describe('FactorySummary — panes', () => {
   it('renders Products, Byproducts and Ingredients regions', () => {
@@ -129,7 +132,7 @@ describe('FactorySummary — detail strip states', () => {
     render(<FactorySummary />)
     expect(strip('Products')).toHaveAttribute('data-state', 'overview')
     expect(overviewRow('Products', 'kept')).toBeInTheDocument()
-    expect(overviewRow('Products', 'short').textContent).toContain('2.00')
+    expect(entryText(overviewRow('Products', 'short'))).toContain('2.00')
   })
 
   it('says so when a pane has nothing to show', () => {
@@ -589,8 +592,8 @@ describe('FactorySummary — connections', () => {
       select('Ingredients', 'Iron Ore')
       expect(segments('Ingredients', 'source')).toHaveLength(1)
       const [entry] = keyEntries('Ingredients', 'source')
-      expect(entry.textContent).toContain('← Miner')
-      expect(entry.textContent).toContain('30.0')
+      expect(entryText(entry)).toContain('← Miner')
+      expect(entryText(entry)).toContain('30.0')
     })
 
     it('titles a limited source with "Limited" and flags the slot', () => {
@@ -598,7 +601,7 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'limited')
       select('Ingredients', 'Iron Ore')
-      expect(segments('Ingredients', 'source')[0].getAttribute('title')).toMatch(/^Limited/)
+      expect(entryDetail(segments('Ingredients', 'source')[0])).toMatch(/^Limited/)
     })
 
     it('titles an unused connection with "Not used" and dims the slot', () => {
@@ -606,7 +609,7 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-dimmed', 'true')
       select('Ingredients', 'Iron Ore')
-      expect(keyEntries('Ingredients', 'unused')[0].getAttribute('title')).toMatch(/^Not used/)
+      expect(entryDetail(keyEntries('Ingredients', 'unused')[0])).toMatch(/^Not used/)
     })
 
     it('labels a deleted source and lets the user remove the connection via right-click', () => {
@@ -615,8 +618,8 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       const [entry] = keyEntries('Ingredients', 'missing-source')
-      expect(entry.textContent).toContain('(deleted block)')
-      fireEvent.contextMenu(entry.firstElementChild!)
+      expect(entryText(entry)).toContain('(deleted block)')
+      fireEvent.contextMenu(entry)
       fireEvent.click(screen.getByRole('menuitem', { name: 'Remove connection' }))
       expect(useBlockStore.getState().blocks[0].inputConnections).toEqual([])
     })
@@ -625,7 +628,7 @@ describe('FactorySummary — connections', () => {
       setupBlocks({ activeId: 'consumer', connected: true, flows: [flow({ status: 'self', rate: 0 })] })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      expect(keyEntries('Ingredients', 'self')[0].textContent).toContain('self, ignored')
+      expect(entryText(keyEntries('Ingredients', 'self')[0])).toContain('self, ignored')
     })
 
     it('marks a source that is part of a loop', () => {
@@ -633,8 +636,8 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       const [entry] = keyEntries('Ingredients', 'source')
-      expect(entry.textContent).toContain('↻')
-      expect(entry.getAttribute('title')).toMatch(/part of a loop/)
+      expect(entryText(entry)).toContain('↻')
+      expect(entryDetail(entry)).toMatch(/part of a loop/)
     })
 
     it('right-clicking a source segment offers "Remove connection"', () => {
@@ -956,8 +959,8 @@ describe('FactorySummary — connections', () => {
       select('Products', 'Iron Plate')
       const exports = segments('Products', 'export')
       expect(exports).toHaveLength(1)
-      expect(exports[0].getAttribute('title')).toMatch(/^Sends Iron Plate to Consumer/)
-      expect(keyEntries('Products', 'export')[0].textContent).toContain('20.0')
+      expect(entryDetail(exports[0])).toMatch(/^Sends Iron Plate to Consumer/)
+      expect(entryText(keyEntries('Products', 'export')[0])).toContain('20.0')
       fireEvent.click(exports[0])
       expect(useBlockStore.getState().activeBlockId).toBe('consumer')
     })
@@ -1104,7 +1107,7 @@ describe('FactorySummary — requests', () => {
     setupRequest({ activeId: 'consumer', itemId: 'iron-ore', flows: [requestFlow({ itemId: 'iron-ore' })], result: empty() })
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
-    expect(segments('Ingredients', 'source')[0].getAttribute('title')).toMatch(/— requested/)
+    expect(entryDetail(segments('Ingredients', 'source')[0])).toMatch(/— requested/)
   })
 
   it('offers Limit rate… and Remove connection in the connection chip menu', () => {
@@ -1277,7 +1280,7 @@ describe('FactorySummary — products pane', () => {
     })
   }
   const miner = () => useBlockStore.getState().blocks.find(b => b.id === 'miner')!
-  const keyTexts = (kind?: string) => keyEntries('Products', kind).map(e => e.textContent)
+  const keyTexts = (kind?: string) => keyEntries('Products', kind).map(entryText)
   const stripText = () => strip('Products').textContent!
 
   it('shows the extra and the request in the header, and says who asked for what', () => {
@@ -1335,9 +1338,9 @@ describe('FactorySummary — products pane', () => {
     setupRequest({ result: makerResult(75) })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(keyEntries('Products', 'export')[0].textContent).toBe('Consumer requests 30.0')
-    expect(keyEntries('Products', 'short')[0].textContent).toBe('Short 15.0 — comes out of the extra')
-    expect(keyEntries('Products', 'kept')[0].textContent).toBe('Extra: 45.0 of 60.0')
+    expect(entryText(keyEntries('Products', 'export')[0])).toBe('Consumer requests 30.0')
+    expect(entryText(keyEntries('Products', 'short')[0])).toBe('Short 15.0 — comes out of the extra')
+    expect(entryText(keyEntries('Products', 'kept')[0])).toBe('Extra: 45.0 of 60.0')
   })
 
   it('takes a shortfall out of the extra and the request', () => {
@@ -1348,8 +1351,8 @@ describe('FactorySummary — products pane', () => {
     })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(keyEntries('Products', 'short')[0].textContent).toBe("Short 20.0 — comes out of the extra and Consumer's request")
-    expect(keyEntries('Products', 'export')[0].textContent).toBe('Consumer: 20.0 of 30.0 requested')
+    expect(entryText(keyEntries('Products', 'short')[0])).toBe("Short 20.0 — comes out of the extra and Consumer's request")
+    expect(entryText(keyEntries('Products', 'export')[0])).toBe('Consumer: 20.0 of 30.0 requested')
   })
 
   it('does not blame a request that drew less because it took the item elsewhere first', () => {
@@ -1360,7 +1363,7 @@ describe('FactorySummary — products pane', () => {
     })
     render(<FactorySummary />)
     select('Products', 'Iron Plate')
-    expect(keyEntries('Products', 'short')[0].textContent).toBe('Short 20.0 — comes out of the extra')
+    expect(entryText(keyEntries('Products', 'short')[0])).toBe('Short 20.0 — comes out of the extra')
   })
 
   it('draws an empty slot dimmed with a dashed border and says nothing is requested', () => {
@@ -1502,7 +1505,7 @@ describe('FactorySummary — pane layout', () => {
     const grid = within(pane('Products')).getByTestId('summary-slot-grid')
     expect(grid).toHaveClass('max-h-[97px]')
     expect(grid).toHaveClass('overflow-y-auto')
-    expect(strip('Products')).toHaveClass('h-[110px]')
+    expect(strip('Products')).toHaveClass('h-[72px]')
   })
 })
 
@@ -1534,15 +1537,6 @@ describe('FactorySummary — scroll fade', () => {
     contentHeight = 50
     act(() => useUiStore.getState().setRateUnit('min'))
     expect(pane('Products')).not.toHaveAttribute('data-overflow')
-  })
-
-  it('fades the overview rows until they are scrolled to the bottom', () => {
-    render(<FactorySummary />)
-    const rows = within(strip('Products')).getByTestId('summary-overview-rows')
-    expect(rows).toHaveAttribute('data-overflow', 'true')
-    rows.scrollTop = 50
-    fireEvent.scroll(rows)
-    expect(rows).not.toHaveAttribute('data-overflow')
   })
 })
 
@@ -1777,5 +1771,77 @@ describe('FactorySummary — two goals for the same item', () => {
     fireEvent.change(input, { target: { value: '45' } })
     fireEvent.keyDown(input, { key: 'Enter' })
     expect(useBlockStore.getState().blocks[0].products.map(p => p.extraRate)).toEqual([60, 45])
+  })
+})
+
+describe('FactorySummary — bars', () => {
+  const proto = HTMLElement.prototype
+  const savedWidth = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
+  afterEach(() => {
+    if (savedWidth) Object.defineProperty(proto, 'clientWidth', savedWidth)
+    else delete (proto as unknown as Record<string, unknown>).clientWidth
+  })
+  /** The bar's own width; happy-dom has no layout. */
+  const withBarWidth = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
+  /** What a segment writes in the bar: everything but its tooltip. */
+  const written = (el: HTMLElement) =>
+    [...el.children].filter(c => c.getAttribute('aria-hidden') !== 'true').map(c => c.textContent).join(' ')
+
+  it('draws the overview as one bar of segments, one per row, with the amount and the item count in the wide one', () => {
+    withBarWidth(300)
+    render(<FactorySummary />)
+    const kept = overviewRow('Products', 'kept')
+    expect(within(strip('Products')).getAllByTestId('summary-overview-segment')).toHaveLength(2)
+    expect(written(kept)).toBe('Left 58.0 · 1')
+    // The short segment is about 3% of the bar: too thin for any text, so the tooltip and the name carry it.
+    expect(written(overviewRow('Products', 'short'))).toBe('')
+    expect(overviewRow('Products', 'short')).toHaveAccessibleName('Short · 2.00 · 1 item')
+  })
+
+  it('writes no text before the bar has a width, and still names every segment', () => {
+    render(<FactorySummary />)
+    const kept = overviewRow('Products', 'kept')
+    expect(written(kept)).toBe('')
+    expect(kept).toHaveAccessibleName('Left · 58.0 · 1 item')
+  })
+
+  it('shows the full information in the tooltip: name, amount and note', () => {
+    render(<FactorySummary />)
+    expect(entryText(overviewRow('Products', 'kept'))).toBe('Left 58.0 1 item')
+  })
+
+  it('traces from a segment: pressed, and the other segments fade', () => {
+    render(<FactorySummary />)
+    fireEvent.click(overviewRow('Products', 'short'))
+    expect(overviewRow('Products', 'short')).toHaveAttribute('aria-pressed', 'true')
+    expect(overviewRow('Products', 'kept')).toHaveAttribute('aria-pressed', 'false')
+    expect(overviewRow('Products', 'kept').style.opacity).toBe('0.5')
+    expect(within(strip('Products')).getByText('click again to clear')).toBeInTheDocument()
+    fireEvent.click(overviewRow('Products', 'short'))
+    expect(within(strip('Products')).getByText('click a segment to trace it')).toBeInTheDocument()
+  })
+
+  it('gives a selected item a 16 px bar, no key line, and an accessible name on every segment', () => {
+    withBarWidth(300)
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    const segs = segments('Products')
+    expect(segs.length).toBeGreaterThan(0)
+    for (const seg of segs) expect(seg).toHaveAccessibleName(/\S/)
+    expect(within(strip('Products')).queryAllByTestId('summary-key-entry')).toHaveLength(0)
+    expect(segs[0].parentElement).toHaveClass('h-4')
+    expect(written(segs[0])).toContain('Extra')
+    // The actions keep their line.
+    expect(within(strip('Products')).getByRole('button', { name: 'Find recipe' })).toBeInTheDocument()
+    expect(within(strip('Products')).getByRole('button', { name: 'Remove product' })).toBeInTheDocument()
+  })
+
+  it('keeps the 72 px strip in every state', () => {
+    render(<FactorySummary />)
+    expect(strip('Products')).toHaveClass('h-[72px]')
+    select('Products', 'Iron Plate')
+    expect(strip('Products')).toHaveClass('h-[72px]')
+    fireEvent.mouseEnter(slot('Products', 'Iron Plate'))
+    expect(strip('Products')).toHaveClass('h-[72px]')
   })
 })

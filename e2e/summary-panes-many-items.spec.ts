@@ -16,7 +16,7 @@ const CIRCUITS_ID = 'cccc0003-0000-0000-0000-000000000001'
 const slots = (page: Page, label: string) => pane(page, label).getByTestId('summary-slot')
 const grid = (page: Page, label: string) => pane(page, label).getByTestId('summary-slot-grid')
 const overviewRow = (page: Page, label: string, key: string) =>
-  detail(page, label).locator(`[data-testid="summary-overview-row"][data-key="${key}"]`)
+  detail(page, label).locator(`[data-testid="summary-overview-segment"][data-key="${key}"]`)
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
@@ -70,9 +70,9 @@ test.describe('summary panes with many items', () => {
       const itemName = (await s.getAttribute('title'))!
       await s.click()
       await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
-      const entries = detail(page, 'Products').locator('[data-testid="summary-key-entry"][data-kind="export"]')
+      const entries = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
       for (const entry of await entries.all()) {
-        await expect(entry).toHaveAttribute('title', new RegExp(`^Sends ${itemName} to `))
+        await expect(entry.getByTestId('summary-segment-detail')).toHaveText(new RegExp(`^Sends ${itemName} to `))
         exportCount++
       }
     }
@@ -162,15 +162,15 @@ test.describe('summary panes with many items', () => {
     await page.locator('button[title="Metals"]').click()
     await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`)).toHaveCount(0)
     await page.locator('button[title="Sciences"]').click()
-    // The last column of an overview row is the number of slots carrying it.
-    await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`).locator('span').last()).toHaveText('12')
+    // The tooltip of an overview segment ends with the number of slots carrying it.
+    await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`).getByTestId('summary-segment-tip')).toContainText('12 items')
 
     let withConnection = 0
     for (const s of await slots(page, 'Ingredients').all()) {
       const itemId = (await s.getAttribute('data-item-id'))!
       await s.click()
       await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
-      const entries = detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"]')
+      const entries = detail(page, 'Ingredients').locator('[data-testid="summary-segment"]')
       for (const entry of await entries.all()) {
         const kind = await entry.getAttribute('data-kind')
         if (kind !== 'source' && kind !== 'unused') continue
@@ -178,7 +178,7 @@ test.describe('summary panes with many items', () => {
         const name = names.get(itemId)
         expect(name, `${itemId} is one of the Metals goals`).toBeDefined()
         // Limited and unused connections name no item, so their title cannot be compared with the slot.
-        expect((await entry.getAttribute('title'))!).toMatch(
+        expect((await entry.getByTestId('summary-segment-detail').textContent())!).toMatch(
           new RegExp(`^(${name!.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')} from Metals|Limited: |Not used: )`),
         )
       }

@@ -65,7 +65,7 @@ test.describe('block graph', () => {
     await closeGraph(page)
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceSegment(page)).toContainText('Plates')
-    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('30.0')
+    await expect(sourceSegment(page).getByTestId('summary-segment-tip')).toContainText('30.0')
     await expect(detail(page, 'Ingredients').locator('[data-kind="import"]')).toHaveCount(0)
   })
 
@@ -159,7 +159,7 @@ test.describe('block graph', () => {
     // Gears (still the active block) takes 10 from Plates and imports the rest.
     await closeGraph(page)
     await selectSlot(page, 'Ingredients', 'Iron plate')
-    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('10.0')
+    await expect(sourceSegment(page).getByTestId('summary-segment-tip')).toContainText('10.0')
     await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
 
     // Clearing the limit from the edge gives the plates back.
@@ -169,7 +169,7 @@ test.describe('block graph', () => {
     await page.keyboard.press('Enter')
     await expect(page.getByTestId('graph-edge-limit')).not.toContainText('10')
     await closeGraph(page)
-    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('30.0')
+    await expect(sourceSegment(page).getByTestId('summary-segment-tip')).toContainText('30.0')
   })
 
   test('clicking a block opens it', async ({ page }) => {

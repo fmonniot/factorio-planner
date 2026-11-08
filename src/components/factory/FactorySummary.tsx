@@ -320,7 +320,7 @@ export function FactorySummary() {
               type="button"
               onClick={edit.start}
               title="Add extra output on top of what is requested"
-              className="border border-dashed border-gray-600 rounded px-1.5 text-gray-400 hover:text-gray-200"
+              className="border border-dashed border-gray-600 rounded px-2 py-0.5 leading-4 whitespace-nowrap text-gray-400 hover:text-gray-200"
             >
               + Extra output
             </button>

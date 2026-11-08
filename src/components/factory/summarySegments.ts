@@ -482,3 +482,87 @@ export function keyEntryText(
       return plain
   }
 }
+
+/** The name a segment writes in the bar: a key entry's label without its "requests" or colon. */
+export function barName(label: string): string {
+  return label.replace(/ requests$/, '').replace(/:$/, '')
+}
+
+/** The accessible name of a bar segment: what its tooltip says on its first line. */
+export function barAccessibleName(name: string, amount?: string, note?: string): string {
+  return [name, amount, note].filter(Boolean).join(' · ')
+}
+
+// ---------------------------------------------------------------------------
+// Stacked-bar layout —the detail strip's bar and the overview bar share it.
+// Pure arithmetic: segment widths from weights, and how much text each can carry.
+// ---------------------------------------------------------------------------
+
+/** Width of a segment too thin to size by weight; it keeps this much so it stays visible and hoverable. */
+export const BAR_MIN_SEGMENT_PX = 3
+/** Gap between two segments. */
+export const BAR_GAP_PX = 1
+/** Estimated width of one character of the 10px monospace amount. */
+const BAR_CHAR_PX = 6.2
+/** A segment writes its name once it is this much wider than its amount takes. */
+const BAR_NAME_EXTRA_PX = 46
+/** Same, for the amount: the amount's own width plus this. */
+const BAR_AMOUNT_EXTRA_PX = 4
+/** A segment with no amount writes its name alone from this width. */
+const BAR_NAME_ONLY_PX = 60
+
+export interface BarPartInput {
+  /** Share of the bar; only the ratios matter. A part with no weight keeps the minimum width. */
+  weight: number
+  /** A mark of fixed width that takes no share of the bar. */
+  fixedPx?: number
+  /** The amount written in the bar, when there is one. */
+  amount?: string
+  /** The amount with the item count riding along ("381 · 14"); written instead of the amount when it fits. */
+  withCount?: string
+}
+
+export interface BarPartLayout {
+  px: number
+  /** Distance of the segment's middle from the bar's left edge. */
+  center: number
+  /** What is written after the name: the amount, or the amount with its count; undefined when the segment is too narrow. */
+  amount: string | undefined
+  /** Whether the name is written in the segment. */
+  name: boolean
+}
+
+/**
+ * Sizes the parts of a bar `width` px wide: the gaps and the fixed marks come off first, the rest is
+ * shared by weight, and parts under 3 px keep 3 px (the others give that room up, so the bar never
+ * spills out). The text each part carries follows its width: name and amount when the amount's width
+ * plus 46 px fits, the amount alone from its width plus 4 px, nothing below that.
+ */
+export function layoutBar(parts: BarPartInput[], width: number): BarPartLayout[] {
+  const flexible = parts.filter(p => p.fixedPx === undefined)
+  const fixed = parts.reduce((total, p) => total + (p.fixedPx ?? 0), 0)
+  const avail = Math.max(0, width - Math.max(0, parts.length - 1) * BAR_GAP_PX - fixed)
+  const weightSum = flexible.reduce((total, p) => total + Math.max(0, p.weight), 0)
+  const share = (p: BarPartInput) => weightSum > 0 ? Math.max(0, p.weight) / weightSum : 1 / flexible.length
+  const isTiny = (p: BarPartInput) => share(p) * avail < BAR_MIN_SEGMENT_PX
+  const tinyCount = flexible.filter(isTiny).length
+  const bigShare = flexible.reduce((total, p) => total + (isTiny(p) ? 0 : share(p)), 0) || 1
+  const scale = Math.max(0, avail - tinyCount * BAR_MIN_SEGMENT_PX) / bigShare
+  let x = 0
+  return parts.map(p => {
+    const px = p.fixedPx ?? (isTiny(p) ? BAR_MIN_SEGMENT_PX : Math.round(share(p) * scale * 10) / 10)
+    const center = x + px / 2
+    x += px + BAR_GAP_PX
+    const counted = p.withCount !== undefined && p.withCount !== p.amount && px >= p.withCount.length * BAR_CHAR_PX + 14
+    const text = counted ? p.withCount : p.amount
+    const hasText = text !== undefined && text !== ''
+    const amountW = (hasText ? text.length : 0) * BAR_CHAR_PX + 10
+    const showAmount = hasText && px >= amountW + BAR_AMOUNT_EXTRA_PX
+    return {
+      px,
+      center,
+      amount: showAmount ? text : undefined,
+      name: showAmount ? px >= amountW + BAR_NAME_EXTRA_PX : !hasText && px >= BAR_NAME_ONLY_PX,
+    }
+  })
+}

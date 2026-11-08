@@ -17,8 +17,9 @@ const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
 const rodSlot = (page: Page) => slot(page, 'Ingredients', 'Iron rod')
 const sourceSegment = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')
-const sourceEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')
-const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')
+// A segment's tooltip is in the DOM whether or not it is showing: its first line is name, amount and note, its second what a click does.
+const sourceEntry = (page: Page) => sourceSegment(page).getByTestId('summary-segment-tip')
+const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="import"]').getByTestId('summary-segment-tip')
 
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
@@ -51,8 +52,8 @@ test.describe('block connections', () => {
     await page.locator('button[title="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     const exportSegment = detail(page, 'Products').locator('[data-testid="summary-segment"][data-kind="export"]')
-    await expect(exportSegment).toHaveAttribute('title', /^Sends Iron plate to Gears/)
-    await expect(detail(page, 'Products').locator('[data-testid="summary-key-entry"][data-kind="export"]')).toContainText('30.0')
+    await expect(exportSegment.getByTestId('summary-segment-detail')).toHaveText(/^Sends Iron plate to Gears/)
+    await expect(exportSegment.getByTestId('summary-segment-tip')).toContainText('30.0')
 
     // Back on Gears, the request is served in full.
     await page.locator('button[title="Gears"]').click()
@@ -82,7 +83,7 @@ test.describe('block connections', () => {
     await overlay.getByPlaceholder('Search…').fill('Iron plate')
     await overlay.locator('[data-testid="recipe-slot"][title="Iron plate"]').click()
 
-    await expect(detail(page, 'Ingredients').getByTestId('summary-key-entry').filter({ hasText: 'unused' })).toHaveAttribute('title', /Not used/)
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="unused"]').getByTestId('summary-segment-detail')).toHaveText(/^Not used/)
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toBeVisible()
   })
 
