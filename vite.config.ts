@@ -8,7 +8,7 @@ import sharp from 'sharp'
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => ({
   base: mode === 'production' ? '/factorio-planner/' : '/',
-  // Fixed: the bridge's default allowed origins and Playwright's baseURL assume it.
+  // Fixed: the bridge's default allowed origins assume it. Playwright overrides it with --port.
   server: { port: 4000, strictPort: true },
   plugins: [
     react(),
