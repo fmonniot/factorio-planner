@@ -33,7 +33,6 @@ export interface AllBlocksMatrixProps {
 const SEND = 'bg-sky-400/15 text-sky-300'
 const RECEIVE = 'bg-orange-400/15 text-orange-300'
 const BLOCK_EDGE = 'border-l border-gray-700'
-const MANY_ROWS = 40
 
 export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   const {
@@ -149,8 +148,8 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
     )
   }
 
-  const body = grouped.map((g, gi) => {
-    const open = !grouping ? true : groupOverrides.get(g.id) ?? (rows.length <= MANY_ROWS || query.trim() !== '' || gi < 2)
+  const body = grouped.map(g => {
+    const open = !grouping ? true : groupOverrides.get(g.id) ?? true
     const tailOpen = openTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
     return (

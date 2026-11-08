@@ -16,6 +16,9 @@ const gameData = {
     ...Object.fromEntries(Array.from({ length: 9 }, (_, i) => [
       `p${i}`, { id: `p${i}`, name: `Part ${i}`, type: 'item', iconPath: '', hidden: false, subgroup: 'parts', order: '' },
     ])),
+    ...Object.fromEntries(Array.from({ length: 45 }, (_, i) => [
+      `q${i}`, { id: `q${i}`, name: `Widget ${i}`, type: 'item', iconPath: '', hidden: false, subgroup: 'widgets', order: '' },
+    ])),
   },
   recipes: {},
   machines: {},
@@ -27,8 +30,10 @@ const gameData = {
   itemGroups: {
     logistics: { id: 'logistics', name: 'Logistics', order: 'a', iconPath: '' },
     intermediates: { id: 'intermediates', name: 'Intermediates', order: 'b', iconPath: '' },
+    production: { id: 'production', name: 'Production', order: 'c', iconPath: '' },
   },
   itemSubgroups: {
+    widgets: { id: 'widgets', group: 'production', order: '' },
     fluids: { id: 'fluids', group: 'logistics', order: '' },
     parts: { id: 'parts', group: 'intermediates', order: '' },
   },
@@ -113,6 +118,15 @@ describe('PlanAreasModal', () => {
     fireEvent.click(btn)
     expect(btn).toHaveAttribute('aria-expanded', 'false')
     expect(table('Alpha').querySelector('tr[data-item-id="h2"]')).toBeNull()
+  })
+
+  it('starts every group open, even with many rows', () => {
+    setup(true, ['p0', ...Array.from({ length: 45 }, (_, i) => `q${i}`)])
+    render(<PlanAreasModal gameData={gameData} onClose={() => {}} />)
+    const groups = ['Logistics', 'Intermediates', 'Production']
+    for (const name of groups) {
+      expect(screen.getByRole('button', { name: new RegExp(`^${name}`) })).toHaveAttribute('aria-expanded', 'true')
+    }
   })
 
   it('folds small rows into a tail that opens on demand', () => {
