@@ -2,7 +2,7 @@
 
 Status: Active
 
-Eleven visual refinements of the production-table screen (summary strip, table, side panel, top bar), found by reviewing screenshots of the running app on a real, mid-game Seablock plan. The goal is to judge them in a design artifact first, mainly for their effect on **compactness**, before touching `src/components/`. Nothing is implemented in `src/components/`. The artifact exists and is waiting for the owner's feedback: this document is the brief, and [HANDOFF.md](HANDOFF.md) holds the state of the work (what is built, how to restart, next steps).
+Eleven visual refinements of the production-table screen (summary strip, table, side panel, top bar), found by reviewing screenshots of the running app on a real, mid-game Seablock plan. The goal is to judge them in a design artifact first, mainly for their effect on **compactness**, before touching `src/components/`. Nothing is implemented in `src/components/` yet. The artifact exists and every finding is judged: this document is the brief and the record of the decisions, [HANDOFF.md](HANDOFF.md) holds the state of the artifact (what is built, how to restart it), and [implementation.md](implementation.md) is the plan for putting the accepted changes into the app.
 
 Incomplete on purpose. These are first impressions from one plan, one data set and the dark theme; see [Not covered yet](#not-covered-yet).
 
@@ -208,4 +208,4 @@ node initiatives/visual-refinement/capture-baseline.mjs <plan.json> /tmp/shots -
 
 ## After the artifact
 
-Accepted findings become items in [../backlog.md](../backlog.md) under UI / UX, or one follow-up plan in this folder when several touch the same files (findings 1, 2 and 10 all change the vertical or horizontal budget, and 3 and 6 both change the chips and rows). When the changes ship, update [../../spec/ui.md](../../spec/ui.md) (the sizes it quotes) and move this folder to `initiatives/archive/`.
+All ten fixable findings are judged. The follow-up plan is [implementation.md](implementation.md): a ledger of the 28 accepted changes and the 11 rejected variants, and one section per implementation PR (nine, in an order that follows their shared sizes). `npm run lint:docs` keeps the ledger in step with the artifact. When the changes ship, update [../../spec/ui.md](../../spec/ui.md) (the sizes it quotes) and move this folder to `initiatives/archive/`.
