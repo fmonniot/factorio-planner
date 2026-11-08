@@ -48,10 +48,10 @@ test.describe('Recipe picker — unlocking technology', () => {
     await expect(cost).not.toContainText('30s')
   })
 
-  test('shows Trigger for a research-trigger technology', async ({ page }) => {
+  test('shows the trigger condition of a research-trigger technology', async ({ page }) => {
     await upload(page)
     const unlock = await hoverRecipe(page, 'space-science-pack')
-    await expect(unlock.getByTestId('tech-cost')).toHaveText('Trigger')
+    await expect(unlock.getByTestId('tech-cost')).toHaveText('Craft 10 × Rocket part')
   })
 
   test('shows no cost for a technology without cost data', async ({ page }) => {

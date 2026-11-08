@@ -279,6 +279,7 @@ interface Technology {
   unlockedRecipes: string[]   // recipe ids from `unlock-recipe` effects
   iconPath: string            // default ''
   cost?: TechnologyCost | null
+  trigger?: ResearchTrigger   // research trigger condition; only exported when `cost` is null
 }
 
 interface TechnologyCost {
@@ -286,13 +287,33 @@ interface TechnologyCost {
   count: number | null        // units; null when the count is a formula (count_formula)
   time: number                // seconds per unit
 }
+
+interface ResearchTrigger {
+  type: string                // Factorio trigger type, e.g. 'craft-item'; any string
+  item?: string               // craft-item, send-item-to-orbit
+  entity?: string             // mine-entity, build-entity, capture-spawner
+  fluid?: string              // craft-fluid
+  count?: number              // craft-item / build-entity count, craft-fluid amount; absent = 1
+}
 ```
 
 **Technology name.** The build script uses, in order: the game's resolved name (`technology-locale.json`), the technology's `localised_name`, its `technology-name` locale key, then for a leveled id (`<base>-<n>`) `"<base name> <n>"`, then the id. The game names the last level of an infinite technology without its number (`toolbelt-5` is "Toolbelt"); when such a name has no trailing digit and equals the game's name for the base id or for another level of the same base, the level is appended (`"Toolbelt 5"`). Names that are already distinct are kept as the game gives them.
 
 `cost` is `undefined` when the bundle was exported without cost data and `null`
 for a technology that is not researched in labs (completed by a research
-trigger). The tree shows no cost for the first and "Trigger" for the second.
+trigger). The tree shows no cost for the first. For the second it shows the condition
+described from `trigger` (`describeTrigger` in `src/data/researchTrigger.ts`: "Craft 10 × Steel plate",
+with the subject's icon when the bundle has one), or a bare "Trigger" when `trigger` is absent or its
+`type` is not one the planner knows (`craft-item`, `craft-fluid`, `mine-entity`, `build-entity`,
+`capture-spawner`, `send-item-to-orbit`, `create-space-platform`), or a known type lacks its required
+field (`craft-item` with no `item`, `mine-entity` with no `entity`, ...). `ResearchTriggerSchema.type`
+accepts any string, so none of this is checked on import. Export side: `trigger` is written only for a
+technology without a `unit`. Display side: the UI shows `trigger` only when `cost` is `null` and ignores
+it when `cost` is non-null (a hand-edited bundle with both keeps its cost). The exporter reads
+`research_trigger`, takes `count` from `count` (or, for `craft-fluid` only, `amount`), drops a zero or
+negative count and quality fields. A craft-fluid count reads as "Craft 100 units of Water". `count` is
+ignored for `mine-entity`, `capture-spawner` and `send-item-to-orbit`. Entity ids are named from machines and
+beacons first, then items; an entity with no item (rail, fish) shows its humanized id, not the in-game name.
 
 `startingRecipes` lists the recipes available at game start (the dump's
 `recipe.enabled` is not `false`).
@@ -409,8 +430,8 @@ the `Icon` component offers the WebP as a `<source>` with the PNG as fallback.
   exported machine (drills and pumps included) or beacon; other entities are not recorded.
 - Technologies that are disabled (`enabled: false`) are dropped, with references
   to them, and so is every technology that has a disabled prerequisite (transitively),
-  since it can never be researched. Effects other than `unlock-recipe` and research
-  trigger conditions are not exported (a trigger technology gets `cost: null`).
+  since it can never be researched. Effects other than `unlock-recipe` are not exported. The research
+  trigger condition of a technology without a `unit` is exported as `trigger` (and its `cost` is `null`).
   Research cost, time and technology icons are exported. Technologies that unlock nothing and are
   nobody's prerequisite (bonus and infinite upgrades) are dropped too.
 

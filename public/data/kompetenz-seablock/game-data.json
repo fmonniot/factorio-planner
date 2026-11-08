@@ -149689,6 +149689,11 @@
         "textplate-large-copper"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "lab",
+        "count": 1
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/automation-science-pack.png"
     },
     "radar": {
@@ -149833,6 +149838,11 @@
         "wind-turbine-2"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "steel-plate",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/steel-processing.png"
     },
     "military": {
@@ -152323,6 +152333,11 @@
         "uranium-processing"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "uranium-ore",
+        "count": 100
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/uranium-processing.png"
     },
     "nuclear-power": {
@@ -152711,6 +152726,11 @@
         "bob-bronze-pipe-to-ground"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "bob-bronze-alloy",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-alloy-processing.png"
     },
     "bob-steel-mixing-furnace": {
@@ -153420,6 +153440,11 @@
         "bob-silicon-wafer"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "angels-mono-silicon",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-silicon-processing.png"
     },
     "bob-brass-processing": {
@@ -153438,6 +153463,11 @@
         "bob-brass-bearing"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "bob-brass-alloy",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-brass-processing.png"
     },
     "bob-titanium-processing": {
@@ -153459,6 +153489,11 @@
         "bob-titanium-chest"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "bob-titanium-plate",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-titanium-processing.png"
     },
     "bob-tungsten-processing": {
@@ -153478,6 +153513,11 @@
         "bob-copper-tungsten-pipe-to-ground"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "tungsten-plate",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-tungsten-processing.png"
     },
     "bob-nitinol-processing": {
@@ -153495,6 +153535,11 @@
         "bob-nitinol-bearing"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "bob-nitinol-alloy",
+        "count": 10
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/bob-nitinol-processing.png"
     },
     "bob-lithium-processing": {
@@ -166198,6 +166243,10 @@
         "bob-basic-circuit-board"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "wood"
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/angels-bio-wood-processing.png"
     },
     "angels-bio-wood-processing-2": {
@@ -168859,6 +168908,10 @@
         "copper-cable"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "angels-ore3-crushed"
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/sb-startup1.png"
     },
     "sb-startup3": {
@@ -168880,6 +168933,10 @@
         "bob-basic-transport-belt"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "bob-basic-circuit-board"
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/sb-startup3.png"
     },
     "sb-bio-processing-advanced": {
@@ -169063,6 +169120,11 @@
         "textplate-large-uranium"
       ],
       "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "uranium-ore",
+        "count": 100
+      },
       "iconPath": "/data/kompetenz-seablock/icons/technology/textplates-uranium.png"
     },
     "ftl-theory-D": {

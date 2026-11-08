@@ -88,7 +88,7 @@ function UnlockSection({ recipeId, gameData, bordered, inside }: {
           <TechIcon tech={t} className="w-6 h-6 text-xs" />
           <span className="min-w-0 flex-1">
             <span className="block truncate text-gray-300">{t.name}</span>
-            <TechCost cost={t.cost} items={gameData.items} showTime={false} />
+            <TechCost cost={t.cost} trigger={t.trigger} lookup={gameData} tooltip showTime={false} />
           </span>
         </div>
       ))}

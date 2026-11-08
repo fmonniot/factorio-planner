@@ -336,7 +336,12 @@
       "unlockedRecipes": [
         "space-science-pack"
       ],
-      "cost": null
+      "cost": null,
+      "trigger": {
+        "type": "craft-item",
+        "item": "rocket-part",
+        "count": 10
+      }
     },
     "advanced-material-processing": {
       "id": "advanced-material-processing",

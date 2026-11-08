@@ -17,6 +17,7 @@ import { TechIcon } from './TechIcon'
 import { TechUnlocksPopup } from './TechUnlocksPopup'
 import { IconButton } from './IconButton'
 import { FlaskIcon } from './icons'
+import type { TriggerLookup } from '../data/researchTrigger'
 import type { GameData, Technology } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -59,14 +60,14 @@ interface TechCardProps {
   state: TechState
   isTarget: boolean
   isHighlight: boolean
-  items: GameData['items']
+  lookup: TriggerLookup
   movedRef: MutableRefObject<boolean>
   onToggle: (id: string) => void
   onPreviewStart: (id: string, el: HTMLElement, immediate: boolean) => void
   onPreviewEnd: (id: string, immediate?: boolean) => void
 }
 
-const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlight, items, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
+const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlight, lookup, movedRef, onToggle, onPreviewStart, onPreviewEnd }: TechCardProps) {
   return (
     <button
       type="button"
@@ -96,7 +97,7 @@ const TechCard = memo(function TechCard({ tech, x, y, state, isTarget, isHighlig
       <TechIcon tech={tech} className="w-10 h-10 text-sm" />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-xs font-medium">{tech.name}</span>
-        <TechCost cost={tech.cost} items={items} />
+        <TechCost cost={tech.cost} trigger={tech.trigger} lookup={lookup} />
       </span>
     </button>
   )
@@ -195,6 +196,8 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
   const pointerDownRef = useRef(false) // any button, anywhere in the viewport
   const previewIdRef = useRef<string | null>(null) // pending or shown
   const previewShownRef = useRef(false)
+  const { items, machines, beacons } = gameData
+  const lookup = useMemo<TriggerLookup>(() => ({ items, machines, beacons }), [items, machines, beacons])
   const placers = useMemo(() => placingItemIds(gameData), [gameData])
 
   const hidePreview = useCallback(() => {
@@ -416,7 +419,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
           state={states[n.id]}
           isTarget={targets.includes(n.id)}
           isHighlight={n.id === highlightId}
-          items={gameData.items}
+          lookup={lookup}
           movedRef={movedRef}
           onToggle={onToggle}
           onPreviewStart={onPreviewStart}
@@ -424,7 +427,7 @@ export function TechTreeModal({ gameData, onClose }: { gameData: GameData; onClo
         />
       ))}
     </>
-  ), [layout, states, targets, highlightId, gameData, onToggle, onPreviewStart, onPreviewEnd])
+  ), [layout, states, targets, highlightId, lookup, gameData.technologies, onToggle, onPreviewStart, onPreviewEnd])
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
 

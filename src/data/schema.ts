@@ -184,6 +184,16 @@ export const TechnologyCostSchema = z.object({
   time: z.number().nonnegative(),
 })
 
+export const ResearchTriggerSchema = z.object({
+  /** Factorio trigger type, e.g. 'craft-item'. Any string; unknown types render as plain "Trigger". */
+  type: z.string(),
+  item: z.string().optional(), // craft-item, send-item-to-orbit
+  entity: z.string().optional(), // mine-entity, build-entity, capture-spawner
+  fluid: z.string().optional(), // craft-fluid
+  /** craft-item / build-entity count; craft-fluid amount. Absent = 1. */
+  count: z.number().positive().optional(),
+})
+
 export const TechnologySchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -192,6 +202,8 @@ export const TechnologySchema = z.object({
   iconPath: z.string().default(''),
   /** undefined = bundle exported without cost; null = not researched in labs (research trigger). */
   cost: TechnologyCostSchema.nullable().optional(),
+  /** Research trigger condition. The exporter writes it only when `cost` is null; the UI shows it only then and ignores it when `cost` is non-null. */
+  trigger: ResearchTriggerSchema.optional(),
 })
 
 export const GameDataSchema = z.object({
@@ -583,6 +595,7 @@ export type ItemGroup = z.output<typeof ItemGroupSchema>
 export type ItemSubgroup = z.output<typeof ItemSubgroupSchema>
 export type Technology = z.output<typeof TechnologySchema>
 export type TechnologyCost = z.output<typeof TechnologyCostSchema>
+export type ResearchTrigger = z.output<typeof ResearchTriggerSchema>
 export type GameData = z.output<typeof GameDataSchema>
 
 export type Product = z.output<typeof ProductSchema>
