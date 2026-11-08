@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { openHorizonTree, closeHorizonTree } from './support/horizon'
 import { sidePanel, selectRow, openMachinePicker } from './support/sidePanel'
-import { slot } from './support/summary'
+import { slot, detail } from './support/summary'
 
 const FIXTURE_PATH = path.resolve('e2e/fixtures/game-data-horizon.json')
 
@@ -202,6 +202,12 @@ test.describe('Power generation', () => {
     await pinned.press('Tab')
     await expect.poll(() => storedPinnedRates(page)).toContain(600)
     await expect(pinned).toHaveValue('9')
+  })
+
+  test('the overview total of a power product reads in MW, not MJ per minute', async ({ page }) => {
+    await addElectricityGoal(page, '10')
+    await addRecipe(page, 'power:steam-engine:steam')
+    await expect(detail(page, 'Products').locator('[data-testid="summary-overview-row"][data-key="kept"]')).toContainText('10.0MW')
   })
 
   test('1 MW of solar panels is 24 panels', async ({ page }) => {

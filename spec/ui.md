@@ -255,7 +255,11 @@ and, in the block view, that each row balances (in All blocks, what the block co
 
 **Block view** (`BlockAreaMatrix.tsx`, a table named "Areas of <block>"). A cell is the
 area's net of the item in the current rate unit: `+` (sky) when the area sends it, `−`
-(orange) when it receives it; a value that rounds to zero reads "<0.01". The rows
+(orange) when it receives it; a value that rounds to zero reads "<0.01". Electricity and heat
+(1 unit/s = 1 MW) show in power units with the unit inside the text, whatever the rate unit
+("+10.0MW", "−42.0kW", "<1W" when it rounds to zero); this holds for the cells, the outside
+columns, the counterpart cells and their tooltips, and the tail text (`matrixFormat.ts` takes
+an `energy` flag from `isEnergyItem`). The rows
 balance: the area cells, plus the **From outside** column, equal the **To outside**
 column. The outside columns hold the residual of the block, derived from the areas'
 sends and receives (the same figures as an area's `sends`/`receives` after the solver
@@ -271,7 +275,12 @@ number of recipe rows.
 Rows are grouped by **category** — the Factorio item groups, then "Other", then "Machines
 for buildings" (items that place a machine or a beacon) — or listed by total rate, or
 A–Z (no groups). A group row (`th scope="rowgroup"` with a button, `aria-expanded`) shows
-the group's item count and its totals per column. Within a group rows are ordered by total
+the group's item count and its totals per column. A total adds up the items only, because
+items and power share no unit: the electricity and heat rows of a mixed group stay visible
+below but are left out of its header (the item count then carries a tooltip saying so), and
+a group made only of one of them sums it in power units; electricity and heat are never
+added together, so a group holding both shows no total. Group cells truncate with the full
+text as tooltip. Within a group rows are ordered by total
 rate (what the areas send plus what comes from outside), then name. Rows below 1 item/min
 fold into a tail, after at most seven rows: "+ N more, X/m and below: A, B, C, D…" opens
 them (and reads "Show fewer"); a single leftover row of at least 1/min stays in the head.
@@ -286,7 +295,7 @@ teal and a panel (`aside`, named after the area) opens at the right with the are
 name, "Area in <block> · N rows", **Show in table**, a close button ("Stop focusing
 <area>"), its contents (sub-factories, areas nested inside, the first recipes of its
 rows) and a "Trades with" list of the areas and the outside it exchanges items with
-(each area is a button that moves the focus; the outside reads "Outside the block").
+(each area is a button that moves the focus; the outside reads "Outside the block"), with the item count and the rates in and out: "12.0/m + 10.0MW in", the items and the electricity and heat kept apart). Parties are sorted by item rate, then by energy rate: items and power share no unit, so a party trading few items ranks above one trading much power. The header note counts energy flows for its direction.
 Unless **Show all N areas** is chosen, only the items the area moves and the areas it
 trades with stay; the other headers read "sends it N items", "takes N items" or "trades N
 items", and the counterpart cells (`data-counterpart="true"`, teal ring) read "13.8 →"
@@ -694,7 +703,7 @@ Products also draw a 2px light tick at the target when the actual rate differs f
 
 **Detail strip.** A fixed-height strip (`h-[110px]`, `data-testid="summary-detail"`, `data-state`) at the bottom of the pane, on a lighter background, always present, so slots never move when the selection changes. It has four states:
 
-- *overview* (nothing selected or hovered): an `Overview` heading with the hint "click a row to trace it" ("click again to clear" while tracing), then one button per segment key in the pane, laid out in columns: swatch, label such as `→ Sciences`, `Left`, `Imported`, a bar sized against the pane's largest total (at least 2% wide), the total rate (`unused` for an unused source, `—` for a key with no rate) and the number of items carrying it. The strip's height shows three rows and a peek at the fourth; more rows scroll (`summary-overview-rows`) with the same bottom fade as the grid. Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): the row gets a border in its block's colour, the other rows fade, slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
+- *overview* (nothing selected or hovered): an `Overview` heading with the hint "click a row to trace it" ("click again to clear" while tracing), then one button per segment key in the pane, laid out in columns: swatch, label such as `→ Sciences`, `Left`, `Imported`, a bar sized against the pane's largest total (at least 2% wide), the total rate of the items (electricity and heat are not added to it; `unused` for an unused source, `—` for a key with no rate) and the number of items carrying it. A key carried only by electricity or heat shows its power in W / kW / MW / GW instead and its bar is sized against the largest power-only key; a key carrying both shows the item total and adds the power to the row's tooltip ("12.0/m of items + 10.0MW"); the power is therefore not visible beside a small item total, and bars compare items with items and power-only keys with power-only keys, not across kinds. The strip's height shows three rows and a peek at the fourth; more rows scroll (`summary-overview-rows`) with the same bottom fade as the grid. Clicking a row traces that key (a row with a limited source shows its label in amber; a trace whose key no longer exists is ignored): the row gets a border in its block's colour, the other rows fade, slots without it fade to 30% and every micro-bar fades its other segments; click again to clear.
 - *preview* (a slot is hovered): that slot's detail with a `preview` tag after the name. Hovering the selected slot keeps the selected state.
 - *selected* (a slot is clicked): header (icon, name, rates, `×` back to the overview), the full-size bar with labels (name and rate) on segments at least 20% wide, a colour key listing every segment and overlay with its exact rate, wrapped inline (it scrolls inside the strip), and the item's actions.
 - *editing* (Products only): as selected, with the extra output as an input. Hover does not change the strip meanwhile.
@@ -713,7 +722,7 @@ A product with no extra output and nothing requested, exported or made is an **e
 - Colour key: an `export` that is a request reads `<block> requests N` when served in full and `<block>: N of M requested` when it got less; a take reads `→ <block> N`. `kept` reads `Extra: N of E` (E is the extra output) or `Extra N` without an extra. `short` reads `Short N` with a note on where the shortfall comes from: `— comes out of the extra`, `— comes out of the extra and <block>'s request`, or `— comes out of <block>'s request` (`<block>'s and <block>'s requests` for several; a block name ending in `s` takes a bare apostrophe). A requester that got nothing has no segment or entry; the Short note names it. Without an extra the key ends with **+ Extra output** (a dashed button) that starts editing the extra.
 - The actual rate is the item's net balance across all solved nodes; it appears once the solver has a result. When it is below the target (by more than the surplus tolerance for the larger of target and actual, and by an amount that does not round to zero in the displayed precision) the slot gets an amber border and a `▼` badge, and the actual turns amber with a leading `▼` and its tooltip reads "Actual: X/m — short by Y/m"; a met or exceeded product stays teal. Once the solver has a result, a product that no node produces counts as an actual of 0, so it is fully short when something is requested. "Short" compares the product's net balance with `required` (extra plus requested) and does not subtract what the block exports, so a product whose output is partly delivered to other blocks is not marked short for that reason.
 - Actions (selected strip): **Find recipe** opens the [recipe picker](#recipe-picker) filtered to recipes producing the item (the chosen recipe is added to the root plan); **Remove extra** (only when the product has an extra output); **Remove product**. Right-clicking a slot opens a `RowActionsMenu` with **Remove extra** (when present) and **Remove product**. Removing a product asks first when it changes other blocks (see below).
-- Electricity and Heat are shown in power units: the slot rate, the strip's header rates, the extra output and the colour key read "10.0MW" (the unit is part of the text, whatever the rate-unit toggle) and the slot's accessible name is "Electricity, 10.0 MW" ("Heat, 21.6 MW" for heat). The extra output input is typed in MW and labelled "MW" next to the field (`data-testid="extra-input-unit"`), also in /m mode. The same holds for the Byproducts and Ingredients panes, the connection menu and limit editor (MW), the block graph's chips and the warnings texts. The areas matrices and the strip's overview totals still show electricity in MJ per minute or second.
+- Electricity and Heat are shown in power units: the slot rate, the strip's header rates, the extra output and the colour key read "10.0MW" (the unit is part of the text, whatever the rate-unit toggle) and the slot's accessible name is "Electricity, 10.0 MW" ("Heat, 21.6 MW" for heat). The extra output input is typed in MW and labelled "MW" next to the field (`data-testid="extra-input-unit"`), also in /m mode. The same holds for the Byproducts and Ingredients panes, the connection menu and limit editor (MW), the block graph's chips and the warnings texts.
 - `+`, pinned in the pane header so it never scrolls away, opens the [item picker](#item-picker) to add a product (an empty amount adds one without extra output). Adding one asks first when it changes other blocks (see below).
 
 #### Product change confirmation
@@ -1102,8 +1111,9 @@ The same component in recipes mode (`source="recipes"`).
   rate unit; `inputRateUnit(itemId, unit)` is the unit a rate input is typed in (`'sec'`, i.e. MW, for electricity and heat).
   Every rate text of an item goes through them (slots, strips, chips, menus, warnings, the product-change dialog),
   and so does the rounding check behind "short" and "differs from the target" (`isShortfall`, `differsFromTarget` take
-  the item id: an electricity or heat gap is rounded in power units, so it does not depend on the rate toggle). The areas matrices
-  and the strip's overview totals are the documented exception.
+  the item id: an electricity or heat gap is rounded in power units, so it does not depend on the rate toggle). The areas
+  matrices do the same through the `energy` flag of `matrixFormat.ts` (`fmtAmount`, `fmtSigned`, `tradeRateText`...), and
+  `fmtEnergyText(unitsPerSec)` is the power string on its own.
   An electricity item chip without an icon shows ⚡ (heat has its own icon). An optional `temperature` prop adds the
   orange temperature label in the chip's top-left corner.
 - `temperature.ts` — formats an ingredient's temperature bounds (`fmtTemperatureRange`)

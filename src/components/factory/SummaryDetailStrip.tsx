@@ -3,7 +3,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { SegmentBar } from './SummarySlot'
 import { lookStyle, segmentLook } from './segmentLooks'
-import { fmtRate, fmtItemRateText } from './ItemTile'
+import { fmtRate, fmtItemRateText, fmtEnergyText } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
 import { keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
@@ -62,7 +62,8 @@ export function SummaryDetailStrip({
   // The strip's height leaves room for three overview rows and a peek at the fourth.
   const { bodyRef: rowsRef, contentRef: rowsContentRef, hasMore: rowsHaveMore, onScroll: onRowsScroll } =
     useMoreBelow<HTMLDivElement, HTMLDivElement>()
-  // An electricity or heat slot is shown in power units, unit included; the overview keeps its mixed totals.
+  // An electricity or heat slot is shown in power units, unit included. The overview totals items and
+  // shows electricity and heat apart, in power units.
   const power = state !== 'overview' && slot !== undefined && isEnergyItem(slot.itemId)
   const unit = power ? '' : rateUnit === 'min' ? '/m' : '/s'
   const fmt = (perMin: number) => power ? fmtItemRateText(slot!.itemId, perMin / 60, rateUnit) : fmtRate(perMin / 60, rateUnit)
@@ -74,6 +75,7 @@ export function SummaryDetailStrip({
 
   if (state === 'overview' || !slot) {
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
+    const maxPower = Math.max(...rows.map(r => r.power), 0)
     return (
       <div data-testid="summary-detail" data-state="overview" className={`${root} gap-[7px]`}>
         <div className="flex items-center justify-between h-5 shrink-0">
@@ -97,14 +99,21 @@ export function SummaryDetailStrip({
                 const on = traceKey === row.key
                 const total = row.kind === 'unused'
                   ? 'unused'
-                  : row.total > 0 ? fmt(row.total) : '—'
-                const width = row.total > 0 && maxTotal > 0 ? Math.max((row.total / maxTotal) * 100, 2) : 0
+                  : row.total > 0 ? fmt(row.total)
+                    : row.power > 0 ? fmtEnergyText(row.power / 60) : '—'
+                const share = row.total > 0 ? (maxTotal > 0 ? row.total / maxTotal : 0)
+                  : row.power > 0 ? (maxPower > 0 ? row.power / maxPower : 0) : 0
+                const width = share > 0 ? Math.max(share * 100, 2) : 0
+                const mixedTitle = row.total > 0 && row.power > 0
+                  ? `${fmt(row.total)}${unit} of items + ${fmtEnergyText(row.power / 60)}`
+                  : undefined
                 return (
                   <button
                     key={row.key}
                     type="button"
                     data-testid="summary-overview-row"
                     data-key={row.key}
+                    title={mixedTitle}
                     data-limited={row.limited ? 'true' : undefined}
                     aria-pressed={on}
                     onClick={() => onToggleTrace(row.key)}

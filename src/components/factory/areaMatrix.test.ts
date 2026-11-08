@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import {
-  areaContents, blockMatrix, cancels, groupTotal, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
+  areaContents, blockMatrix, cancels, groupTotal, totalRows, flowOrder, focusArea, groupRows, itemGroupOf, matchQuery,
   MACHINES_GROUP, OTHER_GROUP, OUTSIDE, type BlockMatrix, type ItemGroupInfo, type MatrixRow, type PairFlow,
 } from './areaMatrix'
 import { makeEmptyBlock } from '../../store/blockStore'
@@ -243,6 +243,8 @@ describe('groupRows', () => {
   })
 })
 
+const r2b = { ...row({ A: 5, B: -5 }, 0, 0, [pf('A', 'B', 5)]), itemId: 'two' }
+
 describe('focusArea', () => {
   const r1 = { ...row({ A: 30, B: -10, C: -20 }, 0, 0, [pf('A', 'B', 10), pf('A', 'C', 20)]), itemId: 'one' }
   const r2 = { ...row({ B: 5, C: -5 }, 0, 0, [pf('B', 'C', 5)]), itemId: 'two' }
@@ -274,6 +276,22 @@ describe('focusArea', () => {
     expect(v.trades.find(t => t.partyId === 'C')?.items).toBe(1)
     const fromA = focusArea(m, 'C').trades.find(t => t.partyId === 'A')!
     expect(fromA.inRate).toBeCloseTo(24)
+  })
+
+  it('keeps electricity apart from the item rates of a trade', () => {
+    const elec = { ...row({ A: 600, B: -600 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity' }
+    const v = focusArea(matrixOf(['A', 'B'], [r2b, elec]), 'A')
+    const toB = v.trades.find(t => t.partyId === 'B')!
+    expect(toB).toMatchObject({ items: 2, inRate: 0, outRate: 5, inEnergy: 0, outEnergy: 600 })
+    const fromA = focusArea(matrixOf(['A', 'B'], [elec]), 'B').trades[0]
+    expect(fromA).toMatchObject({ items: 1, inRate: 0, inEnergy: 600 })
+  })
+
+  it('orders the trades by item rate, then by energy', () => {
+    const elec = { ...row({ A: 600, B: -600, C: 0 }, 0, 0, [pf('A', 'B', 600)]), itemId: 'power:electricity' }
+    const item = { ...row({ A: 5, C: -5 }, 0, 0, [pf('A', 'C', 5)]), itemId: 'it' }
+    const v = focusArea(matrixOf(['A', 'B', 'C'], [elec, item]), 'A')
+    expect(v.trades.map(t => t.partyId)).toEqual(['C', 'B'])
   })
 })
 
@@ -355,5 +373,46 @@ describe('groupTotal', () => {
   it('ignores rows where the area has no counterpart value', () => {
     const f = focus({ a: { A: 10 }, b: {} })
     expect(groupTotal([row('a', { A: 10 }), row('b', { A: -3 })], 'A', f)).toEqual({ kind: 'pair', out: 10, in: 0 })
+  })
+})
+
+describe('totalRows', () => {
+  const ids = (xs: { itemId: string }[]) => xs.map(x => x.itemId)
+
+  it('keeps a group made only of energy items, flagged', () => {
+    const rows = [{ itemId: 'power:electricity' }, { itemId: 'power:electricity' }]
+    expect(totalRows(rows)).toEqual({ rows, energy: true })
+  })
+
+  it('does not sum electricity and heat together', () => {
+    expect(totalRows([{ itemId: 'power:electricity' }, { itemId: 'power:heat' }])).toEqual({ rows: [], energy: false })
+  })
+
+  it('drops the energy rows of a mixed group', () => {
+    const r = totalRows([{ itemId: 'power:electricity' }, { itemId: 'plate' }])
+    expect(ids(r.rows)).toEqual(['plate'])
+    expect(r.energy).toBe(false)
+  })
+
+  it('has no energy flag for an empty group', () => {
+    expect(totalRows([])).toEqual({ rows: [], energy: false })
+  })
+})
+
+describe('groupTotal with energy', () => {
+  const row = (itemId: string, cells: Record<string, number>): MatrixRow =>
+    ({ itemId, name: itemId, groupId: 'g', cells, fromOutside: 0, toOutside: 0, total: 1, pairs: [] })
+
+  it('sums an electricity-only group in power units', () => {
+    expect(groupTotal([row('power:electricity', { A: 600 })], 'A', null)).toEqual({ kind: 'net', t: 600, energy: true })
+  })
+
+  it('leaves the energy rows out of a mixed group', () => {
+    expect(groupTotal([row('power:electricity', { A: 600 }), row('plate', { A: -4 })], 'A', null)).toEqual({ kind: 'net', t: -4 })
+  })
+
+  it('flags pair totals of an energy group', () => {
+    const f = { areaId: 'B', rows: [], counterpart: { 'power:electricity': { A: 600 } }, tradingAreaIds: [], trades: [] }
+    expect(groupTotal([row('power:electricity', { A: 600, B: -600 })], 'A', f)).toEqual({ kind: 'pair', out: 600, in: 0, energy: true })
   })
 })

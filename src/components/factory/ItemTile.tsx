@@ -15,10 +15,17 @@ export function fmtRate(ratePerSec: number, unit: 'sec' | 'min'): string {
 }
 
 export function fmtPower(kw: number): { value: string; unit: string } {
-  if (kw < 1) return { value: (kw * 1000).toFixed(0), unit: 'W' }
-  if (kw < 1000) return { value: kw.toFixed(1), unit: 'kW' }
-  if (kw < 1_000_000) return { value: (kw / 1000).toFixed(1), unit: 'MW' }
+  // Thresholds are on the rounded value, so 999.96 kW reads "1.0MW" and not "1000.0kW".
+  if (kw * 1000 < 999.5) return { value: (kw * 1000).toFixed(0), unit: 'W' }
+  if (kw < 999.95) return { value: kw.toFixed(1), unit: 'kW' }
+  if (kw < 999_950) return { value: (kw / 1000).toFixed(1), unit: 'MW' }
   return { value: (kw / 1_000_000).toFixed(1), unit: 'GW' }
+}
+
+/** Electricity or heat at `unitsPerSec` (1 unit/s = 1 MW) as one string, e.g. "10.0MW". */
+export function fmtEnergyText(unitsPerSec: number): string {
+  const p = fmtPower(unitsPerSec * 1000)
+  return p.value + p.unit
 }
 
 /**

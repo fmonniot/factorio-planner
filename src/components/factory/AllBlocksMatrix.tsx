@@ -5,7 +5,8 @@ import { FLOW_TOLERANCE } from '../../solver/index'
 import { Icon } from '../Icon'
 import { groupRows, itemGroupMap, matchQuery, type RowMode } from './areaMatrix'
 import { primaryAreas, type PlanMatrixBlock, type PlanMatrixRow } from './planAreaMatrix'
-import { fmtAmount, fmtSigned, unitSuffix } from './matrixFormat'
+import { fmtAmount, fmtAmountUnit, fmtSigned, fmtSignedUnit } from './matrixFormat'
+import { isEnergyItem } from '../../data/electricity'
 
 // ---------------------------------------------------------------------------
 // Every block as a column: what each block takes or leaves across its boundary, per item, next to
@@ -39,7 +40,6 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
     model, gameData, rateUnit, rowMode, query, crossingOnly, onCrossingOnly, expandedBlocks, onToggleBlock,
     selectedItemId, onSelectItem, groupOverrides, onToggleGroup, openTails, onToggleTail,
   } = props
-  const unit = unitSuffix(rateUnit)
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const blockName = useMemo(() => new Map(model.blocks.map(b => [b.blockId, b.name])), [model.blocks])
 
@@ -75,7 +75,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
         data-rate={v}
         className={`${edge ? BLOCK_EDGE : ''} px-1 py-0.5 text-center font-mono tabular-nums border-b border-gray-800`}
       >
-        {v !== 0 && <span className={`block mx-auto max-w-[5rem] rounded py-0.5 ${v > 0 ? SEND : RECEIVE}`}>{fmtSigned(v, rateUnit)}</span>}
+        {v !== 0 && <span className={`block mx-auto max-w-[5rem] rounded py-0.5 ${v > 0 ? SEND : RECEIVE}`}>{fmtSigned(v, rateUnit, isEnergyItem(row.itemId))}</span>}
       </td>
     )
   }
@@ -83,6 +83,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
   function renderRow(row: PlanMatrixRow) {
     const item = gameData.items[row.itemId]
     const isSel = row.itemId === selectedItemId
+    const energy = isEnergyItem(row.itemId)
     return (
       <tr key={row.itemId} data-item-id={row.itemId} className={isSel ? 'bg-teal-500/10' : 'hover:bg-gray-800/40'}>
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal border-b border-gray-800">
@@ -110,7 +111,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
               <td
                 key={`${b.blockId}:areas`}
                 data-col={`${b.blockId}:areas`}
-                title={prim.map(p => `${p.name} ${fmtSigned(p.rate, rateUnit)}${unit}`).join(', ')}
+                title={prim.map(p => `${p.name} ${fmtSignedUnit(p.rate, rateUnit, energy)}`).join(', ')}
                 className={`${BLOCK_EDGE} px-1 py-0.5 text-center text-gray-300 border-b border-gray-800`}
               >
                 {prim.length > 0 && (
@@ -131,17 +132,17 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
               data-sign={net > 0 ? 'send' : net < 0 ? 'receive' : undefined}
               className={`${b.areas.length === 0 ? BLOCK_EDGE : ''} px-1 py-0.5 text-center font-mono tabular-nums border-b border-gray-800`}
             >
-              {net !== 0 && <span className={`block mx-auto max-w-[5rem] rounded py-0.5 ${net > 0 ? SEND : RECEIVE}`}>{fmtSigned(net, rateUnit)}</span>}
+              {net !== 0 && <span className={`block mx-auto max-w-[5rem] rounded py-0.5 ${net > 0 ? SEND : RECEIVE}`}>{fmtSigned(net, rateUnit, energy)}</span>}
             </td>,
           )
           return cells
         })}
         <td data-col="not-taken" data-rate={row.notTaken} className={`${BLOCK_EDGE} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}>
-          {row.notTaken > FLOW_TOLERANCE ? fmtAmount(row.notTaken, rateUnit) : ''}
+          {row.notTaken > FLOW_TOLERANCE ? fmtAmount(row.notTaken, rateUnit, energy) : ''}
         </td>
         {showNotSupplied && (
           <td data-col="not-supplied" data-rate={row.notSupplied} className="px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800">
-            {row.notSupplied > FLOW_TOLERANCE ? fmtAmount(row.notSupplied, rateUnit) : ''}
+            {row.notSupplied > FLOW_TOLERANCE ? fmtAmount(row.notSupplied, rateUnit, energy) : ''}
           </td>
         )}
       </tr>
@@ -184,7 +185,7 @@ export function AllBlocksMatrix(props: AllBlocksMatrixProps) {
               >
                 {tailOpen
                   ? 'Show fewer'
-                  : `+ ${g.tail.length} more, ${fmtAmount(g.tail[0].total, rateUnit)}${unit} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
+                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
               </button>
             </td>
           </tr>
@@ -293,7 +294,7 @@ function Inspector({ row, blockName, blocks, rateUnit }: {
   blocks: PlanMatrixBlock[]
   rateUnit: RateUnit
 }) {
-  const unit = unitSuffix(rateUnit)
+  const energy = isEnergyItem(row.itemId)
   const name = (id: string) => blockName.get(id) ?? id
   return (
     <section aria-label={`${row.name} across blocks`} className="m-3 rounded border border-gray-700 p-3 text-xs text-gray-300 flex flex-col gap-1">
@@ -304,24 +305,24 @@ function Inspector({ row, blockName, blocks, rateUnit }: {
         const areas = primaryAreas(row, b).map(p => p.name).join(', ')
         return (
           <p key={b.blockId}>
-            {b.name}{areas ? ` · ${areas}` : ''} {fmtSigned(net, rateUnit)}{unit}{' '}
+            {b.name}{areas ? ` · ${areas}` : ''} {fmtSignedUnit(net, rateUnit, energy)}{' '}
             {net > 0 ? 'leaves the block' : 'enters the block'}
           </p>
         )
       })}
       {row.flows.map(f => (
         <p key={f.connectionId}>
-          {name(f.fromBlockId)} {'→'} {name(f.toBlockId)}: {fmtAmount(f.rate, rateUnit)}{unit}{f.status === 'limited' ? ' (limited)' : ''}
+          {name(f.fromBlockId)} {'→'} {name(f.toBlockId)}: {fmtAmountUnit(f.rate, rateUnit, energy)}{f.status === 'limited' ? ' (limited)' : ''}
         </p>
       ))}
       {row.notTaken > FLOW_TOLERANCE && (
         <p className="text-gray-400">
-          {fmtAmount(row.notTaken, rateUnit)}{unit} is not taken by any block (extra output, byproduct or surplus).
+          {fmtAmountUnit(row.notTaken, rateUnit, energy)} is not taken by any block (extra output, byproduct or surplus).
         </p>
       )}
       {row.notSupplied > FLOW_TOLERANCE && (
         <p className="text-gray-400">
-          {fmtAmount(row.notSupplied, rateUnit)}{unit} is not supplied by any block: it is imported.
+          {fmtAmountUnit(row.notSupplied, rateUnit, energy)} is not supplied by any block: it is imported.
         </p>
       )}
     </section>

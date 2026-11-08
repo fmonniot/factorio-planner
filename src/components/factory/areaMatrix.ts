@@ -3,6 +3,7 @@ import { placingItemIds } from '../../data/horizon'
 import { outsideResidual } from '../../solver/index'
 import { findSubPlan } from '../../data/subPlanTree'
 import { areaName } from '../../data/subPlanTree'
+import { isEnergyItem } from '../../data/electricity'
 
 // ---------------------------------------------------------------------------
 // The balance matrix of a block's areas: items as rows, areas as columns, an outside column at each
@@ -279,44 +280,50 @@ export interface FocusView {
   /** itemId -> partyId -> rate (from the solver's routes) between the focus and that party, either direction */
   counterpart: Record<string, Record<string, number>>
   tradingAreaIds: string[]
-  /** `inRate` is what the party sends the focus, `outRate` what the focus sends the party */
-  trades: { partyId: string; items: number; inRate: number; outRate: number }[]
+  /**
+   * `inRate` is what the party sends the focus, `outRate` what the focus sends the party; both count
+   * items only, electricity and heat are in `inEnergy` / `outEnergy` (`items` counts every item)
+   */
+  trades: { partyId: string; items: number; inRate: number; outRate: number; inEnergy: number; outEnergy: number }[]
 }
 
 /** What one area trades: its rows, the counterpart of each, and who it trades with. */
 export function focusArea(m: BlockMatrix, areaId: string): FocusView {
   const rows = m.rows.filter(r => (r.cells[areaId] ?? 0) !== 0)
   const counterpart: Record<string, Record<string, number>> = {}
-  const trade = new Map<string, { items: Set<string>; inRate: number; outRate: number }>()
+  const trade = new Map<string, { items: Set<string>; inRate: number; outRate: number; inEnergy: number; outEnergy: number }>()
   const entry = (id: string) => {
     let t = trade.get(id)
-    if (!t) trade.set(id, (t = { items: new Set(), inRate: 0, outRate: 0 }))
+    if (!t) trade.set(id, (t = { items: new Set(), inRate: 0, outRate: 0, inEnergy: 0, outEnergy: 0 }))
     return t
   }
   for (const row of rows) {
+    const energy = isEnergyItem(row.itemId)
     const per: Record<string, number> = {}
     for (const p of row.pairs) {
       if (p.from === areaId) {
         per[p.to] = (per[p.to] ?? 0) + p.rate
         const t = entry(p.to)
         t.items.add(row.itemId)
-        t.outRate += p.rate
+        if (energy) t.outEnergy += p.rate
+        else t.outRate += p.rate
       } else if (p.to === areaId) {
         per[p.from] = (per[p.from] ?? 0) + p.rate
         const t = entry(p.from)
         t.items.add(row.itemId)
-        t.inRate += p.rate
+        if (energy) t.inEnergy += p.rate
+        else t.inRate += p.rate
       }
     }
     counterpart[row.itemId] = per
   }
   const tradingAreaIds = m.areas.map(a => a.areaId).filter(id => id !== areaId && trade.has(id))
   const trades = [...trade.entries()]
-    .map(([partyId, t]) => ({ partyId, items: t.items.size, inRate: t.inRate, outRate: t.outRate }))
+    .map(([partyId, t]) => ({ partyId, items: t.items.size, inRate: t.inRate, outRate: t.outRate, inEnergy: t.inEnergy, outEnergy: t.outEnergy }))
   const order = (id: string) => (id === OUTSIDE ? Infinity : m.areas.findIndex(a => a.areaId === id))
   trades.sort((a, b) => {
     if ((a.partyId === OUTSIDE) !== (b.partyId === OUTSIDE)) return a.partyId === OUTSIDE ? 1 : -1
-    return b.inRate + b.outRate - (a.inRate + a.outRate) || order(a.partyId) - order(b.partyId)
+    return b.inRate + b.outRate - (a.inRate + a.outRate) || b.inEnergy + b.outEnergy - (a.inEnergy + a.outEnergy) || order(a.partyId) - order(b.partyId)
   })
   return { areaId, rows, counterpart, tradingAreaIds, trades }
 }
@@ -362,11 +369,23 @@ export function cancels(sum: number, maxAbs: number): boolean {
 }
 
 export type GroupTotal =
-  | { kind: 'net'; t: number }
+  | { kind: 'net'; t: number; energy?: true }
   /** counterpart mode: what the area sends to the focus (out) and receives from it (in), kept apart */
-  | { kind: 'pair'; out: number; in: number }
+  | { kind: 'pair'; out: number; in: number; energy?: true }
 
-export function groupTotal(list: MatrixRow[], areaId: string, focus: FocusView | null): GroupTotal {
+/**
+ * The rows a group total adds up. Items and energy do not share a unit, so a total counts the
+ * non-energy rows; a group made only of one energy item (electricity or heat, which are not
+ * interchangeable) sums it, in power units (`energy`).
+ */
+export function totalRows<R extends { itemId: string }>(rows: R[]): { rows: R[]; energy: boolean } {
+  if (rows.length > 0 && rows.every(r => isEnergyItem(r.itemId) && r.itemId === rows[0].itemId)) return { rows, energy: true }
+  return { rows: rows.filter(r => !isEnergyItem(r.itemId)), energy: false }
+}
+
+export function groupTotal(all: MatrixRow[], areaId: string, focus: FocusView | null): GroupTotal {
+  const { rows: list, energy } = totalRows(all)
+  const flag = energy ? { energy: true as const } : {}
   if (focus) {
     let out = 0
     let inn = 0
@@ -377,7 +396,7 @@ export function groupTotal(list: MatrixRow[], areaId: string, focus: FocusView |
       if ((r.cells[areaId] ?? 0) > 0) out += c
       else inn += c
     }
-    return { kind: 'pair', out, in: inn }
+    return { kind: 'pair', out, in: inn, ...flag }
   }
   let t = 0
   let maxAbs = 0
@@ -386,5 +405,5 @@ export function groupTotal(list: MatrixRow[], areaId: string, focus: FocusView |
     t += v
     maxAbs = Math.max(maxAbs, Math.abs(v))
   }
-  return { kind: 'net', t: cancels(t, maxAbs) ? 0 : t }
+  return { kind: 'net', t: cancels(t, maxAbs) ? 0 : t, ...flag }
 }

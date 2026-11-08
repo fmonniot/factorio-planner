@@ -3,10 +3,11 @@ import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import {
-  OUTSIDE, flowOrder, focusArea, groupRows, groupTotal, type GroupTotal, itemGroupMap, matchQuery,
-  type BlockMatrix, type ColumnMode,  type MatrixArea, type MatrixRow, type RowMode,
+  OUTSIDE, flowOrder, focusArea, groupRows, groupTotal, type GroupTotal, itemGroupMap, matchQuery, totalRows,
+  type BlockMatrix, type ColumnMode, type FocusView, type MatrixArea, type MatrixRow, type RowMode,
 } from './areaMatrix'
-import { fmtAmount, fmtSigned, unitSuffix } from './matrixFormat'
+import { fmtAmount, fmtAmountUnit, fmtSigned, tradeRateText } from './matrixFormat'
+import { isEnergyItem } from '../../data/electricity'
 
 // ---------------------------------------------------------------------------
 // One block's areas as a balance matrix (items x areas), with an optional focus on one area.
@@ -40,10 +41,11 @@ const FOCUS_COL = 'ring-1 ring-inset ring-teal-400 bg-teal-500/10'
 const COUNTERPART = 'ring-1 ring-inset ring-teal-400/60'
 
 function groupText(t: GroupTotal, unit: RateUnit): string {
-  if (t.kind === 'net') return t.t === 0 ? '' : fmtSigned(t.t, unit)
+  const energy = t.energy === true
+  if (t.kind === 'net') return t.t === 0 ? '' : fmtSigned(t.t, unit, energy)
   const parts = []
-  if (t.out > 0) parts.push(`${fmtAmount(t.out, unit)} →`)
-  if (t.in > 0) parts.push(`→ ${fmtAmount(t.in, unit)}`)
+  if (t.out > 0) parts.push(`${fmtAmount(t.out, unit, energy)} →`)
+  if (t.in > 0) parts.push(`→ ${fmtAmount(t.in, unit, energy)}`)
   return parts.join(' · ')
 }
 
@@ -64,7 +66,6 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     matrix, gameData, rateUnit, rowMode, columnMode, query, focusedAreaId, onFocus, showAllAreas, onShowAll,
     groupOverrides, onToggleGroup, openTails, onToggleTail, onOpenArea,
   } = props
-  const unit = unitSuffix(rateUnit)
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const areaById = useMemo(() => new Map(matrix.areas.map(a => [a.areaId, a])), [matrix])
   const order = useMemo(() => (columnMode === 'flow' ? flowOrder(matrix) : matrix.areas.map(a => a.areaId)), [matrix, columnMode])
@@ -116,10 +117,11 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
       const c = focus.counterpart[row.itemId]?.[areaId] ?? 0
       if (c <= 0) return null
       const sends = v > 0
-      const n = fmtAmount(c, rateUnit)
+      const energy = isEnergyItem(row.itemId)
+      const n = fmtAmount(c, rateUnit, energy)
       const area = areaById.get(areaId)!.name
       const item = row.name
-      const per = `${fmtAmount(c, rateUnit)}${unit}`
+      const per = fmtAmountUnit(c, rateUnit, energy)
       return {
         text: sends ? `${n} →` : `→ ${n}`,
         kind: sends ? 'send' : 'receive',
@@ -130,7 +132,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
       }
     }
     if (v === 0) return null
-    return { text: fmtSigned(v, rateUnit), kind: v > 0 ? 'send' : 'receive', counterpart: false }
+    return { text: fmtSigned(v, rateUnit, isEnergyItem(row.itemId)), kind: v > 0 ? 'send' : 'receive', counterpart: false }
   }
 
   /** The outside columns: unsigned amounts; in counterpart mode only the part that meets the focus. */
@@ -152,6 +154,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const fromV = outsideValue(row, 'from')
     const toV = outsideValue(row, 'to')
     const item = items[row.itemId]
+    const energy = isEnergyItem(row.itemId)
     return (
       <tr key={row.itemId} data-item-id={row.itemId} className="hover:bg-gray-800/40">
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal text-gray-200 border-b border-gray-800">
@@ -165,7 +168,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
           </span>
         </th>
         <td data-col="from-outside" data-rate={fromV} className={`${OUTSIDE_COL} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}>
-          {fromV > 0 ? fmtAmount(fromV, rateUnit) : ''}
+          {fromV > 0 ? fmtAmount(fromV, rateUnit, energy) : ''}
         </td>
         {columns.map(a => {
           const c = cellValue(row, a.areaId)
@@ -189,7 +192,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
           )
         })}
         <td data-col="to-outside" data-rate={toV} className={`${OUTSIDE_COL} px-1 py-0.5 text-center font-mono tabular-nums text-gray-300 border-b border-gray-800`}>
-          {toV > 0 ? fmtAmount(toV, rateUnit) : ''}
+          {toV > 0 ? fmtAmount(toV, rateUnit, energy) : ''}
         </td>
       </tr>
     )
@@ -200,8 +203,9 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const open = !grouping ? true : groupOverrides.get(g.id) ?? true
     const tailOpen = openTails.has(g.id)
     const shownRows = open ? (tailOpen ? g.rows : g.head) : []
-    const fromTotal = g.rows.reduce((n, r) => n + outsideValue(r, 'from'), 0)
-    const toTotal = g.rows.reduce((n, r) => n + outsideValue(r, 'to'), 0)
+    const { rows: tr, energy } = grouping ? totalRows(g.rows) : { rows: g.rows, energy: false }
+    const fromTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'from'), 0) : 0
+    const toTotal = grouping ? tr.reduce((n, r) => n + outsideValue(r, 'to'), 0) : 0
     return (
       <tbody key={g.id} data-group-id={g.id}>
         {grouping && (
@@ -215,13 +219,16 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               >
                 <span aria-hidden className="w-2.5 text-[10px] text-gray-400">{open ? '▾' : '▸'}</span>
                 {g.name}
-                <span className="text-[11px] font-normal text-gray-400">
+                <span
+                  className="text-[11px] font-normal text-gray-400"
+                  title={!energy && tr.length < g.rows.length ? 'Totals leave out electricity and heat rows' : undefined}
+                >
                   {g.rows.length} {g.rows.length === 1 ? 'item' : 'items'}
                 </span>
               </button>
             </th>
             <td className={`${OUTSIDE_COL} px-1 text-center font-mono tabular-nums text-gray-300 border-b border-gray-700`}>
-              {fromTotal > 0 ? fmtAmount(fromTotal, rateUnit) : ''}
+              {fromTotal > 0 ? fmtAmount(fromTotal, rateUnit, energy) : ''}
             </td>
             {columns.map(a => {
               const t = groupCell(g.rows, a.areaId)
@@ -229,15 +236,15 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               return (
                 <td
                   key={a.areaId}
-                  title={t.kind === 'pair' && t.out > 0 && t.in > 0 ? 'Sends to the focus, then receives from it' : undefined}
-                  className={cellClass(a.areaId, `px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
+                  title={text === '' ? undefined : t.kind === 'pair' && t.out > 0 && t.in > 0 ? `Sends to the focus, then receives from it: ${text}` : text}
+                  className={cellClass(a.areaId, `truncate px-1 text-center font-mono tabular-nums border-b border-gray-700 ${groupColor(t)}`)}
                 >
                   {text}
                 </td>
               )
             })}
             <td className={`${OUTSIDE_COL} px-1 text-center font-mono tabular-nums text-gray-300 border-b border-gray-700`}>
-              {toTotal > 0 ? fmtAmount(toTotal, rateUnit) : ''}
+              {toTotal > 0 ? fmtAmount(toTotal, rateUnit, energy) : ''}
             </td>
           </tr>
         )}
@@ -253,7 +260,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
               >
                 {tailOpen
                   ? 'Show fewer'
-                  : `+ ${g.tail.length} more, ${fmtAmount(g.tail[0].total, rateUnit)}${unit} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
+                  : `+ ${g.tail.length} more, ${fmtAmountUnit(g.tail[0].total, rateUnit, isEnergyItem(g.tail[0].itemId))} and below: ${g.tail.slice(0, 4).map(r => r.name).join(', ')}${g.tail.length > 4 ? '…' : ''}`}
               </button>
             </td>
           </tr>
@@ -328,7 +335,7 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
                         </button>
                         <small className="block text-[11px] font-normal text-gray-400">
                           {trade
-                            ? headerNote(trade.inRate, trade.outRate, trade.items)
+                            ? headerNote(trade.inRate + trade.inEnergy, trade.outRate + trade.outEnergy, trade.items)
                             : `${a.contents.rowCount} ${a.contents.rowCount === 1 ? 'row' : 'rows'}`}
                         </small>
                       </th>
@@ -363,14 +370,13 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
 function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenArea }: {
   matrix: BlockMatrix
   area: MatrixArea
-  trades: { partyId: string; items: number; inRate: number; outRate: number }[]
+  trades: FocusView['trades']
   areaById: Map<string, MatrixArea>
   rateUnit: RateUnit
   onFocus: (areaId: string | null) => void
   onOpenArea: (area: MatrixArea) => void
 }) {
   const c = area.contents
-  const unit = unitSuffix(rateUnit)
   const names = c.recipeNames
   const rowsText =
     names.length === 0 ? 'No rows.'
@@ -416,10 +422,12 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
         ) : (
           <ul className="flex flex-col gap-1">
             {trades.map(t => {
+              const inText = tradeRateText(t.inRate, t.inEnergy, rateUnit)
+              const outText = tradeRateText(t.outRate, t.outEnergy, rateUnit)
               const parts = [
                 `${t.items} ${t.items === 1 ? 'item' : 'items'}`,
-                t.inRate > 0 ? `${fmtAmount(t.inRate, rateUnit)}${unit} in` : '',
-                t.outRate > 0 ? `${fmtAmount(t.outRate, rateUnit)} out` : '',
+                inText ? `${inText} in` : '',
+                outText ? `${outText} out` : '',
               ].filter(Boolean)
               const detail = parts.join(` ${'·'} `)
               if (t.partyId === OUTSIDE) {
