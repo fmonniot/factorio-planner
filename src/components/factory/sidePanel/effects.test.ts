@@ -67,12 +67,21 @@ describe('rowEffects', () => {
     ({ kind: 'game-recipe', id: 'n', recipeId: 'r', modules: [], byproductPolicy: {}, ...over })
 
   it('totals what the solver counts, per source', () => {
-    const n = node({ modules: [{ moduleId: 'speed', count: 2 }], beaconConfig: beacon() })
+    const n = node({ modules: [{ moduleId: 'speed', count: 2 }], beaconConfigs: [beacon()] })
     const fx = rowEffects(n, [beacon()], gameData())
     expect(fx.machine.applied.speed).toBeCloseTo(0.4)
     expect(fx.beacons[0].applied.speed).toBeCloseTo(0.8)
     expect(fx.total.speed).toBeCloseTo(fx.machine.applied.speed + fx.beacons[0].applied.speed)
     expect(fx.total.consumption).toBeCloseTo(fx.machine.applied.consumption + fx.beacons[0].applied.consumption)
+  })
+
+  it('sums several beacon configurations', () => {
+    const second = beacon({ beaconCount: 2 })
+    const n = node({ beaconConfigs: [beacon(), second] })
+    const fx = rowEffects(n, [beacon(), second], gameData())
+    expect(fx.beacons.length).toBe(2)
+    expect(fx.total.speed).toBeCloseTo(fx.beacons[0].applied.speed + fx.beacons[1].applied.speed)
+    expect(fx.beacons[1].applied.speed).toBeCloseTo(0.2 * 0.5 * 2 * 2)
   })
 
   it('keeps the raw value of an effect the machine does not allow but counts none of it', () => {

@@ -14,6 +14,22 @@ export function availableBeacons(gameData: GameData, horizon: Horizon) {
 }
 
 /**
+ * Why adding a beacon to a row is not possible, or undefined when it is. The table's `+` chip and the side
+ * panel's add button share it, so they always agree.
+ */
+export function beaconAddBlockedReason(gameData: GameData, horizon: Horizon, noMachineInHorizon: boolean): string | undefined {
+  if (noMachineInHorizon) return 'No machine within research horizon'
+  const nonHidden = Object.values(gameData.beacons).filter(b => !b.hidden)
+  if (nonHidden.length > 0 && !nonHidden.some(b => withinHorizon(horizon.beaconIds, b.id))) {
+    return 'No beacon within the research horizon'
+  }
+  if (horizon.moduleIds !== null && !Object.keys(gameData.modules).some(id => withinHorizon(horizon.moduleIds, id))) {
+    return 'No module within the research horizon'
+  }
+  return undefined
+}
+
+/**
  * The configuration "add a beacon" creates: the first beacon type within the horizon (by name; legacy defaults
  * when the data has none) and 4 beacons, with `moduleId` in its slots, or the first module the beacon accepts for the recipe
  * when none is given. Undefined when no module fits.
