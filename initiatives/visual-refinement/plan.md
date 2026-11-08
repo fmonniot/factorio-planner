@@ -114,6 +114,8 @@ Files: `MachineCell.tsx`, `ModuleCell.tsx`, `BeaconPopover.tsx` (`BeaconCell`).
 - For an area the panel is good (summary, receives, sends, inside this group; see `metals-area-selected.png`), but its lists are long (Hub's Top Row receives 26 items) and take the full height.
 - At 1024 px the panel becomes a drawer that covers more than half the screen and hides the selected row's columns, so the player cannot see what they are editing (`hub-1024-drawer.png`). Idea: a narrower drawer, or a bottom sheet on short and narrow screens.
 
+*Owner's review (2026-11-08):* **accepted:** `panDash` (hide the empty Effects table until a module or beacon is set), `panLists` (cap Receives and Sends at 6, "Show all N" to expand) and `panNarrow` (drawer of 300 px at most below 1280 px). **`panSwitch`, accepted with a change:** the styled switch is kept, and once the rate is pinned the rate input sits on the **same line** as the switch ("Pin rate", then the input and `/min`) instead of on a line of its own; the section no longer grows when pinning. **Rejected:** `panSheet` (bottom sheet below 1280 px), removed from the page and from `check-artifact.mjs`. The four accepted toggles are on when the page opens, in the Decided section "7 · Side panel". Finding 7 is judged.
+
 Files: `src/components/factory/sidePanel/`, `FactoryShell.tsx`.
 
 ### 8. Row selection is subtle

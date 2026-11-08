@@ -359,12 +359,14 @@ button{font-family:inherit;cursor:pointer}
 <div style="{{s.style}}">
 <div style="{{s.headStyle}}">{{s.head}}</div>
 <sc-if value="{{s.isRate}}" hint-placeholder-val="{{ false }}">
+<div style="{{s.rateWrap}}">
 <button style="all:unset;display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px;color:#e5e7eb;min-height:28px" aria-pressed="{{s.pinned}}" onClick="{{s.togglePin}}">
 <sc-if value="{{s.useBox}}" hint-placeholder-val="{{ true }}"><span style="{{s.boxStyle}}">{{s.boxMark}}</span></sc-if>
 <sc-if value="{{s.useSwitch}}" hint-placeholder-val="{{ false }}"><span style="{{s.trackStyle}}"><span style="{{s.knobStyle}}"></span></span></sc-if>
 <span>Pin rate</span>
 </button>
-<sc-if value="{{s.pinned}}" hint-placeholder-val="{{ false }}"><div style="display:flex;align-items:center;gap:8px;margin-top:6px"><span style="width:90px;height:26px;box-sizing:border-box;border:1px solid #4a5565;border-radius:5px;background:#0b0f19;display:flex;align-items:center;padding:0 8px;font-family:ui-monospace,monospace;font-size:11px;color:#e5e7eb">12.0</span><span style="font-size:11px;color:#99a1af">/min</span></div></sc-if>
+<sc-if value="{{s.pinned}}" hint-placeholder-val="{{ false }}"><div style="{{s.pinInStyle}}" title="Pinned rate"><span style="width:90px;height:26px;box-sizing:border-box;border:1px solid #4a5565;border-radius:5px;background:#0b0f19;display:flex;align-items:center;padding:0 8px;font-family:ui-monospace,monospace;font-size:11px;color:#e5e7eb">12.0</span><span style="font-size:11px;color:#99a1af">/min</span></div></sc-if>
+</div>
 </sc-if>
 <sc-if value="{{s.isMachine}}" hint-placeholder-val="{{ false }}">
 <div style="display:flex;align-items:center;gap:10px"><div style="{{s.mchBox}}"><span style="position:absolute;right:1px;bottom:0;font-size:9px;font-weight:700;color:#e5e7eb;font-family:ui-monospace,monospace">{{s.mc}}</span></div><span style="font-size:12px;color:#e5e7eb">{{s.mText}}</span></div>
@@ -448,7 +450,7 @@ button{font-family:inherit;cursor:pointer}
 <script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":2340,"height":1720}}'>
 const DATA_URL = '/_blob/89ac55d62aee0ea0f649a8a5a56833c3';
 // Findings the owner has decided on (plan.md) are on from the start and listed in a section that starts closed.
-const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'contrast', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong', 'grpFixed', 'grpIcon', 'grpBand'];
+const DECIDED = ['sumShort', 'legTip', 'legInBar', 'ovBar', 'sumLine', 'sumStack', 'ingLeft', 'chipFmt', 'chipNum', 'chipPlate', 'chipBig', 'contrast', 'phPair', 'phQuiet', 'tabsFit', 'wsLight', 'blockList', 'addTool', 'selStrong', 'grpFixed', 'grpIcon', 'grpBand', 'panDash', 'panSwitch', 'panLists', 'panNarrow'];
 const DEFAULT_TG = DECIDED.reduce((o, id) => { o[id] = true; return o; }, {});
 const INIT = { data: null, err: false, block: 'Metals', vp: '1440', flip: false, sel: '0', tg: DEFAULT_TG, decOpen: false, pop: null, sumOpen: false, panel: false, panAll: false, pinned: false,
   open: {}, det: [-1, -1, -1], hov: null, trace: [null, null, null], menu: false, tip: null, toast: null, slots: [false, false], beac: false };
@@ -492,12 +494,11 @@ const GROUPS = [
   { title: '6 · Placeholders', decided: true, items: [
     ['phPair', 'Beacons: two placeholders, like Machine', 'An empty Beacons cell shows the beacon + and, next to it, the module slot + 0/2: the pair Machine already shows, and what a filled beacon looks like.', 'Try: Extra Sulfur, compare the Machine and Beacons columns.'],
     ['phQuiet', 'Fainter placeholders', 'Dashed border and glyph drop to a quieter tone and come back to the usual one on row hover, selection or keyboard focus, and brighter on the chip itself. Nothing is hidden, so touch screens look the same.', 'Try: Extra Sulfur, move the pointer over rows, or Tab into a row; the readout is unaffected.'] ] },
-  { title: '7 · Side panel', items: [
+  { title: '7 · Side panel', decided: true, items: [
     ['panDash', 'Hide the empty Effects table', 'Until a module or beacon is set. Where inputs come from moves up.', 'Try: open the side panel on Extra Sulfur, then click a + slot in Machine: Effects appears.'],
-    ['panSwitch', 'Styled Pin rate switch', 'Replaces the white native checkbox.', 'Try: open the side panel on a recipe row and click Pin rate.'],
+    ['panSwitch', 'Styled Pin rate switch', 'Replaces the white native checkbox. Once pinned, the rate input sits on the same line as the switch instead of under it.', 'Try: open the side panel on a recipe row and click Pin rate.'],
     ['panLists', 'Cap long lists at 6', 'Receives and Sends on an area.', 'Try: open the side panel on Hub, Top Row: Show all 26.'],
-    ['panNarrow', 'Narrower drawer', 'Below 1280 px: 300 px at most, so part of the table stays visible.', 'Try: iPad A16 portrait, open the side panel.'],
-    ['panSheet', 'Bottom sheet below 1280 px', 'Docked under the table, at most 45% of the height; the table shrinks and keeps the selected row in view.', 'Try: iPad A16 portrait, open the side panel, click another row.'] ] },
+    ['panNarrow', 'Narrower drawer', 'Below 1280 px: 300 px at most, so part of the table stays visible.', 'Try: iPad A16 portrait, open the side panel.'] ] },
   { title: '8 · Selection', decided: true, items: [
     ['selStrong', 'Stronger selected row', 'Full-row tint, teal outline and a brighter name.', 'Try: click any row (anywhere on it).'] ] },
   { title: '9 · Top bar', decided: true, items: [
@@ -666,8 +667,10 @@ class Component extends DCLogic {
     if (raw.k === 'recipe') {
       const nMod = st.slots.filter(Boolean).length;
       const anyFx = nMod > 0 || st.beac;
-      const pinH = st.pinned ? 98 : 66;
+      const pinH = st.pinned && !tg.panSwitch ? 98 : 66;
       mk(pinH, { head: 'Rate', isRate: true, pinned: st.pinned, useBox: !tg.panSwitch, useSwitch: !!tg.panSwitch,
+        rateWrap: tg.panSwitch ? 'display:flex;align-items:center;gap:16px' : 'display:block',
+        pinInStyle: 'display:flex;align-items:center;gap:8px;' + (tg.panSwitch ? '' : 'margin-top:6px'),
         boxStyle: 'width:16px;height:16px;box-sizing:border-box;border-radius:3px;display:flex;align-items:center;justify-content:center;font-size:12px;line-height:1;' + (st.pinned ? 'background:#ffffff;color:#101828;' : 'background:#ffffff;'), boxMark: st.pinned ? '✓' : '',
         trackStyle: 'position:relative;width:34px;height:20px;border-radius:10px;flex:none;background:' + (st.pinned ? '#14b8a6' : '#364153'),
         knobStyle: 'position:absolute;top:2px;width:16px;height:16px;border-radius:8px;background:#ffffff;left:' + (st.pinned ? '16px' : '2px'),
@@ -734,11 +737,10 @@ class Component extends DCLogic {
     const raw = findRow(B.rows, st.sel) || B.rows[0];
     const pm = st.panel && raw ? this.panelModel(D, tg, raw, st) : null;
     let mode = 'none';
-    if (pm) mode = xl ? 'docked' : (tg.panSheet ? 'sheet' : 'drawer');
+    if (pm) mode = xl ? 'docked' : 'drawer';
     let drawerW = vw < 640 ? vw : 380;
     if (tg.panNarrow) drawerW = Math.min(300, Math.max(200, vw - 140));
     const dockW = mode === 'docked' ? 380 : 0;
-    const sheetH = mode === 'sheet' ? Math.min(pm.height, Math.round(vh * 0.45)) : 0;
 
     // ---- top bar: every width below is a drawn width, so the "cut" count is what is on screen
     const tabW = n => Math.min(176, Math.max(96, 58 + n.length * 6.4));
@@ -977,7 +979,7 @@ class Component extends DCLogic {
       return { f: f, r: r, key: f.key, isArea: isArea, selected: f.key === st.sel, h: h, rm: rm, top: top };
     });
     const avgH = rows.length ? hSum / rows.length : 0;
-    const tableH = vh - above - 44 - 26 - sheetH;
+    const tableH = vh - above - 44 - 26;
     let used = 0, visible = 0;
     for (const m of rows) { if (used + m.h <= tableH) { used += m.h; visible++; } else { visible += (tableH - used) / m.h; break; } }
     const gap = gapN ? Math.round(gapSum / gapN) : 0;
@@ -1068,7 +1070,6 @@ class Component extends DCLogic {
       const ic = first ? this.chip(D, {}, first[0], 0, null, 28).ic : '';
       let style = 'box-sizing:border-box;background:#141c2e;display:flex;flex-direction:column;min-height:0;overflow:hidden;';
       if (mode === 'docked') style += 'grid-column:2;grid-row:1;width:380px;border-left:1px solid #364153;';
-      else if (mode === 'sheet') style += 'grid-column:1;grid-row:2;height:' + sheetH + 'px;border-top:1px solid #364153;';
       else style += 'position:absolute;right:0;top:0;bottom:0;z-index:13;width:' + drawerW + 'px;border-left:1px solid #4a5565;box-shadow:-14px 0 34px rgba(0,0,0,0.55);';
       panel = {
         style: style, title: raw.n, subtitle: raw.k === 'recipe' ? 'Recipe' : (raw.k === 'area' ? 'Separate area · level 1 of 4' : 'Sub-factory · level 1 of 4'),
@@ -1078,7 +1079,7 @@ class Component extends DCLogic {
     }
 
     return { handleH: handleH, paneW: lineW, md: md, stacked: stacked, lineH: sLineH, stripOuter: stripOuter, above: above, sumH: sumH, panes: panes, hdr: hdr, rows: rowVms, tableW: tableW, avgH: avgH, visible: visible, gap: gap, B: B,
-      prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, sheetH: sheetH, panel: panel, panelH: pm ? pm.height : 0,
+      prodX: prodX, ingX: ingX, iW: iW, paneW: paneW, tableH: tableH, mode: mode, drawerW: drawerW, panel: panel, panelH: pm ? pm.height : 0,
       inView: inView, tabs: { widths: widths, off: off, cut: cut, overflowing: overflowing, stripW: stripW, availT: availT, allBlkW: allBlkW, addTool: addTool, listW: listW, blockList: blockList, rightW: rightW, toolW: toolW, wsW: wsW },
       md: md, xl: xl, narrow: narrow, cc: cc, touch: touch, rowCount: rows.length };
   }
@@ -1300,7 +1301,7 @@ class Component extends DCLogic {
     const panelCard = st.panel && cur.panelH
       ? mk('Side panel content', cur.panelH, base.panelH, 'px', true, cur.panelH > vh ? 'Taller than the ' + vh + ' px screen: it scrolls.' : 'Fits in the ' + vh + ' px screen.', 0)
       : { label: 'Side panel content', cur: '–', base: '–', unit: '', delta: 'closed', deltaStyle: 'color:#99a1af', note: 'Open the side panel (Context) to measure it.' };
-    const modeNote = cur.mode === 'drawer' ? 'Drawer, ' + cur.drawerW + ' px wide, over the table.' : cur.mode === 'sheet' ? 'Bottom sheet, ' + cur.sheetH + ' px high.' : cur.mode === 'docked' ? 'Docked, 380 px.' : 'Products to the last ingredient chip.';
+    const modeNote = cur.mode === 'drawer' ? 'Drawer, ' + cur.drawerW + ' px wide, over the table.' : cur.mode === 'docked' ? 'Docked, 380 px.' : 'Products to the last ingredient chip.';
     const readout = [
       mk('Above the table', cur.above, base.above, 'px', true, Math.round(cur.above / vh * 100) + '% of the ' + vh + ' px screen.', 0),
       mk('Average row height', cur.avgH, base.avgH, 'px', true, 'Across the ' + cur.rowCount + ' rows shown in ' + st.block + (cur.rowCount > cur.B.rows.length ? ' (groups opened)' : '') + '.'),
@@ -1329,7 +1330,7 @@ class Component extends DCLogic {
       backdropStyle: 'position:absolute;left:0;right:0;top:44px;bottom:0;z-index:7;border:0;padding:0;background:rgba(0,0,0,0.25);cursor:default',
       drawer: drawer,
       drawerBackdrop: 'position:absolute;left:0;right:0;top:0;bottom:0;z-index:9;border:0;padding:0;background:rgba(0,0,0,0.45);cursor:default',
-      bodyStyle: 'flex:1;min-height:0;display:grid;grid-template-columns:' + (cur.mode === 'docked' ? 'minmax(0,1fr) 380px' : 'minmax(0,1fr)') + ';grid-template-rows:' + (cur.mode === 'sheet' ? 'minmax(0,1fr) ' + cur.sheetH + 'px' : 'minmax(0,1fr)'),
+      bodyStyle: 'flex:1;min-height:0;display:grid;grid-template-columns:' + (cur.mode === 'docked' ? 'minmax(0,1fr) 380px' : 'minmax(0,1fr)') + ';grid-template-rows:minmax(0,1fr)',
       panelOpen: panelOpen, panel: cur.panel || { style: '', sections: [] },
       tableWrap: 'flex:1;min-height:0;overflow:auto;position:relative',
       tableInner: 'width:' + cur.tableW + 'px',

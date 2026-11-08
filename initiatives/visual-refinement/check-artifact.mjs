@@ -145,7 +145,7 @@ await check('6 phQuiet: placeholders are fainter, come back on hover, selection 
 })
 
 // ---------------------------------------------------------------- decided changes
-await check('decided: the twenty-two accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
+await check('decided: the twenty-six accepted changes are on at the start, in a closed section; legMenu is gone', async a => {
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'the decided section starts closed')
   const head = a.page.getByRole('button', { name: /^Decided:/ })
   ok((await head.getAttribute('aria-expanded')) === 'false', 'the header says it is collapsed')
@@ -153,13 +153,13 @@ await check('decided: the twenty-two accepted changes are on at the start, in a 
   await head.click()
   ok((await head.getAttribute('aria-expanded')) === 'true', 'clicking opens it')
   const on = await a.page.locator('button.tg[aria-pressed="true"]').allInnerTexts()
-  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips', 'Lighter secondary text', 'One fixed row height', 'Icon instead of the Area tag', 'Open groups: faint band']
-  ok(names.every(n => on.some(t => t.startsWith(n))), 'all twenty-two are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
-  ok(on.length === 22, 'and nothing else is on (' + on.length + ')')
+  const names = ['Shorter detail strip', 'Legend as a tooltip', 'Legend written in the bar', 'Overview as one bar', 'Collapsible summary', 'Stack the collapsed summary', 'Ingredients aligned to the left', 'Beacons: two placeholders, like Machine', 'Fainter placeholders', 'All tabs fit', 'Lighter workspace button', 'Block list button on the left', 'Add block as a regular tool button', 'Stronger selected row', 'Compact rates', 'Larger numbers', 'Washed-out chip plate', '32 px chips', 'Lighter secondary text', 'One fixed row height', 'Icon instead of the Area tag', 'Open groups: faint band', 'Hide the empty Effects table', 'Styled Pin rate switch', 'Cap long lists at 6', 'Narrower drawer']
+  ok(names.every(n => on.some(t => t.startsWith(n))), 'all twenty-six are pressed: ' + on.map(t => t.split('\n')[0]).join(' | '))
+  ok(on.length === 26, 'and nothing else is on (' + on.length + ')')
   await a.page.getByRole('button', { name: 'All off', exact: true }).click()
   ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 0, 'All off clears them')
   await a.page.getByRole('button', { name: 'Decided only', exact: true }).click()
-  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 22, 'Decided only puts the twenty-two back')
+  ok(await a.page.locator('button.tg[aria-pressed="true"]').count() === 26, 'Decided only puts the twenty-six back')
   await head.click()
   ok(await a.page.locator('button.tg', { hasText: 'Shorter detail strip' }).count() === 0, 'and it closes again')
 }, true)
@@ -568,20 +568,23 @@ await check('7 panSwitch and panLists', async a => {
   const pin = a.frame.getByRole('button', { name: 'Pin rate', exact: true })
   await pin.click()
   ok((await pin.getAttribute('aria-pressed')) === 'true', 'Pin rate toggles')
+  const inp = await a.frame.getByTitle('Pinned rate').boundingBox()
+  const sw = await pin.boundingBox()
+  ok(inp && sw && Math.abs((inp.y + inp.height / 2) - (sw.y + sw.height / 2)) <= 3, 'panSwitch: the rate input is on the same line as the switch')
+  ok(inp.x > sw.x + sw.width, 'panSwitch: the input is right of the switch')
   await a.block('Hub')
   await a.toggle('Cap long lists at 6')
   await a.frame.getByRole('button', { name: /Show all \d+/ }).first().click()
   ok(await a.frame.getByRole('button', { name: 'Show fewer' }).first().isVisible(), 'Show all expands the list')
 })
-await check('7 panSheet keeps the selected row in view on an iPad', async a => {
-  await a.block('Extra Sulfur')
+await check('7 panNarrow: the drawer is at most 300 px and part of the table stays visible', async a => {
   await a.screen('iPad A16 820')
-  await a.toggle('Bottom sheet below 1280 px')
   await a.toggle('Open the side panel')
-  await a.rows().nth(14).locator('.rowhit').click({ force: true })
-  await a.page.waitForTimeout(150)
-  const vis = await a.page.evaluate(() => { const t = document.getElementById('tbl').getBoundingClientRect(); const r = document.querySelector('#frame .row.sel').getBoundingClientRect(); return r.top >= t.top - 1 && r.bottom <= t.bottom + 1 })
-  ok(vis, 'the selected row (15 of 18) is scrolled into the shrunken table')
+  const w0 = await a.page.evaluate(() => document.querySelector('aside[aria-label="Row details"]').offsetWidth)
+  ok(w0 === 380, 'baseline drawer is 380 px (' + w0 + ')')
+  await a.toggle('Narrower drawer')
+  const w1 = await a.page.evaluate(() => document.querySelector('aside[aria-label="Row details"]').offsetWidth)
+  ok(w1 <= 300 && w1 >= 200, 'drawer at most 300 px (' + w1 + ')')
 })
 await check('7 drawer closes with Escape and its backdrop', async a => {
   await a.screen('iPad A16 820')
