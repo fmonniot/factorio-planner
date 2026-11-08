@@ -680,6 +680,7 @@ export function initAppStatePersistence(): () => void {
   const unsubBlocks = useBlockStore.subscribe((state, prevState) => {
     if (
       state.blocks !== prevState.blocks ||
+      state.activeBlockId !== prevState.activeBlockId ||
       state.horizonTechnologyIds !== prevState.horizonTechnologyIds ||
       state.defaultMachineOverrides !== prevState.defaultMachineOverrides
     ) {

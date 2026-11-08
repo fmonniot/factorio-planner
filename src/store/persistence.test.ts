@@ -283,6 +283,19 @@ describe('research horizon', () => {
     )
   })
 
+  it('autosaves when only the active block changes', () => {
+    activateDataSet('nullius')
+    useBlockStore.getState().addBlock()
+    const [first, second] = useBlockStore.getState().blocks
+    useBlockStore.getState().setActiveBlock(first.id)
+    vi.clearAllMocks()
+    useBlockStore.getState().setActiveBlock(second.id)
+    expect(localStorageMock.setItem).toHaveBeenCalledWith(
+      KEY(),
+      expect.stringContaining(`"activeBlockId":"${second.id}"`),
+    )
+  })
+
   it('autosaves when only the default machine overrides change', () => {
     activateDataSet('nullius')
     vi.clearAllMocks()
