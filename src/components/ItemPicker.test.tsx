@@ -377,6 +377,65 @@ describe('ItemPicker — recipe detail "Made in" with a research horizon', () =>
     expect(panel).toHaveTextContent('Stone Furnace')
     expect(panel).toHaveTextContent('Steel Furnace')
   })
+
+  function setIronPlate(patch: Partial<Recipe>) {
+    const st = useGameDataStore.getState().status
+    if (st.type !== 'loaded') throw new Error('not loaded')
+    Object.assign(st.gameData.recipes['iron-plate'], patch)
+  }
+
+  it('keeps the full list for a power recipe', () => {
+    loadTwoFurnaces()
+    setIronPlate({ power: true })
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Stone Furnace')
+    expect(panel).toHaveTextContent('Steel Furnace')
+  })
+
+  it('does not list a hidden machine even when its item is inside the horizon', () => {
+    loadTwoFurnaces()
+    const st = useGameDataStore.getState().status
+    if (st.type !== 'loaded') throw new Error('not loaded')
+    st.gameData.machines['steel-furnace'].hidden = true
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting', 'steel'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Stone Furnace')
+    expect(panel).not.toHaveTextContent('Steel Furnace')
+  })
+
+  it('says so, and keeps the unlock border, when the horizon removes every machine', () => {
+    loadTwoFurnaces()
+    setIronPlate({ madeIn: ['steel-furnace'] })
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).toHaveTextContent('Made in:')
+    expect(panel).toHaveTextContent('No machine inside the research horizon')
+    expect(panel).not.toHaveTextContent('Steel Furnace')
+    expect(within(panel).getByTestId('recipe-unlock').className).toContain('border-t')
+  })
+
+  it('has no Made in block and no unlock border for a recipe with no machines', () => {
+    loadTwoFurnaces()
+    setIronPlate({ madeIn: [] })
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).not.toHaveTextContent('Made in:')
+    expect(within(panel).getByTestId('recipe-unlock').className).not.toContain('border-t')
+  })
+
+  it('lists all machines with the horizon unset (machineIds null) and a border under them', () => {
+    loadTwoFurnaces()
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    const panel = hoverIronPlate()
+    expect(panel).not.toHaveTextContent('No machine inside')
+    const unlock = within(panel).queryByTestId('recipe-unlock')
+    if (unlock) expect(unlock.className).toContain('border-t')
+  })
 })
 
 // ---------------------------------------------------------------------------

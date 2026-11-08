@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { useAvailableRecipeIds, useHorizon } from '../store/horizon'
+import { useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
 import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
@@ -105,10 +105,13 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
 }) {
   const recipe = gameData.recipes[recipeId]
   if (!recipe) return null
-  // Power recipes keep their full list: their machine is madeIn[0] and is gated through the placing item.
+  // Power recipes keep their full list: the exporter gives each exactly one machine, which is gated through
+  // its placing item rather than the horizon. Other machines must be inside the horizon and, as for the
+  // planner's default machine, not hidden.
   const madeIn = recipe.power || machineIds === null
     ? recipe.madeIn
-    : recipe.madeIn.filter(id => withinHorizon(machineIds, id))
+    : recipe.madeIn.filter(id => withinHorizon(machineIds, id) && !gameData.machines[id]?.hidden)
+  const hasMadeInBlock = recipe.madeIn.length > 0
 
   return (
     <div
@@ -165,9 +168,12 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
       )}
 
       {/* Made in */}
-      {madeIn.length > 0 && (
+      {hasMadeInBlock && (
         <div className="px-3 py-2">
           <div className="text-gray-200 font-bold mb-1">Made in:</div>
+          {madeIn.length === 0 && (
+            <div className="text-gray-500 py-1">No machine inside the research horizon</div>
+          )}
           {madeIn.map(machineId => {
             const machine = gameData.machines[machineId]
             return (
@@ -184,7 +190,7 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
       )}
 
       {/* Unlocked by */}
-      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={madeIn.length > 0} inside={inside} />
+      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={hasMadeInBlock} inside={inside} />
     </div>
   )
 }
@@ -261,8 +267,8 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  const available = useAvailableRecipeIds()
   const horizon = useHorizon(gameData)
+  const available = horizon.recipeIds
 
   // Recipes that pass all filters (hidden toggle, item filter, search, research
   // horizon; hidden recipes are exempt), and how many the horizon alone removed.

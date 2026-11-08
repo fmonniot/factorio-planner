@@ -392,7 +392,7 @@ horizon" label. When no machine of a recipe's category is inside the horizon, th
 has no machine: its machine count and power are 0 and the row is flagged (see
 [Machine cell](#production-table)); recipe throughput and rates are unaffected.
 
-The recipe picker's hover detail panel lists in "Made in" only the machines inside the horizon, all of them when "Beyond research horizon" is ticked; the section is hidden when none remains. Power recipes are exempt (their machine is gated through its placing item).
+The recipe picker's hover detail panel lists in "Made in" only the machines inside the horizon, all of them when "Beyond research horizon" is ticked; hidden machines are never listed under a horizon, and when none remains the section reads "No machine inside the research horizon". Power recipes are exempt (the exporter gives each one machine, gated through its placing item). Machines beyond the horizon are not dimmed or marked when the checkbox is ticked.
 
 ### Technology tree
 
