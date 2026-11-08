@@ -305,9 +305,15 @@ trigger). The tree shows no cost for the first. For the second it shows the cond
 described from `trigger` (`describeTrigger` in `src/data/researchTrigger.ts`: "Craft 10 × Steel plate",
 with the subject's icon when the bundle has one), or a bare "Trigger" when `trigger` is absent or its
 `type` is not one the planner knows (`craft-item`, `craft-fluid`, `mine-entity`, `build-entity`,
-`capture-spawner`, `send-item-to-orbit`, `create-space-platform`). `trigger` is exported only for a
-technology without a `unit`; one with both keeps its cost and no `trigger`. The exporter reads
-`research_trigger`, takes `count` from `count` or, for `craft-fluid`, `amount`, and drops quality fields.
+`capture-spawner`, `send-item-to-orbit`, `create-space-platform`), or a known type lacks its required
+field (`craft-item` with no `item`, `mine-entity` with no `entity`, ...). `ResearchTriggerSchema.type`
+accepts any string, so none of this is checked on import. Export side: `trigger` is written only for a
+technology without a `unit`. Display side: the UI shows `trigger` only when `cost` is `null` and ignores
+it when `cost` is non-null (a hand-edited bundle with both keeps its cost). The exporter reads
+`research_trigger`, takes `count` from `count` (or, for `craft-fluid` only, `amount`), drops a zero or
+negative count and quality fields. A craft-fluid count reads as "Craft 100 units of Water". `count` is
+ignored for `mine-entity`, `capture-spawner` and `send-item-to-orbit`. Entity ids are named from machines and
+beacons first, then items; an entity with no item (rail, fish) shows its humanized id, not the in-game name.
 
 `startingRecipes` lists the recipes available at game start (the dump's
 `recipe.enabled` is not `false`).

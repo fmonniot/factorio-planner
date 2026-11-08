@@ -42,7 +42,7 @@ function idOf(v) {
 
 /**
  * Research trigger of a technology (`research_trigger`): the in-game condition that completes it.
- * `count` comes from `count` (craft-item, build-entity) or `amount` (craft-fluid). Only defined keys are
+ * `count` comes from `count` (any type but craft-fluid) or, for craft-fluid only, `amount`; a zero or negative value is dropped. Only defined keys are
  * set; quality fields are dropped. Null when there is no trigger object with a string `type`.
  * @returns {{type:string, item?:string, entity?:string, fluid?:string, count?:number} | null}
  */
@@ -56,7 +56,7 @@ export function researchTrigger(proto) {
   if (entity !== undefined) out.entity = entity
   const fluid = idOf(r.fluid)
   if (fluid !== undefined) out.fluid = fluid
-  const n = typeof r.count === 'number' ? r.count : r.amount
+  const n = r.type === 'craft-fluid' ? r.amount : r.count
   if (typeof n === 'number' && n > 0) out.count = n
   return out
 }

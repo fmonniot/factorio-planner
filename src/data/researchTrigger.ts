@@ -24,12 +24,16 @@ function humanize(id: string): string {
 export function describeTrigger(trigger: ResearchTrigger | undefined, lookup: TriggerLookup): TriggerDescription | null {
   if (!trigger) return null
 
-  // Item or fluid ids live in `items`; entity ids fall back to machines and beacons.
+  // Item or fluid ids live in `items`. Entity ids are looked up in machines and beacons first (an entity id can
+  // equal an unrelated item id), then in `items` (fluid resources such as crude oil). Entities with no item at all
+  // (rails, fish) get the humanized id, which is not always the in-game name.
   const nameAndIcon = (id: string, entity: boolean): { name: string; iconPath?: string } => {
-    const found = lookup.items[id] ?? (entity ? lookup.machines[id] ?? lookup.beacons[id] : undefined)
+    const found = entity ? lookup.machines[id] ?? lookup.beacons[id] ?? lookup.items[id] : lookup.items[id]
     return { name: found?.name ?? humanize(id), iconPath: found?.iconPath || undefined }
   }
   const qty = (name: string) => (trigger.count !== undefined && trigger.count > 1 ? `${trigger.count} × ${name}` : name)
+  // `count` is meaningful for craft-item, craft-fluid and build-entity only; mine-entity, capture-spawner and
+  // send-item-to-orbit ignore it on purpose.
   const make = (short: string, full: string, iconPath?: string): TriggerDescription => ({ short, full, iconPath })
 
   switch (trigger.type) {
@@ -38,6 +42,11 @@ export function describeTrigger(trigger: ResearchTrigger | undefined, lookup: Tr
       const id = trigger.type === 'craft-item' ? trigger.item : trigger.fluid
       if (!id) return null
       const { name, iconPath } = nameAndIcon(id, false)
+      if (trigger.type === 'craft-fluid') {
+        // `count` is an amount of fluid, not a number of items: no "×".
+        const amount = trigger.count !== undefined && trigger.count > 1 ? `${trigger.count} units of ${name}` : name
+        return make(`Craft ${amount}`, `Researched by crafting ${amount}`, iconPath)
+      }
       return make(`Craft ${qty(name)}`, `Researched by crafting ${qty(name)}`, iconPath)
     }
     case 'mine-entity': {

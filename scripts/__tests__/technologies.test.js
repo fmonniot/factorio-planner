@@ -176,6 +176,11 @@ describe('researchTrigger', () => {
     const r = researchTrigger({ research_trigger: { type: 'craft-fluid', fluid: 'water', amount: 100 } })
     expect(r, 'craft-fluid').toEqual({ type: 'craft-fluid', fluid: 'water', count: 100 })
   })
+  it('reads amount only for craft-fluid and count only elsewhere', () => {
+    expect(researchTrigger({ research_trigger: { type: 'craft-item', item: 'x', amount: 7 } }), 'stray amount').toEqual({ type: 'craft-item', item: 'x' })
+    expect(researchTrigger({ research_trigger: { type: 'craft-fluid', fluid: 'water', count: 7 } }), 'stray count').toEqual({ type: 'craft-fluid', fluid: 'water' })
+    expect(researchTrigger({ research_trigger: { type: 'craft-item', item: 'x', count: 0 } }), 'zero').toEqual({ type: 'craft-item', item: 'x' })
+  })
   it('accepts an id given as an object and drops quality', () => {
     const r = researchTrigger({ research_trigger: { type: 'craft-item', item: { name: 'x', quality: 'normal' } } })
     expect(r, 'object id').toEqual({ type: 'craft-item', item: 'x' })

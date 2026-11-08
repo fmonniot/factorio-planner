@@ -419,7 +419,7 @@ near-full-screen modal (Escape, the backdrop and **Close** dismiss it).
   cost: one chip per science pack (the pack's item icon, tooltip `<pack> ×amount`)
   followed by `×count · time s` (`×?` for a formula count). A research-trigger
   technology shows its condition in place of the cost: the subject's icon and a one-line text
-  such as "Craft 10 × Steel plate" (truncated to the card, full sentence in the `title`); it
+  such as "Craft 10 × Steel plate" (truncated to the card; the full sentence is in the hover popup, and in a native `title` only in the recipe picker's technology list, via `TechCost`'s `tooltip` prop); it
   shows a bare "Trigger" when the bundle has no condition or the type is unknown. A bundle
   without cost data shows nothing. The cost is
   rendered by the shared `TechCost` component (`TechCost.tsx`), which the recipe
@@ -1076,7 +1076,7 @@ The same component in recipes mode (`source="recipes"`).
   types first, then by name; technologies with no cost data or a research
   trigger sort last) with its icon, its name and its science packs (pack
   icons, then `×count`; `×?` for a formula count; the short trigger condition
-  ("Craft 10 × Steel plate", or a bare "Trigger" when unknown) for a research-trigger
+  ("Craft 10 × Steel plate", or a bare "Trigger" when unknown or incomplete) for a research-trigger
   technology; nothing when the bundle has no cost data). Research time is not shown.
   Starting and extraction recipes read "Available from the start"; a recipe no
   technology unlocks reads "No technology unlocks this recipe".

@@ -54,8 +54,19 @@ describe('describeTrigger', () => {
   })
   it('describes craft-fluid; an empty iconPath gives no icon', () => {
     expect(describeTrigger({ type: 'craft-fluid', fluid: 'water', count: 100 }, makeLookup())).toEqual({
-      short: 'Craft 100 × Water', full: 'Researched by crafting 100 × Water', iconPath: undefined,
+      short: 'Craft 100 units of Water', full: 'Researched by crafting 100 units of Water', iconPath: undefined,
     })
+  })
+  it('looks entities up in machines before items, but items for item subjects', () => {
+    const l = makeLookup()
+    l.items.boiler = { ...l.items.wood, id: 'boiler', name: 'Boiler item', iconPath: '/i/other.png' }
+    expect(describeTrigger({ type: 'build-entity', entity: 'boiler' }, l)?.iconPath, 'entity').toBe('/i/boiler.png')
+    expect(describeTrigger({ type: 'craft-item', item: 'boiler' }, l)?.short, 'item').toBe('Craft Boiler item')
+  })
+  it('ignores count on mine-entity, capture-spawner and send-item-to-orbit', () => {
+    const l = makeLookup()
+    expect(describeTrigger({ type: 'mine-entity', entity: 'crude-oil', count: 5 }, l)?.short).toBe('Mine Crude oil')
+    expect(describeTrigger({ type: 'send-item-to-orbit', item: 'satellite', count: 5 }, l)?.short).toBe('Send Satellite to orbit')
   })
   it('describes send-item-to-orbit', () => {
     expect(describeTrigger({ type: 'send-item-to-orbit', item: 'satellite' }, makeLookup())).toEqual({

@@ -10,26 +10,30 @@ interface TechCostProps {
   trigger?: Technology['trigger']
   /** Trigger wording: the one-line condition (default) or the sentence form. */
   triggerText?: 'short' | 'full'
+  /** Native tooltip with the full sentence on the trigger line; for lists with no hover popup. Default false. */
+  tooltip?: boolean
   /** Append "· <time>s" after the count. Default true (tech-tree cards). */
   showTime?: boolean
 }
 
-export function TechCost({ cost, lookup, trigger, triggerText = 'short', showTime = true }: TechCostProps) {
+export function TechCost({ cost, lookup, trigger, triggerText = 'short', tooltip = false, showTime = true }: TechCostProps) {
   if (cost === undefined) return null
   if (cost === null) {
     const described = describeTrigger(trigger, lookup)
-    if (!trigger || !described) {
+    if (!described) {
       return <span data-testid="tech-cost" className="block text-[11px] text-gray-400">Trigger</span>
     }
     return (
       <span
         data-testid="tech-cost"
-        data-trigger-type={trigger.type}
-        title={described.full}
+        data-trigger-type={trigger?.type}
+        title={tooltip ? described.full : undefined}
         className="flex items-center gap-1 min-w-0 text-[11px] text-gray-400"
       >
         {described.iconPath && <Icon iconPath={described.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" draggable={false} />}
-        <span className={triggerText === 'short' ? 'truncate' : ''}>{triggerText === 'short' ? described.short : described.full}</span>
+        {triggerText === 'short'
+          ? <span className="truncate">{described.short}</span>
+          : <span>{described.full}</span>}
       </span>
     )
   }

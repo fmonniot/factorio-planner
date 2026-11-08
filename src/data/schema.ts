@@ -202,7 +202,7 @@ export const TechnologySchema = z.object({
   iconPath: z.string().default(''),
   /** undefined = bundle exported without cost; null = not researched in labs (research trigger). */
   cost: TechnologyCostSchema.nullable().optional(),
-  /** Research trigger condition; only exported when `cost` is null. */
+  /** Research trigger condition. The exporter writes it only when `cost` is null; the UI shows it only then and ignores it when `cost` is non-null. */
   trigger: ResearchTriggerSchema.optional(),
 })
 

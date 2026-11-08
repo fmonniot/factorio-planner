@@ -995,6 +995,7 @@ describe('ItemPicker — recipe detail panel unlock section', () => {
     data.technologies.smelting.trigger = { type: 'craft-item', item: 'iron-ore', count: 5 }
     hover(data, 'iron-plate')
     expect(screen.getByTestId('tech-cost')).toHaveTextContent('Craft 5 ×')
+    expect(screen.getByTestId('tech-cost')).toHaveAttribute('title', expect.stringContaining('Researched by crafting 5'))
   })
 
   it('reads "No technology" for a recipe nothing unlocks', () => {
