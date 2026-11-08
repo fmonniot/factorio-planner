@@ -1,6 +1,7 @@
 import type { GameData, GameRecipeNode, Ingredient, Recipe, RecipeProduct } from '../data/types'
 import type { NodeEffects } from './effects'
 import { HEAT_ITEM_ID } from '../data/electricity'
+import type { FluidTemperatures } from './temperatureRows'
 
 // ---------------------------------------------------------------------------
 // Item classification for the LP solver
@@ -27,6 +28,8 @@ export interface ClassifiedSystem {
   /** Ordered recipe ids */
   recipes: string[]
   classification: ItemClassification
+  /** Fluids whose temperature some column bounds (set by the solver entry points; see temperatureRows.ts). */
+  fluidTemperatures?: Map<string, FluidTemperatures>
 }
 
 /**

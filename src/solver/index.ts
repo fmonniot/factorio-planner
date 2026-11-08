@@ -18,6 +18,7 @@ import type {
 import { blockAreas, explicitMainProduct, solveAreaBlock } from './areas'
 import { buildClassifiedSystem, lockedIngredients, rowProductAmount } from './build'
 import { solveLP } from './solve'
+import { collectFluidTemperatures } from './temperatureRows'
 import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
@@ -212,6 +213,10 @@ export function solveBlock(
   )
 
   const system = buildClassifiedSystem(gameData, recipeIds, goalsMap, nodeEffectsMap)
+  system.fluidTemperatures = collectFluidTemperatures(
+    gameData,
+    recipeIds.map(id => ({ id, recipe: gameData.recipes[id], effects: nodeEffectsMap.get(id)! })),
+  )
 
   // Warn for goal items with no producer recipe in the plan.
   const noRecipeWarnings: SolverResult['warnings'] = []
@@ -230,6 +235,8 @@ export function solveBlock(
         if (row) {
           const coeff = row.get(n.recipeId) ?? 0
           if (coeff > 0) row.set(n.recipeId, 0)
+          const f = system.fluidTemperatures?.get(itemId)
+          if (f) f.producers = f.producers.filter(p => p.colId !== n.recipeId)
         }
       }
     }

@@ -65,16 +65,12 @@ function mismatches(warnings: SolverWarning[]) {
 }
 
 describe('temperature-mismatch warning', () => {
-  it('warns when the only boiler is below the generator minimum', () => {
+  it('imports the fluid when the only boiler is below the generator minimum', () => {
     const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
     const all = solveAll([block('A', [node('b', 'b165'), node('t', 'turbine')])], gd)
-    const w = mismatches(all.results.A.warnings)
-    expect(w, 'one warning').toHaveLength(1)
-    expect(w[0].supplied, 'supplied').toEqual([165])
-    expect(w[0].minimum, 'minimum').toBe(465)
-    expect(w[0].maximum, 'no maximum').toBeUndefined()
-    expect(w[0].recipeId).toBe('turbine')
-    expect(w[0].itemId).toBe('steam')
+    expect(all.results.A.unsatisfied.some(u => u.itemId === 'steam'), 'steam is imported').toBe(true)
+    expect(all.results.A.nodes[0].throughput, 'the cold boiler is not run').toBe(0)
+    expect(mismatches(all.results.A.warnings), 'the LP already avoided it').toHaveLength(0)
   })
 
   it('stays silent when the boiler fits', () => {
@@ -86,9 +82,7 @@ describe('temperature-mismatch warning', () => {
   it('counts a product without temperature as the fluid default', () => {
     const gd = gameData([boiler('plain'), generator('engine', 165)], STEAM_ITEMS(15))
     const all = solveAll([block('A', [node('b', 'plain'), node('t', 'engine')])], gd)
-    const w = mismatches(all.results.A.warnings)
-    expect(w).toHaveLength(1)
-    expect(w[0].supplied).toEqual([15])
+    expect(all.results.A.unsatisfied.some(u => u.itemId === 'steam'), 'the 15° default does not fit').toBe(true)
   })
 
   it('stays silent when the supplier has no temperature at all', () => {
@@ -111,12 +105,10 @@ describe('temperature-mismatch warning', () => {
     expect(mismatches(all.results.A.warnings)).toHaveLength(0)
   })
 
-  it('lists every supplied temperature when none fits', () => {
+  it('imports the fluid even when pinned boilers make it at no fitting temperature', () => {
     const gd = gameData([boiler('b165', 165), boiler('b315', 315), generator('turbine', 465)], STEAM_ITEMS())
     const all = solveAll([block('A', [node('b1', 'b165', 30), node('b2', 'b315', 30), node('t', 'turbine')])], gd)
-    const w = mismatches(all.results.A.warnings)
-    expect(w).toHaveLength(1)
-    expect(w[0].supplied).toEqual([165, 315])
+    expect(all.results.A.unsatisfied.find(u => u.itemId === 'steam')?.rate, 'the turbine\'s steam is imported').toBeCloseTo(60)
   })
 
   it('warns on the consumer block of a connection, not on the source', () => {
@@ -145,12 +137,10 @@ function exchanger(id: string, min: number): GameRecipe {
 }
 
 describe('heat', () => {
-  it('warns when the reactor is cooler than the exchanger needs', () => {
+  it('imports the heat when the reactor is cooler than the exchanger needs', () => {
     const gd = gameData([reactor('r750', 750), exchanger('x765', 765)])
     const all = solveAll([block('A', [node('r', 'r750'), node('x', 'x765')])], gd)
-    expect(mismatches(all.results.A.warnings)).toEqual([
-      expect.objectContaining({ recipeId: 'x765', itemId: 'heat', supplied: [750], minimum: 765 }),
-    ])
+    expect(all.results.A.unsatisfied.some(u => u.itemId === 'heat'), 'heat is imported').toBe(true)
   })
 
   it('accepts a reactor exactly at the exchanger minimum or above it', () => {
@@ -243,8 +233,12 @@ describe('temperature-mismatch warning (more)', () => {
 
   it('warns once for duplicate rows of a recipe', () => {
     const gd = gameData([boiler('b165', 165), generator('turbine', 465)], STEAM_ITEMS())
-    const all = solveAll([block('A', [node('b', 'b165'), node('t1', 'turbine'), node('t2', 'turbine')])], gd)
-    expect(mismatches(all.results.A.warnings)).toHaveLength(1)
+    const steamGoal: Product[] = [{ id: 'gs', itemId: 'steam', extraRate: 60 }]
+    const all = solveAll([
+      block('A', [node('b', 'b165')], steamGoal),
+      block('B', [node('t1', 'turbine'), node('t2', 'turbine')], undefined, [{ id: 'c1', itemId: 'steam', fromBlockId: 'A' }]),
+    ], gd)
+    expect(mismatches(all.results.B.warnings)).toHaveLength(1)
   })
 
   it('stays silent when the consumer bound is on a fluid nobody gives a temperature', () => {
@@ -257,8 +251,10 @@ describe('temperature-mismatch warning (more)', () => {
 
   it('keeps result identity across solves with the same cache', () => {
     const gd = gameData([boiler('b165', 165), boiler('b465', 465), generator('turbine', 465), generator('engine', 165)], STEAM_ITEMS())
+    const steamGoal: Product[] = [{ id: 'gs', itemId: 'steam', extraRate: 60 }]
     const blocks = [
-      block('Bad', [node('b', 'b165'), node('t', 'turbine')]),
+      block('Src', [node('b', 'b165')], steamGoal),
+      block('Bad', [node('t', 'turbine')], undefined, [{ id: 'c1', itemId: 'steam', fromBlockId: 'Src' }]),
       block('Good', [node('b', 'b465'), node('t', 'engine')]),
     ]
     const cache = createSolveCache()

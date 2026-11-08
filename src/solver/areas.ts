@@ -12,6 +12,7 @@ import type {
 } from '../data/types'
 import { buildClassifiedSystem, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
 import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
+import { collectFluidTemperatures } from './temperatureRows'
 import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
@@ -216,7 +217,8 @@ function buildColumnSystem(
       if (ing.amount > 0) addCoeff(ing.itemId, col.id, -ing.amount)
     }
   }
-  return { S, recipes: columns.map(c => c.id), classification }
+  const fluidTemperatures = collectFluidTemperatures(gameData, columns.map(c => ({ id: c.id, recipe: c.recipe, effects: c.effects })))
+  return { S, recipes: columns.map(c => c.id), classification, fluidTemperatures }
 }
 
 export type AreaLPResult = LPResult & {
@@ -506,6 +508,8 @@ export function solveAreaBlock(
         if (row) {
           const coeff = row.get(col.id) ?? 0
           if (coeff > 0) row.set(col.id, 0)
+          const f = system.fluidTemperatures?.get(itemId)
+          if (f) f.producers = f.producers.filter(p => p.colId !== col.id)
         }
       }
     }
