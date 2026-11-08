@@ -52,7 +52,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Heat-powered crafting machines.** Crafting machines with a heat energy source are not tied to the `power:heat` item.
 - [ ] **Fusion and Space Age generators.** Fusion reactors and generators, lightning attractors and per-surface solar power are not exported; neither bundle has them.
 - [ ] **Beacon power.** Beacon energy is not counted in a row's power (spec/solver.md); needed for self-powering blocks.
-- [ ] **Optimization mode.** Minimize machines or power through the LP objective.
+- [ ] **Optimization mode.** Minimize machines or power through the LP objective. Two real plans show the objective matters more than the unit: the solver leaves rows at zero and lets an unwanted output pile up. The options (machines, priced surplus, required rows) and the measurements are in [surplus-aware-objective/](surplus-aware-objective/plan.md).
 - [ ] **Quality tiers.**
 
 ## UI / UX

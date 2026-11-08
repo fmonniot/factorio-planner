@@ -34,6 +34,8 @@ npm run test:watch # Vitest in watch mode
 npm run test:e2e   # Playwright; starts the dev server itself
 ```
 
+To see what the solver does with an exported plan (rows, left-over items, imports, warnings, connection flows) without writing a throwaway script, run `node scripts/inspect-plan.mjs <plan.json> --block <name>`; `--pin`, `--drop`, `--sourcing` and `--no-area` ask what-if questions, `--list` names the blocks and `--help` has the rest. It reads the data set from the plan's stamp.
+
 The in-game viewer's bridge is a separate Rust workspace in `bridge/` (CI: `.github/workflows/bridge.yml`):
 
 ```sh

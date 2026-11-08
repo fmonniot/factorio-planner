@@ -38,6 +38,8 @@ The solver runs entirely in the browser with no server round-trip. This keeps th
 
 **No WASM.** If profiling later shows the solver is slow for very large modded plans, it can be moved to a Web Worker with a message-passing interface.
 
+**Inspecting a solved plan.** `scripts/inspect-plan.mjs` solves an exported plan with this solver and describes one block (`src/solver/inspect.ts`: rows, left-over items, imports, warnings, connection flows, with what-if edits). Like `npm run contract`, it loads the TypeScript through Vite's `ssrLoadModule`, so it needs no build step and no extra dependency. It is developer tooling; the app does not import it.
+
 ---
 
 ## Styling: Tailwind CSS

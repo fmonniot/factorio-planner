@@ -1,0 +1,131 @@
+{
+  "dataSet": {
+    "id": "kompetenz-seablock",
+    "name": "Seablock",
+    "factorioVersion": "2.0.77"
+  },
+  "activeBlockId": "848f8df2-c66d-42ed-a702-014673f30973",
+  "horizonTechnologyIds": [],
+  "defaultMachineOverrides": {},
+  "blocks": [
+    {
+      "id": "848f8df2-c66d-42ed-a702-014673f30973",
+      "name": "Extra Sulfur",
+      "color": "#bfdbfe",
+      "products": [
+        {
+          "id": "569c9936-03a8-41e1-a78c-8a3fb720d872",
+          "itemId": "sulfur",
+          "extraRate": 6000
+        }
+      ],
+      "noImportItems": [],
+      "itemSourcing": {},
+      "inputConnections": [],
+      "rootPlan": {
+        "id": "3f0433ec-1c67-4ccf-87ba-b39237a4f101",
+        "name": "Main",
+        "nodes": [
+          {
+            "kind": "game-recipe",
+            "id": "de945e0f-5c27-48bf-9a4d-3abf6d0d9d18",
+            "recipeId": "angels-yellow-waste-water-purification",
+            "modules": [],
+            "byproductPolicy": {},
+            "primaryProduct": "sulfur"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "11c59985-0ac5-47af-acd0-11bb8419452d",
+            "recipeId": "angels-sulfur-air-scrubbing",
+            "modules": [],
+            "byproductPolicy": {},
+            "primaryProduct": "angels-water-yellow-waste"
+          },
+          {
+            "kind": "game-recipe",
+            "id": "255c50f5-f942-4858-8d2a-954b279bca75",
+            "recipeId": "angels-filter-lime",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "fa9a93b3-55e8-4359-be68-c9588e78d099",
+            "recipeId": "angels-filter-lime-used-cleaning",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "17b3066f-ba19-4f5d-a7fe-6959541c86f5",
+            "recipeId": "angels-chemical-void-angels-gas-carbon-dioxide",
+            "modules": [],
+            "byproductPolicy": {},
+            "byproductConsumer": true
+          },
+          {
+            "kind": "game-recipe",
+            "id": "52f5144f-8cba-4148-abb6-cea6aaee8c92",
+            "recipeId": "angels-solid-lime",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "f58b7d42-5f10-4604-a6cb-6f69b9f1ae2a",
+            "recipeId": "angels-solid-limestone",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "bbbb6b52-44d7-42c6-8834-012aff66bc55",
+            "recipeId": "angels-water-light-mud",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "c4ae3f47-49e3-4a81-8dfa-cc5edb0c1f6f",
+            "recipeId": "angels-water-concentrated-mud",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "66dd9b88-07b2-40ba-b93b-fcca679299a6",
+            "recipeId": "angels-solid-sulfur",
+            "modules": [],
+            "byproductPolicy": {},
+            "byproductConsumer": false
+          },
+          {
+            "kind": "game-recipe",
+            "id": "fef76df4-7c67-479e-949c-d98d2c5363a4",
+            "recipeId": "angels-water-heavy-mud",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "3eb6a667-ac3c-46ea-b150-6c1f5d075288",
+            "recipeId": "angels-cellulose-fiber",
+            "modules": [],
+            "byproductPolicy": {}
+          },
+          {
+            "kind": "game-recipe",
+            "id": "ee9ec0dc-6fbd-4d64-8f28-8e3e79e900ca",
+            "recipeId": "angels-algae-green",
+            "modules": [],
+            "byproductPolicy": {}
+          }
+        ],
+        "subPlans": [],
+        "createdAt": "2026-11-07T01:51:40.462Z",
+        "updatedAt": "2026-11-07T23:46:55.399Z"
+      }
+    }
+  ]
+}
