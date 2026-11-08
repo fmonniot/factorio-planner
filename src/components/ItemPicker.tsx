@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
-import { useAvailableRecipeIds, useHorizon } from '../store/horizon'
+import { useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
 import { TechCost } from './TechCost'
 import { TechIcon } from './TechIcon'
-import { recipeUnlock } from '../data/horizon'
+import { recipeUnlock, withinHorizon } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
 import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../data/powerFuelGroups'
@@ -96,9 +96,22 @@ function UnlockSection({ recipeId, gameData, bordered, inside }: {
   )
 }
 
-function RecipeDetailPanel({ recipeId, gameData, inside }: { recipeId: string; gameData: GameData; inside: ReadonlySet<string> | null }) {
+function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
+  recipeId: string
+  gameData: GameData
+  inside: ReadonlySet<string> | null
+  /** Machines inside the research horizon; null = no limit. */
+  machineIds: ReadonlySet<string> | null
+}) {
   const recipe = gameData.recipes[recipeId]
   if (!recipe) return null
+  // Power recipes keep their full list: the exporter gives each exactly one machine, which is gated through
+  // its placing item rather than the horizon. Other machines must be inside the horizon and, as for the
+  // planner's default machine, not hidden.
+  const madeIn = recipe.power || machineIds === null
+    ? recipe.madeIn
+    : recipe.madeIn.filter(id => withinHorizon(machineIds, id) && !gameData.machines[id]?.hidden)
+  const hasMadeInBlock = recipe.madeIn.length > 0
 
   return (
     <div
@@ -155,10 +168,13 @@ function RecipeDetailPanel({ recipeId, gameData, inside }: { recipeId: string; g
       )}
 
       {/* Made in */}
-      {recipe.madeIn.length > 0 && (
+      {hasMadeInBlock && (
         <div className="px-3 py-2">
           <div className="text-gray-200 font-bold mb-1">Made in:</div>
-          {recipe.madeIn.map(machineId => {
+          {madeIn.length === 0 && (
+            <div className="text-gray-500 py-1">No machine inside the research horizon</div>
+          )}
+          {madeIn.map(machineId => {
             const machine = gameData.machines[machineId]
             return (
               <div key={machineId} className="flex items-center gap-2 py-1">
@@ -174,7 +190,7 @@ function RecipeDetailPanel({ recipeId, gameData, inside }: { recipeId: string; g
       )}
 
       {/* Unlocked by */}
-      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={recipe.madeIn.length > 0} inside={inside} />
+      <UnlockSection recipeId={recipe.id} gameData={gameData} bordered={hasMadeInBlock} inside={inside} />
     </div>
   )
 }
@@ -251,7 +267,8 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
 
   useEffect(() => { inputRef.current?.focus() }, [])
 
-  const available = useAvailableRecipeIds()
+  const horizon = useHorizon(gameData)
+  const available = horizon.recipeIds
 
   // Recipes that pass all filters (hidden toggle, item filter, search, research
   // horizon; hidden recipes are exempt), and how many the horizon alone removed.
@@ -343,7 +360,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       : 'Choose a recipe'
 
   const sidePanel = hoveredRecipeId
-    ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} inside={available} />
+    ? <RecipeDetailPanel recipeId={hoveredRecipeId} gameData={gameData} inside={available} machineIds={showBeyondHorizon ? null : horizon.machineIds} />
     : null
 
   // Skip the tab strip when there's no choice to make (zero or one group).
