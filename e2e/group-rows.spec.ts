@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 
-// Visual refinement 6/9. Each test mirrors a check of initiatives/visual-refinement/check-artifact.mjs:
+// Visual refinement 6/9. Each test mirrors a check of initiatives/archive/visual-refinement/check-artifact.mjs:
 // "5 grpFixed", "5 grpIcon", "5 grpBand" and "2 ingLeft".
 
 const OVERFLOW = path.resolve('e2e/fixtures/area-chips-overflow.json')

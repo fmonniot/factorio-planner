@@ -4,7 +4,7 @@ import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 
 // Visual refinement 7/9. The tests mirror the check "10 narrowStack" (both parts) of
-// initiatives/visual-refinement/check-artifact.mjs, and the toolbar of "narrowToolbar", which the artifact does not assert.
+// initiatives/archive/visual-refinement/check-artifact.mjs, and the toolbar of "narrowToolbar", which the artifact does not assert.
 
 // Chemical Science: recipe rows with more byproducts and ingredients than two lines hold, a warning, and plain sub-factories.
 const PLAN = path.resolve('e2e/fixtures/pin-recipe-not-working.json')

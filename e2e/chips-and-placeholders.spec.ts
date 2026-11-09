@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 
-// Visual refinement 5/9. Each test mirrors a check of initiatives/visual-refinement/check-artifact.mjs:
+// Visual refinement 5/9. Each test mirrors a check of initiatives/archive/visual-refinement/check-artifact.mjs:
 // "3 chipFmt", "3 chipNum and chipPlate", "6 phPair" and "6 phQuiet"; chipBig has no artifact check (the replica's readout shows it).
 
 const BASE = path.resolve('e2e/fixtures/byproduct-consumer-base.json')
