@@ -115,7 +115,7 @@ export function SummaryDetailStrip({
         <div className="flex items-center justify-between h-5 shrink-0">
           <span className="text-xs font-semibold text-gray-100">Overview</span>
           {rows.length > 0 && (
-            <span className="text-[10px] text-gray-500">{traceKey ? 'click again to clear' : 'click a segment to trace it'}</span>
+            <span className="text-[10px] text-gray-400">{traceKey ? 'click again to clear' : 'click a segment to trace it'}</span>
           )}
         </div>
         {rows.length === 0 ? <div className="text-gray-500">Nothing here yet</div> : <StackedBar segments={segments} label="Overview" />}
@@ -170,7 +170,7 @@ export function SummaryDetailStrip({
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{itemName}</span>
         {!editable && (
-          <span className="shrink-0 text-[10px] text-gray-500 border border-gray-700 rounded-[3px] px-1">preview</span>
+          <span className="shrink-0 text-[10px] text-gray-400 border border-gray-700 rounded-[3px] px-1">preview</span>
         )}
         <span className="flex items-center justify-end gap-1 min-w-0 flex-1">{rates}</span>
         {editable && (

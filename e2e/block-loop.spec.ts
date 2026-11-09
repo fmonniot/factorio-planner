@@ -31,7 +31,7 @@ test.describe('block loops', () => {
     await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' }).click()
 
     // Plates takes the ingots Gears makes as a byproduct: that closes the loop.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await expect(ingotSlot(page)).toBeVisible()
     await ingotSlot(page).click({ button: 'right' })
     const closing = page.locator('[role="menuitem"][data-kind="take"]', { hasText: 'Gears' })
@@ -46,7 +46,7 @@ test.describe('block loops', () => {
     await expect(importEntry(page)).toHaveCount(0)
 
     // Gears still gets its plates from Plates, also marked as part of the loop.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(sourceEntry(page)).toContainText('↻')

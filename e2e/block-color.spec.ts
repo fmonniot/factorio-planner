@@ -17,7 +17,7 @@ async function exportColors(page: Page): Promise<Record<string, string>> {
 
 async function ready(page: Page) {
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(page.locator('button[title="Gears"]')).toBeVisible({ timeout: 10000 })
+  await expect(page.locator('[data-testid="block-tab"] button[aria-label="Gears"]')).toBeVisible({ timeout: 10000 })
 }
 
 test.describe('block colours', () => {
@@ -35,12 +35,12 @@ test.describe('block colours', () => {
     await loadPlanFixture(page, PLAN)
     await ready(page)
 
-    await page.locator('button[title="Gears"]').click({ button: 'right' })
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click({ button: 'right' })
     await page.getByLabel('Colour #a3e635').click()
     await expect(page.getByRole('menu')).toHaveCount(0)
     expect(await exportColors(page)).toEqual({ Plates: '#60a5fa', Gears: '#a3e635' })
     // Gears is the active block in the fixture (right-click does not activate a tab), so its stripe is at full strength.
-    const stripe = page.locator('button[title="Gears"] [data-testid="block-tab-stripe"]')
+    const stripe = page.locator('[data-testid="block-tab"] button[aria-label="Gears"] [data-testid="block-tab-stripe"]')
     await expect(stripe).toHaveCSS('background-color', 'rgb(163, 230, 53)')
 
     // loadPlanFixture re-seeds localStorage on every load, so a reload would
@@ -53,15 +53,15 @@ test.describe('block colours', () => {
     await loadPlanFixture(page, PLAN)
     await ready(page)
 
-    await page.getByTitle('Add block').click()
-    await expect(page.locator('button[title="Block 3"]')).toBeVisible()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Block 3"]')).toBeVisible()
     const afterAdd = await exportColors(page)
     expect(afterAdd['Block 3']).toMatch(/^#[0-9a-f]{6}$/)
     expect([afterAdd.Plates, afterAdd.Gears]).not.toContain(afterAdd['Block 3'])
 
-    await page.locator('button[title="Gears"]').click({ button: 'right' })
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Duplicate' }).click()
-    await expect(page.locator('button[title="Gears (copy)"]')).toBeVisible()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Gears (copy)"]')).toBeVisible()
     const afterCopy = await exportColors(page)
     expect(afterCopy['Gears (copy)']).not.toBe(afterCopy.Gears)
   })

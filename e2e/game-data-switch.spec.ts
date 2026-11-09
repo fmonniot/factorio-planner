@@ -49,10 +49,10 @@ test.describe('per-data-set plans', () => {
   })
 
   test('plan editing is disabled until game data is loaded', async ({ page }) => {
-    await expect(page.getByTitle('Add block')).toBeDisabled()
+    await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeDisabled()
     await expect(page.getByTitle('Add product')).not.toBeVisible()
     await selectDataset(page, 'Nullius')
-    await expect(page.getByTitle('Add block')).toBeEnabled()
+    await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeEnabled()
     await expect(page.getByTitle('Add product')).toBeVisible()
   })
 })

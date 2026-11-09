@@ -156,12 +156,12 @@ test.describe('summary panes with many items', () => {
       .locator('[data-testid="summary-segment"][data-kind="export"]')
       .filter({ hasText: 'Sciences' })
       .click()
-    await expect(page.locator('button[title="Sciences"][aria-current="true"]')).toBeVisible()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Sciences"][aria-current="true"]')).toBeVisible()
 
     // Back in Metals, the Ingredients overview counts the 12 connected items.
-    await page.locator('button[title="Metals"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Metals"]').click()
     await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`)).toHaveCount(0)
-    await page.locator('button[title="Sciences"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Sciences"]').click()
     // The tooltip of an overview segment ends with the number of slots carrying it.
     await expect(overviewRow(page, 'Ingredients', `from:${METALS_ID}`).getByTestId('summary-segment-tip')).toContainText('12 items')
 

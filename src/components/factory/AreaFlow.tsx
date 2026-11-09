@@ -1,8 +1,7 @@
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { isEnergyItem } from '../../data/electricity'
 import { IconChip } from './IconChip'
-import { fmtItemRate } from './ItemTile'
+import { fmtChipQuantity, fmtItemRate } from './ItemTile'
 
 interface ChipProps {
   itemId: string
@@ -24,7 +23,7 @@ export function FlowChip({ itemId, rate, boundary, direction, items, rateUnit }:
       iconPath={item?.iconPath || undefined}
       alt={name}
       fallback={name}
-      quantity={amount + (isEnergyItem(itemId) ? unitLabel : '')}
+      quantity={fmtChipQuantity(itemId, rate / 60, rateUnit)}
       tone={direction === 'receives' ? 'ingredient' : 'product'}
       title={title}
       data-item-id={itemId}

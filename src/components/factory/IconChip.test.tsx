@@ -18,11 +18,51 @@ describe('IconChip', () => {
     expect(onClick).toHaveBeenCalledTimes(1)
   })
 
-  it('sizes items 28px and entities 32px', () => {
+  it('draws items and entities at 32px (a 38px slot with the 6px gap)', () => {
     const { rerender, container } = render(<IconChip alt="Gear" />)
-    expect(container.querySelector('.w-7')).not.toBeNull()
+    expect(container.querySelector('.w-8.h-8')).not.toBeNull()
+    expect(container.querySelector('.w-7')).toBeNull()
     rerender(<IconChip alt="Gear" size="entity" />)
-    expect(container.querySelector('.w-8')).not.toBeNull()
+    expect(container.querySelector('.w-8.h-8')).not.toBeNull()
+  })
+
+  it('draws an item quantity at 11px outlined in four directions, an entity quantity at 9px', () => {
+    const { rerender } = render(<IconChip alt="Gear" quantity="12k" />)
+    const q = screen.getByText('12k')
+    expect(q).toHaveClass('text-[11px]', 'font-bold', 'font-mono', 'right-0', 'bottom-0')
+    expect(q.style.textShadow).toBe('-1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000')
+    rerender(<IconChip alt="Gear" size="entity" quantity="3" />)
+    expect(screen.getByText('3')).toHaveClass('text-[9px]')
+  })
+
+  it('puts a faint plate behind an item chip and none behind an entity chip', () => {
+    const { rerender } = render(<IconChip alt="Gear" data-testid="chip" />)
+    expect(screen.getByTestId('chip')).toHaveClass('rounded-[5px]', 'bg-[rgba(148,163,184,0.09)]', 'shadow-[inset_0_0_0_1px_rgba(148,163,184,0.10)]')
+    rerender(<IconChip alt="Gear" size="entity" data-testid="chip" />)
+    expect(screen.getByTestId('chip').className).not.toContain('rgba(148,163,184')
+  })
+
+  it('draws a quiet placeholder in gray-700 / gray-600 that the row and the chip brighten, and a plain one as before', () => {
+    const { container, rerender } = render(<IconChip alt="Add" size="entity" empty quiet quantity="0/2" />)
+    const box = container.querySelector('.border-dashed')!
+    expect(box).toHaveClass('border-gray-700', 'group-hover/row:border-gray-600', 'group-focus-within/row:border-gray-600', 'group-data-[selected=true]/row:border-gray-600', 'group-hover/chip:border-gray-400!', 'group-focus-visible/chip:border-gray-400!')
+    const chip = container.firstElementChild!
+    expect(chip).toHaveClass('text-gray-600', 'group-hover/row:text-gray-400', 'hover:text-gray-200!', 'focus-visible:text-gray-200!')
+    expect(screen.getByText('0/2')).not.toHaveClass('text-gray-400')
+    rerender(<IconChip alt="Add" size="entity" empty quantity="0/2" />)
+    expect(container.querySelector('.border-dashed')).toHaveClass('border-gray-600', 'text-gray-400')
+    expect(screen.getByText('0/2')).toHaveClass('text-gray-400')
+  })
+
+  it('does not brighten a disabled quiet placeholder on its own hover or focus', () => {
+    const { container } = render(<IconChip alt="Add" size="entity" empty quiet disabled onClick={() => {}} quantity="0/2" />)
+    expect(container.querySelector('.border-dashed')).toHaveClass('border-gray-700', 'group-hover/row:border-gray-600')
+    expect(container.querySelector('.border-dashed')!.className).not.toContain('group-hover/chip')
+    expect(container.querySelector('.border-dashed')!.className).not.toContain('group-focus-visible/chip')
+    const chip = container.firstElementChild!
+    expect(chip).toHaveClass('text-gray-600', 'group-hover/row:text-gray-400')
+    expect(chip.className).not.toContain('hover:text-gray-200')
+    expect(chip.className).not.toContain('focus-visible:text-gray-200')
   })
 
   it('draws an empty slot as a dashed plus with its quantity', () => {

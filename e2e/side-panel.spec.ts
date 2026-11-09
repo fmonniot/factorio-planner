@@ -38,9 +38,9 @@ test('clicking a row opens the panel, the close button clears the selection', as
   await expect(panel).toBeVisible()
   await expect(panel.getByTestId('panel-title')).toHaveText('Steam electrolysis')
   await expect(elec).toHaveAttribute('data-selected', 'true')
-  // The six sections, in order.
+  // The sections, in order (Effects on this row only once a module or a beacon is set).
   await expect(panel.getByRole('heading', { level: 3 })).toHaveText([
-    'Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from',
+    'Rate', 'Machine', 'Beacons', 'Where inputs come from',
   ])
   // The rows do not move vertically when the panel opens.
   expect((await elec.boundingBox())!.y).toBe(before!.y)
@@ -76,7 +76,7 @@ test('the Rate section pins the rate, and unpinning removes the badge', async ({
   const panel = sidePanel(page)
 
   await expect(elec.getByTestId('chip-pin')).toHaveCount(0)
-  await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+  await panel.getByRole('switch', { name: 'Pin rate' }).check()
   await expect(elec.getByTestId('chip-pin')).toBeVisible()
   const input = panel.getByLabel('Pinned rate')
   await input.fill('60')
@@ -84,7 +84,7 @@ test('the Rate section pins the rate, and unpinning removes the badge', async ({
   await expect.poll(async () => rootNode(await readActivePlan(page, 'nullius')).pinnedRate).toBeGreaterThan(0)
   await expect(panel.getByTestId('runs-per-min')).toContainText('runs/min')
 
-  await panel.getByRole('checkbox', { name: 'Pin rate' }).uncheck()
+  await panel.getByRole('switch', { name: 'Pin rate' }).uncheck()
   await expect(elec.getByTestId('chip-pin')).toHaveCount(0)
 })
 

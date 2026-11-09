@@ -129,7 +129,7 @@ test.describe('summary strip and bars', () => {
     await setup(page)
     await selectProduct(page, 'nullius-plastic')
     await segments(page, 'Products').first().click()
-    await expect(page.locator('button[title="Sciences"][aria-current="true"]')).toBeVisible()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Sciences"][aria-current="true"]')).toBeVisible()
   })
 
   // 1 ovBar
@@ -228,7 +228,7 @@ test.describe('on a narrow screen', () => {
 test.describe('on a touch screen', () => {
   test.use({ viewport: { width: 420, height: 800 }, hasTouch: true, isMobile: true })
 
-  const openBlock = (page: Page, name: string) => page.locator(`button[title="${name}"][aria-current="true"]`)
+  const openBlock = (page: Page, name: string) => page.locator(`[data-testid="block-tab"] button[aria-label="${name}"][aria-current="true"]`)
 
   test('a tap on a bar segment shows its tooltip and does not open the block; a tap outside hides it', async ({ page }) => {
     await setup(page)

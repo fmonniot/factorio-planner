@@ -170,7 +170,9 @@ test.describe('Power generation', () => {
     const rows = page.locator('main table tbody tr')
     const engine = rows.first()
     await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
-    await expect(engine.locator('[data-variant="product"]')).toContainText('10.0MW')
+    // The chip's corner drops the decimal to fit the 32 px icon; the title keeps the exact value.
+    await expect(engine.locator('[data-variant="product"]')).toContainText('10MW')
+    await expect(engine.locator('[data-variant="product"]')).toHaveAttribute('title', 'Electricity — 10.0MW')
     await expect(engine.locator('[data-testid="row-power"]')).toHaveCount(0)
     // Generators draw nothing, so the header shows no power total.
     await expect(page.getByTestId('block-power-total')).toHaveCount(0)
@@ -195,7 +197,7 @@ test.describe('Power generation', () => {
 
     // The pin is typed in MW: 9 MW is 600 executions per minute of the 0.9 MJ recipe.
     const panel = await selectRow(page, engine)
-    await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+    await panel.getByRole('switch', { name: 'Pin rate' }).check()
     const pinned = panel.getByLabel('Pinned rate')
     await expect(pinned).toHaveValue('10.0')
     await pinned.fill('9')

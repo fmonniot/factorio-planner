@@ -66,7 +66,7 @@ export function Picker({ heading, onClose, children, className = '', style, ...r
       className={`z-50 w-60 max-h-72 overflow-y-auto bg-gray-800 border border-gray-600 rounded shadow-lg p-1 space-y-0.5 text-left ${className}`}
       {...rest}
     >
-      {heading && <div data-testid="picker-heading" className="text-[10px] uppercase tracking-wide text-gray-500 px-2 pt-0.5 pb-1">{heading}</div>}
+      {heading && <div data-testid="picker-heading" className="text-[10px] uppercase tracking-wide text-gray-400 px-2 pt-0.5 pb-1">{heading}</div>}
       {children}
     </div>,
     document.body,
@@ -91,12 +91,12 @@ export function PickerRow({ name, iconPath, detail, selected = false, onClick, c
     >
       {iconPath && <Icon iconPath={iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />}
       <span className="flex-1 min-w-0 truncate">{name}</span>
-      {detail !== undefined && detail !== null && <span className="text-gray-500 tabular-nums shrink-0">{detail}</span>}
+      {detail !== undefined && detail !== null && <span className="text-gray-400 tabular-nums shrink-0">{detail}</span>}
     </button>
   )
 }
 
 /** The note a picker shows when nothing fits. */
 export function PickerEmpty({ children, ...rest }: { children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
-  return <div className="px-2 py-1 text-xs text-gray-500 italic" {...rest}>{children}</div>
+  return <div className="px-2 py-1 text-xs text-gray-400 italic" {...rest}>{children}</div>
 }

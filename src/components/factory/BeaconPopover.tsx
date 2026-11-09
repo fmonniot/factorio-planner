@@ -25,9 +25,12 @@ interface BeaconCellProps {
   recipeCategory: string
   /** Select the row and highlight the Beacons section of the side panel. */
   onOpenEdit: () => void
+  /** The chips 2px apart instead of 6px: the cell sits in the narrow screen's machine stack, which has little room. */
+  compact?: boolean
 }
 
-export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit }: BeaconCellProps) {
+export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit, compact = false }: BeaconCellProps) {
+  const gap = compact ? 'gap-0.5' : 'gap-1.5'
   const beacon: BeaconConfig | undefined = beacons[0]
   const updateNodeBeacons = useBlockStore(s => s.updateNodeBeacons)
   const horizon = useHorizon(gameData)
@@ -43,31 +46,58 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     const disabledTitle = beaconAddBlockedReason(gameData, horizon, row.noMachineInHorizon)
     // The picker lists what the default beacon type (the first within the horizon) accepts.
     const newBeacon = availableBeacons(gameData, horizon)[0]
+    // Two placeholders side by side, like the Machine cell: the beacon and its module slots. Both open the same picker, which
+    // creates the beacon with the chosen module.
+    const picker = (close: () => void) => (
+      <ModuleFillPicker
+        heading={`Add ${DEFAULT_BEACON_COUNT} × Beacon, fill its slots with`}
+        options={beaconModuleOptions(gameData, horizon, newBeacon, recipeId)}
+        onPick={createWith}
+        onClose={close}
+      />
+    )
+    // A blocked placeholder is not quiet: gray-700 at 40% opacity would vanish, the plain dashed chip stays legible.
+    const blocked = disabledTitle !== undefined
     return (
-      <PickerTrigger
-        trigger={({ open, toggle }) => (
-          <IconChip
-            onClick={toggle}
-            aria-expanded={open}
-            size="entity"
-            empty
-            alt="Add beacon"
-            disabled={disabledTitle !== undefined}
-            title={disabledTitle ?? 'Add beacon'}
-            aria-label="Add beacon"
-            className={disabledTitle !== undefined ? 'opacity-40' : ''}
-          />
-        )}
-      >
-        {close => (
-          <ModuleFillPicker
-            heading={`Add ${DEFAULT_BEACON_COUNT} × Beacon, fill its slots with`}
-            options={beaconModuleOptions(gameData, horizon, newBeacon, recipeId)}
-            onPick={createWith}
-            onClose={close}
-          />
-        )}
-      </PickerTrigger>
+      <div className={`flex items-center ${gap}`}>
+        <PickerTrigger
+          trigger={({ open, toggle }) => (
+            <IconChip
+              onClick={toggle}
+              aria-expanded={open}
+              size="entity"
+              empty
+              quiet={!blocked}
+              alt="Add beacon"
+              disabled={blocked}
+              title={disabledTitle ?? 'Add beacon'}
+              aria-label="Add beacon"
+              className={blocked ? 'opacity-40' : ''}
+            />
+          )}
+        >
+          {picker}
+        </PickerTrigger>
+        <PickerTrigger
+          trigger={({ open, toggle }) => (
+            <IconChip
+              onClick={toggle}
+              aria-expanded={open}
+              size="entity"
+              empty
+              quiet={!blocked}
+              alt="Add beacon module"
+              quantity={newBeacon ? `0/${newBeacon.moduleSlots}` : undefined}
+              disabled={blocked}
+              title={disabledTitle ?? 'Add beacon with a module'}
+              aria-label="Add beacon module"
+              className={blocked ? 'opacity-40' : ''}
+            />
+          )}
+        >
+          {picker}
+        </PickerTrigger>
+      </div>
     )
   }
 
@@ -100,6 +130,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
       empty={!moduleData && !unknownModuleId}
       warn={unknownModuleId !== undefined}
       iconPath={moduleData?.iconPath || undefined}
+      quiet
       alt={moduleData?.name ?? unknownModuleId ?? 'module'}
       fallback={unknownModuleId !== undefined ? '?' : '+'}
       quantity={`${moduleData || unknownModuleId ? beacon.modulesPerBeacon : 0}/${slots}`}
@@ -115,7 +146,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
+      <div className={`flex items-center ${gap}`}>
         <IconChip
           onClick={onOpenEdit}
           size="entity"
