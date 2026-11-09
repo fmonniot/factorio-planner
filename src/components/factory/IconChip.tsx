@@ -21,7 +21,10 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   iconPath?: string
   alt: string
   fallback?: ReactNode
-  /** 'item' is 28px (item icons), 'entity' 32px (machines, modules, beacons). */
+  /**
+   * 'item' (item icons in the table) and 'entity' (machines, modules, beacons) are both 32px. An item chip sits on a faint
+   * plate and draws its quantity at 11px; an entity chip has no plate and a 9px quantity.
+   */
   size?: 'item' | 'entity'
   /** Bottom-right corner. */
   quantity?: ReactNode
@@ -30,6 +33,11 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   badges?: ReactNode
   /** An empty slot: dashed outline and a `+` instead of an icon. */
   empty?: boolean
+  /**
+   * With `empty`, in a table row: fainter at rest, back to the usual tone while the row is hovered, selected or holds the keyboard
+   * focus (the row is a `group/row`), and brighter on the placeholder itself. Never hidden, so touch screens look the same.
+   */
+  quiet?: boolean
   /** Amber ring: outside the research horizon, more modules than slots… */
   warn?: boolean
   /** Small label in the top-left corner (a temperature requirement). */
@@ -42,15 +50,18 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
 }
 
 export function IconChip({
-  iconPath, alt, fallback, size = 'item', quantity, tone = 'neutral', badges, empty = false, warn = false,
+  iconPath, alt, fallback, size = 'item', quantity, tone = 'neutral', badges, empty = false, quiet = false, warn = false,
   corner, onClick, disabled, quantityTestId, className = '', ...rest
 }: IconChipProps) {
-  const box = size === 'entity' ? 'w-8 h-8' : 'w-7 h-7'
+  const item = size === 'item'
+  const quietEmpty = empty && quiet
+  const locked = !!onClick && !!disabled
+  const box = 'w-8 h-8'
   const ring = warn ? 'ring-1 ring-amber-500' : ''
   const body = (
     <>
       {empty ? (
-        <span className={`${box} box-border rounded border border-dashed border-gray-600 text-gray-500 flex items-center justify-center text-sm leading-none`}>
+        <span className={`${box} box-border rounded border border-dashed ${quietEmpty ? quietBorder(!locked) : 'border-gray-600 text-gray-400'} flex items-center justify-center text-sm leading-none`}>
           +
         </span>
       ) : iconPath ? (
@@ -69,8 +80,8 @@ export function IconChip({
         <span
           data-testid={quantityTestId}
           data-chip-quantity=""
-          className={`absolute right-0 bottom-0 text-[9px] font-mono font-bold leading-none px-px tabular-nums ${empty ? 'text-gray-400' : QUANTITY_COLOR[tone]}`}
-          style={OUTLINE}
+          className={`absolute right-0 bottom-0 ${item ? 'text-[11px]' : 'text-[9px]'} font-mono font-bold leading-none px-px tabular-nums ${empty ? (quietEmpty ? '' : 'text-gray-400') : QUANTITY_COLOR[tone]}`}
+          style={item ? OUTLINE_4 : OUTLINE}
         >
           {quantity}
         </span>
@@ -78,7 +89,8 @@ export function IconChip({
       {badges && <span className="absolute -top-1 -right-1 flex gap-px z-[1]">{badges}</span>}
     </>
   )
-  const base = `relative inline-flex shrink-0 rounded ${ring} ${className}`
+  const plate = item ? 'rounded-[5px] bg-[rgba(148,163,184,0.09)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.10)]' : 'rounded'
+  const base = `relative inline-flex shrink-0 group/chip ${plate} ${ring} ${quietEmpty ? quietText(!locked) : ''} ${className}`
   if (onClick) {
     return (
       <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...rest}>
@@ -89,7 +101,20 @@ export function IconChip({
   return <span className={base} {...rest}>{body}</span>
 }
 
+// A quiet placeholder: gray-700 border and gray-600 glyph at rest, gray-600 and gray-400 on the row's hover / selection / focus,
+// gray-400 and gray-200 on the placeholder itself (`!`: it wins over the row's rule whatever the order of the generated CSS). The glyph
+// colour sits on the chip so the `+` and the `0/2` share it. A disabled placeholder takes the row's tone but never brightens itself:
+// it is not an invitation to click.
+const quietBorder = (interactive: boolean) =>
+  'border-gray-700 group-hover/row:border-gray-600 group-focus-within/row:border-gray-600 group-data-[selected=true]/row:border-gray-600' +
+  (interactive ? ' group-hover/chip:border-gray-400! group-focus-visible/chip:border-gray-400!' : '')
+const quietText = (interactive: boolean) =>
+  'text-gray-600 group-hover/row:text-gray-400 group-focus-within/row:text-gray-400 group-data-[selected=true]/row:text-gray-400' +
+  (interactive ? ' hover:text-gray-200! focus-visible:text-gray-200!' : '')
+
 const OUTLINE = { textShadow: '0 0 2px #000, 0 0 2px #000, 0 0 3px #000' }
+/** A 1px black outline in four directions: the item quantity at 11px stays readable on any icon. */
+const OUTLINE_4 = { textShadow: '-1px 0 #000, 1px 0 #000, 0 -1px #000, 0 1px #000' }
 
 // Badges ---------------------------------------------------------------------
 

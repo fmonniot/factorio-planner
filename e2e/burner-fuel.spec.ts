@@ -27,7 +27,9 @@ test('a burner row burns a fuel that is one of its ingredients', async ({ page }
 
   // 30 runs/min x 7 s = 3.5 furnaces; 3.5 x 90 kW / 12 MJ = 0.02625 /s = 1.575 /min.
   await expect(fuel).toHaveAttribute('title', /^Fuel: Solid fuel — Find producer recipe — \S+$/)
-  await expect(fuel).toContainText(/^1\.57$/)
+  // The chip reads the compact 1.6 (chipFmt); the title keeps the exact rate.
+  await expect(fuel).toContainText(/^1\.6$/)
+  await expect(fuel).toHaveAttribute('title', /1\.57\/m$/)
   await expect(row.locator('[data-testid="row-power"]')).toHaveCount(0)
 
   // The choice is saved with the plan.

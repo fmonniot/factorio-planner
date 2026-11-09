@@ -91,7 +91,7 @@ test('the empty module chip fills every slot with the chosen module', async ({ p
 })
 
 test('the empty beacon plus adds four beacons with the chosen module', async ({ page }) => {
-  await row(page).getByLabel('Add beacon').click()
+  await row(page).getByLabel('Add beacon', { exact: true }).click()
   const picker = page.getByTestId('picker')
   await expect(picker.getByTestId('picker-heading')).toHaveText('Add 4 × Beacon, fill its slots with')
   const option = picker.getByTestId('module-fill-option').first()
@@ -104,7 +104,7 @@ test('the empty beacon plus adds four beacons with the chosen module', async ({ 
 })
 
 test('the empty beacon module chip fills a beacon that has none', async ({ page }) => {
-  await row(page).getByLabel('Add beacon').click()
+  await row(page).getByLabel('Add beacon', { exact: true }).click()
   const first = page.getByTestId('module-fill-option').first()
   await first.click()
   // Empty the beacon's modules from the panel, then fill them again from the chip.
@@ -125,7 +125,7 @@ test('the empty beacon module chip fills a beacon that has none', async ({ page 
 })
 
 test('two beacon configurations from the panel', async ({ page }) => {
-  await row(page).getByLabel('Add beacon').click()
+  await row(page).getByLabel('Add beacon', { exact: true }).click()
   await page.getByTestId('module-fill-option').first().click()
   await row(page).getByRole('button', { name: 'Edit beacon', exact: true }).click()
   const panel = sidePanel(page)
@@ -161,7 +161,7 @@ test('a filled module chip opens the panel on the highlighted Machine section', 
 })
 
 test('a filled beacon chip opens the panel on the highlighted Beacons section', async ({ page }) => {
-  await row(page).getByLabel('Add beacon').click()
+  await row(page).getByLabel('Add beacon', { exact: true }).click()
   await page.getByTestId('module-fill-option').first().click()
 
   await row(page).getByRole('button', { name: 'Edit beacon', exact: true }).click()
@@ -193,11 +193,11 @@ test('a picker opened from the bottom row or the Beacons column stays inside the
 
   await last.getByTestId('machine-chip').click()
   await expectInViewport()
-  const add = last.getByLabel('Add beacon')
+  const add = last.getByLabel('Add beacon', { exact: true })
   if (await add.count()) {
     await add.click()
     await expectInViewport()
   }
-  await row(page).getByLabel('Add beacon').click()
+  await row(page).getByLabel('Add beacon', { exact: true }).click()
   await expectInViewport()
 })

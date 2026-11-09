@@ -102,7 +102,7 @@ export function RateSection({ node, solved, gameData }: {
         )}
         {/* Reachable without hover (touch, screen readers): the switch is described by it while pinned. */}
         {pinned && <span id={pinNoteId} className="sr-only">{PIN_NOTE}</span>}
-        <span data-testid="runs-per-min" className="whitespace-nowrap text-[11px] text-gray-500 tabular-nums max-xl:basis-full">
+        <span data-testid="runs-per-min" className="whitespace-nowrap text-[11px] text-gray-400 tabular-nums max-xl:basis-full">
           = {fmtRate(runs / 60, 'min')} runs/min
         </span>
       </div>

@@ -20,7 +20,7 @@ function FolderIcon() {
 function Stat({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
     <div className="flex-1 min-w-0">
-      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-400">{label}</div>
       <div data-testid={testId} className="text-sm text-gray-100 tabular-nums">{value}</div>
     </div>
   )
@@ -38,7 +38,7 @@ function FlowList({ lines, items, empty, testId }: {
   const unit = useUiStore(s => s.rateUnit)
   const [expanded, setExpanded] = useState(false)
   const listId = useId()
-  if (lines.length === 0) return <p data-testid={`${testId}-empty`} className="text-xs text-gray-500 italic">{empty}</p>
+  if (lines.length === 0) return <p data-testid={`${testId}-empty`} className="text-xs text-gray-400 italic">{empty}</p>
   const capped = lines.length > FLOW_LIST_CAP
   const shown = capped && !expanded ? lines.slice(0, FLOW_LIST_CAP) : lines
   return (
@@ -57,7 +57,7 @@ function FlowList({ lines, items, empty, testId }: {
               )}
               <span className="flex-1 min-w-0 truncate text-gray-200" title={name}>{name}</span>
               <span className="tabular-nums text-gray-300">{rate.value}<span className="opacity-60">{rate.unit}</span></span>
-              {l.otherEnd && <span className="text-gray-500 shrink-0">{l.otherEnd}</span>}
+              {l.otherEnd && <span className="text-gray-400 shrink-0">{l.otherEnd}</span>}
             </li>
           )
         })}
@@ -144,7 +144,7 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
 
       <PanelSection title="Inside this group" testId="panel-group-children">
         {plan.nodes.length === 0 ? (
-          <p className="text-xs text-gray-500 italic">Nothing in this group yet.</p>
+          <p className="text-xs text-gray-400 italic">Nothing in this group yet.</p>
         ) : (
           <ul className="space-y-0.5">
             {plan.nodes.map(child => {
@@ -193,7 +193,7 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
             })}
           </ul>
         )}
-        <p className="mt-3 text-[11px] text-gray-500">
+        <p className="mt-3 text-[11px] text-gray-400">
           {isArea
             ? 'This area is solved on its own: its rows serve it first, and what it sends and receives is listed above.'
             : 'A sub-factory only organises rows. Choose Separate area from its right-click menu to track what it sends and receives.'}

@@ -29,7 +29,7 @@ test.describe('phone width', () => {
     await expectShellFits(page)
     await expectWithinViewport(page, menuTrigger(page))
     await expect(menuTrigger(page).getByText(/^Plan 1$/)).toBeHidden()
-    await expect(page.getByTitle('Add block')).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeInViewport()
   })
 
   test('the summary panes form a swipe strip', async ({ page }) => {

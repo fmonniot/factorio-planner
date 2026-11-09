@@ -63,18 +63,18 @@ The side panel appears to the right of the table only while a row is selected. T
 
 ## TopBar
 
-`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
-are, in order, the icon-only tool buttons (the [horizon](#research-horizon)
+`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block list button and the block tabs (a scrolling strip; see [Block tabs](#block-tabs)). On the right
+are, in order, the icon-only tool buttons (**Add block**, a 32px `+` with the same gray-300 icon, tooltip and spacing as the others, disabled until game data is loaded; the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
 shown only while some block has areas and the [tech tree](#technology-tree)), a divider
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
-carries `data-testid="top-bar"`. Below `md` the gaps are tighter and the workspace button shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
+carries `data-testid="top-bar"`. From `md` (768px) the workspace button has no fill and no border, is 32px high like the tool buttons and a fixed 132px wide (its text lines, including Loading… and Error loading data, truncate with an ellipsis rather than wrap), with a native `title` that starts with the plan name, with the tool buttons' fill on hover and focus. Below `md` the gaps are tighter and it stays the compact button (36px high, filled and bordered, 64px wide) that shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
-The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, with a CSS-only tooltip
+The tool buttons are `IconButton` (`IconButton.tsx`): 32px, borderless, `text-gray-300` icons (3:1 on the top bar), with a CSS-only tooltip
 (shown on hover and keyboard focus, `aria-hidden`, equal to the button's accessible name). The
 glyphs come from `icons.tsx`, a set of small stroke SVG icons for the UI chrome (the game images
 are `Icon.tsx` / `TechIcon.tsx`).
@@ -119,26 +119,34 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
 
 ### Block tabs
 
-`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border: the
-icon of the block's first goal (none when it has no goal), then the block's name, truncated when
-long; the full name is the tab's tooltip. A stripe in the block's colour runs across the top of each
-tab: full strength and 3px on the active tab, muted and 2px on the others. The colour stays off the
-icon so item icons keep their own colours. The active tab also has a raised background and border
-and carries `aria-current`.
+`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border. The
+**active** tab shows the icon of the block's first goal (none when it has no goal) and the block's
+name, truncated when long. Every **inactive** tab is its icon alone, 44px wide (a block with no goal
+or an icon that fails to load shows the first letter of its name instead); its accessible name is the
+block's name (`aria-label`), and the name is shown in a black tooltip (the box the tool buttons use,
+`TOOLTIP_BOX_CLASS` in `IconButton.tsx`) on hover and on keyboard focus, not as a browser `title`.
+Focus left by a mouse click does not show it, and the active tab has none. The tooltip is a fixed-position portal anchored below the
+tab, since the scrolling strip would clip an absolute one, and centred on it, then shifted to stay 8px inside the window using its measured width (a name wider than the window ends in an ellipsis); it closes when anything scrolls, when the window is resized, when the tab turns active and when a
+drag or the context menu starts. A stripe in the block's colour runs across the top of each tab, 3px
+high: full strength on the active tab, 85% on the others. The colour stays off the icon so item icons
+keep their own colours. The active tab also has a raised background and border and carries
+`aria-current`.
 
-The tabs sit in a horizontally scrolling strip (`block-tab-strip`): each tab is at least about 6rem
-wide and at most `max-w-44`, where a longer name truncates (tabs never shrink); the strip scrolls with
-the mouse wheel (line and page wheel modes are converted to pixels) when the tabs do not fit; its
-scrollbar is hidden. The active tab is scrolled into view when it changes, is added or moved. The `+` button
-stays outside the strip, always visible. While the strip overflows, an **All blocks** `▾` dropdown
-appears between the strip and `+`: one radio item per block (colour dot, icon, name; the active one
-checked), and choosing one activates that block and scrolls its tab into view. It is a navigation
-aid only, not a reorder surface.
+The tabs sit in a horizontally scrolling strip (`block-tab-strip`): the active tab is at least about
+6rem wide and at most `max-w-44`, where a longer name truncates (tabs never shrink); the strip scrolls
+with the mouse wheel (line and page wheel modes are converted to pixels) when the tabs do not fit; its
+scrollbar is hidden. The active tab is scrolled to the middle of the strip when it changes, is added or
+moved (when everything fits there is nothing to scroll). Before the first tab sits the **block list**,
+a 28 × 28 icon button (a list glyph, `aria-label` "All blocks", the same black tooltip) that is always
+visible, whether the tabs fit or not: it opens a menu with one radio item per block (colour dot, icon,
+name; the active one checked), and choosing one activates that block and scrolls its tab into view.
+Escape closes it and the tooltip steps aside while it is open. It is a navigation aid only, not a
+reorder surface. The add-block button is not part of the strip: see [TopBar](#topbar).
 
 - Click a tab to make that block active. Only the active block is shown, but
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
-- `+` adds a new empty block named "Block N" and activates it. Every block has a
+- The **Add block** tool button (`AddBlockButton`, in the top bar's tool row) adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses. A block can also be created by
   **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last).
@@ -162,7 +170,7 @@ aid only, not a reorder surface.
   are not. Like add, rename and delete, it is not undoable.
   Delete is disabled when only one block remains; deleting the active block
   activates the first remaining one.
-- All of the above, including dragging and the **All blocks** dropdown, are disabled unless game data is loaded (not while it is empty,
+- All of the above, including dragging, the block list and **Add block**, are disabled unless game data is loaded (not while it is empty,
   loading or failed to load).
 
 ### Block graph
@@ -809,19 +817,21 @@ The reorder column comes first (▲/▼ buttons), then:
 |---|---|
 | Recipe (min 150px) | The recipe icon and name (a button), one 12px tree guide per nesting level. |
 | Machine (88px) | The machine chip (count in its corner), then the module chip (used / slots). |
-| Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); a dashed `+` when the row has no beacon. |
+| Beacons (88px) | The beacon chip (count) and its module chip (modules per beacon / slots); two dashed placeholders, the beacon `+` and its module slot `+ 0/N`, when the row has no beacon. |
 | Products (72px) | The single product chip, left-aligned (it sits above the items a collapsed area sends); wide enough for the header and the chip's pin badge. |
 | Byproducts (min 80px) | Byproduct chips (red rates). |
 | Ingredients (min 148px) | Ingredient chips (green rates), right-aligned like the items a collapsed area receives; the largest share of the free width. |
 | Power (72px) | The row's power (cyan, right-aligned). The block's total power draw is in the [table toolbar](#table-toolbar), not in this header. A burner row with fuel data draws none (its fuel is an ingredient), so it adds nothing. |
 
-The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons, Products and Power are fixed; the other three are their minimum plus a share (weights 3 : 2 : 4) of the width beyond the 730px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). Container query units in a `<col>` need Safari 16+ / Firefox 110+ / Chrome 105+; older browsers drop the declaration, and the three shared columns then split the leftover width equally (no fallback is provided). The container's layout containment would also make a `position: fixed` descendant of the wrapper position against it; popups are portalled to `body`, so none exists. A chip slot is 34px (a 28px icon and a 6px gap), so a chip cell is `34n + 10`px wide: Products holds exactly one (its fixed 72px), at the minimum Byproducts holds 2 chips per line and wraps beyond, Ingredients 4; at 1470px with the panel closed Byproducts and Ingredients hold about 6 and 13.
+The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons, Products and Power are fixed; the other three are their minimum plus a share (weights 3 : 2 : 4) of the width beyond the 730px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). Container query units in a `<col>` need Safari 16+ / Firefox 110+ / Chrome 105+; older browsers drop the declaration, and the three shared columns then split the leftover width equally (no fallback is provided). The container's layout containment would also make a `position: fixed` descendant of the wrapper position against it; popups are portalled to `body`, so none exists. A chip slot is 38px (a 32px icon and a 6px gap), so `n` chips need `38n - 6`px inside a cell's 16px of padding: Products holds exactly one (its fixed 72px), at the minimum Byproducts holds 1 chip per line and wraps beyond, Ingredients 3; at 1470px with the panel closed Byproducts and Ingredients hold about 5 and 11.
 
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
 
 ### Icon chip
 
-`IconChip.tsx` is the one component for every icon with a number in the table (item, machine, module and beacon chips): the icon, a quantity in its **bottom-right** corner (9px bold monospace with a dark outline, as Factorio draws stack counts), optional badges in its **top-right** corner and an optional label in its top-left corner (a temperature requirement, orange). Item icons are 28px (`size="item"`), machine, module and beacon icons 32px (`size="entity"`). With an `onClick` the chip is a button; `warn` draws an amber ring; `empty` draws a dashed outline and a `+` instead of the icon.
+`IconChip.tsx` is the one component for every icon with a number in the table (item, machine, module and beacon chips): the icon, a quantity in its **bottom-right** corner (as Factorio draws stack counts), optional badges in its **top-right** corner and an optional label in its top-left corner (a temperature requirement, orange). Every icon is 32px, so an item chip takes a 38px slot with the 6px gap. An item chip (`size="item"`) sits on a faint **plate** (`rgba(148,163,184,0.09)` fill, 5px radius, a 1px inset ring of `rgba(148,163,184,0.10)`, so dark icons such as coal do not read as holes) and writes its quantity in 11px bold monospace outlined in black (a 1px text-shadow in four directions); a machine, module or beacon chip (`size="entity"`) has no plate and a 9px quantity. With an `onClick` the chip is a button; `warn` draws an amber ring; `empty` draws a dashed outline and a `+` instead of the icon. An empty chip with `quiet` (the module and beacon placeholders of a table row) is a **quiet placeholder**: gray-700 border and gray-600 glyph at rest (the `+` and the `0/N` share the glyph colour), gray-600 and gray-400 while its row (`group/row` on the `tr`) is hovered, selected (`data-selected`) or holds the keyboard focus, and gray-400 and gray-200 on the placeholder itself (hover or `focus-visible`). It is never hidden, so a touch screen shows the same faint placeholders. A disabled placeholder (the Beacons cell when the research horizon allows no machine, beacon or module) is not quiet: it keeps the plain dashed chip at 40% opacity and never brightens on its own hover or focus. The placeholders of the side panel's module slots are not quiet.
+
+**Chip quantities.** `chipFmt` (in `ItemTile.tsx`) writes the rate on an item chip so that it always fits the corner: from 10000 whole thousands (`12k`), from 1000 one decimal (`1.1k`, `.0` dropped), from 100 no decimals, from 1 one decimal, from 0.01 two decimals without the leading zero (`.05`), below that `<.01` (an exact zero reads `0`). Thresholds apply to the rounded value (0.996 reads `1.0`, 999.6 reads `1k`); from a million the pattern continues with `M` and `G` and from 999.5 G (or Infinity) it reads `>999G`; NaN and negative values read `?`. Electricity and heat keep their power units but drop the decimal from 10 up so they stay within five characters (`1.5MW`, `10MW`, `100kW`, `999W`; a value that rounds to 1000 takes the next unit, `1.0MW`; `>999G` beyond); the tooltip keeps the exact value (`10.0MW`). The chip's tooltip keeps the exact rate through `fmtItemRateText` (`Purified water — 14100/m`, `Cobalt steel — 1.6e-6/m`); `fmtRate` is unchanged and used everywhere else.
 
 - Bottom-right is always a quantity: an item rate (the number only; the tooltip adds the unit), the machine count, a module chip's used / slots, a beacon count, a beacon module chip's modules per beacon / slots. An energy item (electricity, heat) shows its value with its power unit.
 - Top-right is always a badge: an amber pin (`data-testid="chip-pin"`, the product's rate is pinned), a lavender `+N` (`chip-more`, the row has N more beacon configurations besides the first; never shown while a row holds at most one), an amber `B` or `C` (`item-tile-sourcing`, the item is not sourced from Own recipes first).
@@ -833,9 +843,9 @@ Products, Byproducts and Ingredients are adjacent on purpose: everything a machi
 
 `RecipeRow.tsx`, one per `GameRecipeNode`. Nodes whose recipe does not exist in the loaded data render nothing. Every row (recipe or sub-factory) carries `data-node-id`.
 
-**Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`: a teal bar on the left of the reorder cell and a tinted background) and opens the [side panel](#side-panel). The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
+**Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`) and opens the [side panel](#side-panel). A selected row, recipe or group, is drawn the same way: a full-row teal tint (`rgba(20,184,166,0.22)`, teal-500 at 22%, which replaces a group's depth tint), a 3px inset bar on the left of the reorder cell (`#2dd4bf`, teal-400), a 1px inset outline around the whole row (`rgba(45,212,191,0.65)`, `outline-offset: -1px`) and a white, bold name. Hover does not repaint a selected row, and the flash of a just-revealed row draws its own outline instead of the selection's. Selecting changes no size. The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
 
-**Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends).
+**Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends). They are `text-gray-400`, 3:1 on the row.
 
 **Recipe cell.** The icon of the primary product (falls back to the first two letters of the recipe name) and the recipe name (ellipsis, the name as tooltip), indented by one 12px guide per nesting level (`data-guide-levels`; see [sub-factory rows](#sub-factory-rows)). Byproduct-consumer rows carry a small amber "↓" badge at the icon's bottom-right corner, whose tooltip explains the mode. In a block with areas, a recipe that has rows in two or more areas also carries a count badge (`data-testid="multi-area-badge"`, teal, the number of areas) after the name. Its tooltip names the recipe and splits its buildings per area: "Electrolysis: 15 buildings (13.6 exact) in 3 areas: 5 here, 5 Plastics, 5 Rocket fuel" ("here" is the row's own area and comes first, the others follow in table order, the root is "Top level"; several rows in one area are summed, a row with no solve result counts as 0). The badge is display-only.
 
@@ -880,7 +890,7 @@ an item.
 
 **Beacons column.** `BeaconCell` (in `BeaconPopover.tsx`) takes the row's beacon configurations (`beaconConfigs`) as a list; it shows the first and a lavender `+N` badge on the beacon chip counts the others (the chip's tooltip lists them all). Filling a module in the dashed module chip changes the first configuration only.
 
-- Without a beacon, a dashed `+` chip (title and name "Add beacon") opens a fill-all picker headed "Add 4 × Beacon, fill its slots with", listing the modules the default beacon type accepts. Choosing one creates a configuration with the first non-hidden beacon type inside the research horizon (by name), 4 beacons and that module in every slot, as one command. The chip is disabled, with a title giving the reason, when the row has no machine within the horizon ("No machine within research horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or no module is ("No module within the research horizon"; only when a horizon is active).
+- Without a beacon, two dashed placeholders sit side by side, like the Machine cell: the beacon `+` (title and name "Add beacon") and its module slot `+ 0/N` (name "Add beacon module", `N` the slots of the default beacon type). Both open the same fill-all picker headed "Add 4 × Beacon, fill its slots with", listing the modules the default beacon type accepts. Choosing one creates a configuration with the first non-hidden beacon type inside the research horizon (by name), 4 beacons and that module in every slot, as one command. Both placeholders are disabled, with a title giving the reason, when the row has no machine within the horizon ("No machine within research horizon"), no non-hidden beacon is inside it ("No beacon within the research horizon") or no module is ("No module within the research horizon"; only when a horizon is active).
 - With a beacon, the **beacon chip** (the beacon's icon, `N` beacons in its corner; title "Edit beacon") and the **beacon module chip** (`data-testid="beacon-module-chip"`, the module's icon, modules per beacon over the beacon's slots; title "<module> × N per beacon") follow. Both open the panel on the highlighted Beacons section. A configuration without a module (the beacon's `moduleId` is optional) shows the beacon module chip as a dashed `+` reading `0/N` (title "Beacon without a module"), whose click opens a fill-all picker headed "Fill its slots with" limited to the modules the beacon accepts (speed and efficiency, never productivity); it contributes nothing to the row until it has a module. With several configurations, the chips show the first and a `+N` badge; the beacon chip gets the amber ring when any configuration's type or module is outside the horizon.
 
 **Products column.** The output that counts as the primary product (`primaryProduct`, else the recipe's `mainProduct`, else its first product), as an item chip. The cell holds at most that one chip; every other output is a byproduct. A pinned row's chip carries the pin badge; the pinned rate is not editable in the table. A product chip has no right-click menu and no click action.
@@ -1110,8 +1120,9 @@ The same component in recipes mode (`source="recipes"`).
 
 ## Shared pieces
 
+- **Dim text.** Secondary text (hints such as "click a row to trace it", counts, table header and side-panel section labels, units, the `–` cells, empty-state notes) is `text-gray-400`, at least 4.5:1 on the gray-800 and gray-900 surfaces it sits on; search-input placeholders are `gray-400` too. The exception is detail text in a picker or menu row that is hovered (`hover:bg-gray-700`): there it is 3.96:1.
 - `IconChip.tsx` and `ItemChip.tsx` — the [icon chip](#icon-chip) and the item chip of the production table (variants product,
-  byproduct, ingredient; the chip carries `data-variant`). `ItemTile.tsx` holds the rate formatters they use: `fmtRate` and `fmtPower`. Rates show
+  byproduct, ingredient; the chip carries `data-variant`). `ItemTile.tsx` holds the rate formatters they use: `fmtRate`, `fmtPower` and, for the corner of a chip, `chipFmt` / `fmtChipQuantity` (see [chip quantities](#icon-chip)). Rates show
   0–2 decimals depending on magnitude, and two significant digits for a non-zero rate below 0.005 ("0.00082", never "0.00"). `fmtItemRate(itemId, ratePerSec, unit)` / `fmtItemRateText` format a
   rate of an item as value + unit, and show the electricity and heat items (1 unit/s = 1 MW) in W / kW / MW / GW whatever the
   rate unit; `inputRateUnit(itemId, unit)` is the unit a rate input is typed in (`'sec'`, i.e. MW, for electricity and heat).

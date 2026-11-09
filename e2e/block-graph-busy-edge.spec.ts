@@ -76,7 +76,7 @@ test.describe('block graph, busy edge', () => {
     await expect(list(page)).toBeHidden()
     await page.getByRole('button', { name: 'Close' }).click()
     await expect(heading(page)).toHaveCount(0)
-    await page.locator('button[title="Sciences"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Sciences"]').click()
     await slotById(page, 'Ingredients', FIRST_ITEM_ID).click()
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')).toHaveCount(0)
   })

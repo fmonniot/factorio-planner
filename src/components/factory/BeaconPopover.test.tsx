@@ -155,6 +155,10 @@ describe('BeaconCell — research horizon', () => {
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).toBeDisabled()
     expect(btn).toHaveAttribute('title', 'No machine within research horizon')
+    // Not a quiet placeholder: gray-700 at 40% opacity would vanish, and it must not brighten on hover.
+    expect(btn.querySelector('.border-dashed')).toHaveClass('border-gray-600')
+    expect(btn.className).toContain('opacity-40')
+    expect(btn.querySelector('.border-dashed')!.className).not.toContain('border-gray-700')
   })
 
   it('is disabled when no beacon is within the horizon', () => {
@@ -253,9 +257,25 @@ describe('BeaconCell — chips over a list of configurations', () => {
     expect(chip.querySelector('.border-dashed')).toBeNull()
   })
 
-  it('shows a dashed plus when there is none', () => {
-    renderList([])
+  it('shows two dashed placeholders when there is none: the beacon and its module slots', () => {
+    render(
+      <BeaconCell nodeId="n1" beacons={[]} gameData={horizonData()} recipeId="iron-plate"
+        machineId={undefined} recipeCategory="crafting" onOpenEdit={() => {}} />,
+    )
     expect(screen.getByLabelText('Add beacon')).toBeInTheDocument()
+    const mod = screen.getByLabelText('Add beacon module')
+    expect(mod).toHaveTextContent('0/2')
+    expect(mod.querySelector('.border-dashed')).not.toBeNull()
+  })
+
+  it('creates the default configuration from the module placeholder too', () => {
+    useBlockStore.getState().updateNodeBeacons('n1', [])
+    renderList([])
+    fireEvent.click(screen.getByLabelText('Add beacon module'))
+    expect(screen.getByTestId('picker-heading')).toHaveTextContent('Add 4 × Beacon, fill its slots with')
+    fireEvent.click(screen.getByText('Speed 3'))
+    const updated = useBlockStore.getState().blocks[0].rootPlan.nodes[0]
+    expect(updated.kind === 'game-recipe' && updated.beaconConfigs).toMatchObject([{ moduleId: 'speed-3', beaconCount: 4 }])
   })
 
   it('opens the side panel from the beacon chip and the module chip', () => {
