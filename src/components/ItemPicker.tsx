@@ -121,7 +121,7 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
       {/* Header */}
       <div className="px-3 py-2 bg-gray-800 border-b border-gray-700">
         <span className="font-semibold text-gray-100">{recipe.name}</span>
-        <span className="text-gray-500"> (Recipe)</span>
+        <span className="text-gray-400"> (Recipe)</span>
       </div>
 
       {/* Ingredients */}
@@ -172,7 +172,7 @@ function RecipeDetailPanel({ recipeId, gameData, inside, machineIds }: {
         <div className="px-3 py-2">
           <div className="text-gray-200 font-bold mb-1">Made in:</div>
           {madeIn.length === 0 && (
-            <div className="text-gray-500 py-1">No machine inside the research horizon</div>
+            <div className="text-gray-400 py-1">No machine inside the research horizon</div>
           )}
           {madeIn.map(machineId => {
             const machine = gameData.machines[machineId]
@@ -468,7 +468,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           >← Back</button>
           {machine?.iconPath && <Icon iconPath={machine.iconPath} alt={machine.name} className="w-6 h-6 object-contain" />}
           <span className="text-sm text-gray-200">{machine?.name ?? g.machineId}</span>
-          <span className="text-sm text-gray-500">Choose a recipe ({g.recipes.length})</span>
+          <span className="text-sm text-gray-400">Choose a recipe ({g.recipes.length})</span>
         </div>
         <div data-testid="recipe-fuel-grid" className={PICKER_GRID}>
           {g.recipes.map(r => renderRecipeSlot(r, { fuelView: true }))}
@@ -488,7 +488,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -511,7 +511,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
             onChange={e => setShowHidden(e.target.checked)}
             className="accent-amber-400"
           />
-          <span className={showHidden ? 'text-amber-300' : 'text-gray-500'}>Hidden recipes</span>
+          <span className={showHidden ? 'text-amber-300' : 'text-gray-400'}>Hidden recipes</span>
         </label>
         {available && (
           <label className="inline-flex items-center gap-2 cursor-pointer select-none">
@@ -521,7 +521,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
               onChange={e => setShowBeyondHorizon(e.target.checked)}
               className="accent-amber-400"
             />
-            <span className={showBeyondHorizon ? 'text-amber-300' : 'text-gray-500'}>Beyond research horizon</span>
+            <span className={showBeyondHorizon ? 'text-amber-300' : 'text-gray-400'}>Beyond research horizon</span>
           </label>
         )}
       </div>
@@ -555,7 +555,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       {/* Body: subgroup grids, flowing within the selected group */}
       <div className="overflow-y-auto flex-1 p-2 space-y-1">
         {subgroupRows.length === 0 && (
-          <div className="px-2 py-3 text-gray-500 text-sm">
+          <div className="px-2 py-3 text-gray-400 text-sm">
             {outsideHorizonCount > 0
               ? `No recipes match within the research horizon (${outsideHorizonCount} outside it)`
               : 'No recipes match'}
@@ -700,7 +700,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
           placeholder="Search…"
           value={query}
           onChange={e => setQuery(e.target.value)}
-          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+          className="flex-1 bg-gray-800 text-gray-100 px-3 py-1.5 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
         />
         <button
           type="button"
@@ -725,7 +725,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
             className="ml-2 w-24 bg-gray-800 text-gray-100 px-2 py-1 rounded outline-none focus:ring-1 focus:ring-blue-500"
           />
         </label>
-        <span className="text-gray-500">{energyNames.length > 0 ? `/min (MW for ${energyNames.join(' and ')})` : '/min'}</span>
+        <span className="text-gray-400">{energyNames.length > 0 ? `/min (MW for ${energyNames.join(' and ')})` : '/min'}</span>
       </div>
 
       {/* Group tabs (hidden when bundle has no group metadata) */}
@@ -757,7 +757,7 @@ function ItemPickerBody({ gameData, initialQuery, onSelect, onClose }: ItemPicke
       {/* Slot grid */}
       <div className="overflow-y-auto flex-1 p-2 space-y-2">
         {subgroupRows.length === 0 && (
-          <div className="px-2 py-3 text-gray-500 text-sm">
+          <div className="px-2 py-3 text-gray-400 text-sm">
             {outsideHorizonCount > 0
               ? `No items match within the research horizon (${outsideHorizonCount} outside it)`
               : 'No items match'}
@@ -846,7 +846,7 @@ export function ItemPicker(props: ItemPickerProps) {
   if (!gameData) {
     return (
       <PickerFrame onClose={props.onClose}>
-        <div className="p-4 text-gray-500 text-sm">
+        <div className="p-4 text-gray-400 text-sm">
           Load game data first (header → Load game data)
         </div>
       </PickerFrame>

@@ -54,8 +54,8 @@ export function AlternateRecipeList({ entries, gameData, available, onSelect }: 
                 <Icon iconPath={machine.iconPath} alt={machine.name} className="w-5 h-5 object-contain shrink-0" />
               )}
               <span className="flex-1">{machine?.name ?? e.machineId}</span>
-              <span className="text-gray-500">({e.recipes.length} recipes)</span>
-              <span className="text-gray-500">{open ? '▾' : '▸'}</span>
+              <span className="text-gray-400">({e.recipes.length} recipes)</span>
+              <span className="text-gray-400">{open ? '▾' : '▸'}</span>
             </button>
             {open && (
               <div ref={openRef} className="ml-3 border-l border-gray-700 pl-1">
@@ -75,7 +75,7 @@ export function AlternateRecipeList({ entries, gameData, available, onSelect }: 
                       )}
                       <span className="flex-1">{fuel?.name ?? powerInputItemId(r) ?? r.name}{isBeyond(r) && <BeyondTag />}</span>
                       {fuel?.type === 'item' && fuel.fuelValueKj !== undefined && (
-                        <span className="text-gray-500">{fmtFuelValue(fuel.fuelValueKj)}</span>
+                        <span className="text-gray-400">{fmtFuelValue(fuel.fuelValueKj)}</span>
                       )}
                     </button>
                   )

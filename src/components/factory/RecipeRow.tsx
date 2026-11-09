@@ -866,7 +866,7 @@ function ReorderCell({ nodeId, selected, isFirst, isLast, moveUp, moveDown }: Re
           type="button"
           onClick={() => moveUp(nodeId)}
           disabled={isFirst}
-          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
+          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move up"
         >
           ▲
@@ -875,7 +875,7 @@ function ReorderCell({ nodeId, selected, isFirst, isLast, moveUp, moveDown }: Re
           type="button"
           onClick={() => moveDown(nodeId)}
           disabled={isLast}
-          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
+          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move down"
         >
           ▼
