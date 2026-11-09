@@ -3,7 +3,6 @@ import type { Ref } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
-import { FLOW_TOLERANCE } from '../../solver/index'
 import { Icon } from '../Icon'
 import { useHoverPopup } from '../useHoverPopup'
 import { IconChip } from './IconChip'
@@ -68,13 +67,13 @@ const CHIP_TONE: Record<SummaryPaneKind, Exclude<ChipTone, 'neutral'>> = {
 function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot: SlotModel; items: GameData['items']; rateUnit: RateUnit }) {
   const item = items[slot.itemId]
   const name = item?.name ?? slot.itemId
-  const { shown, actual, short } = lineRate(pane, slot)
+  const { shown, actual, short, hasGoal } = lineRate(pane, slot)
   const text = (perMin: number) => fmtItemRateText(slot.itemId, perMin / 60, rateUnit)
   const title = slot.empty
     ? `${name} — nothing requested yet`
     : actual !== undefined
-      ? `${name} — goal ${text(shown)}, making ${text(actual)}${short ? `, short by ${text(shown - actual)}` : ''}`
-      : pane === 'products' && slot.product && slot.product.required > FLOW_TOLERANCE
+      ? `${name} — goal ${text(shown)}${text(actual) === text(shown) ? '' : `, making ${text(actual)}`}${short ? `, short by ${text(shown - actual)}` : ''}`
+      : hasGoal
         ? `${name} — goal ${text(shown)}`
         : `${name} — ${text(shown)}`
   return (
@@ -87,6 +86,9 @@ function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot
       tone={CHIP_TONE[pane]}
       warn={short}
       title={title}
+      role="img"
+      aria-label={title}
+      badges={short ? <span aria-hidden className="text-[9px] leading-none text-amber-400" style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>▼</span> : undefined}
       className={`mr-1.5${slot.dimmed ? ' opacity-55' : ''}`}
       data-testid="summary-line-chip"
       data-item-id={slot.itemId}
@@ -186,7 +188,7 @@ export function SummaryLine({ panes, items, rateUnit, onExpand, expandRef }: Sum
   return (
     <div
       data-testid="summary-line"
-      className="flex max-md:flex-col md:items-start md:gap-2 box-border px-3 max-md:py-1 md:py-[9px] max-md:h-[122px] md:h-[58px] max-md:overflow-hidden border-b border-gray-700"
+      className="flex max-md:flex-col md:items-start md:gap-2 box-border px-3 max-md:py-1 md:py-[9px] max-md:h-[123px] md:h-[58px] max-md:overflow-hidden border-b border-gray-700"
     >
       {panes.map(p => <LinePane key={p.pane} {...p} items={items} rateUnit={rateUnit} />)}
       {/* Below md the handle row under the strip expands instead. */}

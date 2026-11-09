@@ -1884,6 +1884,9 @@ describe('FactorySummary — collapsed summary', () => {
     expect(within(chips[0]).getByTestId('summary-line-quantity')).toHaveTextContent('60.0')
     expect(chips[0]).toHaveAttribute('data-status', 'short')
     expect(chips[0]).toHaveClass('ring-amber-500')
+    // Not by colour alone: a name that carries the title's text and a ▼ cue.
+    expect(within(pane('Products')).getByRole('img', { name: 'Iron Plate — goal 60.0/m, making 58.0/m, short by 2.00/m' })).toBe(chips[0])
+    expect(chips[0]).toHaveTextContent('▼')
     expect(within(pane('Products')).queryAllByRole('button')).toHaveLength(0)
     expect(screen.queryAllByTestId('summary-line-more')).toHaveLength(0)
   })
@@ -2057,11 +2060,11 @@ describe('FactorySummary — collapsed summary', () => {
     expect(document.body).toHaveFocus()
   })
 
-  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 122 px stack below md', () => {
+  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 123 px stack below md', () => {
     collapse()
     render(<FactorySummary />)
     const line = screen.getByTestId('summary-line')
-    expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[122px]')
+    expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[123px]')
     expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[38px]')
     expect(within(line).getByRole('button', { name: 'Expand summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
     // The handle row (18 px) expands below md, where the button is gone, and is not drawn from md.
@@ -2074,22 +2077,31 @@ describe('lineRate', () => {
   const base: SlotModel = { id: 's', itemId: 'iron-plate', rate: 58, scale: 60, segments: [], overlays: [], status: 'short', dimmed: false }
   const product = (over: Partial<NonNullable<SlotModel['product']>>): SlotModel => ({
     ...base,
-    product: { id: 'g1', extra: 60, required: 60, actual: 58, short: true, requested: 0, tickAt: 0.9, ...over },
+    product: { id: 'g1', extra: 60, required: 60, actual: 58, short: true, requested: 0, differs: true, tickAt: 0.9, ...over },
   })
 
   it('shows the goal and the actual of a product that differs from it', () => {
-    expect(lineRate('products', product({}))).toEqual({ shown: 60, actual: 58, short: true })
+    expect(lineRate('products', product({}))).toEqual({ shown: 60, actual: 58, short: true, hasGoal: true })
+  })
+
+  it('never shows a negative actual', () => {
+    expect(lineRate('products', product({ actual: -5 }))).toMatchObject({ shown: 60, actual: 0, short: true })
+  })
+
+  it('decides "differs" from the flag, not from the bar tick', () => {
+    expect(lineRate('products', product({ tickAt: null, differs: true })).actual).toBe(58)
+    expect(lineRate('products', product({ tickAt: 0.9, differs: false })).actual).toBeUndefined()
   })
 
   it('has no actual when it matches the goal or before a solve', () => {
-    expect(lineRate('products', product({ actual: 60, short: false, tickAt: null }))).toEqual({ shown: 60, actual: undefined, short: false })
-    expect(lineRate('products', product({ actual: undefined, short: false }))).toEqual({ shown: 60, actual: undefined, short: false })
+    expect(lineRate('products', product({ actual: 60, short: false, differs: false, tickAt: null }))).toEqual({ shown: 60, actual: undefined, short: false, hasGoal: true })
+    expect(lineRate('products', product({ actual: undefined, short: false, differs: false }))).toEqual({ shown: 60, actual: undefined, short: false, hasGoal: true })
   })
 
   it('shows the slot rate for a product without a goal, an empty one and the other panes', () => {
-    expect(lineRate('products', product({ required: 0, extra: undefined }))).toEqual({ shown: 58, short: false })
-    expect(lineRate('products', { ...product({}), empty: true })).toEqual({ shown: 58, short: false })
-    expect(lineRate('byproducts', product({}))).toEqual({ shown: 58, short: false })
-    expect(lineRate('ingredients', base)).toEqual({ shown: 58, short: false })
+    expect(lineRate('products', product({ required: 0, extra: undefined }))).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('products', { ...product({}), empty: true })).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('byproducts', product({}))).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('ingredients', base)).toEqual({ shown: 58, short: false, hasGoal: false })
   })
 })

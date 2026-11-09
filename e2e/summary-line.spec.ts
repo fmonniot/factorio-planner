@@ -115,6 +115,10 @@ test.describe('collapsed summary', () => {
     for (let i = 0; i < titles.length; i++) {
       const row = (await rows.nth(i).innerText()).replace(/\s+/g, ' ')
       const rate = titles[i].split(' — ')[1]
+      if (rate === 'nothing requested yet') {
+        expect(row, `row ${i} is the empty product`).toContain('—')
+        continue
+      }
       const goal = /goal (\S+?)(,|$)/.exec(rate)?.[1] ?? rate
       expect(row, `row ${i} carries the chip's rate`).toContain(goal)
     }

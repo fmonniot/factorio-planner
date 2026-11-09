@@ -19,7 +19,7 @@ describe('lineChipFit', () => {
     expect(lineChipFit(-4, 5)).toBe(0)
   })
 
-  it('uses the table\'s 38px slot', () => {
-    expect(LINE_CHIP_SLOT).toBe(38)
+  it('uses the table\'s 38px slot (a 32px chip and 6px of margin)', () => {
+    expect(LINE_CHIP_SLOT).toBe(32 + 6)
   })
 })
