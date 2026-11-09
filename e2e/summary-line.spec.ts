@@ -15,8 +15,8 @@ const FIXTURE = path.resolve('e2e/fixtures/summary-many-items.json')
 const NO_CHOICE = { cookies: [], origins: [] }
 
 const lines = (page: Page) => page.getByTestId('summary-line-pane')
-const expandButton = (page: Page) => page.getByRole('button', { name: 'Expand the summary' })
-const collapseHandle = (page: Page) => page.getByRole('button', { name: 'Collapse the summary' })
+const expandButton = (page: Page) => page.getByRole('button', { name: 'Expand summary' })
+const collapseHandle = (page: Page) => page.getByRole('button', { name: 'Collapse summary' })
 const tableTop = async (page: Page) => (await page.locator('main table').first().boundingBox())!.y
 
 async function setup(page: Page) {
@@ -50,7 +50,7 @@ test.describe('collapsed summary', () => {
 
     // No handle row at this width: the button is the only way to expand.
     await expect(expandButton(page)).toHaveCount(1)
-    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand the summary' })).toHaveCount(1)
+    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toHaveCount(1)
   })
 
   // 1 sumLine
@@ -126,6 +126,18 @@ test.describe('collapsed summary', () => {
     await expect(lines(page)).toHaveCount(3)
   })
 
+  // Keyboard users keep their place: the control they used is gone (or hidden) after the toggle.
+  test('the keyboard focus follows the toggle to the other control', async ({ page }) => {
+    await setup(page)
+    await expandButton(page).focus()
+    await page.keyboard.press('Enter')
+    await expect(page.getByTestId('summary-line')).toHaveCount(0)
+    await expect(collapseHandle(page)).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expect(lines(page)).toHaveCount(3)
+    await expect(expandButton(page)).toBeFocused()
+  })
+
   // 1 sumLine: the choice is stored like the rest of the UI state
   test('the choice is stored with the other UI settings', async ({ page }) => {
     await setup(page)
@@ -152,7 +164,7 @@ test.describe('collapsed summary at narrow widths', () => {
 
     // The Expand button of the wide layout is gone: the handle row below the lines takes over.
     await expect(expandButton(page)).toHaveCount(1)
-    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand the summary' })).toHaveCount(0)
+    await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toHaveCount(0)
     const handle = expandButton(page)
     await expect(handle).toBeVisible()
     await expect(handle).toHaveText('Expand summary')
@@ -168,6 +180,8 @@ test.describe('collapsed summary at narrow widths', () => {
     // Expanded: the panes scroll sideways as before, and the handle row collapses.
     await handle.click()
     await expect(collapseHandle(page)).toBeVisible()
+    // The handle is the same element in both states below md, so it keeps the focus it was given.
+    await expect(collapseHandle(page)).toBeFocused()
     const panes = page.getByTestId('summary-pane')
     await expect(panes).toHaveCount(3)
     await expect(panes.nth(2)).not.toBeInViewport()
@@ -186,7 +200,7 @@ test.describe('collapsed summary at narrow widths', () => {
       expect(boxes.every(b => b.height === 40)).toBe(true)
       expect(boxes[2].x + boxes[2].width).toBeLessThanOrEqual(width)
       await expect(expandButton(page)).toHaveCount(1)
-      await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand the summary' })).toBeVisible()
+      await expect(page.getByTestId('summary-line').getByRole('button', { name: 'Expand summary' })).toBeVisible()
     })
   }
 })

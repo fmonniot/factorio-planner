@@ -1859,7 +1859,7 @@ describe('FactorySummary — collapsed summary', () => {
   const withRoom = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
   const collapse = () => useUiStore.setState({ summaryCollapsed: true })
   // Both the Expand button and the handle row expand: CSS shows one of them (happy-dom applies no CSS).
-  const expandButtons = () => screen.getAllByRole('button', { name: 'Expand the summary' })
+  const expandButtons = () => screen.getAllByRole('button', { name: 'Expand summary' })
 
   it('is the default: one line per pane with its count, and no slots', () => {
     useUiStore.setState({ summaryCollapsed: useUiStore.getInitialState().summaryCollapsed })
@@ -1906,26 +1906,51 @@ describe('FactorySummary — collapsed summary', () => {
     collapse()
     render(<FactorySummary />)
     expect(expandButtons()).toHaveLength(2)
-    expect(expandButtons().map(b => b.getAttribute('aria-expanded'))).toEqual(['false', 'false'])
+    // The names are the visible texts (the button's own says "Expand"), so no aria-expanded repeats them.
+    expect(expandButtons().map(b => b.hasAttribute('aria-expanded'))).toEqual([false, false])
     fireEvent.click(expandButtons()[0])
     expect(useUiStore.getState().summaryCollapsed).toBe(false)
     expect(screen.queryByTestId('summary-line')).toBeNull()
     expect(slot('Products', 'Iron Plate')).toBeInTheDocument()
 
     // The handle row is the only toggle now.
-    const handle = screen.getByRole('button', { name: 'Collapse the summary' })
-    expect(handle).toHaveAttribute('aria-expanded', 'true')
+    const handle = screen.getByRole('button', { name: 'Collapse summary' })
+    expect(handle).not.toHaveAttribute('aria-expanded')
     expect(handle).toHaveTextContent('Collapse summary')
 
     const other = makeEmptyBlock('Other')
     act(() => useBlockStore.setState(state => ({ blocks: [...state.blocks, other], activeBlockId: other.id })))
-    expect(screen.getByRole('button', { name: 'Collapse the summary' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Collapse summary' })).toBeInTheDocument()
     expect(within(pane('Products')).getByTestId('summary-slot-grid')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse the summary' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse summary' }))
     expect(screen.getAllByTestId('summary-line-pane')).toHaveLength(3)
     act(() => useBlockStore.setState(state => ({ activeBlockId: state.blocks[0].id })))
     expect(screen.getAllByTestId('summary-line-pane')).toHaveLength(3)
+  })
+
+  it('moves focus to the counterpart control when the summary toggles, so the keyboard is not dropped', () => {
+    collapse()
+    render(<FactorySummary />)
+    const line = screen.getByTestId('summary-line')
+    const lineExpand = within(line).getByRole('button', { name: 'Expand summary' })
+    lineExpand.focus()
+    fireEvent.click(lineExpand)
+    // The line (and its button) is gone: the handle row, the only toggle now, has the focus.
+    expect(screen.queryByTestId('summary-line')).toBeNull()
+    const handle = screen.getByRole('button', { name: 'Collapse summary' })
+    expect(handle).toHaveFocus()
+
+    fireEvent.click(handle)
+    // From md the handle is not drawn once collapsed: the line's Expand button takes the focus.
+    expect(within(screen.getByTestId('summary-line')).getByRole('button', { name: 'Expand summary' })).toHaveFocus()
+  })
+
+  it('does not take the focus when the collapsed state changes without a toggle', () => {
+    render(<FactorySummary />)
+    expect(document.body).toHaveFocus()
+    act(() => useUiStore.setState({ summaryCollapsed: true }))
+    expect(document.body).toHaveFocus()
   })
 
   it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 110 px stack below md', () => {
@@ -1934,7 +1959,7 @@ describe('FactorySummary — collapsed summary', () => {
     const line = screen.getByTestId('summary-line')
     expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[110px]')
     expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[34px]')
-    expect(within(line).getByRole('button', { name: 'Expand the summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
+    expect(within(line).getByRole('button', { name: 'Expand summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
     // The handle row (18 px) expands below md, where the button is gone, and is not drawn from md.
     const handle = expandButtons().find(b => !line.contains(b))!
     expect(handle).toHaveClass('h-[18px]', 'md:hidden')

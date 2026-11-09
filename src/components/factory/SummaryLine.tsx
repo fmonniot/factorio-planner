@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import type { Ref } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
@@ -26,6 +27,8 @@ interface SummaryLineProps {
   items: GameData['items']
   rateUnit: RateUnit
   onExpand: () => void
+  /** The Expand button, so the owner can move focus to it after a collapse. */
+  expandRef?: Ref<HTMLButtonElement>
 }
 
 /** Colour of an item's rate in the list, as in the table's product, byproduct and ingredient chips. */
@@ -145,7 +148,7 @@ function LinePane({ pane, label, slots, items, rateUnit }: SummaryLinePane & { i
   )
 }
 
-export function SummaryLine({ panes, items, rateUnit, onExpand }: SummaryLineProps) {
+export function SummaryLine({ panes, items, rateUnit, onExpand, expandRef }: SummaryLineProps) {
   return (
     <div
       data-testid="summary-line"
@@ -154,9 +157,9 @@ export function SummaryLine({ panes, items, rateUnit, onExpand }: SummaryLinePro
       {panes.map(p => <LinePane key={p.pane} {...p} items={items} rateUnit={rateUnit} />)}
       {/* Below md the handle row under the strip expands instead. */}
       <button
+        ref={expandRef}
         type="button"
-        aria-expanded={false}
-        aria-label="Expand the summary"
+        aria-label="Expand summary"
         onClick={onExpand}
         className="max-md:hidden shrink-0 self-center ml-auto w-[68px] min-h-[30px] py-1 text-xs text-gray-300 bg-gray-900 border border-gray-700 hover:border-gray-600 rounded-lg"
       >

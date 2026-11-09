@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -137,6 +137,23 @@ export function FactorySummary() {
   const removeProduct = useBlockStore(s => s.removeProduct)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
+
+  // Toggling swaps which control is on screen: the line's Expand button unmounts, and from md the handle
+  // row is not drawn while collapsed. Focus follows the toggle to its counterpart so a keyboard user is
+  // not dropped on the page. Below md the handle is the one element in both states and keeps its focus
+  // (focusing the line's hidden Expand button there is a no-op).
+  const handleRef = useRef<HTMLButtonElement>(null)
+  const lineExpandRef = useRef<HTMLButtonElement>(null)
+  const focusAfterToggle = useRef(false)
+  const toggle = (next: boolean) => {
+    focusAfterToggle.current = true
+    setCollapsed(next)
+  }
+  useLayoutEffect(() => {
+    if (!focusAfterToggle.current) return
+    focusAfterToggle.current = false
+    ;(collapsed ? lineExpandRef.current : handleRef.current)?.focus()
+  }, [collapsed])
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
@@ -282,7 +299,8 @@ export function FactorySummary() {
           ]}
           items={gameData.items}
           rateUnit={rateUnit}
-          onExpand={() => setCollapsed(false)}
+          expandRef={lineExpandRef}
+          onExpand={() => toggle(false)}
         />
       ) : (
       /* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */
@@ -436,12 +454,12 @@ export function FactorySummary() {
       )}
 
       {/* The handle row: it collapses the expanded summary, and expands the collapsed one below md,
-          where the three lines stack and have no room for the Expand button. */}
+          where the three lines stack and have no room for the Expand button. Its text is its accessible
+          name (the action it performs), so it carries no aria-expanded: that would state the same fact twice. */}
       <button
+        ref={handleRef}
         type="button"
-        aria-expanded={!collapsed}
-        aria-label={collapsed ? 'Expand the summary' : 'Collapse the summary'}
-        onClick={() => setCollapsed(!collapsed)}
+        onClick={() => toggle(!collapsed)}
         className={`${collapsed ? 'md:hidden ' : ''}h-[18px] w-full flex items-center justify-center gap-1.5 border-b border-gray-700 bg-gray-900 text-[10px] tracking-[0.04em] text-gray-400 hover:text-gray-200`}
       >
         <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? 'rotate-180' : undefined}>
