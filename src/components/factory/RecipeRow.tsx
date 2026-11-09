@@ -17,7 +17,9 @@ import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
-import { chipsOnOneLine, useChipsPerLine } from './oneLineChips'
+import { chipsInLines, chipsOnOneLine, useChipsPerLine } from './oneLineChips'
+import { RecipeChipsMore } from './RecipeChipsMore'
+import { useNarrowTable } from './useNarrowTable'
 import { AreasIcon, FolderIcon } from '../icons'
 import {
   buildAlsoInOptions,
@@ -49,6 +51,14 @@ const PRIMARY_AREA_HINT = '; the primary product decides what this row builds fo
  * left-aligned at the same x as a recipe row's first ingredient.
  */
 const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
+
+/**
+ * On a narrow screen (below 768px) a recipe row is one fixed height, 73px: at most two lines of 32px chips in a column
+ * (the Byproducts and Ingredients columns show one fewer than two lines hold and a "+N" in the last slot). The gap between
+ * the two lines is 4px there, so that the cell's 4px of padding and the row's 1px border make 73.
+ */
+const NARROW_CHIP_LINES = 2
+const NARROW_ROW_HEIGHT_CLASS = 'h-[73px]'
 
 interface RecipeRowProps {
   solvedNode: SolvedNode | undefined
@@ -124,6 +134,7 @@ export function RecipeRow({
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
+  const narrow = useNarrowTable()
 
   const { dragging, beginDrag, endDrag } = useRecipeDnd()
   const [dropZone, setDropZone] = useState<'before' | 'after' | 'into' | null>(null)
@@ -354,13 +365,13 @@ export function RecipeRow({
         <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} className={hairline} />
         <td
           className={`px-2 py-0.5 ${hairline}`}
-          colSpan={3}
+          colSpan={narrow ? 1 : 3}
           data-guide-levels={guideLevels(depth)}
-          style={treeGuideStyle(depth)}
+          style={treeGuideStyle(depth, narrow)}
           onContextMenu={openAreaRowMenu}
         >
           {dropZone === 'before' && <DropLine edge="top" />}
-          <div className="flex items-center gap-1.5 min-w-0">
+          <div className={`flex items-center gap-1.5 min-w-0 ${narrow ? 'flex-wrap content-center gap-y-0' : ''}`}>
             <button
               type="button"
               onClick={onToggleExpand}
@@ -385,7 +396,12 @@ export function RecipeRow({
               {label}
             </button>
             {childPlan && (
-              <span data-testid="group-summary" className="text-gray-400 text-[11px] whitespace-nowrap shrink-0">
+              <span
+                data-testid="group-summary"
+                className={narrow
+                  ? 'basis-full min-w-0 pl-7 truncate text-gray-400 text-[10px] leading-[1.1] whitespace-nowrap'
+                  : 'text-gray-400 text-[11px] whitespace-nowrap shrink-0'}
+              >
                 {summary}
               </span>
             )}
@@ -555,13 +571,49 @@ export function RecipeRow({
 
   const recipeOpacity = isDragging ? 'opacity-50' : ''
 
+  // Machine and module chips, then the beacon chips (the data model holds one configuration; the cell takes a list).
+  const machineChips = (
+    <div className={`flex items-center ${narrow ? 'gap-0.5' : 'gap-1'}`}>
+      <MachineCell
+        nodeId={planNode.id}
+        recipeId={planNode.recipeId}
+        recipeCategory={recipe.category}
+        machineId={planNode.machineId}
+        machineCountCeil={solvedNode?.machineCountCeil ?? 0}
+        gameData={gameData}
+      />
+      <ModuleCell
+        nodeId={planNode.id}
+        recipeId={planNode.recipeId}
+        machine={machine}
+        modules={planNode.modules}
+        machineSlots={machine?.moduleSlots ?? 0}
+        gameData={gameData}
+        noMachine={noMachineInHorizon}
+        onOpenEdit={() => openSection('machine')}
+      />
+    </div>
+  )
+  const beaconChips = (
+    <BeaconCell
+      nodeId={planNode.id}
+      beacons={planNode.beaconConfigs ?? []}
+      compact={narrow}
+      gameData={gameData}
+      recipeId={planNode.recipeId}
+      machineId={planNode.machineId}
+      recipeCategory={recipe.category}
+      onOpenEdit={() => openSection('beacons')}
+    />
+  )
+
   return (
     <tr
       ref={rowRef}
       data-node-id={planNode.id}
       {...highlightProps}
       data-selected={isSelected ? 'true' : undefined}
-      className={`border-b border-gray-800 ${rowStateClass} group group/row relative ${recipeOpacity} ${highlightClass}`}
+      className={`border-b border-gray-800 ${rowStateClass} group group/row relative ${narrow ? NARROW_ROW_HEIGHT_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
       onClick={handleRowClick}
       draggable
       onDragStart={handleDragStart}
@@ -577,7 +629,7 @@ export function RecipeRow({
       <td
         className="px-2 py-0.5 whitespace-nowrap"
         data-guide-levels={guideLevels(depth)}
-        style={treeGuideStyle(depth)}
+        style={treeGuideStyle(depth, narrow)}
         onContextMenu={e => {
           e.preventDefault()
           setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
@@ -632,6 +684,12 @@ export function RecipeRow({
             </span>
           )}
         </div>
+        {narrow && (
+          <div data-testid="row-machine-stack" className="mt-1 flex items-center gap-0.5">
+            {machineChips}
+            {beaconChips}
+          </div>
+        )}
         {rowMenu && (
           <RowActionsMenu x={rowMenu.x} y={rowMenu.y} actions={rowActions} onClose={() => closeMenu('row')} />
         )}
@@ -660,42 +718,13 @@ export function RecipeRow({
         )}
       </td>
 
-      {/* Machine + module slots */}
-      <td className="px-2 py-0.5 whitespace-nowrap">
-        <div className="flex items-center gap-1">
-          <MachineCell
-            nodeId={planNode.id}
-            recipeId={planNode.recipeId}
-            recipeCategory={recipe.category}
-            machineId={planNode.machineId}
-            machineCountCeil={solvedNode?.machineCountCeil ?? 0}
-            gameData={gameData}
-          />
-          <ModuleCell
-            nodeId={planNode.id}
-            recipeId={planNode.recipeId}
-            machine={machine}
-            modules={planNode.modules}
-            machineSlots={machine?.moduleSlots ?? 0}
-            gameData={gameData}
-            noMachine={noMachineInHorizon}
-            onOpenEdit={() => openSection('machine')}
-          />
-        </div>
-      </td>
-
-      {/* Beacons — the data model holds one configuration; the cell takes a list */}
-      <td className="px-2 py-0.5 whitespace-nowrap">
-        <BeaconCell
-          nodeId={planNode.id}
-          beacons={planNode.beaconConfigs ?? []}
-          gameData={gameData}
-          recipeId={planNode.recipeId}
-          machineId={planNode.machineId}
-          recipeCategory={recipe.category}
-          onOpenEdit={() => openSection('beacons')}
-        />
-      </td>
+      {/* Machine + module slots, and Beacons: columns of their own, or (narrow) under the recipe name */}
+      {!narrow && (
+        <>
+          <td className="px-2 py-0.5 whitespace-nowrap">{machineChips}</td>
+          <td className="px-2 py-0.5 whitespace-nowrap">{beaconChips}</td>
+        </>
+      )}
 
       {/* Products — the single primary product, left-aligned so it sits above the items a collapsed area sends; the pin badge sits on the chip */}
       <td className="px-2 py-0.5">
@@ -722,8 +751,12 @@ export function RecipeRow({
 
       {/* Byproducts — non-primary outputs; click chip to make it primary */}
       <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5">
-          {byproductEntries.map(([itemId, ratePerMin]) => {
+        <ChipColumn
+          column="byproducts"
+          entries={byproductEntries}
+          items={gameData.items}
+          narrow={narrow}
+          renderChip={([itemId, ratePerMin]) => {
             const policy = planNode.byproductPolicy[itemId] ?? 'feed-back'
             const baseName = gameData.items[itemId]?.name ?? itemId
             const byproductTemp = productTemperatures[itemId]
@@ -769,7 +802,8 @@ export function RecipeRow({
                 title={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
             )
-          })}
+          }}
+        >
           {itemMenu && (
             <RowActionsMenu
               x={itemMenu.x}
@@ -778,13 +812,17 @@ export function RecipeRow({
               onClose={() => closeMenu('item')}
             />
           )}
-        </div>
+        </ChipColumn>
       </td>
 
       {/* Ingredients, left-aligned at the same x as the items a collapsed area receives */}
       <td className="px-2 py-0.5" style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }}>
-        <div className="flex flex-wrap gap-1.5">
-          {inputEntries.map(([itemId, ratePerMin]) => {
+        <ChipColumn
+          column="ingredients"
+          entries={inputEntries}
+          items={gameData.items}
+          narrow={narrow}
+          renderChip={([itemId, ratePerMin]) => {
             const itemName = gameData.items[itemId]?.name ?? itemId
             const temp = temperatureLabels[itemId]
             const label = temp ? `${itemName} (${temp})` : itemName
@@ -804,8 +842,8 @@ export function RecipeRow({
                   : onIngredientClick ? `${label} — Find producer recipe` : temp ? label : undefined}
               />
             )
-          })}
-        </div>
+          }}
+        />
       </td>
 
       {/* Power */}
@@ -820,6 +858,36 @@ export function RecipeRow({
         })()}
       </td>
     </tr>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// ChipColumn — the chips of a recipe row's Byproducts or Ingredients cell. They wrap onto as many lines as they need, except
+// on a narrow screen, where the row has one fixed height and the cell holds two lines: when there are more chips than that,
+// one fewer than two lines hold is shown and the "+N" in the last slot opens the rest.
+// ---------------------------------------------------------------------------
+
+interface ChipColumnProps {
+  column: 'byproducts' | 'ingredients'
+  /** Item id and rate per minute, in display order. */
+  entries: [string, number][]
+  items: GameData['items']
+  narrow: boolean
+  renderChip: (entry: [string, number]) => React.ReactNode
+  /** Rendered after the chips (a menu). */
+  children?: React.ReactNode
+}
+
+function ChipColumn({ column, entries, items, narrow, renderChip, children }: ChipColumnProps) {
+  // Only a narrow screen counts the chips per line; a wide one draws them all, wrapping as they need.
+  const { ref, perLine } = useChipsPerLine<HTMLDivElement>(narrow)
+  const shown = narrow ? chipsInLines(entries.length, perLine, NARROW_CHIP_LINES) : entries.length
+  return (
+    <div ref={ref} className={`flex flex-wrap gap-x-1.5 ${narrow ? 'gap-y-1' : 'gap-y-1.5'}`}>
+      {entries.slice(0, shown).map(renderChip)}
+      <RecipeChipsMore column={column} hidden={entries.slice(shown)} items={items} renderChip={renderChip} />
+      {children}
+    </div>
   )
 }
 

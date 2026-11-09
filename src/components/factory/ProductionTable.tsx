@@ -3,6 +3,7 @@ import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/bl
 import { useSolverStore, selectBlockResult } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { RecipeRow } from './RecipeRow'
+import { useNarrowTable } from './useNarrowTable'
 import { SidePanel } from './sidePanel/SidePanel'
 import { TableToolbar } from './TableToolbar'
 import { useUiStore } from '../../store/uiStore'
@@ -35,14 +36,19 @@ const COLUMNS: Column[] = [
   { min: 148, weight: 4 }, // ingredients
   { fixed: 72 },
 ]
-const TABLE_MIN_WIDTH = COLUMNS.reduce((sum, c) => sum + ('fixed' in c ? c.fixed : c.min), 0)
-const TOTAL_WEIGHT = COLUMNS.reduce((sum, c) => sum + ('weight' in c ? c.weight : 0), 0)
+// Below 768px the Machine and Beacons columns (the 3rd and 4th) are dropped: a recipe row shows those chips under its name,
+// and a group row's name cell no longer spans three columns. The minimum width is then 554px.
+const NARROW_COLUMNS: Column[] = COLUMNS.filter((_, i) => i !== 2 && i !== 3)
+const columnCount = (narrow: boolean) => (narrow ? NARROW_COLUMNS : COLUMNS).length
 
-/** A shared column's width: its minimum plus its share of whatever the table has beyond TABLE_MIN_WIDTH. `cqw` is the width
+const minWidthOf = (columns: Column[]) => columns.reduce((sum, c) => sum + ('fixed' in c ? c.fixed : c.min), 0)
+const totalWeightOf = (columns: Column[]) => columns.reduce((sum, c) => sum + ('weight' in c ? c.weight : 0), 0)
+
+/** A shared column's width: its minimum plus its share of whatever the table has beyond the table's minimum width. `cqw` is the width
  * of the scrolling wrapper (a size container): a percentage in a <col> calc() is ignored by the browser. */
-function columnWidth(c: Column): string {
+function columnWidth(c: Column, columns: Column[]): string {
   if ('fixed' in c) return `${c.fixed}px`
-  return `calc(${c.min}px + max(0px, 100cqw - ${TABLE_MIN_WIDTH}px) * ${c.weight / TOTAL_WEIGHT})`
+  return `calc(${c.min}px + max(0px, 100cqw - ${minWidthOf(columns)}px) * ${c.weight / totalWeightOf(columns)})`
 }
 
 // ---------------------------------------------------------------------------
@@ -50,6 +56,8 @@ function columnWidth(c: Column): string {
 // ---------------------------------------------------------------------------
 
 export function ProductionTable() {
+  const narrow = useNarrowTable()
+  const columns = narrow ? NARROW_COLUMNS : COLUMNS
   const activeBlock = useBlockStore(selectActiveBlock)
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
@@ -127,9 +135,9 @@ export function ProductionTable() {
             </div>
           ) : (
             <RecipeDndProvider>
-              <table className="w-full border-collapse text-xs table-fixed" style={{ minWidth: TABLE_MIN_WIDTH }}>
+              <table className="w-full border-collapse text-xs table-fixed" style={{ minWidth: minWidthOf(columns) }}>
                 <colgroup>
-                  {COLUMNS.map((c, i) => <col key={i} style={{ width: columnWidth(c) }} />)}
+                  {columns.map((c, i) => <col key={i} style={{ width: columnWidth(c, columns) }} />)}
                 </colgroup>
                 <thead>
                   <tr className="text-gray-400 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
@@ -139,8 +147,8 @@ export function ProductionTable() {
                         Recipe
                       </span>
                     </th>
-                    <th className="px-2 py-1">Machine</th>
-                    <th className="px-2 py-1">Beacons</th>
+                    {!narrow && <th className="px-2 py-1">Machine</th>}
+                    {!narrow && <th className="px-2 py-1">Beacons</th>}
                     <th className="px-2 py-1">Products</th>
                     <th className="px-2 py-1">Byproducts</th>
                     <th className="px-2 py-1" style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }}>Ingredients</th>
@@ -275,6 +283,7 @@ function findSubPlanAnywhere(plan: SubPlan, id: string): SubPlan | undefined {
 // ---------------------------------------------------------------------------
 
 function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth: number }) {
+  const narrow = useNarrowTable()
   const { dragging, endDrag } = useRecipeDnd()
   const moveNode = useBlockStore(s => s.moveNode)
   const rootPlan = useBlockStore(s => selectActiveBlock(s)?.rootPlan)
@@ -304,7 +313,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]" style={treeGuideStyle(depth)}>
+      <td colSpan={columnCount(narrow)} className="py-2 text-center text-gray-700 text-[10px]" style={treeGuideStyle(depth, narrow)}>
         Drop here
       </td>
     </tr>
@@ -316,6 +325,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
 // ---------------------------------------------------------------------------
 
 function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCount: number }) {
+  const narrow = useNarrowTable()
   const { dragging, endDrag } = useRecipeDnd()
   const moveNode = useBlockStore(s => s.moveNode)
   const rootPlan = useBlockStore(s => selectActiveBlock(s)?.rootPlan)
@@ -347,7 +357,7 @@ function TrailingDropZone({ subPlanId, nodeCount }: { subPlanId: string; nodeCou
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={8} className="py-2 text-center text-gray-700 text-[10px]">
+      <td colSpan={columnCount(narrow)} className="py-2 text-center text-gray-700 text-[10px]">
         Drop here to append
       </td>
     </tr>

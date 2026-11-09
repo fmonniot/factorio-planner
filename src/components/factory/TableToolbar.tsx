@@ -46,7 +46,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         type="button"
         onClick={onAddRecipe}
         aria-label="Add recipe"
-        className="h-[26px] px-2.5 rounded-md bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
+        className="h-[26px] max-md:shrink-0 max-md:whitespace-nowrap px-2.5 rounded-md bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold"
       >
         + Recipe
       </button>
@@ -65,7 +65,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         />
       </label>
 
-      <span role="group" aria-label="Rate unit" className="inline-flex rounded-md border border-gray-700 overflow-hidden text-[11px]">
+      <span role="group" aria-label="Rate unit" className="inline-flex max-md:shrink-0 max-md:whitespace-nowrap rounded-md border border-gray-700 overflow-hidden text-[11px]">
         {RATE_UNITS.map(({ unit, label }) => (
           <button
             key={unit}
@@ -79,7 +79,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         ))}
       </span>
 
-      <span className="ml-auto flex items-center gap-2 md:gap-4 text-[11px] text-gray-400">
+      <span className="ml-auto flex max-md:shrink-0 items-center gap-2 md:gap-4 text-[11px] text-gray-400 max-md:whitespace-nowrap">
         <WarningsPopover />
         <span data-testid="block-recipe-count">
           <span className="font-mono tabular-nums text-gray-100">{recipes}</span> {recipes === 1 ? 'recipe' : 'recipes'}
@@ -282,16 +282,18 @@ export function WarningsPopover() {
         onClick={() => setOpen(o => !o)}
         aria-haspopup="dialog"
         aria-expanded={open}
-        className={`flex items-center gap-1 h-7 px-2.5 rounded-full border text-xs ${badgeColor}`}
+        className={`flex items-center gap-1 h-7 max-md:whitespace-nowrap px-2.5 max-md:px-2 rounded-full border text-xs ${badgeColor}`}
         title="Show solver warnings"
       >
         <span>⚠</span>
-        <span>{warnings.length} warning{warnings.length > 1 ? 's' : ''}</span>
-        <span className="text-[10px] opacity-60">{open ? '▲' : '▼'}</span>
+        {/* Below 768px the pill is "⚠ 1": the count shows, the words stay for assistive technology. */}
+        <span aria-hidden className="md:hidden">{warnings.length}</span>
+        <span className="max-md:sr-only">{warnings.length} warning{warnings.length > 1 ? 's' : ''}</span>
+        <span className="text-[10px] opacity-60 max-md:hidden">{open ? '▲' : '▼'}</span>
       </button>
 
       {open && (
-        <div data-testid="warnings-popover" className="absolute top-full right-0 max-md:right-2 max-md:left-2 max-md:w-auto mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
+        <div data-testid="warnings-popover" className="whitespace-normal absolute top-full right-0 max-md:right-2 max-md:left-2 max-md:w-auto mt-2 w-80 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs z-50">
           <div className="px-3 py-2 border-b border-gray-700 font-medium text-gray-300">
             Solver warnings
           </div>

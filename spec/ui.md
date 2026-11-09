@@ -57,7 +57,7 @@ session (see [Game data set](#game-data-set)).
 └──────────────────────────────────────────────────────────────────────────┘
 ```
 
-The side panel appears to the right of the table only while a row is selected. The layout supports viewports from 360px wide; 768px and up is comfortable. It is pure CSS with two breakpoints: `md` (768px) sets the density of the chrome and the shape of the summary strip, and `xl` (1280px) decides whether the side panel sits beside the table (from `xl`) or floats over it as a drawer (below). The shell is `h-dvh` with clipped overflow, so no region may grow wider than the viewport: the production table scrolls inside its own wrapper (`overscroll-x-contain`) and the summary strip scrolls inside itself. Hover-only and right-click-only interactions have no touch alternative yet (see the backlog).
+The side panel appears to the right of the table only while a row is selected. The layout supports viewports from 360px wide; 768px and up is comfortable. It is CSS with two breakpoints (plus one media query in JS, `useNarrowTable`, which changes the production table's columns below `md`, see [Narrow screens](#narrow-screens)): `md` (768px) sets the density of the chrome and the shape of the summary strip, and `xl` (1280px) decides whether the side panel sits beside the table (from `xl`) or floats over it as a drawer (below). The shell is `h-dvh` with clipped overflow, so no region may grow wider than the viewport: the production table scrolls inside its own wrapper (`overscroll-x-contain`) and the summary strip scrolls inside itself. Hover-only and right-click-only interactions have no touch alternative yet (see the backlog).
 
 ---
 
@@ -762,8 +762,8 @@ The solver's `unsatisfied` list: everything the block must import (product short
 
 ### Warnings popover
 
-`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals; below `md` its list is anchored to the toolbar and spans its width, so it stays on screen. A `⚠ N warnings` pill (`aria-haspopup="dialog"`,
-`aria-expanded`), amber, or red when any warning is
+`WarningsPopover` (in `TableToolbar.tsx`), in the [table toolbar](#table-toolbar), just before the totals; below `md` its list is anchored to the toolbar and spans its width, so it stays on screen. A `⚠ N warnings ▾` pill (`aria-haspopup="dialog"`,
+`aria-expanded`; below `md` the compact `⚠ N`, with 8px of side padding instead of 10 and no arrow: the words stay in the accessible name, visually hidden), amber, or red when any warning is
 `infeasible-pins`; it renders only while the last solve produced warnings. Clicking it opens a list where each warning has a title, an
 explanation naming the items or recipes involved, and a hint:
 
@@ -789,7 +789,7 @@ The popover closes on Escape or a click outside.
 
 - Without game data: "Load game data to begin".
 - With no nodes: "No recipes yet" (the toolbar's `+ Recipe` button is the way to add one).
-- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. The table is at least 730px wide (the sum of the column minimums); when its wrapper is narrower, the wrapper scrolls horizontally while the sticky header stays at its top. Above 730px the free width is shared by the Recipe, Byproducts and Ingredients columns in the proportions 3 : 2 : 4 (Products is fixed), on top of their minimums (see [Columns](#columns)).
+- Otherwise: the [table toolbar](#table-toolbar) above a table with a sticky header, then rows. The table is 900px wide at the 1280px reference width and the panel 380px; with no row selected the table takes the full width. The table is at least 730px wide (the sum of the column minimums); when its wrapper is narrower, the wrapper scrolls horizontally while the sticky header stays at its top. Above 730px the free width is shared by the Recipe, Byproducts and Ingredients columns in the proportions 3 : 2 : 4 (Products is fixed), on top of their minimums (see [Columns](#columns)). Below 768px the table has no Machine and Beacons columns and is at least 554px wide (see [Narrow screens](#narrow-screens)).
 
 The toolbar's `+ Recipe` button opens the
 [recipe picker](#recipe-picker); the chosen recipe is appended to the block's root
@@ -799,10 +799,10 @@ plan as a new node with default settings.
 
 `TableToolbar.tsx` (`factory/`) is the row just above the table, 44px high, shown whenever game data is loaded. It is separate from the [TopBar](#topbar), which it does not change. From left to right:
 
-- **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows.
+- **`+ Recipe`** (teal, `aria-label` "Add recipe"): opens the recipe picker. It is the only add button for rows. Below `md` it, the unit switch, the counts and the pill never wrap or shrink (`max-md:whitespace-nowrap`, `max-md:shrink-0`): the toolbar is one line high at 416px. From `md` they behave as before.
 - **Filter**: a search field, "Filter recipes or items". It is not implemented yet: typing does not narrow the table, and a code comment says so. Hidden below `md`.
 - **`/min | /sec`**: a segmented control (`role="group"`, "Rate unit") that switches the rate unit: the unit is stored in `uiStore` and persisted, the default is per minute, and it changes how every rate in the summary and the table is displayed (stored values are always per minute). The pressed segment is the current unit.
-- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count; hidden below `md`), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
+- **Totals**, right-aligned, over the whole block at every depth. The [warnings pill](#warnings-popover) (compact below `md`; only while the last solve produced warnings) opens the first of them, before the recipe count: the recipe rows (`data-testid="block-recipe-count"`, "1 recipe" / "N recipes"), the machines (`block-machine-count`, the sum of each row's rounded-up machine count; hidden below `md`), and the power (`block-power-total`, ⚡ with auto-scaled W / kW / MW / GW, hidden when zero). The power total is the sum of every solved row's power draw.
 
 There is no Tree / By recipe toggle: the by-recipe view is slated for removal.
 
@@ -825,7 +825,18 @@ The reorder column comes first (▲/▼ buttons), then:
 
 The table is `table-fixed` with a `<colgroup>` (`COLUMNS` in `ProductionTable.tsx`, widths include the cell padding), so the content of a row never moves the columns. Reorder, Machine, Beacons, Products and Power are fixed; the other three are their minimum plus a share (weights 3 : 2 : 4) of the width beyond the 730px table minimum, computed with `calc()` on `cqw` (the table's scroll wrapper is an inline-size container; a percentage inside a `<col>` calc is ignored by browsers). Container query units in a `<col>` need Safari 16+ / Firefox 110+ / Chrome 105+; older browsers drop the declaration, and the three shared columns then split the leftover width equally (no fallback is provided). The container's layout containment would also make a `position: fixed` descendant of the wrapper position against it; popups are portalled to `body`, so none exists. A chip slot is 38px (a 32px icon and a 6px gap), so `n` chips need `38n - 6`px inside a cell's 16px of padding: Products holds exactly one (its fixed 72px), at the minimum Byproducts holds 1 chip per line and wraps beyond, Ingredients 2 (the 28px indent costs one slot); at 1470px with the panel closed Byproducts and Ingredients hold about 5 and 10.
 
+Below 768px the Machine and Beacons columns are gone: see [Narrow screens](#narrow-screens).
+
 Products, Byproducts and Ingredients are adjacent on purpose: everything a machine outputs reads together, then what it consumes. There is no column picker and no by-recipe view. A cell that holds chips never uses `overflow: hidden`, which would clip their badges.
+
+### Narrow screens
+
+Below 768px (`md`; `useNarrowTable.ts` follows the media query `(min-width: 768px)`) the production table changes shape. The Machine and Beacons columns are dropped (`NARROW_COLUMNS` in `ProductionTable.tsx`): the table's minimum width is 554px (32 + 150 + 72 + 80 + 148 + 72) and the shared columns split what is beyond it as usual. The columns come back at 768px, so a phone held sideways or a tablet keeps the full table.
+
+- **Recipe rows** hold their machine, module and beacon chips on a line under the recipe name (`data-testid="row-machine-stack"`, 2px between its chips). A recipe row has one fixed height, 73px (37 + 36): two lines of 32px chips (4px between the lines, the cell's 4px of padding, the 1px border) hold the Byproducts and Ingredients chips, and a row with fewer chips is as high. A column with more chips than two lines hold shows one fewer than they hold and a `+N` in the last slot (`ChipColumn` in `RecipeRow.tsx` counts with `chipsInLines` from `oneLineChips.ts`; at the 554px minimum, Byproducts holds one chip per line and Ingredients two). Products always holds exactly one chip. The stack of four chips (machine, module and the two beacon chips) is 134px wide, and the Recipe column holds 134px at the 554px minimum, so the narrow indent is 2px per nesting level instead of 12 (`NARROW_GUIDE_WIDTH_PX` in `treeGuides.ts`, guide lines included): at the nesting limit the stack ends exactly at the cell's right edge, never on the Products chip.
+- **The `+N`** (`RecipeChipsMore.tsx`, `data-testid="recipe-chips-more"`, `aria-label` "N more byproducts" / "N more ingredients", 32px wide) opens on click a dialog (`role="dialog"`, named "More byproducts" or "More ingredients", `data-testid="recipe-chips-popup"`) under the button and 16px to its left, above it when there is no room, clamped to the screen (`anchoredBelow` in `anchoredPosition.ts`); the dialog has a Close button and lists only the hidden items, one per line: the chip, the name and the rate. The chips in the list are the row's own chips (`renderChip` of `ChipColumn`) and do what a visible chip does: a hidden ingredient finds its producer recipe, a hidden byproduct becomes the primary product (or toggles feed-back / discard on a single-output recipe), and right-clicking a hidden byproduct opens its "Add consumer recipe…" menu; the chip's tooltip names the exact rate, the sourcing badge and the fuel mark are drawn as on a visible chip. A press on a chip closes the list (so does a right-click that opened a menu, which would otherwise lie under the list). Escape, Close, a press outside, a scroll, a resize or focus moving elsewhere close it; opening it does not select the row. It is `useHoverPopup` in its `click` mode (no hover or focus opening): the dialog takes focus when it opens (it is focusable itself, then Tab walks Close and the chips), the button carries `aria-controls`, and closing by Escape, Close or the button gives focus back to the button (a press outside leaves focus to what was pressed; Tab past the dialog closes it and focus stays where it went). When the dialog fits neither under nor above the button (a short landscape screen) it takes the side with more room and scrolls inside that room (`maxHeight`), so it never covers its button. The `+N` of a collapsed area row uses the same placement (and the same height limit).
+- **Group rows** have a name cell of one column (the 176px of empty space the Machine and Beacons columns gave it are gone): the summary ("3 recipes · 5 machines") is on a line of its own under the name, 10px, indented to start under the icon; a group row keeps its 37px minimum height. The sent items span the Products and Byproducts columns as before (152px), the received items the Ingredients column.
+- The drop zones span the six columns.
 
 ### Icon chip
 
@@ -975,7 +986,7 @@ The pickers are the machine picker, the fuel picker, the module slot pickers, th
 A `SubPlanNode` renders as a group row in the same grid as the recipe rows:
 
 - The same ▲/▼ reorder cell as a recipe row; rows and groups are both draggable.
-- One 12px vertical **guide** line per ancestor level in the Recipe cell (`treeGuides.ts`; `data-guide-levels` is the number drawn), running the full height of the row so the tree reads as one continuous line; recipe rows use the same guides. The indent stops growing at 4 levels. A collapsed group row has a tinted background that gets fainter with each nesting level (gray-800 at 30%, 20%, 10%, 5%; the last step is shared by anything deeper); an open group is banded instead (see below).
+- One 12px vertical **guide** line per ancestor level in the Recipe cell (`treeGuides.ts`; `data-guide-levels` is the number drawn), running the full height of the row so the tree reads as one continuous line; recipe rows use the same guides (2px per level instead of 12 below 768px, see [Narrow screens](#narrow-screens)). The indent stops growing at 4 levels. A collapsed group row has a tinted background that gets fainter with each nesting level (gray-800 at 30%, 20%, 10%, 5%; the last step is shared by anything deeper); an open group is banded instead (see below).
 - A chevron **button** (`aria-expanded`, `aria-label` "Collapse X" / "Expand X"), then a 12px **icon** (always, so a table of areas and a mixed table look alike; gray-400, an `<svg role="img">` named by its tooltip): the areas icon of the toolbar (`data-testid="area-marker"`, "Separate area") for a separate area, a folder (`data-testid="group-marker"`, "Sub-factory") for a plain sub-factory; then the name as a button (it selects the group; `aria-pressed`), then the summary (`data-testid="group-summary"`), both counts recursive over nested sub-factories: "N machines" when it equals the recipe count, else "N recipes · M machines".
 - An **open** group (and only an open one) is banded: background teal-400 at 5% instead of its gray tint, a 1px hairline under its header (teal-400 at 28%, an inset shadow in every cell of the row; not drawn on a selected row, which keeps the selection tint) and a teal-400 icon. The name weight is untouched. Collapsed rows keep the tint.
 - The Power column shows the group's recursive total (`data-testid="group-power"`).
@@ -996,7 +1007,7 @@ a focus opened it, which only re-anchors it: focus may scroll the button into vi
 blur and the start of a row drag also close it. The placement is measured on opening and again whenever
 the popup resizes. Context-menu events from the popup do not reach the row. The popup closes when the
 overflow empties. The popup is rendered in a portal on `document.body`
-(`position: fixed`, to the right of the button, flipped left or clamped by `anchoredPosition`), since
+(`position: fixed`, under the button and 16px to its left, above it when there is no room, clamped to the screen by `anchoredBelow`: the same place as the list of a recipe row's "+N", see [Narrow screens](#narrow-screens)), since
 the table scrolls. Timing, placement and dismissal live in the `useHoverPopup.ts` hook. An organising
 sub-factory shows no chips (the Products and Ingredients cells stay empty, as does a side with no flows).
 

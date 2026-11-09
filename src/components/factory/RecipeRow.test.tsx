@@ -1839,3 +1839,231 @@ describe('RecipeRow — selection', () => {
     expect(groupRow.className).toContain('bg-[rgba(20,184,166,0.22)]')
   })
 })
+
+describe('RecipeRow on a narrow screen', () => {
+  const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${i}`)
+  const rates = (list: string[]) => Object.fromEntries(list.map(id => [id, 60]))
+
+  // Below 768px: the media query "(min-width: 768px)" does not match.
+  function narrowScreen(narrow = true) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: !narrow, media: query, addEventListener: () => {}, removeEventListener: () => {},
+    }))
+  }
+  // A box `widthPx` wide: the chips of a column are counted against it (happy-dom has no layout).
+  function withLineWidth(widthPx: number) {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => widthPx })
+  }
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+  })
+
+  const busy: SolvedNode = { ...solvedNode, inputRates: rates(ids('i', 7)), outputRates: { 'iron-plate': 60, ...rates(ids('b', 5)) } }
+  const tr = () => document.querySelector('tr[data-node-id="node-1"]') as HTMLTableRowElement
+  const dialog = (name: string) => screen.queryByRole('dialog', { name })
+
+  it('has no Machine and Beacons cells, and holds those chips under the recipe name, in a row of one fixed height', () => {
+    narrowScreen()
+    renderRow()
+    expect(tr().cells).toHaveLength(6)
+    expect(tr()).toHaveClass('h-[73px]')
+    const stack = within(tr().cells[1]).getByTestId('row-machine-stack')
+    expect(within(stack).getByTestId('machine-chip')).toBeInTheDocument()
+    expect(within(stack).getByLabelText('Add beacon')).toBeInTheDocument()
+  })
+
+  it('keeps all eight cells, and the usual row height, from 768px', () => {
+    narrowScreen(false)
+    renderRow()
+    expect(tr().cells).toHaveLength(8)
+    expect(tr()).not.toHaveClass('h-[73px]')
+    expect(screen.queryByTestId('row-machine-stack')).not.toBeInTheDocument()
+  })
+
+  it('shows one fewer chip than two lines hold, and a +N that opens the rest as a list next to it', () => {
+    narrowScreen()
+    withLineWidth(2 * 38 - 6) // two chips per line
+    renderRow({ solvedNode: busy })
+    const byproducts = tr().cells[3]
+    const ingredients = tr().cells[4]
+    // 5 byproducts and 7 ingredients do not fit in 2 lines of 2: 3 chips and the +N.
+    expect(byproducts.querySelectorAll('[data-variant="byproduct"]')).toHaveLength(3)
+    expect(ingredients.querySelectorAll('[data-variant="ingredient"]')).toHaveLength(3)
+    const more = within(ingredients).getByRole('button', { name: '4 more ingredients' })
+    expect(more).toHaveTextContent('+4')
+    expect(within(byproducts).getByRole('button', { name: '2 more byproducts' })).toHaveTextContent('+2')
+
+    expect(dialog('More ingredients')).toBeNull()
+    fireEvent.click(more)
+    const list = screen.getByRole('dialog', { name: 'More ingredients' })
+    expect(Array.from(list.querySelectorAll('[data-variant="ingredient"]'))).toHaveLength(4)
+    expect(list).toHaveTextContent('i3')
+    expect(list).toHaveTextContent('i6')
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(within(list).getByRole('button', { name: 'Close' }))
+    expect(dialog('More ingredients')).toBeNull()
+    fireEvent.click(more)
+    expect(dialog('More ingredients')).not.toBeNull()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(dialog('More ingredients')).toBeNull()
+  })
+
+  describe('the hidden chips in the list keep the actions the visible ones have', () => {
+    beforeEach(() => { useUiStore.setState({ selectedRow: null }) })
+    function open(name: 'More ingredients' | 'More byproducts', props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: busy, ...props })
+      const more = screen.getByRole('button', { name: name === 'More ingredients' ? '4 more ingredients' : '2 more byproducts' })
+      fireEvent.click(more)
+      return { more, list: screen.getByRole('dialog', { name }) }
+    }
+
+    it('finds the producer of a hidden ingredient, names the exact rate, and closes the list', () => {
+      const onIngredientClick = vi.fn()
+      const { list } = open('More ingredients', { onIngredientClick })
+      const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+      const chip = within(list).getByTitle(/^i3 — Find producer recipe — 60/)
+      fireEvent.click(chip)
+      expect(onIngredientClick).toHaveBeenCalledWith('i3', rootId)
+      expect(dialog('More ingredients')).toBeNull()
+      // Pressing a chip is not a press on the row.
+      expect(useUiStore.getState().selectedRow).toBeNull()
+    })
+
+    it('toggles the policy of a hidden byproduct (a single-output recipe) and closes the list', () => {
+      const { list } = open('More byproducts')
+      fireEvent.click(within(list).getByTitle(/^b4 — feed-back \(click to toggle\)/))
+      expect(useBlockStore.getState().blocks[0].rootPlan.nodes[0]).toMatchObject({ byproductPolicy: { b4: 'discard' } })
+      expect(dialog('More byproducts')).toBeNull()
+    })
+
+    it('opens the byproduct menu from a hidden byproduct, closing the list that would lie over it', () => {
+      const onAddConsumer = vi.fn()
+      const { list } = open('More byproducts', { onAddConsumer })
+      const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+      fireEvent.contextMenu(within(list).getByTitle(/^b4 — feed-back/))
+      expect(dialog('More byproducts')).toBeNull()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
+      expect(onAddConsumer).toHaveBeenCalledWith('b4', rootId)
+    })
+
+    it('does not open the row menu from a hidden ingredient, and the list stays', () => {
+      const { list } = open('More ingredients', { onIngredientClick: vi.fn() })
+      fireEvent.contextMenu(within(list).getByTitle(/^i3 — Find producer recipe/))
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(dialog('More ingredients')).not.toBeNull()
+    })
+
+    it('marks the fuel among the hidden ingredients', () => {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: { ...busy, fuelItemId: 'i5' } })
+      fireEvent.click(screen.getByRole('button', { name: '4 more ingredients' }))
+      const list = screen.getByRole('dialog', { name: 'More ingredients' })
+      expect(within(list).getByTitle(/^Fuel: i5/).closest('[data-fuel="true"]')).not.toBeNull()
+    })
+  })
+
+  describe('focus', () => {
+    function open() {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: busy })
+      const more = screen.getByRole('button', { name: '4 more ingredients' })
+      fireEvent.click(more)
+      return { more, list: screen.getByRole('dialog', { name: 'More ingredients' }) }
+    }
+
+    it('moves into the dialog when it opens, and the button names it', () => {
+      const { more, list } = open()
+      expect(list).toHaveFocus()
+      expect(more).toHaveAttribute('aria-controls', list.id)
+      expect(list.id).not.toBe('')
+    })
+
+    it('goes back to the button when Escape, Close or the button itself closes the dialog', () => {
+      const { more, list } = open()
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(dialog('More ingredients')).toBeNull()
+      expect(more).toHaveFocus()
+      expect(more).not.toHaveAttribute('aria-controls')
+
+      fireEvent.click(more)
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'More ingredients' })).getByRole('button', { name: 'Close' }))
+      expect(dialog('More ingredients')).toBeNull()
+      expect(more).toHaveFocus()
+      expect(list.isConnected).toBe(false)
+    })
+
+    it('closes when focus moves to something else, and leaves it there', () => {
+      const { list } = open()
+      const elsewhere = document.createElement('button')
+      document.body.appendChild(elsewhere)
+      // What a Tab past the dialog does: focusout from it, with the element that gets focus as the related target.
+      fireEvent.focusOut(list, { relatedTarget: elsewhere })
+      expect(dialog('More ingredients')).toBeNull()
+      expect(document.activeElement).not.toBe(list)
+      elsewhere.remove()
+      expect(list.isConnected).toBe(false)
+    })
+
+    it('stays open while focus moves inside it', () => {
+      const { list } = open()
+      fireEvent.focusOut(list, { relatedTarget: within(list).getByRole('button', { name: 'Close' }) })
+      expect(dialog('More ingredients')).not.toBeNull()
+      // And a focusout that names no target (the window, a press on the page) leaves the other dismissals to decide.
+      fireEvent.focusOut(list, { relatedTarget: null })
+      expect(dialog('More ingredients')).not.toBeNull()
+    })
+  })
+
+  it('shows every chip, and no +N, when two lines hold them all', () => {
+    narrowScreen()
+    withLineWidth(2 * 38 - 6)
+    renderRow({ solvedNode: { ...busy, inputRates: rates(ids('i', 4)), outputRates: { 'iron-plate': 60, ...rates(ids('b', 2)) } } })
+    expect(tr().cells[4].querySelectorAll('[data-variant="ingredient"]')).toHaveLength(4)
+    expect(tr().cells[3].querySelectorAll('[data-variant="byproduct"]')).toHaveLength(2)
+    expect(screen.queryByTestId('recipe-chips-more')).not.toBeInTheDocument()
+  })
+
+  it('measures the chip columns only on a narrow screen', () => {
+    const observed = vi.fn()
+    vi.stubGlobal('ResizeObserver', class { constructor() { observed() } observe() {} disconnect() {} })
+    narrowScreen(false)
+    renderRow({ solvedNode: busy })
+    expect(observed).not.toHaveBeenCalled()
+    cleanup()
+    narrowScreen()
+    renderRow({ solvedNode: busy })
+    expect(observed).toHaveBeenCalled()
+  })
+
+  it('draws every chip, with no +N, from 768px', () => {
+    narrowScreen(false)
+    withLineWidth(2 * 38 - 6)
+    renderRow({ solvedNode: busy })
+    expect(tr().cells[6].querySelectorAll('[data-variant="ingredient"]')).toHaveLength(7)
+    expect(screen.queryByTestId('recipe-chips-more')).not.toBeInTheDocument()
+  })
+
+  it('has one chip in Products, the row\'s primary product', () => {
+    narrowScreen()
+    renderRow({ solvedNode: busy })
+    expect(tr().cells[2].querySelectorAll('[data-variant="product"]')).toHaveLength(1)
+  })
+
+  it('gives a group row a name cell of one column, and its summary a line under the name', () => {
+    narrowScreen()
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    const row = document.querySelector('tr[data-node-id="sp-node"]') as HTMLTableRowElement
+    expect(row.cells[1]).toHaveAttribute('colspan', '1')
+    expect(screen.getByTestId('group-summary')).toHaveClass('basis-full')
+  })
+})
