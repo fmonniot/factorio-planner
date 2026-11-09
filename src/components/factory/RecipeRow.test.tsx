@@ -1653,4 +1653,45 @@ describe('RecipeRow — selection', () => {
     expect(row.className).toContain('outline-[rgba(45,212,191,0.65)]')
     expect(screen.getByRole('button', { name: 'Group' }).className).toMatch(/text-white.*font-bold/)
   })
+
+  it('lets the flash of a revealed row replace the selection tint and outline instead of stacking with them', () => {
+    renderRow({ isHighlighted: true })
+    fireEvent.click(screen.getByTestId('row-power'))
+    const row = document.querySelector('tr[data-node-id="node-1"]')!
+    expect(row).toHaveAttribute('data-selected', 'true')
+    expect(row.className).toContain('bg-teal-900/40')
+    expect(row.className).toContain('outline-teal-400')
+    expect(row.className).not.toContain('bg-[rgba(20,184,166,0.22)]')
+    expect(row.className).not.toContain('outline-[rgba(45,212,191,0.65)]')
+  })
+
+  it('lets the drop-into-group cue replace the selection outline of a selected group row', () => {
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub: SubPlan = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [ironPlateRecipeNode, planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    const common = { isFirst: false, isLast: false, depth: 0, gameData: mockGameData, rootPlan, parentSubPlanId: rootPlan.id }
+    render(
+      <RecipeDndProvider>
+        <table>
+          <tbody>
+            <RecipeRow {...common} solvedNode={solvedNode} planNode={ironPlateRecipeNode} nodeIndex={0} />
+            <RecipeRow {...common} solvedNode={undefined} planNode={planNode} nodeIndex={1} />
+          </tbody>
+        </table>
+      </RecipeDndProvider>,
+    )
+    const groupRow = document.querySelector('tr[data-node-id="sp-node"]')!
+    fireEvent.click(screen.getByRole('button', { name: 'Group' }))
+    expect(groupRow.className).toContain('outline-[rgba(45,212,191,0.65)]')
+
+    const dataTransfer = { effectAllowed: 'none', dropEffect: 'none' }
+    fireEvent.dragStart(document.querySelector('tr[data-node-id="node-1"]')!, { dataTransfer })
+    fireEvent.dragOver(groupRow, { dataTransfer })
+    expect(groupRow.className).toContain('outline-blue-500')
+    expect(groupRow.className).not.toContain('outline-[rgba(45,212,191,0.65)]')
+    expect(groupRow.className).not.toContain('-outline-offset-1')
+    expect(groupRow.className).toContain('bg-[rgba(20,184,166,0.22)]')
+  })
 })
