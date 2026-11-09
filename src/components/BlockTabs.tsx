@@ -34,8 +34,6 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   const moveBlock = useBlockStore(s => s.moveBlock)
   const setBlockColor = useBlockStore(s => s.setBlockColor)
   const resetBlockColor = useBlockStore(s => s.resetBlockColor)
-  const gameData = useGameDataStore(selectGameData)
-  const firstItemId = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.products[0]?.itemId)
   const currentColor = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.color)?.toLowerCase()
   const index = blocks.findIndex(b => b.id === blockId)
   const ref = useRef<HTMLDivElement>(null)
@@ -160,7 +158,7 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
       <button
         role="menuitem"
         className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-        onClick={() => { resetBlockColor(blockId, firstItemId ? gameData?.items[firstItemId]?.iconColor : undefined); onClose() }}
+        onClick={() => { resetBlockColor(blockId); onClose() }}
       >
         Default colour
       </button>

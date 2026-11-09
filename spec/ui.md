@@ -147,9 +147,9 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
 - The **Add block** tool button (`AddBlockButton`, in the top bar's tool row) adds a new empty block named "Block N" and activates it. Every block has a
-  display colour ([data-model.md](data-model.md#block)); a new block gets a random
-  palette colour, preferring one no other block uses. A block can also be created by
-  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last); that block takes its colour from the item's icon (the palette colour nearest its hue, random for a grey or very dark icon).
+  display colour ([data-model.md](data-model.md#block)); a new block starts with a random
+  palette colour, preferring one no other block uses, and takes the default colour once it has a goal. A block can also be created by
+  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last); that block has the default colour from the start.
 - Drag a tab onto another to reorder the blocks: a blue line shows the insertion point on the half of
   the tab under the pointer (no line where a drop would not move anything), and the dragged tab is
   dimmed. The strip scrolls when the pointer nears its left or right edge. The active block stays
@@ -164,10 +164,10 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
   share a colour, and like the other block actions it is not undoable. **Default colour**, above
-  the swatches, gives the block the colour it would get if made for its first goal's item (the
-  palette colour nearest the item's icon hue, least used by the other blocks; random for a grey or
-  very dark icon, or a block with no goal). It is a one-time pick, not a mode: the colour does not
-  follow later changes of the first goal.
+  the swatches, hands the block back to the default: its colour follows the icon of its first goal
+  (the palette colour nearest the icon's hue, least used by the other blocks; random for a grey or
+  very dark icon, or while there is no goal), and changes when the first goal does. Picking a swatch
+  ends the following.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original

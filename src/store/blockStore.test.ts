@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import {
   useBlockStore,
   makeEmptyBlock,
@@ -9,8 +9,9 @@ import {
   selectAppState,
 } from './blockStore'
 import { findSubPlan } from '../data/subPlanTree'
-import type { AppState, BeaconConfig, Block, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
+import type { AppState, BeaconConfig, Block, GameData, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
+import { useGameDataStore } from './gameDataStore'
 import { areaRecipeIds, blockAreas } from '../solver/areas'
 
 // ---------------------------------------------------------------------------
@@ -39,6 +40,16 @@ beforeEach(() => {
     defaultMachineOverrides: {},
     history: {},
   })
+})
+
+/** Load game data whose items have these icon colours. Yellow gives #a3e635, the one palette colour near it; grey gives a random one. */
+function loadIconColors(colors: Record<string, string | undefined>) {
+  const items = Object.fromEntries(Object.entries(colors).map(([id, iconColor]) => [id, { id, name: id, iconPath: '', iconColor }]))
+  useGameDataStore.setState({ status: { type: 'loaded', gameData: { items } as unknown as GameData, sourceId: 'test' } })
+}
+
+afterEach(() => {
+  useGameDataStore.setState({ status: { type: 'empty' } })
 })
 
 // ---------------------------------------------------------------------------
@@ -1162,20 +1173,25 @@ describe('input connections', () => {
       ])
     })
 
-    it('takes the block colour from the icon colour when given', () => {
-      store().addBlockForItem('plate', 'Iron plate', undefined, '#ffff00')
-      expect(store().blocks[store().blocks.length - 1].color).toBe('#a3e635')
+    it('takes the default colour, from the item\'s icon colour', () => {
+      loadIconColors({ plate: '#ffff00' })
+      store().addBlockForItem('plate', 'Iron plate')
+      const created = store().blocks[store().blocks.length - 1]
+      expect(created.color).toBe('#a3e635')
+      expect(created.colorAuto).toBe(true)
     })
 
     it('picks a palette colour without an icon colour or with a grey one', () => {
+      loadIconColors({ gear: '#7a7a79' })
       store().addBlockForItem('plate', 'Iron plate')
       expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
-      store().addBlockForItem('gear', 'Gear', undefined, '#7a7a79')
+      store().addBlockForItem('gear', 'Gear')
       expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
     })
 
-    it('keeps the colour when a product is added and removed later', () => {
-      const newId = store().addBlockForItem('plate', 'Iron plate', undefined, '#ffff00')!
+    it('keeps the colour when a later product is added and removed', () => {
+      loadIconColors({ plate: '#ffff00', gear: '#ffff00' })
+      const newId = store().addBlockForItem('plate', 'Iron plate')!
       const color = store().blocks.find(b => b.id === newId)!.color
       store().setActiveBlock(newId)
       store().addProduct({ id: 'extra', itemId: 'gear', extraRate: 5 })
@@ -1676,33 +1692,101 @@ describe('block colours', () => {
     })
   })
 
-  describe('resetBlockColor', () => {
+  describe('default colour', () => {
+    const store = () => useBlockStore.getState()
+    const colorOf = (id: string) => store().blocks.find(b => b.id === id)!.color
+
     function seed() {
+      loadIconColors({ plate: '#ffff00', gear: '#7a7a79' })
       const a = makeEmptyBlock('A', '#60a5fa')
       const b = makeEmptyBlock('B', '#f472b6')
-      useBlockStore.setState({ blocks: [a, b], activeBlockId: a.id, history: {} })
+      useBlockStore.setState({ blocks: [a, b], activeBlockId: b.id, history: {} })
       return { a, b }
     }
 
-    it('takes the palette colour nearest the icon colour, for the target block only', () => {
-      const { a, b } = seed()
-      useBlockStore.getState().resetBlockColor(b.id, '#a3e635')
-      const [first, second] = useBlockStore.getState().blocks
-      expect(first.color).toBe(a.color)
-      expect(second.color).toBe('#a3e635')
-    })
-
-    it('picks a palette colour when there is no usable icon colour', () => {
-      const { b } = seed()
-      useBlockStore.getState().resetBlockColor(b.id)
-      expect(BLOCK_PALETTE).toContain(useBlockStore.getState().blocks[1].color)
-    })
-
-    it('ignores an unknown block', () => {
+    it('addBlock makes a block that follows its first product', () => {
       seed()
-      const before = useBlockStore.getState().blocks
-      useBlockStore.getState().resetBlockColor('missing', '#a3e635')
-      expect(useBlockStore.getState().blocks).toBe(before)
+      store().addBlock()
+      const added = store().blocks[2]
+      expect(added.colorAuto).toBe(true)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      expect(colorOf(added.id)).toBe('#a3e635')
+    })
+
+    it('recolours an auto block when its first product changes, and only then', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'gear' })
+      store().addProduct({ id: 'p2', itemId: 'plate' })
+      expect(colorOf(b.id)).not.toBe('#a3e635') // the second product does not count
+      store().removeProduct('p1')
+      expect(colorOf(b.id)).toBe('#a3e635')
+    })
+
+    it('keeps the colour when the last product is removed', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      store().removeProduct('p1')
+      expect(colorOf(b.id)).toBe('#a3e635')
+    })
+
+    it('follows the first product through undo and redo', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'gear' })
+      store().addProduct({ id: 'p2', itemId: 'plate' })
+      store().removeProduct('p1')
+      expect(colorOf(b.id)).toBe('#a3e635')
+      store().undo() // gear is first again: grey, so a random palette colour
+      expect(BLOCK_PALETTE).toContain(colorOf(b.id) as typeof BLOCK_PALETTE[number])
+      store().redo()
+      expect(colorOf(b.id)).toBe('#a3e635')
+    })
+
+    it('does not recolour a block whose colour was picked', () => {
+      const { b } = seed()
+      store().setBlockColor(b.id, '#fda4af')
+      expect(store().blocks[1].colorAuto).toBe(false)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      expect(colorOf(b.id)).toBe('#fda4af')
+    })
+
+    it('picking the colour the block already has still ends the following', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().setBlockColor(b.id, colorOf(b.id))
+      expect(store().blocks[1].colorAuto).toBe(false)
+    })
+
+    it('resetBlockColor takes the colour of the first product and follows it from then on', () => {
+      const { a, b } = seed()
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      store().resetBlockColor(b.id)
+      expect(colorOf(b.id)).toBe('#a3e635')
+      expect(store().blocks[1].colorAuto).toBe(true)
+      expect(colorOf(a.id)).toBe('#60a5fa')
+      expect(store().blocks[0].colorAuto).toBeFalsy()
+    })
+
+    it('resetBlockColor gives a palette colour to a block with no product, and ignores an unknown block', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      expect(BLOCK_PALETTE).toContain(colorOf(b.id) as typeof BLOCK_PALETTE[number])
+      const before = store().blocks
+      store().resetBlockColor('missing')
+      expect(store().blocks).toBe(before)
+    })
+
+    it('a duplicate has its own colour and does not follow its first product', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().duplicateBlock(b.id)
+      const copy = store().blocks[2]
+      expect(copy.colorAuto).toBe(false)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      expect(copy.color).not.toBe(colorOf(b.id))
+      expect(store().blocks[2].color).toBe(copy.color)
     })
   })
 })
