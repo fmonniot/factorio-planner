@@ -68,7 +68,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Drawer focus management.** Below `xl` the drawer needs it: move focus into it, trap Tab (or make the table inert) and set `role="dialog"` / `aria-modal` only while it is a drawer.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Recipe picker: explain an empty list when opened for an item.** The byproduct menu's **Add consumer recipe…**, the summary strip's **Find recipe** (Products and Ingredients) and **Make in a new block…** stay available, but they can open the picker with nothing to choose: no recipe consumes the byproduct, the item is raw, or every matching recipe is outside the research horizon. The picker only says "No recipes match" (or, when the horizon emptied the list, "No recipes match within the research horizon (N outside it)"). Make the message name the item and the reason: no recipe produces / consumes it at all, versus some exist but are outside the horizon (pointing at **Beyond research horizon**).
-- [ ] **Warnings that point at their cause.** The warnings popover lists text only. Link each warning to the row, item or block it names (reveal the row with `uiStore.requestRevealRow`, select the slot, or switch to the named block), so the player does not have to find the recipe by name in a long table.
 
 ## Data sets
 
