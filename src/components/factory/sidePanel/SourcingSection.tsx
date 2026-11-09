@@ -67,7 +67,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
               title={disabled ? productTitle : choice.label}
               data-sourcing-choice={choice.mode ?? 'own'}
               onClick={() => setItemSourcing(itemId, choice.mode as ItemSourcingMode | undefined)}
-              className={`flex-1 px-1 py-1 text-[11px] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
+              className={`flex-1 min-w-0 px-0.5 py-1 text-[11px] leading-tight [overflow-wrap:anywhere] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
             >
               {choice.label.replace(' first', '')}
             </button>

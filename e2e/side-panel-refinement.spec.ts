@@ -74,6 +74,13 @@ test.describe('docked panel', () => {
     await expect(receives.getByRole('listitem')).toHaveCount(6)
   })
 
+  test('Escape does not clear the selection while the panel is docked', async ({ page }) => {
+    await load(page, FIXTURE)
+    const panel = await selectRow(page, row(page))
+    await page.keyboard.press('Escape')
+    await expect(panel).toBeVisible()
+  })
+
   test('stays docked at 380 px', async ({ page }) => {
     await load(page, FIXTURE)
     const panel = await selectRow(page, row(page))
@@ -108,4 +115,74 @@ test.describe('drawer', () => {
     await sidePanel(page).getByRole('button', { name: 'Close panel' }).click()
     await expect(sidePanel(page)).toHaveCount(0)
   })
+
+  test('is dismissed by Escape', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 900 })
+    await load(page, FIXTURE)
+    await selectRow(page, row(page))
+    await page.keyboard.press('Escape')
+    await expect(sidePanel(page)).toHaveCount(0)
+  })
+
+  test('Escape closes an open picker first and the drawer on the next press', async ({ page }) => {
+    await page.setViewportSize({ width: 820, height: 900 })
+    await load(page, FIXTURE)
+    const panel = await selectRow(page, row(page))
+    // A popover opened from the drawer.
+    await panel.getByTestId('machine-picker-button').click()
+    const machines = page.getByTestId('picker')
+    await expect(machines).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(machines).toHaveCount(0)
+    await expect(panel).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+  })
+
+  test('Escape closes the recipe picker opened over the drawer, not the drawer', async ({ page }) => {
+    await load(page, FIXTURE)
+    const panel = await selectRow(page, row(page))
+    // Open the picker while docked (the drawer backdrop would cover the toolbar), then narrow the window to a drawer.
+    await page.getByRole('button', { name: 'Add recipe' }).click()
+    const picker = page.getByRole('heading', { name: 'Add recipe' })
+    await expect(picker).toBeVisible()
+    await page.setViewportSize({ width: 820, height: 900 })
+    await page.keyboard.press('Escape')
+    await expect(picker).toHaveCount(0)
+    await expect(panel).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(panel).toHaveCount(0)
+  })
+
+  for (const width of [320, 360]) {
+    test(`does not scroll sideways at ${width} px with a beacon configuration`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await load(page, FIXTURE)
+      const panel = await selectRow(page, row(page))
+      await panel.getByTestId('add-beacon-config').click()
+      await expect(panel.getByTestId('beacon-card')).toBeVisible()
+      const { scroll, client } = await panel.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }))
+      expect(scroll, 'the panel has no horizontal overflow').toBeLessThanOrEqual(client)
+    })
+  }
+
+  for (const width of [820, 320]) {
+    test(`Pin rate keeps the section height at ${width} px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 })
+      await load(page, FIXTURE)
+      const panel = await selectRow(page, row(page))
+      const pin = panel.getByRole('switch', { name: 'Pin rate' })
+      const section = panel.getByTestId('panel-rate')
+      const before = (await section.boundingBox())!.height
+      await pin.check()
+      await expect(panel.getByRole('spinbutton', { name: 'Pinned rate' })).toBeVisible()
+      expect((await section.boundingBox())!.height, 'pinning does not change the section height').toBe(before)
+      // The explanation is the switch's description, not only a tooltip.
+      await expect(pin).toHaveAccessibleDescription('The row always runs at this rate, whatever the block needs.')
+      const { scroll, client } = await panel.evaluate(el => ({ scroll: el.scrollWidth, client: el.clientWidth }))
+      expect(scroll, 'the pinned rate fits the drawer').toBeLessThanOrEqual(client)
+      await pin.uncheck()
+      expect((await section.boundingBox())!.height).toBe(before)
+    })
+  }
 })

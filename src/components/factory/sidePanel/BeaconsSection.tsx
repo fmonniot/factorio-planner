@@ -69,7 +69,8 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 
   return (
     <div data-testid="beacon-card" data-config-index={index} className="bg-gray-800 rounded p-2 space-y-2">
-      <div className="flex items-center gap-2">
+      {/* Wraps in a narrow drawer (the type, the count and Remove need about 200px); the name takes what is left and truncates. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <PickerTrigger
           trigger={({ open, toggle }) => (
             <button

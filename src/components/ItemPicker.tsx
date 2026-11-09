@@ -11,6 +11,7 @@ import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../data/p
 import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
 import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 
 // ---------------------------------------------------------------------------
 // Fuzzy matching — case-insensitive substring on name or id
@@ -212,10 +213,14 @@ function PickerFrame({
   children: React.ReactNode
   width?: string
 }) {
+  // An open picker owns Escape: the side panel drawer underneath must not also close on it.
+  useOverlayOpen()
   // Close on Escape (or step back one level when the caller has a drill-in view open).
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') (onEscape ?? onClose)()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      ;(onEscape ?? onClose)()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
