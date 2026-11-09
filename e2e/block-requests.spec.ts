@@ -17,9 +17,10 @@ const PLATES_ID = 'bbbb0001-0000-0000-0000-000000000001'
 
 const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
 const sourceSegment = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')
-const sourceEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')
-const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')
-const productEntry = (page: Page, kind: string) => detail(page, 'Products').locator(`[data-testid="summary-key-entry"][data-kind="${kind}"]`)
+// A segment's tooltip is in the DOM whether or not it is showing: its first line is name, amount and note, its second what a click does.
+const sourceEntry = (page: Page) => sourceSegment(page).getByTestId('summary-segment-tip')
+const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="import"]').getByTestId('summary-segment-tip')
+const productEntry = (page: Page, kind: string) => detail(page, 'Products').locator(`[data-testid="summary-segment"][data-kind="${kind}"]`).getByTestId('summary-segment-tip')
 const confirm = (page: Page, name: string) => page.getByTestId('product-change-confirm').getByRole('button', { name })
 
 async function setup(page: Page, fixture = FIXTURE) {
@@ -63,7 +64,7 @@ test.describe('requests between blocks', () => {
     if ((await plateSlot(page).getAttribute('aria-pressed')) !== 'true') await plateSlot(page).click()
 
     await expect(sourceSegment(page)).toContainText('Plates')
-    await expect(sourceSegment(page)).toHaveAttribute('title', /— requested/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/— requested/)
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(importEntry(page)).toHaveCount(0)
 
@@ -137,7 +138,7 @@ test.describe('requests between blocks', () => {
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceEntry(page)).toContainText('30.0')
-    await expect(sourceSegment(page)).toHaveAttribute('title', /— requested/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/— requested/)
   })
 
   test('a product without extra output makes only what is requested', async ({ page }) => {

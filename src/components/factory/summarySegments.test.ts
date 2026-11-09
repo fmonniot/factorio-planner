@@ -10,6 +10,10 @@ import {
   keyEntryText,
   isShortfall,
   differsFromTarget,
+  layoutBar,
+  barName,
+  BAR_MIN_SEGMENT_PX,
+  tipPlacement,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
 import type { BlockConnection, ConnectionFlow, Product } from '../../data/types'
@@ -557,5 +561,96 @@ describe('large flows', () => {
   it('shows the same kept rest at a small flow', () => {
     const slot = productSlot(noExtra(), 100, [flow({ rate: 99 })], 'min')
     expect(slot.segments.find(s => s.kind === 'kept')?.amount).toBeCloseTo(1, 9)
+  })
+})
+
+describe('layoutBar', () => {
+  const sum = (px: number[], gaps: number) => px.reduce((a, b) => a + b, 0) + gaps
+
+  it('pushes a part under 3 px to 3 px when the tiny ones taking theirs leaves it short', () => {
+    // 3.1 % of the 98 px is 3.04 px, so it is not tiny at first; once the 0.0001 part has taken its 3 px
+    // the rest scales to 95 px and it would get 2.94 px.
+    const l = layoutBar([{ weight: 96.9 }, { weight: 3.1 }, { weight: 0.0001 }], 100)
+    expect(l.map(p => p.px)).toEqual([92, BAR_MIN_SEGMENT_PX, BAR_MIN_SEGMENT_PX])
+    for (const weights of [[100, 3.2, 0.1, 0.1], [50, 3.1, 3.1, 3.1, 0.01], [90, 5, 3.3, 0.01]]) {
+      const parts = layoutBar(weights.map(weight => ({ weight })), 100)
+      for (const p of parts) expect(p.px).toBeGreaterThanOrEqual(BAR_MIN_SEGMENT_PX)
+      expect(sum(parts.map(p => p.px), weights.length - 1)).toBeCloseTo(100, 0)
+    }
+  })
+
+  it('shares the width by weight, gaps included', () => {
+    const l = layoutBar([{ weight: 3 }, { weight: 1 }], 201)
+    expect(l.map(p => p.px)).toEqual([150, 50])
+    expect(sum(l.map(p => p.px), 1)).toBe(201)
+  })
+
+  it('keeps 3 px for a tiny part and takes it from the others, so the bar never spills out', () => {
+    const l = layoutBar([{ weight: 1000 }, { weight: 1 }, { weight: 1000 }], 203)
+    expect(l[1].px).toBe(BAR_MIN_SEGMENT_PX)
+    expect(sum(l.map(p => p.px), 2)).toBeCloseTo(203, 0)
+  })
+
+  it('gives a part with no weight the minimum width and splits equally when nothing has weight', () => {
+    expect(layoutBar([{ weight: 5 }, { weight: 0 }], 103).map(p => p.px)).toEqual([99, 3])
+    expect(layoutBar([{ weight: 0 }, { weight: 0 }], 101).map(p => p.px)).toEqual([50, 50])
+  })
+
+  it('takes fixed marks off before sharing', () => {
+    const l = layoutBar([{ weight: 1 }, { weight: 0, fixedPx: 10 }], 111)
+    expect(l.map(p => p.px)).toEqual([100, 10])
+  })
+
+  it('writes name and amount from the amount width + 46 px, the amount alone from + 4 px, nothing below', () => {
+    // "26.5" is 4 chars: 4 * 6.2 + 10 = 34.8 wide
+    const w = (px: number) => layoutBar([{ weight: 1, amount: '26.5' }], px)[0]
+    expect(w(34.8 + 46.5)).toMatchObject({ amount: '26.5', name: true })
+    expect(w(34.8 + 45)).toMatchObject({ amount: '26.5', name: false })
+    expect(w(34.8 + 4.5)).toMatchObject({ amount: '26.5', name: false })
+    expect(w(34.8 + 3)).toMatchObject({ amount: undefined, name: false })
+  })
+
+  it('lets the item count ride along only when it fits', () => {
+    const parts = [{ weight: 1, amount: '381', withCount: '381 · 14' }]
+    expect(layoutBar(parts, 120)[0].amount).toBe('381 · 14')
+    expect(layoutBar(parts, 50)[0].amount).toBe('381')
+  })
+
+  it('writes the name alone for a part with no amount, once it is wide enough', () => {
+    expect(layoutBar([{ weight: 1 }], 100)[0]).toMatchObject({ amount: undefined, name: true })
+    expect(layoutBar([{ weight: 1 }], 40)[0]).toMatchObject({ amount: undefined, name: false })
+  })
+
+  it('reports the middle of each part', () => {
+    const l = layoutBar([{ weight: 1 }, { weight: 1 }], 101)
+    expect(l[0].center).toBe(25)
+    expect(l[1].center).toBe(76)
+  })
+
+  it('handles an empty bar', () => {
+    expect(layoutBar([], 100)).toEqual([])
+  })
+})
+
+describe('barName', () => {
+  it('drops the request wording and the colon a key entry carries', () => {
+    expect(barName('Consumer requests')).toBe('Consumer')
+    expect(barName('Extra:')).toBe('Extra')
+    expect(barName('← Miner')).toBe('← Miner')
+  })
+})
+
+describe('tipPlacement', () => {
+  const at = (left: number, px: number) => ({ px, center: left + px / 2 })
+  it('centres the tooltip in the middle of the bar, hangs it from the nearest end otherwise', () => {
+    expect(tipPlacement(at(400, 40), 1000)).toEqual({ maxWidth: 280, align: 'center' })
+    expect(tipPlacement(at(0, 40), 1000)).toEqual({ maxWidth: 280, align: 'left' })
+    expect(tipPlacement(at(960, 40), 1000)).toEqual({ maxWidth: 280, align: 'right' })
+  })
+  it('never lets the tooltip leave a bar narrower than its widest', () => {
+    // 200 px bar: the tooltip is at most 200 px, so a segment in the middle still fits it centred only at the very middle.
+    expect(tipPlacement(at(90, 20), 200)).toEqual({ maxWidth: 200, align: 'center' })
+    expect(tipPlacement(at(60, 20), 200)).toEqual({ maxWidth: 200, align: 'shifted', left: -60 })
+    expect(tipPlacement(at(0, 20), 200)).toEqual({ maxWidth: 200, align: 'left' })
   })
 })

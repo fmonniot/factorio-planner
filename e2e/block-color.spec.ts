@@ -69,11 +69,11 @@ test.describe('block colours', () => {
   test('the overview swatch of a consumer uses its block colour', async ({ page }) => {
     await loadPlanFixture(page, MANY)
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-    const row = detail(page, 'Products').locator(`[data-testid="summary-overview-row"][data-key="to:${SCIENCES_ID}"]`)
+    const row = detail(page, 'Products').locator(`[data-testid="summary-overview-segment"][data-key="to:${SCIENCES_ID}"]`)
     await expect(row).toBeVisible({ timeout: 20000 })
     // Sciences is the second block: #7dd3fc, as a translucent fill with a stronger border.
-    const swatch = row.locator('span').first()
-    await expect(swatch).toHaveCSS('background-color', 'rgba(125, 211, 252, 0.32)')
-    await expect(swatch).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
+    const fill = row.getByTestId('summary-segment-fill')
+    await expect(fill).toHaveCSS('background-color', 'rgba(125, 211, 252, 0.32)')
+    await expect(fill).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
   })
 })

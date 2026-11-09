@@ -15,8 +15,10 @@ const GEARS_ID = 'bbbb0002-0000-0000-0000-000000000001'
 
 const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
 const ingotSlot = (page: Page) => slot(page, 'Ingredients', 'Iron ingot')
-const sourceEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')
-const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')
+// A segment's tooltip is in the DOM whether or not it is showing: its first line is name, amount and note, its second what a click does.
+const sourceSegment = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')
+const sourceEntry = (page: Page) => sourceSegment(page).getByTestId('summary-segment-tip')
+const importEntry = (page: Page) => detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="import"]').getByTestId('summary-segment-tip')
 
 test.describe('block loops', () => {
   test('two blocks can supply each other', async ({ page }) => {
@@ -40,7 +42,7 @@ test.describe('block loops', () => {
     await expect(sourceEntry(page)).toContainText('Gears')
     await expect(sourceEntry(page)).toContainText('↻')
     await expect(sourceEntry(page)).toContainText('120')
-    await expect(sourceEntry(page)).toHaveAttribute('title', /part of a loop/)
+    await expect(sourceSegment(page).getByTestId('summary-segment-detail')).toHaveText(/part of a loop/)
     await expect(importEntry(page)).toHaveCount(0)
 
     // Gears still gets its plates from Plates, also marked as part of the loop.

@@ -1,12 +1,12 @@
 import type { Item } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
-import { SegmentBar } from './SummarySlot'
-import { lookStyle, segmentLook } from './segmentLooks'
+import { StackedBar } from './StackedBar'
+import type { BarSegment } from './StackedBar'
+import { segmentLook } from './segmentLooks'
 import { fmtRate, fmtItemRateText, fmtEnergyText } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
-import { keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
-import { useMoreBelow } from './useMoreBelow'
+import { barName, keyEntryText, segmentLabel, segmentTitle } from './summarySegments'
 import type { Overlay, OverviewRow, Segment, SegmentKind, OverlayKind, SlotModel } from './summarySegments'
 
 export type StripState = 'overview' | 'preview' | 'selected' | 'editing'
@@ -35,12 +35,17 @@ interface SummaryDetailStripProps {
   /** The slot's header rates (the pane decides what they say and whether they are editable). */
   rates: React.ReactNode
   actions: StripAction[]
-  /** Editable states only: one more entry at the end of the colour key. */
+  /** Editable states only: one more entry at the end of the actions line. */
   keyExtra?: React.ReactNode
   onBack: () => void
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
 }
+
+/** Width of the mark an overlay leaves on a bar that has real segments too. */
+const OVERLAY_MARK_PX = 10
+/** Entries whose tooltip has a second line: what a click does, why a source is limited. */
+const EXPLAINED_KINDS: ReadonlySet<string> = new Set(['export', 'source', 'unused', 'missing-source', 'self'])
 
 export function SummaryDetailStrip({
   state,
@@ -59,9 +64,6 @@ export function SummaryDetailStrip({
   onOpenBlock,
   onConnectionContextMenu,
 }: SummaryDetailStripProps) {
-  // The strip's height leaves room for three overview rows and a peek at the fourth.
-  const { bodyRef: rowsRef, contentRef: rowsContentRef, hasMore: rowsHaveMore, onScroll: onRowsScroll } =
-    useMoreBelow<HTMLDivElement, HTMLDivElement>()
   // An electricity or heat slot is shown in power units, unit included. The overview totals items and
   // shows electricity and heat apart, in power units.
   const power = state !== 'overview' && slot !== undefined && isEnergyItem(slot.itemId)
@@ -69,88 +71,101 @@ export function SummaryDetailStrip({
   const fmt = (perMin: number) => power ? fmtItemRateText(slot!.itemId, perMin / 60, rateUnit) : fmtRate(perMin / 60, rateUnit)
   const lookOf = (kind: SegmentKind | OverlayKind, blockId: string | undefined, limited?: boolean) =>
     segmentLook(kind, blockId !== undefined ? colorOf(blockId) : undefined, limited)
-  // 110px fits the overview's heading and three rows with a sliver of the fourth, and the
-  // detail's header, bar, one line of colour key and the actions.
-  const root = 'h-[110px] shrink-0 overflow-hidden border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 pt-2 pb-1.5 flex flex-col text-[11px]'
+  // A fixed 72px: the item's header, a 16px bar and the actions line, or the overview's heading and
+  // bar. The tooltips open upward over the slots, so the strip does not clip.
+  const root = 'h-[72px] shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]'
 
   if (state === 'overview' || !slot) {
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
     const maxPower = Math.max(...rows.map(r => r.power), 0)
+    const segments: BarSegment[] = rows.map(row => {
+      const look = lookOf(row.kind, row.blockId, row.limited)
+      const on = traceKey === row.key
+      const name = segmentLabel(row, row.blockId !== undefined ? blockNameOf(row.blockId) : undefined)
+      const amount = row.kind === 'unused'
+        ? undefined
+        : row.total > 0 ? fmt(row.total)
+          : row.power > 0 ? fmtEnergyText(row.power / 60) : undefined
+      const mixed = row.total > 0 && row.power > 0
+        ? `${fmt(row.total)}${unit} of items + ${fmtEnergyText(row.power / 60)}`
+        : undefined
+      // Items are sized by their total; electricity and heat, which have no common unit with them, by theirs.
+      const weight = row.total > 0 ? (maxTotal > 0 ? row.total / maxTotal : 0)
+        : row.power > 0 ? (maxPower > 0 ? row.power / maxPower : 0) : 0
+      return {
+        key: row.key,
+        look,
+        weight,
+        name,
+        amount,
+        withCount: amount !== undefined ? `${amount} · ${row.count}` : undefined,
+        tipName: name,
+        tipAmount: mixed ?? amount,
+        note: `${row.count} ${row.count === 1 ? 'item' : 'items'}`,
+        pressed: on,
+        faded: traceKey !== null && !on,
+        dataKind: row.kind,
+        limited: row.limited,
+        testId: 'summary-overview-segment',
+        onClick: () => onToggleTrace(row.key),
+      }
+    })
     return (
-      <div data-testid="summary-detail" data-state="overview" className={`${root} gap-[7px]`}>
+      <div data-testid="summary-detail" data-state="overview" className={`${root} ${rows.length > 0 ? 'pt-[5px] pb-[3px] gap-[3px]' : 'pt-1.5 pb-1 gap-[5px]'}`}>
         <div className="flex items-center justify-between h-5 shrink-0">
           <span className="text-xs font-semibold text-gray-100">Overview</span>
           {rows.length > 0 && (
-            <span className="text-[10px] text-gray-400">{traceKey ? 'click again to clear' : 'click a row to trace it'}</span>
+            <span className="text-[10px] text-gray-400">{traceKey ? 'click again to clear' : 'click a segment to trace it'}</span>
           )}
         </div>
-        {rows.length === 0 && <div className="text-gray-400">Nothing here yet</div>}
-        <div className="relative flex-1 min-h-0">
-          <div
-            ref={rowsRef}
-            onScroll={onRowsScroll}
-            data-testid="summary-overview-rows"
-            data-overflow={rowsHaveMore ? 'true' : undefined}
-            className="h-full overflow-y-auto"
-          >
-            <div ref={rowsContentRef} className="flex flex-col gap-0.5">
-              {rows.map(row => {
-                const look = lookOf(row.kind, row.blockId, row.limited)
-                const on = traceKey === row.key
-                const total = row.kind === 'unused'
-                  ? 'unused'
-                  : row.total > 0 ? fmt(row.total)
-                    : row.power > 0 ? fmtEnergyText(row.power / 60) : '—'
-                const share = row.total > 0 ? (maxTotal > 0 ? row.total / maxTotal : 0)
-                  : row.power > 0 ? (maxPower > 0 ? row.power / maxPower : 0) : 0
-                const width = share > 0 ? Math.max(share * 100, 2) : 0
-                const mixedTitle = row.total > 0 && row.power > 0
-                  ? `${fmt(row.total)}${unit} of items + ${fmtEnergyText(row.power / 60)}`
-                  : undefined
-                return (
-                  <button
-                    key={row.key}
-                    type="button"
-                    data-testid="summary-overview-row"
-                    data-key={row.key}
-                    title={mixedTitle}
-                    data-limited={row.limited ? 'true' : undefined}
-                    aria-pressed={on}
-                    onClick={() => onToggleTrace(row.key)}
-                    className={`shrink-0 grid grid-cols-[10px_96px_minmax(0,1fr)_56px_22px] gap-x-2 items-center h-5 px-1 rounded-[3px] border text-left hover:bg-gray-900 ${on ? 'bg-gray-900 text-gray-100' : 'border-transparent'} ${row.limited ? 'text-amber-400' : on ? '' : 'text-gray-300'}`}
-                    style={{
-                      borderColor: on ? (row.blockId !== undefined ? colorOf(row.blockId) : '#9ca3af') : undefined,
-                      opacity: traceKey && !on ? 0.6 : undefined,
-                    }}
-                  >
-                    <span aria-hidden="true" className="w-2 h-2 rounded-[2px]" style={lookStyle(look)} />
-                    <span className="truncate">
-                      {segmentLabel(row, row.blockId !== undefined ? blockNameOf(row.blockId) : undefined)}
-                    </span>
-                    <span aria-hidden="true" className="flex h-2">
-                      <span className="rounded-[2px]" style={{ ...lookStyle(look), width: `${width}%` }} />
-                    </span>
-                    <span className="text-right font-mono tabular-nums text-gray-200">{total}</span>
-                    <span className="text-right tabular-nums text-gray-400">{row.count}</span>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-          {rowsHaveMore && (
-            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-3 bg-gradient-to-t from-gray-800/90 to-transparent" />
-          )}
-        </div>
+        {rows.length === 0 ? <div className="text-gray-500">Nothing here yet</div> : <StackedBar segments={segments} label="Overview" />}
       </div>
     )
   }
 
   const itemName = item?.name ?? slot.itemId
-  const entries: (Segment | Overlay)[] = [...slot.segments, ...slot.overlays]
   const editable = state === 'selected' || state === 'editing'
+  const entries: (Segment | Overlay)[] = [...slot.segments, ...slot.overlays]
+  // A slot with nothing allocated (an unused source, imports forbidden) shows its overlays across the bar;
+  // on a slot that has segments they are marks at its end.
+  const overlayOnly = slot.segments.length === 0 && slot.overlays.length > 0
+  const segments: BarSegment[] = entries.map(entry => {
+    const blockName = entry.blockId !== undefined ? blockNameOf(entry.blockId) : undefined
+    const limited = 'limited' in entry && entry.limited === true
+    const available = 'available' in entry ? entry.available : undefined
+    const text = keyEntryText(entry, { blockName, product: slot.product, fmt, nameOf: blockNameOf })
+    const isOverlay = !('amount' in entry)
+    const linked = blockName !== undefined && entry.blockId !== undefined
+    const removable = entry.kind !== 'export' && entry.connectionId !== undefined && onConnectionContextMenu
+    return {
+      key: entry.key,
+      look: lookOf(entry.kind, entry.blockId, limited),
+      weight: isOverlay ? (overlayOnly ? 1 : 0) : entry.amount,
+      ...(isOverlay && !overlayOnly ? { fixedPx: OVERLAY_MARK_PX } : {}),
+      name: barName(text.label),
+      amount: text.amount,
+      tipName: text.label,
+      tipAmount: text.amount,
+      note: text.note,
+      detail: EXPLAINED_KINDS.has(entry.kind)
+        ? segmentTitle(entry, { itemName, blockName, fmt, unit, available })
+        : undefined,
+      dataKind: entry.kind,
+      limited,
+      testId: 'summary-segment',
+      onClick: linked ? () => onOpenBlock(entry.blockId!) : undefined,
+      onContextMenu: removable
+        ? (e: React.MouseEvent) => {
+          e.preventDefault()
+          onConnectionContextMenu(entry.connectionId!, e)
+        }
+        : undefined,
+    }
+  })
+  const showActions = editable && (actions.length > 0 || !!keyExtra)
 
   return (
-    <div data-testid="summary-detail" data-state={state} className={`${root} gap-[5px]`}>
+    <div data-testid="summary-detail" data-state={state} className={`${root} pt-[5px] pb-[3px] gap-[3px]`}>
       <div className="flex items-center gap-2 h-5 shrink-0 min-w-0">
         {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-[18px] h-[18px] object-contain shrink-0" />}
         <span className="text-xs font-semibold text-gray-100 truncate">{itemName}</span>
@@ -172,80 +187,10 @@ export function SummaryDetailStrip({
         )}
       </div>
       <div className="shrink-0">
-        <SegmentBar
-          slot={slot}
-          colorOf={colorOf}
-          variant="detail"
-          traceKey={traceKey}
-          itemName={itemName}
-          blockNameOf={blockNameOf}
-          fmt={fmt}
-          unit={unit}
-          onOpenBlock={onOpenBlock}
-          onConnectionContextMenu={onConnectionContextMenu}
-        />
+        <StackedBar segments={segments} tickAt={slot.product?.tickAt ?? null} label={`${itemName} allocation`} />
       </div>
-      <ul className="flex flex-wrap content-start gap-x-3 gap-y-1 flex-1 min-h-0 overflow-y-auto leading-tight">
-        {entries.map((entry, i) => {
-          const blockName = entry.blockId !== undefined ? blockNameOf(entry.blockId) : undefined
-          const limited = 'limited' in entry && entry.limited
-          const available = 'available' in entry ? entry.available : undefined
-          const title = segmentTitle(entry, { itemName, blockName, fmt, unit, available })
-          const look = lookOf(entry.kind, entry.blockId, limited)
-          const text = keyEntryText(entry, { blockName, product: slot.product, fmt, nameOf: blockNameOf })
-          const body = (
-            <>
-              <span aria-hidden="true" className="shrink-0 w-2 h-2 rounded-[2px]" style={lookStyle(look)} />
-              <span style={{ color: look.legend }}>{text.label}</span>
-              {text.amount !== undefined && (
-                <>
-                  {' '}
-                  <span className="font-mono tabular-nums text-gray-200">{text.amount}</span>
-                </>
-              )}
-              {text.note !== undefined && (
-                <>
-                  {' '}
-                  <span style={{ color: look.legend }}>{text.note}</span>
-                </>
-              )}
-            </>
-          )
-          const cls = 'inline-flex items-center gap-[5px] text-left'
-          const removable = entry.kind !== 'export' && entry.connectionId !== undefined && onConnectionContextMenu
-          const onContextMenu = removable
-            ? (e: React.MouseEvent) => {
-              e.preventDefault()
-              onConnectionContextMenu(entry.connectionId!, e)
-            }
-            : undefined
-          return (
-            <li
-              key={i}
-              data-testid="summary-key-entry"
-              data-key={entry.key}
-              data-kind={entry.kind}
-              title={title}
-            >
-              {blockName !== undefined && entry.blockId !== undefined ? (
-                <button
-                  type="button"
-                  onClick={() => onOpenBlock(entry.blockId!)}
-                  onContextMenu={onContextMenu}
-                  className={`${cls} rounded hover:underline`}
-                >
-                  {body}
-                </button>
-              ) : (
-                <div onContextMenu={onContextMenu} tabIndex={onContextMenu ? 0 : undefined} className={cls}>{body}</div>
-              )}
-            </li>
-          )
-        })}
-        {editable && keyExtra && <li data-testid="summary-key-extra">{keyExtra}</li>}
-      </ul>
-      {editable && actions.length > 0 && (
-        <div className="flex flex-wrap gap-1.5 shrink-0">
+      {showActions && (
+        <div className="flex items-center gap-1.5 shrink-0 h-[22px]">
           {actions.map(a => (
             <button
               key={a.label}
@@ -253,11 +198,12 @@ export function SummaryDetailStrip({
               onClick={a.onSelect}
               disabled={a.disabled}
               title={a.title}
-              className={`bg-gray-900 border border-gray-700 rounded px-2 py-[3px] hover:border-gray-500 disabled:opacity-40 disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
+              className={`bg-gray-900 border border-gray-700 rounded px-2 py-0.5 leading-4 whitespace-nowrap hover:border-gray-500 disabled:opacity-40 disabled:cursor-default disabled:hover:border-gray-700 ${a.danger ? 'text-red-400' : 'text-gray-300'}`}
             >
               {a.label}
             </button>
           ))}
+          {keyExtra && <span data-testid="summary-key-extra" className="inline-flex">{keyExtra}</span>}
         </div>
       )}
     </div>

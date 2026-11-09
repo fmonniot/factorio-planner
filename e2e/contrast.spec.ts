@@ -79,12 +79,15 @@ test('the reorder arrows are gray-400, read at 3:1, and still reorder', async ({
 
 test('the overview hint and item counts read at 4.5:1', async ({ page }) => {
   const strip = detail(page, 'Products')
-  const hint = strip.getByText('click a row to trace it')
+  const hint = strip.getByText('click a segment to trace it')
   await expect(hint).toBeVisible()
   const m = await expectRatio(hint, 4.5, 'overview hint')
   expect(m.fg).toEqual(GRAY_400)
 
-  const count = strip.getByTestId('summary-overview-row').first().locator('span').last()
+  // The item count of an overview segment is in its tooltip, dim text on the black tooltip.
+  const segment = strip.getByTestId('summary-overview-segment').first()
+  await segment.hover()
+  const count = segment.getByTestId('summary-segment-tip').locator('span.text-gray-400').first()
   await expectRatio(count, 4.5, 'overview item count')
 })
 

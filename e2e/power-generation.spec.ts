@@ -209,7 +209,7 @@ test.describe('Power generation', () => {
   test('the overview total of a power product reads in MW, not MJ per minute', async ({ page }) => {
     await addElectricityGoal(page, '10')
     await addRecipe(page, 'power:steam-engine:steam')
-    await expect(detail(page, 'Products').locator('[data-testid="summary-overview-row"][data-key="kept"]')).toContainText('10.0MW')
+    await expect(detail(page, 'Products').locator('[data-testid="summary-overview-segment"][data-key="kept"]')).toContainText('10.0MW')
   })
 
   test('1 MW of solar panels is 24 panels', async ({ page }) => {

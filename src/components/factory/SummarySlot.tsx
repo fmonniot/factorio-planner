@@ -3,47 +3,26 @@ import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { fmtItemRate, fmtItemRateText } from './ItemTile'
 import { isEnergyItem } from '../../data/electricity'
-import { segmentLabel, segmentTitle, slotHasKey } from './summarySegments'
+import { slotHasKey } from './summarySegments'
 import type { Overlay, Segment, SlotModel } from './summarySegments'
-import { lookStyle, segmentLook } from './segmentLooks'
+import { segmentLook } from './segmentLooks'
 
 // ---------------------------------------------------------------------------
-// SegmentBar — an item's allocation as a stacked bar. The micro variant sits
-// at the bottom of a slot; the detail variant is the strip's full-size bar.
+// SegmentBar — an item's allocation as the thin stacked bar at the bottom of
+// a slot. The strip's full-size bar is a StackedBar.
 // ---------------------------------------------------------------------------
 
 interface SegmentBarProps {
   slot: SlotModel
   colorOf: (blockId: string) => string
-  variant: 'micro' | 'detail'
-  /** Overview row being traced; segments with another key fade. */
+  /** Overview segment being traced; segments with another key fade. */
   traceKey: string | null
-  // Detail variant only:
-  itemName?: string
-  /** Name of a block; undefined when it no longer exists. */
-  blockNameOf?: (blockId: string) => string | undefined
-  fmt?: (perMin: number) => string
-  unit?: string
-  onOpenBlock?: (blockId: string) => void
-  onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
 }
 
-export function SegmentBar({
-  slot,
-  colorOf,
-  variant,
-  traceKey,
-  itemName = '',
-  blockNameOf,
-  fmt,
-  unit = '',
-  onOpenBlock,
-  onConnectionContextMenu,
-}: SegmentBarProps) {
-  const detail = variant === 'detail'
+export function SegmentBar({ slot, colorOf, traceKey }: SegmentBarProps) {
   const lookOf = (e: Segment | Overlay) =>
     segmentLook(e.kind, e.blockId !== undefined ? colorOf(e.blockId) : undefined, 'limited' in e && e.limited)
-  const fade = (key: string) => (traceKey && traceKey !== key ? (detail ? 0.25 : 0.2) : undefined)
+  const fade = (key: string) => (traceKey && traceKey !== key ? 0.2 : undefined)
 
   // A slot with nothing allocated (an unused source, imports forbidden) shows its overlays across the bar.
   const overlayOnly = slot.segments.length === 0 && slot.overlays.length > 0
@@ -51,67 +30,12 @@ export function SegmentBar({
     ? slot.overlays.map(o => ({ entry: o, pct: 100 / slot.overlays.length }))
     : slot.segments.map(s => ({ entry: s, pct: slot.scale > 0 ? (s.amount / slot.scale) * 100 : 0 }))
 
-  if (!detail) {
-    return (
-      <span aria-hidden="true" className="flex h-1 gap-px rounded-[1px] overflow-hidden">
-        {parts.map(({ entry, pct }, i) => (
-          <span key={i} style={{ flex: `0 1 ${pct}%`, background: lookOf(entry).mini, opacity: fade(entry.key) }} />
-        ))}
-      </span>
-    )
-  }
-
-  // Overlays on a slot that still has segments mark the whole bar.
-  const marked = !overlayOnly && slot.overlays.length > 0
   return (
-    <div
-      className="relative flex w-full h-5 gap-px rounded-[3px] overflow-hidden"
-      style={marked ? { outline: '1px dashed #6b7280', outlineOffset: -1 } : undefined}
-    >
-      {parts.map(({ entry, pct }, i) => {
-        const look = lookOf(entry)
-        const blockName = entry.blockId !== undefined ? blockNameOf?.(entry.blockId) : undefined
-        const amount = 'amount' in entry ? entry.amount : undefined
-        const available = 'available' in entry ? entry.available : undefined
-        const common = {
-          'data-testid': 'summary-segment',
-          'data-kind': entry.kind,
-          'data-key': entry.key,
-          'data-limited': 'limited' in entry && entry.limited ? 'true' : undefined,
-          title: segmentTitle(entry, { itemName, blockName, fmt: fmt!, unit, available }),
-          style: { flex: `0 1 ${pct}%`, ...lookStyle(look), color: look.text, opacity: fade(entry.key) },
-          className: 'min-w-0 overflow-hidden whitespace-nowrap text-[11px] leading-none flex items-center px-1.5',
-        }
-        const label = pct >= 20
-          ? `${segmentLabel(entry, blockName)}${amount !== undefined ? ` ${fmt!(amount)}` : ''}`
-          : null
-        const linked = (entry.kind === 'export' || entry.kind === 'source') && blockName !== undefined
-        if (!linked) return <div key={i} {...common}>{label}</div>
-        return (
-          <button
-            key={i}
-            type="button"
-            {...common}
-            onClick={() => onOpenBlock?.(entry.blockId!)}
-            onContextMenu={entry.kind === 'source' && entry.connectionId !== undefined
-              ? e => {
-                e.preventDefault()
-                onConnectionContextMenu?.(entry.connectionId!, e)
-              }
-              : undefined}
-          >
-            {label}
-          </button>
-        )
-      })}
-      {slot.product && slot.product.tickAt !== null && (
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 w-0.5 -ml-px bg-gray-200"
-          style={{ left: `${slot.product.tickAt * 100}%` }}
-        />
-      )}
-    </div>
+    <span aria-hidden="true" className="flex h-1 gap-px rounded-[1px] overflow-hidden">
+      {parts.map(({ entry, pct }, i) => (
+        <span key={i} style={{ flex: `0 1 ${pct}%`, background: lookOf(entry).mini, opacity: fade(entry.key) }} />
+      ))}
+    </span>
   )
 }
 
@@ -207,7 +131,7 @@ export function SummarySlot({
         </span>
       )}
       <span className="absolute left-1 right-1 bottom-[3px]">
-        <SegmentBar slot={slot} colorOf={colorOf} variant="micro" traceKey={traceKey} />
+        <SegmentBar slot={slot} colorOf={colorOf} traceKey={traceKey} />
       </span>
     </button>
   )

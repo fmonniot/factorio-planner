@@ -86,8 +86,8 @@ test.describe('item sourcing', () => {
     await oxygenSlot(page).click({ button: 'right' })
     await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'O2 maker' }).click()
     await selectSlot(page, 'Ingredients', 'Oxygen')
-    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="source"]')).toContainText('100')
-    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-key-entry"][data-kind="import"]')).toHaveCount(0)
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]').getByTestId('summary-segment-tip')).toContainText('100')
+    await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="import"]')).toHaveCount(0)
 
     // O2 maker decompresses the 100 oxygen Acid asked for.
     await page.locator('[data-testid="block-tab"] button[aria-label="O2 maker"]').click()
