@@ -10,12 +10,21 @@ const port = Number(process.env.E2E_PORT ?? 20000 + Math.floor(Math.random() * 4
 process.env.E2E_PORT = String(port)
 const baseURL = `http://localhost:${port}`
 
+// The summary strip starts collapsed to one line per pane, and most specs work with its slots and its Add product button.
+// Every test therefore starts with the choice stored as "expanded", the way a user who expanded it once would; a spec for the
+// default or for the collapsed summary opts out with `test.use({ storageState: { cookies: [], origins: [] } })`.
+const summaryExpanded = {
+  cookies: [],
+  origins: [{ origin: baseURL, localStorage: [{ name: 'factorio-planner:ui', value: JSON.stringify({ summaryCollapsed: false }) }] }],
+}
+
 export default defineConfig({
   testDir: './e2e',
   fullyParallel: true,
   reporter: 'list',
   use: {
     baseURL,
+    storageState: summaryExpanded,
     trace: 'on-first-retry',
   },
   projects: [

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -19,6 +19,7 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { SummaryPane } from './SummaryPane'
+import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
 import { presentRecipesFor } from './recipeAreas'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
@@ -130,10 +131,29 @@ export function FactorySummary() {
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
+  const collapsed = useUiStore(s => s.summaryCollapsed)
+  const setCollapsed = useUiStore(s => s.setSummaryCollapsed)
   const addProduct = useBlockStore(s => s.addProduct)
   const removeProduct = useBlockStore(s => s.removeProduct)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
+
+  // Toggling swaps which control is on screen: the line's Expand button unmounts, and from md the handle
+  // row is not drawn while collapsed. Focus follows the toggle to its counterpart so a keyboard user is
+  // not dropped on the page. Below md the handle is the one element in both states and keeps its focus
+  // (focusing the line's hidden Expand button there is a no-op).
+  const handleRef = useRef<HTMLButtonElement>(null)
+  const lineExpandRef = useRef<HTMLButtonElement>(null)
+  const focusAfterToggle = useRef(false)
+  const toggle = (next: boolean) => {
+    focusAfterToggle.current = true
+    setCollapsed(next)
+  }
+  useLayoutEffect(() => {
+    if (!focusAfterToggle.current) return
+    focusAfterToggle.current = false
+    ;(collapsed ? lineExpandRef.current : handleRef.current)?.focus()
+  }, [collapsed])
 
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
@@ -269,9 +289,22 @@ export function FactorySummary() {
   if (!gameData) return null
 
   return (
-    <div className="border-b border-gray-700 bg-gray-900 shrink-0">
-      {/* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */}
-      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 md:grid md:grid-cols-3 md:overflow-visible">
+    <div className="bg-gray-900 shrink-0">
+      {collapsed ? (
+        <SummaryLine
+          panes={[
+            { pane: 'products', label: 'Products', slots: productSlots },
+            { pane: 'byproducts', label: 'Byproducts', slots: byproductSlots },
+            { pane: 'ingredients', label: 'Ingredients', slots: ingredientSlots },
+          ]}
+          items={gameData.items}
+          rateUnit={rateUnit}
+          expandRef={lineExpandRef}
+          onExpand={() => toggle(false)}
+        />
+      ) : (
+      /* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */
+      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 border-b border-gray-700 md:grid md:grid-cols-3 md:overflow-visible">
         <SummaryPane
           key={`products-${activeBlock?.id}`}
           pane="products"
@@ -418,6 +451,22 @@ export function FactorySummary() {
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}
         />
       </div>
+      )}
+
+      {/* The handle row: it collapses the expanded summary, and expands the collapsed one below md,
+          where the three lines stack and have no room for the Expand button. Its text is its accessible
+          name (the action it performs), so it carries no aria-expanded: that would state the same fact twice. */}
+      <button
+        ref={handleRef}
+        type="button"
+        onClick={() => toggle(!collapsed)}
+        className={`${collapsed ? 'md:hidden ' : ''}h-[18px] w-full flex items-center justify-center gap-1.5 border-b border-gray-700 bg-gray-900 text-[10px] tracking-[0.04em] text-gray-400 hover:text-gray-200`}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? 'rotate-180' : undefined}>
+          <path d="M2 6.5 5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </svg>
+        {collapsed ? 'Expand summary' : 'Collapse summary'}
+      </button>
 
       {connectionMenu && (
         <ConnectionMenu

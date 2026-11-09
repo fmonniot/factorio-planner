@@ -21,7 +21,7 @@ const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHav
 test.describe('multiple plans per data set', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
+    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('factorio-planner:ui', JSON.stringify({ summaryCollapsed: false })) }) // a clean profile that has expanded the summary
     await page.reload()
     await selectDataset(page, 'Nullius')
     await expectPlan(page, 'Plan 1')

@@ -13,7 +13,7 @@ async function addGoal(page: Page, amount: string) {
 test.describe('per-data-set plans', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
+    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('factorio-planner:ui', JSON.stringify({ summaryCollapsed: false })) }) // a clean profile that has expanded the summary
     await page.reload()
   })
 

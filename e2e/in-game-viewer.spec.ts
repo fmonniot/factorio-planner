@@ -92,7 +92,7 @@ test.afterEach(async () => { await bridge.stop().catch(() => {}) })
 test.describe('In-game viewer connection', () => {
   test('is off by default and opens no connection', async ({ page }) => {
     // Point the saved address at the fake bridge: only switching the connection on may reach it.
-    await page.addInitScript(url => localStorage.setItem('factorio-planner:ui', JSON.stringify({ bridgeUrl: url })), bridge.url)
+    await page.addInitScript(url => localStorage.setItem('factorio-planner:ui', JSON.stringify({ bridgeUrl: url, summaryCollapsed: false })), bridge.url)
     await openApp(page)
     await expectViewerOff(page)
     await addGoal(page)

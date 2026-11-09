@@ -50,7 +50,8 @@ function setupStore(goals: Product[] = [ironGoal], withSolver = true) {
     activeBlockId: block.id,
     history: {},
   })
-  useUiStore.setState({ rateUnit: 'min' })
+  // Most tests work with the full panes; the collapsed summary has its own describe.
+  useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     status: { type: 'idle' },
@@ -1844,5 +1845,123 @@ describe('FactorySummary — bars', () => {
     expect(strip('Products')).toHaveClass('h-[72px]')
     fireEvent.mouseEnter(slot('Products', 'Iron Plate'))
     expect(strip('Products')).toHaveClass('h-[72px]')
+  })
+})
+
+describe('FactorySummary — collapsed summary', () => {
+  const proto = HTMLElement.prototype
+  const savedWidth = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
+  afterEach(() => {
+    if (savedWidth) Object.defineProperty(proto, 'clientWidth', savedWidth)
+    else delete (proto as unknown as Record<string, unknown>).clientWidth
+  })
+  /** The room of a line pane; happy-dom has no layout, so without this every pane has none. */
+  const withRoom = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
+  const collapse = () => useUiStore.setState({ summaryCollapsed: true })
+  // Both the Expand button and the handle row expand: CSS shows one of them (happy-dom applies no CSS).
+  const expandButtons = () => screen.getAllByRole('button', { name: 'Expand summary' })
+
+  it('is the default: one line per pane with its count, and no slots', () => {
+    useUiStore.setState({ summaryCollapsed: useUiStore.getInitialState().summaryCollapsed })
+    render(<FactorySummary />)
+    expect(screen.getAllByTestId('summary-line-pane').map(p => p.dataset.pane)).toEqual(['products', 'byproducts', 'ingredients'])
+    expect(within(pane('Products')).getByTestId('summary-line-count')).toHaveTextContent('1')
+    expect(within(pane('Byproducts')).getByTestId('summary-line-count')).toHaveTextContent('1')
+    expect(screen.queryAllByTestId('summary-slot')).toHaveLength(0)
+    expect(screen.queryByTestId('summary-detail')).toBeNull()
+    expect(screen.queryByTitle('Add product')).toBeNull()
+  })
+
+  it('draws as many chips as fit, each named by its item, and no +N when they all fit', () => {
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chips = within(pane('Products')).getAllByTestId('summary-line-chip')
+    expect(chips.map(c => c.dataset.itemId)).toEqual(['iron-plate'])
+    expect(chips[0]).toHaveAttribute('title', 'Iron Plate')
+    expect(screen.queryAllByTestId('summary-line-more')).toHaveLength(0)
+  })
+
+  it('shows a +N for what has no room, and it lists every item with its rate', () => {
+    collapse()
+    withRoom(0)
+    render(<FactorySummary />)
+    expect(within(pane('Products')).queryAllByTestId('summary-line-chip')).toHaveLength(0)
+    const more = within(pane('Products')).getByRole('button', { name: 'Show all 1 products' })
+    expect(more).toHaveTextContent('+1')
+    expect(screen.getByRole('button', { name: 'Show all 1 byproducts' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Show all 1 ingredients' })).toBeInTheDocument()
+    fireEvent.click(more)
+    const list = screen.getByTestId('summary-line-popup')
+    expect(list).toHaveAttribute('aria-label', 'All 1 products')
+    expect(list).toHaveTextContent('Iron Plate')
+    expect(list).toHaveTextContent('58.0/m')
+    // Informational: the items are not buttons.
+    expect(within(list).queryAllByRole('button')).toHaveLength(0)
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(screen.queryByTestId('summary-line-popup')).toBeNull()
+  })
+
+  it('expands to the full panes and collapses back; the choice is the store\'s, so it spans block switches', () => {
+    collapse()
+    render(<FactorySummary />)
+    expect(expandButtons()).toHaveLength(2)
+    // The names are the visible texts (the button's own says "Expand"), so no aria-expanded repeats them.
+    expect(expandButtons().map(b => b.hasAttribute('aria-expanded'))).toEqual([false, false])
+    fireEvent.click(expandButtons()[0])
+    expect(useUiStore.getState().summaryCollapsed).toBe(false)
+    expect(screen.queryByTestId('summary-line')).toBeNull()
+    expect(slot('Products', 'Iron Plate')).toBeInTheDocument()
+
+    // The handle row is the only toggle now.
+    const handle = screen.getByRole('button', { name: 'Collapse summary' })
+    expect(handle).not.toHaveAttribute('aria-expanded')
+    expect(handle).toHaveTextContent('Collapse summary')
+
+    const other = makeEmptyBlock('Other')
+    act(() => useBlockStore.setState(state => ({ blocks: [...state.blocks, other], activeBlockId: other.id })))
+    expect(screen.getByRole('button', { name: 'Collapse summary' })).toBeInTheDocument()
+    expect(within(pane('Products')).getByTestId('summary-slot-grid')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse summary' }))
+    expect(screen.getAllByTestId('summary-line-pane')).toHaveLength(3)
+    act(() => useBlockStore.setState(state => ({ activeBlockId: state.blocks[0].id })))
+    expect(screen.getAllByTestId('summary-line-pane')).toHaveLength(3)
+  })
+
+  it('moves focus to the counterpart control when the summary toggles, so the keyboard is not dropped', () => {
+    collapse()
+    render(<FactorySummary />)
+    const line = screen.getByTestId('summary-line')
+    const lineExpand = within(line).getByRole('button', { name: 'Expand summary' })
+    lineExpand.focus()
+    fireEvent.click(lineExpand)
+    // The line (and its button) is gone: the handle row, the only toggle now, has the focus.
+    expect(screen.queryByTestId('summary-line')).toBeNull()
+    const handle = screen.getByRole('button', { name: 'Collapse summary' })
+    expect(handle).toHaveFocus()
+
+    fireEvent.click(handle)
+    // From md the handle is not drawn once collapsed: the line's Expand button takes the focus.
+    expect(within(screen.getByTestId('summary-line')).getByRole('button', { name: 'Expand summary' })).toHaveFocus()
+  })
+
+  it('does not take the focus when the collapsed state changes without a toggle', () => {
+    render(<FactorySummary />)
+    expect(document.body).toHaveFocus()
+    act(() => useUiStore.setState({ summaryCollapsed: true }))
+    expect(document.body).toHaveFocus()
+  })
+
+  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 110 px stack below md', () => {
+    collapse()
+    render(<FactorySummary />)
+    const line = screen.getByTestId('summary-line')
+    expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[110px]')
+    expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[34px]')
+    expect(within(line).getByRole('button', { name: 'Expand summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
+    // The handle row (18 px) expands below md, where the button is gone, and is not drawn from md.
+    const handle = expandButtons().find(b => !line.contains(b))!
+    expect(handle).toHaveClass('h-[18px]', 'md:hidden')
   })
 })
