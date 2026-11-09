@@ -97,6 +97,7 @@ import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
+import { addIconColors } from './icon-color.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
@@ -954,11 +955,12 @@ if (args.patchExtraction) {
 if (args.patchPower) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
+  const patchIconsDir = args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons')
   const power = await exportPower(raw, {
     entityName: p => entityName(p, locale),
     itemName: p => itemName(p, locale),
     fluidName: p => fluidName(p, locale),
-    resolveIcon: makeIconResolver(resolvers, args.iconsOutGiven ? iconsOut : join(dirname(outputPath), 'icons'), Infinity, { keepExisting: true }),
+    resolveIcon: makeIconResolver(resolvers, patchIconsDir, Infinity, { keepExisting: true }),
     itemSubtypes: ITEM_SUBTYPES,
   })
   // Drop what an earlier run generated, so re-running is safe.
@@ -977,8 +979,10 @@ if (args.patchPower) {
   warnCollisions(items, power.items, 'power')
   Object.assign(machines, power.machines)
   Object.assign(recipes, power.recipes)
+  // The replaced power items lost their iconColor; the others keep theirs.
+  await addIconColors(power.items, patchIconsDir)
   Object.assign(items, power.items)
-  Object.assign(itemGroups, power.itemGroups)
+Object.assign(itemGroups, power.itemGroups)
   Object.assign(itemSubgroups, power.itemSubgroups)
   Object.assign(defaultMachines, computeDefaultMachines(machines, buildCategoryMap(power.machines)))
   for (const recipe of Object.values(power.recipes)) {
@@ -1132,6 +1136,7 @@ const beacons = await exportBeacons(raw, locale, resolveIcon)
 
 const placeable = new Set([...Object.keys(machines), ...Object.keys(beacons)])
 const { items: placedItems, count: placeResultCount } = attachPlaceResults(items, raw, ITEM_SUBTYPES, placeable)
+await addIconColors(placedItems, iconsOut)
 
 process.stderr.write(`[build-game-data] Exporting item groups...\n`)
 const itemGroups    = await exportItemGroups(raw, locale, resolveIcon)

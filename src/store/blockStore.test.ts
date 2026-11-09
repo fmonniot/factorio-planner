@@ -1162,6 +1162,27 @@ describe('input connections', () => {
       ])
     })
 
+    it('takes the block colour from the icon colour when given', () => {
+      store().addBlockForItem('plate', 'Iron plate', undefined, '#ffff00')
+      expect(store().blocks[store().blocks.length - 1].color).toBe('#a3e635')
+    })
+
+    it('picks a palette colour without an icon colour or with a grey one', () => {
+      store().addBlockForItem('plate', 'Iron plate')
+      expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
+      store().addBlockForItem('gear', 'Gear', undefined, '#7a7a79')
+      expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
+    })
+
+    it('keeps the colour when a product is added and removed later', () => {
+      const newId = store().addBlockForItem('plate', 'Iron plate', undefined, '#ffff00')!
+      const color = store().blocks.find(b => b.id === newId)!.color
+      store().setActiveBlock(newId)
+      store().addProduct({ id: 'extra', itemId: 'gear', extraRate: 5 })
+      store().removeProduct('extra')
+      expect(store().blocks.find(b => b.id === newId)!.color).toBe(color)
+    })
+
     it('does nothing when the consumer has the item as a product, or does not exist', () => {
       store().addProduct({ id: 'g1', itemId: 'plate', extraRate: 60 })
       const before = store().blocks
