@@ -161,14 +161,13 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
 - Right-click a tab for a small menu, rendered in a portal at fixed position so the strip does not
   clip it (it closes on Escape, outside click, scroll and window blur): **Rename** (browser prompt; the only way to rename a block), **Duplicate**,
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
-  plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
+  plus a **Colour** grid of 18 cells: the **Default colour** swatch first, then the 17 palette swatches (the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
-  share a colour, and like the other block actions it is not undoable. **Default colour**, above
-  the swatches, hands the block back to the default: its colour follows the icon of its first goal
-  (the palette colour nearest the icon's hue, least used by the other blocks, the first in palette order on a tie; the least-used
-  colour for a grey or very dark icon; with no goal the colour stays as it is until there is one), and changes when the first goal does. The menu shows which applies: **Default colour** is a radio item with a check mark while
-  the block follows its first goal (then no swatch is ringed); otherwise the current swatch is ringed.
-  Picking a swatch ends the following.
+  share a colour. Picking a swatch and choosing **Default colour** are undoable (steps in that block's undo history, like the other commands; the planner has no undo control yet, so the store's `undo` and `redo` are what reach them): blue → default → purple → blue undoes back through each. The colour a default block takes because its first goal changed is not a step of its own; it comes and goes with the goal's own undo and redo, and undoing a pick back to the default recomputes it from the current first goal. The **Default colour** swatch
+  is drawn as the first goal's icon on that item's own colour (`Item.iconColor`); with no goal it is an empty dashed cell. Choosing it hands the block back to the default: its colour follows the icon of its first goal
+  as it is, not the nearest palette colour (so it may land on teal, amber, grey or a dark colour; the fixed swatches are the way out), the least-used palette colour (the first on a tie) when the item has no icon colour; with no goal the colour stays as it is until there is one. It changes when the first goal does. The menu shows which applies: the swatch is a radio item, ringed while
+  the block follows its first goal (then no palette swatch is ringed); otherwise the current palette swatch is ringed.
+  Picking a palette swatch ends the following.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original

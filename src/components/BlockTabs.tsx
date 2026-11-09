@@ -36,6 +36,9 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   const resetBlockColor = useBlockStore(s => s.resetBlockColor)
   const currentColor = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.color)?.toLowerCase()
   const colorAuto = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.colorAuto) === true
+  const gameData = useGameDataStore(selectGameData)
+  const firstItemId = blocks.find(b => b.id === blockId)?.products[0]?.itemId
+  const firstItem = firstItemId === undefined ? undefined : gameData?.items[firstItemId]
   const index = blocks.findIndex(b => b.id === blockId)
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: anchor.left, y: anchor.bottom + 4 })
@@ -156,17 +159,21 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
       </button>
       <div role="separator" className="my-1 border-t border-gray-700" />
       <div className="text-[10px] text-gray-400 px-3 pb-1">Colour</div>
-      <button
-        role="menuitemradio"
-        aria-checked={colorAuto}
-        data-testid="block-color-default"
-        className="w-full flex items-center justify-between gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
-        onClick={() => { resetBlockColor(blockId); onClose() }}
-      >
-        Default colour
-        {colorAuto && <span aria-hidden="true">✓</span>}
-      </button>
-      <div role="group" aria-label="Block colour" className="grid grid-cols-8 gap-1 px-3 pb-1.5">
+      <div role="group" aria-label="Block colour" className="grid grid-cols-9 gap-1 px-3 pb-1.5">
+        <button
+          role="menuitemradio"
+          aria-checked={colorAuto}
+          aria-label="Default colour"
+          title="Default colour: the colour of the first product's icon"
+          data-testid="block-color-default"
+          className={`w-4 h-4 rounded-sm flex items-center justify-center overflow-hidden ${
+            firstItem === undefined ? 'border border-dashed border-gray-500' : ''
+          } ${colorAuto ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
+          style={{ background: firstItem?.iconColor ?? undefined }}
+          onClick={() => { resetBlockColor(blockId); onClose() }}
+        >
+          {firstItem && <Icon iconPath={firstItem.iconPath} alt="" className="w-3.5 h-3.5 object-contain" />}
+        </button>
         {BLOCK_PALETTE.map(c => (
           <button
             key={c}
