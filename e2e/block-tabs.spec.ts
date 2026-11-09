@@ -109,13 +109,26 @@ test.describe('tab tooltip', () => {
     await expect(tooltip(page)).toHaveCount(0)
   })
 
-  /** Rename a block from its right-click menu (a window.prompt). */
+  /** Rename a block from its right-click menu, through the rename dialog. */
   async function renameBlock(page: Page, from: string, to: string) {
-    page.once('dialog', d => void d.accept(to))
     await tabButton(page, from).click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Rename' }).click()
+    await page.getByRole('textbox', { name: 'Block name' }).fill(to)
+    await page.getByRole('dialog', { name: 'Rename block' }).getByRole('button', { name: 'Rename' }).click()
     await expect(tabButton(page, to)).toBeVisible()
   }
+
+  test('double-clicking a tab opens the rename dialog', async ({ page }) => {
+    await openFixture(page)
+    // Activate it first: an inactive tab widens on the first click, which would move the second one off it.
+    await tabButton(page, 'Iron coils').click()
+    await tabButton(page, 'Iron coils').dblclick()
+    const input = page.getByRole('textbox', { name: 'Block name' })
+    await expect(input).toHaveValue('Iron coils')
+    await input.fill('Renamed')
+    await input.press('Enter')
+    await expect(tabButton(page, 'Renamed')).toBeVisible()
+  })
   const LONG_NAME = 'An extraordinarily long block name that would spill past the edge of the window'
 
   for (const width of [1440, 390]) {

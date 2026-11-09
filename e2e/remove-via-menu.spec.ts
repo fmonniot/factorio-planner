@@ -25,26 +25,22 @@ test.describe('Removal through right-click menus', () => {
     const rows = page.locator('main table tbody tr')
     const firstRow = rows.first()
 
-    page.once('dialog', d => d.accept('Smelting'))
     await clickRowAction(page, firstRow, 'Wrap in subfactory…')
+    await page.getByRole('textbox', { name: 'Subfactory name' }).fill('Smelting')
+    await page.getByRole('button', { name: 'Wrap', exact: true }).click()
     const subRow = rows.filter({ hasText: 'Smelting' })
     await expect(subRow).toBeVisible()
 
-    let dialogType = ''
-    let dialogMessage = ''
-    page.once('dialog', d => {
-      dialogType = d.type()
-      dialogMessage = d.message()
-      void d.dismiss()
-    })
     await clickRowAction(page, subRow, 'Remove subfactory')
-    expect(dialogType).toBe('confirm')
-    expect(dialogMessage).toContain('"Smelting"')
-    expect(dialogMessage).toContain('1 recipe')
+    const confirm = page.getByRole('alertdialog')
+    await expect(confirm).toContainText('"Smelting"')
+    await expect(confirm).toContainText('1 recipe')
+    await confirm.getByRole('button', { name: 'Cancel' }).click()
+    await expect(confirm).toHaveCount(0)
     await expect(subRow).toBeVisible()
 
-    page.once('dialog', d => void d.accept())
     await clickRowAction(page, subRow, 'Remove subfactory')
+    await page.getByRole('alertdialog').getByRole('button', { name: 'Remove' }).click()
     await expect(subRow).toHaveCount(0)
   })
 })

@@ -100,8 +100,9 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
   for. Names need not be unique.
 - **Rename** opens a dialog with a "Plan name" field, pre-filled and selected; Enter or
   **Rename** saves, Escape or **Cancel** closes it, and **Rename** is disabled while the trimmed
-  name is empty. Names are trimmed and cut to 60 characters. (Renaming a block tab still uses
-  `window.prompt`.)
+  name is empty. Names are trimmed and cut to 60 characters. The same dialog component
+  (`NameDialog.tsx`, portalled to the body) renames a block and a sub-factory and names a wrapped row;
+  no part of the app uses the browser's `window.prompt` or `window.confirm`.
 - **Duplicate** copies the active plan right after it, named "<name> (copy)", and makes the copy
   active. Every block, sub-plan, node, goal and connection in the copy has a fresh id (the
   solver results and undo history are keyed by block id), with connections and the active block
@@ -158,8 +159,9 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   start a drag from a button inside a draggable ancestor (Mozilla bug 568313), so use **Move left** /
   **Move right** in the context menu there; Safari reports no `relatedTarget` on `dragleave`, so the
   drop line may flicker when crossing between a tab's children.
+- Double-click a tab to rename its block (the same dialog as **Rename** in the menu).
 - Right-click a tab for a small menu, rendered in a portal at fixed position so the strip does not
-  clip it (it closes on Escape, outside click, scroll and window blur): **Rename** (browser prompt; the only way to rename a block), **Duplicate**,
+  clip it (it closes on Escape, outside click, scroll and window blur): **Rename** (opens the rename dialog), **Duplicate**,
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
   plus a **Colour** grid of 18 cells: the **Default colour** swatch first, then the 17 palette swatches (the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
@@ -876,7 +878,7 @@ clamped to the viewport; an item with a `checked` state is a `menuitemcheckbox` 
   byproduct from other recipes" (sets `byproductConsumer`).
 - **Pin rate** / **Unpin rate** — pins the recipe at its current throughput (at
   least 1); omitted on byproduct-consumer rows. The product chip then carries the pin badge, and the rate is edited in the panel's [Rate section](#rate).
-- **Wrap in subfactory…** — prompts for a name (defaults to the recipe name) and
+- **Wrap in subfactory…** — opens a name dialog ("Subfactory name", pre-filled with the recipe name; submit **Wrap**) and
   replaces the row with a new sub-factory containing just this node. Disabled with the title "Cannot nest deeper than 4 levels" when the new group would sit past the [nesting limit](#nesting-limit).
 - **Build also in…** (blocks with areas only) — adds a copy of this row to another area (machine, modules, beacon configurations, neighbour count, byproduct policy and primary product; not the pin).
   It is disabled when no area qualifies, with the title "No other area uses <item>
@@ -1021,12 +1023,12 @@ sub-factory shows no chips (the Products and Ingredients cells stay empty, as do
 
 **Right-click menu.** **Rename subfactory…**, the checkbox **Separate area**, **Duplicate to…** (blocks with areas only) and **Remove subfactory**.
 **Separate area** (`role="menuitemcheckbox"`, `aria-checked`) solves the sub-factory as its own area (see [solver.md](solver.md#areas)): its rows serve it first and, while collapsed, its row shows what it receives and sends. It is undoable at store level, like removal.
-Rename opens a browser prompt prefilled with the current name; cancelling or a
-blank answer is ignored. Adding, renaming, wrapping a row in and removing a sub-factory are
+Rename opens the name dialog ("Subfactory name") prefilled with the current name; **Cancel** or Escape
+closes it unchanged, and a blank name cannot be submitted. Adding, renaming, wrapping a row in and removing a sub-factory are
 undoable (undoing a wrap is dropped once the new sub-factory holds more than the wrapped row).
 Remove deletes it **with all
 its contents**. When it has contents a confirmation names the sub-factory and
-counts its recipes and nested sub-factories; an empty one is removed at once.
+counts its recipes and nested sub-factories (a `ConfirmDialog` with a **Remove** button, `role="alertdialog"`, focus on **Cancel**); an empty one is removed at once.
 **Duplicate to…** opens a second menu listing every area of the block in table order (the root as "Top level"). Picking one deep-copies the sub-factory into it (`duplicateSubPlanTo`): a new handle and sub-plan with fresh ids, named "<name> (copy)", with everything copied (pins, byproduct-consumer flags, `area` flags, nested names). The new handle goes right after the source's handle when the target area holds it, else at the end of the target's rows; the table then reveals and flashes the new row (collapsed). An area that cannot take the copy is shown disabled with a tooltip: the sub-factory itself or an area inside it ("Cannot copy a subfactory into itself"), an area where the copy would nest past the limit ("Cannot nest deeper than 4 levels"), or an area that already has a row of one of the recipes the copy would add ("Already has a row of X", "Already has rows of X and Y", "… X, Y and Z", "… X, Y, Z and N more"), since the solver builds each recipe once per area. The rows that would join the area are the sub-factory's own and those of its nested sub-factories that are not areas; rows in nested areas, and every row when the source is itself an area, keep their own area and never conflict. When every area is disabled the entry is disabled too, with the tooltip "Every area already has a row of one of its recipes" when each area is disabled for a recipe conflict, else "No area can take a copy of this subfactory". The entry is hidden in a block without areas. The copy is one undoable command.
 Removal, with all its contents, is undoable at store level: undo restores the
 sub-factory at its original position. The undo history is session-only and per

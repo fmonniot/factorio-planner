@@ -14,6 +14,7 @@ import { withAlpha, BLOCK_PALETTE } from '../data/blockColors'
 import { MenuButton, ITEM_CLASS } from './MenuButton'
 import { IconButton, TOOLTIP_BOX_CLASS, TOOLTIP_CLASS } from './IconButton'
 import { PlusIcon } from './icons'
+import { NameDialog } from './NameDialog'
 
 // ---------------------------------------------------------------------------
 // Context menu
@@ -24,11 +25,12 @@ interface ContextMenuProps {
   /** Bounding box of the tab the menu belongs to (viewport coordinates). */
   anchor: DOMRect
   onClose: () => void
+  /** Starts the rename (the dialog lives in the tab, which outlives the menu). */
+  onRename: () => void
 }
 
-function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
+function BlockContextMenu({ blockId, anchor, onClose, onRename }: ContextMenuProps) {
   const blocks = useBlockStore(s => s.blocks)
-  const renameBlock = useBlockStore(s => s.renameBlock)
   const removeBlock = useBlockStore(s => s.removeBlock)
   const duplicateBlock = useBlockStore(s => s.duplicateBlock)
   const moveBlock = useBlockStore(s => s.moveBlock)
@@ -88,9 +90,7 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   }, [])
 
   function handleRename() {
-    const block = blocks.find(b => b.id === blockId)
-    const name = window.prompt('Block name:', block?.name ?? '')
-    if (name !== null && name.trim()) renameBlock(blockId, name.trim())
+    onRename()
     onClose()
   }
 
@@ -247,7 +247,9 @@ function TabTooltip({ anchor, name }: { anchor: DOMRect; name: string }) {
 function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDragStart, onDragEnd, onDrop }: BlockTabProps) {
   const block = useBlockStore(s => s.blocks.find(b => b.id === blockId))
   const gameData = useGameDataStore(selectGameData)
+  const renameBlock = useBlockStore(s => s.renameBlock)
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null)
+  const [renaming, setRenaming] = useState(false)
   const [dropSide, setDropSide] = useState<'before' | 'after' | null>(null)
   // The icon path that failed to load, so a different first product gets a fresh try.
   const [failedIcon, setFailedIcon] = useState<string | null>(null)
@@ -291,6 +293,12 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
     let visible = true
     try { visible = e.currentTarget.matches(':focus-visible') } catch { /* no :focus-visible: show it */ }
     if (visible) showTip()
+  }
+
+  function startRename() {
+    if (disabled) return
+    setTipRect(null)
+    setRenaming(true)
   }
 
   function handleContextMenu(e: React.MouseEvent) {
@@ -371,6 +379,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
         aria-label={block.name}
         aria-current={isActive ? 'true' : undefined}
         onClick={() => { setTipRect(null); onClick() }}
+        onDoubleClick={startRename}
         onContextMenu={handleContextMenu}
         onMouseEnter={showTip}
         onMouseLeave={() => setTipRect(null)}
@@ -413,7 +422,17 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
       {dropLine}
 
       {menuAnchor && (
-        <BlockContextMenu blockId={blockId} anchor={menuAnchor} onClose={() => setMenuAnchor(null)} />
+        <BlockContextMenu blockId={blockId} anchor={menuAnchor} onClose={() => setMenuAnchor(null)} onRename={startRename} />
+      )}
+      {renaming && (
+        <NameDialog
+          title="Rename block"
+          label="Block name"
+          submitLabel="Rename"
+          initialName={block.name}
+          onClose={() => setRenaming(false)}
+          onSubmit={name => { renameBlock(blockId, name.trim()); setRenaming(false) }}
+        />
       )}
     </div>
   )

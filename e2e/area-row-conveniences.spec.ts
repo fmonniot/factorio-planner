@@ -161,8 +161,9 @@ test('Duplicate to… disables an area that already has a row of the recipe', as
   await open(page)
 
   await group(page, 'Compression').getByRole('button', { name: /^(Expand|Collapse) Compression$/ }).click()
-  page.once('dialog', d => void d.accept('Packing'))
   await clickRowAction(page, row(page, COMP_ROW), 'Wrap in subfactory…')
+  await page.getByRole('textbox', { name: 'Subfactory name' }).fill('Packing')
+  await page.getByRole('button', { name: 'Wrap', exact: true }).click()
   await expect(group(page, 'Packing')).toBeVisible()
 
   const menu = await openRowMenu(page, group(page, 'Packing'))
