@@ -93,7 +93,7 @@ test.describe('multiple plans per data set', () => {
 test('a plan stored in the old single-plan shape is migrated', async ({ page }) => {
   await loadPlanFixture(page, path.resolve('e2e/fixtures/block-connection.json'))
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(page.locator('button[title="Gears"]')).toBeVisible()
+  await expect(page.locator('[data-testid="block-tab"] button[aria-label="Gears"]')).toBeVisible()
   await expectPlan(page, 'Plan 1')
   // The seed script re-adds the old key on every navigation, so it is gone only
   // until the next one; right after this load the app has already moved it.

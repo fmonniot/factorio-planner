@@ -68,7 +68,7 @@ test.describe('requests between blocks', () => {
     await expect(importEntry(page)).toHaveCount(0)
 
     // Plates makes its own 60 plus the 30 Gears requested, and sends 30 to Gears.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     await expect(productEntry(page, 'export')).toContainText('30.0')
     await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
@@ -81,7 +81,7 @@ test.describe('requests between blocks', () => {
     await page.getByTitle(/^Extra output:/).click()
     await page.getByLabel('Extra output rate').fill('20')
     await page.getByLabel('Extra output rate').press('Enter')
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(importEntry(page)).toHaveCount(0)
@@ -104,7 +104,7 @@ test.describe('requests between blocks', () => {
     await requestPlates(page)
 
     // On Plates, removing the product Gears requests asks for confirmation.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     await detail(page, 'Products').getByRole('button', { name: 'Remove product' }).click()
     await expect(page.getByRole('heading', { name: "Remove Iron plate from Plates' products?" })).toBeVisible()
@@ -119,14 +119,14 @@ test.describe('requests between blocks', () => {
     await expect(slotById(page, 'Products', 'nullius-iron-plate')).toHaveCount(0)
 
     // Gears now only takes what is left over: nothing, so it imports all 30.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceSegment(page)).toHaveCount(0)
     await expect(importEntry(page)).toContainText('30.0')
     await expect(plateSlot(page)).toHaveAccessibleName(/, 30\.0 per/)
 
     // Adding the product back turns that take into a request again, after confirmation.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await addProduct(page, 'Iron plate', 'nullius-iron-plate', '60')
     await expect(page.getByRole('heading', { name: 'Make Iron plate a product of Plates?' })).toBeVisible()
     const effect = page.getByTestId('product-change-effect')
@@ -134,7 +134,7 @@ test.describe('requests between blocks', () => {
     await expect(effect).toContainText('It will request it instead')
     await confirm(page, 'Make it a product').click()
 
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(sourceSegment(page)).toHaveAttribute('title', /— requested/)
@@ -144,7 +144,7 @@ test.describe('requests between blocks', () => {
     await setup(page)
 
     // On Plates: an empty amount adds Iron rod without extra output, with no dialog.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await addProduct(page, 'Iron rod', 'nullius-iron-rod', '')
     await expect(page.getByTestId('product-change-confirm')).toHaveCount(0)
     const rodProduct = slot(page, 'Products', 'Iron rod')
@@ -157,11 +157,11 @@ test.describe('requests between blocks', () => {
     await expect(detail(page, 'Products').getByRole('button', { name: '+ Extra output' })).toBeVisible()
 
     // Gears requests its 15 rods from Plates, which has no recipe for them.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await slot(page, 'Ingredients', 'Iron rod').click({ button: 'right' })
     await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' }).click()
 
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await expect(slot(page, 'Products', 'Iron rod')).toHaveAttribute('data-status', 'short')
   })
 
@@ -170,14 +170,14 @@ test.describe('requests between blocks', () => {
     await requestPlates(page)
 
     // Plates takes the ingots Gears makes as a byproduct; that closes a loop.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await slot(page, 'Ingredients', 'Iron ingot').click({ button: 'right' })
     const closing = page.locator('[role="menuitem"][data-kind="take"]', { hasText: 'Gears' })
     await expect(closing).toHaveAttribute('data-closes-loop', 'true')
     await closing.click()
 
     // On Gears, making iron ingot a product would turn that take into a request that closes a cycle.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await addProduct(page, 'Iron ingot', 'nullius-iron-ingot')
     await expect(page.getByTestId('product-change-effect')).toContainText('It will request it instead')
     await confirm(page, 'Make it a product').click()
@@ -193,7 +193,7 @@ test.describe('requests between blocks', () => {
   test('+ Extra output and Remove extra change what a product makes', async ({ page }) => {
     await setup(page)
     await requestPlates(page)
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
 
     await detail(page, 'Products').getByRole('button', { name: 'Remove extra' }).click()
@@ -215,7 +215,7 @@ test.describe('requests between blocks', () => {
     await requestPlates(page)
 
     // Plates has no recipe for rods: its extra of 10 is all short.
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await addProduct(page, 'Iron rod', 'nullius-iron-rod', '10')
     await expect(page.getByTestId('product-change-confirm')).toHaveCount(0)
     await selectSlot(page, 'Products', 'Iron rod')
@@ -223,10 +223,10 @@ test.describe('requests between blocks', () => {
     await expect(productEntry(page, 'short')).toHaveText('Short 10.0 — comes out of the extra')
 
     // Gears asks for its 15 rods too.
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await slot(page, 'Ingredients', 'Iron rod').click({ button: 'right' })
     await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' }).click()
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron rod')
     await expect(productEntry(page, 'short')).toHaveText("Short 25.0 — comes out of the extra and Gears' request")
 
@@ -250,10 +250,10 @@ test.describe('requests between blocks', () => {
     // Another block takes the ingots: making them a product would close a cycle of requests, which is solved.
     await setup(page, LOOP_FIXTURE)
     await requestPlates(page)
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await slot(page, 'Ingredients', 'Iron ingot').click({ button: 'right' })
     await page.locator('[role="menuitem"][data-kind="take"]', { hasText: 'Gears' }).click()
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await slot(page, 'Byproducts', 'Iron ingot').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Make it a product' }).click()
     await expect(page.getByTestId('product-change-effect')).toContainText('It will request it instead')
@@ -279,7 +279,7 @@ test.describe('requests between blocks', () => {
     await expect(detail(page, 'Products')).toContainText('requested 15.0')
     await expect(productEntry(page, 'export')).toHaveText('Gears requests 15.0')
 
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
     await selectSlot(page, 'Ingredients', 'Iron rod')
     await expect(sourceEntry(page)).toContainText('Iron rod')
     await expect(sourceEntry(page)).toContainText('15.0')
@@ -315,10 +315,10 @@ test.describe('requests between blocks', () => {
     await ensureSelected(page)
     await expect(sourceEntry(page)).toContainText('30.0')
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toHaveCount(0)
-    await page.locator('button[title="Plates"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Plates"]').click()
     await selectSlot(page, 'Products', 'Iron plate')
     await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
-    await page.locator('button[title="Gears"]').click()
+    await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
 
     await plateSlot(page).click({ button: 'right' })
     await expect(page.getByRole('menuitemradio', { name: 'Connections first' })).toHaveAttribute('aria-checked', 'true')

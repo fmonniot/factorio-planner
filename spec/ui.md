@@ -63,14 +63,14 @@ The side panel appears to the right of the table only while a row is selected. T
 
 ## TopBar
 
-`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block tabs (a scrolling strip, with an **All blocks** button while it overflows; see [Block tabs](#block-tabs)). On the right
-are, in order, the icon-only tool buttons (the [horizon](#research-horizon)
+`TopBar.tsx` (`factory/`) is one row, 44px high. On the left are the block list button and the block tabs (a scrolling strip; see [Block tabs](#block-tabs)). On the right
+are, in order, the icon-only tool buttons (**Add block**, a 32px `+` with the same gray-300 icon, tooltip and spacing as the others, disabled until game data is loaded; the [horizon](#research-horizon)
 flag, the [block graph](#block-graph), the [areas in every block](#plan-areas) button,
 shown only while some block has areas and the [tech tree](#technology-tree)), a divider
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
-carries `data-testid="top-bar"`. Below `md` the gaps are tighter and the workspace button shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
+carries `data-testid="top-bar"`. From `md` (768px) the workspace button has no fill and no border, is 32px high like the tool buttons and a fixed 132px wide (its text lines, including Loading… and Error loading data, truncate with an ellipsis rather than wrap), with a native `title` that starts with the plan name, with the tool buttons' fill on hover and focus. Below `md` the gaps are tighter and it stays the compact button (36px high, filled and bordered, 64px wide) that shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
@@ -119,26 +119,34 @@ Plan state lives in `plansStore.ts` (plan list and active plan) and the actions 
 
 ### Block tabs
 
-`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border: the
-icon of the block's first goal (none when it has no goal), then the block's name, truncated when
-long; the full name is the tab's tooltip. A stripe in the block's colour runs across the top of each
-tab: full strength and 3px on the active tab, muted and 2px on the others. The colour stays off the
-icon so item icons keep their own colours. The active tab also has a raised background and border
-and carries `aria-current`.
+`BlockTabs.tsx`. One folder-style tab per block, sitting on the top bar's bottom border. The
+**active** tab shows the icon of the block's first goal (none when it has no goal) and the block's
+name, truncated when long. Every **inactive** tab is its icon alone, 44px wide (a block with no goal
+or an icon that fails to load shows the first letter of its name instead); its accessible name is the
+block's name (`aria-label`), and the name is shown in a black tooltip (the box the tool buttons use,
+`TOOLTIP_BOX_CLASS` in `IconButton.tsx`) on hover and on keyboard focus, not as a browser `title`.
+Focus left by a mouse click does not show it, and the active tab has none. The tooltip is a fixed-position portal anchored below the
+tab, since the scrolling strip would clip an absolute one, and centred on it, then shifted to stay 8px inside the window using its measured width (a name wider than the window ends in an ellipsis); it closes when anything scrolls, when the window is resized, when the tab turns active and when a
+drag or the context menu starts. A stripe in the block's colour runs across the top of each tab, 3px
+high: full strength on the active tab, 85% on the others. The colour stays off the icon so item icons
+keep their own colours. The active tab also has a raised background and border and carries
+`aria-current`.
 
-The tabs sit in a horizontally scrolling strip (`block-tab-strip`): each tab is at least about 6rem
-wide and at most `max-w-44`, where a longer name truncates (tabs never shrink); the strip scrolls with
-the mouse wheel (line and page wheel modes are converted to pixels) when the tabs do not fit; its
-scrollbar is hidden. The active tab is scrolled into view when it changes, is added or moved. The `+` button
-stays outside the strip, always visible. While the strip overflows, an **All blocks** `▾` dropdown
-appears between the strip and `+`: one radio item per block (colour dot, icon, name; the active one
-checked), and choosing one activates that block and scrolls its tab into view. It is a navigation
-aid only, not a reorder surface.
+The tabs sit in a horizontally scrolling strip (`block-tab-strip`): the active tab is at least about
+6rem wide and at most `max-w-44`, where a longer name truncates (tabs never shrink); the strip scrolls
+with the mouse wheel (line and page wheel modes are converted to pixels) when the tabs do not fit; its
+scrollbar is hidden. The active tab is scrolled to the middle of the strip when it changes, is added or
+moved (when everything fits there is nothing to scroll). Before the first tab sits the **block list**,
+a 28 × 28 icon button (a list glyph, `aria-label` "All blocks", the same black tooltip) that is always
+visible, whether the tabs fit or not: it opens a menu with one radio item per block (colour dot, icon,
+name; the active one checked), and choosing one activates that block and scrolls its tab into view.
+Escape closes it and the tooltip steps aside while it is open. It is a navigation aid only, not a
+reorder surface. The add-block button is not part of the strip: see [TopBar](#topbar).
 
 - Click a tab to make that block active. Only the active block is shown, but
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
-- `+` adds a new empty block named "Block N" and activates it. Every block has a
+- The **Add block** tool button (`AddBlockButton`, in the top bar's tool row) adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses. A block can also be created by
   **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last).
@@ -162,7 +170,7 @@ aid only, not a reorder surface.
   are not. Like add, rename and delete, it is not undoable.
   Delete is disabled when only one block remains; deleting the active block
   activates the first remaining one.
-- All of the above, including dragging and the **All blocks** dropdown, are disabled unless game data is loaded (not while it is empty,
+- All of the above, including dragging, the block list and **Add block**, are disabled unless game data is loaded (not while it is empty,
   loading or failed to load).
 
 ### Block graph
