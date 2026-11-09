@@ -69,7 +69,8 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 
   return (
     <div data-testid="beacon-card" data-config-index={index} className="bg-gray-800 rounded p-2 space-y-2">
-      <div className="flex items-center gap-2">
+      {/* Wraps in a narrow drawer (the type, the count and Remove need about 200px); the name takes what is left and truncates. */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
         <PickerTrigger
           trigger={({ open, toggle }) => (
             <button
@@ -108,7 +109,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
             </Picker>
           )}
         </PickerTrigger>
-        <label className="flex items-center gap-1.5 text-xs text-gray-500">
+        <label className="flex items-center gap-1.5 text-xs text-gray-400">
           ×
           <input
             type="number"
@@ -148,7 +149,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         testIdPrefix="beacon-module"
         label="Beacon module slot"
       />
-      <p data-testid="beacon-module-hint" className="text-[11px] text-gray-500">
+      <p data-testid="beacon-module-hint" className="text-[11px] text-gray-400">
         A beacon holds one module type: choosing a module fills every slot, and emptying a slot removes it from all.
       </p>
       {moduleNotAllowed && (
@@ -159,7 +160,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
 
       {!hasBeaconData && (
         <div className="space-y-1.5 pt-1 border-t border-gray-700">
-          <label className="flex items-center gap-2 text-xs text-gray-500">
+          <label className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-32 shrink-0">Modules/beacon</span>
             <input
               type="number" min={1} step={1} value={beacon.modulesPerBeacon}
@@ -170,7 +171,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
               className="w-16 bg-gray-700 text-gray-200 text-xs rounded px-1.5 py-1 border border-gray-600 outline-none text-right tabular-nums"
             />
           </label>
-          <label className="flex items-center gap-2 text-xs text-gray-500">
+          <label className="flex items-center gap-2 text-xs text-gray-400">
             <span className="w-32 shrink-0">Efficiency</span>
             <input
               type="number" min={0} max={1} step={0.05} value={beacon.distributionEfficiency}
@@ -184,7 +185,7 @@ function BeaconCard({ index, beacon, node, gameData, onChange, onRemove }: {
         </div>
       )}
 
-      <div data-testid="beacon-summary" className="text-[11px] text-gray-500">
+      <div data-testid="beacon-summary" className="text-[11px] text-gray-400">
         {efficiency}% efficiency · {beacon.moduleId ? contribution(applied) : 'no module, so no effect'}
       </div>
     </div>

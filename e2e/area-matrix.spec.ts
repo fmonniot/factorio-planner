@@ -74,7 +74,7 @@ test('focusing an area shows its counterparts and jumps to its row', async ({ pa
 
   await panel.getByRole('button', { name: 'Show in table' }).click()
   await expect(page.getByLabel('Filter areas')).toHaveCount(0)
-  await expect(page.locator('button[title="Hydrogen"]')).toHaveAttribute('aria-current', 'true')
+  await expect(page.locator('[data-testid="block-tab"] button[aria-label="Hydrogen"]')).toHaveAttribute('aria-current', 'true')
   await expect(row(page, CHLORIDES_HANDLE)).toHaveAttribute('data-highlighted', 'true')
 })
 

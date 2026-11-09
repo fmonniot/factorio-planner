@@ -85,7 +85,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
             className="flex-1 min-w-0"
           />
           {m.id === defaultMachineId ? (
-            <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-500">default</span>
+            <span data-testid="default-machine-badge" className="px-1.5 text-[10px] text-gray-400">default</span>
           ) : (
             <button
               type="button"
@@ -100,7 +100,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
       ))}
       <div
         data-testid="default-machine-usage"
-        className="flex items-center justify-between gap-2 px-2 pt-1 border-t border-gray-700 mt-1 text-[10px] text-gray-500"
+        className="flex items-center justify-between gap-2 px-2 pt-1 border-t border-gray-700 mt-1 text-[10px] text-gray-400"
       >
         <span>
           {categoryLabel(recipeCategory)} default is used by {defaultRowCount} {defaultRowCount === 1 ? 'row' : 'rows'}
@@ -111,7 +111,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
       </div>
       {altRecipes.length > 0 && (
         <>
-          <div className="text-[10px] uppercase tracking-wide text-gray-500 px-2 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 px-2 pt-1 border-t border-gray-700 mt-1">Alternate recipe</div>
           <AlternateRecipeList
             entries={altEntries}
             gameData={gameData}

@@ -35,7 +35,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
         type="button"
         data-testid="area-chips-more"
         aria-label={`${flows.length} more ${received ? 'received' : 'sent'} items`}
-        className="w-8 shrink-0 text-center text-[10px] text-gray-500 hover:text-gray-300"
+        className="text-[10px] text-gray-400 hover:text-gray-300"
         {...triggerProps}
       >
         +{flows.length}

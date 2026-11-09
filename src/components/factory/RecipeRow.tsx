@@ -87,7 +87,15 @@ interface RecipeRowProps {
 /** Clicks that come from these do not select the row. */
 const CONTROL_SELECTOR = 'button, input, select, textarea, a, label, [role="menu"], [role="dialog"]'
 
-const SELECTED_ROW_CLASS = 'bg-teal-900/25'
+/**
+ * The selected row: a full-row teal tint (teal-500 at 22%) and a 1px inset outline in teal-400 at
+ * 65% (the 3px bar on the left is drawn by the reorder cell). Hover does not repaint it. The
+ * outline gives way to the flash of a just-revealed row (`highlightClass`), which draws its own.
+ */
+const SELECTED_ROW_CLASS = 'bg-[rgba(20,184,166,0.22)]'
+const SELECTED_OUTLINE_CLASS = 'outline outline-1 -outline-offset-1 outline-[rgba(45,212,191,0.65)]'
+/** The name of a selected row: white and bold. */
+const SELECTED_NAME_CLASS = 'text-white font-bold'
 
 const NO_SOLVED: ReadonlyMap<string, SolvedNode> = new Map()
 
@@ -270,6 +278,12 @@ export function RecipeRow({
 
   const highlightProps = isHighlighted ? { 'data-highlighted': 'true' } : {}
   const highlightClass = isHighlighted ? 'bg-teal-900/40 outline outline-2 outline-teal-400' : ''
+  // The selection tint and outline give way to the flash and to the drop-into-group cue, which draw
+  // their own: two utilities on one property would be decided by stylesheet order, not by intent.
+  const isDropInto = planNode.kind === 'subplan' && dropZone === 'into'
+  const rowStateClass = isSelected
+    ? `${isHighlighted ? '' : SELECTED_ROW_CLASS} ${isHighlighted || isDropInto ? '' : SELECTED_OUTLINE_CLASS}`
+    : 'hover:bg-gray-800/40'
 
   // ── SubPlan node ─────────────────────────────────────────────────────────
 
@@ -339,7 +353,7 @@ export function RecipeRow({
         data-node-id={planNode.id}
         {...highlightProps}
         data-selected={isSelected ? 'true' : undefined}
-        className={`h-[37px] border-b border-gray-800 ${isSelected ? SELECTED_ROW_CLASS : groupRowBackground(depth, band)} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        className={`h-[37px] border-b border-gray-800 ${isSelected ? '' : groupRowBackground(depth, band)} ${rowStateClass} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
         onClick={handleRowClick}
         draggable
         onDragStart={handleDragStart}
@@ -377,7 +391,7 @@ export function RecipeRow({
               onClick={select}
               aria-pressed={isSelected}
               title={label}
-              className="font-semibold text-xs whitespace-nowrap truncate min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400"
+              className={`${isSelected ? SELECTED_NAME_CLASS : 'font-semibold'} text-xs whitespace-nowrap truncate min-w-0 text-left rounded focus-visible:outline focus-visible:outline-1 focus-visible:outline-teal-400`}
             >
               {label}
             </button>
@@ -599,7 +613,7 @@ export function RecipeRow({
       data-node-id={planNode.id}
       {...highlightProps}
       data-selected={isSelected ? 'true' : undefined}
-      className={`border-b border-gray-800 hover:bg-gray-800/40 group group/row relative ${narrow ? NARROW_ROW_HEIGHT_CLASS : ''} ${isSelected ? SELECTED_ROW_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
+      className={`border-b border-gray-800 ${rowStateClass} group group/row relative ${narrow ? NARROW_ROW_HEIGHT_CLASS : ''} ${recipeOpacity} ${highlightClass}`}
       onClick={handleRowClick}
       draggable
       onDragStart={handleDragStart}
@@ -656,7 +670,7 @@ export function RecipeRow({
               </span>
             )}
           </div>
-          <span data-testid="recipe-name" title={recipe.name} className="text-[11px] font-medium truncate min-w-0">
+          <span data-testid="recipe-name" title={recipe.name} className={`text-[11px] ${isSelected ? SELECTED_NAME_CLASS : 'font-medium'} truncate min-w-0`}>
             {recipe.name}
           </span>
           </button>
@@ -950,13 +964,13 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
 
 function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
   return (
-    <td className={`px-1 py-0.5 w-8 ${className}`} style={selected ? { boxShadow: 'inset 3px 0 0 #14b8a6' } : undefined}>
+    <td className={`px-1 py-0.5 w-8 ${className}`} style={selected ? { boxShadow: 'inset 3px 0 0 #2dd4bf' } : undefined}>
       <div className="flex flex-col items-center gap-0">
         <button
           type="button"
           onClick={() => moveUp(nodeId)}
           disabled={isFirst}
-          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
+          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move up"
         >
           ▲
@@ -965,7 +979,7 @@ function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, moveUp
           type="button"
           onClick={() => moveDown(nodeId)}
           disabled={isLast}
-          className="text-gray-600 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
+          className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move down"
         >
           ▼

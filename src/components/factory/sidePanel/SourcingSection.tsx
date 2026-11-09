@@ -67,7 +67,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
               title={disabled ? productTitle : choice.label}
               data-sourcing-choice={choice.mode ?? 'own'}
               onClick={() => setItemSourcing(itemId, choice.mode as ItemSourcingMode | undefined)}
-              className={`flex-1 px-1 py-1 text-[11px] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
+              className={`flex-1 min-w-0 px-0.5 py-1 text-[11px] leading-tight [overflow-wrap:anywhere] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
             >
               {choice.label.replace(' first', '')}
             </button>
@@ -107,13 +107,13 @@ export function SourcingSection({ node, solved, gameData }: {
   return (
     <PanelSection title="Where inputs come from" testId="panel-sourcing">
       {entries.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">This row takes no inputs.</p>
+        <p className="text-xs text-gray-400 italic">This row takes no inputs.</p>
       ) : (
         <ul>
           {entries.map(e => <SourcingEntry key={e.itemId} itemId={e.itemId} ratePerMin={e.rate} gameData={gameData} />)}
         </ul>
       )}
-      <p className="mt-2 text-[10px] text-gray-500">The mode is per item for the whole block: every row that uses the item follows it.</p>
+      <p className="mt-2 text-[10px] text-gray-400">The mode is per item for the whole block: every row that uses the item follows it.</p>
     </PanelSection>
   )
 }

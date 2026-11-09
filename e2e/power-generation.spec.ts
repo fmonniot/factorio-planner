@@ -197,7 +197,7 @@ test.describe('Power generation', () => {
 
     // The pin is typed in MW: 9 MW is 600 executions per minute of the 0.9 MJ recipe.
     const panel = await selectRow(page, engine)
-    await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+    await panel.getByRole('switch', { name: 'Pin rate' }).check()
     const pinned = panel.getByLabel('Pinned rate')
     await expect(pinned).toHaveValue('10.0')
     await pinned.fill('9')

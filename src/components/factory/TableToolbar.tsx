@@ -61,7 +61,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         <input
           type="search"
           placeholder="Filter recipes or items"
-          className="w-[260px] h-[26px] box-border pl-6 pr-2 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-500"
+          className="w-[260px] h-[26px] box-border pl-6 pr-2 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-400"
         />
       </label>
 
@@ -309,7 +309,7 @@ export function WarningsPopover() {
                 <div className="text-gray-300 leading-snug mb-1">
                   {warningBody(w, gameData, blockName, block?.rootPlan, rateUnit)}
                 </div>
-                <div className="text-gray-500 leading-snug">
+                <div className="text-gray-400 leading-snug">
                   → {warningHint(w)}
                 </div>
                 {w.type === 'duplicate-recipe' && (

@@ -88,7 +88,7 @@ export function MachineSection({ node, solved, gameData }: {
           </PickerTrigger>
           <div className="min-w-0 text-xs">
             <div data-testid="machine-needed" className="text-gray-200">{solved?.machineCountCeil ?? 0} needed</div>
-            {util && <div data-testid="machine-utilisation" className="text-gray-500">{util}</div>}
+            {util && <div data-testid="machine-utilisation" className="text-gray-400">{util}</div>}
           </div>
         </div>
         {row.noMachineInHorizon ? (
@@ -105,7 +105,7 @@ export function MachineSection({ node, solved, gameData }: {
 
       {burnsFuel(machine) && (
         <div className="mt-3">
-          <div className="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Fuel</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 mb-1">Fuel</div>
           <FuelPicker nodeId={node.id} machine={machine} fuelItemId={node.fuelItemId} gameData={gameData} />
         </div>
       )}
@@ -119,8 +119,8 @@ export function MachineSection({ node, solved, gameData }: {
       {(slotCount > 0 || node.modules.length > 0) && (
         <div className="mt-3">
           <div className="flex items-center justify-between mb-1.5">
-            <div className="text-[10px] uppercase tracking-wide text-gray-500">Modules</div>
-            <div className={`text-[10px] ${used > slotCount ? 'text-amber-400' : 'text-gray-600'}`}>{used} / {slotCount} slots used</div>
+            <div className="text-[10px] uppercase tracking-wide text-gray-400">Modules</div>
+            <div className={`text-[10px] ${used > slotCount ? 'text-amber-400' : 'text-gray-400'}`}>{used} / {slotCount} slots used</div>
           </div>
           <ModuleSlotRow
             slots={slots}

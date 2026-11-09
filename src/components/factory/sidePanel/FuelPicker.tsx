@@ -35,7 +35,7 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
 
   if (!fuel) {
     return (
-      <div data-testid="no-fuel-data" className="px-2 py-1.5 text-xs text-gray-500 italic">
+      <div data-testid="no-fuel-data" className="px-2 py-1.5 text-xs text-gray-400 italic">
         {hasData ? 'No usable fuel for this machine' : 'No fuel data in this data set'}
       </div>
     )
@@ -58,12 +58,12 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
           {fuel.name}
           {!withinHorizon(horizon.itemIds, fuel.id) && <> <BeyondTag /></>}
         </span>
-        <span className="text-gray-500 text-xs">{fmtFuelValue(fuel.fuelValueKj ?? 0)}</span>
+        <span className="text-gray-400 text-xs">{fmtFuelValue(fuel.fuelValueKj ?? 0)}</span>
         <Chevron />
       </button>
       {open && (
         <div className="mt-1 bg-gray-800 border border-gray-700 rounded p-1.5 space-y-1 max-h-48 overflow-y-auto">
-          <div className="text-[10px] uppercase tracking-wide text-gray-500 px-1 mb-1">Select fuel</div>
+          <div className="text-[10px] uppercase tracking-wide text-gray-400 px-1 mb-1">Select fuel</div>
           <button
             type="button"
             data-testid="fuel-default"
@@ -83,7 +83,7 @@ export function FuelPicker({ nodeId, machine, fuelItemId, gameData }: {
             >
               {f.iconPath && <Icon iconPath={f.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
               <span className="flex-1">{f.name}</span>
-              <span className="text-gray-500">{fmtFuelValue(f.fuelValueKj ?? 0)}</span>
+              <span className="text-gray-400">{fmtFuelValue(f.fuelValueKj ?? 0)}</span>
             </button>
           ))}
         </div>
