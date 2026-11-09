@@ -153,7 +153,7 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
         Delete
       </button>
       <div role="separator" className="my-1 border-t border-gray-700" />
-      <div className="text-[10px] text-gray-500 px-3 pb-1">Colour</div>
+      <div className="text-[10px] text-gray-400 px-3 pb-1">Colour</div>
       <div role="group" aria-label="Block colour" className="grid grid-cols-8 gap-1 px-3 pb-1.5">
         {BLOCK_PALETTE.map(c => (
           <button

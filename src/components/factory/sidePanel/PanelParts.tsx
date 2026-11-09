@@ -30,7 +30,7 @@ export function PanelSection({ title, testId, children, className = '', highligh
       aria-label={title}
       className={`px-4 py-3 border-b border-gray-800 ${seq !== undefined ? 'ring-2 ring-inset ring-teal-500 bg-teal-950/30' : ''} ${className}`}
     >
-      <h3 className="text-[10px] uppercase tracking-wide text-gray-500 mb-2">{title}</h3>
+      <h3 className="text-[10px] uppercase tracking-wide text-gray-400 mb-2">{title}</h3>
       {children}
     </section>
   )
@@ -53,14 +53,14 @@ export function PanelHeader({ icon, title, subtitle, marker, onClose }: {
           <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" title={title}>{title}</h2>
           {marker}
         </div>
-        {subtitle && <div className="text-[11px] text-gray-500 truncate">{subtitle}</div>}
+        {subtitle && <div className="text-[11px] text-gray-400 truncate">{subtitle}</div>}
       </div>
       <button
         type="button"
         onClick={onClose}
         aria-label="Close panel"
         title="Close panel"
-        className="shrink-0 text-gray-500 hover:text-gray-200 text-lg leading-none px-1"
+        className="shrink-0 text-gray-400 hover:text-gray-200 text-lg leading-none px-1"
       >
         ✕
       </button>

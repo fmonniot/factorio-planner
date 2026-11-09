@@ -33,7 +33,7 @@ interface IconButtonProps {
  * A borderless 32px icon button with a CSS-only tooltip. The wrapper is
  * `relative` so `extra` can be anchored to it.
  */
-export function IconButton({ label, onClick, children, expanded, hasPopup, buttonRef, extra, wide, iconClass = 'text-gray-400', disabled }: IconButtonProps) {
+export function IconButton({ label, onClick, children, expanded, hasPopup, buttonRef, extra, wide, iconClass = 'text-gray-300', disabled }: IconButtonProps) {
   return (
     <span className="relative group">
       <button

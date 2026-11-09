@@ -16,7 +16,7 @@ function Cell({ source, effect, column }: { source: EffectSource; effect: Effect
     return (
       <div
         role="cell"
-        className={`text-right tabular-nums ${ignored ? 'text-amber-400 line-through' : 'text-gray-600'}`}
+        className={`text-right tabular-nums ${ignored ? 'text-amber-400 line-through' : 'text-gray-400'}`}
         data-ignored={ignored ? 'true' : undefined}
         title={ignored ? `${column}: ${fmtEffect(raw)} does not apply to this row (the recipe, machine or beacon does not allow it)` : undefined}
       >
@@ -62,7 +62,7 @@ export function EffectsSection({ node, beacons, gameData }: {
         className="grid gap-x-3 gap-y-1 text-xs"
         style={{ gridTemplateColumns: `1fr repeat(${columns.length + 1}, auto)` }}
       >
-        <div role="row" className="contents text-gray-500 text-[10px] uppercase tracking-wide">
+        <div role="row" className="contents text-gray-400 text-[10px] uppercase tracking-wide">
           <div role="columnheader" />
           {columns.map(c => <div key={c.name} role="columnheader" className="text-right">{c.name}</div>)}
           <div role="columnheader" className="text-right">Total</div>
@@ -76,7 +76,7 @@ export function EffectsSection({ node, beacons, gameData }: {
               <div
                 role="cell"
                 data-testid={`effect-total-${key}`}
-                className={`text-right tabular-nums font-medium ${total === 0 ? 'text-gray-600' : total > 0 ? 'text-green-400' : 'text-red-400'}`}
+                className={`text-right tabular-nums font-medium ${total === 0 ? 'text-gray-400' : total > 0 ? 'text-green-400' : 'text-red-400'}`}
               >
                 {total === 0 ? '–' : fmtEffect(total)}
               </div>
@@ -89,7 +89,7 @@ export function EffectsSection({ node, beacons, gameData }: {
           Recipe effects: the {ignored.join(' and the ')} do not count here (the recipe, machine or beacon does not allow them).
         </p>
       )}
-      <p className="mt-2 text-[10px] text-gray-500">
+      <p className="mt-2 text-[10px] text-gray-400">
         Beacon effect = module effect × efficiency × modules per beacon × beacons. All sources add up.
       </p>
     </PanelSection>

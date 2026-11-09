@@ -50,7 +50,7 @@ export function IconChip({
   const body = (
     <>
       {empty ? (
-        <span className={`${box} box-border rounded border border-dashed border-gray-600 text-gray-500 flex items-center justify-center text-sm leading-none`}>
+        <span className={`${box} box-border rounded border border-dashed border-gray-600 text-gray-400 flex items-center justify-center text-sm leading-none`}>
           +
         </span>
       ) : iconPath ? (

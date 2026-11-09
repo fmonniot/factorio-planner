@@ -107,7 +107,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
       className="fixed mt-1 z-50 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-40"
     >
       {requests.length > 0 && (
-        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
           Request {itemName} from
         </div>
       )}
@@ -136,12 +136,12 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
       ))}
       {connectable && requests.length > 0 && takes.length > 0 && <div className="border-t border-gray-700 my-1" />}
       {connectable && (takes.length > 0 || requests.length === 0) && (
-        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+        <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
           Take existing {itemName} from
         </div>
       )}
       {connectable && requests.length === 0 && takes.length === 0 && (
-        <div className="px-3 py-1 text-xs text-gray-500 cursor-default">
+        <div className="px-3 py-1 text-xs text-gray-400 cursor-default">
           No other block has this item to spare
         </div>
       )}
@@ -165,7 +165,7 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
             {block.name}
             {closesLoop && <span aria-hidden> ↻</span>}
           </span>
-          <span className="font-mono tabular-nums text-gray-500">
+          <span className="font-mono tabular-nums text-gray-400">
             {fmtItemRateText(itemId, offered / 60, rateUnit)}
           </span>
         </button>
