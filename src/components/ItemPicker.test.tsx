@@ -317,7 +317,7 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     loadWithTechnologies()
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
     render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
+    expect(screen.getByText(/No recipes match within the research horizon \(1 outside it\)/)).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText(/Beyond research horizon/, { selector: 'input' }))
     expect(screen.getAllByTestId('recipe-slot').length).toBeGreaterThan(0)
     expect(screen.queryByText(/outside it/)).not.toBeInTheDocument()
@@ -327,7 +327,38 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     loadWithTechnologies()
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
     render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
+    expect(screen.getByText(/No recipes match within the research horizon \(1 outside it\)/)).toBeInTheDocument()
+  })
+
+  it('names the item when no recipe produces it', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="recipes" filterByItemId="no-such-item" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText("No recipe produces 'no-such-item'")).toBeInTheDocument()
+  })
+
+  it('names the item when no recipe consumes it', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="recipes" consumesItemId="no-such-item" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText("No recipe consumes 'no-such-item'")).toBeInTheDocument()
+  })
+
+  it('points at Hidden recipes when only hidden recipes produce the item', () => {
+    const data = fixtureWithTechnologies()
+    for (const r of Object.values(data.recipes)) {
+      if (r.id !== 'secret-recipe' && r.products.some(p => p.itemId === 'iron-plate')) delete data.recipes[r.id]
+    }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText(/except hidden ones — tick Hidden recipes/)).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    expect(screen.getAllByTestId('recipe-slot')).toHaveLength(1)
+  })
+
+  it('points at Beyond research horizon when the horizon empties an item list', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText(/tick Beyond research horizon/)).toBeInTheDocument()
   })
 })
 
