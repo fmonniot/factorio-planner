@@ -226,7 +226,7 @@ describe('SidePanel — sub-factories', () => {
     expect(screen.getByText('Sub-factory · level 2 of 4')).toBeInTheDocument()
   })
 
-  it('shows a separate area with the Area marker and what it receives and sends', () => {
+  it('shows a separate area with its subtitle and what it receives and sends', () => {
     const area = sub('sp-area', 'Oil', [row('n1', 'r-plate')], { area: true })
     setPlan([{ kind: 'subplan', id: 'h-area', subPlanId: 'sp-area' }, row('n2', 'r-gear')], [area])
     select('h-area')
