@@ -64,7 +64,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [ ] **Localised crafting-category names.** The default-machines flyout and the machine picker label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
-- [ ] **Drawer focus management.** Below `xl` the drawer needs it: move focus into it, trap Tab (or make the table inert) and set `role="dialog"` / `aria-modal` only while it is a drawer.
 - [ ] **Drag-and-drop goal ordering.**
 
 ## Data sets
