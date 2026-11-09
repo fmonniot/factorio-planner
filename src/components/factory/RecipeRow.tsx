@@ -65,6 +65,8 @@ interface RecipeRowProps {
   planNode: RecipeNode | SubPlanNode
   isFirst: boolean
   isLast: boolean
+  /** The table filter is active: Move up / Move down and the group chevron are disabled. */
+  filtering?: boolean
   depth: number
   isExpanded?: boolean
   onToggleExpand?: () => void
@@ -104,6 +106,7 @@ export function RecipeRow({
   planNode,
   isFirst,
   isLast,
+  filtering = false,
   depth,
   isExpanded,
   onToggleExpand,
@@ -362,7 +365,7 @@ export function RecipeRow({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} className={hairline} />
+        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} filtering={filtering} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} className={hairline} />
         <td
           className={`px-2 py-0.5 ${hairline}`}
           colSpan={narrow ? 1 : 3}
@@ -375,6 +378,8 @@ export function RecipeRow({
             <button
               type="button"
               onClick={onToggleExpand}
+              disabled={filtering}
+              title={filtering ? 'Groups open automatically while filtering' : undefined}
               aria-expanded={isExpanded === true}
               aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${label}`}
               className="w-[22px] h-[22px] shrink-0 flex items-center justify-center text-gray-400 hover:text-gray-200"
@@ -623,7 +628,7 @@ export function RecipeRow({
       onDrop={handleDrop}
     >
       {/* Reorder */}
-      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
+      <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} filtering={filtering} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
 
       {/* Recipe icon — row actions live in the right-click menu */}
       <td
@@ -936,6 +941,8 @@ function AreaFlowChips({ flows, direction, items, rateUnit, testId }: AreaFlowCe
 // ReorderCell
 // ---------------------------------------------------------------------------
 
+const FILTERING_REORDER_TITLE = 'Clear the filter to reorder rows'
+
 interface ReorderCellProps {
   nodeId: string
   /** The row is selected: a teal bar on the left edge. */
@@ -943,6 +950,7 @@ interface ReorderCellProps {
   className?: string
   isFirst: boolean
   isLast: boolean
+  filtering?: boolean
   moveUp: (id: string) => void
   moveDown: (id: string) => void
 }
@@ -962,14 +970,15 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
   )
 }
 
-function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
+function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, filtering = false, moveUp, moveDown }: ReorderCellProps) {
   return (
     <td className={`px-1 py-0.5 w-8 ${className}`} style={selected ? { boxShadow: 'inset 3px 0 0 #2dd4bf' } : undefined}>
       <div className="flex flex-col items-center gap-0">
         <button
           type="button"
           onClick={() => moveUp(nodeId)}
-          disabled={isFirst}
+          disabled={isFirst || filtering}
+          title={filtering ? FILTERING_REORDER_TITLE : undefined}
           className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move up"
         >
@@ -978,7 +987,8 @@ function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, moveUp
         <button
           type="button"
           onClick={() => moveDown(nodeId)}
-          disabled={isLast}
+          disabled={isLast || filtering}
+          title={filtering ? FILTERING_REORDER_TITLE : undefined}
           className="text-gray-400 hover:text-gray-300 disabled:opacity-20 leading-none text-[10px]"
           aria-label="Move down"
         >

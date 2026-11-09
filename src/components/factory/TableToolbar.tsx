@@ -43,7 +43,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
   const power = powerKw > 0 ? fmtPower(powerKw) : null
 
   return (
-    <div data-testid="table-toolbar" className="relative flex items-center gap-1.5 md:gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
+    <div data-testid="table-toolbar" className="relative flex items-center gap-1 md:gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
       <button
         type="button"
         onClick={onAddRecipe}
@@ -75,8 +75,10 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
       </label>
 
       {filter.query.trim() !== '' && (
-        <span role="status" data-testid="table-filter-status" className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 whitespace-nowrap shrink-0">
-          {filter.hidden} of {filter.total} rows hidden
+        <span role="status" data-testid="table-filter-status" className="inline-flex items-center gap-1 md:gap-1.5 text-[11px] text-gray-400 whitespace-nowrap shrink-0">
+          {/* Below md the words shrink to "N hidden" so the toolbar fits a phone; the full text stays for assistive technology. */}
+          <span aria-hidden className="md:hidden">{filter.hidden} hidden</span>
+          <span className="max-md:sr-only">{filter.hidden} of {filter.total} rows hidden</span>
           <button
             type="button"
             aria-label="Clear filter"

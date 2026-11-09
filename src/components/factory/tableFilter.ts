@@ -8,7 +8,7 @@ import type { GameData, RecipeNode, SubPlan } from '../../data/types'
 export interface TableFilter {
   /** Recipe node ids and group handle ids that stay. */
   visible: ReadonlySet<string>
-  /** Group handle ids rendered open: those with a visible descendant. */
+  /** Group handle ids rendered open: those with a visible descendant, and visible groups that are empty. */
   open: ReadonlySet<string>
   /** Every row reachable through group handles, at every depth. */
   total: number
@@ -51,7 +51,8 @@ export function filterPlan(rootPlan: SubPlan, gameData: GameData, query: string)
       const child = findSubPlan(rootPlan, node.subPlanId)
       const nameMatch = inheritedMatch || (child !== undefined && matchesName(q, '', child.name))
       const childVisible = child ? walk(child, nameMatch) : false
-      if (childVisible) open.add(node.id)
+      // A name-matching group with nothing in it opens too, so its empty drop target shows.
+      if (childVisible || (nameMatch && child !== undefined && child.nodes.length === 0)) open.add(node.id)
       if (childVisible || nameMatch) {
         visible.add(node.id)
         any = true

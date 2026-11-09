@@ -477,7 +477,7 @@ describe('ProductionTable — filter', () => {
     fireEvent.change(field(), { target: { value: 'zzzz' } })
     expect(screen.getByText('No rows match "zzzz"')).toBeInTheDocument()
     expect(rowEl('node-1')).toBeNull()
-    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filter' })[0])
+    fireEvent.click(screen.getByRole('button', { name: 'Show all rows' }))
     expect(rowEl('node-1')).not.toBeNull()
     expect(rowEl('node-2')).not.toBeNull()
     expect(field()).toHaveValue('')
@@ -500,11 +500,53 @@ describe('ProductionTable — filter', () => {
     }
   })
 
-  it('keeps the position in the whole list: the first visible row can still move up', () => {
+  it('does not clear the filter for a reveal request whose row is not in the block', () => {
     load([structuredClone(existingNode), structuredClone(copperNode)])
     render(<ProductionTable />)
     fireEvent.change(field(), { target: { value: 'copper' } })
-    const row = rowEl('node-2')!
-    expect(within(row as HTMLElement).getByRole('button', { name: 'Move up' })).toBeEnabled()
+    act(() => useUiStore.getState().requestRevealRow('no-such-row'))
+    expect(field()).toHaveValue('copper')
+    expect(rowEl('node-1')).toBeNull()
+  })
+
+  it('clears the filter when a recipe is added, so the new row shows', async () => {
+    load([structuredClone(copperNode)])
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add recipe' }))
+    await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
+    fireEvent.click(screen.getByTitle('Iron Plate'))
+    expect(field()).toHaveValue('')
+    expect(document.querySelectorAll('tr[data-node-id]')).toHaveLength(2)
+  })
+
+  it('disables Move up / Move down while filtering and enables them again once cleared', () => {
+    load([structuredClone(existingNode), structuredClone(copperNode)])
+    render(<ProductionTable />)
+    const row = () => rowEl('node-2') as HTMLElement
+    expect(within(row()).getByRole('button', { name: 'Move up' })).toBeEnabled()
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    expect(within(row()).getByRole('button', { name: 'Move up' })).toBeDisabled()
+    expect(within(row()).getByRole('button', { name: 'Move down' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    expect(within(row()).getByRole('button', { name: 'Move up' })).toBeEnabled()
+  })
+
+  it('disables the group chevron while filtering, with a title saying why', () => {
+    loadGroup()
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    const chevron = screen.getByRole('button', { name: 'Collapse Smelters' })
+    expect(chevron).toBeDisabled()
+    expect(chevron).toHaveAttribute('title', 'Groups open automatically while filtering')
+  })
+
+  it('opens a name-matching empty group so its drop target shows', () => {
+    const group = { ...makeEmptyBlock('G').rootPlan, id: 'G', name: 'Smelters', nodes: [] }
+    load([structuredClone(existingNode), { kind: 'subplan', id: 'h-g', subPlanId: 'G' }], [group])
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'smelt' } })
+    expect(screen.getByRole('button', { name: 'Collapse Smelters' })).toBeInTheDocument()
+    expect(screen.getByText('Drop here')).toBeInTheDocument()
   })
 })

@@ -12,6 +12,7 @@ import { ItemPicker } from '../ItemPicker'
 import { treeGuideStyle, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canMoveNodeInto } from '../../data/nesting'
 import { filterPlan } from './tableFilter'
+import { findSubPlan } from '../../data/subPlanTree'
 import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, type AreaView } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
@@ -84,7 +85,7 @@ export function ProductionTable() {
   )
 
   function toggleExpand(nodeId: string) {
-    if (filter) return
+    if (filter) return // the chevrons are disabled while filtering; see RecipeRow's `filtering`
     setExpanded(prev => {
       const next = new Set(prev)
       if (next.has(nodeId)) next.delete(nodeId)
@@ -107,9 +108,10 @@ export function ProductionTable() {
   const [highlight, setHighlight] = useState<{ nodeId: string; seq: number } | null>(null)
   if (revealRequest && revealRequest.seq !== handledRevealSeq) {
     setHandledRevealSeq(revealRequest.seq)
-    if (query !== '') setQuery('')
     const handles = rootPlan ? ancestorHandleIds(rootPlan, revealRequest.nodeId) : undefined
     if (handles) {
+      // Only a row that gets revealed clears the filter (it could be hiding that row).
+      if (query !== '') setQuery('')
       if (handles.some(h => !expanded.has(h))) setExpanded(new Set([...expanded, ...handles]))
       setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
     }
@@ -125,6 +127,8 @@ export function ProductionTable() {
 
   function handleAddRecipe(recipeId: string) {
     addNode(makeRecipeNode(recipeId), picker?.targetSubPlanId)
+    // A filter could hide the new row; clear it so the row shows.
+    if (query !== '') setQuery('')
   }
 
   if (!gameData) {
@@ -156,7 +160,7 @@ export function ProductionTable() {
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
               <span className="text-sm">No rows match &quot;{query.trim()}&quot;</span>
               <button type="button" onClick={() => setQuery('')} className="text-xs text-teal-400 hover:text-teal-300 underline">
-                Clear filter
+                Show all rows
               </button>
             </div>
           ) : (
@@ -251,6 +255,7 @@ function renderNodes(
         planNode={planNode}
         isFirst={idx === 0}
         isLast={idx === nodes.length - 1}
+        filtering={visible !== undefined}
         depth={depth}
         isExpanded={planNode.kind === 'subplan' ? isOpen(planNode.id) : undefined}
         onToggleExpand={planNode.kind === 'subplan' ? () => toggleExpand(planNode.id) : undefined}
@@ -267,7 +272,7 @@ function renderNodes(
 
     // If this is an expanded SubPlanNode, render its children indented.
     if (planNode.kind === 'subplan' && isOpen(planNode.id)) {
-      const childPlan = findSubPlanAnywhere(rootPlan, planNode.subPlanId)
+      const childPlan = findSubPlan(rootPlan, planNode.subPlanId)
       if (childPlan) {
         if (childPlan.nodes.length === 0) {
           // Empty expanded subgroup — render a drop-target placeholder.
@@ -298,15 +303,6 @@ function renderNodes(
   })
 
   return rows
-}
-
-function findSubPlanAnywhere(plan: SubPlan, id: string): SubPlan | undefined {
-  if (plan.id === id) return plan
-  for (const sp of plan.subPlans) {
-    const found = findSubPlanAnywhere(sp, id)
-    if (found) return found
-  }
-  return undefined
 }
 
 // ---------------------------------------------------------------------------

@@ -91,12 +91,12 @@ describe('filterPlan', () => {
     expect(f.visible.has('h-h')).toBe(false)
   })
 
-  it('shows a matching empty group without opening it', () => {
+  it('shows a matching empty group and opens it, so its drop target renders', () => {
     const g = plan('G', 'Smelters', [])
     const root = plan('root', 'Root', [handle('h-g', 'G')], [g])
     const f = filterPlan(root, gameData(), 'smelt')!
     expect(f.visible.has('h-g')).toBe(true)
-    expect(f.open.has('h-g')).toBe(false)
+    expect(f.open.has('h-g')).toBe(true)
   })
 
   it('hides everything when nothing matches', () => {
