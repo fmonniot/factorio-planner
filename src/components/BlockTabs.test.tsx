@@ -4,6 +4,7 @@ import { BlockTabs, AddBlockButton } from './BlockTabs'
 import { useBlockStore, makeEmptyBlock } from '../store/blockStore'
 import { useGameDataStore } from '../store/gameDataStore'
 import type { GameData } from '../data/types'
+import { BLOCK_PALETTE } from '../data/blockColors'
 
 /** A tab's button, by block name (the accessible name; an inactive tab shows no text). */
 const tabBtn = (name: string) => document.querySelector<HTMLElement>(`[data-testid="block-tab"] button[aria-label="${name}"]`)!
@@ -101,6 +102,34 @@ describe('BlockTabs context menu', () => {
     fireEvent.contextMenu(tabBtn('Gears'))
     expect(screen.getByRole('menuitemradio', { name: 'Default colour' })).toHaveAttribute('aria-checked', 'false')
     expect(screen.getByLabelText('Colour #f472b6')).toHaveAttribute('aria-checked', 'true')
+
+    // Both choices are undoable: pick #f472b6, Default colour, and back.
+    act(() => useBlockStore.getState().undo())
+    expect(useBlockStore.getState().blocks[1].colorAuto).toBe(true)
+    expect(useBlockStore.getState().blocks[1].color).toBe('#a3e635')
+    act(() => useBlockStore.getState().undo())
+    expect(useBlockStore.getState().blocks[1].colorAuto).toBeFalsy()
+    expect(useBlockStore.getState().blocks[1].color).toBe('#f472b6')
+  })
+
+  it('draws the Default colour swatch as the first product\'s icon on its own colour, and as an empty cell with no product', () => {
+    const items = { gear: { id: 'gear', name: 'Gear', iconPath: 'gear.png', iconColor: '#12ab9c' } }
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items } as unknown as GameData, sourceId: 'test' },
+    })
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = { ...makeEmptyBlock('Gears', '#f472b6'), products: [{ id: 'p1', itemId: 'gear' }] }
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: gears.id, history: {} })
+    render(<BlockTabs />)
+    fireEvent.contextMenu(tabBtn('Gears'))
+    const swatch = screen.getByTestId('block-color-default')
+    expect(swatch.style.background).toBe('#12ab9c')
+    expect(swatch.querySelector('img')).not.toBeNull()
+    expect(document.querySelectorAll('[data-testid="block-color-swatch"]')).toHaveLength(BLOCK_PALETTE.length)
+    fireEvent.keyDown(document, { key: 'Escape' })
+
+    fireEvent.contextMenu(tabBtn('Plates'))
+    expect(screen.getByTestId('block-color-default').querySelector('img')).toBeNull()
   })
 })
 

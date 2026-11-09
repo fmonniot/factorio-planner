@@ -4,7 +4,6 @@ import fs from 'fs'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { detail, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
-import { pickBlockColorForIcon } from '../src/data/blockColors'
 
 const PLAN = path.resolve('e2e/fixtures/block-connection.json')
 const MANY = path.resolve('e2e/fixtures/summary-many-items.json')
@@ -79,8 +78,7 @@ test.describe('block colours', () => {
     await expect(fill).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
   })
 
-  test('Make in a new block takes the palette colour nearest the item icon', async ({ page }) => {
-    // Compressed oxygen's icon is a saturated red: the expected colour comes from the same helper the app uses.
+  test('Make in a new block takes the colour of the item icon as it is', async ({ page }) => {
     const bundle = JSON.parse(fs.readFileSync(path.resolve('public/data/nullius/game-data.json'), 'utf8'))
     const iconColor: string = bundle.items['nullius-compressed-oxygen'].iconColor
     expect(iconColor).toMatch(/^#[0-9a-f]{6}$/)
@@ -89,24 +87,14 @@ test.describe('block colours', () => {
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
     await expect(slot(page, 'Ingredients', 'Compressed oxygen')).toBeVisible({ timeout: 10000 })
 
-    // Give the existing block the colour the helper would pick first, so the new block must take another one.
-    const taken = pickBlockColorForIcon(iconColor, [], { random: () => 0 })
-    await page.locator('[data-testid="block-tab"] button[aria-label="Acid"]').click({ button: 'right' })
-    await page.getByLabel(`Colour ${taken}`).click()
-    await expect(page.getByRole('menu')).toHaveCount(0)
-    const used = Object.values(await exportColors(page))
-
     await slot(page, 'Ingredients', 'Compressed oxygen').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Make in a new block…' }).click()
     await expect(page.locator('[data-testid="block-tab"] button[aria-label="Compressed oxygen"]')).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
-    // Ties are broken at random, so accept every colour the helper can return for this state.
-    const allowed = [0, 0.999].map(r => pickBlockColorForIcon(iconColor, used, { random: () => r }))
-    expect(allowed).not.toContain(taken)
-    expect(allowed).toContain((await exportColors(page))['Compressed oxygen'])
+    expect((await exportColors(page))['Compressed oxygen']).toBe(iconColor)
   })
 
-  test('a new block follows the icon of its first product, until a colour is picked', async ({ page }) => {
+  test('a new block follows the icon of its first product as it is, until a colour is picked', async ({ page }) => {
     const bundle = JSON.parse(fs.readFileSync(path.resolve('public/data/nullius/game-data.json'), 'utf8'))
     const iconColor: string = bundle.items['nullius-compressed-oxygen'].iconColor
     expect(iconColor).toMatch(/^#[0-9a-f]{6}$/)
@@ -123,10 +111,7 @@ test.describe('block colours', () => {
     await overlay.locator('[data-testid="item-slot"][data-item-id="nullius-compressed-oxygen"]').click()
     await expect(overlay).toHaveCount(0)
 
-    const colors = await exportColors(page)
-    // Ties are broken at random, so accept every colour the helper can return for this state.
-    const allowed = [0, 0.999].map(r => pickBlockColorForIcon(iconColor, [colors.Plates, colors.Gears], { random: () => r }))
-    expect(allowed).toContain(colors['Block 3'])
+    expect((await exportColors(page))['Block 3']).toBe(iconColor)
 
     // Picking a swatch ends the following.
     // The menu says so: Default colour is checked and no swatch is.
@@ -164,10 +149,7 @@ test.describe('block colours', () => {
     await tab.click({ button: 'right' })
     await page.getByTestId('block-color-default').click()
     await expect(page.getByRole('menu')).toHaveCount(0)
-    const colors = await exportColors(page)
-    const used = [colors.Plates, colors.Gears]
-    // Ties are broken at random, so accept every colour the helper can return for this state.
-    const allowed = [0, 0.999].map(r => pickBlockColorForIcon(iconColor, used, { random: () => r }))
-    expect(allowed).toContain(colors['Block 3'])
+    expect((await exportColors(page))['Block 3']).toBe(iconColor)
+
   })
 })

@@ -889,13 +889,13 @@ describe('FactorySummary — connections', () => {
       expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
     })
 
-    it('Make in a new block takes the colour from the item icon colour', () => {
+    it('Make in a new block takes the item icon colour as it is', () => {
       withOreRecipe('#ffff00')
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       fireEvent.click(screen.getByRole('menuitem', { name: 'Make in a new block…' }))
-      expect(useBlockStore.getState().blocks[2].color).toBe('#a3e635')
+      expect(useBlockStore.getState().blocks[2].color).toBe('#ffff00')
     })
 
     it('Make in a new block without an icon colour still gets a palette colour', () => {

@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest'
-import { BLOCK_PALETTE, assignMissingBlockColors, hueSaturation, pickBlockColor, pickBlockColorForIcon, withAlpha } from './blockColors'
+import { BLOCK_PALETTE, assignMissingBlockColors, defaultBlockColor, pickBlockColor, withAlpha } from './blockColors'
 
 describe('pickBlockColor', () => {
   it('returns the only unused colour whatever the random draw', () => {
-    const used = BLOCK_PALETTE.slice(0, 15)
-    expect(pickBlockColor(used, { random: () => 0 })).toBe(BLOCK_PALETTE[15])
-    expect(pickBlockColor(used, { random: () => 0.999 })).toBe(BLOCK_PALETTE[15])
+    const used = BLOCK_PALETTE.slice(0, BLOCK_PALETTE.length - 1)
+    expect(pickBlockColor(used, { random: () => 0 })).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
+    expect(pickBlockColor(used, { random: () => 0.999 })).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
   })
 
   it('draws from the whole palette when nothing is used', () => {
     expect(pickBlockColor([], { random: () => 0 })).toBe(BLOCK_PALETTE[0])
-    expect(pickBlockColor([], { random: () => 0.999 })).toBe(BLOCK_PALETTE[15])
+    expect(pickBlockColor([], { random: () => 0.999 })).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
   })
 
   it('never returns a colour that is used more than another', () => {
@@ -21,62 +21,28 @@ describe('pickBlockColor', () => {
   })
 
   it('honours exclude even when it is the only least-used colour', () => {
-    const used = BLOCK_PALETTE.slice(0, 15)
-    expect(pickBlockColor(used, { exclude: BLOCK_PALETTE[15], random: () => 0 })).not.toBe(BLOCK_PALETTE[15])
+    const used = BLOCK_PALETTE.slice(0, BLOCK_PALETTE.length - 1)
+    expect(pickBlockColor(used, { exclude: BLOCK_PALETTE[BLOCK_PALETTE.length - 1], random: () => 0 })).not.toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
   })
 
   it('compares colours case-insensitively', () => {
-    const used = ['#60A5FA', ...BLOCK_PALETTE.slice(1, 15)]
-    expect(pickBlockColor(used, { random: () => 0 })).toBe(BLOCK_PALETTE[15])
+    const used = ['#60A5FA', ...BLOCK_PALETTE.slice(1, BLOCK_PALETTE.length - 1)]
+    expect(pickBlockColor(used, { random: () => 0 })).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
   })
 })
 
-describe('hueSaturation', () => {
-  it('returns the HSV hue in degrees and the saturation', () => {
-    expect(hueSaturation('#ff0000')).toEqual({ hue: 0, saturation: 1 })
-    expect(hueSaturation('#00ff00')).toEqual({ hue: 120, saturation: 1 })
-    expect(hueSaturation('#0000ff')).toEqual({ hue: 240, saturation: 1 })
-    expect(hueSaturation('#ffff00').hue).toBe(60)
-    expect(hueSaturation('#808080')).toEqual({ hue: 0, saturation: 0 })
-  })
-})
-
-describe('pickBlockColorForIcon', () => {
-  it('takes the only palette colour near the icon hue whatever the random draw', () => {
-    for (const r of [0, 0.5, 0.999]) expect(pickBlockColorForIcon('#ffff00', [], { random: () => r })).toBe('#a3e635')
+describe('defaultBlockColor', () => {
+  it('takes the icon colour as it is, lower-cased, even off the palette', () => {
+    expect(defaultBlockColor('#12ab9c', [])).toBe('#12ab9c')
+    expect(defaultBlockColor('#FFFF00', ['#ffff00'])).toBe('#ffff00')
   })
 
-  it('breaks ties between near colours with the random draw', () => {
-    expect(pickBlockColorForIcon('#00ff00', [], { random: () => 0 })).toBe('#a3e635')
-    expect(pickBlockColorForIcon('#00ff00', [], { random: () => 0.999 })).toBe('#86efac')
-  })
-
-  it('prefers the least-used colour among the near ones', () => {
-    expect(pickBlockColorForIcon('#00ff00', ['#a3e635'], { random: () => 0 })).toBe('#86efac')
-    expect(pickBlockColorForIcon('#ff0000', ['#fca5a5'], { random: () => 0 })).toBe('#fda4af')
-    expect(pickBlockColorForIcon('#ff0000', ['#fda4af'], { random: () => 0 })).toBe('#fca5a5')
-  })
-
-  it('is case-insensitive', () => {
-    expect(pickBlockColorForIcon('#FFFF00', ['#A3E635'], { random: () => 0 })).toBe('#a3e635')
-  })
-
-  it('falls back to a random pick for grey, missing or invalid colours', () => {
-    const used = BLOCK_PALETTE.slice(0, 15)
-    for (const c of ['#7a7a79', '#1a0000', '#3f0000', undefined, '#xyz']) {
-      expect(pickBlockColorForIcon(c, used, { random: () => 0 })).toBe(BLOCK_PALETTE[15])
+  it('falls back to the first least-used palette colour for a missing or invalid colour', () => {
+    const used = BLOCK_PALETTE.slice(0, BLOCK_PALETTE.length - 1)
+    for (const c of [undefined, '#xyz', 'red']) {
+      expect(defaultBlockColor(c, used)).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
     }
-  })
-
-  it('always returns a palette colour', () => {
-    for (let h = 0; h < 360; h += 30) {
-      const [r, g, b] = [0, 8, 4].map(k => {
-        const x = (k + h / 60) % 6
-        return Math.round(255 * (1 - Math.max(0, Math.min(1, Math.min(x, 4 - x)))))
-      })
-      const hex = `#${[r, g, b].map(v => v.toString(16).padStart(2, '0')).join('')}`
-      expect(BLOCK_PALETTE).toContain(pickBlockColorForIcon(hex, []))
-    }
+    expect(defaultBlockColor(undefined, [])).toBe(BLOCK_PALETTE[0])
   })
 })
 
@@ -123,8 +89,8 @@ describe('assignMissingBlockColors', () => {
     expect(raw).toEqual(copy)
   })
 
-  it('wraps around the palette past 16 colourless blocks', () => {
-    const out = colors(assignMissingBlockColors({ blocks: Array.from({ length: 17 }, () => ({})) }))
-    expect(out[16]).toBe(BLOCK_PALETTE[16 % 16])
+  it('wraps around the palette past its length of colourless blocks', () => {
+    const out = colors(assignMissingBlockColors({ blocks: Array.from({ length: BLOCK_PALETTE.length + 1 }, () => ({})) }))
+    expect(out[BLOCK_PALETTE.length]).toBe(BLOCK_PALETTE[0])
   })
 })

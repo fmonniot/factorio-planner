@@ -3,7 +3,7 @@ import { canConnect } from './connections'
 import { findSubPlan } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
-import { pickBlockColor, pickBlockColorForIcon, HEX_COLOR_RE } from '../data/blockColors'
+import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
 
@@ -307,6 +307,7 @@ export interface BlockStoreState {
   /** Move a block to an insertion index (0..length, counted before removal, as `moveNode`). Not undoable. */
   moveBlock: (blockId: string, toIndex: number) => void
   renameBlock: (blockId: string, name: string) => void
+  /** Pick a colour (ends the default colour). Undoable, in the history of `blockId`. */
   setBlockColor: (blockId: string, color: string) => void
   /**
    * Back to the default colour: the block follows the icon of its first product again (see
@@ -404,23 +405,36 @@ function iconColorOf(itemId: string | undefined): string | undefined {
 }
 
 /**
- * The colour the default colour gives a block whose first product is `itemId`, next to the `others`.
- * Ties go to the first palette colour rather than at random, so the same state always gives the same
- * colour: undo and redo of a product change, or choosing Default colour twice, do not re-roll it.
+ * The colour the default colour gives a block whose first product is `itemId`, next to the `others`:
+ * the icon's own colour (the least-used palette colour, the first on a tie, when the icon has none),
+ * so the same state always gives the same colour: undo and redo do not re-roll it.
  */
 function defaultColorFor(itemId: string | undefined, others: readonly Block[]): string {
-  return pickBlockColorForIcon(iconColorOf(itemId), others.map(b => b.color), { random: () => 0 })
+  return defaultBlockColor(iconColorOf(itemId), others.map(b => b.color))
 }
 
 /**
  * `next` (the block `prev` after a change) with its colour re-picked when it has the default colour
- * and its first product is now another item. A block left without a product keeps its colour.
+ * and either its first product is now another item or it has just got the default colour (the undo
+ * of a colour pick, whose stored colour may be stale). A block left without a product keeps its colour.
  */
 function followFirstProduct(prev: Block, next: Block, all: readonly Block[]): Block {
   const first = next.products[0]?.itemId
-  if (!next.colorAuto || first === undefined || first === prev.products[0]?.itemId) return next
+  if (!next.colorAuto || first === undefined) return next
+  if (prev.colorAuto && first === prev.products[0]?.itemId) return next
   const color = defaultColorFor(first, all.filter(b => b.id !== next.id))
   return color === next.color ? next : { ...next, color }
+}
+
+/** An undoable colour change: `before` and `after` are the colour and the `colorAuto` flag. */
+function colorCommand(
+  before: { color: string; auto: boolean },
+  after: { color: string; auto: boolean },
+): Command {
+  return {
+    apply: b => ({ ...b, color: after.color, colorAuto: after.auto }),
+    undo: b => ({ ...b, color: before.color, colorAuto: before.auto }),
+  }
 }
 
 function applyCommand(
@@ -627,7 +641,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       // Without a product there is no icon to follow: keep the colour and start following once there is one.
       const color = first === undefined ? target.color : defaultColorFor(first, state.blocks.filter(b => b.id !== blockId))
       if (color === target.color && target.colorAuto) return state
-      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color, colorAuto: true } : b)) }
+      return applyCommand(
+        state,
+        colorCommand({ color: target.color, auto: target.colorAuto === true }, { color, auto: true }),
+        blockId,
+      )
     }),
 
   setBlockColor: (blockId, color) =>
@@ -636,7 +654,11 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       if (!HEX_COLOR_RE.test(hex)) return state
       const target = state.blocks.find(b => b.id === blockId)
       if (!target || (target.color === hex && !target.colorAuto)) return state
-      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color: hex, colorAuto: false } : b)) }
+      return applyCommand(
+        state,
+        colorCommand({ color: target.color, auto: target.colorAuto === true }, { color: hex, auto: false }),
+        blockId,
+      )
     }),
 
   setActiveBlock: (blockId) =>

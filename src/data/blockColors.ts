@@ -1,5 +1,5 @@
 // Block display colours: the palette, how new blocks pick one (at random, or by
-// the hue of an item's icon), and how plans saved before blocks had a colour
+// the colour of an item's icon), and how plans saved before blocks had a colour
 // get theirs. Pure; no React or store imports.
 
 /**
@@ -9,7 +9,7 @@
  */
 export const BLOCK_PALETTE = [
   '#60a5fa', '#7dd3fc', '#818cf8', '#a78bfa', '#d8b4fe', '#e879f9', '#f472b6', '#fda4af',
-  '#fca5a5', '#a5b4fc', '#a3e635', '#86efac', '#bfdbfe', '#fbcfe8', '#c4b5fd', '#f9a8d4',
+  '#fca5a5', '#a5b4fc', '#a3e635', '#86efac', '#bfdbfe', '#fbcfe8', '#c4b5fd', '#f9a8d4', '#d9f99d',
 ] as const
 
 export const HEX_COLOR_RE = /^#[0-9a-f]{6}$/
@@ -37,64 +37,15 @@ export function pickBlockColor(
   return candidates[Math.floor((opts.random ?? Math.random)() * candidates.length)]
 }
 
-/** Icon colours less saturated than this (HSV) are treated as grey and picked at random. */
-export const NEUTRAL_SATURATION = 0.2
-
-/** Icon colours darker than this (HSV value, the largest channel as 0-1) have no reliable hue and are picked at random. */
-export const NEUTRAL_VALUE = 0.25
-
-/** Palette colours this many degrees beyond the nearest hue still count as a match. */
-export const HUE_WINDOW = 20
-
-/** HSV hue (0-359 degrees) and saturation (0-1) of a `#rrggbb` colour. */
-export function hueSaturation(hex: string): { hue: number; saturation: number } {
-  const n = parseInt(hex.slice(1), 16)
-  const r = ((n >> 16) & 255) / 255
-  const g = ((n >> 8) & 255) / 255
-  const b = (n & 255) / 255
-  const max = Math.max(r, g, b)
-  const delta = max - Math.min(r, g, b)
-  let hue = 0
-  if (delta > 0) {
-    if (max === r) hue = ((g - b) / delta) % 6
-    else if (max === g) hue = (b - r) / delta + 2
-    else hue = (r - g) / delta + 4
-    hue = (hue * 60 + 360) % 360
-  }
-  return { hue: Math.round(hue) % 360, saturation: max === 0 ? 0 : delta / max }
-}
-
-function hueDistance(a: number, b: number): number {
-  const d = Math.abs(a - b) % 360
-  return Math.min(d, 360 - d)
-}
-
 /**
- * Pick a palette colour for a new block made for an item whose icon has the
- * colour `iconColor`: the palette colours whose hue is within HUE_WINDOW degrees
- * of the nearest one, the least-used of those (ties at random). An absent,
- * invalid, grey (saturation below NEUTRAL_SATURATION) or very dark (HSV value
- * below NEUTRAL_VALUE) colour falls back to `pickBlockColor`.
+ * The default colour of a block whose first product's icon has the colour `iconColor`: that colour as
+ * it is (lower-cased), even where it lands on a hue the palette avoids. An absent or invalid colour
+ * falls back to the first of the least-used palette colours, so the same state always gives the same colour.
  */
-export function pickBlockColorForIcon(
-  iconColor: string | undefined,
-  used: readonly string[],
-  opts: { random?: () => number } = {},
-): string {
+export function defaultBlockColor(iconColor: string | undefined, used: readonly string[]): string {
   const hex = iconColor?.toLowerCase()
-  if (hex === undefined || !HEX_COLOR_RE.test(hex)) return pickBlockColor(used, opts)
-  const { hue, saturation } = hueSaturation(hex)
-  const value = Math.max(...[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))) / 255
-  if (saturation < NEUTRAL_SATURATION || value < NEUTRAL_VALUE) return pickBlockColor(used, opts)
-
-  const distances = BLOCK_PALETTE.map(c => hueDistance(hue, hueSaturation(c).hue))
-  const nearest = Math.min(...distances)
-  const lowered = used.map(u => u.toLowerCase())
-  const shortlist = BLOCK_PALETTE.filter((_, i) => distances[i] <= nearest + HUE_WINDOW)
-  const useCount = (c: string) => lowered.filter(u => u === c).length
-  const min = Math.min(...shortlist.map(useCount))
-  const candidates = shortlist.filter(c => useCount(c) === min)
-  return candidates[Math.floor((opts.random ?? Math.random)() * candidates.length)]
+  if (hex !== undefined && HEX_COLOR_RE.test(hex)) return hex
+  return pickBlockColor(used, { random: () => 0 })
 }
 
 /**

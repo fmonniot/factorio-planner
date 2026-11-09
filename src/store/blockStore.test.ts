@@ -1177,16 +1177,16 @@ describe('input connections', () => {
       loadIconColors({ plate: '#ffff00' })
       store().addBlockForItem('plate', 'Iron plate')
       const created = store().blocks[store().blocks.length - 1]
-      expect(created.color).toBe('#a3e635')
+      expect(created.color).toBe('#ffff00')
       expect(created.colorAuto).toBe(true)
     })
 
-    it('picks a palette colour without an icon colour or with a grey one', () => {
+    it('picks a palette colour without an icon colour, and the icon colour as it is when grey', () => {
       loadIconColors({ gear: '#7a7a79' })
       store().addBlockForItem('plate', 'Iron plate')
       expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
       store().addBlockForItem('gear', 'Gear')
-      expect(BLOCK_PALETTE).toContain(store().blocks[store().blocks.length - 1].color as typeof BLOCK_PALETTE[number])
+      expect(store().blocks[store().blocks.length - 1].color).toBe('#7a7a79')
     })
 
     it('keeps the colour when a later product is added and removed', () => {
@@ -1625,11 +1625,11 @@ describe('block colours', () => {
   })
 
   it('addBlock takes the only unused palette colour', () => {
-    const blocks = BLOCK_PALETTE.slice(0, 15).map((c, i) => makeEmptyBlock(`B${i}`, c))
+    const blocks = BLOCK_PALETTE.slice(0, -1).map((c, i) => makeEmptyBlock(`B${i}`, c))
     useBlockStore.setState({ blocks, activeBlockId: blocks[0].id, history: {} })
     useBlockStore.getState().addBlock()
-    const added = useBlockStore.getState().blocks[15]
-    expect(added.color).toBe(BLOCK_PALETTE[15])
+    const added = useBlockStore.getState().blocks[BLOCK_PALETTE.length - 1]
+    expect(added.color).toBe(BLOCK_PALETTE[BLOCK_PALETTE.length - 1])
   })
 
   it('duplicateBlock gives the copy a different colour from its source', () => {
@@ -1710,7 +1710,7 @@ describe('block colours', () => {
       const added = store().blocks[2]
       expect(added.colorAuto).toBe(true)
       store().addProduct({ id: 'p1', itemId: 'plate' })
-      expect(colorOf(added.id)).toBe('#a3e635')
+      expect(colorOf(added.id)).toBe('#ffff00')
     })
 
     it('recolours an auto block when its first product changes, and only then', () => {
@@ -1718,9 +1718,9 @@ describe('block colours', () => {
       store().resetBlockColor(b.id)
       store().addProduct({ id: 'p1', itemId: 'gear' })
       store().addProduct({ id: 'p2', itemId: 'plate' })
-      expect(colorOf(b.id)).not.toBe('#a3e635') // the second product does not count
+      expect(colorOf(b.id)).not.toBe('#ffff00') // the second product does not count
       store().removeProduct('p1')
-      expect(colorOf(b.id)).toBe('#a3e635')
+      expect(colorOf(b.id)).toBe('#ffff00')
     })
 
     it('keeps the colour when the last product is removed', () => {
@@ -1728,13 +1728,13 @@ describe('block colours', () => {
       store().resetBlockColor(b.id)
       store().addProduct({ id: 'p1', itemId: 'plate' })
       store().removeProduct('p1')
-      expect(colorOf(b.id)).toBe('#a3e635')
+      expect(colorOf(b.id)).toBe('#ffff00')
     })
 
     it('gives the same colour every time for the same state', () => {
       const { b } = seed()
       store().resetBlockColor(b.id)
-      store().addProduct({ id: 'p1', itemId: 'gear' }) // grey: no hue to follow
+      store().addProduct({ id: 'p1', itemId: 'gear' })
       const grey = colorOf(b.id)
       store().undo()
       store().redo()
@@ -1749,11 +1749,11 @@ describe('block colours', () => {
       store().addProduct({ id: 'p1', itemId: 'gear' })
       store().addProduct({ id: 'p2', itemId: 'plate' })
       store().removeProduct('p1')
-      expect(colorOf(b.id)).toBe('#a3e635')
-      store().undo() // gear is first again: grey, so a random palette colour
-      expect(BLOCK_PALETTE).toContain(colorOf(b.id) as typeof BLOCK_PALETTE[number])
+      expect(colorOf(b.id)).toBe('#ffff00')
+      store().undo() // gear is first again: its own icon colour
+      expect(colorOf(b.id)).toBe('#7a7a79')
       store().redo()
-      expect(colorOf(b.id)).toBe('#a3e635')
+      expect(colorOf(b.id)).toBe('#ffff00')
     })
 
     it('does not recolour a block whose colour was picked', () => {
@@ -1775,7 +1775,7 @@ describe('block colours', () => {
       const { a, b } = seed()
       store().addProduct({ id: 'p1', itemId: 'plate' })
       store().resetBlockColor(b.id)
-      expect(colorOf(b.id)).toBe('#a3e635')
+      expect(colorOf(b.id)).toBe('#ffff00')
       expect(store().blocks[1].colorAuto).toBe(true)
       expect(colorOf(a.id)).toBe('#60a5fa')
       expect(store().blocks[0].colorAuto).toBeFalsy()
@@ -1792,6 +1792,43 @@ describe('block colours', () => {
       const before = store().blocks
       store().resetBlockColor('missing')
       expect(store().blocks).toBe(before)
+    })
+
+    it('picking a colour and going back to the default are undoable steps', () => {
+      const { b } = seed()
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      store().resetBlockColor(b.id) // blue -> auto
+      expect(colorOf(b.id)).toBe('#ffff00')
+      store().setBlockColor(b.id, '#a78bfa') // auto -> purple
+      store().setBlockColor(b.id, '#60a5fa') // purple -> blue
+      store().undo()
+      expect(colorOf(b.id)).toBe('#a78bfa')
+      expect(store().blocks[1].colorAuto).toBe(false)
+      store().undo()
+      expect(colorOf(b.id)).toBe('#ffff00')
+      expect(store().blocks[1].colorAuto).toBe(true)
+      store().undo() // auto -> the colour it had before
+      expect(colorOf(b.id)).toBe('#f472b6')
+      expect(store().blocks[1].colorAuto).toBeFalsy()
+      store().redo()
+      store().redo()
+      store().redo()
+      expect(colorOf(b.id)).toBe('#60a5fa')
+      expect(store().blocks[1].colorAuto).toBe(false)
+    })
+
+    it('undoing a pick back to the default recolours for the current first product', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      store().setBlockColor(b.id, '#a78bfa')
+      store().removeProduct('p1')
+      store().addProduct({ id: 'p2', itemId: 'gear' })
+      store().undo() // the product add
+      store().undo() // the product removal
+      store().undo() // the pick: auto again, on plate
+      expect(colorOf(b.id)).toBe('#ffff00')
+      expect(store().blocks[1].colorAuto).toBe(true)
     })
 
     it('a duplicate has its own colour and does not follow its first product', () => {
