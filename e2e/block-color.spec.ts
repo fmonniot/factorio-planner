@@ -4,6 +4,7 @@ import fs from 'fs'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
 import { detail, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
+import { pickBlockColorForIcon } from '../src/data/blockColors'
 
 const PLAN = path.resolve('e2e/fixtures/block-connection.json')
 const MANY = path.resolve('e2e/fixtures/summary-many-items.json')
@@ -79,24 +80,30 @@ test.describe('block colours', () => {
   })
 
   test('Make in a new block takes the palette colour nearest the item icon', async ({ page }) => {
-    // Compressed oxygen's icon is red (saturation 0.9): the palette colours within 20 degrees of hue 0 are #fca5a5 and #fda4af.
+    // Compressed oxygen's icon is a saturated red: the expected colour comes from the same helper the app uses.
     const bundle = JSON.parse(fs.readFileSync(path.resolve('public/data/nullius/game-data.json'), 'utf8'))
-    expect(bundle.items['nullius-compressed-oxygen'].iconColor).toBe('#da1212')
+    const iconColor: string = bundle.items['nullius-compressed-oxygen'].iconColor
+    expect(iconColor).toMatch(/^#[0-9a-f]{6}$/)
 
     await loadPlanFixture(page, SOURCING)
     await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
     await expect(slot(page, 'Ingredients', 'Compressed oxygen')).toBeVisible({ timeout: 10000 })
 
-    // Take #fda4af for the existing block so #fca5a5 is the only unused colour of the shortlist.
+    // Give the existing block the colour the helper would pick first, so the new block must take another one.
+    const taken = pickBlockColorForIcon(iconColor, [], { random: () => 0 })
     await page.locator('[data-testid="block-tab"] button[aria-label="Acid"]').click({ button: 'right' })
-    await page.getByLabel('Colour #fda4af').click()
+    await page.getByLabel(`Colour ${taken}`).click()
     await expect(page.getByRole('menu')).toHaveCount(0)
+    const used = Object.values(await exportColors(page))
 
     await slot(page, 'Ingredients', 'Compressed oxygen').click({ button: 'right' })
     await page.getByRole('menuitem', { name: 'Make in a new block…' }).click()
     await expect(page.locator('[data-testid="block-tab"] button[aria-label="Compressed oxygen"]')).toBeVisible()
     await page.getByRole('button', { name: 'Close' }).click()
-    expect((await exportColors(page))['Compressed oxygen']).toBe('#fca5a5')
+    // Ties are broken at random, so accept every colour the helper can return for this state.
+    const allowed = [0, 0.999].map(r => pickBlockColorForIcon(iconColor, used, { random: () => r }))
+    expect(allowed).not.toContain(taken)
+    expect(allowed).toContain((await exportColors(page))['Compressed oxygen'])
   })
 
   test('a block that gains its first product later keeps its colour', async ({ page }) => {

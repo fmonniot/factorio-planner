@@ -188,7 +188,7 @@ node scripts/build-game-data.js --patch-fuel \
 
 `--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`), power recipes (`<machine> (<fuel>)`) and of drills, pumps and generation machines.
 
-`iconColor` (the mean colour of each item's icon, which sets the default colour of a block made for that item) is computed by the full build. The `--patch-*` modes rewrite items without it, so run this after any of them:
+`iconColor` (the mean colour of each item's icon, which sets the default colour of a block made for that item) is computed by the full build and by `--patch-power` (for the power items it replaces); the other `--patch-*` modes keep it. To add or refresh it on an existing bundle:
 
 ```sh
 node scripts/patch-icon-colors.mjs public/data/nullius/game-data.json   # --icons <dir> if the icons are elsewhere

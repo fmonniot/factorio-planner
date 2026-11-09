@@ -25,19 +25,36 @@ export async function iconColor(buffer) {
   return `#${hex(r)}${hex(g)}${hex(b)}`
 }
 
+const CONCURRENCY = 16
+
 /**
  * Set `iconColor` on every item whose icon file exists in `iconsDir`
- * (`<iconsDir>/<basename of iconPath>`). Items without an icon are skipped.
- * Returns how many were set and how many skipped.
+ * (`<iconsDir>/<basename of iconPath>`), decoding up to CONCURRENCY icons at a
+ * time. When `iconsDir` exists, an item whose icon is missing or has no opaque
+ * pixel loses a stale `iconColor`; when it does not exist nothing is touched.
+ * Returns how many were set, how many skipped and how many items changed
+ * (set to a new value or cleared).
  */
 export async function addIconColors(items, iconsDir) {
-  let set = 0, skipped = 0
-  for (const item of Object.values(items)) {
-    const file = item.iconPath ? join(iconsDir, basename(item.iconPath)) : undefined
-    const color = file && existsSync(file) ? await iconColor(file) : undefined
-    if (color === undefined) { skipped++; continue }
-    item.iconColor = color
-    set++
+  const haveDir = existsSync(iconsDir)
+  const list = Object.values(items)
+  let set = 0, skipped = 0, changed = 0
+  let next = 0
+  const worker = async () => {
+    while (next < list.length) {
+      const item = list[next++]
+      const file = item.iconPath ? join(iconsDir, basename(item.iconPath)) : undefined
+      const color = file && existsSync(file) ? await iconColor(file) : undefined
+      if (color === undefined) {
+        skipped++
+        if (haveDir && item.iconColor !== undefined) { delete item.iconColor; changed++ }
+        continue
+      }
+      if (item.iconColor !== color) changed++
+      item.iconColor = color
+      set++
+    }
   }
-  return { set, skipped }
+  await Promise.all(Array.from({ length: Math.min(CONCURRENCY, list.length) }, worker))
+  return { set, skipped, changed }
 }

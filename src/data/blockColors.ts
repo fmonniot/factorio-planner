@@ -40,6 +40,9 @@ export function pickBlockColor(
 /** Icon colours less saturated than this (HSV) are treated as grey and picked at random. */
 export const NEUTRAL_SATURATION = 0.2
 
+/** Icon colours darker than this (HSV value, the largest channel as 0-1) have no reliable hue and are picked at random. */
+export const NEUTRAL_VALUE = 0.25
+
 /** Palette colours this many degrees beyond the nearest hue still count as a match. */
 export const HUE_WINDOW = 20
 
@@ -70,8 +73,8 @@ function hueDistance(a: number, b: number): number {
  * Pick a palette colour for a new block made for an item whose icon has the
  * colour `iconColor`: the palette colours whose hue is within HUE_WINDOW degrees
  * of the nearest one, the least-used of those (ties at random). An absent,
- * invalid or grey (saturation below NEUTRAL_SATURATION) colour falls back to
- * `pickBlockColor`.
+ * invalid, grey (saturation below NEUTRAL_SATURATION) or very dark (HSV value
+ * below NEUTRAL_VALUE) colour falls back to `pickBlockColor`.
  */
 export function pickBlockColorForIcon(
   iconColor: string | undefined,
@@ -81,7 +84,8 @@ export function pickBlockColorForIcon(
   const hex = iconColor?.toLowerCase()
   if (hex === undefined || !HEX_COLOR_RE.test(hex)) return pickBlockColor(used, opts)
   const { hue, saturation } = hueSaturation(hex)
-  if (saturation < NEUTRAL_SATURATION) return pickBlockColor(used, opts)
+  const value = Math.max(...[1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))) / 255
+  if (saturation < NEUTRAL_SATURATION || value < NEUTRAL_VALUE) return pickBlockColor(used, opts)
 
   const distances = BLOCK_PALETTE.map(c => hueDistance(hue, hueSaturation(c).hue))
   const nearest = Math.min(...distances)

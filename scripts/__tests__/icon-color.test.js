@@ -51,9 +51,35 @@ describe('addIconColors', () => {
       expect(items.a.iconColor).toBe('#00ff00')
       expect('iconColor' in items.b).toBe(false)
       expect('iconColor' in items.c).toBe(false)
-      expect(counts).toEqual({ set: 1, skipped: 2 })
+      expect(counts).toEqual({ set: 1, skipped: 2, changed: 1 })
     } finally {
       rmSync(dir, { recursive: true, force: true })
     }
+  })
+
+  it('clears a stale iconColor when the icon is missing or transparent, and reports no change on a re-run', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'icon-color-'))
+    try {
+      writeFileSync(join(dir, 'a.png'), await halves([0, 255, 0, 255], [0, 255, 0, 255]))
+      writeFileSync(join(dir, 'clear.png'), await halves([0, 0, 0, 0], [0, 0, 0, 0]))
+      const items = {
+        a: { id: 'a', iconPath: '/x/a.png', iconColor: '#123456' },
+        gone: { id: 'gone', iconPath: '/x/gone.png', iconColor: '#123456' },
+        clear: { id: 'clear', iconPath: '/x/clear.png', iconColor: '#123456' },
+      }
+      expect(await addIconColors(items, dir)).toEqual({ set: 1, skipped: 2, changed: 3 })
+      expect(items.a.iconColor).toBe('#00ff00')
+      expect('iconColor' in items.gone).toBe(false)
+      expect('iconColor' in items.clear).toBe(false)
+      expect((await addIconColors(items, dir)).changed).toBe(0)
+    } finally {
+      rmSync(dir, { recursive: true, force: true })
+    }
+  })
+
+  it('leaves existing colours alone when the icons directory does not exist', async () => {
+    const items = { a: { id: 'a', iconPath: '/x/a.png', iconColor: '#123456' } }
+    expect(await addIconColors(items, join(tmpdir(), 'no-such-icons-dir-xyz'))).toEqual({ set: 0, skipped: 1, changed: 0 })
+    expect(items.a.iconColor).toBe('#123456')
   })
 })

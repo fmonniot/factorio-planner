@@ -34,8 +34,8 @@ export const ItemSchema = z.object({
   name: z.string(),
   type: z.enum(['item', 'fluid']),
   iconPath: z.string(),
-  /** Mean colour of the icon's opaque pixels, `#rrggbb` (scripts/icon-color.js); absent in older bundles and for items without an icon. */
-  iconColor: z.string().regex(/^#[0-9a-f]{6}$/).optional(),
+  /** Mean colour of the icon's opaque pixels, `#rrggbb` (scripts/icon-color.js); absent in older bundles and for items without an icon; a malformed value reads as absent. */
+  iconColor: z.string().regex(/^#[0-9a-f]{6}$/).optional().catch(undefined),
   hidden: z.boolean().default(false),
   stackSize: z.number().int().positive().optional(),
   subgroup: z.string().default(''),

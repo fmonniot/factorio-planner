@@ -63,7 +63,7 @@ describe('pickBlockColorForIcon', () => {
 
   it('falls back to a random pick for grey, missing or invalid colours', () => {
     const used = BLOCK_PALETTE.slice(0, 15)
-    for (const c of ['#7a7a79', undefined, '#xyz']) {
+    for (const c of ['#7a7a79', '#1a0000', '#3f0000', undefined, '#xyz']) {
       expect(pickBlockColorForIcon(c, used, { random: () => 0 })).toBe(BLOCK_PALETTE[15])
     }
   })

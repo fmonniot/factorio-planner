@@ -1,6 +1,6 @@
 // Adds `iconColor` to every item of a game-data bundle from its icon PNG.
 // Usage: node scripts/patch-icon-colors.mjs <game-data.json> [--icons <dir>]
-// <dir> defaults to the `icons` folder next to the bundle. Safe to re-run.
+// <dir> defaults to the `icons` folder next to the bundle. Safe to re-run: stale values are cleared and an unchanged bundle is not rewritten.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { addIconColors } from './icon-color.js'
@@ -17,6 +17,9 @@ if (!bundlePath || args.length !== 1 || (iconsAt >= 0 && !iconsArg)) {
 const file = resolve(bundlePath)
 const iconsDir = iconsArg ? resolve(iconsArg) : join(dirname(file), 'icons')
 const bundle = JSON.parse(readFileSync(file, 'utf8'))
-const { set, skipped } = await addIconColors(bundle.items, iconsDir)
-writeFileSync(file, JSON.stringify(bundle, null, 2))
-process.stdout.write(`${file}: iconColor set on ${set} items, ${skipped} skipped (no icon file)\n`)
+const { set, skipped, changed } = await addIconColors(bundle.items, iconsDir)
+if (changed > 0) writeFileSync(file, JSON.stringify(bundle, null, 2))
+process.stdout.write(
+  `${file}: iconColor set on ${set} items, ${skipped} skipped (no icon file); ` +
+  `${changed > 0 ? `${changed} changed` : 'unchanged, not rewritten'}\n`,
+)
