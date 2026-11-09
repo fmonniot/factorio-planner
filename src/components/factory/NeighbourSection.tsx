@@ -115,7 +115,7 @@ export function NeighbourSection({ nodeId, neighbourCount, neighbourBonus }: Nei
 
   return (
     <div data-testid="neighbour-section" className="whitespace-normal">
-      <label htmlFor="neighbour-cols" className="text-[10px] uppercase tracking-wide text-gray-500 mb-1.5 block">
+      <label htmlFor="neighbour-cols" className="text-[10px] uppercase tracking-wide text-gray-400 mb-1.5 block">
         Neighbours
       </label>
       <p className="text-xs text-gray-300 mb-3">

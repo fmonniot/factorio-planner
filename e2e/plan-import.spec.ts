@@ -6,7 +6,7 @@ import { planTrigger, planNames, switchToPlan } from './support/planMenu'
 
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 
-const tab = (page: Page, name: string) => page.locator(`button[title="${name}"]`)
+const tab = (page: Page, name: string) => page.locator(`[data-testid="block-tab"] button[aria-label="${name}"]`)
 const tabCount = (page: Page) => page.getByTestId('block-tab')
 const expectPlan = (page: Page, name: string) => expect(planTrigger(page)).toHaveAccessibleName(`Plan: ${name}`)
 
@@ -43,7 +43,7 @@ test.describe('Plan import', () => {
     await page.reload()
     await selectDataset(page, 'Nullius')
     await addGoal(page, '250')
-    await page.getByTitle('Add block').click()
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
     await expect(tabCount(page)).toHaveCount(2)
     await tab(page, 'Factory').click()
   })

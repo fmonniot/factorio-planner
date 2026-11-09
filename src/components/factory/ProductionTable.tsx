@@ -105,7 +105,7 @@ export function ProductionTable() {
   if (!gameData) {
     return (
       <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
-        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900 items-center justify-center gap-2 text-gray-600">
+        <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900 items-center justify-center gap-2 text-gray-400">
           <span className="text-sm">Load game data to begin</span>
           <span className="text-xs text-gray-700">Open the workspace menu at the top right to pick a game data set</span>
         </div>
@@ -122,7 +122,7 @@ export function ProductionTable() {
             this wrapper. Popups are portalled to body, so none exists; keep it that way or compute widths another way. */}
         <div ref={scrollRef} className="flex-1 overflow-auto overscroll-x-contain [container-type:inline-size]">
           {nodes.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-600">
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
               <span className="text-sm">No recipes yet</span>
             </div>
           ) : (
@@ -132,7 +132,7 @@ export function ProductionTable() {
                   {COLUMNS.map((c, i) => <col key={i} style={{ width: columnWidth(c) }} />)}
                 </colgroup>
                 <thead>
-                  <tr className="text-gray-500 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
+                  <tr className="text-gray-400 text-left border-b border-gray-800 sticky top-0 bg-gray-900 z-10">
                     <th className="px-1 py-0.5" />
                     <th className="px-2 py-1">
                       <span className="flex items-center gap-2">

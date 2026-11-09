@@ -50,7 +50,7 @@ describe('IconChip', () => {
     expect(chip).toHaveClass('text-gray-600', 'group-hover/row:text-gray-400', 'hover:text-gray-200!', 'focus-visible:text-gray-200!')
     expect(screen.getByText('0/2')).not.toHaveClass('text-gray-400')
     rerender(<IconChip alt="Add" size="entity" empty quantity="0/2" />)
-    expect(container.querySelector('.border-dashed')).toHaveClass('border-gray-600', 'text-gray-500')
+    expect(container.querySelector('.border-dashed')).toHaveClass('border-gray-600', 'text-gray-400')
     expect(screen.getByText('0/2')).toHaveClass('text-gray-400')
   })
 
