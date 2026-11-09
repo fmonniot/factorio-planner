@@ -11,6 +11,8 @@ import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
 import { treeGuideStyle, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canMoveNodeInto } from '../../data/nesting'
+import { filterPlan } from './tableFilter'
+import { findSubPlan } from '../../data/subPlanTree'
 import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, type AreaView } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
 
@@ -67,7 +69,23 @@ export function ProductionTable() {
   // Set of SubPlanNode ids whose children are currently expanded.
   const [expanded, setExpanded] = useState<Set<string>>(new Set())
 
+  // The table filter. Not persisted; it resets when the active block changes. While it is active the rows
+  // shown and the groups open come from it, and `expanded` is left alone so clearing restores it.
+  const [query, setQuery] = useState('')
+  const [filterBlockId, setFilterBlockId] = useState(activeBlock?.id)
+  if (activeBlock?.id !== filterBlockId) {
+    setFilterBlockId(activeBlock?.id)
+    setQuery('')
+  }
+
+  const rootPlan = activeBlock?.rootPlan
+  const filter = useMemo(
+    () => (rootPlan && gameData ? filterPlan(rootPlan, gameData, query) : undefined),
+    [rootPlan, gameData, query],
+  )
+
   function toggleExpand(nodeId: string) {
+    if (filter) return // the chevrons are disabled while filtering; see RecipeRow's `filtering`
     setExpanded(prev => {
       const next = new Set(prev)
       if (next.has(nodeId)) next.delete(nodeId)
@@ -76,7 +94,6 @@ export function ProductionTable() {
     })
   }
 
-  const rootPlan = activeBlock?.rootPlan
   const nodes = rootPlan?.nodes ?? []
   const solvedMap = new Map(solverResult?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
   const scrollRef = useRef<HTMLDivElement>(null)
@@ -93,6 +110,8 @@ export function ProductionTable() {
     setHandledRevealSeq(revealRequest.seq)
     const handles = rootPlan ? ancestorHandleIds(rootPlan, revealRequest.nodeId) : undefined
     if (handles) {
+      // Only a row that gets revealed clears the filter (it could be hiding that row).
+      if (query !== '') setQuery('')
       if (handles.some(h => !expanded.has(h))) setExpanded(new Set([...expanded, ...handles]))
       setHighlight({ nodeId: revealRequest.nodeId, seq: revealRequest.seq })
     }
@@ -108,6 +127,8 @@ export function ProductionTable() {
 
   function handleAddRecipe(recipeId: string) {
     addNode(makeRecipeNode(recipeId), picker?.targetSubPlanId)
+    // A filter could hide the new row; clear it so the row shows.
+    if (query !== '') setQuery('')
   }
 
   if (!gameData) {
@@ -124,7 +145,9 @@ export function ProductionTable() {
   return (
     <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
       <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
-        <TableToolbar rootPlan={rootPlan} solvedNodes={solverResult?.nodes ?? []} onAddRecipe={() => setPicker({})} />
+        <TableToolbar rootPlan={rootPlan} solvedNodes={solverResult?.nodes ?? []} onAddRecipe={() => setPicker({})}
+          filter={{ query, onQueryChange: setQuery, hidden: filter?.hidden ?? 0, total: filter?.total ?? 0 }}
+        />
         {/* Scrollable table body */}
         {/* container-type also applies layout containment: a position:fixed descendant would be placed against (and clipped by)
             this wrapper. Popups are portalled to body, so none exists; keep it that way or compute widths another way. */}
@@ -132,6 +155,13 @@ export function ProductionTable() {
           {nodes.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
               <span className="text-sm">No recipes yet</span>
+            </div>
+          ) : filter && filter.visible.size === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+              <span className="text-sm">No rows match &quot;{query.trim()}&quot;</span>
+              <button type="button" onClick={() => setQuery('')} className="text-xs text-teal-400 hover:text-teal-300 underline">
+                Show all rows
+              </button>
             </div>
           ) : (
             <RecipeDndProvider>
@@ -163,7 +193,8 @@ export function ProductionTable() {
                     rootPlan.id,
                     solvedMap,
                     gameData,
-                    expanded,
+                    filter ? id => filter.open.has(id) : id => expanded.has(id),
+                    filter?.visible,
                     toggleExpand,
                     (itemId, subPlanId) => setPicker({ filterByItemId: itemId, targetSubPlanId: subPlanId }),
                     (itemId, subPlanId) => setPicker({ consumesItemId: itemId, targetSubPlanId: subPlanId }),
@@ -204,7 +235,8 @@ function renderNodes(
   parentSubPlanId: string,
   solvedMap: Map<string, import('../../data/types').SolvedNode>,
   gameData: import('../../data/types').GameData,
-  expanded: Set<string>,
+  isOpen: (handleId: string) => boolean,
+  visible: ReadonlySet<string> | undefined,
   toggleExpand: (id: string) => void,
   onIngredientClick: (itemId: string, subPlanId: string) => void,
   onAddConsumer: (itemId: string, subPlanId: string) => void,
@@ -214,6 +246,8 @@ function renderNodes(
   const rows: React.ReactNode[] = []
 
   nodes.forEach((planNode, idx) => {
+    // The filter hides rows, but `idx`, `isFirst`, `isLast` and `nodeIndex` stay positions in the full array.
+    if (visible && !visible.has(planNode.id)) return
     rows.push(
       <RecipeRow
         key={planNode.id}
@@ -221,8 +255,9 @@ function renderNodes(
         planNode={planNode}
         isFirst={idx === 0}
         isLast={idx === nodes.length - 1}
+        filtering={visible !== undefined}
         depth={depth}
-        isExpanded={planNode.kind === 'subplan' ? expanded.has(planNode.id) : undefined}
+        isExpanded={planNode.kind === 'subplan' ? isOpen(planNode.id) : undefined}
         onToggleExpand={planNode.kind === 'subplan' ? () => toggleExpand(planNode.id) : undefined}
         gameData={gameData}
         rootPlan={rootPlan}
@@ -236,8 +271,8 @@ function renderNodes(
     )
 
     // If this is an expanded SubPlanNode, render its children indented.
-    if (planNode.kind === 'subplan' && expanded.has(planNode.id)) {
-      const childPlan = findSubPlanAnywhere(rootPlan, planNode.subPlanId)
+    if (planNode.kind === 'subplan' && isOpen(planNode.id)) {
+      const childPlan = findSubPlan(rootPlan, planNode.subPlanId)
       if (childPlan) {
         if (childPlan.nodes.length === 0) {
           // Empty expanded subgroup — render a drop-target placeholder.
@@ -253,7 +288,8 @@ function renderNodes(
               childPlan.id,
               solvedMap,
               gameData,
-              expanded,
+              isOpen,
+              visible,
               toggleExpand,
               onIngredientClick,
               onAddConsumer,
@@ -267,15 +303,6 @@ function renderNodes(
   })
 
   return rows
-}
-
-function findSubPlanAnywhere(plan: SubPlan, id: string): SubPlan | undefined {
-  if (plan.id === id) return plan
-  for (const sp of plan.subPlans) {
-    const found = findSubPlanAnywhere(sp, id)
-    if (found) return found
-  }
-  return undefined
 }
 
 // ---------------------------------------------------------------------------

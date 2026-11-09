@@ -24,6 +24,8 @@ interface TableToolbarProps {
   /** Every solved row of the block, at every depth. */
   solvedNodes: SolvedNode[]
   onAddRecipe: () => void
+  /** The table filter: the query is owned by the table; `hidden` of `total` rows are out while it is non-blank. */
+  filter: { query: string; onQueryChange: (query: string) => void; hidden: number; total: number }
 }
 
 const RATE_UNITS: { unit: RateUnit; label: string }[] = [
@@ -31,7 +33,7 @@ const RATE_UNITS: { unit: RateUnit; label: string }[] = [
   { unit: 'sec', label: '/sec' },
 ]
 
-export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolbarProps) {
+export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: TableToolbarProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const setRateUnit = useUiStore(s => s.setRateUnit)
 
@@ -41,7 +43,7 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
   const power = powerKw > 0 ? fmtPower(powerKw) : null
 
   return (
-    <div data-testid="table-toolbar" className="relative flex items-center gap-1.5 md:gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
+    <div data-testid="table-toolbar" className="relative flex items-center gap-1 md:gap-2.5 h-11 px-2.5 shrink-0 border-b border-gray-800 bg-gray-900 text-xs">
       <button
         type="button"
         onClick={onAddRecipe}
@@ -51,7 +53,6 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         + Recipe
       </button>
 
-      {/* Not implemented yet: the filter does not narrow the table. Typing here has no effect. */}
       <label className="relative hidden md:inline-flex items-center">
         <span className="sr-only">Filter recipes or items</span>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="absolute left-2 pointer-events-none">
@@ -61,9 +62,33 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         <input
           type="search"
           placeholder="Filter recipes or items"
+          value={filter.query}
+          onChange={e => filter.onQueryChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape' && filter.query !== '') {
+              e.preventDefault()
+              filter.onQueryChange('')
+            }
+          }}
           className="w-[260px] h-[26px] box-border pl-6 pr-2 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-400"
         />
       </label>
+
+      {filter.query.trim() !== '' && (
+        <span role="status" data-testid="table-filter-status" className="inline-flex items-center gap-1 md:gap-1.5 text-[11px] text-gray-400 whitespace-nowrap shrink-0">
+          {/* Below md the words shrink to "N hidden" so the toolbar fits a phone; the full text stays for assistive technology. */}
+          <span aria-hidden className="md:hidden">{filter.hidden} hidden</span>
+          <span className="max-md:sr-only">{filter.hidden} of {filter.total} rows hidden</span>
+          <button
+            type="button"
+            aria-label="Clear filter"
+            onClick={() => filter.onQueryChange('')}
+            className="text-teal-400 hover:text-teal-300 underline"
+          >
+            Clear
+          </button>
+        </span>
+      )}
 
       <span role="group" aria-label="Rate unit" className="inline-flex max-md:shrink-0 max-md:whitespace-nowrap rounded-md border border-gray-700 overflow-hidden text-[11px]">
         {RATE_UNITS.map(({ unit, label }) => (
@@ -81,7 +106,8 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
 
       <span className="ml-auto flex max-md:shrink-0 items-center gap-2 md:gap-4 text-[11px] text-gray-400 max-md:whitespace-nowrap">
         <WarningsPopover />
-        <span data-testid="block-recipe-count">
+        {/* While a filter is active the phone-width toolbar is full: the status chip stands in for the recipe count. */}
+        <span data-testid="block-recipe-count" className={filter.query.trim() !== '' ? 'max-md:hidden' : undefined}>
           <span className="font-mono tabular-nums text-gray-100">{recipes}</span> {recipes === 1 ? 'recipe' : 'recipes'}
         </span>
         <span data-testid="block-machine-count" className="hidden md:inline">
