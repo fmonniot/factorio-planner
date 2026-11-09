@@ -13,6 +13,7 @@ import {
   layoutBar,
   barName,
   BAR_MIN_SEGMENT_PX,
+  tipPlacement,
 } from './summarySegments'
 import type { Segment, Overlay } from './summarySegments'
 import type { BlockConnection, ConnectionFlow, Product } from '../../data/types'
@@ -566,6 +567,18 @@ describe('large flows', () => {
 describe('layoutBar', () => {
   const sum = (px: number[], gaps: number) => px.reduce((a, b) => a + b, 0) + gaps
 
+  it('pushes a part under 3 px to 3 px when the tiny ones taking theirs leaves it short', () => {
+    // 3.1 % of the 98 px is 3.04 px, so it is not tiny at first; once the 0.0001 part has taken its 3 px
+    // the rest scales to 95 px and it would get 2.94 px.
+    const l = layoutBar([{ weight: 96.9 }, { weight: 3.1 }, { weight: 0.0001 }], 100)
+    expect(l.map(p => p.px)).toEqual([92, BAR_MIN_SEGMENT_PX, BAR_MIN_SEGMENT_PX])
+    for (const weights of [[100, 3.2, 0.1, 0.1], [50, 3.1, 3.1, 3.1, 0.01], [90, 5, 3.3, 0.01]]) {
+      const parts = layoutBar(weights.map(weight => ({ weight })), 100)
+      for (const p of parts) expect(p.px).toBeGreaterThanOrEqual(BAR_MIN_SEGMENT_PX)
+      expect(sum(parts.map(p => p.px), weights.length - 1)).toBeCloseTo(100, 0)
+    }
+  })
+
   it('shares the width by weight, gaps included', () => {
     const l = layoutBar([{ weight: 3 }, { weight: 1 }], 201)
     expect(l.map(p => p.px)).toEqual([150, 50])
@@ -624,5 +637,20 @@ describe('barName', () => {
     expect(barName('Consumer requests')).toBe('Consumer')
     expect(barName('Extra:')).toBe('Extra')
     expect(barName('← Miner')).toBe('← Miner')
+  })
+})
+
+describe('tipPlacement', () => {
+  const at = (left: number, px: number) => ({ px, center: left + px / 2 })
+  it('centres the tooltip in the middle of the bar, hangs it from the nearest end otherwise', () => {
+    expect(tipPlacement(at(400, 40), 1000)).toEqual({ maxWidth: 280, align: 'center' })
+    expect(tipPlacement(at(0, 40), 1000)).toEqual({ maxWidth: 280, align: 'left' })
+    expect(tipPlacement(at(960, 40), 1000)).toEqual({ maxWidth: 280, align: 'right' })
+  })
+  it('never lets the tooltip leave a bar narrower than its widest', () => {
+    // 200 px bar: the tooltip is at most 200 px, so a segment in the middle still fits it centred only at the very middle.
+    expect(tipPlacement(at(90, 20), 200)).toEqual({ maxWidth: 200, align: 'center' })
+    expect(tipPlacement(at(60, 20), 200)).toEqual({ maxWidth: 200, align: 'shifted', left: -60 })
+    expect(tipPlacement(at(0, 20), 200)).toEqual({ maxWidth: 200, align: 'left' })
   })
 })

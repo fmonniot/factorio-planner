@@ -180,7 +180,7 @@ test.describe('summary strip and bars', () => {
     await expect(thin).toHaveAccessibleName(/→ Circuits · .* · 3 items/)
     await thin.hover()
     await expect(tip(thin)).toBeVisible()
-    const bg = await thin.evaluate(e => getComputedStyle(e).backgroundColor)
+    const bg = await thin.getByTestId('summary-segment-fill').evaluate(e => getComputedStyle(e).backgroundColor)
     expect(bg).not.toBe('rgba(0, 0, 0, 0)')
   })
 
@@ -215,5 +215,77 @@ test.describe('on a narrow screen', () => {
     const t = (await tip(segs.first()).boundingBox())!
     expect(t.x).toBeGreaterThanOrEqual(stripBox.x - 1)
     expect(t.x + t.width).toBeLessThanOrEqual(stripBox.x + stripBox.width + 1)
+    // Whichever segment it hangs from, the tooltip stays inside the pane.
+    for (const seg of await segs.all()) {
+      await seg.hover()
+      const box = (await tip(seg).boundingBox())!
+      expect(box.x, 'tooltip left of ' + await seg.getAttribute('aria-label')).toBeGreaterThanOrEqual(stripBox.x - 1)
+      expect(box.x + box.width, 'tooltip right of ' + await seg.getAttribute('aria-label')).toBeLessThanOrEqual(stripBox.x + stripBox.width + 1)
+    }
+  })
+})
+
+test.describe('on a touch screen', () => {
+  test.use({ viewport: { width: 420, height: 800 }, hasTouch: true, isMobile: true })
+
+  const openBlock = (page: Page, name: string) => page.locator(`button[title="${name}"][aria-current="true"]`)
+
+  test('a tap on a bar segment shows its tooltip and does not open the block; a tap outside hides it', async ({ page }) => {
+    await setup(page)
+    await slotById(page, 'Products', 'nullius-plastic').tap()
+    await expect(detail(page, 'Products')).toHaveAttribute('data-state', 'selected')
+    const seg = segments(page, 'Products').first()
+    await expect(tip(seg)).toBeHidden()
+    await seg.tap()
+    await expect(tip(seg)).toBeVisible()
+    await expect(tip(seg)).toContainText('Sciences')
+    await expect(seg.getByTestId('summary-segment-detail')).toBeVisible()
+    await expect(openBlock(page, 'Sciences')).toHaveCount(0)
+    // The tooltip is inside the pane and fully opaque.
+    const [box, region] = [(await tip(seg).boundingBox())!, (await pane(page, 'Products').boundingBox())!]
+    expect(box.x).toBeGreaterThanOrEqual(region.x - 1)
+    expect(box.x + box.width).toBeLessThanOrEqual(region.x + region.width + 1)
+
+    await page.touchscreen.tap(2, 2)
+    await expect(tip(seg)).toBeHidden()
+    await expect(openBlock(page, 'Sciences')).toHaveCount(0)
+  })
+
+  test('a second tap on the same segment does what a click does', async ({ page }) => {
+    await setup(page)
+    await slotById(page, 'Products', 'nullius-plastic').tap()
+    const seg = segments(page, 'Products').first()
+    await seg.tap()
+    await expect(tip(seg)).toBeVisible()
+    await seg.tap()
+    await expect(openBlock(page, 'Sciences')).toBeVisible()
+  })
+
+  test('a tap on an overview segment shows its tooltip without tracing; the second tap traces', async ({ page }) => {
+    await setup(page)
+    const sciences = overviewSegments(page, 'Products').filter({ hasText: 'Sciences' })
+    await expect(sciences).toHaveAttribute('aria-pressed', 'false')
+    await sciences.tap()
+    await expect(tip(sciences)).toBeVisible()
+    await expect(tip(sciences)).toContainText('12 items')
+    await expect(sciences).toHaveAttribute('aria-pressed', 'false')
+
+    await page.touchscreen.tap(2, 2)
+    await expect(tip(sciences)).toBeHidden()
+    await expect(sciences).toHaveAttribute('aria-pressed', 'false')
+
+    await sciences.tap()
+    await expect(tip(sciences)).toBeVisible()
+    await sciences.tap()
+    await expect(sciences).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  test('Escape closes a tooltip opened by a tap', async ({ page }) => {
+    await setup(page)
+    const sciences = overviewSegments(page, 'Products').filter({ hasText: 'Sciences' })
+    await sciences.tap()
+    await expect(tip(sciences)).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(tip(sciences)).toBeHidden()
   })
 })
