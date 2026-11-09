@@ -398,20 +398,20 @@ export function WorkspaceMenu() {
             </span>
             {/* Below md only the loading and error lines show: when loaded, both other lines are hidden, so the wrapper goes too. */}
             <span className={`flex-col items-start min-w-0 leading-tight text-left ${status.type === 'loaded' ? 'max-md:hidden md:flex' : 'flex'}`}>
-              <span className="max-md:hidden text-xs font-semibold text-gray-100 truncate max-w-40">{topLine}</span>
-              {status.type === 'loading' && <span className="text-[11px] text-gray-400">Loading…</span>}
+              <span className="max-md:hidden text-xs font-semibold text-gray-100 truncate max-w-full">{topLine}</span>
+              {status.type === 'loading' && <span className="text-[11px] text-gray-400 truncate max-w-full">Loading…</span>}
               {status.type === 'error' && (
-                <span className="text-[11px] text-red-400" title={status.message}>Error loading data</span>
+                <span className="text-[11px] text-red-400 truncate max-w-full" title={status.message}>Error loading data</span>
               )}
               {status.type === 'loaded' && datasetLabel && (
-                <span className="max-md:hidden text-[11px] text-gray-400 truncate max-w-40">{datasetLabel}</span>
+                <span className="max-md:hidden text-[11px] text-gray-400 truncate max-w-full">{datasetLabel}</span>
               )}
             </span>
             <ViewerStatusDot />
           </>
         }
         ariaLabel={ariaLabel}
-        title="Plans, game data, in-game viewer, export and import"
+        title={plans.active ? `${plans.active.name}. Plans, game data, in-game viewer, export and import` : 'Plans, game data, in-game viewer, export and import'}
         menuLabel="Plan and game data"
         align="right"
         triggerClassName="relative flex items-center max-md:h-9 max-md:gap-2.5 max-md:pl-1.5 max-md:pr-2 max-md:bg-gray-800 max-md:border max-md:border-gray-600 max-md:hover:border-gray-500 max-md:rounded-lg md:h-8 md:w-[132px] md:justify-center md:gap-1.5 md:px-1.5 md:rounded-md md:hover:bg-gray-800 md:focus-visible:bg-gray-800 outline-none focus-visible:ring-1 focus-visible:ring-gray-500"

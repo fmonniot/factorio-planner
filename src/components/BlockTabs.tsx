@@ -195,30 +195,72 @@ interface BlockTabProps {
   onDrop: (toIndex: number) => void
 }
 
+const TIP_MARGIN_PX = 8
+
+/**
+ * The tooltip of an inactive tab: fixed under the tab, centred on it, and kept
+ * {@link TIP_MARGIN_PX} inside the window using its measured width. A name wider
+ * than the window is cut with an ellipsis.
+ */
+function TabTooltip({ anchor, name }: { anchor: DOMRect; name: string }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [left, setLeft] = useState(0)
+  useLayoutEffect(() => {
+    const width = ref.current?.getBoundingClientRect().width ?? 0
+    const centred = anchor.left + anchor.width / 2 - width / 2
+    setLeft(Math.max(TIP_MARGIN_PX, Math.min(window.innerWidth - TIP_MARGIN_PX - width, centred)))
+  }, [anchor, name])
+  return createPortal(
+    // Fixed, since the scrolling strip would clip an absolute tooltip.
+    <div
+      ref={ref}
+      aria-hidden
+      data-testid="block-tab-tooltip"
+      style={{ position: 'fixed', left, top: anchor.bottom + 4, maxWidth: `calc(100vw - ${2 * TIP_MARGIN_PX}px)` }}
+      className={`${TOOLTIP_BOX_CLASS} overflow-hidden text-ellipsis`}
+    >
+      {name}
+    </div>,
+    document.body,
+  )
+}
+
 function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDragStart, onDragEnd, onDrop }: BlockTabProps) {
   const block = useBlockStore(s => s.blocks.find(b => b.id === blockId))
   const gameData = useGameDataStore(selectGameData)
   const [menuAnchor, setMenuAnchor] = useState<DOMRect | null>(null)
   const [dropSide, setDropSide] = useState<'before' | 'after' | null>(null)
-  const [iconFailed, setIconFailed] = useState(false)
+  // The icon path that failed to load, so a different first product gets a fresh try.
+  const [failedIcon, setFailedIcon] = useState<string | null>(null)
   // Where the tooltip of an inactive tab is anchored (viewport coordinates), while it shows.
   const [tipRect, setTipRect] = useState<DOMRect | null>(null)
+  // The anchor goes stale when the tab turns (in)active, e.g. through the block list.
+  const [wasActive, setWasActive] = useState(isActive)
+  if (wasActive !== isActive) {
+    setWasActive(isActive)
+    setTipRect(null)
+  }
   const wrapperRef = useRef<HTMLDivElement>(null)
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  // The strip scrolls, which would leave a fixed tooltip behind its tab.
+  // The strip scrolling or the window resizing would leave a fixed tooltip behind its tab.
   const tipShown = tipRect !== null
   useEffect(() => {
     if (!tipShown) return
     const hide = () => setTipRect(null)
     window.addEventListener('scroll', hide, true)
-    return () => window.removeEventListener('scroll', hide, true)
+    window.addEventListener('resize', hide)
+    return () => {
+      window.removeEventListener('scroll', hide, true)
+      window.removeEventListener('resize', hide)
+    }
   }, [tipShown])
 
   if (!block) return null
 
   const firstGoal = block.products[0]
   const firstItem = firstGoal ? gameData?.items[firstGoal.itemId] : undefined
+  const iconFailed = firstItem !== undefined && failedIcon === firstItem.iconPath
 
   function showTip() {
     const el = buttonRef.current
@@ -338,7 +380,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
             alt=""
             draggable={false}
             className="w-5 h-5 object-contain shrink-0"
-            onError={() => setIconFailed(true)}
+            onError={() => setFailedIcon(firstItem.iconPath)}
           />
         ) : !isActive && (
           // A block with no goal yet (or an icon that did not load) still needs something to click.
@@ -348,18 +390,7 @@ function BlockTab({ blockId, index, isActive, onClick, disabled, dragging, onDra
         )}
         {isActive && <span className="truncate">{block.name}</span>}
       </button>
-      {tipRect && !isActive && createPortal(
-        // Fixed, since the scrolling strip would clip an absolute tooltip.
-        <div
-          aria-hidden
-          data-testid="block-tab-tooltip"
-          style={{ position: 'fixed', left: tipRect.left + tipRect.width / 2, top: tipRect.bottom + 4, transform: 'translateX(-50%)' }}
-          className={TOOLTIP_BOX_CLASS}
-        >
-          {block.name}
-        </div>,
-        document.body,
-      )}
+      {tipRect && !isActive && <TabTooltip anchor={tipRect} name={block.name} />}
       {dropLine}
 
       {menuAnchor && (
@@ -396,7 +427,7 @@ function BlockListButton({ editable }: { editable: boolean }) {
         menuLabel="All blocks"
         align="left"
         disabled={!editable}
-        caret={<></>}
+        hideCaret
         triggerClassName="w-7 h-7 rounded-md flex items-center justify-center text-gray-300 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         panelClassName="max-h-[calc(100vh-4rem)] overflow-y-auto"
       >

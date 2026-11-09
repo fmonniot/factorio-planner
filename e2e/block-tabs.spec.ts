@@ -1,6 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import { loadPlanFixture, readActivePlan } from './support/loadPlan'
+import { renameActivePlan } from './support/planMenu'
 
 /** Five Seablock blocks whose first goals have busy icons: two science packs, processing unit, advanced circuit, iron sheet coil. */
 const FIXTURE = path.resolve('e2e/fixtures/block-tabs-seablock.json')
@@ -107,6 +108,31 @@ test.describe('tab tooltip', () => {
     await page.mouse.move(5, 300)
     await expect(tooltip(page)).toHaveCount(0)
   })
+
+  /** Rename a block from its right-click menu (a window.prompt). */
+  async function renameBlock(page: Page, from: string, to: string) {
+    page.once('dialog', d => void d.accept(to))
+    await tabButton(page, from).click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Rename' }).click()
+    await expect(tabButton(page, to)).toBeVisible()
+  }
+  const LONG_NAME = 'An extraordinarily long block name that would spill past the edge of the window'
+
+  for (const width of [1440, 390]) {
+    test(`a long block name's tooltip stays inside a ${width}px window, even on the first tab`, async ({ page }) => {
+      await openFixture(page)
+      await renameBlock(page, 'Red science', LONG_NAME)
+      await page.setViewportSize({ width, height: 900 })
+      // A narrow window centres the active tab: bring the first one back into view before pointing at it.
+      await page.getByTestId('block-tab-strip').evaluate(el => { el.scrollLeft = 0 })
+      await expect(tabButton(page, LONG_NAME)).toBeInViewport()
+      await tabButton(page, LONG_NAME).hover()
+      await expect(tooltip(page)).toBeVisible()
+      const tip = (await tooltip(page).boundingBox())!
+      expect(tip.x, 'inside on the left').toBeGreaterThanOrEqual(8)
+      expect(tip.x + tip.width, 'inside on the right').toBeLessThanOrEqual(width - 8)
+    })
+  }
 
   test('the active tab has no tooltip', async ({ page }) => {
     await openFixture(page)
@@ -222,6 +248,20 @@ test('the workspace button has no fill or border and is 32px high from 768px, th
   expect(compact.height).toBe(36)
   expect(compact.border).toBe('1px')
   expect(compact.bg).toBe(GRAY_800)
+})
+
+test('a long plan name is truncated inside the workspace button, which keeps its 132px', async ({ page }) => {
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await openFixture(page)
+  const trigger = page.getByTestId('top-bar').getByRole('button', { name: /^Plan: / })
+  await renameActivePlan(page, 'A plan name that is far too long to fit in a button of 132 p')
+  expect((await trigger.boundingBox())!.width, 'the button keeps its width').toBe(132)
+  await expect(trigger, 'the native tooltip names the plan').toHaveAttribute('title', /^A plan name that is far too long.*Plans, game data/)
+  const name = trigger.locator('span.truncate').first()
+  expect(await name.evaluate(el => el.scrollWidth > el.clientWidth), 'the name is cut with an ellipsis').toBe(true)
+  const box = (await trigger.boundingBox())!
+  const nameBox = (await name.boundingBox())!
+  expect(nameBox.x + nameBox.width, 'the name stays inside the button').toBeLessThanOrEqual(box.x + box.width)
 })
 
 test.describe('Block tab reorder', () => {

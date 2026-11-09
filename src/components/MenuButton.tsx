@@ -36,6 +36,8 @@ interface MenuButtonProps {
   triggerClassName?: string
   /** Replaces the default `▾` after the label. */
   caret?: ReactNode
+  /** No caret at all (an icon-only trigger). */
+  hideCaret?: boolean
   /** Appended to the panel classes (e.g. a width). */
   panelClassName?: string
   /** Opens the menu (without moving focus) each time it changes to a non-zero value. */
@@ -56,7 +58,7 @@ function PanelItems({ render, close }: { render: MenuButtonProps['children']; cl
  * menu: arrows move within the menu that holds focus, ArrowRight opens a
  * flyout, Escape / ArrowLeft close it.
  */
-export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, triggerClassName, caret, panelClassName = '', openSignal, children }: MenuButtonProps) {
+export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled, triggerClassName, caret, hideCaret, panelClassName = '', openSignal, children }: MenuButtonProps) {
   const [open, setOpen] = useState(false)
   useOverlayOpen(open)
   const menuId = useId()
@@ -205,7 +207,7 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           setOpen(true)
         }}
       >
-        {label}{caret ?? <span aria-hidden className="text-[10px] opacity-60">▾</span>}
+        {label}{hideCaret ? null : caret ?? <span aria-hidden className="text-[10px] opacity-60">▾</span>}
       </button>
       {open && (
         <div

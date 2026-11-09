@@ -103,6 +103,31 @@ describe('BlockTabs tab look', () => {
   })
 })
 
+describe('BlockTabs icon fallback', () => {
+  it('falls back to the initial when the icon fails, and tries again once the first product changes', () => {
+    const items = { a: { iconPath: 'a.png' }, b: { iconPath: 'b.png' } }
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items } as unknown as GameData, sourceId: 'test' },
+    })
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = makeEmptyBlock('gears', '#f472b6')
+    const product = (itemId: string) => ({ id: crypto.randomUUID(), itemId, rate: 1 })
+    gears.products = [product('a')] as typeof gears.products
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: plates.id, history: {} })
+    render(<BlockTabs />)
+    expect(tabBtn('gears').querySelector('img')).not.toBeNull()
+    fireEvent.error(tabBtn('gears').querySelector('img')!)
+    expect(tabBtn('gears').querySelector('img'), 'icon dropped').toBeNull()
+    expect(tabBtn('gears').querySelector('[data-testid="block-tab-initial"]')).toHaveTextContent('g')
+    act(() => {
+      useBlockStore.setState({
+        blocks: [plates, { ...gears, products: [product('b')] as typeof gears.products }],
+      })
+    })
+    expect(tabBtn('gears').querySelector('img'), 'new icon is tried').not.toBeNull()
+  })
+})
+
 describe('BlockTabs reorder and overflow', () => {
   function seed() {
     useGameDataStore.setState({

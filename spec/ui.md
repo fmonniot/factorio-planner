@@ -70,7 +70,7 @@ shown only while some block has areas and the [tech tree](#technology-tree)), a 
 (shown only
 when game data is loaded, like the tools) and the [workspace menu](#workspace-menu), which also carries the
 [in-game viewer](#in-game-viewer) connection. The root
-carries `data-testid="top-bar"`. From `md` (768px) the workspace button has no fill and no border, is 32px high like the tool buttons and a fixed 132px wide (its two text lines truncate), with the tool buttons' fill on hover and focus. Below `md` the gaps are tighter and it stays the compact button (36px high, filled and bordered, 64px wide) that shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
+carries `data-testid="top-bar"`. From `md` (768px) the workspace button has no fill and no border, is 32px high like the tool buttons and a fixed 132px wide (its text lines, including Loading… and Error loading data, truncate with an ellipsis rather than wrap), with a native `title` that starts with the plan name, with the tool buttons' fill on hover and focus. Below `md` the gaps are tighter and it stays the compact button (36px high, filled and bordered, 64px wide) that shows only its icon and status dot (its accessible name still carries the plan name); the block tabs strip scrolls.
 
 The rate unit is switched from the [table toolbar](#table-toolbar)'s `/min | /sec` segment; the top bar has no rate control of its own.
 
@@ -126,7 +126,7 @@ or an icon that fails to load shows the first letter of its name instead); its a
 block's name (`aria-label`), and the name is shown in a black tooltip (the box the tool buttons use,
 `TOOLTIP_BOX_CLASS` in `IconButton.tsx`) on hover and on keyboard focus, not as a browser `title`.
 Focus left by a mouse click does not show it, and the active tab has none. The tooltip is a fixed-position portal anchored below the
-tab, since the scrolling strip would clip an absolute one; it closes when anything scrolls and when a
+tab, since the scrolling strip would clip an absolute one, and centred on it, then shifted to stay 8px inside the window using its measured width (a name wider than the window ends in an ellipsis); it closes when anything scrolls, when the window is resized, when the tab turns active and when a
 drag or the context menu starts. A stripe in the block's colour runs across the top of each tab, 3px
 high: full strength on the active tab, 85% on the others. The colour stays off the icon so item icons
 keep their own colours. The active tab also has a raised background and border and carries

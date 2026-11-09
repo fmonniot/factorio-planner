@@ -16,10 +16,9 @@ interface IconButtonProps {
   onClick: () => void
   /** The icon. */
   children: ReactNode
+  /** `aria-expanded`; the tooltip steps aside while it is true. */
   expanded?: boolean
   hasPopup?: 'dialog' | 'menu'
-  /** Suppress the tooltip, e.g. while the button's popover is open. */
-  hideTooltip?: boolean
   buttonRef?: Ref<HTMLButtonElement>
   /** Rendered next to the button, positioned against its wrapper (a dot, a popover). */
   extra?: ReactNode
@@ -34,7 +33,7 @@ interface IconButtonProps {
  * A borderless 32px icon button with a CSS-only tooltip. The wrapper is
  * `relative` so `extra` can be anchored to it.
  */
-export function IconButton({ label, onClick, children, expanded, hasPopup, hideTooltip, buttonRef, extra, wide, iconClass = 'text-gray-400', disabled }: IconButtonProps) {
+export function IconButton({ label, onClick, children, expanded, hasPopup, buttonRef, extra, wide, iconClass = 'text-gray-400', disabled }: IconButtonProps) {
   return (
     <span className="relative group">
       <button
@@ -49,11 +48,9 @@ export function IconButton({ label, onClick, children, expanded, hasPopup, hideT
       >
         {children}
       </button>
-      {!hideTooltip && (
-        <span aria-hidden className={TOOLTIP_CLASS}>
-          {label}
-        </span>
-      )}
+      <span aria-hidden className={TOOLTIP_CLASS}>
+        {label}
+      </span>
       {extra}
     </span>
   )
