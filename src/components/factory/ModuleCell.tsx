@@ -52,6 +52,7 @@ export function ModuleCell({ nodeId, recipeId, machine, modules, machineSlots, g
       data-testid="module-chip"
       size="entity"
       empty={modules.length === 0}
+      quiet
       iconPath={shownModule?.iconPath || undefined}
       alt={shownModule?.name ?? 'module'}
       fallback="+"

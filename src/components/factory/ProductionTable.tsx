@@ -21,8 +21,8 @@ const REVEAL_HIGHLIGHT_MS = 2000
 // primary product; everything else is a byproduct), so it is sized for one chip, the right-aligned header and the pin
 // badge. Recipe, byproducts and ingredients share the rest of the width by weight and never get narrower than their
 // minimum px (so the table's minimum width is the sum of all the minimums, and it scrolls sideways in its wrapper below
-// that). A chip slot is 34px (28px icon + 6px gap), so a chip cell is 34n + 10 wide: the minimums hold 2 byproduct chips
-// and 4 ingredient chips per line. The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
+// that). A chip slot is 38px (32px icon + 6px gap), so n chips need 38n - 6px inside the cell's 16px of padding: the
+// minimums hold 1 byproduct chip and 3 ingredient chips per line. The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
 const PRODUCTS_WIDTH = 72
 type Column = { fixed: number } | { min: number; weight: number }
 const COLUMNS: Column[] = [
