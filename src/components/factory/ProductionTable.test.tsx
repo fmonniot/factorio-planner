@@ -13,6 +13,8 @@ const mockGameData: GameData = {
   items: {
     'iron-plate': { id: 'iron-plate', name: 'Iron Plate', type: 'item', iconPath: '', hidden: false },
     'iron-ore': { id: 'iron-ore', name: 'Iron Ore', type: 'item', iconPath: '', hidden: false },
+    'copper-plate': { id: 'copper-plate', name: 'Copper Plate', type: 'item', iconPath: '', hidden: false },
+    'copper-ore': { id: 'copper-ore', name: 'Copper Ore', type: 'item', iconPath: '', hidden: false },
   },
   recipes: {
     'iron-plate': {
@@ -26,6 +28,18 @@ const mockGameData: GameData = {
       allowProductivity: true,
       hidden: false,
       mainProduct: 'iron-plate',
+    },
+    'copper-plate': {
+      id: 'copper-plate',
+      name: 'Copper Plate',
+      category: 'smelting',
+      craftingTime: 3.2,
+      ingredients: [{ itemId: 'copper-ore', type: 'item', amount: 1 }],
+      products: [{ itemId: 'copper-plate', type: 'item', amount: 1 }],
+      madeIn: ['electric-furnace'],
+      allowProductivity: true,
+      hidden: false,
+      mainProduct: 'copper-plate',
     },
   },
   machines: {
@@ -412,5 +426,85 @@ describe('ProductionTable — recipe picker', () => {
     const slot = screen.getAllByTestId('recipe-slot').find(e => e.getAttribute('data-recipe-id') === 'iron-plate')!
     expect(slot).toBeDisabled()
     expect(slot).toHaveAttribute('title', 'Iron Plate (already in this block)')
+  })
+})
+
+describe('ProductionTable — filter', () => {
+  const copperNode: RecipeNode = { kind: 'game-recipe', id: 'node-2', recipeId: 'copper-plate', modules: [], byproductPolicy: {} }
+  const rowEl = (id: string) => document.querySelector(`tr[data-node-id="${id}"]`)
+  const field = () => screen.getByRole('searchbox', { name: 'Filter recipes or items' })
+
+  /** Root: iron row, copper row, and a collapsed group "Smelters" holding `p-1` (iron) and `p-2` (copper). */
+  function load(nodes: (RecipeNode | SubPlanNode)[], subPlans = [] as ReturnType<typeof makeEmptyBlock>['rootPlan'][]) {
+    const block = useBlockStore.getState().blocks[0]
+    useBlockStore.setState({
+      blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes, subPlans } }],
+      activeBlockId: block.id,
+      history: {},
+    })
+  }
+  function loadGroup() {
+    const group = { ...makeEmptyBlock('G').rootPlan, id: 'G', name: 'Smelters', nodes: [{ ...existingNode, id: 'p-1' }, { ...copperNode, id: 'p-2' }] }
+    const handle: SubPlanNode = { kind: 'subplan', id: 'h-g', subPlanId: 'G' }
+    load([structuredClone(existingNode), structuredClone(copperNode), handle], [group])
+  }
+
+  it('hides non-matching rows, keeps matching ones and reports the count', () => {
+    load([structuredClone(existingNode), structuredClone(copperNode)])
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    expect(rowEl('node-1')).toBeNull()
+    expect(rowEl('node-2')).not.toBeNull()
+    expect(screen.getByTestId('table-filter-status')).toHaveTextContent('1 of 2 rows hidden')
+  })
+
+  it('opens a collapsed group holding a match, and restores it when cleared', () => {
+    loadGroup()
+    render(<ProductionTable />)
+    expect(screen.getByRole('button', { name: 'Expand Smelters' })).toBeInTheDocument()
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    expect(screen.getByRole('button', { name: 'Collapse Smelters' })).toBeInTheDocument()
+    expect(rowEl('p-2')).not.toBeNull()
+    expect(rowEl('p-1')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
+    expect(screen.getByRole('button', { name: 'Expand Smelters' })).toBeInTheDocument()
+    expect(rowEl('p-2')).toBeNull()
+  })
+
+  it('shows an empty state when nothing matches, and Clear filter brings the rows back', () => {
+    load([structuredClone(existingNode), structuredClone(copperNode)])
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'zzzz' } })
+    expect(screen.getByText('No rows match "zzzz"')).toBeInTheDocument()
+    expect(rowEl('node-1')).toBeNull()
+    fireEvent.click(screen.getAllByRole('button', { name: 'Clear filter' })[0])
+    expect(rowEl('node-1')).not.toBeNull()
+    expect(rowEl('node-2')).not.toBeNull()
+    expect(field()).toHaveValue('')
+  })
+
+  it('clears the filter when a row is revealed', () => {
+    const original = Element.prototype.scrollIntoView
+    Element.prototype.scrollIntoView = vi.fn()
+    try {
+      loadGroup()
+      render(<ProductionTable />)
+      fireEvent.change(field(), { target: { value: 'copper' } })
+      expect(rowEl('node-1')).toBeNull()
+      act(() => useUiStore.getState().requestRevealRow('p-1'))
+      expect(field()).toHaveValue('')
+      expect(rowEl('p-1')).not.toBeNull()
+      expect(rowEl('node-1')).not.toBeNull()
+    } finally {
+      Element.prototype.scrollIntoView = original
+    }
+  })
+
+  it('keeps the position in the whole list: the first visible row can still move up', () => {
+    load([structuredClone(existingNode), structuredClone(copperNode)])
+    render(<ProductionTable />)
+    fireEvent.change(field(), { target: { value: 'copper' } })
+    const row = rowEl('node-2')!
+    expect(within(row as HTMLElement).getByRole('button', { name: 'Move up' })).toBeEnabled()
   })
 })

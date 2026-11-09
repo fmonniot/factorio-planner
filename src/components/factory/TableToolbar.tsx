@@ -24,6 +24,8 @@ interface TableToolbarProps {
   /** Every solved row of the block, at every depth. */
   solvedNodes: SolvedNode[]
   onAddRecipe: () => void
+  /** The table filter: the query is owned by the table; `hidden` of `total` rows are out while it is non-blank. */
+  filter: { query: string; onQueryChange: (query: string) => void; hidden: number; total: number }
 }
 
 const RATE_UNITS: { unit: RateUnit; label: string }[] = [
@@ -31,7 +33,7 @@ const RATE_UNITS: { unit: RateUnit; label: string }[] = [
   { unit: 'sec', label: '/sec' },
 ]
 
-export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolbarProps) {
+export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: TableToolbarProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
   const setRateUnit = useUiStore(s => s.setRateUnit)
 
@@ -51,7 +53,6 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         + Recipe
       </button>
 
-      {/* Not implemented yet: the filter does not narrow the table. Typing here has no effect. */}
       <label className="relative hidden md:inline-flex items-center">
         <span className="sr-only">Filter recipes or items</span>
         <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" className="absolute left-2 pointer-events-none">
@@ -61,9 +62,31 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe }: TableToolba
         <input
           type="search"
           placeholder="Filter recipes or items"
+          value={filter.query}
+          onChange={e => filter.onQueryChange(e.target.value)}
+          onKeyDown={e => {
+            if (e.key === 'Escape' && filter.query !== '') {
+              e.preventDefault()
+              filter.onQueryChange('')
+            }
+          }}
           className="w-[260px] h-[26px] box-border pl-6 pr-2 rounded-md bg-gray-950 border border-gray-700 text-gray-100 placeholder:text-gray-400"
         />
       </label>
+
+      {filter.query.trim() !== '' && (
+        <span role="status" data-testid="table-filter-status" className="inline-flex items-center gap-1.5 text-[11px] text-gray-400 whitespace-nowrap shrink-0">
+          {filter.hidden} of {filter.total} rows hidden
+          <button
+            type="button"
+            aria-label="Clear filter"
+            onClick={() => filter.onQueryChange('')}
+            className="text-teal-400 hover:text-teal-300 underline"
+          >
+            Clear
+          </button>
+        </span>
+      )}
 
       <span role="group" aria-label="Rate unit" className="inline-flex max-md:shrink-0 max-md:whitespace-nowrap rounded-md border border-gray-700 overflow-hidden text-[11px]">
         {RATE_UNITS.map(({ unit, label }) => (

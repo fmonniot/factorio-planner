@@ -7,27 +7,12 @@ import { TechIcon } from './TechIcon'
 import { recipeUnlock, withinHorizon } from '../data/horizon'
 import { recipeIconItem } from '../data/recipeIcon'
 import { recipeMakes } from '../data/recipeProducts'
+import { matchesItem, matchesRecipe } from '../data/search'
 import { groupPowerRecipes, powerInputItemId, type RecipeEntry } from '../data/powerFuelGroups'
 import { ENERGY_ITEM_IDS, isEnergyItem } from '../data/electricity'
 import { fmtTemperatureRange } from './factory/temperature'
 import type { Item, Recipe, GameData } from '../data/types'
 import { useOverlayOpen } from './factory/sidePanel/useDismiss'
-
-// ---------------------------------------------------------------------------
-// Fuzzy matching — case-insensitive substring on name or id
-// ---------------------------------------------------------------------------
-
-function matchesItem(query: string, item: Item): boolean {
-  if (!query) return true
-  const q = query.toLowerCase()
-  return item.name.toLowerCase().includes(q) || item.id.toLowerCase().includes(q)
-}
-
-function matchesRecipe(query: string, recipe: Recipe): boolean {
-  if (!query) return true
-  const q = query.toLowerCase()
-  return recipe.name.toLowerCase().includes(q) || recipe.id.toLowerCase().includes(q)
-}
 
 // ---------------------------------------------------------------------------
 // Recipe detail panel — shown on hover/focus of a recipe slot
