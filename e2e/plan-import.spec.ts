@@ -39,7 +39,7 @@ async function expectPlanOne(page: Page) {
 test.describe('Plan import', () => {
   test.beforeEach(async ({ page }) => {
     await page.goto('/')
-    await page.evaluate(() => localStorage.clear())
+    await page.evaluate(() => { localStorage.clear(); localStorage.setItem('factorio-planner:ui', JSON.stringify({ summaryCollapsed: false })) }) // a clean profile that has expanded the summary
     await page.reload()
     await selectDataset(page, 'Nullius')
     await addGoal(page, '250')

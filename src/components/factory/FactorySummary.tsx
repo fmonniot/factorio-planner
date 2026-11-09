@@ -19,6 +19,7 @@ import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
 import { SummaryPane } from './SummaryPane'
+import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
 import { presentRecipesFor } from './recipeAreas'
 import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
@@ -130,6 +131,8 @@ export function FactorySummary() {
   const solverResult = useSolverStore(selectBlockResult(activeBlock?.id))
   const gameData = useGameDataStore(selectGameData)
   const rateUnit = useUiStore(s => s.rateUnit)
+  const collapsed = useUiStore(s => s.summaryCollapsed)
+  const setCollapsed = useUiStore(s => s.setSummaryCollapsed)
   const addProduct = useBlockStore(s => s.addProduct)
   const removeProduct = useBlockStore(s => s.removeProduct)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
@@ -269,9 +272,21 @@ export function FactorySummary() {
   if (!gameData) return null
 
   return (
-    <div className="border-b border-gray-700 bg-gray-900 shrink-0">
-      {/* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */}
-      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 md:grid md:grid-cols-3 md:overflow-visible">
+    <div className="bg-gray-900 shrink-0">
+      {collapsed ? (
+        <SummaryLine
+          panes={[
+            { pane: 'products', label: 'Products', slots: productSlots },
+            { pane: 'byproducts', label: 'Byproducts', slots: byproductSlots },
+            { pane: 'ingredients', label: 'Ingredients', slots: ingredientSlots },
+          ]}
+          items={gameData.items}
+          rateUnit={rateUnit}
+          onExpand={() => setCollapsed(false)}
+        />
+      ) : (
+      /* Three-pane summary: Products, Byproducts, Ingredients. The key resets selection when the block changes. */
+      <div className="flex overflow-x-auto max-md:overflow-y-hidden snap-x snap-mandatory scroll-px-3 overscroll-x-contain gap-2 px-3 pb-2 pt-2 border-b border-gray-700 md:grid md:grid-cols-3 md:overflow-visible">
         <SummaryPane
           key={`products-${activeBlock?.id}`}
           pane="products"
@@ -418,6 +433,22 @@ export function FactorySummary() {
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}
         />
       </div>
+      )}
+
+      {/* The handle row: it collapses the expanded summary, and expands the collapsed one below md,
+          where the three lines stack and have no room for the Expand button. */}
+      <button
+        type="button"
+        aria-expanded={!collapsed}
+        aria-label={collapsed ? 'Expand the summary' : 'Collapse the summary'}
+        onClick={() => setCollapsed(!collapsed)}
+        className={`${collapsed ? 'md:hidden ' : ''}h-[18px] w-full flex items-center justify-center gap-1.5 border-b border-gray-700 bg-gray-900 text-[10px] tracking-[0.04em] text-gray-400 hover:text-gray-200`}
+      >
+        <svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true" className={collapsed ? 'rotate-180' : undefined}>
+          <path d="M2 6.5 5 3.5l3 3" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+        </svg>
+        {collapsed ? 'Expand summary' : 'Collapse summary'}
+      </button>
 
       {connectionMenu && (
         <ConnectionMenu

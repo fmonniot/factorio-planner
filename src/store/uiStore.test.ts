@@ -30,7 +30,7 @@ Object.defineProperty(globalThis, 'localStorage', {
 beforeEach(() => {
   localStorageMock.clear()
   vi.clearAllMocks()
-  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, defaultMachinesRequest: null, revealRowRequest: null })
+  useUiStore.setState({ rateUnit: 'min', bridgeUrl: 'ws://127.0.0.1:34199/', viewerAutoSend: false, summaryCollapsed: true, defaultMachinesRequest: null, revealRowRequest: null })
 })
 
 afterEach(() => {
@@ -54,6 +54,26 @@ describe('setRateUnit', () => {
   })
 })
 
+describe('summaryCollapsed', () => {
+  it('is saved when it changes', () => {
+    useUiStore.getState().setSummaryCollapsed(false)
+    saveUiState()
+    const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
+    expect(JSON.parse(written).summaryCollapsed).toBe(false)
+  })
+})
+
+describe('summaryCollapsed', () => {
+  it('starts collapsed and is saved when it changes', () => {
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    const unsub = initUiStatePersistence()
+    useUiStore.getState().setSummaryCollapsed(false)
+    unsub()
+    const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
+    expect(JSON.parse(written).summaryCollapsed).toBe(false)
+  })
+})
+
 describe('defaultMachinesRequest', () => {
   it('counts requests up, carrying the category', () => {
     useUiStore.getState().requestDefaultMachines()
@@ -72,7 +92,7 @@ describe('defaultMachinesRequest', () => {
     useUiStore.getState().requestDefaultMachines('crafting')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'summaryCollapsed'])
   })
 })
 
@@ -89,7 +109,7 @@ describe('revealRowRequest', () => {
     useUiStore.getState().requestRevealRow('a')
     saveUiState()
     const written = localStorageMock.setItem.mock.calls.at(-1)?.[1] as string
-    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend'])
+    expect(Object.keys(JSON.parse(written))).toEqual(['rateUnit', 'bridgeUrl', 'viewerAutoSend', 'summaryCollapsed'])
   })
 })
 
@@ -126,6 +146,13 @@ describe('loadPersistedUiState', () => {
     loadPersistedUiState()
     expect(useUiStore.getState().bridgeUrl).toBe('ws://127.0.0.1:40000/')
     expect(useUiStore.getState().viewerAutoSend).toBe(true)
+  })
+
+  it('restores the summary strip choice; the summary starts collapsed without one', () => {
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    localStorageMock.setItem(UI_STATE_STORAGE_KEY, JSON.stringify({ summaryCollapsed: false }))
+    loadPersistedUiState()
+    expect(useUiStore.getState().summaryCollapsed).toBe(false)
   })
 
   it('ignores a tableView left by an older version', () => {

@@ -24,6 +24,9 @@ export interface UiStoreState {
   /** Send the plan to the in-game viewer after every solve, not only on request. */
   viewerAutoSend: boolean
   setViewerAutoSend: (value: boolean) => void
+  /** The summary strip shows one line per pane (true, the default) or the three full panes. Persisted; it spans block switches. */
+  summaryCollapsed: boolean
+  setSummaryCollapsed: (value: boolean) => void
   /**
    * Transient (not persisted) ask to open the workspace menu on its "Default machines"
    * flyout, optionally focused on one crafting category. `seq` changes on every request.
@@ -68,6 +71,8 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   setBridgeUrl: (url) => set({ bridgeUrl: url }),
   viewerAutoSend: false,
   setViewerAutoSend: (value) => set({ viewerAutoSend: value }),
+  summaryCollapsed: true,
+  setSummaryCollapsed: (value) => set({ summaryCollapsed: value }),
   defaultMachinesRequest: null,
   requestDefaultMachines: (category) =>
     set(state => ({ defaultMachinesRequest: { seq: (state.defaultMachinesRequest?.seq ?? 0) + 1, category } })),
@@ -101,12 +106,13 @@ interface PersistedUiState {
   rateUnit: RateUnit
   bridgeUrl: string
   viewerAutoSend: boolean
+  summaryCollapsed: boolean
 }
 
 export function saveUiState(): void {
   try {
-    const { rateUnit, bridgeUrl, viewerAutoSend } = useUiStore.getState()
-    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend }
+    const { rateUnit, bridgeUrl, viewerAutoSend, summaryCollapsed } = useUiStore.getState()
+    const persisted: PersistedUiState = { rateUnit, bridgeUrl, viewerAutoSend, summaryCollapsed }
     localStorage.setItem(UI_STATE_STORAGE_KEY, JSON.stringify(persisted))
   } catch {
     // Storage quota exceeded or unavailable — ignore.
@@ -127,6 +133,9 @@ export function loadPersistedUiState(): void {
     if (typeof parsed.viewerAutoSend === 'boolean') {
       useUiStore.setState({ viewerAutoSend: parsed.viewerAutoSend })
     }
+    if (typeof parsed.summaryCollapsed === 'boolean') {
+      useUiStore.setState({ summaryCollapsed: parsed.summaryCollapsed })
+    }
   } catch {
     // Malformed or unavailable — start with defaults.
   }
@@ -136,7 +145,8 @@ export function initUiStatePersistence(): () => void {
   return useUiStore.subscribe((state, prevState) => {
     if (
       state.rateUnit !== prevState.rateUnit ||
-      state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend
+      state.bridgeUrl !== prevState.bridgeUrl || state.viewerAutoSend !== prevState.viewerAutoSend ||
+      state.summaryCollapsed !== prevState.summaryCollapsed
     ) {
       saveUiState()
     }
