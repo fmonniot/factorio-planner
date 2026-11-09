@@ -56,34 +56,34 @@ One row per accepted change. *Artifact check* is the start of a check name in [c
 
 | Change | Finding | PR | Artifact check | Landed |
 |---|---|---|---|---|
-| `contrast` | 4 | 1 | `4 contrast` | — |
-| `selStrong` | 8 | 2 | `8 selStrong` | — |
-| `tabsFit` | 9 | 3 | `9 tabsFit` | — |
-| `wsLight` | 9 | 3 | `9 tool buttons` | — |
-| `blockList` | 9 | 3 | `9 blockList` | — |
-| `addTool` | 9 | 3 | `9 addTool` | — |
-| `panDash` | 7 | 4 | `7 panDash` | — |
-| `panSwitch` | 7 | 4 | `7 panSwitch and panLists` | — |
-| `panLists` | 7 | 4 | `7 panSwitch and panLists` | — |
-| `panNarrow` | 7 | 4 | `7 panNarrow` | — |
-| `chipFmt` | 3 | 5 | `3 chipFmt` | — |
-| `chipNum` | 3 | 5 | `3 chipNum and chipPlate` | — |
-| `chipPlate` | 3 | 5 | `3 chipNum and chipPlate` | — |
-| `chipBig` | 3 | 5 | none | — |
-| `phPair` | 6 | 5 | `6 phPair` | — |
-| `phQuiet` | 6 | 5 | `6 phQuiet` | — |
-| `grpFixed` | 5 | 6 | `5 grpFixed` | — |
-| `grpIcon` | 5 | 6 | `5 grpIcon` | — |
-| `grpBand` | 5 | 6 | `5 grpBand` | — |
-| `ingLeft` | 2 | 6 | `2 ingLeft` | — |
-| `narrowToolbar` | 10 | 7 | none | — |
-| `narrowStack` | 10 | 7 | `10 narrowStack` | — |
-| `sumShort` | 1 | 8 | `1 sumShort` | — |
-| `legTip` | 1 | 8 | `1 legTip` | — |
-| `legInBar` | 1 | 8 | `1 legInBar` | — |
-| `ovBar` | 1 | 8 | `1 ovBar` | — |
-| `sumLine` | 1 | 9 | `1 sumLine` | — |
-| `sumStack` | 1 | 9 | `1 sumStack` | — |
+| `contrast` | 4 | 1 | `4 contrast` | #244 |
+| `selStrong` | 8 | 2 | `8 selStrong` | #243 |
+| `tabsFit` | 9 | 3 | `9 tabsFit` | #247 |
+| `wsLight` | 9 | 3 | `9 tool buttons` | #247 |
+| `blockList` | 9 | 3 | `9 blockList` | #247 |
+| `addTool` | 9 | 3 | `9 addTool` | #247 |
+| `panDash` | 7 | 4 | `7 panDash` | #245 |
+| `panSwitch` | 7 | 4 | `7 panSwitch and panLists` | #245 |
+| `panLists` | 7 | 4 | `7 panSwitch and panLists` | #245 |
+| `panNarrow` | 7 | 4 | `7 panNarrow` | #245 |
+| `chipFmt` | 3 | 5 | `3 chipFmt` | #248 |
+| `chipNum` | 3 | 5 | `3 chipNum and chipPlate` | #248 |
+| `chipPlate` | 3 | 5 | `3 chipNum and chipPlate` | #248 |
+| `chipBig` | 3 | 5 | none | #248 |
+| `phPair` | 6 | 5 | `6 phPair` | #248 |
+| `phQuiet` | 6 | 5 | `6 phQuiet` | #248 |
+| `grpFixed` | 5 | 6 | `5 grpFixed` | #250 |
+| `grpIcon` | 5 | 6 | `5 grpIcon` | #250 |
+| `grpBand` | 5 | 6 | `5 grpBand` | #250 |
+| `ingLeft` | 2 | 6 | `2 ingLeft` | #250 |
+| `narrowToolbar` | 10 | 7 | none | #251 |
+| `narrowStack` | 10 | 7 | `10 narrowStack` | #251 |
+| `sumShort` | 1 | 8 | `1 sumShort` | #246 |
+| `legTip` | 1 | 8 | `1 legTip` | #246 |
+| `legInBar` | 1 | 8 | `1 legInBar` | #246 |
+| `ovBar` | 1 | 8 | `1 ovBar` | #246 |
+| `sumLine` | 1 | 9 | `1 sumLine` | #249 |
+| `sumStack` | 1 | 9 | `1 sumStack` | #249 |
 
 ## Rejected
 

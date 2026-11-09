@@ -60,7 +60,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
-- [ ] **Visual refinement of the main screen.** Eleven findings on density and legibility, found on a real mid-game Seablock plan (summary strip height, table column spread, chip legibility and number overflow, contrast, group rows, placeholders, side panel and drawer, selection, tabs, narrow screens, row density), to be judged in a design artifact before any change. See [visual-refinement/](visual-refinement/plan.md).
 - [ ] **Collapsed summary uses item chips.** The collapsed summary should show the same item chip as the recipe and group rows, and show the overall production goal.
 - [ ] **Sub-factory detail: subtitle instead of area badge.** In the detail panel of a sub-factory, drop the area badge and use the subtitle to say whether it is an area or a plain group.
 - [ ] **Default block colour from the block's icon.** Derive a new block's default colour from its first goal's icon. The colour is fixed at creation.
