@@ -85,11 +85,22 @@ describe('BlockTabs context menu', () => {
     useBlockStore.setState({ blocks: [plates, gears], activeBlockId: gears.id, history: {} })
     render(<BlockTabs />)
     fireEvent.contextMenu(tabBtn('Gears'))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Default colour' }))
+    fireEvent.click(screen.getByRole('menuitemradio', { name: 'Default colour' }))
     const [first, second] = useBlockStore.getState().blocks
     expect(second.color).toBe('#a3e635')
     expect(first.color).toBe('#60a5fa')
     expect(screen.queryByRole('menu')).toBeNull()
+
+    // The block follows its first product now: the menu checks Default colour and rings no swatch.
+    fireEvent.contextMenu(tabBtn('Gears'))
+    expect(screen.getByRole('menuitemradio', { name: 'Default colour' })).toHaveAttribute('aria-checked', 'true')
+    expect(document.querySelectorAll('[data-testid="block-color-swatch"][aria-checked="true"]')).toHaveLength(0)
+
+    // Picking a swatch ends it.
+    fireEvent.click(screen.getByLabelText('Colour #f472b6'))
+    fireEvent.contextMenu(tabBtn('Gears'))
+    expect(screen.getByRole('menuitemradio', { name: 'Default colour' })).toHaveAttribute('aria-checked', 'false')
+    expect(screen.getByLabelText('Colour #f472b6')).toHaveAttribute('aria-checked', 'true')
   })
 })
 

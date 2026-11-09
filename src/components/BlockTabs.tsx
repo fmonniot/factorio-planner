@@ -35,6 +35,7 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   const setBlockColor = useBlockStore(s => s.setBlockColor)
   const resetBlockColor = useBlockStore(s => s.resetBlockColor)
   const currentColor = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.color)?.toLowerCase()
+  const colorAuto = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.colorAuto) === true
   const index = blocks.findIndex(b => b.id === blockId)
   const ref = useRef<HTMLDivElement>(null)
   const [pos, setPos] = useState({ x: anchor.left, y: anchor.bottom + 4 })
@@ -156,23 +157,26 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
       <div role="separator" className="my-1 border-t border-gray-700" />
       <div className="text-[10px] text-gray-400 px-3 pb-1">Colour</div>
       <button
-        role="menuitem"
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        role="menuitemradio"
+        aria-checked={colorAuto}
+        data-testid="block-color-default"
+        className="w-full flex items-center justify-between gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
         onClick={() => { resetBlockColor(blockId); onClose() }}
       >
         Default colour
+        {colorAuto && <span aria-hidden="true">✓</span>}
       </button>
       <div role="group" aria-label="Block colour" className="grid grid-cols-8 gap-1 px-3 pb-1.5">
         {BLOCK_PALETTE.map(c => (
           <button
             key={c}
             role="menuitemradio"
-            aria-checked={c === currentColor}
+            aria-checked={!colorAuto && c === currentColor}
             aria-label={`Colour ${c}`}
             title={c}
             data-testid="block-color-swatch"
             data-color={c}
-            className={`w-4 h-4 rounded-sm ${c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
+            className={`w-4 h-4 rounded-sm ${!colorAuto && c === currentColor ? 'ring-2 ring-gray-100' : 'hover:ring-1 hover:ring-gray-400'}`}
             style={{ background: c }}
             onClick={() => { setBlockColor(blockId, c); onClose() }}
           />

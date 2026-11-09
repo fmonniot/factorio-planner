@@ -166,8 +166,9 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   share a colour, and like the other block actions it is not undoable. **Default colour**, above
   the swatches, hands the block back to the default: its colour follows the icon of its first goal
   (the palette colour nearest the icon's hue, least used by the other blocks; random for a grey or
-  very dark icon, or while there is no goal), and changes when the first goal does. Picking a swatch
-  ends the following.
+  very dark icon, or while there is no goal), and changes when the first goal does. The menu shows which applies: **Default colour** is a radio item with a check mark while
+  the block follows its first goal (then no swatch is ringed); otherwise the current swatch is ringed.
+  Picking a swatch ends the following.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original

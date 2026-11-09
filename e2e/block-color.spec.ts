@@ -129,9 +129,16 @@ test.describe('block colours', () => {
     expect(allowed).toContain(colors['Block 3'])
 
     // Picking a swatch ends the following.
+    // The menu says so: Default colour is checked and no swatch is.
     await tab.click({ button: 'right' })
+    await expect(page.getByTestId('block-color-default')).toHaveAttribute('aria-checked', 'true')
+    await expect(page.locator('[data-testid="block-color-swatch"][aria-checked="true"]')).toHaveCount(0)
     await page.getByLabel('Colour #fda4af').click()
     expect((await exportColors(page))['Block 3']).toBe('#fda4af')
+    await tab.click({ button: 'right' })
+    await expect(page.getByTestId('block-color-default')).toHaveAttribute('aria-checked', 'false')
+    await expect(page.locator('[data-testid="block-color-swatch"][aria-checked="true"]')).toHaveCount(1)
+    await page.keyboard.press('Escape')
   })
 
   test('Default colour takes the colour of the first product again after a swatch was chosen', async ({ page }) => {
@@ -155,7 +162,7 @@ test.describe('block colours', () => {
     expect((await exportColors(page))['Block 3']).toBe('#818cf8')
 
     await tab.click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Default colour' }).click()
+    await page.getByTestId('block-color-default').click()
     await expect(page.getByRole('menu')).toHaveCount(0)
     const colors = await exportColors(page)
     const used = [colors.Plates, colors.Gears]
