@@ -76,8 +76,9 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
     window.addEventListener('keydown', onKeyDown, true)
     return () => {
       window.removeEventListener('keydown', onKeyDown, true)
-      // Restore only when focus was lost with the drawer (inside it, or dropped on the body), never over a deliberate move.
-      if (origin?.isConnected && (!document.activeElement || document.activeElement === document.body || aside?.contains(document.activeElement))) origin.focus({ preventScroll: true })
+      // Restore only when the drawer closed (not when the window grew past xl and the panel docked, which keeps the user
+      // in it) and focus was lost with it (inside it, or dropped on the body), never over a deliberate move.
+      if (useUiStore.getState().selectedRow === null && origin?.isConnected && (!document.activeElement || document.activeElement === document.body || aside?.contains(document.activeElement))) origin.focus({ preventScroll: true })
     }
   }, [modal])
 

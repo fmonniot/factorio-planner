@@ -19,10 +19,10 @@ export function useDrawerLayout(): boolean {
   return useSyncExternalStore(subscribe, getSnapshot, () => false)
 }
 
-const FOCUSABLE = 'a[href], button, input, select, textarea, [tabindex]'
+const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [contenteditable], [tabindex]'
 
 /** The tabbable elements of `root` in DOM order: enabled, visible, and not taken out of the tab order. */
 export function tabbables(root: HTMLElement): HTMLElement[] {
   return Array.from(root.querySelectorAll<HTMLElement>(FOCUSABLE)).filter(el =>
-    el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && !el.closest('[hidden], [inert]') && el.getClientRects().length > 0)
+    el.tabIndex >= 0 && !(el as HTMLButtonElement).disabled && !el.closest('[hidden], [inert]') && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden')
 }
