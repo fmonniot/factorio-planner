@@ -165,8 +165,8 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   Picking a swatch sets the block's colour and closes the menu; several blocks may
   share a colour, and like the other block actions it is not undoable. **Default colour**, above
   the swatches, hands the block back to the default: its colour follows the icon of its first goal
-  (the palette colour nearest the icon's hue, least used by the other blocks; random for a grey or
-  very dark icon, or while there is no goal), and changes when the first goal does. The menu shows which applies: **Default colour** is a radio item with a check mark while
+  (the palette colour nearest the icon's hue, least used by the other blocks, the first in palette order on a tie; the least-used
+  colour for a grey or very dark icon; with no goal the colour stays as it is until there is one), and changes when the first goal does. The menu shows which applies: **Default colour** is a radio item with a check mark while
   the block follows its first goal (then no swatch is ringed); otherwise the current swatch is ringed.
   Picking a swatch ends the following.
   Duplicate copies the block as "<name> (copy)", inserts it right after the

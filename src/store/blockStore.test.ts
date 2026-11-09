@@ -1731,6 +1731,18 @@ describe('block colours', () => {
       expect(colorOf(b.id)).toBe('#a3e635')
     })
 
+    it('gives the same colour every time for the same state', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'gear' }) // grey: no hue to follow
+      const grey = colorOf(b.id)
+      store().undo()
+      store().redo()
+      expect(colorOf(b.id)).toBe(grey)
+      store().resetBlockColor(b.id)
+      expect(colorOf(b.id)).toBe(grey)
+    })
+
     it('follows the first product through undo and redo', () => {
       const { b } = seed()
       store().resetBlockColor(b.id)
@@ -1769,10 +1781,14 @@ describe('block colours', () => {
       expect(store().blocks[0].colorAuto).toBeFalsy()
     })
 
-    it('resetBlockColor gives a palette colour to a block with no product, and ignores an unknown block', () => {
+    it('resetBlockColor keeps the colour of a block with no product, and ignores an unknown block', () => {
       const { b } = seed()
       store().resetBlockColor(b.id)
-      expect(BLOCK_PALETTE).toContain(colorOf(b.id) as typeof BLOCK_PALETTE[number])
+      expect(colorOf(b.id)).toBe('#f472b6')
+      expect(store().blocks[1].colorAuto).toBe(true)
+      const once = store().blocks
+      store().resetBlockColor(b.id)
+      expect(store().blocks).toBe(once)
       const before = store().blocks
       store().resetBlockColor('missing')
       expect(store().blocks).toBe(before)

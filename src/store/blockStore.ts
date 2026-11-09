@@ -310,7 +310,8 @@ export interface BlockStoreState {
   setBlockColor: (blockId: string, color: string) => void
   /**
    * Back to the default colour: the block follows the icon of its first product again (see
-   * `Block.colorAuto`) and takes the colour that gives now. Not undoable.
+   * `Block.colorAuto`) and takes the colour that gives now; a block with no product keeps its
+   * colour until it has one. Not undoable.
    */
   resetBlockColor: (blockId: string) => void
   setActiveBlock: (blockId: string) => void
@@ -402,9 +403,13 @@ function iconColorOf(itemId: string | undefined): string | undefined {
   return selectGameData(useGameDataStore.getState())?.items[itemId]?.iconColor
 }
 
-/** The colour the default colour gives a block whose first product is `itemId`, next to the `others`. */
+/**
+ * The colour the default colour gives a block whose first product is `itemId`, next to the `others`.
+ * Ties go to the first palette colour rather than at random, so the same state always gives the same
+ * colour: undo and redo of a product change, or choosing Default colour twice, do not re-roll it.
+ */
 function defaultColorFor(itemId: string | undefined, others: readonly Block[]): string {
-  return pickBlockColorForIcon(iconColorOf(itemId), others.map(b => b.color))
+  return pickBlockColorForIcon(iconColorOf(itemId), others.map(b => b.color), { random: () => 0 })
 }
 
 /**
@@ -618,7 +623,10 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => {
       const target = state.blocks.find(b => b.id === blockId)
       if (!target) return state
-      const color = defaultColorFor(target.products[0]?.itemId, state.blocks.filter(b => b.id !== blockId))
+      const first = target.products[0]?.itemId
+      // Without a product there is no icon to follow: keep the colour and start following once there is one.
+      const color = first === undefined ? target.color : defaultColorFor(first, state.blocks.filter(b => b.id !== blockId))
+      if (color === target.color && target.colorAuto) return state
       return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color, colorAuto: true } : b)) }
     }),
 
