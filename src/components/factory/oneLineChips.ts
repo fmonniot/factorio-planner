@@ -11,16 +11,22 @@ export function chipsPerLine(widthPx: number): number | null {
 }
 
 /**
- * How many of `total` chips to draw on a single line that holds `perLine`, the rest sitting behind a "+N".
- * `cap` is the most chips the row ever draws (what lies past it is behind the "+N" too, which takes a slot).
- * When everything fits, all show; otherwise one fewer than fits, and the "+N" takes the last slot.
+ * How many of `total` chips to draw in `lines` lines of `perLine` chips each, the rest sitting behind a "+N".
+ * `cap` is the most chips ever drawn (what lies past it is behind the "+N" too, which takes a slot).
+ * When everything fits, all show; otherwise one fewer than the lines hold, and the "+N" takes the last slot.
  * `perLine` of `null` (not measured: a box without layout) draws the capped chips.
  */
-export function chipsOnOneLine(total: number, perLine: number | null, cap: number): number {
+export function chipsInLines(total: number, perLine: number | null, lines: number, cap = Infinity): number {
   const wanted = Math.min(total, cap)
   if (perLine === null) return wanted
+  const slots = perLine * lines
   const slotsNeeded = wanted + (total > wanted ? 1 : 0)
-  return slotsNeeded <= perLine ? wanted : Math.max(0, perLine - 1)
+  return slotsNeeded <= slots ? wanted : Math.max(0, slots - 1)
+}
+
+/** `chipsInLines` for a single line: a collapsed area row is one line high. */
+export function chipsOnOneLine(total: number, perLine: number | null, cap: number): number {
+  return chipsInLines(total, perLine, 1, cap)
 }
 
 /**

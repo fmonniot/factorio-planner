@@ -1767,3 +1767,109 @@ describe('RecipeRow — selection', () => {
     expect(screen.getByRole('button', { name: 'Group' })).toHaveAttribute('aria-pressed', 'true')
   })
 })
+
+describe('RecipeRow on a narrow screen', () => {
+  const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${i}`)
+  const rates = (list: string[]) => Object.fromEntries(list.map(id => [id, 60]))
+
+  // Below 768px: the media query "(min-width: 768px)" does not match.
+  function narrowScreen(narrow = true) {
+    vi.stubGlobal('matchMedia', (query: string) => ({
+      matches: !narrow, media: query, addEventListener: () => {}, removeEventListener: () => {},
+    }))
+  }
+  // A box `widthPx` wide: the chips of a column are counted against it (happy-dom has no layout).
+  function withLineWidth(widthPx: number) {
+    Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => widthPx })
+  }
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth
+  })
+
+  const busy: SolvedNode = { ...solvedNode, inputRates: rates(ids('i', 7)), outputRates: { 'iron-plate': 60, ...rates(ids('b', 5)) } }
+  const tr = () => document.querySelector('tr[data-node-id="node-1"]') as HTMLTableRowElement
+  const dialog = (name: string) => screen.queryByRole('dialog', { name })
+
+  it('has no Machine and Beacons cells, and holds those chips under the recipe name, in a row of one fixed height', () => {
+    narrowScreen()
+    renderRow()
+    expect(tr().cells).toHaveLength(6)
+    expect(tr()).toHaveClass('h-[73px]')
+    const stack = within(tr().cells[1]).getByTestId('row-machine-stack')
+    expect(within(stack).getByTestId('machine-chip')).toBeInTheDocument()
+    expect(within(stack).getByLabelText('Add beacon')).toBeInTheDocument()
+  })
+
+  it('keeps all eight cells, and the usual row height, from 768px', () => {
+    narrowScreen(false)
+    renderRow()
+    expect(tr().cells).toHaveLength(8)
+    expect(tr()).not.toHaveClass('h-[73px]')
+    expect(screen.queryByTestId('row-machine-stack')).not.toBeInTheDocument()
+  })
+
+  it('shows one fewer chip than two lines hold, and a +N that opens the rest as a list next to it', () => {
+    narrowScreen()
+    withLineWidth(2 * 38 - 6) // two chips per line
+    renderRow({ solvedNode: busy })
+    const byproducts = tr().cells[3]
+    const ingredients = tr().cells[4]
+    // 5 byproducts and 7 ingredients do not fit in 2 lines of 2: 3 chips and the +N.
+    expect(byproducts.querySelectorAll('[data-variant="byproduct"]')).toHaveLength(3)
+    expect(ingredients.querySelectorAll('[data-variant="ingredient"]')).toHaveLength(3)
+    const more = within(ingredients).getByRole('button', { name: '4 more ingredients' })
+    expect(more).toHaveTextContent('+4')
+    expect(within(byproducts).getByRole('button', { name: '2 more byproducts' })).toHaveTextContent('+2')
+
+    expect(dialog('More ingredients')).toBeNull()
+    fireEvent.click(more)
+    const list = screen.getByRole('dialog', { name: 'More ingredients' })
+    expect(Array.from(list.querySelectorAll('[data-variant="ingredient"]'))).toHaveLength(4)
+    expect(list).toHaveTextContent('i3')
+    expect(list).toHaveTextContent('i6')
+    expect(more).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(within(list).getByRole('button', { name: 'Close' }))
+    expect(dialog('More ingredients')).toBeNull()
+    fireEvent.click(more)
+    expect(dialog('More ingredients')).not.toBeNull()
+    fireEvent.keyDown(window, { key: 'Escape' })
+    expect(dialog('More ingredients')).toBeNull()
+  })
+
+  it('shows every chip, and no +N, when two lines hold them all', () => {
+    narrowScreen()
+    withLineWidth(2 * 38 - 6)
+    renderRow({ solvedNode: { ...busy, inputRates: rates(ids('i', 4)), outputRates: { 'iron-plate': 60, ...rates(ids('b', 2)) } } })
+    expect(tr().cells[4].querySelectorAll('[data-variant="ingredient"]')).toHaveLength(4)
+    expect(tr().cells[3].querySelectorAll('[data-variant="byproduct"]')).toHaveLength(2)
+    expect(screen.queryByTestId('recipe-chips-more')).not.toBeInTheDocument()
+  })
+
+  it('draws every chip, with no +N, from 768px', () => {
+    narrowScreen(false)
+    withLineWidth(2 * 38 - 6)
+    renderRow({ solvedNode: busy })
+    expect(tr().cells[6].querySelectorAll('[data-variant="ingredient"]')).toHaveLength(7)
+    expect(screen.queryByTestId('recipe-chips-more')).not.toBeInTheDocument()
+  })
+
+  it('has one chip in Products, the row\'s primary product', () => {
+    narrowScreen()
+    renderRow({ solvedNode: busy })
+    expect(tr().cells[2].querySelectorAll('[data-variant="product"]')).toHaveLength(1)
+  })
+
+  it('gives a group row a name cell of one column, and its summary a line under the name', () => {
+    narrowScreen()
+    const planNode: SubPlanNode = { kind: 'subplan', id: 'sp-node', subPlanId: 'sp-1' }
+    const block = useBlockStore.getState().blocks[0]
+    const sub = { id: 'sp-1', name: 'Group', nodes: [], subPlans: [], createdAt: '', updatedAt: '' } as unknown as SubPlan
+    const rootPlan = { ...block.rootPlan, nodes: [planNode], subPlans: [sub] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan }] })
+    renderRow({ planNode, rootPlan, solvedNode: undefined, parentSubPlanId: rootPlan.id })
+    const row = document.querySelector('tr[data-node-id="sp-node"]') as HTMLTableRowElement
+    expect(row.cells[1]).toHaveAttribute('colspan', '1')
+    expect(screen.getByTestId('group-summary')).toHaveClass('basis-full')
+  })
+})

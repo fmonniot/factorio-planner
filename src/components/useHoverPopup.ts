@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
-import { anchoredPosition } from '../utils/anchoredPosition'
+import { anchoredBelow, anchoredPosition } from '../utils/anchoredPosition'
 import type { Box } from '../utils/anchoredPosition'
 
 // ---------------------------------------------------------------------------
@@ -8,13 +8,23 @@ import type { Box } from '../utils/anchoredPosition'
 // trigger. Hover opens it after a delay, keyboard focus at once, a click pins
 // it. The pointer can move onto the popup (a short grace period bridges the gap).
 // The caller renders the popup in a portal with `popupProps`.
+//
+// `placement: 'below'` puts the popup under the trigger (above it when there is no room) instead of to its right, for a
+// button in a narrow cell. `mode: 'click'` is a dialog opened by the click alone: no hover or focus opening, and the
+// popup stays until Escape, a press outside, a scroll or its own close button.
 // ---------------------------------------------------------------------------
 
 export const HOVER_OPEN_DELAY_MS = 300
 export const HOVER_HIDE_GRACE_MS = 100
 const FOCUS_SCROLL_GRACE_MS = 300
 
-export function useHoverPopup<T extends HTMLElement>() {
+interface HoverPopupOptions {
+  placement?: 'right' | 'below'
+  mode?: 'hover' | 'click'
+}
+
+export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode = 'hover' }: HoverPopupOptions = {}) {
+  const clickMode = mode === 'click'
   const id = useId()
   const [anchor, setAnchor] = useState<Box | null>(null)
   const [pos, setPos] = useState({ left: 0, top: 0 })
@@ -53,9 +63,10 @@ export function useHoverPopup<T extends HTMLElement>() {
     const el = popupRef.current
     if (!anchor || !el) return
     const { width, height } = el.getBoundingClientRect()
-    const next = anchoredPosition(anchor, { width, height }, { width: window.innerWidth, height: window.innerHeight })
+    const position = placement === 'below' ? anchoredBelow : anchoredPosition
+    const next = position(anchor, { width, height }, { width: window.innerWidth, height: window.innerHeight })
     setPos(prev => (prev.left === next.left && prev.top === next.top ? prev : next))
-  }, [anchor])
+  }, [anchor, placement])
   useLayoutEffect(place, [place])
   useEffect(() => {
     const el = popupRef.current
@@ -114,7 +125,17 @@ export function useHoverPopup<T extends HTMLElement>() {
     graceTimer.current = setTimeout(hide, HOVER_HIDE_GRACE_MS)
   }
 
-  const triggerProps = {
+  const clickTriggerProps = {
+    ref: triggerRef,
+    onClick: () => {
+      if (open) hide()
+      else show(true)
+    },
+    'aria-haspopup': 'dialog' as const,
+    'aria-expanded': open,
+  }
+
+  const hoverTriggerProps = {
     ref: triggerRef,
     onMouseEnter,
     onMouseLeave,
@@ -141,10 +162,12 @@ export function useHoverPopup<T extends HTMLElement>() {
     'aria-describedby': open ? id : undefined,
   }
 
+  const triggerProps = clickMode ? clickTriggerProps : hoverTriggerProps
+
   const popupProps = {
     ref: popupRef,
     id,
-    role: 'tooltip' as const,
+    role: clickMode ? ('dialog' as const) : ('tooltip' as const),
     style: { position: 'fixed', left: pos.left, top: pos.top } satisfies CSSProperties,
     onMouseEnter,
     onMouseLeave,

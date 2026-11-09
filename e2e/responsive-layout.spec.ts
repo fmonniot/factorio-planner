@@ -253,9 +253,12 @@ test.describe('column widths', () => {
         expect(min).toBeGreaterThan(0)
         expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(min - 0.5)
         expect(w[1]).toBeGreaterThanOrEqual(149.5)
-        expect(w[4]).toBeCloseTo(72, 0)
-        expect(w[5]).toBeGreaterThanOrEqual(79.5)
-        expect(w[6]).toBeGreaterThanOrEqual(147.5)
+        // Below 768px the Machine and Beacons columns are gone (minimum 554px): reorder, recipe, products, byproducts, ingredients, power.
+        const [products, byproducts, ingredients] = width < 768 ? [w[2], w[3], w[4]] : [w[4], w[5], w[6]]
+        if (width < 768) { expect(w).toHaveLength(6); expect(min).toBe(554) }
+        expect(products).toBeCloseTo(72, 0)
+        expect(byproducts).toBeGreaterThanOrEqual(79.5)
+        expect(ingredients).toBeGreaterThanOrEqual(147.5)
         const [sw, cw] = await tableScroller(page).evaluate(el => [el.scrollWidth, el.clientWidth])
         // Both outcomes are asserted: a wrapper narrower than the minimum scrolls; a wider one fits without scrolling.
         if (cw < min) expect(sw, 'the narrow wrapper scrolls').toBeGreaterThan(cw)

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { chipsOnOneLine, chipsPerLine } from './oneLineChips'
+import { chipsInLines, chipsOnOneLine, chipsPerLine } from './oneLineChips'
 
 describe('chipsPerLine', () => {
   it('counts 38px slots, the last without its gap: n chips need 38n - 6px', () => {
@@ -42,5 +42,28 @@ describe('chipsOnOneLine', () => {
   it('draws the capped chips when the line is not measured', () => {
     expect(chipsOnOneLine(5, null, 8)).toBe(5)
     expect(chipsOnOneLine(20, null, 16)).toBe(16)
+  })
+})
+
+describe('chipsInLines', () => {
+  it('shows every chip that the lines hold, with no "+N"', () => {
+    expect(chipsInLines(4, 2, 2)).toBe(4)
+    expect(chipsInLines(1, 2, 2)).toBe(1)
+    expect(chipsInLines(0, 2, 2)).toBe(0)
+  })
+
+  it('shows one fewer than the lines hold when there are more, the "+N" taking the last slot', () => {
+    expect(chipsInLines(5, 2, 2)).toBe(3)
+    expect(chipsInLines(9, 3, 2)).toBe(5)
+  })
+
+  it('draws only the capped chips for a box that has not been measured, and one line is the one-line rule', () => {
+    expect(chipsInLines(9, null, 2, 6)).toBe(6)
+    expect(chipsInLines(6, 5, 1, 8)).toBe(chipsOnOneLine(6, 5, 8))
+  })
+
+  it('keeps at least the "+N" when a line holds a single chip', () => {
+    expect(chipsInLines(3, 1, 2)).toBe(1)
+    expect(chipsInLines(3, 1, 1)).toBe(0)
   })
 })
