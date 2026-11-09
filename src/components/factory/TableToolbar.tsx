@@ -12,6 +12,7 @@ import type { SolvedNode, SubPlan, SolverWarning, GameData } from '../../data/ty
 import { fmtPower, fmtItemRateText } from './ItemTile'
 import { fmtTemperatureWarning } from './temperature'
 import { countSubPlanContents } from './subPlanContents'
+import { warningTargets } from './warningTargets'
 
 // ---------------------------------------------------------------------------
 // TableToolbar — the row just above the production table: add a recipe, filter, rate unit, and on
@@ -238,6 +239,8 @@ export function WarningsPopover() {
   const block = useBlockStore(selectActiveBlock)
   const result = useSolverStore(selectBlockResult(block?.id))
   const removeNode = useBlockStore(s => s.removeNode)
+  const setActiveBlock = useBlockStore(s => s.setActiveBlock)
+  const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   // Only ids and names are read; a flat array keeps the popover from re-rendering on every plan edit.
   const idNames = useBlockStore(useShallow(s => s.blocks.flatMap(b => [b.id, b.name])))
@@ -338,6 +341,21 @@ export function WarningsPopover() {
                 <div className="text-gray-400 leading-snug">
                   → {warningHint(w)}
                 </div>
+                {warningTargets(w, block?.rootPlan, gameData, blockName).map(t => (
+                  <button
+                    key={t.kind === 'row' ? t.nodeId : t.blockId}
+                    type="button"
+                    data-testid="warning-link"
+                    onClick={() => {
+                      if (t.kind === 'block') setActiveBlock(t.blockId)
+                      else requestRevealRow(t.nodeId)
+                      setOpen(false)
+                    }}
+                    className="mt-1.5 mr-3 text-teal-400 hover:text-teal-300 underline"
+                  >
+                    {t.label}
+                  </button>
+                ))}
                 {w.type === 'duplicate-recipe' && (
                   <button
                     type="button"

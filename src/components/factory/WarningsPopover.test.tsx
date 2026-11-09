@@ -336,6 +336,70 @@ describe('WarningsPopover — duplicate-recipe in an area', () => {
 })
 
 // ---------------------------------------------------------------------------
+// Links to the cause
+// ---------------------------------------------------------------------------
+
+describe('WarningsPopover — links', () => {
+  it('a recipe warning links to the first row of the recipe and reveals it', () => {
+    setupAreaBlock()
+    useUiStore.setState({ revealRowRequest: null })
+    setupWithWarnings({ warnings: [{ type: 'temperature-mismatch', recipeId: 'boiler', itemId: 'steam', supplied: [165], minimum: 465 }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Boiler Recipe' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('boiler-root')
+    expect(screen.queryByTestId('warnings-popover')).toBeNull()
+  })
+
+  it('an area duplicate links to the row inside that area', () => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'duplicate-recipe', recipeId: 'boiler', count: 2, areaId: 'plastics' }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Boiler Recipe' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('boiler-p')
+  })
+
+  it('an area shortfall links to the area\'s handle row', () => {
+    const { block, rootPlan } = setupAreaBlock()
+    const handle = { kind: 'subplan' as const, id: 'handle-plastics', subPlanId: 'plastics' }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...rootPlan, nodes: [...rootPlan.nodes, handle] } }], activeBlockId: block.id })
+    setupWithWarnings({ warnings: [{ type: 'area-shortfall', shortfalls: [{ areaId: 'plastics', itemId: 'steam', rate: 52 }] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Plastics' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('handle-plastics')
+  })
+
+  it('a loop warning links to each block and switches to it', () => {
+    useBlockStore.setState({
+      blocks: [{ ...makeEmptyBlock('Metals'), id: 'm' }, { ...makeEmptyBlock('Ores'), id: 'o' }],
+      activeBlockId: 'm',
+    })
+    setupWithWarnings({ warnings: [{ type: 'loop-not-converged', blockIds: ['m', 'o'], rounds: 8 }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Ores' }))
+    expect(useBlockStore.getState().activeBlockId).toBe('o')
+  })
+
+  it('a warning that names only items has no link', () => {
+    setupWithWarnings({ warnings: [{ type: 'no-recipe', itemId: 'iron-plate' }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.queryByTestId('warning-link')).toBeNull()
+  })
+
+  it('a recipe with no row in the block has no link', () => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'infeasible-pins', recipeIds: ['gone'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.queryByTestId('warning-link')).toBeNull()
+  })
+})
+
+// ---------------------------------------------------------------------------
 // Pill
 // ---------------------------------------------------------------------------
 
