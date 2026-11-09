@@ -73,6 +73,24 @@ describe('BlockTabs context menu', () => {
     const stripe = tabBtn('Gears').querySelector('[data-testid="block-tab-stripe"]') as HTMLElement
     expect(stripe.style.background).toBe('#a3e635')
   })
+
+  it('Default colour gives the block the colour of its first product\'s icon, after a swatch was picked', () => {
+    // #a3e635 is a palette colour and the only one within the hue window of itself.
+    const items = { gear: { id: 'gear', name: 'Gear', iconPath: 'gear.png', iconColor: '#a3e635' } }
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items } as unknown as GameData, sourceId: 'test' },
+    })
+    const plates = makeEmptyBlock('Plates', '#60a5fa')
+    const gears = { ...makeEmptyBlock('Gears', '#f472b6'), products: [{ id: 'p1', itemId: 'gear' }] }
+    useBlockStore.setState({ blocks: [plates, gears], activeBlockId: gears.id, history: {} })
+    render(<BlockTabs />)
+    fireEvent.contextMenu(tabBtn('Gears'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Default colour' }))
+    const [first, second] = useBlockStore.getState().blocks
+    expect(second.color).toBe('#a3e635')
+    expect(first.color).toBe('#60a5fa')
+    expect(screen.queryByRole('menu')).toBeNull()
+  })
 })
 
 describe('BlockTabs tab look', () => {

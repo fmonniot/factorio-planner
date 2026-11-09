@@ -33,6 +33,9 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
   const duplicateBlock = useBlockStore(s => s.duplicateBlock)
   const moveBlock = useBlockStore(s => s.moveBlock)
   const setBlockColor = useBlockStore(s => s.setBlockColor)
+  const resetBlockColor = useBlockStore(s => s.resetBlockColor)
+  const gameData = useGameDataStore(selectGameData)
+  const firstItemId = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.products[0]?.itemId)
   const currentColor = useBlockStore(s => s.blocks.find(b => b.id === blockId)?.color)?.toLowerCase()
   const index = blocks.findIndex(b => b.id === blockId)
   const ref = useRef<HTMLDivElement>(null)
@@ -154,6 +157,13 @@ function BlockContextMenu({ blockId, anchor, onClose }: ContextMenuProps) {
       </button>
       <div role="separator" className="my-1 border-t border-gray-700" />
       <div className="text-[10px] text-gray-400 px-3 pb-1">Colour</div>
+      <button
+        role="menuitem"
+        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700"
+        onClick={() => { resetBlockColor(blockId, firstItemId ? gameData?.items[firstItemId]?.iconColor : undefined); onClose() }}
+      >
+        Default colour
+      </button>
       <div role="group" aria-label="Block colour" className="grid grid-cols-8 gap-1 px-3 pb-1.5">
         {BLOCK_PALETTE.map(c => (
           <button

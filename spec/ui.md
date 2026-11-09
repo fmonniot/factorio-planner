@@ -163,7 +163,11 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
   plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
-  share a colour, and like the other block actions it is not undoable.
+  share a colour, and like the other block actions it is not undoable. **Default colour**, above
+  the swatches, gives the block the colour it would get if made for its first goal's item (the
+  palette colour nearest the item's icon hue, least used by the other blocks; random for a grey or
+  very dark icon, or a block with no goal). It is a one-time pick, not a mode: the colour does not
+  follow later changes of the first goal.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original

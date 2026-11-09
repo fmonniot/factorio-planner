@@ -304,6 +304,12 @@ export interface BlockStoreState {
   moveBlock: (blockId: string, toIndex: number) => void
   renameBlock: (blockId: string, name: string) => void
   setBlockColor: (blockId: string, color: string) => void
+  /**
+   * Give a block the colour a new block made for the same item would get: the palette colour nearest
+   * the hue of `iconColor` (the `iconColor` of the block's first product), the least used by the other
+   * blocks; random when `iconColor` is absent, grey or very dark. Not undoable.
+   */
+  resetBlockColor: (blockId: string, iconColor?: string) => void
   setActiveBlock: (blockId: string) => void
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
@@ -582,6 +588,16 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
     set(state => ({
       blocks: state.blocks.map(b => (b.id === blockId ? { ...b, name } : b)),
     })),
+
+  resetBlockColor: (blockId, iconColor) =>
+    set(state => {
+      if (!state.blocks.some(b => b.id === blockId)) return state
+      const others = state.blocks.filter(b => b.id !== blockId).map(b => b.color)
+      const color = pickBlockColorForIcon(iconColor, others)
+      return {
+        blocks: state.blocks.map(b => (b.id === blockId && b.color !== color ? { ...b, color } : b)),
+      }
+    }),
 
   setBlockColor: (blockId, color) =>
     set(state => {

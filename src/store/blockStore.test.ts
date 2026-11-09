@@ -1675,6 +1675,36 @@ describe('block colours', () => {
       expect(useBlockStore.getState().blocks[0].id).toBe(a.id)
     })
   })
+
+  describe('resetBlockColor', () => {
+    function seed() {
+      const a = makeEmptyBlock('A', '#60a5fa')
+      const b = makeEmptyBlock('B', '#f472b6')
+      useBlockStore.setState({ blocks: [a, b], activeBlockId: a.id, history: {} })
+      return { a, b }
+    }
+
+    it('takes the palette colour nearest the icon colour, for the target block only', () => {
+      const { a, b } = seed()
+      useBlockStore.getState().resetBlockColor(b.id, '#a3e635')
+      const [first, second] = useBlockStore.getState().blocks
+      expect(first.color).toBe(a.color)
+      expect(second.color).toBe('#a3e635')
+    })
+
+    it('picks a palette colour when there is no usable icon colour', () => {
+      const { b } = seed()
+      useBlockStore.getState().resetBlockColor(b.id)
+      expect(BLOCK_PALETTE).toContain(useBlockStore.getState().blocks[1].color)
+    })
+
+    it('ignores an unknown block', () => {
+      seed()
+      const before = useBlockStore.getState().blocks
+      useBlockStore.getState().resetBlockColor('missing', '#a3e635')
+      expect(useBlockStore.getState().blocks).toBe(before)
+    })
+  })
 })
 
 // ---------------------------------------------------------------------------

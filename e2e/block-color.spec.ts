@@ -121,4 +121,34 @@ test.describe('block colours', () => {
     await expect(overlay).toHaveCount(0)
     expect((await exportColors(page))['Block 3']).toBe(before)
   })
+
+  test('Default colour re-picks the colour from the first product after a swatch was chosen', async ({ page }) => {
+    const bundle = JSON.parse(fs.readFileSync(path.resolve('public/data/nullius/game-data.json'), 'utf8'))
+    const iconColor: string | undefined = bundle.items['nullius-compressed-oxygen'].iconColor
+    expect(iconColor).toMatch(/^#[0-9a-f]{6}$/)
+
+    await loadPlanFixture(page, PLAN)
+    await ready(page)
+    await page.getByRole('button', { name: 'Add block', exact: true }).click()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Block 3"]')).toBeVisible()
+    await page.getByTitle('Add product').click()
+    const overlay = page.locator('.fixed.inset-0')
+    await overlay.getByPlaceholder('Search…').fill('Compressed oxygen')
+    await overlay.locator('[data-testid="item-slot"][data-item-id="nullius-compressed-oxygen"]').click()
+    await expect(overlay).toHaveCount(0)
+
+    const tab = page.locator('[data-testid="block-tab"] button[aria-label="Block 3"]')
+    await tab.click({ button: 'right' })
+    await page.getByLabel('Colour #fda4af').click()
+    expect((await exportColors(page))['Block 3']).toBe('#fda4af')
+
+    await tab.click({ button: 'right' })
+    await page.getByRole('menuitem', { name: 'Default colour' }).click()
+    await expect(page.getByRole('menu')).toHaveCount(0)
+    const colors = await exportColors(page)
+    const used = [colors.Plates, colors.Gears]
+    // Ties are broken at random, so accept every colour the helper can return for this state.
+    const allowed = [0, 0.999].map(r => pickBlockColorForIcon(iconColor, used, { random: () => r }))
+    expect(allowed).toContain(colors['Block 3'])
+  })
 })
