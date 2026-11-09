@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { useGameDataStore, selectGameData } from '../store/gameDataStore'
 import { useHorizon } from '../store/horizon'
 import { Icon } from './Icon'
@@ -260,34 +260,41 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
   const horizon = useHorizon(gameData)
   const available = horizon.recipeIds
 
+  // The item filter shared by the list and the empty-state message.
+  const matchesItemFilter = useCallback((r: Recipe) =>
+    (!filterByItemId || recipeMakes(r, filterByItemId))
+    && (!consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId)),
+  [filterByItemId, consumesItemId])
+
   // Recipes that pass all filters (hidden toggle, item filter, search, research
   // horizon; hidden recipes are exempt), and how many the horizon alone removed.
   const { filteredRecipes, outsideHorizonCount } = useMemo(() => {
     const matching = Object.values(gameData.recipes)
       .filter(r => showHidden || !r.hidden)
-      .filter(r => !filterByItemId || recipeMakes(r, filterByItemId))
-      .filter(r => !consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId))
+      .filter(matchesItemFilter)
       .filter(r => matchesRecipe(query, r))
     // Hidden recipes are never part of research progression: the horizon only applies to the others.
     // Ticking "Beyond research horizon" lifts the filter for this picker session only.
     const inside = available && !showBeyondHorizon ? matching.filter(r => r.hidden || available.has(r.id)) : matching
     return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
-  }, [gameData, showHidden, filterByItemId, consumesItemId, query, available, showBeyondHorizon])
+  }, [gameData, showHidden, matchesItemFilter, query, available, showBeyondHorizon])
 
-  // True when no recipe at all (hidden ones included) produces / consumes the item the picker was opened for.
-  const noRecipeForItem = useMemo(() => {
-    if (!filterByItemId && !consumesItemId) return false
-    return !Object.values(gameData.recipes).some(r =>
-      (!filterByItemId || recipeMakes(r, filterByItemId))
-      && (!consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId)))
-  }, [gameData, filterByItemId, consumesItemId])
+  // For a picker opened for an item: how many recipes (hidden or not) produce / consume it at all.
+  const itemRecipeCounts = useMemo(() => {
+    if (!filterByItemId && !consumesItemId) return null
+    const all = Object.values(gameData.recipes).filter(matchesItemFilter)
+    return { all: all.length, visible: all.filter(r => !r.hidden).length }
+  }, [gameData, filterByItemId, consumesItemId, matchesItemFilter])
   const forItemId = consumesItemId ?? filterByItemId
   const forItemName = forItemId ? (gameData.items[forItemId]?.name ?? forItemId) : ''
-  const emptyMessage = noRecipeForItem
-    ? `No recipe ${consumesItemId ? 'consumes' : 'produces'} '${forItemName}'`
-    : outsideHorizonCount > 0
-      ? `No recipes match within the research horizon (${outsideHorizonCount} outside it)${forItemId ? ` — tick Beyond research horizon to see them` : ''}`
-      : 'No recipes match'
+  const verb = consumesItemId ? 'consumes' : 'produces'
+  const emptyMessage = itemRecipeCounts?.all === 0
+    ? `No recipe ${verb} '${forItemName}'`
+    : itemRecipeCounts && itemRecipeCounts.visible === 0 && !showHidden
+      ? `No recipe ${verb} '${forItemName}' except hidden ones — tick Hidden recipes to see them`
+      : outsideHorizonCount > 0
+        ? `No recipes match within the research horizon (${outsideHorizonCount} outside it) — tick Beyond research horizon to see them`
+        : 'No recipes match'
 
   // Top-level item-groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {

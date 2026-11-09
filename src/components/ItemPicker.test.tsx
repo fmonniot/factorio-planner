@@ -342,6 +342,18 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     expect(screen.getByText("No recipe consumes 'no-such-item'")).toBeInTheDocument()
   })
 
+  it('points at Hidden recipes when only hidden recipes produce the item', () => {
+    const data = fixtureWithTechnologies()
+    for (const r of Object.values(data.recipes)) {
+      if (r.id !== 'secret-recipe' && r.products.some(p => p.itemId === 'iron-plate')) delete data.recipes[r.id]
+    }
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    render(<ItemPicker source="recipes" filterByItemId="iron-plate" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText(/except hidden ones — tick Hidden recipes/)).toBeInTheDocument()
+    fireEvent.click(screen.getByLabelText(/Hidden recipes/, { selector: 'input' }))
+    expect(screen.getAllByTestId('recipe-slot')).toHaveLength(1)
+  })
+
   it('points at Beyond research horizon when the horizon empties an item list', () => {
     loadWithTechnologies()
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })

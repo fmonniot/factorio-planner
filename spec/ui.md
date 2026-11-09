@@ -1123,9 +1123,10 @@ The same component in recipes mode (`source="recipes"`).
 - Non-hidden recipes outside the [research horizon](#research-horizon) are left out
   (hidden recipes, shown with "Hidden recipes" ticked, ignore the horizon). When
   that empties the list, it reads "No recipes match within the research horizon
-  (N outside it)", followed by "— tick Beyond research horizon to see them" when the
-  picker was opened for an item. When opened for an item that no recipe (hidden ones
-  included) produces or consumes, it reads "No recipe produces 'X'" / "No recipe consumes 'X'".
+  (N outside it) — tick Beyond research horizon to see them". When opened for an item
+  that no recipe (hidden ones included) produces or consumes, it reads "No recipe
+  produces 'X'" / "No recipe consumes 'X'"; when only hidden recipes do, it adds
+  "except hidden ones — tick Hidden recipes to see them".
 - The **Beyond research horizon** checkbox is only shown while a horizon is
   active (technology data and at least one target). It starts unticked every time
   the picker opens and is not persisted. Ticking it lifts the horizon filter so
