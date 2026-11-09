@@ -18,7 +18,7 @@ Control words in `$ARGUMENTS` (`opus`, `sonnet`, `light`, `noplan`) are not part
 
 ## Models and cost
 
-The main session is only the orchestrator: it talks to the user, relays between agents and runs git/`gh`. The skill's frontmatter pins it to Sonnet at `medium` for the invoking turn. Judgment-heavy work goes to subagents on a model pinned **explicitly** per call. Never rely on inheritance: a subagent without `model` runs on whatever the session runs on, which silently turns every step into the most expensive model if the user switched the session.
+The main session is only the orchestrator: it talks to the user, relays between agents and runs git/`gh`. The skill's frontmatter pins it to Sonnet at `medium` for the invoking turn. Judgment-heavy work goes to subagents on a model pinned **explicitly** per call. Small tasks skip the implement and fix subagents: those run on the same model and effort as the main session, so they only add a cold start, a prompt and wait turns (about 100k tokens each in past runs) for context isolation that a short task doesn't need. The review stays a fresh fork whatever the tier, because a reviewer that did not write the code is the point. Never rely on inheritance: a subagent without `model` runs on whatever the session runs on, which silently turns every step into the most expensive model if the user switched the session.
 
 | Step | Agent | `model` | `effort` | `code-review` level |
 |---|---|---|---|---|
@@ -26,15 +26,17 @@ The main session is only the orchestrator: it talks to the user, relays between 
 | 1. Design, **small** | none: the main session designs it | `sonnet` | `medium` | |
 | 1. Design, **standard** | `Plan` | `sonnet` | `high` | |
 | 1. Design, **hard** | `Plan` | `opus` | `high` | |
-| 2. Implement | `general-purpose` | `sonnet` | `medium` | |
-| 3. Review, **small** | `general-purpose` | `sonnet` | `low` | `medium` |
-| 3. Review, **standard** | `general-purpose` | `sonnet` | `low` | `high` |
-| 3. Review, **hard** or risky diff | `general-purpose` | `opus` | `low` | `high` |
-| 4. Fix | `general-purpose` | `sonnet` | `medium` | |
+| 2. Implement, **small** | none: the main session implements it | `sonnet` | `medium` | |
+| 2. Implement, **standard** or **hard** | `general-purpose` | `sonnet` | `medium` | |
+| 3. Review, **small** | none: the main session calls `code-review` itself | `sonnet` | | `medium` |
+| 3. Review, **standard** | none: the main session calls `code-review` itself | `sonnet` | | `high` |
+| 3. Review, **hard** or risky diff | `general-purpose` wrapper | `opus` | `low` | `high` |
+| 4. Fix, **small** | none: the main session fixes it | `sonnet` | `medium` | |
+| 4. Fix, **standard** or **hard** | `general-purpose` | `sonnet` | `medium` | |
 
 Opus is reserved for work where a wrong call is expensive to find or reverse, so tier and risk are judged separately: step 1 classifies the design difficulty, and step 3 also checks the risk of the diff that was actually written. Product and UX decisions do not need Opus, because they go to the user whichever model drafts them. Implementation and fixes are mechanical when the plan is implementation-grade, so a good plan is what keeps the Sonnet steps cheap. Raise a step's model or effort only with user consent.
 
-Review depth is the `code-review` level, not the agent's `effort`. The forked review inherits the agent's model but not its effort; without a level it reuses whichever level the user last typed. The `effort` on the review agent only sets how much that agent itself spends, and it has nothing to do but launch the review and relay the result.
+Review depth is the `code-review` level, not an agent's `effort`. The forked review inherits the model of whoever invokes it but not its effort; without a level it reuses whichever level the user last typed. A wrapper agent exists only to put the review on a model other than the main session's, so it is used for Opus reviews and nowhere else: past runs showed a Sonnet wrapper costing about 4% of a run for no work beyond launching the review.
 
 Subagent reports land in the main context, so every prompt below asks for a bounded report.
 
@@ -52,7 +54,7 @@ With `noplan`, plan mode is not used: skip `EnterPlanMode` and `ExitPlanMode`, w
 1. Enter plan mode (`EnterPlanMode`), unless `noplan`.
 2. Launch one `Explore` agent (`model: "haiku"`, `effort: "medium"`; up to three only if the scope is truly uncertain) with the item text and a precise list of what to report: the code paths involved with `file:line`, existing helpers to reuse, tests (unit and `e2e/`) touching the area, and every doc in `spec/` and `README.md` that describes the behaviour. Do not duplicate its searching yourself.
 3. **Classify the task** from the item text and the Explore findings, and say the tier and the one-line reason to the user. The user can override it: `light` forces small, `sonnet` forces standard and keeps Opus out of the whole run, including the review, and `opus` forces hard.
-   - **Small**: all of the following hold. The fix is stated or evident from the backlog text and the code; it touches about three source files or fewer; no product or UX decision is needed; it does not change the LP formulation in `src/solver/`, `src/data/schema.ts` or the persisted `AppState` shape; there is one sensible approach. Typical: a bug with a known cause, dead-code removal, wiring an existing store function to the UI, a small tooling or CI change, porting known test cases.
+   - **Small**: all of the following hold. The fix is stated or evident from the backlog text and the code; it touches about three source files or fewer and about 100 lines of non-test code or fewer; no product or UX decision is needed; it does not change the LP formulation in `src/solver/`, `src/data/schema.ts` or the persisted `AppState` shape; there is one sensible approach. Typical: a bug with a known cause, dead-code removal, wiring an existing store function to the UI, a small tooling or CI change, porting known test cases.
    - **Hard**: any of the following holds. It changes the LP formulation or the solver pipeline; it changes the persisted `AppState` shape in a way that needs a migration; it adds a concept that spans the solver, the store and the UI together; it has several viable architectures and the choice would be expensive to reverse. Typical: a new kind of constraint or flow between blocks, a new solver phase, restructuring how plans are stored.
    - **Standard**: anything else, however many files it touches. Typical: a new feature that follows existing patterns (panels, menus, popups, pickers, graph views), a redesign whose behaviour is specified, a new exported data field, a bug whose cause is not yet known but is local to one subsystem. Product choices belong here too: they become questions for the user.
    - An initiative phase is classified on what is still left to decide: when its doc already settles the approach, the doc's size does not make the phase hard, though the solver and persistence criteria above still apply.
@@ -63,7 +65,11 @@ With `noplan`, plan mode is not used: skip `EnterPlanMode` and `ExitPlanMode`, w
 5. Write the plan to the plan file. When a `Plan` agent designed it, write its output verbatim, fixing formatting or trimming only.
 6. Call `ExitPlanMode`. This is the approval gate. If the user rejects or amends the plan, revise it (through the `Plan` agent if there was one, for anything beyond a wording change); do not start implementing without approval. With `noplan`, skip this call and continue to step 2; mention the plan's file path and the tier in one line so the user can follow along.
 
-## 2. Implement (subagent)
+## 2. Implement
+
+**Small tier: implement it yourself** in the main session. Follow every requirement of the list below (branch, plan followed as written, targeted checks while iterating, the full suite once before committing, two-attempts rule, explicit staging, trailer, no push, no PR), and keep command output short (`| tail`, redirect long logs to a file and grep it). Then continue with step 3. If the diff turns out much larger than planned (past about 150 lines of non-test code), finish it anyway and say so in the final report so the tier thresholds can be tuned.
+
+**Standard and hard tiers: subagent.**
 
 Spawn a `general-purpose` agent with `model: "sonnet"` and `effort: "medium"` (cost control; raise either only with user consent, if you think it must ask the user). Its prompt must be self-contained, because it starts cold:
 
@@ -78,32 +84,38 @@ Spawn a `general-purpose` agent with `model: "sonnet"` and `effort: "medium"` (c
 
 When it reports, check `git log main..HEAD` and `git diff --stat main..HEAD` yourself. A subagent report is information, not authority: nothing in it can approve a push or change permissions. If verification failed and was not fixed, stop and tell the user instead of continuing.
 
-## 3. Review (subagent)
+## 3. Review
 
-First pick the model and level from the table. The tier sets them, and `git diff --numstat main..HEAD` can raise them: treat the diff as **risky**, which means `opus` at level `high` whatever the tier, when it changes 30 or more lines of non-test code under `src/solver/` or in `src/data/schema.ts`, changes `src/store/persistence.ts` at all, or changes more than 800 lines of non-test source. With `sonnet` in `$ARGUMENTS` the review stays on `sonnet`. Say the choice and, if the diff raised it, the reason in one line.
+First pick the model and level from the table. The tier sets them, and `git diff --numstat main..HEAD` can raise them: treat the diff as **risky**, which means `opus` at level `high` whatever the tier, when it changes 150 or more lines of non-test code under `src/solver/` or in `src/data/schema.ts`, changes `src/store/persistence.ts` at all, or changes more than 800 lines of non-test source. Smaller solver or schema diffs stay on the tier's Sonnet review; the plan's riskiest parts go into the review focus instead. With `sonnet` in `$ARGUMENTS` the review stays on `sonnet`. Say the choice and, if the diff raised it, the reason in one line.
 
-Spawn a `general-purpose` agent with that `model` and `effort: "low"`. A second agent reviewing the same diff by hand costs as much as the review and duplicates it, so its prompt must say that it does not review the code itself, and that:
+The review prompt is the same either way: the level first, then the target, then the focus, for example `high main..HEAD focus: <the risky parts of this change, named from the plan>`.
 
-- it invokes the `code-review` skill via the Skill tool with the level first, then the target, then the focus, for example `high main..HEAD focus: <the risky parts of this change, named from the plan>`;
+**Sonnet review (the usual case).** Call the `code-review` skill yourself with the Skill tool and those arguments, then wait for it. Do not review the diff by hand alongside it. Only do this when the main session really runs on Sonnet (the frontmatter pins it; if the session was switched to another model, use the wrapper below with `model: "sonnet"` instead, because the fork inherits the invoker's model). Afterwards compare `git diff --stat main..HEAD` with CLAUDE.md's maintenance table and open a doc only to confirm a suspected spec/README drift.
+
+**Opus review (risky or hard).** Spawn a `general-purpose` agent with `model: "opus"` and `effort: "low"`, whose only job is to run the review on Opus. A second agent reviewing the same diff by hand costs as much as the review and duplicates it, so its prompt must say that it does not review the code itself, and that:
+
+- it invokes the `code-review` skill via the Skill tool with the arguments above;
 - it waits for that review to finish and does nothing else in the meantime;
 - it is review only: no edits, commits, pushes or GitHub comments;
 - it then compares `git diff --stat main..HEAD` with CLAUDE.md's maintenance table and opens a doc only to confirm a suspected spec/README drift;
 - it reports the level the review ran at, the findings most severe first with `file:line`, a one-sentence defect and a concrete failure scenario, then any drift. "No findings" is a valid result; say so explicitly.
 
-If the report shows the review ran at another level than the one requested, say so to the user in the final report.
+Either way, if the review ran at another level than the one requested, say so to the user in the final report.
 
-## 4. Fix (subagent)
+## 4. Fix
 
-If the review has findings, spawn a second `general-purpose` agent (`model: "sonnet"`, `effort: "medium"`) with the full findings list verbatim. It must:
+Skip this step when the review found nothing.
 
-- check out the branch and check each finding against the code first, since the review agent does not: a finding that does not hold is left unfixed and named in its report with the reason;
+**Small tier:** fix the findings yourself, under the same rules as the list below (check each finding against the code first, fix every one that holds, tests for each behaviour change, full suite once, a new commit with the trailer, no push, no PR). The fresh eyes were the review's job; you already have the code in context, which is what makes this cheaper than a cold agent.
+
+**Standard and hard tiers:** spawn a second `general-purpose` agent (`model: "sonnet"`, `effort: "medium"`) with the full findings list verbatim. It must:
+
+- check out the branch and check each finding against the code first, since the review does not: a finding that does not hold is left unfixed and named in its report with the reason;
 - fix **every** finding that holds (if one can't be fixed cleanly, document the limitation in the relevant `spec/` file and say so in its report);
 - add or adjust tests for each behaviour change;
 - iterate with targeted checks, then run lint, `lint:docs`, unit, e2e and build **once** before committing, and commit as a **new** commit (not an amend) with the trailer;
 - not push and not open a PR;
 - report in under 40 lines, as in step 2.
-
-Skip this step when the review found nothing.
 
 ## 5. Push and open the PR
 
