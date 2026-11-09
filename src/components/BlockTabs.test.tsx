@@ -42,6 +42,42 @@ describe('BlockTabs editability', () => {
 })
 
 describe('BlockTabs context menu', () => {
+  const blockName = () => useBlockStore.getState().blocks[0].name
+  beforeEach(() => {
+    useGameDataStore.setState({
+      status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },
+    })
+  })
+
+  it('Rename opens a dialog and applies the trimmed name', () => {
+    render(<BlockTabs />)
+    fireEvent.contextMenu(tabBtn('Test'))
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename' }))
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    const input = screen.getByRole('textbox', { name: 'Block name' })
+    expect(input).toHaveValue('Test')
+    fireEvent.change(input, { target: { value: '  Smelting  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
+    expect(blockName()).toBe('Smelting')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('a double-click on a tab opens the rename dialog; Cancel keeps the name', () => {
+    render(<BlockTabs />)
+    fireEvent.doubleClick(tabBtn('Test'))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Block name' }), { target: { value: 'Other' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(blockName()).toBe('Test')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('a blank block name cannot be submitted', () => {
+    render(<BlockTabs />)
+    fireEvent.doubleClick(tabBtn('Test'))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Block name' }), { target: { value: '  ' } })
+    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled()
+  })
+
   it('duplicates a block from the right-click menu', () => {
     useGameDataStore.setState({
       status: { type: 'loaded', gameData: { items: {} } as unknown as GameData, sourceId: 'test' },

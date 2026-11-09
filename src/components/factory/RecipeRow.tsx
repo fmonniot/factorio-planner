@@ -13,6 +13,8 @@ import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
 import { BeaconCell } from './BeaconPopover'
 import { Icon } from '../Icon'
+import { NameDialog } from '../NameDialog'
+import { ConfirmDialog } from '../ConfirmDialog'
 import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
@@ -186,6 +188,13 @@ export function RecipeRow({
     | { kind: 'item'; itemId: string; x: number; y: number }
     | null
   >(null)
+  // The dialog a row action opened (it replaces the browser's prompt and confirm): a name for a sub-factory, or a removal to confirm.
+  const [dialog, setDialog] = useState<
+    | { kind: 'rename-subplan' | 'wrap'; initialName: string }
+    | { kind: 'remove-subplan'; label: string; message: string }
+    | null
+  >(null)
+  const closeDialog = () => setDialog(null)
   // A menu closes itself after a selection, by which time the selection may have opened a follow-up menu: only clear its own kind.
   const closeMenu = (kind: NonNullable<typeof openMenu>['kind']) =>
     setOpenMenu(cur => (cur?.kind === kind ? null : cur))
@@ -288,6 +297,36 @@ export function RecipeRow({
     ? `${isHighlighted ? '' : SELECTED_ROW_CLASS} ${isHighlighted || isDropInto ? '' : SELECTED_OUTLINE_CLASS}`
     : 'hover:bg-gray-800/40'
 
+  const dialogs = dialog && (
+    dialog.kind === 'remove-subplan' && planNode.kind === 'subplan' ? (
+      <ConfirmDialog
+        title={`Remove subfactory "${dialog.label}"?`}
+        message={dialog.message}
+        confirmLabel="Remove"
+        onClose={closeDialog}
+        onConfirm={() => { removeSubPlan(planNode.subPlanId); closeDialog() }}
+      />
+    ) : dialog.kind === 'rename-subplan' && planNode.kind === 'subplan' ? (
+      <NameDialog
+        title="Rename subfactory"
+        label="Subfactory name"
+        submitLabel="Rename"
+        initialName={dialog.initialName}
+        onClose={closeDialog}
+        onSubmit={name => { renameSubPlan(planNode.subPlanId, name.trim()); closeDialog() }}
+      />
+    ) : dialog.kind === 'wrap' ? (
+      <NameDialog
+        title="Wrap in subfactory"
+        label="Subfactory name"
+        submitLabel="Wrap"
+        initialName={dialog.initialName}
+        onClose={closeDialog}
+        onSubmit={name => { wrapNodeInSubPlan(planNode.id, name.trim()); closeDialog() }}
+      />
+    ) : null
+  )
+
   // ── SubPlan node ─────────────────────────────────────────────────────────
 
   if (planNode.kind === 'subplan') {
@@ -296,8 +335,7 @@ export function RecipeRow({
     const label = childPlan?.name ?? subPlanId
 
     function handleRenameSubPlan() {
-      const name = window.prompt('Subfactory name:', label)
-      if (name?.trim()) renameSubPlan(subPlanId, name.trim())
+      setDialog({ kind: 'rename-subplan', initialName: label })
     }
 
     function handleRemoveSubPlan() {
@@ -308,7 +346,8 @@ export function RecipeRow({
           recipes > 0 && `${recipes} recipe${recipes !== 1 ? 's' : ''}`,
           subfactories > 0 && `${subfactories} nested subfactor${subfactories !== 1 ? 'ies' : 'y'}`,
         ].filter(Boolean)
-        if (!window.confirm(`Remove subfactory "${label}" and its ${parts.join(' and ') || 'contents'}?`)) return
+        setDialog({ kind: 'remove-subplan', label, message: `Remove subfactory "${label}" and its ${parts.join(' and ') || 'contents'}?` })
+        return
       }
       removeSubPlan(subPlanId)
     }
@@ -411,6 +450,7 @@ export function RecipeRow({
               </span>
             )}
           </div>
+          {dialogs}
           {rowMenu && (
             <RowActionsMenu
               x={rowMenu.x}
@@ -536,8 +576,7 @@ export function RecipeRow({
   }
 
   function handleWrap() {
-    const name = window.prompt('Subfactory name:', recipe.name)
-    if (name?.trim()) wrapNodeInSubPlan(planNode.id, name.trim())
+    setDialog({ kind: 'wrap', initialName: recipe.name })
   }
 
   const canWrap = canAddGroupIn(rootPlan, parentSubPlanId)
@@ -695,6 +734,7 @@ export function RecipeRow({
             {beaconChips}
           </div>
         )}
+        {dialogs}
         {rowMenu && (
           <RowActionsMenu x={rowMenu.x} y={rowMenu.y} actions={rowActions} onClose={() => closeMenu('row')} />
         )}

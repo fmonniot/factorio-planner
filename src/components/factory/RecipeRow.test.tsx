@@ -617,14 +617,26 @@ describe('RecipeRow context menu', () => {
     expect(node.kind === 'game-recipe' && node.byproductConsumer).toBe(true)
   })
 
-  it('Wrap in subfactory prompts for a name and wraps the node', () => {
-    const prompt = vi.fn().mockReturnValue('My group')
-    vi.stubGlobal('prompt', prompt)
+  it('Wrap in subfactory asks for a name in a dialog and wraps the node', () => {
     renderRow()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Wrap in subfactory…' }))
-    expect(prompt).toHaveBeenCalledWith('Subfactory name:', 'Iron Plate')
+    const input = screen.getByRole('textbox', { name: 'Subfactory name' })
+    expect(input).toHaveValue('Iron Plate')
+    expect(nodes()[0].kind).toBe('game-recipe')
+    fireEvent.change(input, { target: { value: 'My group' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Wrap' }))
     expect(nodes()[0].kind).toBe('subplan')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+  })
+
+  it('cancelling the Wrap dialog leaves the node alone', () => {
+    renderRow()
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Wrap in subfactory…' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(nodes()[0].kind).toBe('game-recipe')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('Escape closes the menu', () => {
@@ -913,15 +925,13 @@ describe('RecipeRow sub-factory actions', () => {
   const rootPlan = () => useBlockStore.getState().blocks[0].rootPlan
 
   it('right-click then "Remove subfactory" deletes an empty sub-factory without confirming', () => {
-    const confirm = vi.fn()
-    vi.stubGlobal('confirm', confirm)
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     expect(screen.queryByTitle('Remove subplan')).not.toBeInTheDocument()
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
     expect(rootPlan().nodes).toHaveLength(0)
     expect(rootPlan().subPlans).toHaveLength(0)
-    expect(confirm).not.toHaveBeenCalled()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
   it('the menu offers "Rename subfactory…" and "Remove subfactory"', () => {
@@ -1081,26 +1091,41 @@ describe('RecipeRow sub-factory actions', () => {
     })
   })
 
-  it('"Rename subfactory…" prompts with the current name and applies the trimmed answer', () => {
-    const prompt = vi.fn(() => '  Copper line  ')
-    vi.stubGlobal('prompt', prompt)
+  it('"Rename subfactory…" opens a dialog with the current name and applies the trimmed answer', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
-    expect(prompt).toHaveBeenCalledWith('Subfactory name:', 'My Subfactory')
+    const input = screen.getByRole('textbox', { name: 'Subfactory name' })
+    expect(input).toHaveValue('My Subfactory')
+    fireEvent.change(input, { target: { value: '  Copper line  ' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
     expect(rootPlan().subPlans[0].name).toBe('Copper line')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
-  it.each([[null], ['   ']])('renaming with prompt answer %j keeps the name', answer => {
-    vi.stubGlobal('prompt', vi.fn(() => answer))
+  it('clicks and right-clicks inside a row dialog do not reach the row', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    const selected = useUiStore.getState().selectedRow
+    fireEvent.click(screen.getByRole('heading', { name: 'Rename subfactory' }))
+    fireEvent.contextMenu(screen.getByRole('textbox', { name: 'Subfactory name' }))
+    expect(useUiStore.getState().selectedRow).toBe(selected)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('cancelling the rename dialog keeps the name, and a blank name cannot be submitted', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Subfactory name' }), { target: { value: '   ' } })
+    expect(screen.getByRole('button', { name: 'Rename' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
     expect(rootPlan().subPlans[0].name).toBe('My Subfactory')
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
   it('renames a nested sub-factory without touching its parent', () => {
-    vi.stubGlobal('prompt', vi.fn(() => 'Renamed'))
     const inner = makeSubPlan('inner', 'Inner')
     const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'inner' }
     const outer = makeSubPlan('outer', 'My Subfactory', [innerNode], [inner])
@@ -1111,6 +1136,8 @@ describe('RecipeRow sub-factory actions', () => {
     renderRow({ planNode: innerNode, solvedNode: undefined })
     fireEvent.contextMenu(screen.getByText('Inner').closest('td')!)
     fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    fireEvent.change(screen.getByRole('textbox', { name: 'Subfactory name' }), { target: { value: 'Renamed' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Rename' }))
     expect(rootPlan().subPlans[0].name).toBe('My Subfactory')
     expect(rootPlan().subPlans[0].subPlans[0].name).toBe('Renamed')
   })
@@ -1119,21 +1146,21 @@ describe('RecipeRow sub-factory actions', () => {
     const nested = makeSubPlan('sp-inner', 'Inner', [recipeNode('r3')])
     const innerNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-inner', subPlanId: 'sp-inner' }
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), innerNode], [nested]))
-    const confirm = vi.fn().mockReturnValue(false)
-    vi.stubGlobal('confirm', confirm)
 
     // The badge counts recipes recursively, like the confirmation does.
     expect(screen.getByTestId('group-summary')).toHaveTextContent('2 recipes')
 
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
-    expect(confirm).toHaveBeenCalledWith('Remove subfactory "My Subfactory" and its 2 recipes and 1 nested subfactory?')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Remove subfactory "My Subfactory" and its 2 recipes and 1 nested subfactory?')
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(rootPlan().subPlans).toHaveLength(1)
     expect(rootPlan().nodes).toHaveLength(1)
 
-    confirm.mockReturnValue(true)
     openMenu()
     fireEvent.click(screen.getByRole('menuitem', { name: 'Remove subfactory' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Remove' }))
     expect(rootPlan().subPlans).toHaveLength(0)
     expect(rootPlan().nodes).toHaveLength(0)
   })
