@@ -203,7 +203,6 @@ describe('SidePanel — sub-factories', () => {
     renderPanel(result())
     expect(screen.getByTestId('panel-title')).toHaveTextContent('Plates')
     expect(screen.getByText('Sub-factory · level 1 of 4')).toBeInTheDocument()
-    expect(screen.queryByTestId('panel-area-marker')).not.toBeInTheDocument()
     expect(screen.getByTestId('group-recipes')).toHaveTextContent('3')
     expect(screen.getByTestId('group-machines')).toHaveTextContent('6')
     expect(screen.getByTestId('group-power-total')).toHaveTextContent('540.0 kW')
@@ -227,7 +226,7 @@ describe('SidePanel — sub-factories', () => {
     expect(screen.getByText('Sub-factory · level 2 of 4')).toBeInTheDocument()
   })
 
-  it('shows a separate area with the Area marker and what it receives and sends', () => {
+  it('shows a separate area with its subtitle and what it receives and sends', () => {
     const area = sub('sp-area', 'Oil', [row('n1', 'r-plate')], { area: true })
     setPlan([{ kind: 'subplan', id: 'h-area', subPlanId: 'sp-area' }, row('n2', 'r-gear')], [area])
     select('h-area')
@@ -243,7 +242,6 @@ describe('SidePanel — sub-factories', () => {
       ],
     }
     renderPanel(res)
-    expect(screen.getByTestId('panel-area-marker')).toBeInTheDocument()
     expect(screen.getByText('Separate area · level 1 of 4')).toBeInTheDocument()
     const receives = screen.getByTestId('area-receives')
     expect(receives).toHaveTextContent('Iron Ore')

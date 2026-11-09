@@ -97,7 +97,7 @@ test('a separate area shows the group panel, whose rows select from its list', a
   await comp.getByTestId('group-summary').click()
   const panel = sidePanel(page)
   await expect(panel.getByTestId('panel-title')).toHaveText('Compression')
-  await expect(panel.getByTestId('panel-area-marker')).toBeVisible()
+  await expect(panel).toContainText('Separate area · level 1 of 4')
   await expect(panel.getByRole('heading', { level: 3 })).toContainText(['Summary', 'Receives', 'Sends', 'Inside this group'])
   await expect(comp).toHaveAttribute('data-selected', 'true')
 

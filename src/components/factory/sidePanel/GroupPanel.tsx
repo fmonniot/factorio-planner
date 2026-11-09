@@ -111,9 +111,6 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
         icon={<FolderIcon className="w-7 h-7 text-gray-400" />}
         title={plan.name}
         subtitle={`${isArea ? 'Separate area' : 'Sub-factory'} · level ${level} of ${MAX_NESTING_DEPTH}`}
-        marker={isArea && (
-          <span data-testid="panel-area-marker" className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 shrink-0">Area</span>
-        )}
         onClose={onClose}
       />
       <PanelSection title="Summary" testId="panel-group-summary">
