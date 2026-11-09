@@ -172715,5 +172715,8 @@
     "textplate-large-glass",
     "textplate-small-glass",
     "void-steam"
-  ]
+  ],
+  "categoryNames": {
+    "angels-bio-processing": "Bioprocessing"
+  }
 }

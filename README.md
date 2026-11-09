@@ -178,6 +178,14 @@ node scripts/build-game-data.js --patch-temperatures \
   --output public/data/kompetenz-seablock/game-data.json
 ```
 
+`--patch-category-names` writes `categoryNames` (the names of the crafting categories the bundle's recipes and machines use) into an existing bundle and touches nothing else (same mod-set check, safe to re-run).
+
+```sh
+node scripts/build-game-data.js --patch-category-names \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
 `--patch-fuel` adds the burner fuel data: `fuelValueKj` / `fuelCategory` / `burntResult` on the items `fuelValueKj` on the fluids, `fuelCategories` / `effectivity` on the burner machines and `fluid-burner` / `effectivity` / `fuelFluid` on the machines burning fluid (same mod-set check, safe to re-run). It exits without writing when the bundle has burner machines but the dump has no fuel items, or no burner machine accepts any of them. The Seablock bundle carries the item and the fluid part (7 fuel fluids and the 3 `bob-fluid-*` furnaces); the Nullius bundle has no fuel data, so those rows keep their ⚡ draw.
 
 ```sh
