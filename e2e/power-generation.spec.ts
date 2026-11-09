@@ -170,7 +170,9 @@ test.describe('Power generation', () => {
     const rows = page.locator('main table tbody tr')
     const engine = rows.first()
     await expect(engine.getByTitle('Steam engine', { exact: true })).toHaveText(/^\??12$/)
-    await expect(engine.locator('[data-variant="product"]')).toContainText('10.0MW')
+    // The chip's corner drops the decimal to fit the 32 px icon; the title keeps the exact value.
+    await expect(engine.locator('[data-variant="product"]')).toContainText('10MW')
+    await expect(engine.locator('[data-variant="product"]')).toHaveAttribute('title', 'Electricity — 10.0MW')
     await expect(engine.locator('[data-testid="row-power"]')).toHaveCount(0)
     // Generators draw nothing, so the header shows no power total.
     await expect(page.getByTestId('block-power-total')).toHaveCount(0)
