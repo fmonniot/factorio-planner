@@ -270,8 +270,7 @@ export function FactorySummary() {
 
   /** Add a block that makes the item and request it; the picker then adds its recipe to that block. */
   function makeInNewBlock(itemId: string) {
-    const item = gameData?.items[itemId]
-    if (addBlockForItem(itemId, item?.name ?? itemId, undefined, item?.iconColor)) setProducerPickerItemId(itemId)
+    if (addBlockForItem(itemId, gameData?.items[itemId]?.name ?? itemId)) setProducerPickerItemId(itemId)
   }
 
   function handleAddProduct(itemId: string, rate: number | undefined) {

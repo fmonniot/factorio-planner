@@ -529,6 +529,8 @@ export const BlockSchema = z.preprocess(
     name: z.string(),
     /** Display colour, `#rrggbb`; filled in by `AppStateSchema` when missing. */
     color: z.string().regex(HEX_COLOR_RE),
+    /** The colour follows the icon of the first product (the store recolours the block when it changes); absent or false once the user picks a colour, as in plans saved before it existed. */
+    colorAuto: z.boolean().optional(),
     products: z.array(ProductSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),

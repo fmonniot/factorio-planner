@@ -4,6 +4,7 @@ import { findSubPlan } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, pickBlockColorForIcon, HEX_COLOR_RE } from '../data/blockColors'
+import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -147,11 +148,12 @@ export function makeRecipeNode(recipeId: string): RecipeNode {
   }
 }
 
-export function makeEmptyBlock(name: string, color: string = pickBlockColor([])): Block {
+export function makeEmptyBlock(name: string, color: string = pickBlockColor([]), colorAuto = false): Block {
   return {
     id: crypto.randomUUID(),
     name,
     color,
+    colorAuto,
     products: [],
     noImportItems: [],
     itemSourcing: {},
@@ -200,6 +202,8 @@ export function cloneBlock(block: Block, color: string): Block {
     id: crypto.randomUUID(),
     name: `${block.name} (copy)`,
     color,
+    // A copy keeps its own colour (never its source's), so it does not follow its first product.
+    colorAuto: false,
     products: block.products.map(p => ({ ...structuredClone(p), id: crypto.randomUUID() })),
     inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
     rootPlan: cloneSubPlanTree(block.rootPlan),
@@ -304,6 +308,12 @@ export interface BlockStoreState {
   moveBlock: (blockId: string, toIndex: number) => void
   renameBlock: (blockId: string, name: string) => void
   setBlockColor: (blockId: string, color: string) => void
+  /**
+   * Back to the default colour: the block follows the icon of its first product again (see
+   * `Block.colorAuto`) and takes the colour that gives now; a block with no product keeps its
+   * colour until it has one. Not undoable.
+   */
+  resetBlockColor: (blockId: string) => void
   setActiveBlock: (blockId: string) => void
   // SubPlan management
   addSubPlan: (parentSubPlanId: string, name: string) => void
@@ -329,11 +339,11 @@ export interface BlockStoreState {
   setItemSourcing: (itemId: string, mode: ItemSourcingMode | undefined) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item
-   * from it on `consumerId` (default: the active block). The block's colour follows the hue of
-   * `iconColor` (the item's `iconColor`) when given, else it is picked at random. Returns the new block's id, or
-   * undefined, with no change, when the consumer is missing or cannot connect.
+   * from it on `consumerId` (default: the active block). The block has the default colour (from the
+   * item's icon). Returns the new block's id, or undefined, with no change, when the consumer is
+   * missing or cannot connect.
    */
-  addBlockForItem: (itemId: string, name: string, consumerId?: string, iconColor?: string) => string | undefined
+  addBlockForItem: (itemId: string, name: string, consumerId?: string) => string | undefined
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
   /** Connect; a request when `itemId` is a product of the source (a cycle of requests is allowed and solved in rounds), otherwise it takes existing output. */
@@ -387,6 +397,32 @@ export interface BlockStoreState {
 // pushes to that block's history
 // ---------------------------------------------------------------------------
 
+/** The colour of the icon of `itemId` in the loaded game data, when there is one. */
+function iconColorOf(itemId: string | undefined): string | undefined {
+  if (itemId === undefined) return undefined
+  return selectGameData(useGameDataStore.getState())?.items[itemId]?.iconColor
+}
+
+/**
+ * The colour the default colour gives a block whose first product is `itemId`, next to the `others`.
+ * Ties go to the first palette colour rather than at random, so the same state always gives the same
+ * colour: undo and redo of a product change, or choosing Default colour twice, do not re-roll it.
+ */
+function defaultColorFor(itemId: string | undefined, others: readonly Block[]): string {
+  return pickBlockColorForIcon(iconColorOf(itemId), others.map(b => b.color), { random: () => 0 })
+}
+
+/**
+ * `next` (the block `prev` after a change) with its colour re-picked when it has the default colour
+ * and its first product is now another item. A block left without a product keeps its colour.
+ */
+function followFirstProduct(prev: Block, next: Block, all: readonly Block[]): Block {
+  const first = next.products[0]?.itemId
+  if (!next.colorAuto || first === undefined || first === prev.products[0]?.itemId) return next
+  const color = defaultColorFor(first, all.filter(b => b.id !== next.id))
+  return color === next.color ? next : { ...next, color }
+}
+
 function applyCommand(
   state: BlockStoreState,
   cmd: Command,
@@ -395,7 +431,7 @@ function applyCommand(
   const block = state.blocks.find(b => b.id === blockId)
   if (!block) return {}
 
-  const newBlock = cmd.apply(block)
+  const newBlock = followFirstProduct(block, cmd.apply(block), state.blocks)
   const hist = state.history[block.id] ?? { undoStack: [], redoStack: [] }
 
   return {
@@ -525,7 +561,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
 
   addBlock: () =>
     set(state => {
-      const block = makeEmptyBlock(`Block ${state.blocks.length + 1}`, pickBlockColor(state.blocks.map(b => b.color)))
+      const block = makeEmptyBlock(`Block ${state.blocks.length + 1}`, pickBlockColor(state.blocks.map(b => b.color)), true)
       return {
         blocks: [...state.blocks, block],
         activeBlockId: block.id,
@@ -583,12 +619,24 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       blocks: state.blocks.map(b => (b.id === blockId ? { ...b, name } : b)),
     })),
 
+  resetBlockColor: (blockId) =>
+    set(state => {
+      const target = state.blocks.find(b => b.id === blockId)
+      if (!target) return state
+      const first = target.products[0]?.itemId
+      // Without a product there is no icon to follow: keep the colour and start following once there is one.
+      const color = first === undefined ? target.color : defaultColorFor(first, state.blocks.filter(b => b.id !== blockId))
+      if (color === target.color && target.colorAuto) return state
+      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color, colorAuto: true } : b)) }
+    }),
+
   setBlockColor: (blockId, color) =>
     set(state => {
       const hex = color.toLowerCase()
       if (!HEX_COLOR_RE.test(hex)) return state
-      if (state.blocks.find(b => b.id === blockId)?.color === hex) return state
-      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color: hex } : b)) }
+      const target = state.blocks.find(b => b.id === blockId)
+      if (!target || (target.color === hex && !target.colorAuto)) return state
+      return { blocks: state.blocks.map(b => (b.id === blockId ? { ...b, color: hex, colorAuto: false } : b)) }
     }),
 
   setActiveBlock: (blockId) =>
@@ -840,14 +888,14 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       })
     }),
 
-  addBlockForItem: (itemId, name, consumerId, iconColor) => {
+  addBlockForItem: (itemId, name, consumerId) => {
     let newId: string | undefined
     set(state => {
       const targetId = consumerId ?? state.activeBlockId
       const consumer = state.blocks.find(b => b.id === targetId)
       if (!consumer) return state
       const block: Block = {
-        ...makeEmptyBlock(name, pickBlockColorForIcon(iconColor, state.blocks.map(b => b.color))),
+        ...makeEmptyBlock(name, defaultColorFor(itemId, state.blocks), true),
         products: [{ id: crypto.randomUUID(), itemId }],
       }
       const blocks = [...state.blocks, block]
@@ -1403,7 +1451,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
         // The command can no longer be reverted: drop it and leave the block as is.
         return { history: { ...state.history, [block.id]: { undoStack: stack, redoStack: hist.redoStack } } }
       }
-      const newBlock = cmd.undo(block)
+      const newBlock = followFirstProduct(block, cmd.undo(block), state.blocks)
       return {
         blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
         history: {
@@ -1428,7 +1476,7 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       if (cmd.canApply && !cmd.canApply(state.blocks, block)) {
         return { history: { ...state.history, [block.id]: { undoStack: hist.undoStack, redoStack: stack } } }
       }
-      const newBlock = cmd.apply(block)
+      const newBlock = followFirstProduct(block, cmd.apply(block), state.blocks)
       return {
         blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
         history: {

@@ -147,9 +147,9 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   every block is solved on each edit (blocks can feed one another; see
   [Ingredients pane](#ingredients-pane)).
 - The **Add block** tool button (`AddBlockButton`, in the top bar's tool row) adds a new empty block named "Block N" and activates it. Every block has a
-  display colour ([data-model.md](data-model.md#block)); a new block gets a random
-  palette colour, preferring one no other block uses. A block can also be created by
-  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last); that block takes its colour from the item's icon (the palette colour nearest its hue, random for a grey or very dark icon).
+  display colour ([data-model.md](data-model.md#block)); a new block starts with a random
+  palette colour, preferring one no other block uses, and takes the default colour once it has a goal. A block can also be created by
+  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last); that block has the default colour from the start.
 - Drag a tab onto another to reorder the blocks: a blue line shows the insertion point on the half of
   the tab under the pointer (no line where a drop would not move anything), and the dragged tab is
   dimmed. The strip scrolls when the pointer nears its left or right edge. The active block stays
@@ -163,7 +163,12 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
   **Move left** / **Move right** (the keyboard-free alternative to dragging; disabled on the first / last tab) and **Delete**,
   plus a **Colour** grid of the 16 palette swatches (the current one is ringed; the store accepts any `#rrggbb`, the UI offers the palette).
   Picking a swatch sets the block's colour and closes the menu; several blocks may
-  share a colour, and like the other block actions it is not undoable.
+  share a colour, and like the other block actions it is not undoable. **Default colour**, above
+  the swatches, hands the block back to the default: its colour follows the icon of its first goal
+  (the palette colour nearest the icon's hue, least used by the other blocks, the first in palette order on a tie; the least-used
+  colour for a grey or very dark icon; with no goal the colour stays as it is until there is one), and changes when the first goal does. The menu shows which applies: **Default colour** is a radio item with a check mark while
+  the block follows its first goal (then no swatch is ringed); otherwise the current swatch is ringed.
+  Picking a swatch ends the following.
   Duplicate copies the block as "<name> (copy)", inserts it right after the
   original and activates it, with a new colour (never the original's). Goals, recipes, sub-plans and input connections
   are copied with fresh ids; connections from other blocks reading the original
