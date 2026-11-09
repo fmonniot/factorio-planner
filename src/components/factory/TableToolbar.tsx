@@ -106,7 +106,8 @@ export function TableToolbar({ rootPlan, solvedNodes, onAddRecipe, filter }: Tab
 
       <span className="ml-auto flex max-md:shrink-0 items-center gap-2 md:gap-4 text-[11px] text-gray-400 max-md:whitespace-nowrap">
         <WarningsPopover />
-        <span data-testid="block-recipe-count">
+        {/* While a filter is active the phone-width toolbar is full: the status chip stands in for the recipe count. */}
+        <span data-testid="block-recipe-count" className={filter.query.trim() !== '' ? 'max-md:hidden' : undefined}>
           <span className="font-mono tabular-nums text-gray-100">{recipes}</span> {recipes === 1 ? 'recipe' : 'recipes'}
         </span>
         <span data-testid="block-machine-count" className="hidden md:inline">
