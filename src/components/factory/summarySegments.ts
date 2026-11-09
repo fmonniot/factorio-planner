@@ -80,6 +80,8 @@ export interface ProductInfo {
   requested: number
   /** Set only when short: how much of the shortfall falls on the extra and on the requests, and which requesters got less than they asked. */
   shortFrom?: { extra: number; requests: number; blockIds: string[] }
+  /** Whether the output differs from the requirement beyond what the display rounding hides (false before a solve and when nothing is asked). */
+  differs: boolean
   /** Position of the requirement on the bar (0..1); null when actual matches it. */
   tickAt: number | null
 }
@@ -174,6 +176,7 @@ export function productSlot(
   const info = (
     actual: number | undefined,
     short: boolean,
+    differs: boolean,
     tickAt: number | null,
     shortFrom?: ProductInfo['shortFrom'],
   ): ProductInfo => ({
@@ -184,6 +187,7 @@ export function productSlot(
     short,
     requested: requestedPerMin,
     ...(shortFrom ? { shortFrom } : {}),
+    differs,
     tickAt,
   })
   if (!asked && exports.length === 0 && !((actualPerMin ?? 0) > FLOW_TOLERANCE)) {
@@ -197,7 +201,7 @@ export function productSlot(
       status: null,
       dimmed: true,
       empty: true,
-      product: info(actualPerMin, false, null),
+      product: info(actualPerMin, false, false, null),
     }
   }
   if (actualPerMin === undefined) {
@@ -210,7 +214,7 @@ export function productSlot(
       overlays: [],
       status: null,
       dimmed: false,
-      product: info(undefined, false, null),
+      product: info(undefined, false, false, null),
     }
   }
 
@@ -220,6 +224,7 @@ export function productSlot(
   const short = asked && isShortfall(required, actualPerMin, unit, product.itemId)
   if (short) segments.push({ key: 'short', kind: 'short', amount: required - actualPerMin })
   const scale = Math.max(required, sum(segments))
+  const differs = asked && differsFromTarget(required, actualPerMin, unit, product.itemId)
   // The extra gives way first; the rest falls on the requests served last (see `connectionOffer`).
   let shortFrom: ProductInfo['shortFrom']
   if (short) {
@@ -248,7 +253,8 @@ export function productSlot(
     product: info(
       actualPerMin,
       short,
-      asked && differsFromTarget(required, actualPerMin, unit, product.itemId) ? required / scale : null,
+      differs,
+      differs ? required / scale : null,
       shortFrom,
     ),
   }

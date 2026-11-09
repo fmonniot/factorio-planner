@@ -1,6 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
+import { lineRate } from './lineChipFit'
+import type { SlotModel } from './summarySegments'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
@@ -1872,14 +1874,99 @@ describe('FactorySummary — collapsed summary', () => {
     expect(screen.queryByTitle('Add product')).toBeNull()
   })
 
-  it('draws as many chips as fit, each named by its item, and no +N when they all fit', () => {
+  it('draws as many chips as fit, each with its quantity, the goal in the title, and no +N when they all fit', () => {
     collapse()
     withRoom(300)
     render(<FactorySummary />)
     const chips = within(pane('Products')).getAllByTestId('summary-line-chip')
     expect(chips.map(c => c.dataset.itemId)).toEqual(['iron-plate'])
-    expect(chips[0]).toHaveAttribute('title', 'Iron Plate')
+    expect(chips[0]).toHaveAttribute('title', 'Iron Plate — goal 60.0/m, making 58.0/m, short by 2.00/m')
+    expect(within(chips[0]).getByTestId('summary-line-quantity')).toHaveTextContent('60.0')
+    expect(chips[0]).toHaveAttribute('data-status', 'short')
+    expect(chips[0]).toHaveClass('ring-amber-500')
+    // Not by colour alone: a name that carries the title's text and a ▼ cue.
+    expect(within(pane('Products')).getByRole('img', { name: 'Iron Plate — goal 60.0/m, making 58.0/m, short by 2.00/m' })).toBe(chips[0])
+    expect(chips[0]).toHaveTextContent('▼')
+    expect(within(pane('Products')).queryAllByRole('button')).toHaveLength(0)
     expect(screen.queryAllByTestId('summary-line-more')).toHaveLength(0)
+  })
+
+  it('shows the rate of a byproduct and of an ingredient, in their tones', () => {
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const by = within(pane('Byproducts')).getByTestId('summary-line-chip')
+    expect(by).toHaveAttribute('title', 'Slag — 10.0/m')
+    expect(by).not.toHaveAttribute('data-status')
+    expect(within(by).getByTestId('summary-line-quantity')).toHaveTextContent('10.0')
+    expect(within(by).getByTestId('summary-line-quantity')).toHaveClass('text-red-300')
+    const ing = within(pane('Ingredients')).getByTestId('summary-line-chip')
+    expect(within(ing).getByTestId('summary-line-quantity')).toHaveTextContent('120')
+    expect(within(ing).getByTestId('summary-line-quantity')).toHaveClass('text-green-300')
+  })
+
+  it('shows the goal alone when the output meets it', () => {
+    setupStore([{ ...ironGoal, extraRate: 58 }])
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('58.0')
+    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 58.0/m')
+    expect(chip).not.toHaveAttribute('data-status')
+    expect(chip).not.toHaveClass('ring-amber-500')
+  })
+
+  it('shows the goal and the surplus actual, not short, when the output exceeds it', () => {
+    setupStore([{ ...ironGoal, extraRate: 50 }])
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('50.0')
+    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 50.0/m, making 58.0/m')
+    expect(chip).not.toHaveAttribute('data-status')
+  })
+
+  it('shows the goal before any solve', () => {
+    setupStore([ironGoal], false)
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('60.0')
+    expect(chip).toHaveAttribute('title', 'Iron Plate — goal 60.0/m')
+  })
+
+  it('shows the actual rate of a product without a goal', () => {
+    setupStore([{ id: 'g1', itemId: 'iron-plate', extraRate: 0 }])
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('58.0')
+    expect(chip).toHaveAttribute('title', 'Iron Plate — 58.0/m')
+  })
+
+  it('draws an empty product as a dimmed dash', () => {
+    setupStore([{ id: 'g1', itemId: 'iron-plate', extraRate: 0 }], false)
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('—')
+    expect(chip).toHaveAttribute('title', 'Iron Plate — nothing requested yet')
+    expect(chip).toHaveClass('opacity-55')
+  })
+
+  it('words the quantity and the title per second in /sec', () => {
+    useUiStore.setState({ rateUnit: 'sec' })
+    collapse()
+    withRoom(300)
+    render(<FactorySummary />)
+    const chip = within(pane('Products')).getByTestId('summary-line-chip')
+    expect(within(chip).getByTestId('summary-line-quantity')).toHaveTextContent('1.0')
+    expect(chip.getAttribute('title')).toMatch(/\/s$/)
   })
 
   it('shows a +N for what has no room, and it lists every item with its rate', () => {
@@ -1895,11 +1982,31 @@ describe('FactorySummary — collapsed summary', () => {
     const list = screen.getByTestId('summary-line-popup')
     expect(list).toHaveAttribute('aria-label', 'All 1 products')
     expect(list).toHaveTextContent('Iron Plate')
-    expect(list).toHaveTextContent('58.0/m')
+    expect(list).toHaveTextContent('60.0/m')
+    expect(list).toHaveTextContent('→')
+    expect(list).toHaveTextContent('▼ 58.0/m')
+    expect(within(list).getByTestId('summary-line-popup-actual')).toHaveClass('text-amber-400')
     // Informational: the items are not buttons.
     expect(within(list).queryAllByRole('button')).toHaveLength(0)
     fireEvent.keyDown(window, { key: 'Escape' })
     expect(screen.queryByTestId('summary-line-popup')).toBeNull()
+  })
+
+  it('lists a met goal without an arrow, and a surplus in teal', () => {
+    setupStore([{ ...ironGoal, extraRate: 58 }])
+    collapse()
+    withRoom(0)
+    const { unmount } = render(<FactorySummary />)
+    fireEvent.click(within(pane('Products')).getByRole('button', { name: 'Show all 1 products' }))
+    expect(screen.getByTestId('summary-line-popup')).not.toHaveTextContent('→')
+    unmount()
+
+    setupStore([{ ...ironGoal, extraRate: 50 }])
+    collapse()
+    render(<FactorySummary />)
+    fireEvent.click(within(pane('Products')).getByRole('button', { name: 'Show all 1 products' }))
+    expect(screen.getByTestId('summary-line-popup-actual')).toHaveClass('text-teal-400')
+    expect(screen.getByTestId('summary-line-popup-actual')).not.toHaveTextContent('▼')
   })
 
   it('expands to the full panes and collapses back; the choice is the store\'s, so it spans block switches', () => {
@@ -1953,15 +2060,48 @@ describe('FactorySummary — collapsed summary', () => {
     expect(document.body).toHaveFocus()
   })
 
-  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 110 px stack below md', () => {
+  it('sizes the strip: a 58 px row of three lines with a 68 px Expand button, a 123 px stack below md', () => {
     collapse()
     render(<FactorySummary />)
     const line = screen.getByTestId('summary-line')
-    expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[110px]')
-    expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[34px]')
+    expect(line).toHaveClass('md:h-[58px]', 'max-md:h-[123px]')
+    expect(screen.getAllByTestId('summary-line-pane')[0]).toHaveClass('md:h-10', 'h-[38px]')
     expect(within(line).getByRole('button', { name: 'Expand summary' })).toHaveClass('w-[68px]', 'max-md:hidden')
     // The handle row (18 px) expands below md, where the button is gone, and is not drawn from md.
     const handle = expandButtons().find(b => !line.contains(b))!
     expect(handle).toHaveClass('h-[18px]', 'md:hidden')
+  })
+})
+
+describe('lineRate', () => {
+  const base: SlotModel = { id: 's', itemId: 'iron-plate', rate: 58, scale: 60, segments: [], overlays: [], status: 'short', dimmed: false }
+  const product = (over: Partial<NonNullable<SlotModel['product']>>): SlotModel => ({
+    ...base,
+    product: { id: 'g1', extra: 60, required: 60, actual: 58, short: true, requested: 0, differs: true, tickAt: 0.9, ...over },
+  })
+
+  it('shows the goal and the actual of a product that differs from it', () => {
+    expect(lineRate('products', product({}))).toEqual({ shown: 60, actual: 58, short: true, hasGoal: true })
+  })
+
+  it('never shows a negative actual', () => {
+    expect(lineRate('products', product({ actual: -5 }))).toMatchObject({ shown: 60, actual: 0, short: true })
+  })
+
+  it('decides "differs" from the flag, not from the bar tick', () => {
+    expect(lineRate('products', product({ tickAt: null, differs: true })).actual).toBe(58)
+    expect(lineRate('products', product({ tickAt: 0.9, differs: false })).actual).toBeUndefined()
+  })
+
+  it('has no actual when it matches the goal or before a solve', () => {
+    expect(lineRate('products', product({ actual: 60, short: false, differs: false, tickAt: null }))).toEqual({ shown: 60, actual: undefined, short: false, hasGoal: true })
+    expect(lineRate('products', product({ actual: undefined, short: false, differs: false }))).toEqual({ shown: 60, actual: undefined, short: false, hasGoal: true })
+  })
+
+  it('shows the slot rate for a product without a goal, an empty one and the other panes', () => {
+    expect(lineRate('products', product({ required: 0, extra: undefined }))).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('products', { ...product({}), empty: true })).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('byproducts', product({}))).toEqual({ shown: 58, short: false, hasGoal: false })
+    expect(lineRate('ingredients', base)).toEqual({ shown: 58, short: false, hasGoal: false })
   })
 })

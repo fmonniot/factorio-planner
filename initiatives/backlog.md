@@ -60,7 +60,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## UI / UX
 
-- [ ] **Collapsed summary uses item chips.** The collapsed summary should show the same item chip as the recipe and group rows, and show the overall production goal.
 - [ ] **Sub-factory detail: subtitle instead of area badge.** In the detail panel of a sub-factory, drop the area badge and use the subtitle to say whether it is an area or a plain group.
 - [ ] **Default block colour from the block's icon.** Derive a new block's default colour from its first goal's icon. The colour is fixed at creation.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph). **Make in a new block…** records the request in the consumer's history while the new block becomes active, so undo then acts on the new block (nothing to undo) until the user switches back.
