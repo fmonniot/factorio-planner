@@ -119,7 +119,7 @@ Static site. No backend, no database. Deployed to GitHub Pages at `/factorio-pla
 
 GitHub Actions, Node 22 (`.github/workflows/`):
 
-- **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (two Playwright shards, `--shard=N/2`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
+- **`test.yml`** runs on every pull request, on pushes to `main` and as a reusable workflow. Three jobs run in parallel: `check` (`npm ci` → lint → doc links → unit tests), `e2e` (four Playwright shards, `--shard=N/4`) and `build` (`npm run build`). `deploy.yml` calls it with `skip_build: true`, as it builds the site itself.
 - **`mod.yml`** runs the in-game viewer mod's pure Lua modules on every pull request and push to `main`, as one job: it builds the pinned Lua 5.2 toolchain with `mod/setup-lua.sh` (cached by that script's hash), then runs `luacheck` and `busted` from `mod/`. It is separate from `test.yml`. See [mod/README.md](../mod/README.md).
 - **Caches.** The `e2e` jobs cache `~/.cache/ms-playwright`, keyed on the Playwright version and the runner image version; apt system libraries are installed (`--with-deps`) only on a cache miss, because apt is slow and occasionally takes minutes. The `build` jobs cache `.cache/icons` (see above). Pull requests can only read caches created on `main`, which is why `test.yml` also runs on pushes to `main`.
 - **`deploy.yml`** runs when a GitHub release is published (or by manual dispatch): `test.yml` and a `build` job (which uploads `dist/` as the Pages artifact) run in parallel, then `deploy` publishes to GitHub Pages once both pass.

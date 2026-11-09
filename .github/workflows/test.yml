@@ -29,12 +29,12 @@ jobs:
       - run: npm run test:unit
 
   e2e:
-    name: e2e (${{ matrix.shard }}/2)
+    name: e2e (${{ matrix.shard }}/${{ strategy.job-total }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2]
+        shard: [1, 2, 3, 4]
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -59,7 +59,7 @@ jobs:
       - name: Install Playwright browsers
         if: steps.browsers.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/2
+      - run: npm run test:e2e -- --shard=${{ matrix.shard }}/${{ strategy.job-total }}
 
   build:
     if: ${{ !inputs.skip_build }}
