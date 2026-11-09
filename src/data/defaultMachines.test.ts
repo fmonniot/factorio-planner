@@ -53,6 +53,12 @@ describe('categoryLabel', () => {
     expect(categoryLabel('mining:basic-solid')).toBe('Mining basic solid')
     expect(categoryLabel('angels-ore-sorting-2')).toBe('Angels ore sorting 2')
   })
+
+  it('prefers the data set\'s category name and falls back to the id', () => {
+    const data = { categoryNames: { 'crafting-with-fluid': 'Crafting with fluid' } }
+    expect(categoryLabel('crafting-with-fluid', data)).toBe('Crafting with fluid')
+    expect(categoryLabel('mining:basic-solid', data)).toBe('Mining basic solid')
+  })
 })
 
 describe('availableMachinesFor', () => {
@@ -100,5 +106,11 @@ describe('defaultMachineRowCounts', () => {
     expect(counts.get('crafting')).toBe(3)
     expect(counts.get('smelting')).toBe(1)
     expect(counts.size).toBe(2)
+  })
+})
+
+describe('categoryLabel with inherited keys', () => {
+  it('ignores Object.prototype members', () => {
+    expect(categoryLabel('constructor', { categoryNames: {} })).toBe('Constructor')
   })
 })

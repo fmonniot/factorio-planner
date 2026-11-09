@@ -223,6 +223,8 @@ export const GameDataSchema = z.object({
    * absent means the unrestricted default.
    */
   defaultFuels: z.record(z.string(), z.string()).optional(),
+  /** Crafting category id -> English name (`recipe-category` locale). Absent ids are labelled from the id by `categoryLabel`. */
+  categoryNames: z.record(z.string(), z.string()).optional(),
   itemGroups: z.record(z.string(), ItemGroupSchema).default({}),
   itemSubgroups: z.record(z.string(), ItemSubgroupSchema).default({}),
   technologies: z.record(z.string(), TechnologySchema).default({}),
