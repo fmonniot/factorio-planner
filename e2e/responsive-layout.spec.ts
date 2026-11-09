@@ -59,10 +59,11 @@ test.describe('phone width', () => {
     expect(Math.abs(headTop - top)).toBeLessThanOrEqual(1)
   })
 
-  test('the side panel takes the whole width', async ({ page }) => {
+  test('the side panel is a narrow drawer that leaves part of the table visible', async ({ page }) => {
     await load(page)
     const panel = await selectRow(page, row(page))
-    expect((await panel.boundingBox())!.width).toBe(390)
+    // min(300, max(200, viewport - 140)): 250 px of a 390 px phone.
+    expect((await panel.boundingBox())!.width).toBe(250)
   })
 
   test('the toolbar hides the filter and keeps the warnings popover on screen', async ({ page }) => {

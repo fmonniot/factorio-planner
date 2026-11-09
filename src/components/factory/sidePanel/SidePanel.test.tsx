@@ -72,15 +72,37 @@ describe('SidePanel — selection', () => {
     expect(container).toBeEmptyDOMElement()
   })
 
-  it('shows the six sections of a recipe row, in order', () => {
+  it('shows the sections of a recipe row, in order, without the empty Effects table', () => {
     setPlan([row('n1', 'r-plate')])
     select('n1')
     renderPanel()
     const panel = screen.getByTestId('side-panel')
     expect(within(panel).getByTestId('panel-title')).toHaveTextContent('Iron Plate')
     expect(within(panel).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual([
+      'Rate', 'Machine', 'Beacons', 'Where inputs come from',
+    ])
+  })
+
+  it('brings Effects on this row back once a module is set', () => {
+    setPlan([{ ...row('n1', 'r-plate'), modules: [{ moduleId: 'speed-1', count: 1 }] }])
+    select('n1')
+    renderPanel()
+    expect(within(screen.getByTestId('side-panel')).getAllByRole('heading', { level: 3 }).map(h => h.textContent)).toEqual([
       'Rate', 'Machine', 'Beacons', 'Effects on this row', 'Where inputs come from',
     ])
+  })
+
+  it('brings Effects on this row back once a beacon configuration is set', () => {
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    const { rerender } = renderPanel()
+    expect(screen.queryByTestId('panel-effects')).not.toBeInTheDocument()
+    act(() => {
+      useBlockStore.getState().updateNodeBeacons('n1', [{ beaconCount: 4, modulesPerBeacon: 2, distributionEfficiency: 1.5 }])
+    })
+    const b = useBlockStore.getState().blocks[0]
+    rerender(<SidePanel blockId={b.id} rootPlan={b.rootPlan} result={undefined} gameData={gd} />)
+    expect(screen.getByTestId('panel-effects')).toBeInTheDocument()
   })
 
   it('clears the selection with the close button', () => {
@@ -229,6 +251,33 @@ describe('SidePanel — sub-factories', () => {
     const sends = screen.getByTestId('area-sends')
     expect(sends).toHaveTextContent('Iron Plate')
     expect(sends).toHaveTextContent('to the rest of the block')
+  })
+
+  it('shows at most six entries of Receives and Sends and expands them on "Show all N"', () => {
+    const area = sub('sp-area', 'Oil', [row('n1', 'r-plate')], { area: true })
+    setPlan([{ kind: 'subplan', id: 'h-area', subPlanId: 'sp-area' }], [area])
+    select('h-area')
+    const ids = Array.from({ length: 9 }, (_, i) => `item-${i}`)
+    const res: SolverResult = {
+      nodes: [solvedRow('n1', 1, 90)], unsatisfied: [], warnings: [],
+      areas: [
+        { areaId: block.rootPlan.id, receives: [], sends: [] },
+        { areaId: 'sp-area', receives: ids.map(itemId => ({ itemId, rate: 60, boundary: true })), sends: ids.slice(0, 6).map(itemId => ({ itemId, rate: 30, boundary: true })) },
+      ],
+      areaRoutes: [],
+    }
+    renderPanel(res)
+    const receives = screen.getByTestId('area-receives')
+    expect(within(receives).getAllByRole('listitem')).toHaveLength(6)
+    // Exactly six entries need no button.
+    expect(within(screen.getByTestId('area-sends')).getAllByRole('listitem')).toHaveLength(6)
+    expect(screen.queryByTestId('area-sends-toggle')).not.toBeInTheDocument()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show all 9' }))
+    expect(within(receives).getAllByRole('listitem')).toHaveLength(9)
+    expect(screen.getByRole('button', { name: 'Show fewer' })).toHaveAttribute('aria-expanded', 'true')
+    fireEvent.click(screen.getByRole('button', { name: 'Show fewer' }))
+    expect(within(receives).getAllByRole('listitem')).toHaveLength(6)
   })
 
   it('says so when an area has nothing to send or receive', () => {

@@ -56,33 +56,36 @@ export function EffectsSection({ node, beacons, gameData }: {
   return (
     <PanelSection title="Effects on this row" testId="panel-effects">
       {/* A grid, not a <table>: the production table is the only table of the page body. */}
-      <div
-        role="table"
-        aria-label="Effects on this row"
-        className="grid gap-x-3 gap-y-1 text-xs"
-        style={{ gridTemplateColumns: `1fr repeat(${columns.length + 1}, auto)` }}
-      >
-        <div role="row" className="contents text-gray-400 text-[10px] uppercase tracking-wide">
-          <div role="columnheader" />
-          {columns.map(c => <div key={c.name} role="columnheader" className="text-right">{c.name}</div>)}
-          <div role="columnheader" className="text-right">Total</div>
-        </div>
-        {ROWS.map(({ key, label }) => {
-          const total = effects.total[key]
-          return (
-            <div key={key} role="row" data-effect={key} className="contents">
-              <div role="rowheader" className="text-gray-400">{label}</div>
-              {columns.map(c => <Cell key={c.name} source={c.source} effect={key} column={c.name} />)}
-              <div
-                role="cell"
-                data-testid={`effect-total-${key}`}
-                className={`text-right tabular-nums font-medium ${total === 0 ? 'text-gray-400' : total > 0 ? 'text-green-400' : 'text-red-400'}`}
-              >
-                {total === 0 ? '–' : fmtEffect(total)}
+      {/* In a narrow drawer the grid is wider than the panel: it scrolls inside its own box, the panel does not. */}
+      <div className="overflow-x-auto">
+        <div
+          role="table"
+          aria-label="Effects on this row"
+          className="grid gap-x-3 gap-y-1 text-xs"
+          style={{ gridTemplateColumns: `1fr repeat(${columns.length + 1}, auto)` }}
+        >
+          <div role="row" className="contents text-gray-400 text-[10px] uppercase tracking-wide">
+            <div role="columnheader" />
+            {columns.map(c => <div key={c.name} role="columnheader" className="text-right">{c.name}</div>)}
+            <div role="columnheader" className="text-right">Total</div>
+          </div>
+          {ROWS.map(({ key, label }) => {
+            const total = effects.total[key]
+            return (
+              <div key={key} role="row" data-effect={key} className="contents">
+                <div role="rowheader" className="text-gray-400">{label}</div>
+                {columns.map(c => <Cell key={c.name} source={c.source} effect={key} column={c.name} />)}
+                <div
+                  role="cell"
+                  data-testid={`effect-total-${key}`}
+                  className={`text-right tabular-nums font-medium ${total === 0 ? 'text-gray-400' : total > 0 ? 'text-green-400' : 'text-red-400'}`}
+                >
+                  {total === 0 ? '–' : fmtEffect(total)}
+                </div>
               </div>
-            </div>
-          )
-        })}
+            )
+          })}
+        </div>
       </div>
       {ignored.length > 0 && (
         <p data-testid="recipe-effects-note" className="mt-2 text-[11px] text-amber-400">
