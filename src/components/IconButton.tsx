@@ -31,7 +31,7 @@ export function IconButton({ label, onClick, children, expanded, hasPopup, hideT
         aria-expanded={expanded}
         aria-haspopup={hasPopup}
         onClick={onClick}
-        className={`relative ${wide ? 'h-8 px-2 gap-1 text-xs' : 'w-8 h-8'} rounded-md flex items-center justify-center text-gray-400 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none`}
+        className={`relative ${wide ? 'h-8 px-2 gap-1 text-xs' : 'w-8 h-8'} rounded-md flex items-center justify-center text-gray-300 hover:bg-gray-800 hover:text-gray-100 focus-visible:bg-gray-800 focus-visible:text-gray-100 outline-none`}
       >
         {children}
       </button>

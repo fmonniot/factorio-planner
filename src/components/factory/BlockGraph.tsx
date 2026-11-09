@@ -118,7 +118,7 @@ function BlockNode({
         {firstItem ? (
           <Icon iconPath={firstItem.iconPath} alt="" className="w-8 h-8 object-contain shrink-0" />
         ) : (
-          <span className="w-8 h-8 shrink-0 flex items-center justify-center text-gray-500">?</span>
+          <span className="w-8 h-8 shrink-0 flex items-center justify-center text-gray-400">?</span>
         )}
         <span className="min-w-0 flex-1">
           <span className="block truncate text-xs font-medium">{block.name}</span>
@@ -171,7 +171,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
       style={{ left: x, top: y }}
       className="absolute z-10 bg-gray-800 border border-gray-600 rounded shadow-lg py-1 min-w-48"
     >
-      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-500">
+      <div className="px-3 py-1 text-[10px] uppercase tracking-wide text-gray-400">
         Send to {targetName}
       </div>
       {closesLoop && (
@@ -196,7 +196,7 @@ function ConnectItemMenu({ targetName, sourceName, closesLoop, x, y, candidates,
           >
             {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-5 h-5 object-contain shrink-0" />}
             <span>{item?.name ?? itemId}</span>
-            <span className="ml-auto font-mono tabular-nums text-[10px] text-gray-500">
+            <span className="ml-auto font-mono tabular-nums text-[10px] text-gray-400">
               {request ? `needs ${fmt(itemId, needed)}` : `offers ${fmt(itemId, offered)} · needs ${fmt(itemId, needed)}`}
             </span>
           </button>
@@ -464,7 +464,7 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
             }}
           >
             <div id={listId} role="dialog" aria-label={`Connections from ${sourceName} to ${targetName}`} data-testid="graph-edge-list" className="flex flex-col gap-0.5">
-              <div className="text-[10px] uppercase text-gray-500 px-1">{sourceName} → {targetName} · {n} items</div>
+              <div className="text-[10px] uppercase text-gray-400 px-1">{sourceName} → {targetName} · {n} items</div>
               {edge.connectionIds.map(id => chip(id, true))}
             </div>
           </Popover>
