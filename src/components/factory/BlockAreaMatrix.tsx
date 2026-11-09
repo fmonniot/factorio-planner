@@ -418,7 +418,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
       <section className="flex flex-col gap-1">
         <h4 className="text-[11px] uppercase tracking-wide text-gray-400">Trades with</h4>
         {trades.length === 0 ? (
-          <p className="text-gray-500">No trades.</p>
+          <p className="text-gray-400">No trades.</p>
         ) : (
           <ul className="flex flex-col gap-1">
             {trades.map(t => {
@@ -456,7 +456,7 @@ function AreaPanel({ matrix, area, trades, areaById, rateUnit, onFocus, onOpenAr
         )}
       </section>
 
-      <p className="text-[11px] text-gray-500">
+      <p className="text-[11px] text-gray-400">
         Counterpart cells read {'“'}13.8 {'→'}{'”'}: the part of that area{'’'}s output that goes to the focused area.
       </p>
     </aside>

@@ -131,7 +131,7 @@ function TechSearch({ technologies, query, onQueryChange, onPick }: TechSearchPr
             onPick(shown[0].id)
           }
         }}
-        className="w-48 bg-gray-800 text-gray-100 px-3 py-1 rounded text-sm placeholder-gray-500 outline-none focus:ring-1 focus:ring-blue-500"
+        className="w-48 bg-gray-800 text-gray-100 px-3 py-1 rounded text-sm placeholder-gray-400 outline-none focus:ring-1 focus:ring-blue-500"
       />
       {active && (
         <div

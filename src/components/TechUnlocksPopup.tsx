@@ -67,7 +67,7 @@ export function TechUnlocksPopup({ tech, anchor, gameData, placers }: TechUnlock
 
       <div data-testid="tech-unlocks-recipes" className="flex-1 min-h-0 overflow-hidden px-3 py-2">
         {recipes.length === 0 ? (
-          <div className="text-gray-500">Unlocks no recipes</div>
+          <div className="text-gray-400">Unlocks no recipes</div>
         ) : (
           <>
             <div className="text-xs text-gray-400 mb-1">Recipes:</div>

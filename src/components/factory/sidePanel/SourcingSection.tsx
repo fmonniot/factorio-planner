@@ -107,13 +107,13 @@ export function SourcingSection({ node, solved, gameData }: {
   return (
     <PanelSection title="Where inputs come from" testId="panel-sourcing">
       {entries.length === 0 ? (
-        <p className="text-xs text-gray-500 italic">This row takes no inputs.</p>
+        <p className="text-xs text-gray-400 italic">This row takes no inputs.</p>
       ) : (
         <ul>
           {entries.map(e => <SourcingEntry key={e.itemId} itemId={e.itemId} ratePerMin={e.rate} gameData={gameData} />)}
         </ul>
       )}
-      <p className="mt-2 text-[10px] text-gray-500">The mode is per item for the whole block: every row that uses the item follows it.</p>
+      <p className="mt-2 text-[10px] text-gray-400">The mode is per item for the whole block: every row that uses the item follows it.</p>
     </PanelSection>
   )
 }
