@@ -66,8 +66,11 @@ export function parsePrototypeLocale(text) {
   return names && typeof names === 'object' ? names : {}
 }
 
-/** Prototype-locale files (`<type>-locale.json`) the build script loads. */
+/** Prototype-locale files (`<type>-locale.json`) the build script loads and `--patch-names` requires. */
 export const GAME_NAME_FILES = ['item', 'fluid', 'entity', 'recipe', 'technology', 'item-group']
+
+/** Optional prototype-locale files: used when present, never required (the export works without them). */
+export const OPTIONAL_GAME_NAME_FILES = ['recipe-category']
 
 /**
  * The game's own resolved name for `id`, looked up in each of `types` in order.
@@ -233,4 +236,20 @@ export function resolveRecipeName(proto, mainProductId, localeMap, game = {}) {
     name = resolveLocale(null, mainProductId, localeMap, 'item-name', 'entity-name', 'fluid-name')
   }
   return name
+}
+
+/**
+ * English names of crafting categories: the game's resolved `recipe-category` name, else the merged locale map's
+ * `recipe-category-name.<id>`. Categories with no name are left out (the planner labels them from the id).
+ * @param {Iterable<string>} ids
+ * @returns {Record<string, string>}
+ */
+export function exportCategoryNames(ids, localeMap, game) {
+  const out = {}
+  for (const id of ids) {
+    const mapped = lookupLocale('recipe-category-name.' + id, localeMap)
+    const name = gameName(game, ['recipe-category'], id) ?? (mapped && !RESIDUE_RE.test(mapped) ? mapped : undefined)
+    if (name) out[id] = name
+  }
+  return out
 }

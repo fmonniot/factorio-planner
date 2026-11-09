@@ -35,6 +35,7 @@ interface GameData {
   beacons: Record<string, BeaconEntity>       // default {}
   defaultMachines: Record<string, string>     // recipe category -> machine id
   defaultFuels?: Record<string, string>       // runtime-only: burner machine id -> default fuel id; never exported
+  categoryNames?: Record<string, string>      // crafting category -> English name; optional; ids without an entry are labelled from the id
   itemGroups: Record<string, ItemGroup>       // default {}
   itemSubgroups: Record<string, ItemSubgroup> // default {}
   technologies: Record<string, Technology>    // default {}

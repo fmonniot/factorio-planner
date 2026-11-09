@@ -154,7 +154,7 @@ node scripts/build-game-data.js \
   --output    public/data/nullius/game-data.json
 ```
 
-The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
+The build prefers the game's own resolved English names from the `<type>-locale.json` files written by `--dump-prototype-locale` (items, fluids, entities, recipes, technologies, item groups, and the optional `recipe-category-locale.json` that names the crafting categories; without it the names come from the merged locale map's `recipe-category-name` keys, and categories with no name are labelled from their id in the planner). `--locale-dir` says where they are and defaults to the dump's directory. Any file or id that is missing falls back to the merged mod locale map, which ignores mod load order and can pick the wrong name when several mods define the same key. The normal export warns on stderr when only some of the six files are found (or a file has no names); an unparsable file stops the build. `--patch-names` requires all six files and exits non-zero otherwise (patching from the flat map alone would regress names), so pass `--locale-dir` if the dump was copied away from `script-output`.
 
 To add technology data (including research cost and technology icons, written to `<bundle dir>/icons/technology/`) to an existing bundle without re-exporting recipes and the other icons (the dump must come from the same mod set as the bundle; this is checked), use patch mode (the mod-set check ignores `base` and `factorio-planner-viewer`, the in-game viewer mod, which adds no game data):
 
@@ -174,6 +174,14 @@ Patch mode also writes `placeResult` on the items that place a machine or beacon
 
 ```sh
 node scripts/build-game-data.js --patch-temperatures \
+  --dump ... --factorio-dir ... --mods-dir ... \
+  --output public/data/kompetenz-seablock/game-data.json
+```
+
+`--patch-category-names` writes `categoryNames` (the names of the crafting categories the bundle's recipes and machines use) into an existing bundle and touches nothing else (same mod-set check, safe to re-run).
+
+```sh
+node scripts/build-game-data.js --patch-category-names \
   --dump ... --factorio-dir ... --mods-dir ... \
   --output public/data/kompetenz-seablock/game-data.json
 ```

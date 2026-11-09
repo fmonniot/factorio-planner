@@ -529,7 +529,7 @@ inside). The flyout lists the crafting categories that have at least two non-hid
 the [research horizon](#research-horizon) (`defaultMachineCategories`), in two sections: "Used in
 this plan" (categories with at least one row left on "Default", across all blocks) and, after a
 separator, "Other categories". Each category is a group named after its label (`categoryLabel`: the
-id with `:`, `_` and `-` as spaces, first letter capitalised; the id is the tooltip) with the number
+data set's `categoryNames` entry, else the id with `:`, `_` and `-` as spaces, first letter capitalised; the id is the tooltip) with the number
 of such rows and one radio item per machine (24px tile with the icon, or the name's first letter;
 the name is the accessible name and tooltip). The checked one is the effective default; picking one
 sets the plan's `defaultMachineOverrides` entry and leaves the menu open. Rows set to an explicit

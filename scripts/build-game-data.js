@@ -72,6 +72,12 @@
  *     --dump ... --factorio-dir ... --mods-dir ... \
  *     --output public/data/kompetenz-seablock/game-data.json
  *
+ * Category-names patch mode: write `categoryNames` (the crafting categories used by the bundle's
+ * recipes and machines) into an existing bundle (same mod-set check). Nothing else is touched. Safe to re-run:
+ *   node scripts/build-game-data.js --patch-category-names \
+ *     --dump ... --factorio-dir ... --mods-dir ... \
+ *     --output public/data/kompetenz-seablock/game-data.json
+ *
  * Fuel patch mode: write the burner fuel data into an existing bundle (same
  * mod-set check): `fuelValueKj` / `fuelCategory` / `burntResult` on the items,
  * `fuelValueKj` on the fluids, `fuelCategories` / `effectivity` on the burner
@@ -108,7 +114,7 @@ import {
   POWER_ITEM_IDS, POWER_PREFIX, POWER_MACHINE_TYPES,
 } from './power.js'
 import { modSetDiffs } from './modset.js'
-import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
+import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, OPTIONAL_GAME_NAME_FILES, exportCategoryNames, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -144,6 +150,7 @@ function parseArgs(argv) {
     else if (argv[i] === '--patch-power') args.patchPower = true
     else if (argv[i] === '--patch-temperatures') args.patchTemperatures = true
     else if (argv[i] === '--patch-fuel') args.patchFuel = true
+    else if (argv[i] === '--patch-category-names') args.patchCategoryNames = true
   }
   return args
 }
@@ -757,7 +764,7 @@ process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap)
 // The game's own resolved names (`factorio --dump-prototype-locale`).
 const game = {}
 const emptyGameFiles = []
-for (const type of GAME_NAME_FILES) {
+for (const type of [...GAME_NAME_FILES, ...OPTIONAL_GAME_NAME_FILES]) {
   const file = join(localeDir, `${type}-locale.json`)
   if (!existsSync(file)) continue
   let names
@@ -772,8 +779,8 @@ for (const type of GAME_NAME_FILES) {
 }
 for (const file of emptyGameFiles) process.stderr.write(`[warn] ${file} has no names; ignoring it\n`)
 const missingGameTypes = GAME_NAME_FILES.filter(t => !(t in game))
-process.stderr.write(`[build-game-data] Game locale files: ${Object.keys(game).length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
-if (Object.keys(game).length === 0) {
+process.stderr.write(`[build-game-data] Game locale files: ${GAME_NAME_FILES.length - missingGameTypes.length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
+if (missingGameTypes.length === GAME_NAME_FILES.length) {
   process.stderr.write(`[warn] No game locale files found: names come from the merged locale map only (ignores mod load order). Run factorio --dump-prototype-locale or pass --locale-dir.\n`)
 } else if (missingGameTypes.length > 0) {
   process.stderr.write(`[warn] Game locale files missing for: ${missingGameTypes.join(', ')}; those names come from the merged locale map.\n`)
@@ -1004,6 +1011,19 @@ Object.assign(itemGroups, power.itemGroups)
   process.exit(0)
 }
 
+if (args.patchCategoryNames) {
+  const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
+  assertSameModSet(existing, modSet)
+  const ids = new Set([
+    ...Object.values(existing.recipes).map(r => r.category),
+    ...Object.values(existing.machines).flatMap(m => m.craftingCategories),
+  ])
+  const categoryNames = exportCategoryNames(ids, locale.map, locale.game)
+  writeFileSync(outputPath, JSON.stringify({ ...existing, categoryNames }, null, 2))
+  process.stderr.write(`[build-game-data] Patched ${outputPath}: categoryNames=${Object.keys(categoryNames).length}/${ids.size}\n`)
+  process.exit(0)
+}
+
 if (args.patchTemperatures) {
   const existing = JSON.parse(readFileSync(outputPath, 'utf8'))
   assertSameModSet(existing, modSet)
@@ -1145,6 +1165,9 @@ Object.assign(itemGroups, power.itemGroups)
 Object.assign(itemSubgroups, power.itemSubgroups)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
+const categoryNames = exportCategoryNames(
+  new Set([...Object.values(recipes).map(r => r.category), ...Object.keys(categoryMap)]), locale.map, locale.game,
+)
 
 const exportedTechnologies = exportTechnologies(
   raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, locale.map, locale.game),
@@ -1164,6 +1187,7 @@ const output = {
   modules,
   beacons,
   defaultMachines,
+  categoryNames,
   itemGroups,
   itemSubgroups,
   technologies,
