@@ -37,22 +37,17 @@ export function PanelSection({ title, testId, children, className = '', highligh
 }
 
 /** The panel's top line: an icon, a title, a subtitle and the close button. */
-export function PanelHeader({ icon, title, subtitle, marker, onClose }: {
+export function PanelHeader({ icon, title, subtitle, onClose }: {
   icon: ReactNode
   title: string
   subtitle?: string
-  /** A small marker after the title (the "Area" tag). */
-  marker?: ReactNode
   onClose: () => void
 }) {
   return (
     <header className="flex items-center gap-2.5 px-4 py-3 border-b border-gray-700">
       <span className="shrink-0">{icon}</span>
       <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-1.5 min-w-0">
-          <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" title={title}>{title}</h2>
-          {marker}
-        </div>
+        <h2 data-testid="panel-title" className="text-sm font-semibold text-gray-100 truncate" title={title}>{title}</h2>
         {subtitle && <div className="text-[11px] text-gray-400 truncate">{subtitle}</div>}
       </div>
       <button

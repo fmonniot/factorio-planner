@@ -114,7 +114,6 @@ test('a group row opens the group panel, whose buttons select what is inside', a
   const panel = sidePanel(page)
   await expect(panel.getByTestId('panel-title')).toHaveText('G1')
   await expect(panel).toContainText('Sub-factory · level 1 of 4')
-  await expect(panel.getByTestId('panel-area-marker')).toHaveCount(0)
   await expect(panel.getByRole('heading', { level: 3 })).toHaveText(['Summary', 'Inside this group'])
   await expect(group(page, 'G1')).toHaveAttribute('data-selected', 'true')
 
