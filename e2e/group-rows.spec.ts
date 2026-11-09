@@ -24,6 +24,22 @@ function mixedPlan(outPath: string): string {
   return outPath
 }
 
+/**
+ * Every kind of group row in one table: "Chlorides" a plain sub-factory (no chips, no area), "Compression" an area with
+ * chips, and "Empty area" a separate area with nothing in it, so nothing sent or received.
+ */
+function everyKindPlan(outPath: string): string {
+  const plan = JSON.parse(fs.readFileSync(AREAS, 'utf-8'))
+  const block = plan.blocks[0]
+  const chlorides = block.rootPlan.subPlans.find((sp: { name: string }) => sp.name === 'Chlorides')
+  delete chlorides.area
+  const emptyId = 'ffff0030-0000-0000-0000-000000000001'
+  block.rootPlan.subPlans.push({ id: emptyId, name: 'Empty area', nodes: [], subPlans: [], area: true, createdAt: chlorides.createdAt, updatedAt: chlorides.updatedAt })
+  block.rootPlan.nodes.push({ kind: 'subplan', id: 'ffff0005-0000-0000-0000-000000000003', subPlanId: emptyId })
+  fs.writeFileSync(outPath, JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+  return outPath
+}
+
 async function open(page: Page, fixture: string, viewport = { width: 1440, height: 900 }) {
   await page.setViewportSize(viewport)
   await loadPlanFixture(page, fixture)
@@ -88,6 +104,28 @@ test('5 grpFixed: an area that sends and receives few items shows them all, with
   await expect(compression.locator('[data-direction]').first()).toBeVisible()
   await expect(compression.getByTestId('area-chips-more')).toHaveCount(0)
   expect((await compression.boundingBox())!.height).toBe(37)
+})
+
+test('5 grpFixed: every group row is 37 px: a plain sub-factory, an area with chips and an area with nothing to show, content centred', async ({ page }, testInfo) => {
+  await open(page, everyKindPlan(testInfo.outputPath('every-kind-plan.json')))
+  await expect(groupRows(page)).toHaveCount(3)
+  const plain = groupRow(page, 'Chlorides')
+  const area = groupRow(page, 'Compression')
+  const empty = groupRow(page, 'Empty area')
+  await expect(plain.getByRole('img', { name: 'Sub-factory' })).toHaveCount(1)
+  await expect(plain.locator('[data-direction]')).toHaveCount(0)
+  await expect(area.locator('[data-direction]').first()).toBeVisible()
+  await expect(empty.getByRole('img', { name: 'Separate area' })).toHaveCount(1)
+  await expect(empty.locator('[data-direction]')).toHaveCount(0)
+
+  for (const row of [plain, area, empty]) expect((await row.boundingBox())!.height).toBe(37)
+
+  // The name stays on the row's middle line.
+  for (const [row, name] of [[plain, 'Chlorides'], [area, 'Compression'], [empty, 'Empty area']] as const) {
+    const r = (await row.boundingBox())!
+    const b = (await row.getByRole('button', { name, exact: true }).boundingBox())!
+    expect(Math.abs(b.y + b.height / 2 - (r.y + r.height / 2)), `${name} is vertically centred`).toBeLessThanOrEqual(1)
+  }
 })
 
 test('5 grpIcon: every group row has a 12 px icon named for its kind instead of the Area tag, on all-area and mixed tables', async ({ page }, testInfo) => {
