@@ -535,8 +535,8 @@ export interface BarPartLayout {
 /**
  * Sizes the parts of a bar `width` px wide: the gaps and the fixed marks come off first, the rest is
  * shared by weight, and parts under 3 px keep 3 px (the others give that room up, so the bar never
- * spills out). The text each part carries follows its width: name and amount when the amount's width
- * plus 46 px fits, the amount alone from its width plus 4 px, nothing below that.
+ * spills out; a part the minimums push under 3 px takes 3 px too). The text each part carries follows
+ * its width: name and amount when the amount's width plus 46 px fits, the amount alone from its width plus 4 px, nothing below that.
  */
 export function layoutBar(parts: BarPartInput[], width: number): BarPartLayout[] {
   const flexible = parts.filter(p => p.fixedPx === undefined)
@@ -544,13 +544,20 @@ export function layoutBar(parts: BarPartInput[], width: number): BarPartLayout[]
   const avail = Math.max(0, width - Math.max(0, parts.length - 1) * BAR_GAP_PX - fixed)
   const weightSum = flexible.reduce((total, p) => total + Math.max(0, p.weight), 0)
   const share = (p: BarPartInput) => weightSum > 0 ? Math.max(0, p.weight) / weightSum : 1 / flexible.length
-  const isTiny = (p: BarPartInput) => share(p) * avail < BAR_MIN_SEGMENT_PX
-  const tinyCount = flexible.filter(isTiny).length
-  const bigShare = flexible.reduce((total, p) => total + (isTiny(p) ? 0 : share(p)), 0) || 1
-  const scale = Math.max(0, avail - tinyCount * BAR_MIN_SEGMENT_PX) / bigShare
+  // A part is tiny when its share of what is left, once the tiny ones took their 3 px, is under 3 px;
+  // taking those 3 px can push another part under, so this repeats until it settles.
+  const tiny = new Set<BarPartInput>()
+  const bigShare = () => flexible.reduce((total, p) => total + (tiny.has(p) ? 0 : share(p)), 0) || 1
+  const scale = () => Math.max(0, avail - tiny.size * BAR_MIN_SEGMENT_PX) / bigShare()
+  for (;;) {
+    const s = scale()
+    const next = flexible.filter(p => !tiny.has(p) && share(p) * s < BAR_MIN_SEGMENT_PX)
+    if (next.length === 0) break
+    next.forEach(p => tiny.add(p))
+  }
   let x = 0
   return parts.map(p => {
-    const px = p.fixedPx ?? (isTiny(p) ? BAR_MIN_SEGMENT_PX : Math.round(share(p) * scale * 10) / 10)
+    const px = p.fixedPx ?? (tiny.has(p) ? BAR_MIN_SEGMENT_PX : Math.round(share(p) * scale() * 10) / 10)
     const center = x + px / 2
     x += px + BAR_GAP_PX
     const counted = p.withCount !== undefined && p.withCount !== p.amount && px >= p.withCount.length * BAR_CHAR_PX + 14
@@ -565,4 +572,30 @@ export function layoutBar(parts: BarPartInput[], width: number): BarPartLayout[]
       name: showAmount ? px >= amountW + BAR_NAME_EXTRA_PX : !hasText && px >= BAR_NAME_ONLY_PX,
     }
   })
+}
+
+/** Widest a segment's tooltip is allowed to be; its lines wrap beyond that. */
+export const BAR_TIP_MAX_PX = 280
+
+export interface TipPlacement {
+  /** The tooltip's maximum width: never more than the bar. */
+  maxWidth: number
+  /** Which edge of the segment it hangs from, or `shifted` (aligned on the bar's left edge, `left` px from the segment's). */
+  align: 'center' | 'left' | 'right' | 'shifted'
+  left?: number
+}
+
+/**
+ * Where the tooltip of the segment laid out as `part` goes so that it stays inside a bar `width` px wide
+ * whatever its length (up to `maxWidth`): centred when that fits, else hung from the segment's left
+ * edge, else from its right edge, else aligned on the bar's left edge.
+ */
+export function tipPlacement(part: Pick<BarPartLayout, 'px' | 'center'>, width: number): TipPlacement {
+  const maxWidth = Math.min(BAR_TIP_MAX_PX, width)
+  const left = part.center - part.px / 2
+  const right = part.center + part.px / 2
+  if (part.center - maxWidth / 2 >= 0 && part.center + maxWidth / 2 <= width) return { maxWidth, align: 'center' }
+  if (left + maxWidth <= width) return { maxWidth, align: 'left' }
+  if (right - maxWidth >= 0) return { maxWidth, align: 'right' }
+  return { maxWidth, align: 'shifted', left: -left }
 }

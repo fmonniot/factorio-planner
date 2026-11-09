@@ -72,7 +72,8 @@ test.describe('block colours', () => {
     const row = detail(page, 'Products').locator(`[data-testid="summary-overview-segment"][data-key="to:${SCIENCES_ID}"]`)
     await expect(row).toBeVisible({ timeout: 20000 })
     // Sciences is the second block: #7dd3fc, as a translucent fill with a stronger border.
-    await expect(row).toHaveCSS('background-color', 'rgba(125, 211, 252, 0.32)')
-    await expect(row).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
+    const fill = row.getByTestId('summary-segment-fill')
+    await expect(fill).toHaveCSS('background-color', 'rgba(125, 211, 252, 0.32)')
+    await expect(fill).toHaveCSS('border-top-color', 'rgba(125, 211, 252, 0.75)')
   })
 })
