@@ -317,7 +317,7 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     loadWithTechnologies()
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
     render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
+    expect(screen.getByText(/No recipes match within the research horizon \(1 outside it\)/)).toBeInTheDocument()
     fireEvent.click(screen.getByLabelText(/Beyond research horizon/, { selector: 'input' }))
     expect(screen.getAllByTestId('recipe-slot').length).toBeGreaterThan(0)
     expect(screen.queryByText(/outside it/)).not.toBeInTheDocument()
@@ -327,7 +327,26 @@ describe('ItemPicker — recipes mode with a research horizon', () => {
     loadWithTechnologies()
     useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
     render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
-    expect(screen.getByText('No recipes match within the research horizon (1 outside it)')).toBeInTheDocument()
+    expect(screen.getByText(/No recipes match within the research horizon \(1 outside it\)/)).toBeInTheDocument()
+  })
+
+  it('names the item when no recipe produces it', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="recipes" filterByItemId="no-such-item" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText("No recipe produces 'no-such-item'")).toBeInTheDocument()
+  })
+
+  it('names the item when no recipe consumes it', () => {
+    loadWithTechnologies()
+    render(<ItemPicker source="recipes" consumesItemId="no-such-item" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText("No recipe consumes 'no-such-item'")).toBeInTheDocument()
+  })
+
+  it('points at Beyond research horizon when the horizon empties an item list', () => {
+    loadWithTechnologies()
+    useBlockStore.setState({ horizonTechnologyIds: ['smelting'] })
+    render(<ItemPicker source="recipes" filterByItemId="water" onSelect={() => {}} onClose={() => {}} />)
+    expect(screen.getByText(/tick Beyond research horizon/)).toBeInTheDocument()
   })
 })
 

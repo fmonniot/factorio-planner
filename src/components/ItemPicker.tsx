@@ -274,6 +274,21 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
     return { filteredRecipes: inside, outsideHorizonCount: matching.length - inside.length }
   }, [gameData, showHidden, filterByItemId, consumesItemId, query, available, showBeyondHorizon])
 
+  // True when no recipe at all (hidden ones included) produces / consumes the item the picker was opened for.
+  const noRecipeForItem = useMemo(() => {
+    if (!filterByItemId && !consumesItemId) return false
+    return !Object.values(gameData.recipes).some(r =>
+      (!filterByItemId || recipeMakes(r, filterByItemId))
+      && (!consumesItemId || r.ingredients.some(i => i.itemId === consumesItemId)))
+  }, [gameData, filterByItemId, consumesItemId])
+  const forItemId = consumesItemId ?? filterByItemId
+  const forItemName = forItemId ? (gameData.items[forItemId]?.name ?? forItemId) : ''
+  const emptyMessage = noRecipeForItem
+    ? `No recipe ${consumesItemId ? 'consumes' : 'produces'} '${forItemName}'`
+    : outsideHorizonCount > 0
+      ? `No recipes match within the research horizon (${outsideHorizonCount} outside it)${forItemId ? ` — tick Beyond research horizon to see them` : ''}`
+      : 'No recipes match'
+
   // Top-level item-groups present after filtering, sorted by group order.
   const visibleGroups = useMemo(() => {
     const subgroups = gameData.itemSubgroups ?? {}
@@ -546,9 +561,7 @@ function RecipePickerBody({ gameData, filterByItemId, consumesItemId, presentRec
       <div className="overflow-y-auto flex-1 p-2 space-y-1">
         {subgroupRows.length === 0 && (
           <div className="px-2 py-3 text-gray-400 text-sm">
-            {outsideHorizonCount > 0
-              ? `No recipes match within the research horizon (${outsideHorizonCount} outside it)`
-              : 'No recipes match'}
+            {emptyMessage}
           </div>
         )}
         {openGroup ? renderFuelView(openGroup) : subgroupRows.map(([sgId, entries]) => (
