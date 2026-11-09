@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { MAX_NESTING_DEPTH } from '../../data/nesting'
-import { groupRowTint, guideLevels, treeGuideStyle } from './treeGuides'
+import { groupRowBackground, groupRowTint, guideLevels, INGREDIENTS_PADDING_LEFT, treeGuideStyle } from './treeGuides'
 
 describe('treeGuides', () => {
   it('draws no guide at the top level', () => {
@@ -23,5 +23,16 @@ describe('treeGuides', () => {
     const tints = Array.from({ length: MAX_NESTING_DEPTH }, (_, d) => groupRowTint(d))
     expect(new Set(tints).size).toBe(MAX_NESTING_DEPTH)
     expect(groupRowTint(MAX_NESTING_DEPTH + 3)).toBe(groupRowTint(MAX_NESTING_DEPTH))
+  })
+
+  it('bands an open group in teal whatever its depth, and leaves a collapsed one with its tint', () => {
+    for (let d = 0; d <= MAX_NESTING_DEPTH + 1; d++) {
+      expect(groupRowBackground(d, true)).toBe('bg-teal-400/5')
+      expect(groupRowBackground(d, false)).toBe(groupRowTint(d))
+    }
+  })
+
+  it('indents the ingredients 28px past the cell padding', () => {
+    expect(INGREDIENTS_PADDING_LEFT).toBe('36px')
   })
 })

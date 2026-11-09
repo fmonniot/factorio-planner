@@ -8,7 +8,8 @@ import { fmtItemRateText } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // AreaChipsMore — the "+N" of a collapsed area row: a button that opens a popup
-// listing the flows the row has no room for. Rendered in a portal: the
+// listing the flows the row has no room for (a row is one line high: what does not fit on it is here).
+// The button is one chip slot wide (32px), so the row counts it as a chip when it fits the line. Rendered in a portal: the
 // production table scrolls and would clip it.
 // ---------------------------------------------------------------------------
 
@@ -33,7 +34,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
         type="button"
         data-testid="area-chips-more"
         aria-label={`${flows.length} more ${received ? 'received' : 'sent'} items`}
-        className="text-[10px] text-gray-500 hover:text-gray-300"
+        className="w-8 shrink-0 text-center text-[10px] text-gray-500 hover:text-gray-300"
         {...triggerProps}
       >
         +{flows.length}

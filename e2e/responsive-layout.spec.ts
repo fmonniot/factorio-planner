@@ -286,22 +286,20 @@ test.describe('area row alignment', () => {
 test.describe('ingredients alignment', () => {
   test.use({ viewport: { width: 1470, height: 900 } })
 
-  test('a recipe row\'s ingredients end at the right edge of their column, like the items an area receives', async ({ page }) => {
+  test('a recipe row\'s ingredients start at the left of their column, 28px in, at the same x as the items an area receives', async ({ page }) => {
     await load(page)
     const cell = row(page).locator('td').nth(6)
-    const last = cell.locator(':scope > div > *').last()
-    await expect(last).toBeVisible()
+    const first = cell.locator(':scope > div > *').first()
+    await expect(first).toBeVisible()
     const box = (await cell.boundingBox())!
-    const chip = (await last.boundingBox())!
-    // Within the cell padding (8px) of the right edge, and the first chip is well clear of the left edge.
-    expect(box.x + box.width - (chip.x + chip.width)).toBeLessThanOrEqual(12)
-    const first = (await cell.locator(':scope > div > *').first().boundingBox())!
-    expect(first.x - box.x, 'the chips do not start at the left edge').toBeGreaterThan(24)
-    // Same right edge as the items an area receives, in the same column.
-    const received = page.locator('main table tbody tr').filter({ hasText: 'Compression' }).getByTestId('area-chips-in').locator('[data-direction="receives"]').last()
+    const chip = (await first.boundingBox())!
+    // The cell padding (8px) plus the 28px an area row borrows from the Products span for its +N.
+    expect(chip.x - box.x).toBeCloseTo(36, 0)
+    // Same left edge as the items an area receives, in the same column.
+    const received = page.locator('main table tbody tr').filter({ hasText: 'Compression' }).getByTestId('area-chips-in').locator('[data-direction="receives"]').first()
     if (await received.count()) {
       const r = (await received.boundingBox())!
-      expect(Math.abs((r.x + r.width) - (chip.x + chip.width))).toBeLessThanOrEqual(2)
+      expect(Math.abs(r.x - chip.x)).toBeLessThanOrEqual(1)
     }
   })
 })
