@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { render, screen, fireEvent, within } from '@testing-library/react'
+import { render, screen, fireEvent, within, cleanup } from '@testing-library/react'
 import { RecipeRow } from './RecipeRow'
 import { primaryItemPerRun, pinSeedRate } from './pinRate'
 import { countSubPlanContents } from './subPlanContents'
@@ -229,6 +229,14 @@ describe('RecipeRow', () => {
   it('shows the row power in the Power column', () => {
     renderRow()
     expect(screen.getByTestId('row-power')).toBeInTheDocument()
+  })
+
+  it('left-aligns the ingredient chips, 28px in from the cell padding, and keeps Power right-aligned', () => {
+    renderRow()
+    const cell = screen.getByText(/120/).closest('td')!
+    expect(cell.querySelector('div.flex')).not.toHaveClass('justify-end')
+    expect(cell.style.paddingLeft).toBe('36px')
+    expect(screen.getByTestId('row-power').closest('td')).toHaveClass('text-right')
   })
 
   it('move-up button is disabled when isFirst=true', () => {
@@ -995,6 +1003,84 @@ describe('RecipeRow sub-factory actions', () => {
     expect(screen.queryByTestId('area-marker')).not.toBeInTheDocument()
   })
 
+  describe('icon, count and band', () => {
+    const unsolved = (id: string, machines: number): [string, SolvedNode] => [id, { ...solvedNode, recipeNodeId: id, machineCountCeil: machines, powerKw: 0 }]
+
+    function renderGroup(child: SubPlan, opts: { isExpanded?: boolean; machines?: [string, number][] } = {}) {
+      const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: child.id }
+      const block = makeEmptyBlock('Test')
+      const root = { ...block.rootPlan, nodes: [spNode], subPlans: [child] }
+      useBlockStore.setState({ blocks: [{ ...block, rootPlan: root }], activeBlockId: block.id, history: {} })
+      useUiStore.setState({ selectedRow: null })
+      renderRow({
+        planNode: spNode,
+        solvedNode: undefined,
+        rootPlan: root,
+        isExpanded: opts.isExpanded,
+        areaView: { index: indexRecipeAreas(root), solvedMap: new Map((opts.machines ?? []).map(([id, n]) => unsolved(id, n))), solvedAreas: undefined },
+      })
+      return document.querySelector('tr[data-node-id="sp-node-1"]') as HTMLTableRowElement
+    }
+
+    it('puts a folder icon named Sub-factory before the name of a plain group, and an areas icon named Separate area before an area, with no Area tag', () => {
+      renderGroup(makeSubPlan('sp-123', 'My Subfactory'))
+      const folder = screen.getByRole('img', { name: 'Sub-factory' })
+      expect(folder).toContainHTML('<title>Sub-factory</title>')
+      expect(folder).toHaveClass('w-3', 'h-3', 'text-gray-400')
+      expect(folder.compareDocumentPosition(screen.getByRole('button', { name: 'My Subfactory' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(screen.queryByRole('img', { name: 'Separate area' })).not.toBeInTheDocument()
+      cleanup()
+      renderGroup({ ...makeSubPlan('sp-123', 'My Subfactory'), area: true })
+      expect(screen.getByRole('img', { name: 'Separate area' })).toHaveClass('w-3', 'h-3', 'text-gray-400')
+      expect(screen.queryByRole('img', { name: 'Sub-factory' })).not.toBeInTheDocument()
+      expect(screen.queryByText('Area')).not.toBeInTheDocument()
+    })
+
+    it('reads "N machines" when it equals the recipe count, else both counts', () => {
+      renderGroup(makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), recipeNode('r2')]), { machines: [['r1', 1], ['r2', 1]] })
+      expect(screen.getByTestId('group-summary')).toHaveTextContent(/^2 machines$/)
+      cleanup()
+      renderGroup(makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1'), recipeNode('r2')]), { machines: [['r1', 3], ['r2', 1]] })
+      expect(screen.getByTestId('group-summary')).toHaveTextContent(/^2 recipes · 4 machines$/)
+      cleanup()
+      renderGroup(makeSubPlan('sp-123', 'My Subfactory', [recipeNode('r1')]), { machines: [['r1', 1]] })
+      expect(screen.getByTestId('group-summary')).toHaveTextContent(/^1 machine$/)
+    })
+
+    it('bands only an open group: faint teal background, a hairline in every cell and a teal icon', () => {
+      const row = renderGroup({ ...makeSubPlan('sp-123', 'My Subfactory'), area: true }, { isExpanded: true })
+      expect(row).toHaveClass('bg-teal-400/5')
+      expect(row).not.toHaveClass('bg-gray-800/30')
+      for (const td of row.querySelectorAll(':scope > td')) expect(td.className).toContain('rgba(45,212,191,0.28)')
+      expect(screen.getByRole('img', { name: 'Separate area' })).toHaveClass('text-teal-400')
+      expect(screen.getByRole('img', { name: 'Separate area' })).not.toHaveClass('text-gray-400')
+    })
+
+    it('leaves a collapsed group with its gray tint, no hairline and a gray icon', () => {
+      const row = renderGroup(makeSubPlan('sp-123', 'My Subfactory'), { isExpanded: false })
+      expect(row).toHaveClass('bg-gray-800/30')
+      expect(row).not.toHaveClass('bg-teal-400/5')
+      for (const td of row.querySelectorAll(':scope > td')) expect(td.className).not.toContain('rgba(45,212,191,0.28)')
+      expect(screen.getByRole('img', { name: 'Sub-factory' })).toHaveClass('text-gray-400')
+    })
+
+    it('draws no hairline on a selected open group, which keeps the selection tint, and keeps the teal icon', () => {
+      const child = makeSubPlan('sp-123', 'My Subfactory')
+      renderGroup(child, { isExpanded: true })
+      cleanup()
+      useUiStore.setState({ selectedRow: { blockId: useBlockStore.getState().blocks[0].id, nodeId: 'sp-node-1' } })
+      const spNode: SubPlanNode = { kind: 'subplan', id: 'sp-node-1', subPlanId: child.id }
+      const root = useBlockStore.getState().blocks[0].rootPlan
+      renderRow({ planNode: spNode, solvedNode: undefined, rootPlan: root, isExpanded: true })
+      const row = document.querySelector('tr[data-node-id="sp-node-1"]')!
+      expect(row).toHaveAttribute('data-selected', 'true')
+      expect(row).toHaveClass('bg-[rgba(20,184,166,0.22)]')
+      expect(row).not.toHaveClass('bg-teal-400/5')
+      for (const td of row.querySelectorAll(':scope > td')) expect(td.className).not.toContain('rgba(45,212,191,0.28)')
+      expect(screen.getByRole('img', { name: 'Sub-factory' })).toHaveClass('text-teal-400')
+    })
+  })
+
   it('"Rename subfactory…" prompts with the current name and applies the trimmed answer', () => {
     const prompt = vi.fn(() => '  Copper line  ')
     vi.stubGlobal('prompt', prompt)
@@ -1503,6 +1589,64 @@ describe('RecipeRow in a block with areas', () => {
       expect(popup.getAttribute('data-direction')).toBe('sends')
       expect(popup.querySelectorAll('[data-item-id]')).toHaveLength(1)
       expect(popup.querySelector('[data-item-id="s8"]')).not.toBeNull()
+    })
+
+    describe('on one line', () => {
+      const ids = (prefix: string, n: number) => Array.from({ length: n }, (_, i) => `${prefix}${i}`)
+      // A box `widthPx` wide: the chips line is measured against it (happy-dom has no layout).
+      function withLineWidth(widthPx: number) {
+        Object.defineProperty(HTMLElement.prototype, 'clientWidth', { configurable: true, get: () => widthPx })
+      }
+      afterEach(() => { delete (HTMLElement.prototype as { clientWidth?: number }).clientWidth })
+
+      it('shows the chips that fit on the line, one fewer than fits, and the rest behind the +N', () => {
+        withLineWidth(5 * 38 - 6) // five chips per line
+        renderAreaHandle(areaOf(ids('r', 8).map(id => flow(id, 60)), ids('s', 7).map(id => flow(id, 60))))
+        const sends = screen.getByTestId('area-chips-out')
+        const receives = screen.getByTestId('area-chips-in')
+        expect(sends.querySelectorAll('[data-direction="sends"]')).toHaveLength(4)
+        expect(receives.querySelectorAll('[data-direction="receives"]')).toHaveLength(4)
+        expect(within(sends).getByTestId('area-chips-more')).toHaveTextContent('+3')
+        expect(within(receives).getByTestId('area-chips-more')).toHaveTextContent('+4')
+        expect(sends).toHaveClass('flex-nowrap')
+        expect(receives).toHaveClass('flex-nowrap')
+      })
+
+      it('shows every chip, and no +N, when they all fit', () => {
+        withLineWidth(5 * 38 - 6)
+        renderAreaHandle(areaOf(ids('r', 5).map(id => flow(id, 60)), ids('s', 2).map(id => flow(id, 60))))
+        expect(screen.getByTestId('area-chips-in').querySelectorAll('[data-direction="receives"]')).toHaveLength(5)
+        expect(screen.getByTestId('area-chips-out').querySelectorAll('[data-direction="sends"]')).toHaveLength(2)
+        expect(screen.queryByTestId('area-chips-more')).not.toBeInTheDocument()
+      })
+
+      it('lists in the popup every item the line does not show, "Also sends" and "Also receives" as before', () => {
+        withLineWidth(3 * 38 - 6)
+        renderAreaHandle(areaOf([], ids('s', 5).map(id => flow(id, 60))))
+        const more = screen.getByTestId('area-chips-more')
+        expect(more).toHaveAttribute('aria-label', '3 more sent items')
+        fireEvent.focus(more)
+        const popup = screen.getByRole('tooltip')
+        expect(popup).toHaveTextContent('Also sends')
+        expect(Array.from(popup.querySelectorAll('[data-item-id]')).map(e => e.getAttribute('data-item-id'))).toEqual(['s2', 's3', 's4'])
+      })
+
+      it('keeps the caps of eight and sixteen on a wide line', () => {
+        withLineWidth(40 * 38)
+        renderAreaHandle(areaOf(ids('r', 18).map(id => flow(id, 60)), ids('s', 9).map(id => flow(id, 60))))
+        expect(screen.getByTestId('area-chips-in').querySelectorAll('[data-direction="receives"]')).toHaveLength(16)
+        expect(screen.getByTestId('area-chips-out').querySelectorAll('[data-direction="sends"]')).toHaveLength(8)
+      })
+
+      it('left-aligns both groups, and lets the sent chips use the 28px the received ones are indented by', () => {
+        renderAreaHandle(areaOf([flow('water', 60)], [flow('hydrogen', 30)]))
+        const out = screen.getByTestId('area-chips-out')
+        const into = screen.getByTestId('area-chips-in')
+        expect(out).toHaveClass('justify-start')
+        expect(into).toHaveClass('justify-start')
+        expect(out.style.marginRight).toBe('-28px')
+        expect(into.closest('td')!.style.paddingLeft).toBe('36px')
+      })
     })
   })
 

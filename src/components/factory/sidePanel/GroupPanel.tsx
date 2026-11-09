@@ -7,15 +7,8 @@ import { fmtItemRate, fmtPower } from '../ItemTile'
 import { countSubPlanContents, sumSubPlanSolved } from '../subPlanContents'
 import { dedicatedProduct } from '../../../solver/areas'
 import { PanelHeader, PanelSection } from './PanelParts'
+import { FolderIcon } from '../../icons'
 import { flowLines, type FlowLine } from './groupFlows'
-
-function FolderIcon() {
-  return (
-    <svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true" className="text-gray-400">
-      <path d="M3 6.5A1.5 1.5 0 014.5 5H9l2 2h8.5A1.5 1.5 0 0121 8.5v9a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 17.5z" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  )
-}
 
 function Stat({ label, value, testId }: { label: string; value: string; testId: string }) {
   return (
@@ -115,7 +108,7 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
   return (
     <>
       <PanelHeader
-        icon={<FolderIcon />}
+        icon={<FolderIcon className="w-7 h-7 text-gray-400" />}
         title={plan.name}
         subtitle={`${isArea ? 'Separate area' : 'Sub-factory'} · level ${level} of ${MAX_NESTING_DEPTH}`}
         marker={isArea && (
@@ -178,7 +171,7 @@ export function GroupPanel({ node, rootPlan, solvedMap, solvedAreas, areaRoutes,
                     className="w-full flex items-center gap-2 px-1.5 py-1 rounded text-left text-xs hover:bg-gray-800"
                   >
                     {child.kind === 'subplan' ? (
-                      <span className="w-6 h-6 flex items-center justify-center shrink-0 scale-75"><FolderIcon /></span>
+                      <span className="w-6 h-6 flex items-center justify-center shrink-0 scale-75"><FolderIcon className="w-7 h-7 text-gray-400" /></span>
                     ) : iconPath ? (
                       <Icon iconPath={iconPath} alt="" className="w-6 h-6 object-contain shrink-0" />
                     ) : (

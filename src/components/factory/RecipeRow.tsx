@@ -7,7 +7,7 @@ import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
-import { treeGuideStyle, guideLevels, groupRowTint } from './treeGuides'
+import { treeGuideStyle, guideLevels, groupRowBackground, OPEN_GROUP_HAIRLINE, INGREDIENTS_INDENT_PX, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { MachineCell } from './MachineCell'
 import { ModuleCell } from './ModuleCell'
@@ -17,6 +17,8 @@ import { useRecipeDnd } from './RecipeDnd'
 import { RowActionsMenu, type RowAction } from './RowActionsMenu'
 import { FlowChip } from './AreaFlow'
 import { AreaChipsMore } from './AreaChipsMore'
+import { chipsOnOneLine, useChipsPerLine } from './oneLineChips'
+import { AreasIcon, FolderIcon } from '../icons'
 import {
   buildAlsoInOptions,
   duplicateToOptions,
@@ -41,8 +43,10 @@ const BYPRODUCT_CONSUMER_HINT =
 const PRIMARY_AREA_HINT = '; the primary product decides what this row builds for its area'
 
 /**
- * Chips shown per direction on a collapsed area row (two lines of chips); the rest is a "+N". Sends sit under the
- * Products and Byproducts columns (spanning both columns, left-aligned so they start under the recipe rows' product chips), receives under Ingredients.
+ * Most chips shown per direction on a collapsed area row; the rest is a "+N". A row is one line high, so the line decides
+ * first (`chipsOnOneLine`): fewer chips show when they do not fit. Sends sit under the Products and Byproducts columns
+ * (spanning both columns, left-aligned so they start under the recipe rows' product chips), receives under Ingredients,
+ * left-aligned at the same x as a recipe row's first ingredient.
  */
 const AREA_CHIP_CAP = { sends: 8, receives: 16 } as const
 
@@ -319,6 +323,16 @@ export function RecipeRow({
     const { machines, powerKw: groupPowerKw } = groupTotals
     const groupPower = groupPowerKw > 0 ? fmtPower(groupPowerKw) : null
 
+    // An open group is banded (and gets a hairline under its header unless it is selected); a collapsed one keeps its tint.
+    const open = isExpanded === true
+    const band = open
+    const hairline = band && !isSelected ? OPEN_GROUP_HAIRLINE : ''
+    const groupIconClass = `w-3 h-3 shrink-0 ${band ? 'text-teal-400' : 'text-gray-400'}`
+    // "N machines" when every recipe runs on exactly one machine, else both counts.
+    const summary = recipes === machines
+      ? `${machines} machine${machines !== 1 ? 's' : ''}`
+      : `${recipes} recipe${recipes !== 1 ? 's' : ''} · ${machines} machine${machines !== 1 ? 's' : ''}`
+
     const subplanOutline = dropZone === 'into' ? 'outline outline-2 outline-blue-500' : ''
     const subplanOpacity = isDragging ? 'opacity-50' : ''
 
@@ -328,7 +342,7 @@ export function RecipeRow({
         data-node-id={planNode.id}
         {...highlightProps}
         data-selected={isSelected ? 'true' : undefined}
-        className={`border-b border-gray-800 ${isSelected ? '' : groupRowTint(depth)} ${rowStateClass} group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
+        className={`h-[37px] border-b border-gray-800 ${isSelected ? '' : groupRowBackground(depth, band)} ${rowStateClass} hover:bg-gray-800/40 group relative ${subplanOutline} ${subplanOpacity} ${highlightClass}`}
         onClick={handleRowClick}
         draggable
         onDragStart={handleDragStart}
@@ -337,9 +351,9 @@ export function RecipeRow({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
-        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} />
+        <ReorderCell nodeId={planNode.id} isFirst={isFirst} isLast={isLast} moveUp={moveNodeUp} moveDown={moveNodeDown} selected={isSelected} className={hairline} />
         <td
-          className="px-2 py-0.5"
+          className={`px-2 py-0.5 ${hairline}`}
           colSpan={3}
           data-guide-levels={guideLevels(depth)}
           style={treeGuideStyle(depth)}
@@ -358,6 +372,9 @@ export function RecipeRow({
                 <path d={isExpanded ? 'M1 3l4 4 4-4' : 'M3 1l4 4-4 4'} fill="none" stroke="currentColor" strokeWidth="1.5" />
               </svg>
             </button>
+            {childPlan?.area === true
+              ? <AreasIcon className={groupIconClass} title="Separate area" testId="area-marker" />
+              : <FolderIcon className={groupIconClass} title="Sub-factory" testId="group-marker" />}
             <button
               type="button"
               onClick={select}
@@ -367,18 +384,9 @@ export function RecipeRow({
             >
               {label}
             </button>
-            {childPlan?.area === true && (
-              <span
-                data-testid="area-marker"
-                title="Separate area"
-                className="text-[10px] px-1 rounded border border-teal-700 text-teal-300 shrink-0"
-              >
-                Area
-              </span>
-            )}
             {childPlan && (
               <span data-testid="group-summary" className="text-gray-400 text-[11px] whitespace-nowrap shrink-0">
-                {recipes} recipe{recipes !== 1 ? 's' : ''} · {machines} machine{machines !== 1 ? 's' : ''}
+                {summary}
               </span>
             )}
           </div>
@@ -427,7 +435,7 @@ export function RecipeRow({
             />
           )}
         </td>
-        <td className="px-2 py-0.5" colSpan={2} onContextMenu={openAreaRowMenu}>
+        <td className={`px-2 py-0.5 ${hairline}`} colSpan={2} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.sends ?? []}
             direction="sends"
@@ -436,7 +444,7 @@ export function RecipeRow({
             testId="area-chips-out"
           />
         </td>
-        <td className="px-2 py-0.5" onContextMenu={openAreaRowMenu}>
+        <td className={`px-2 py-0.5 ${hairline}`} style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }} onContextMenu={openAreaRowMenu}>
           <AreaFlowCell
             flows={solvedArea?.receives ?? []}
             direction="receives"
@@ -445,7 +453,7 @@ export function RecipeRow({
             testId="area-chips-in"
           />
         </td>
-        <td className="px-2 py-0.5 text-right whitespace-nowrap" onContextMenu={openAreaRowMenu}>
+        <td className={`px-2 py-0.5 text-right whitespace-nowrap ${hairline}`} onContextMenu={openAreaRowMenu}>
           {groupPower && (
             <span data-testid="group-power" className="font-mono tabular-nums text-[11px] text-gray-400">
               {groupPower.value}<span className="opacity-60">{groupPower.unit}</span>
@@ -773,9 +781,9 @@ export function RecipeRow({
         </div>
       </td>
 
-      {/* Ingredients, right-aligned like the items a collapsed area receives */}
-      <td className="px-2 py-0.5">
-        <div className="flex flex-wrap gap-1.5 justify-end">
+      {/* Ingredients, left-aligned at the same x as the items a collapsed area receives */}
+      <td className="px-2 py-0.5" style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }}>
+        <div className="flex flex-wrap gap-1.5">
           {inputEntries.map(([itemId, ratePerMin]) => {
             const itemName = gameData.items[itemId]?.name ?? itemId
             const temp = temperatureLabels[itemId]
@@ -820,25 +828,38 @@ export function RecipeRow({
 // the "+N" for the flows past the cap is a button that opens a popup.
 // ---------------------------------------------------------------------------
 
-function AreaFlowCell({ flows, direction, items, rateUnit, testId }: {
+function AreaFlowCell(props: AreaFlowCellProps) {
+  if (props.flows.length === 0) return null
+  return <AreaFlowChips {...props} />
+}
+
+interface AreaFlowCellProps {
   flows: SolvedArea['receives']
   direction: 'receives' | 'sends'
   items: GameData['items']
   rateUnit: RateUnit
   testId: string
-}) {
-  if (flows.length === 0) return null
+}
+
+// The chips on one line: what fits is shown (all of them, or one fewer than fit and the "+N"); the rest is behind the "+N",
+// so a group row is as high as a recipe row whatever it sends and receives. The sent chips also have the 28px the received
+// ones are indented by (a negative margin takes them from the next cell's padding).
+function AreaFlowChips({ flows, direction, items, rateUnit, testId }: AreaFlowCellProps) {
+  const { ref, perLine } = useChipsPerLine<HTMLDivElement>()
+  const shown = chipsOnOneLine(flows.length, perLine, AREA_CHIP_CAP[direction])
   return (
     <div
+      ref={ref}
       data-testid={testId}
       role="group"
       aria-label={direction === 'receives' ? 'Receives' : 'Sends'}
-      className={`flex flex-wrap items-center gap-1.5 ${direction === 'sends' ? 'justify-start' : 'justify-end'}`}
+      className="flex flex-nowrap items-center gap-1.5 justify-start"
+      style={direction === 'sends' ? { marginRight: -INGREDIENTS_INDENT_PX } : undefined}
     >
-      {flows.slice(0, AREA_CHIP_CAP[direction]).map(f => (
+      {flows.slice(0, shown).map(f => (
         <FlowChip key={f.itemId} {...f} direction={direction} items={items} rateUnit={rateUnit} />
       ))}
-      <AreaChipsMore flows={flows.slice(AREA_CHIP_CAP[direction])} direction={direction} items={items} rateUnit={rateUnit} />
+      <AreaChipsMore flows={flows.slice(shown)} direction={direction} items={items} rateUnit={rateUnit} />
     </div>
   )
 }
@@ -851,6 +872,7 @@ interface ReorderCellProps {
   nodeId: string
   /** The row is selected: a teal bar on the left edge. */
   selected?: boolean
+  className?: string
   isFirst: boolean
   isLast: boolean
   moveUp: (id: string) => void
@@ -872,9 +894,9 @@ function DropLine({ edge }: { edge: 'top' | 'bottom' }) {
   )
 }
 
-function ReorderCell({ nodeId, selected, isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
+function ReorderCell({ nodeId, selected, className = '', isFirst, isLast, moveUp, moveDown }: ReorderCellProps) {
   return (
-    <td className="px-1 py-0.5 w-8" style={selected ? { boxShadow: 'inset 3px 0 0 #2dd4bf' } : undefined}>
+    <td className={`px-1 py-0.5 w-8 ${className}`} style={selected ? { boxShadow: 'inset 3px 0 0 #2dd4bf' } : undefined}>
       <div className="flex flex-col items-center gap-0">
         <button
           type="button"

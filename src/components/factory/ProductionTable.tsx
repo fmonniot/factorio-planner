@@ -8,7 +8,7 @@ import { TableToolbar } from './TableToolbar'
 import { useUiStore } from '../../store/uiStore'
 import { RecipeDndProvider, useRecipeDnd } from './RecipeDnd'
 import { ItemPicker } from '../ItemPicker'
-import { treeGuideStyle } from './treeGuides'
+import { treeGuideStyle, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canMoveNodeInto } from '../../data/nesting'
 import { ancestorHandleIds, indexRecipeAreas, presentRecipesFor, type AreaView } from './recipeAreas'
 import type { RecipeNode, SubPlan, SubPlanNode } from '../../data/types'
@@ -22,7 +22,7 @@ const REVEAL_HIGHLIGHT_MS = 2000
 // badge. Recipe, byproducts and ingredients share the rest of the width by weight and never get narrower than their
 // minimum px (so the table's minimum width is the sum of all the minimums, and it scrolls sideways in its wrapper below
 // that). A chip slot is 38px (32px icon + 6px gap), so n chips need 38n - 6px inside the cell's 16px of padding: the
-// minimums hold 1 byproduct chip and 3 ingredient chips per line. The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
+// minimums hold 1 byproduct chip and 2 ingredient chips per line (the ingredients start 28px in from the left padding, see treeGuides.ts). The table is `table-fixed`, so a wide area row cannot move the columns of the recipe rows.
 const PRODUCTS_WIDTH = 72
 type Column = { fixed: number } | { min: number; weight: number }
 const COLUMNS: Column[] = [
@@ -143,7 +143,7 @@ export function ProductionTable() {
                     <th className="px-2 py-1">Beacons</th>
                     <th className="px-2 py-1">Products</th>
                     <th className="px-2 py-1">Byproducts</th>
-                    <th className="px-2 py-1 text-right">Ingredients</th>
+                    <th className="px-2 py-1" style={{ paddingLeft: INGREDIENTS_PADDING_LEFT }}>Ingredients</th>
                     <th className="px-2 py-1 text-right whitespace-nowrap">Power</th>
                   </tr>
                 </thead>

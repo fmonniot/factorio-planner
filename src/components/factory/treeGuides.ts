@@ -37,3 +37,27 @@ const GROUP_TINTS = ['bg-gray-800/30', 'bg-gray-800/20', 'bg-gray-800/10', 'bg-g
 export function groupRowTint(depth: number): string {
   return GROUP_TINTS[Math.min(guideLevels(depth), GROUP_TINTS.length - 1)]
 }
+
+/**
+ * Background of an open group's row: a faint teal band (teal-400 at 5%) instead of the gray tint, so the rows
+ * below it read as belonging to it. A collapsed group keeps its tint. Full class names so Tailwind sees them.
+ */
+const OPEN_GROUP_BAND = 'bg-teal-400/5'
+
+export function groupRowBackground(depth: number, open: boolean): string {
+  return open ? OPEN_GROUP_BAND : groupRowTint(depth)
+}
+
+/**
+ * The line under an open group's header (teal-400 at 28%), drawn inside every cell of the row: a shadow on the
+ * row itself is not painted by every browser. A selected row does not get it (the selection has its own outline).
+ */
+export const OPEN_GROUP_HAIRLINE = 'shadow-[inset_0_-1px_0_rgba(45,212,191,0.28)]'
+
+/**
+ * Ingredient chips start at the left of their column, 28px further right than the cell's own 8px of padding.
+ * A collapsed area row borrows the same 28px from the Products span for its "+N", so its first received chip
+ * and a recipe row's first ingredient start at the same x. The Ingredients header is indented the same.
+ */
+export const INGREDIENTS_INDENT_PX = 28
+export const INGREDIENTS_PADDING_LEFT = `${CELL_PADDING_PX + INGREDIENTS_INDENT_PX}px`
