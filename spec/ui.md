@@ -833,7 +833,7 @@ Products, Byproducts and Ingredients are adjacent on purpose: everything a machi
 
 `RecipeRow.tsx`, one per `GameRecipeNode`. Nodes whose recipe does not exist in the loaded data render nothing. Every row (recipe or sub-factory) carries `data-node-id`.
 
-**Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`: a teal bar on the left of the reorder cell and a tinted background) and opens the [side panel](#side-panel). The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
+**Selecting.** Clicking a row anywhere that is not a button, field, label or menu selects it (`data-selected="true"`) and opens the [side panel](#side-panel). A selected row, recipe or group, is drawn the same way: a full-row teal tint (`rgba(20,184,166,0.22)`, teal-500 at 22%, which replaces a group's depth tint), a 3px inset bar on the left of the reorder cell (`#2dd4bf`, teal-400), a 1px inset outline around the whole row (`rgba(45,212,191,0.65)`, `outline-offset: -1px`) and a white, bold name. Hover does not repaint a selected row, and the flash of a just-revealed row draws its own outline instead of the selection's. Selecting changes no size. The recipe icon and name is a button (`aria-pressed`), the keyboard path to the same selection. The chips and menus keep their own behaviour and do not select the row.
 
 **Reorder cell.** ▲/▼ move the node within its sub-plan (disabled at the ends). They are `text-gray-400`, 3:1 on the row.
 
