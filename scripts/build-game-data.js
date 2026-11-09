@@ -97,6 +97,7 @@ import sharp from 'sharp'
 import { compositeIconLayers, iconCanvasSize, normalizeIcon } from './icon-compositor.js'
 import { exportTechnologies, attachTechnologyIcons } from './technologies.js'
 import { attachPlaceResults } from './place-results.js'
+import { addIconColors } from './icon-color.js'
 import { fluidTemperatures, productTemperature, attachFluidTemperatures, attachProductTemperatures } from './temperatures.js'
 import { itemFuel, fluidFuel, burnerFuel, attachFuel, fuelOverlaps } from './fuel.js'
 import { iconPublicUrl } from './icon-url.js'
@@ -978,6 +979,7 @@ if (args.patchPower) {
   Object.assign(machines, power.machines)
   Object.assign(recipes, power.recipes)
   Object.assign(items, power.items)
+await addIconColors(items, iconsOut)
   Object.assign(itemGroups, power.itemGroups)
   Object.assign(itemSubgroups, power.itemSubgroups)
   Object.assign(defaultMachines, computeDefaultMachines(machines, buildCategoryMap(power.machines)))

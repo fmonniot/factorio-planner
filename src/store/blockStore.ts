@@ -3,7 +3,7 @@ import { canConnect } from './connections'
 import { findSubPlan } from '../data/subPlanTree'
 import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nesting'
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
-import { pickBlockColor, HEX_COLOR_RE } from '../data/blockColors'
+import { pickBlockColor, pickBlockColorForIcon, HEX_COLOR_RE } from '../data/blockColors'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -329,10 +329,11 @@ export interface BlockStoreState {
   setItemSourcing: (itemId: string, mode: ItemSourcingMode | undefined) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item
-   * from it on `consumerId` (default: the active block). Returns the new block's id, or
+   * from it on `consumerId` (default: the active block). The block's colour follows the hue of
+   * `iconColor` (the item's `iconColor`) when given, else it is picked at random. Returns the new block's id, or
    * undefined, with no change, when the consumer is missing or cannot connect.
    */
-  addBlockForItem: (itemId: string, name: string, consumerId?: string) => string | undefined
+  addBlockForItem: (itemId: string, name: string, consumerId?: string, iconColor?: string) => string | undefined
 
   // Inbound connections (block-level; the target block (default: active) receives itemId from fromBlockId)
   /** Connect; a request when `itemId` is a product of the source (a cycle of requests is allowed and solved in rounds), otherwise it takes existing output. */
@@ -839,14 +840,14 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       })
     }),
 
-  addBlockForItem: (itemId, name, consumerId) => {
+  addBlockForItem: (itemId, name, consumerId, iconColor) => {
     let newId: string | undefined
     set(state => {
       const targetId = consumerId ?? state.activeBlockId
       const consumer = state.blocks.find(b => b.id === targetId)
       if (!consumer) return state
       const block: Block = {
-        ...makeEmptyBlock(name, pickBlockColor(state.blocks.map(b => b.color))),
+        ...makeEmptyBlock(name, pickBlockColorForIcon(iconColor, state.blocks.map(b => b.color))),
         products: [{ id: crypto.randomUUID(), itemId }],
       }
       const blocks = [...state.blocks, block]

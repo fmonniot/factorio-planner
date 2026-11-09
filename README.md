@@ -188,6 +188,12 @@ node scripts/build-game-data.js --patch-fuel \
 
 `--patch-names` works the same way but recomputes only the `name` fields (from the game's resolved names, which must all be present, see `--locale-dir` above); it applies the same mod-set check. It also refreshes the names of extraction recipes (`<resource> (mining)`, `<fluid> (offshore pump)`), power recipes (`<machine> (<fuel>)`) and of drills, pumps and generation machines.
 
+`iconColor` (the mean colour of each item's icon, which sets the default colour of a block made for that item) is computed by the full build. The `--patch-*` modes rewrite items without it, so run this after any of them:
+
+```sh
+node scripts/patch-icon-colors.mjs public/data/nullius/game-data.json   # --icons <dir> if the icons are elsewhere
+```
+
 The paths above are the macOS defaults. Adjust them for your platform.
 
 `--factorio-dir` must be the `Contents` folder of the install that has the `data/` directory (the game's built-in mods, `base`, `elevated-rails`, `quality` and `space-age`, are read from `<factorio-dir>/data`), and `--mods-dir` the user directory's `mods/` folder whose `mod-list.json` says which mods are enabled. The Steam install on macOS is `~/Library/Application Support/Steam/steamapps/common/Factorio/factorio.app/Contents`; the same folder holds the binary to run `--dump-data` with, in `MacOS/factorio`. A wrong `--factorio-dir` does not fail on its own: the build warns that `<factorio-dir>/data` is missing, then the patch modes stop with a mod-set mismatch listing a built-in mod as `dump=(missing)` (for example `elevated-rails`). That means the path is wrong, not that the enabled mods or the dump changed, so fix the path before regenerating anything. Re-dumping is only needed when the mod set or the game version really changed. [spec/data-model.md](spec/data-model.md) documents the output format.
@@ -211,10 +217,12 @@ After re-exporting the Seablock bundle, run `npm run contract`: the in-game view
 | `src/utils/` | Small helpers (icon URLs, pan/zoom transform maths, popup positioning, block-graph layout) |
 | `scripts/build-game-data.js` | Converts a `--dump-data` dump into `game-data.json` and extracts icons |
 | `scripts/fuel.js` | Burner and fluid fuel data of items, fluids and machines (used by the build script and `--patch-fuel`) |
+| `scripts/icon-color.js` | Mean colour of an icon, and `iconColor` for a bundle's items (used by the build script and `patch-icon-colors.mjs`) |
 | `scripts/icon-compositor.js` | Composites layered icons (used by the build script) |
 | `scripts/icon-url.js` | Derives the public-relative `iconPath` prefix from the icons output directory |
 | `scripts/locale.js` | Locale parsing, name resolution and the game's resolved-name lookup (used by the build script) |
 | `scripts/modset.js` | Compares the bundle's mod set with the dump's, ignoring `base` and the viewer mod (used by the patch modes) |
+| `scripts/patch-icon-colors.mjs` | Adds `iconColor` to an existing bundle from its icons |
 | `scripts/place-results.js` | Marks the items that place a machine or beacon (`placeResult`; used by the build script) |
 | `scripts/temperatures.js` | Fluid and recipe-product temperatures (used by the build script and `--patch-temperatures`) |
 | `scripts/extraction.js` | Exports mining and offshore-pump recipes and the drills and pumps that run them (used by the build script) |

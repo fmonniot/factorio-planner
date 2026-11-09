@@ -149,7 +149,7 @@ reorder surface. The add-block button is not part of the strip: see [TopBar](#to
 - The **Add block** tool button (`AddBlockButton`, in the top bar's tool row) adds a new empty block named "Block N" and activates it. Every block has a
   display colour ([data-model.md](data-model.md#block)); a new block gets a random
   palette colour, preferring one no other block uses. A block can also be created by
-  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last).
+  **Make in a new block…** in the [Ingredients pane](#ingredients-pane)'s menu (named after the item, appended last); that block takes its colour from the item's icon (the palette colour nearest its hue, random for a grey icon).
 - Drag a tab onto another to reorder the blocks: a blue line shows the insertion point on the half of
   the tab under the pointer (no line where a drop would not move anything), and the dragged tab is
   dimmed. The strip scrolls when the pointer nears its left or right edge. The active block stays

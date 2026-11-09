@@ -61,7 +61,6 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## UI / UX
 
 - [ ] **Sub-factory detail: subtitle instead of area badge.** In the detail panel of a sub-factory, drop the area badge and use the subtitle to say whether it is an area or a plain group.
-- [ ] **Default block colour from the block's icon.** Derive a new block's default colour from its first goal's icon. The colour is fixed at creation.
 - [ ] **Undo/redo in the UI.** `undo` / `redo` exist in `src/store/blockStore.ts`; no button or shortcut calls them. Connection edits made on a non-active block (block graph) are recorded in the consumer's history, but `undo` / `redo` act on the active block only; the UI should account for this (e.g. switch to the edited block, or make the graph's edits undoable from the graph). **Make in a new block…** records the request in the consumer's history while the new block becomes active, so undo then acts on the new block (nothing to undo) until the user switches back.
 - [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)

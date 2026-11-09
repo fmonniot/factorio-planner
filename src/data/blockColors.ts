@@ -1,5 +1,6 @@
-// Block display colours: the palette, how new blocks pick one, and how plans
-// saved before blocks had a colour get theirs. Pure; no React or store imports.
+// Block display colours: the palette, how new blocks pick one (at random, or by
+// the hue of an item's icon), and how plans saved before blocks had a colour
+// get theirs. Pure; no React or store imports.
 
 /**
  * Colours a block can take. They avoid the hues that already carry meaning in
@@ -33,6 +34,62 @@ export function pickBlockColor(
   const open = BLOCK_PALETTE.filter(c => c !== exclude)
   const min = Math.min(...open.map(c => counts.get(c)!))
   const candidates = open.filter(c => counts.get(c) === min)
+  return candidates[Math.floor((opts.random ?? Math.random)() * candidates.length)]
+}
+
+/** Icon colours less saturated than this (HSV) are treated as grey and picked at random. */
+export const NEUTRAL_SATURATION = 0.2
+
+/** Palette colours this many degrees beyond the nearest hue still count as a match. */
+export const HUE_WINDOW = 20
+
+/** HSV hue (0-359 degrees) and saturation (0-1) of a `#rrggbb` colour. */
+export function hueSaturation(hex: string): { hue: number; saturation: number } {
+  const n = parseInt(hex.slice(1), 16)
+  const r = ((n >> 16) & 255) / 255
+  const g = ((n >> 8) & 255) / 255
+  const b = (n & 255) / 255
+  const max = Math.max(r, g, b)
+  const delta = max - Math.min(r, g, b)
+  let hue = 0
+  if (delta > 0) {
+    if (max === r) hue = ((g - b) / delta) % 6
+    else if (max === g) hue = (b - r) / delta + 2
+    else hue = (r - g) / delta + 4
+    hue = (hue * 60 + 360) % 360
+  }
+  return { hue: Math.round(hue) % 360, saturation: max === 0 ? 0 : delta / max }
+}
+
+function hueDistance(a: number, b: number): number {
+  const d = Math.abs(a - b) % 360
+  return Math.min(d, 360 - d)
+}
+
+/**
+ * Pick a palette colour for a new block made for an item whose icon has the
+ * colour `iconColor`: the palette colours whose hue is within HUE_WINDOW degrees
+ * of the nearest one, the least-used of those (ties at random). An absent,
+ * invalid or grey (saturation below NEUTRAL_SATURATION) colour falls back to
+ * `pickBlockColor`.
+ */
+export function pickBlockColorForIcon(
+  iconColor: string | undefined,
+  used: readonly string[],
+  opts: { random?: () => number } = {},
+): string {
+  const hex = iconColor?.toLowerCase()
+  if (hex === undefined || !HEX_COLOR_RE.test(hex)) return pickBlockColor(used, opts)
+  const { hue, saturation } = hueSaturation(hex)
+  if (saturation < NEUTRAL_SATURATION) return pickBlockColor(used, opts)
+
+  const distances = BLOCK_PALETTE.map(c => hueDistance(hue, hueSaturation(c).hue))
+  const nearest = Math.min(...distances)
+  const lowered = used.map(u => u.toLowerCase())
+  const shortlist = BLOCK_PALETTE.filter((_, i) => distances[i] <= nearest + HUE_WINDOW)
+  const useCount = (c: string) => lowered.filter(u => u === c).length
+  const min = Math.min(...shortlist.map(useCount))
+  const candidates = shortlist.filter(c => useCount(c) === min)
   return candidates[Math.floor((opts.random ?? Math.random)() * candidates.length)]
 }
 

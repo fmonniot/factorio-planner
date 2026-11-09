@@ -7,6 +7,7 @@ import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/block
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
+import { BLOCK_PALETTE } from '../../data/blockColors'
 import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
 
 const mockGameData: GameData = {
@@ -826,8 +827,9 @@ describe('FactorySummary — connections', () => {
     const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
 
     /** A recipe that makes Iron Ore, so the item can be made in a new block. */
-    function withOreRecipe() {
+    function withOreRecipe(oreIconColor?: string) {
       const data = structuredClone(mockGameData)
+      if (oreIconColor) data.items['iron-ore'].iconColor = oreIconColor
       data.recipes['ore-synth'] = {
         id: 'ore-synth', name: 'Ore Synth', category: 'crafting', craftingTime: 1,
         ingredients: [], products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
@@ -885,6 +887,24 @@ describe('FactorySummary — connections', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
       await waitFor(() => screen.getByRole('heading', { name: 'Add recipe' }))
       expect(screen.getByText("Choose a recipe to produce 'Iron Ore'")).toBeInTheDocument()
+    })
+
+    it('Make in a new block takes the colour from the item icon colour', () => {
+      withOreRecipe('#ffff00')
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Make in a new block…' }))
+      expect(useBlockStore.getState().blocks[2].color).toBe('#a3e635')
+    })
+
+    it('Make in a new block without an icon colour still gets a palette colour', () => {
+      withOreRecipe()
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      render(<FactorySummary />)
+      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Make in a new block…' }))
+      expect(BLOCK_PALETTE).toContain(useBlockStore.getState().blocks[2].color as typeof BLOCK_PALETTE[number])
     })
 
     it('sets Connections first for a connected item, before Forbid imports', () => {

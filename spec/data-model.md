@@ -61,6 +61,7 @@ interface Item {
   name: string          // English display name (the game's resolved name from `<type>-locale.json` when the dump has it, otherwise locale resolved, Factorio `__ITEM__x__` / `__ENTITY__x__` / `__FLUID__x__` / `__TILE__x__` placeholders expanded; falls back to id)
   type: 'item' | 'fluid'
   iconPath: string      // see "Icon paths" below
+  iconColor?: string    // '#rrggbb', mean colour of the icon; see "Icon paths" below
   hidden: boolean       // default false
   stackSize?: number    // positive int; absent for fluids
   subgroup: string      // item-subgroup id; default ''
@@ -406,6 +407,13 @@ derives it from the icons output directory relative to `public/`
 directory is outside `public/`, the script warns and falls back to a
 cwd-relative path. An empty string means no icon could be resolved.
 
+An item's optional `iconColor` (`#rrggbb`, lower-case) is the mean colour of the
+opaque pixels (alpha >= 128) of its icon on a 16x16 downscale, weighted by alpha
+(`scripts/icon-color.js`). The build script sets it after the items are exported;
+`scripts/patch-icon-colors.mjs` adds it to an existing bundle. It is absent in
+older bundles, in custom data and for an item without an icon (or whose icon has
+no opaque pixel). Only a new block's default colour reads it.
+
 Technology icons are written to `icons/technology/<id>.png`, in their own folder
 because a technology can share its id with an item (`automation-science-pack`),
 and are capped at 128 px.
@@ -608,7 +616,7 @@ sub-plans. Saved plans are written back in the new shape on the next save.
 
 **Legacy pulls.** Earlier plans stored `pull: true` on a connection whose consumer's demand drove the source. `AppStateSchema` preprocesses the whole state with `migrateLegacyPulls` (after `assignMissingBlockColors`): it first runs `migrateBlock` on a shallow copy of every raw block, so hoisted goals already exist as products, then, for every `pull: true` connection that is not one of the cases below, adds a product for the item (no `extraRate`) to its source, whether or not the source has a recipe for it (a former pull from a block that could not make the item now shows as short in that block). A pull is left alone (the key is simply dropped on load) when it repeats an earlier `(source, item)` pair of the consumer, points at the consumer itself or a missing block, or when its source already has a product for the item or receives the item itself (one of its connections for the item comes from another existing block). Pulls that formed a cycle are not skipped: each source gets an empty product, and the solver then solves the cycle of requests in rounds (see [solver.md](solver.md#cycles-of-requests)), so the cycle now drives its blocks. The raw input is never mutated and the migration is idempotent. `BlockConnectionSchema` has no `pull` field; Zod strips it.
 
-**Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. New and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
+**Block colour.** `AppStateSchema` preprocesses the whole state with `assignMissingBlockColors`, because a colour for one block depends on the others. A block without a valid `#rrggbb` colour gets the first palette colour no block uses yet, in block order, so loading the same old plan always gives the same colours; valid colours are kept (lower-cased), duplicates included. When all 16 palette colours are taken, the block at index `i` in block order falls back to `palette[i % 16]`. A block created with a product (**Make in a new block…**) takes the palette colour nearest the hue of the item's `iconColor`: the palette colours within 20 degrees of the nearest hue are shortlisted, the least-used by other blocks win, and ties are broken at random; a grey icon colour (HSV saturation below 0.2) or a missing one falls back to the random pick. Added and duplicated blocks pick a random palette colour, preferring one no other block uses (a duplicate never takes its source's colour). The colour is chosen once at creation and never recomputed, so a block that gains its first product later keeps its colour. The user can change a block's colour to any `#rrggbb` from its tab menu, which offers the palette (stored lower-case; sharing is allowed). The palette and these rules live in `src/data/blockColors.ts`; it avoids the hues that carry meaning in the summary panes (teal, amber, grey).
 
 **Connections.** A connection is stored on the *consumer* block and points at its
 source by id, so renaming a block changes nothing and a source is never modified
