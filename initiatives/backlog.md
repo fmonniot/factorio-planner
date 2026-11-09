@@ -66,18 +66,10 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Default machines flyout: grid keyboard navigation.** Up / Down inside the flyout walk every machine radio in one list (hundreds of stops in Seablock). Navigate it as a grid instead: Up / Down between category rows, Left / Right within a row.
 - [ ] **Keyboard navigation.** Arrow keys and Enter in the pickers; shortcuts for add goal, undo, redo. (Escape already closes modals, popovers and pickers.)
 - [ ] **Localised crafting-category names.** The default-machines flyout and the machine picker label categories from their id (`categoryLabel` in `src/data/defaultMachines.ts`); `scripts/locale.js` parses entity/item names only. Extract category names (or derive from the machines that craft them) and use them instead.
-- [ ] **Touch alternatives for right-click menus.** The row, product, block tab and connection menus open on right-click only; add a long-press or a visible "..." button.
-- [ ] **Touch drag-and-drop.** Row and block-tab reordering relies on mouse drag events and has no touch path.
-- [ ] **Hover-only UI on touch.** `IconButton` tooltips and `useHoverPopup` popups appear on hover and focus only; make them reachable on tap.
-- [ ] **Enlarge small touch targets.** `ReorderCell`, the expand chevron, colour swatches and the add-product button are under 24px.
-- [ ] **Sticky Recipe column.** Keep the Recipe column visible while the table scrolls sideways on narrow screens.
 - [ ] **Drawer focus management.** Below `xl` the drawer needs it: move focus into it, trap Tab (or make the table inert) and set `role="dialog"` / `aria-modal` only while it is a drawer.
-- [ ] **Recipe picker detail panel below `xl`.** The hover detail panel floats beside the picker and is hidden below 1280px, so on tablets and narrow windows hovering a recipe shows nothing; show it under the grid or in a bottom sheet (and on tap for touch).
-- [ ] **Short viewports.** A collapsible summary strip when the viewport is short (landscape phones).
-- [ ] **Playwright touch/mobile project.** Run a subset of the e2e suite with touch emulation.
 - [ ] **Drag-and-drop goal ordering.**
 - [ ] **Recipe picker: explain an empty list when opened for an item.** The byproduct menu's **Add consumer recipe…**, the summary strip's **Find recipe** (Products and Ingredients) and **Make in a new block…** stay available, but they can open the picker with nothing to choose: no recipe consumes the byproduct, the item is raw, or every matching recipe is outside the research horizon. The picker only says "No recipes match" (or, when the horizon emptied the list, "No recipes match within the research horizon (N outside it)"). Make the message name the item and the reason: no recipe produces / consumes it at all, versus some exist but are outside the horizon (pointing at **Beyond research horizon**).
-- [ ] **Replace native `window.prompt` / `window.confirm` dialogs.** Renaming a block (`BlockTabs.tsx`), **Wrap in subfactory…** and removing a sub-factory (`RecipeRow.tsx`) use the browser's own dialogs, which are unstyled, block the page, can be suppressed by the browser and are awkward to test. Reuse the `Modal` and the `PlanNameDialog` pattern already used for plans. Also let a double-click on a block tab start the rename, since the context menu is the only way today (and it is right-click only, see the touch items above).
+- [ ] **Replace native `window.prompt` / `window.confirm` dialogs.** Renaming a block (`BlockTabs.tsx`), **Wrap in subfactory…** and removing a sub-factory (`RecipeRow.tsx`) use the browser's own dialogs, which are unstyled, block the page, can be suppressed by the browser and are awkward to test. Reuse the `Modal` and the `PlanNameDialog` pattern already used for plans. Also let a double-click on a block tab start the rename, since the context menu is the only way today (and it is right-click only, see **Touch alternatives for right-click menus** under Phone support).
 - [ ] **Warnings that point at their cause.** The warnings popover lists text only. Link each warning to the row, item or block it names (reveal the row with `uiStore.requestRevealRow`, select the slot, or switch to the named block), so the player does not have to find the recipe by name in a long table.
 
 ## Data sets
@@ -88,6 +80,17 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 ## Tests and tooling
 
 - [ ] **Run e2e against the production build.** Playwright starts `npm run dev`, so every test pays for Vite's on-demand module transforms and the dev server's PNG→WebP conversion. Serving the built `dist/` with `vite preview` should be faster and closer to what ships. It needs the `/factorio-planner/` base path in `baseURL` and the specs' URLs, and a build before the e2e step (the CI `e2e` and `build` jobs could share one build through an artifact). Measure a local run of both before committing to it.
+
+## Phone support
+
+- [ ] **Touch alternatives for right-click menus.** The row, product, block tab and connection menus open on right-click only; add a long-press or a visible "..." button.
+- [ ] **Touch drag-and-drop.** Row and block-tab reordering relies on mouse drag events and has no touch path.
+- [ ] **Hover-only UI on touch.** `IconButton` tooltips and `useHoverPopup` popups appear on hover and focus only; make them reachable on tap.
+- [ ] **Enlarge small touch targets.** `ReorderCell`, the expand chevron, colour swatches and the add-product button are under 24px.
+- [ ] **Sticky Recipe column.** Keep the Recipe column visible while the table scrolls sideways on narrow screens.
+- [ ] **Recipe picker detail panel below `xl`.** The hover detail panel floats beside the picker and is hidden below 1280px, so on tablets and narrow windows hovering a recipe shows nothing; show it under the grid or in a bottom sheet (and on tap for touch).
+- [ ] **Short viewports.** A collapsible summary strip when the viewport is short (landscape phones).
+- [ ] **Playwright touch/mobile project.** Run a subset of the e2e suite with touch emulation.
 
 ## Nullius
 
