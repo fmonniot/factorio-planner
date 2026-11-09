@@ -1,5 +1,8 @@
 export interface Box { left: number; top: number; right: number; bottom: number }
 
+/** A popup's position; `maxHeight` is set when the popup has to be shorter than it wants to be to stay clear of its anchor. */
+export interface Placement { left: number; top: number; maxHeight?: number }
+
 /**
  * Where to put a fixed-position popup of `size` next to `anchor`: to its right, flipped
  * to its left when that overflows, top-aligned, and clamped inside the viewport.
@@ -10,7 +13,7 @@ export function anchoredPosition(
   viewport: { width: number; height: number },
   gap = 8,
   margin = 8,
-): { left: number; top: number } {
+): Placement {
   let left = anchor.right + gap
   if (left + size.width > viewport.width - margin) left = anchor.left - gap - size.width
   left = Math.max(margin, Math.min(left, viewport.width - size.width - margin))
@@ -21,8 +24,9 @@ export function anchoredPosition(
 
 /**
  * Where to put a fixed-position popup of `size` under `anchor` (a small button): its left edge 16px before the anchor's, a
- * 4px gap below it, flipped above the anchor when it does not fit below (and when it fits neither way, pushed up until it is
- * on screen), clamped inside the viewport horizontally. Unlike `anchoredPosition` it stays over the anchor's column.
+ * 4px gap below it, flipped above the anchor when it does not fit below, clamped inside the viewport horizontally. Unlike
+ * `anchoredPosition` it stays over the anchor's column. When it fits neither below nor above (a short screen) it takes the
+ * side with more room and returns that room as `maxHeight`, for the popup to scroll in: it never covers its anchor.
  */
 export function anchoredBelow(
   anchor: Box,
@@ -30,12 +34,13 @@ export function anchoredBelow(
   viewport: { width: number; height: number },
   gap = 4,
   margin = 8,
-): { left: number; top: number } {
+): Placement {
   const left = Math.max(margin, Math.min(anchor.left - 16, viewport.width - size.width - margin))
-  let top = anchor.bottom + gap
-  if (top + size.height > viewport.height - margin) {
-    const above = anchor.top - gap - size.height
-    top = above >= margin ? above : Math.max(margin, viewport.height - size.height - margin)
-  }
-  return { left, top }
+  const roomBelow = viewport.height - margin - (anchor.bottom + gap)
+  const roomAbove = anchor.top - gap - margin
+  if (size.height <= roomBelow) return { left, top: anchor.bottom + gap }
+  if (size.height <= roomAbove) return { left, top: anchor.top - gap - size.height }
+  return roomBelow >= roomAbove
+    ? { left, top: anchor.bottom + gap, maxHeight: Math.max(0, roomBelow) }
+    : { left, top: margin, maxHeight: Math.max(0, roomAbove) }
 }

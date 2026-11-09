@@ -313,7 +313,7 @@ function EmptySubPlanDropTarget({ subPlanId, depth }: { subPlanId: string; depth
       onDragLeave={() => setIsOver(false)}
       onDrop={handleDrop}
     >
-      <td colSpan={columnCount(narrow)} className="py-2 text-center text-gray-700 text-[10px]" style={treeGuideStyle(depth)}>
+      <td colSpan={columnCount(narrow)} className="py-2 text-center text-gray-700 text-[10px]" style={treeGuideStyle(depth, narrow)}>
         Drop here
       </td>
     </tr>

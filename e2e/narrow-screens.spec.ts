@@ -1,4 +1,5 @@
 import { test, expect, type Locator, type Page } from '@playwright/test'
+import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 
@@ -15,6 +16,24 @@ async function open(page: Page, fixture: string, width: number) {
   await loadPlanFixture(page, fixture)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
   await expect(page.locator('main table tbody tr [data-variant], main table tbody tr [data-direction]').first()).toBeVisible({ timeout: 10000 })
+}
+
+// A chain of organising groups G1 > G2 > G3 > G4, each holding a recipe row: rows at nesting levels 0 to 4.
+const id = (kind: string, n: number) => `dddd${String(kind.charCodeAt(0)).padStart(4, '0')}-0000-0000-0000-${String(n).padStart(12, '0')}`
+const STAMP = '2026-05-10T00:00:00.000Z'
+interface PlanNode { kind: string; id: string; recipeId?: string; subPlanId?: string; modules?: unknown[]; byproductPolicy?: object; pinnedRate?: number }
+interface PlanTree { id: string; name: string; nodes: PlanNode[]; subPlans: PlanTree[]; createdAt: string; updatedAt: string }
+const RECIPES = ['nullius-chemical-pack', 'nullius-hydrogen-chloride', 'nullius-ammonia-barrel', 'nullius-acid-sulfuric', 'nullius-methanol']
+const row = (n: number): PlanNode => ({ kind: 'game-recipe', id: id('r', n), recipeId: RECIPES[n - 1], modules: [], byproductPolicy: {}, pinnedRate: 60 })
+const group = (n: number, nodes: PlanNode[], subPlans: PlanTree[] = []): PlanTree => ({ id: id('p', n), name: `G${n}`, nodes, subPlans, createdAt: STAMP, updatedAt: STAMP })
+const handle = (g: PlanTree): PlanNode => ({ kind: 'subplan', id: id('h', +g.name.slice(1)), subPlanId: g.id })
+function nestedPlan() {
+  const g4 = group(4, [row(5)])
+  const g3 = group(3, [row(4), handle(g4)], [g4])
+  const g2 = group(2, [row(3), handle(g3)], [g3])
+  const g1 = group(1, [row(2), handle(g2)], [g2])
+  const root = { ...group(0, [row(1), handle(g1)], [g1]), name: 'Main' }
+  return { blocks: [{ id: id('b', 1), name: 'Nested', color: '#60a5fa', products: [{ id: id('q', 1), itemId: 'nullius-methanol', extraRate: 100 }], noImportItems: [], inputConnections: [], rootPlan: root }], activeBlockId: id('b', 1) }
 }
 
 const rows = (page: Page) => page.locator('main table tbody tr')
@@ -53,6 +72,37 @@ test.describe('narrowStack: Machine and Beacons under the recipe name, below 768
     expect(await stack.getByRole('button').count(), 'machine, module and beacon chips').toBeGreaterThanOrEqual(3)
     const tops = await stack.getByRole('button').evaluateAll(els => new Set(els.map(e => Math.round(e.getBoundingClientRect().top))).size)
     expect(tops, 'one line').toBe(1)
+  })
+
+  test('the machine stack stays inside the Recipe cell at every nesting level, at the table minimum and above', async ({ page }, testInfo) => {
+    const fixture = testInfo.outputPath('nested.json')
+    fs.mkdirSync(path.dirname(fixture), { recursive: true })
+    fs.writeFileSync(fixture, JSON.stringify(nestedPlan()))
+    for (const width of [360, 416, 554, 572]) {
+      await open(page, fixture, width)
+      for (const name of ['G1', 'G2', 'G3', 'G4']) {
+        const chevron = page.getByRole('button', { name: `Expand ${name}`, exact: true })
+        if (await chevron.count()) await chevron.click()
+      }
+      for (let n = 1; n <= 5; n++) {
+        const tr = page.locator(`main tr[data-node-id="${id('r', n)}"]`)
+        await expect(tr).toBeVisible()
+        const cell = tr.locator('td').nth(1)
+        await expect(cell).toHaveAttribute('data-guide-levels', String(n - 1))
+        const chips = cell.getByTestId('row-machine-stack').getByRole('button')
+        expect(await chips.count(), 'machine, module, beacon and beacon module chips').toBe(4)
+        const boxes = await chips.evaluateAll(els => els.map(e => { const b = e.getBoundingClientRect(); return { left: b.left, right: b.right } }))
+        const cellBox = (await cell.boundingBox())!
+        const products = (await tr.locator('td').nth(2).locator('[data-variant]').first().boundingBox())!
+        const last = boxes[boxes.length - 1]
+        expect(last.right, `${width}px, level ${n - 1}: the last chip ends inside the cell`).toBeLessThanOrEqual(cellBox.x + cellBox.width + 0.5)
+        expect(last.right, `${width}px, level ${n - 1}: the last chip does not reach the Products chip`).toBeLessThanOrEqual(products.x)
+        for (let i = 1; i < boxes.length; i++) expect(boxes[i].left, 'chips do not overlap').toBeGreaterThanOrEqual(boxes[i - 1].right)
+        // A click on the last chip lands on it, not on the Products chip.
+        const hit = await chips.last().evaluate(e => { const b = e.getBoundingClientRect(); return e.contains(document.elementFromPoint(b.right - 2, b.top + b.height / 2)) })
+        expect(hit, `${width}px, level ${n - 1}: the last chip takes its clicks`).toBe(true)
+      }
+    }
   })
 
   test('a group row has no Machine and Beacons span: its name cell is the Recipe column, its summary under the name', async ({ page }) => {
@@ -132,6 +182,46 @@ test.describe('narrowStack: Machine and Beacons under the recipe name, below 768
     await expect(page.locator('main table tbody tr[data-selected="true"]')).toHaveCount(0)
   })
 
+  test('a hidden ingredient in the list keeps its action: it opens the recipe picker, naming its exact rate', async ({ page }) => {
+    await open(page, PLAN, 416)
+    const more = page.getByRole('button', { name: /more ingredients$/ }).first()
+    await more.scrollIntoViewIfNeeded()
+    await more.click()
+    const dialog = page.getByRole('dialog', { name: 'More ingredients' })
+    await expect(dialog).toBeVisible()
+    const chip = dialog.locator('button[data-variant="ingredient"]').first()
+    await expect(chip).toHaveAttribute('title', /^.+ — Find producer recipe — \S+$/)
+    await chip.click()
+    await expect(page.getByRole('heading', { name: 'Add recipe' })).toBeVisible()
+    await expect(dialog).toBeHidden()
+  })
+
+  test('the dialog takes focus when it opens and gives it back to its +N, and Tab past it closes it', async ({ page }) => {
+    await open(page, PLAN, 416)
+    const more = page.getByRole('button', { name: /more (byproducts|ingredients)$/ }).first()
+    await more.scrollIntoViewIfNeeded()
+    await more.click()
+    const dialog = page.getByRole('dialog', { name: /^More (byproducts|ingredients)$/ })
+    await expect(dialog).toBeFocused()
+    await expect(more).toHaveAttribute('aria-controls', (await dialog.getAttribute('id'))!)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+    await expect(more).toBeFocused()
+
+    await more.click()
+    await expect(dialog).toBeFocused()
+    await dialog.getByRole('button', { name: 'Close' }).click()
+    await expect(more).toBeFocused()
+
+    // Tab walks the dialog (Close, then the chips); past the last control focus leaves it and the dialog closes.
+    await more.click()
+    await expect(dialog).toBeVisible()
+    await page.keyboard.press('Tab')
+    await expect(dialog.getByRole('button', { name: 'Close' })).toBeFocused()
+    for (let i = 0; i < 12 && await dialog.isVisible(); i++) await page.keyboard.press('Tab')
+    await expect(dialog).toBeHidden()
+  })
+
   test('the +N of an area row is anchored the same way: under its button, over its column', async ({ page }) => {
     await open(page, OVERFLOW, 1440)
     const more = rows(page).getByTestId('area-chips-more').first()
@@ -173,6 +263,18 @@ test.describe('narrowToolbar: the table toolbar does not wrap, below 768 px', ()
     expect(await pill.evaluate(el => getComputedStyle(el).paddingLeft)).toBe('8px')
     expect((await pill.boundingBox())!.height).toBeLessThanOrEqual(28)
     expect(await pill.getByText('▼').isVisible()).toBe(false)
+  })
+
+  test('does not overflow at 768 px with a warning: the no-wrap and no-shrink rules are for below 768 px only', async ({ page }) => {
+    for (const width of [768, 775, 800]) {
+      await open(page, PLAN, width)
+      const toolbar = page.getByTestId('table-toolbar')
+      await expect(toolbar.getByRole('button', { name: /^⚠ \d+ warnings?/ })).toBeVisible()
+      const [sw, cw] = await toolbar.evaluate(el => [el.scrollWidth, el.clientWidth])
+      expect(sw, `${width}px: nothing runs out of the toolbar`).toBeLessThanOrEqual(cw)
+      const [power, bar] = await Promise.all([toolbar.getByTestId('block-power-total').boundingBox(), toolbar.boundingBox()])
+      expect(power!.x + power!.width, `${width}px: the power total is inside the toolbar`).toBeLessThanOrEqual(bar!.x + bar!.width)
+    }
   })
 
   test('keeps the full pill and the machine count from 768 px', async ({ page }) => {

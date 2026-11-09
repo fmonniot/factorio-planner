@@ -31,14 +31,15 @@ export function chipsOnOneLine(total: number, perLine: number | null, cap: numbe
 
 /**
  * The number of chips that fit on one line of the box `ref` points at, kept up to date as the box is resized;
- * `null` while the box has no width (before layout, in a DOM without layout).
+ * `null` while the box has no width (before layout, in a DOM without layout). With `enabled` false nothing is measured
+ * (no observer): for a box whose chips are not counted at the moment.
  */
-export function useChipsPerLine<El extends HTMLElement>(): { ref: React.RefObject<El | null>; perLine: number | null } {
+export function useChipsPerLine<El extends HTMLElement>(enabled = true): { ref: React.RefObject<El | null>; perLine: number | null } {
   const ref = useRef<El>(null)
   const [perLine, setPerLine] = useState<number | null>(null)
   useLayoutEffect(() => {
     const el = ref.current
-    if (!el) return
+    if (!el || !enabled) return
     const measure = () => {
       const next = chipsPerLine(el.clientWidth)
       setPerLine(prev => (prev === next ? prev : next))
@@ -48,6 +49,6 @@ export function useChipsPerLine<El extends HTMLElement>(): { ref: React.RefObjec
     const observer = new ResizeObserver(measure)
     observer.observe(el)
     return () => observer.disconnect()
-  }, [])
+  }, [enabled])
   return { ref, perLine }
 }

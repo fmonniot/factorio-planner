@@ -34,10 +34,25 @@ describe('anchoredBelow', () => {
     const a = { left: 200, top: 560, right: 232, bottom: 592 }
     expect(anchoredBelow(a, size, viewport)).toEqual({ left: 184, top: 560 - 4 - 50 })
   })
-  it('is pushed up to stay on screen when it fits neither above nor below', () => {
+  it('takes the side with more room and a height limit when it fits neither above nor below, never covering the anchor', () => {
+    // Little room above (8px), 536px below: under the anchor, limited to the room.
     const a = { left: 200, top: 20, right: 232, bottom: 52 }
-    expect(anchoredBelow(a, { width: 100, height: 570 }, viewport).top).toBe(600 - 570 - 8)
-    expect(anchoredBelow(a, { width: 100, height: 700 }, viewport).top).toBe(8)
+    expect(anchoredBelow(a, { width: 100, height: 570 }, viewport)).toEqual({ left: 184, top: 52 + 4, maxHeight: 600 - 8 - (52 + 4) })
+    // A short landscape screen, the anchor low: more room above than below, so the popup sits above, from the margin down.
+    const short = { width: 800, height: 300 }
+    const low = { left: 200, top: 200, right: 232, bottom: 232 }
+    const placed = anchoredBelow(low, { width: 100, height: 400 }, short)
+    expect(placed).toEqual({ left: 184, top: 8, maxHeight: 200 - 4 - 8 })
+    expect(placed.top + placed.maxHeight!).toBeLessThanOrEqual(low.top)
+    // More room below: under the anchor.
+    const high = { left: 200, top: 20, right: 232, bottom: 52 }
+    const below = anchoredBelow(high, { width: 100, height: 400 }, short)
+    expect(below.top).toBeGreaterThanOrEqual(high.bottom)
+    expect(below.top + below.maxHeight!).toBeLessThanOrEqual(short.height - 8)
+  })
+  it('sets no height limit when it fits', () => {
+    expect(anchoredBelow(anchor, size, viewport).maxHeight).toBeUndefined()
+    expect(anchoredBelow({ left: 200, top: 560, right: 232, bottom: 592 }, size, viewport).maxHeight).toBeUndefined()
   })
   it('stays inside the viewport horizontally', () => {
     expect(anchoredBelow({ left: 5, top: 100, right: 37, bottom: 132 }, size, viewport).left).toBe(8)

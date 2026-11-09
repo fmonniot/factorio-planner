@@ -25,9 +25,12 @@ interface BeaconCellProps {
   recipeCategory: string
   /** Select the row and highlight the Beacons section of the side panel. */
   onOpenEdit: () => void
+  /** The chips 2px apart instead of 6px: the cell sits in the narrow screen's machine stack, which has little room. */
+  compact?: boolean
 }
 
-export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit }: BeaconCellProps) {
+export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, recipeCategory, onOpenEdit, compact = false }: BeaconCellProps) {
+  const gap = compact ? 'gap-0.5' : 'gap-1.5'
   const beacon: BeaconConfig | undefined = beacons[0]
   const updateNodeBeacons = useBlockStore(s => s.updateNodeBeacons)
   const horizon = useHorizon(gameData)
@@ -56,7 +59,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
     // A blocked placeholder is not quiet: gray-700 at 40% opacity would vanish, the plain dashed chip stays legible.
     const blocked = disabledTitle !== undefined
     return (
-      <div className="flex items-center gap-1.5">
+      <div className={`flex items-center ${gap}`}>
         <PickerTrigger
           trigger={({ open, toggle }) => (
             <IconChip
@@ -143,7 +146,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
 
   return (
     <>
-      <div className="flex items-center gap-1.5">
+      <div className={`flex items-center ${gap}`}>
         <IconChip
           onClick={onOpenEdit}
           size="entity"

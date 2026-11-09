@@ -353,7 +353,7 @@ export function RecipeRow({
           className={`px-2 py-0.5 ${hairline}`}
           colSpan={narrow ? 1 : 3}
           data-guide-levels={guideLevels(depth)}
-          style={treeGuideStyle(depth)}
+          style={treeGuideStyle(depth, narrow)}
           onContextMenu={openAreaRowMenu}
         >
           {dropZone === 'before' && <DropLine edge="top" />}
@@ -559,7 +559,7 @@ export function RecipeRow({
 
   // Machine and module chips, then the beacon chips (the data model holds one configuration; the cell takes a list).
   const machineChips = (
-    <div className="flex items-center gap-1">
+    <div className={`flex items-center ${narrow ? 'gap-0.5' : 'gap-1'}`}>
       <MachineCell
         nodeId={planNode.id}
         recipeId={planNode.recipeId}
@@ -584,6 +584,7 @@ export function RecipeRow({
     <BeaconCell
       nodeId={planNode.id}
       beacons={planNode.beaconConfigs ?? []}
+      compact={narrow}
       gameData={gameData}
       recipeId={planNode.recipeId}
       machineId={planNode.machineId}
@@ -614,7 +615,7 @@ export function RecipeRow({
       <td
         className="px-2 py-0.5 whitespace-nowrap"
         data-guide-levels={guideLevels(depth)}
-        style={treeGuideStyle(depth)}
+        style={treeGuideStyle(depth, narrow)}
         onContextMenu={e => {
           e.preventDefault()
           setOpenMenu({ kind: 'row', x: e.clientX, y: e.clientY })
@@ -670,7 +671,7 @@ export function RecipeRow({
           )}
         </div>
         {narrow && (
-          <div data-testid="row-machine-stack" className="mt-1 flex items-center gap-1.5">
+          <div data-testid="row-machine-stack" className="mt-1 flex items-center gap-0.5">
             {machineChips}
             {beaconChips}
           </div>
@@ -739,7 +740,6 @@ export function RecipeRow({
         <ChipColumn
           column="byproducts"
           entries={byproductEntries}
-          temperatures={productTemperatures}
           items={gameData.items}
           narrow={narrow}
           renderChip={([itemId, ratePerMin]) => {
@@ -806,7 +806,6 @@ export function RecipeRow({
         <ChipColumn
           column="ingredients"
           entries={inputEntries}
-          temperatures={temperatureLabels}
           items={gameData.items}
           narrow={narrow}
           renderChip={([itemId, ratePerMin]) => {
@@ -858,8 +857,6 @@ interface ChipColumnProps {
   column: 'byproducts' | 'ingredients'
   /** Item id and rate per minute, in display order. */
   entries: [string, number][]
-  /** Pre-formatted temperature requirements by item id. */
-  temperatures: Record<string, string | undefined>
   items: GameData['items']
   narrow: boolean
   renderChip: (entry: [string, number]) => React.ReactNode
@@ -867,14 +864,14 @@ interface ChipColumnProps {
   children?: React.ReactNode
 }
 
-function ChipColumn({ column, entries, temperatures, items, narrow, renderChip, children }: ChipColumnProps) {
-  const { ref, perLine } = useChipsPerLine<HTMLDivElement>()
+function ChipColumn({ column, entries, items, narrow, renderChip, children }: ChipColumnProps) {
+  // Only a narrow screen counts the chips per line; a wide one draws them all, wrapping as they need.
+  const { ref, perLine } = useChipsPerLine<HTMLDivElement>(narrow)
   const shown = narrow ? chipsInLines(entries.length, perLine, NARROW_CHIP_LINES) : entries.length
-  const hidden = entries.slice(shown).map(([itemId, ratePerMin]) => ({ itemId, ratePerSec: ratePerMin / 60, temperature: temperatures[itemId] }))
   return (
     <div ref={ref} className={`flex flex-wrap gap-x-1.5 ${narrow ? 'gap-y-1' : 'gap-y-1.5'}`}>
       {entries.slice(0, shown).map(renderChip)}
-      <RecipeChipsMore column={column} hidden={hidden} items={items} />
+      <RecipeChipsMore column={column} hidden={entries.slice(shown)} items={items} renderChip={renderChip} />
       {children}
     </div>
   )

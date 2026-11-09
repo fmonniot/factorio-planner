@@ -1837,6 +1837,116 @@ describe('RecipeRow on a narrow screen', () => {
     expect(dialog('More ingredients')).toBeNull()
   })
 
+  describe('the hidden chips in the list keep the actions the visible ones have', () => {
+    beforeEach(() => { useUiStore.setState({ selectedRow: null }) })
+    function open(name: 'More ingredients' | 'More byproducts', props: Partial<Parameters<typeof RecipeRow>[0]> = {}) {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: busy, ...props })
+      const more = screen.getByRole('button', { name: name === 'More ingredients' ? '4 more ingredients' : '2 more byproducts' })
+      fireEvent.click(more)
+      return { more, list: screen.getByRole('dialog', { name }) }
+    }
+
+    it('finds the producer of a hidden ingredient, names the exact rate, and closes the list', () => {
+      const onIngredientClick = vi.fn()
+      const { list } = open('More ingredients', { onIngredientClick })
+      const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+      const chip = within(list).getByTitle(/^i3 — Find producer recipe — 60/)
+      fireEvent.click(chip)
+      expect(onIngredientClick).toHaveBeenCalledWith('i3', rootId)
+      expect(dialog('More ingredients')).toBeNull()
+      // Pressing a chip is not a press on the row.
+      expect(useUiStore.getState().selectedRow).toBeNull()
+    })
+
+    it('toggles the policy of a hidden byproduct (a single-output recipe) and closes the list', () => {
+      const { list } = open('More byproducts')
+      fireEvent.click(within(list).getByTitle(/^b4 — feed-back \(click to toggle\)/))
+      expect(useBlockStore.getState().blocks[0].rootPlan.nodes[0]).toMatchObject({ byproductPolicy: { b4: 'discard' } })
+      expect(dialog('More byproducts')).toBeNull()
+    })
+
+    it('opens the byproduct menu from a hidden byproduct, closing the list that would lie over it', () => {
+      const onAddConsumer = vi.fn()
+      const { list } = open('More byproducts', { onAddConsumer })
+      const rootId = useBlockStore.getState().blocks[0].rootPlan.id
+      fireEvent.contextMenu(within(list).getByTitle(/^b4 — feed-back/))
+      expect(dialog('More byproducts')).toBeNull()
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Add consumer recipe…' }))
+      expect(onAddConsumer).toHaveBeenCalledWith('b4', rootId)
+    })
+
+    it('does not open the row menu from a hidden ingredient, and the list stays', () => {
+      const { list } = open('More ingredients', { onIngredientClick: vi.fn() })
+      fireEvent.contextMenu(within(list).getByTitle(/^i3 — Find producer recipe/))
+      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+      expect(dialog('More ingredients')).not.toBeNull()
+    })
+
+    it('marks the fuel among the hidden ingredients', () => {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: { ...busy, fuelItemId: 'i5' } })
+      fireEvent.click(screen.getByRole('button', { name: '4 more ingredients' }))
+      const list = screen.getByRole('dialog', { name: 'More ingredients' })
+      expect(within(list).getByTitle(/^Fuel: i5/).closest('[data-fuel="true"]')).not.toBeNull()
+    })
+  })
+
+  describe('focus', () => {
+    function open() {
+      narrowScreen()
+      withLineWidth(2 * 38 - 6)
+      renderRow({ solvedNode: busy })
+      const more = screen.getByRole('button', { name: '4 more ingredients' })
+      fireEvent.click(more)
+      return { more, list: screen.getByRole('dialog', { name: 'More ingredients' }) }
+    }
+
+    it('moves into the dialog when it opens, and the button names it', () => {
+      const { more, list } = open()
+      expect(list).toHaveFocus()
+      expect(more).toHaveAttribute('aria-controls', list.id)
+      expect(list.id).not.toBe('')
+    })
+
+    it('goes back to the button when Escape, Close or the button itself closes the dialog', () => {
+      const { more, list } = open()
+      fireEvent.keyDown(window, { key: 'Escape' })
+      expect(dialog('More ingredients')).toBeNull()
+      expect(more).toHaveFocus()
+      expect(more).not.toHaveAttribute('aria-controls')
+
+      fireEvent.click(more)
+      fireEvent.click(within(screen.getByRole('dialog', { name: 'More ingredients' })).getByRole('button', { name: 'Close' }))
+      expect(dialog('More ingredients')).toBeNull()
+      expect(more).toHaveFocus()
+      expect(list.isConnected).toBe(false)
+    })
+
+    it('closes when focus moves to something else, and leaves it there', () => {
+      const { list } = open()
+      const elsewhere = document.createElement('button')
+      document.body.appendChild(elsewhere)
+      // What a Tab past the dialog does: focusout from it, with the element that gets focus as the related target.
+      fireEvent.focusOut(list, { relatedTarget: elsewhere })
+      expect(dialog('More ingredients')).toBeNull()
+      expect(document.activeElement).not.toBe(list)
+      elsewhere.remove()
+      expect(list.isConnected).toBe(false)
+    })
+
+    it('stays open while focus moves inside it', () => {
+      const { list } = open()
+      fireEvent.focusOut(list, { relatedTarget: within(list).getByRole('button', { name: 'Close' }) })
+      expect(dialog('More ingredients')).not.toBeNull()
+      // And a focusout that names no target (the window, a press on the page) leaves the other dismissals to decide.
+      fireEvent.focusOut(list, { relatedTarget: null })
+      expect(dialog('More ingredients')).not.toBeNull()
+    })
+  })
+
   it('shows every chip, and no +N, when two lines hold them all', () => {
     narrowScreen()
     withLineWidth(2 * 38 - 6)
@@ -1844,6 +1954,18 @@ describe('RecipeRow on a narrow screen', () => {
     expect(tr().cells[4].querySelectorAll('[data-variant="ingredient"]')).toHaveLength(4)
     expect(tr().cells[3].querySelectorAll('[data-variant="byproduct"]')).toHaveLength(2)
     expect(screen.queryByTestId('recipe-chips-more')).not.toBeInTheDocument()
+  })
+
+  it('measures the chip columns only on a narrow screen', () => {
+    const observed = vi.fn()
+    vi.stubGlobal('ResizeObserver', class { constructor() { observed() } observe() {} disconnect() {} })
+    narrowScreen(false)
+    renderRow({ solvedNode: busy })
+    expect(observed).not.toHaveBeenCalled()
+    cleanup()
+    narrowScreen()
+    renderRow({ solvedNode: busy })
+    expect(observed).toHaveBeenCalled()
   })
 
   it('draws every chip, with no +N, from 768px', () => {

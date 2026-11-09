@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import type { CSSProperties, MouseEvent as ReactMouseEvent } from 'react'
+import type { CSSProperties, FocusEvent as ReactFocusEvent, MouseEvent as ReactMouseEvent } from 'react'
 import { anchoredBelow, anchoredPosition } from '../utils/anchoredPosition'
 import type { Box } from '../utils/anchoredPosition'
 
@@ -11,7 +11,8 @@ import type { Box } from '../utils/anchoredPosition'
 //
 // `placement: 'below'` puts the popup under the trigger (above it when there is no room) instead of to its right, for a
 // button in a narrow cell. `mode: 'click'` is a dialog opened by the click alone: no hover or focus opening, and the
-// popup stays until Escape, a press outside, a scroll or its own close button.
+// popup stays until Escape, a press outside, a scroll, focus leaving it or its own close button. It takes focus when it
+// opens and gives it back to the trigger when it closes (an outside press leaves focus to what was pressed).
 // ---------------------------------------------------------------------------
 
 export const HOVER_OPEN_DELAY_MS = 300
@@ -46,8 +47,10 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
   const hide = useCallback(() => {
     clearTimers()
     stickyRef.current = false
+    // A dialog that holds focus hands it back to the trigger: the popup is about to unmount, which would drop it on the page.
+    if (clickMode && popupRef.current?.contains(document.activeElement)) triggerRef.current?.focus({ preventScroll: true })
     setAnchor(null)
-  }, [clearTimers])
+  }, [clearTimers, clickMode])
 
   const show = useCallback((sticky: boolean) => {
     const el = triggerRef.current
@@ -62,10 +65,14 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
   const place = useCallback(() => {
     const el = popupRef.current
     if (!anchor || !el) return
+    // Measured without the height limit this function may have set: the size the popup wants decides which side it takes.
+    el.style.maxHeight = ''
     const { width, height } = el.getBoundingClientRect()
     const position = placement === 'below' ? anchoredBelow : anchoredPosition
     const next = position(anchor, { width, height }, { width: window.innerWidth, height: window.innerHeight })
-    setPos(prev => (prev.left === next.left && prev.top === next.top ? prev : next))
+    // Where it fits neither below nor above its trigger, it takes the side with more room and scrolls.
+    if (next.maxHeight !== undefined) el.style.maxHeight = `${next.maxHeight}px`
+    setPos(prev => (prev.left === next.left && prev.top === next.top ? prev : { left: next.left, top: next.top }))
   }, [anchor, placement])
   useLayoutEffect(place, [place])
   useEffect(() => {
@@ -112,6 +119,11 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
 
   useEffect(() => clearTimers, [clearTimers])
 
+  // A dialog takes focus when it opens (Tab then walks its content); `hide` gives it back.
+  useEffect(() => {
+    if (clickMode && open) popupRef.current?.focus({ preventScroll: true })
+  }, [clickMode, open])
+
   const onMouseEnter = () => {
     clearTimeout(graceTimer.current)
     if (open) return
@@ -133,6 +145,7 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
     },
     'aria-haspopup': 'dialog' as const,
     'aria-expanded': open,
+    'aria-controls': open ? id : undefined,
   }
 
   const hoverTriggerProps = {
@@ -173,6 +186,20 @@ export function useHoverPopup<T extends HTMLElement>({ placement = 'right', mode
     onMouseLeave,
     // Pressing inside the popup (its scrollbar, say) must not blur the trigger, which would close it.
     onMouseDown: (e: ReactMouseEvent) => e.preventDefault(),
+    // A dialog is focusable itself and closes when focus moves to anything but it, its content or its trigger (Tab past it).
+    ...(clickMode
+      ? {
+          tabIndex: -1,
+          onBlur: (e: ReactFocusEvent) => {
+            // No target at all is the window or a press on the page losing focus: other listeners deal with those (a Safari
+            // press on the trigger would otherwise close the dialog just before the click reopens it).
+            const next = e.relatedTarget
+            if (!(next instanceof Node) || popupRef.current?.contains(next) || triggerRef.current?.contains(next)) return
+            // Focus went elsewhere: it stays there (hide() only gives focus back while the dialog still holds it).
+            hide()
+          },
+        }
+      : {}),
   }
 
   return { open, hide, triggerProps, popupProps }
