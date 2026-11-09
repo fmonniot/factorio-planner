@@ -6,7 +6,7 @@ import { join, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   parseCfg, buildLocaleMap, expandPlaceholders, resolveLocale,
-  resolveTechnologyName, resolveRecipeName, parsePrototypeLocale, gameName,
+  resolveTechnologyName, resolveRecipeName, parsePrototypeLocale, gameName, exportCategoryNames,
 } from '../locale.js'
 
 // Each call returns a fresh map.
@@ -314,5 +314,14 @@ describe('build-game-data locale files (CLI)', () => {
     const r = run({ 'fluid-locale.json': '{"names":{"water":"Water"}}' }, ['--patch-names'])
     expect(r.status).toBe(1)
     expect(r.stderr).toContain('--locale-dir')
+  })
+})
+
+describe('exportCategoryNames', () => {
+  it('prefers the game name, then the locale map, and leaves unnamed categories out', () => {
+    const game = { 'recipe-category': { smelting: 'Smelting', broken: '__ITEM__x__' } }
+    const map = { 'recipe-category-name.chemistry': 'Chemistry', 'recipe-category-name.smelting': 'Other' }
+    expect(exportCategoryNames(['smelting', 'chemistry', 'broken', 'mining:basic-solid'], map, game))
+      .toEqual({ smelting: 'Smelting', chemistry: 'Chemistry' })
   })
 })

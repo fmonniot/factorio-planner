@@ -1,8 +1,13 @@
 import { withinHorizon, type Horizon } from './horizon'
 import type { Block, GameData, Machine, SubPlan } from './types'
 
-/** Readable label for a crafting category id: "mining:basic-solid" -> "Mining basic solid". */
-export function categoryLabel(category: string): string {
+/**
+ * Readable label for a crafting category: the game's own name when the data set has one (`categoryNames`),
+ * else one made from the id: "mining:basic-solid" -> "Mining basic solid".
+ */
+export function categoryLabel(category: string, gameData?: Pick<GameData, 'categoryNames'>): string {
+  const named = gameData?.categoryNames?.[category]
+  if (named) return named
   const spaced = category.replace(/[:_-]+/g, ' ').trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
@@ -24,7 +29,7 @@ export function defaultMachineCategories(gameData: GameData, horizon: Horizon): 
   return [...counts]
     .filter(([, n]) => n >= 2)
     .map(([category]) => category)
-    .sort((a, b) => categoryLabel(a).localeCompare(categoryLabel(b)))
+    .sort((a, b) => categoryLabel(a, gameData).localeCompare(categoryLabel(b, gameData)))
 }
 
 /** Category -> number of recipe rows (all blocks, nested sub-plans included) that follow the default machine. */

@@ -89,7 +89,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
           ) : (
             <button
               type="button"
-              aria-label={`Make ${m.name} the ${categoryLabel(recipeCategory)} default`}
+              aria-label={`Make ${m.name} the ${categoryLabel(recipeCategory, gameData)} default`}
               onClick={() => makeDefault(m.id)}
               className="px-1.5 py-0.5 rounded text-[10px] text-teal-400 hover:bg-gray-700 opacity-0 group-hover:opacity-100 focus:opacity-100"
             >
@@ -103,7 +103,7 @@ export function MachinePicker({ nodeId, recipeId, recipeCategory, machineId, gam
         className="flex items-center justify-between gap-2 px-2 pt-1 border-t border-gray-700 mt-1 text-[10px] text-gray-400"
       >
         <span>
-          {categoryLabel(recipeCategory)} default is used by {defaultRowCount} {defaultRowCount === 1 ? 'row' : 'rows'}
+          {categoryLabel(recipeCategory, gameData)} default is used by {defaultRowCount} {defaultRowCount === 1 ? 'row' : 'rows'}
         </span>
         <button type="button" onClick={() => requestDefaultMachines(recipeCategory)} className="text-teal-400 hover:underline">
           All defaults…

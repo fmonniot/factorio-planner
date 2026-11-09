@@ -108,7 +108,7 @@ import {
   POWER_ITEM_IDS, POWER_PREFIX, POWER_MACHINE_TYPES,
 } from './power.js'
 import { modSetDiffs } from './modset.js'
-import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
+import { buildLocaleMap, parsePrototypeLocale, GAME_NAME_FILES, OPTIONAL_GAME_NAME_FILES, exportCategoryNames, gameName, resolveLocale, resolveTechnologyName, resolveRecipeName, RESIDUE_RE } from './locale.js'
 
 // adm-zip is a CommonJS module; import via createRequire from an ESM context.
 const require = createRequire(import.meta.url)
@@ -757,7 +757,7 @@ process.stderr.write(`[build-game-data] Locale entries: ${Object.keys(localeMap)
 // The game's own resolved names (`factorio --dump-prototype-locale`).
 const game = {}
 const emptyGameFiles = []
-for (const type of GAME_NAME_FILES) {
+for (const type of [...GAME_NAME_FILES, ...OPTIONAL_GAME_NAME_FILES]) {
   const file = join(localeDir, `${type}-locale.json`)
   if (!existsSync(file)) continue
   let names
@@ -1145,6 +1145,9 @@ Object.assign(itemGroups, power.itemGroups)
 Object.assign(itemSubgroups, power.itemSubgroups)
 
 const defaultMachines = computeDefaultMachines(machines, categoryMap)
+const categoryNames = exportCategoryNames(
+  new Set([...Object.values(recipes).map(r => r.category), ...Object.keys(categoryMap)]), locale.map, locale.game,
+)
 
 const exportedTechnologies = exportTechnologies(
   raw, new Set(Object.keys(recipes)), p => resolveTechnologyName(p, locale.map, locale.game),
@@ -1164,6 +1167,7 @@ const output = {
   modules,
   beacons,
   defaultMachines,
+  categoryNames,
   itemGroups,
   itemSubgroups,
   technologies,
