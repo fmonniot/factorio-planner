@@ -341,7 +341,7 @@ export function WarningsPopover() {
                 <div className="text-gray-400 leading-snug">
                   → {warningHint(w)}
                 </div>
-                {warningTargets(w, block?.rootPlan, gameData, blockName).map(t => (
+                {warningTargets(w, block?.rootPlan, gameData, blockName, block?.id).map(t => (
                   <button
                     key={t.kind === 'row' ? t.nodeId : t.blockId}
                     type="button"

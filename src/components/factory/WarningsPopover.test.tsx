@@ -379,8 +379,27 @@ describe('WarningsPopover — links', () => {
     setupWithWarnings({ warnings: [{ type: 'loop-not-converged', blockIds: ['m', 'o'], rounds: 8 }] })
     render(<WarningsPopover />)
     openPopover()
+    expect(screen.queryByRole('button', { name: 'Go to Metals' })).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: 'Go to Ores' }))
     expect(useBlockStore.getState().activeBlockId).toBe('o')
+  })
+
+  it('a recipe named twice links to its row once', () => {
+    setupAreaBlock()
+    setupWithWarnings({ warnings: [{ type: 'infeasible-pins', recipeIds: ['boiler', 'boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getAllByTestId('warning-link')).toHaveLength(1)
+  })
+
+  it('an area duplicate in a block without areas links to the recipe\'s row', () => {
+    const block = makeEmptyBlock('Flat')
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan: { ...block.rootPlan, nodes: [node('b1', 'boiler'), node('b2', 'boiler')] } }], activeBlockId: block.id, history: {} })
+    setupWithWarnings({ warnings: [{ type: 'duplicate-recipe', recipeId: 'boiler', count: 2, areaId: 'gone' }] })
+    render(<WarningsPopover />)
+    openPopover()
+    fireEvent.click(screen.getByRole('button', { name: 'Go to Boiler Recipe' }))
+    expect(useUiStore.getState().revealRowRequest?.nodeId).toBe('b1')
   })
 
   it('a warning that names only items has no link', () => {
