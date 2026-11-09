@@ -6,8 +6,8 @@ import type { Block, GameData, Machine, SubPlan } from './types'
  * else one made from the id: "mining:basic-solid" -> "Mining basic solid".
  */
 export function categoryLabel(category: string, gameData?: Pick<GameData, 'categoryNames'>): string {
-  const named = gameData?.categoryNames?.[category]
-  if (named) return named
+  const names = gameData?.categoryNames
+  if (names && Object.hasOwn(names, category) && names[category]) return names[category]
   const spaced = category.replace(/[:_-]+/g, ' ').trim()
   return spaced.charAt(0).toUpperCase() + spaced.slice(1)
 }
@@ -28,8 +28,9 @@ export function defaultMachineCategories(gameData: GameData, horizon: Horizon): 
   }
   return [...counts]
     .filter(([, n]) => n >= 2)
-    .map(([category]) => category)
-    .sort((a, b) => categoryLabel(a, gameData).localeCompare(categoryLabel(b, gameData)))
+    .map(([category]) => ({ category, label: categoryLabel(category, gameData) }))
+    .sort((a, b) => a.label.localeCompare(b.label))
+    .map(({ category }) => category)
 }
 
 /** Category -> number of recipe rows (all blocks, nested sub-plans included) that follow the default machine. */

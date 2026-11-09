@@ -247,7 +247,8 @@ export function resolveRecipeName(proto, mainProductId, localeMap, game = {}) {
 export function exportCategoryNames(ids, localeMap, game) {
   const out = {}
   for (const id of ids) {
-    const name = gameName(game, ['recipe-category'], id) ?? lookupLocale('recipe-category-name.' + id, localeMap)
+    const mapped = lookupLocale('recipe-category-name.' + id, localeMap)
+    const name = gameName(game, ['recipe-category'], id) ?? (mapped && !RESIDUE_RE.test(mapped) ? mapped : undefined)
     if (name) out[id] = name
   }
   return out

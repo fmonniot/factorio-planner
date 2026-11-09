@@ -69,7 +69,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Data sets
 
-- [ ] **Re-export the bundles for crafting-category names.** The exporter now writes `categoryNames` (from `recipe-category-locale.json` or the `recipe-category-name` locale keys) and the planner uses it, but the bundled Nullius and Seablock data sets predate it, so the flyout and machine picker still show id-derived labels until they are re-exported (`factorio --dump-prototype-locale`, then the export in the README).
+- [ ] **Re-export the bundles for crafting-category names.** The exporter now writes `categoryNames` (from `recipe-category-locale.json` or the `recipe-category-name` locale keys) and the planner uses it, but the bundled Nullius and Seablock data sets predate it, so the flyout and machine picker still show id-derived labels until they are re-exported (`factorio --dump-prototype-locale`, then the full export in the README; `--patch-names` and the other patch modes do not write `categoryNames`, so extending them is part of the item).
 - [ ] **Icon layers with 0 < `tint` alpha < 1 are composited as opaque.** `compositeIconLayers` ignores a fractional tint alpha, so such layers are drawn too strongly (565 items, 588 recipes, 119 fluids and 24 technologies in the Seablock dump). Fixing it changes the `nullius-ethylene` golden (layer 0 has alpha 0.7) and needs a re-export of the affected icons.
 - [ ] **More bundled data sets.** Nullius and Seablock are bundled. Candidates: vanilla Factorio 2.0.
 

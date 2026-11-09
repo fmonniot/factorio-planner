@@ -320,8 +320,8 @@ describe('build-game-data locale files (CLI)', () => {
 describe('exportCategoryNames', () => {
   it('prefers the game name, then the locale map, and leaves unnamed categories out', () => {
     const game = { 'recipe-category': { smelting: 'Smelting', broken: '__ITEM__x__' } }
-    const map = { 'recipe-category-name.chemistry': 'Chemistry', 'recipe-category-name.smelting': 'Other' }
-    expect(exportCategoryNames(['smelting', 'chemistry', 'broken', 'mining:basic-solid'], map, game))
+    const map = { 'recipe-category-name.chemistry': 'Chemistry', 'recipe-category-name.leftover': '__ITEM__x__ crafting', 'recipe-category-name.smelting': 'Other' }
+    expect(exportCategoryNames(['smelting', 'chemistry', 'leftover', 'broken', 'mining:basic-solid'], map, game))
       .toEqual({ smelting: 'Smelting', chemistry: 'Chemistry' })
   })
 })

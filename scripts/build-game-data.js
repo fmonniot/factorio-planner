@@ -772,8 +772,8 @@ for (const type of [...GAME_NAME_FILES, ...OPTIONAL_GAME_NAME_FILES]) {
 }
 for (const file of emptyGameFiles) process.stderr.write(`[warn] ${file} has no names; ignoring it\n`)
 const missingGameTypes = GAME_NAME_FILES.filter(t => !(t in game))
-process.stderr.write(`[build-game-data] Game locale files: ${Object.keys(game).length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
-if (Object.keys(game).length === 0) {
+process.stderr.write(`[build-game-data] Game locale files: ${GAME_NAME_FILES.length - missingGameTypes.length}/${GAME_NAME_FILES.length} (${localeDir})\n`)
+if (missingGameTypes.length === GAME_NAME_FILES.length) {
   process.stderr.write(`[warn] No game locale files found: names come from the merged locale map only (ignores mod load order). Run factorio --dump-prototype-locale or pass --locale-dir.\n`)
 } else if (missingGameTypes.length > 0) {
   process.stderr.write(`[warn] Game locale files missing for: ${missingGameTypes.join(', ')}; those names come from the merged locale map.\n`)

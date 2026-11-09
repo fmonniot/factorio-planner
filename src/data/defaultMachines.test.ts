@@ -108,3 +108,9 @@ describe('defaultMachineRowCounts', () => {
     expect(counts.size).toBe(2)
   })
 })
+
+describe('categoryLabel with inherited keys', () => {
+  it('ignores Object.prototype members', () => {
+    expect(categoryLabel('constructor', { categoryNames: {} })).toBe('Constructor')
+  })
+})
