@@ -3,15 +3,19 @@ import type { Ref } from 'react'
 import { createPortal } from 'react-dom'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
+import { FLOW_TOLERANCE } from '../../solver/index'
 import { Icon } from '../Icon'
 import { useHoverPopup } from '../useHoverPopup'
-import { fmtItemRateText } from './ItemTile'
-import { lineChipFit } from './lineChipFit'
+import { IconChip } from './IconChip'
+import type { ChipTone } from './IconChip'
+import { fmtChipQuantity, fmtItemRateText } from './ItemTile'
+import { lineChipFit, lineRate } from './lineChipFit'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
 
 // ---------------------------------------------------------------------------
 // SummaryLine — the collapsed summary: one line per pane with its item count, as many
-// item chips as fit and a "+N" that lists every item with its rate. Informational:
+// item chips (the table's) as fit and a "+N" that lists every item with its rate. A Products
+// chip shows the product's goal, with the actual in its tooltip. Informational:
 // nothing here selects an item. From `md` the three lines share one row with the Expand
 // button; below it they stack and the handle row under the strip expands.
 // ---------------------------------------------------------------------------
@@ -55,19 +59,39 @@ function useWidth<T extends HTMLElement>() {
   return { ref, width }
 }
 
-function LineChip({ slot, items }: { slot: SlotModel; items: GameData['items'] }) {
+const CHIP_TONE: Record<SummaryPaneKind, Exclude<ChipTone, 'neutral'>> = {
+  products: 'product',
+  byproducts: 'byproduct',
+  ingredients: 'ingredient',
+}
+
+function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot: SlotModel; items: GameData['items']; rateUnit: RateUnit }) {
   const item = items[slot.itemId]
   const name = item?.name ?? slot.itemId
+  const { shown, actual, short } = lineRate(pane, slot)
+  const text = (perMin: number) => fmtItemRateText(slot.itemId, perMin / 60, rateUnit)
+  const title = slot.empty
+    ? `${name} — nothing requested yet`
+    : actual !== undefined
+      ? `${name} — goal ${text(shown)}, making ${text(actual)}${short ? `, short by ${text(shown - actual)}` : ''}`
+      : pane === 'products' && slot.product && slot.product.required > FLOW_TOLERANCE
+        ? `${name} — goal ${text(shown)}`
+        : `${name} — ${text(shown)}`
   return (
-    <span data-testid="summary-line-chip" data-item-id={slot.itemId} title={name} className="relative w-6 h-6 mr-1.5 shrink-0">
-      {item?.iconPath ? (
-        <Icon iconPath={item.iconPath} alt={name} className="w-6 h-6 object-contain" />
-      ) : (
-        <span className="w-6 h-6 bg-gray-700 rounded text-[9px] text-gray-300 flex items-center justify-center leading-none select-none overflow-hidden">
-          {name.substring(0, 2).toUpperCase()}
-        </span>
-      )}
-    </span>
+    <IconChip
+      iconPath={item?.iconPath || undefined}
+      alt={name}
+      fallback={name}
+      quantity={slot.empty ? '—' : fmtChipQuantity(slot.itemId, shown / 60, rateUnit)}
+      quantityTestId="summary-line-quantity"
+      tone={CHIP_TONE[pane]}
+      warn={short}
+      title={title}
+      className={`mr-1.5${slot.dimmed ? ' opacity-55' : ''}`}
+      data-testid="summary-line-chip"
+      data-item-id={slot.itemId}
+      data-status={short ? 'short' : undefined}
+    />
   )
 }
 
@@ -106,6 +130,8 @@ function LineMore({ pane, label, slots, hiddenCount, items, rateUnit }: {
             {slots.map(slot => {
               const item = items[slot.itemId]
               const name = item?.name ?? slot.itemId
+              const { shown, actual, short } = lineRate(pane, slot)
+              const text = (perMin: number) => fmtItemRateText(slot.itemId, perMin / 60, rateUnit)
               return (
                 <li key={slot.id} data-item-id={slot.itemId} className="flex items-center gap-2 h-7 text-xs text-gray-300">
                   <span className="relative w-6 h-6 shrink-0">
@@ -113,7 +139,15 @@ function LineMore({ pane, label, slots, hiddenCount, items, rateUnit }: {
                   </span>
                   <span className="flex-1 min-w-0 truncate">{name}</span>
                   <span className={`font-mono tabular-nums text-[11px] ${RATE_TONE[pane]}`}>
-                    {slot.empty ? '—' : fmtItemRateText(slot.itemId, slot.rate / 60, rateUnit)}
+                    {slot.empty ? '—' : text(shown)}
+                    {actual !== undefined && (
+                      <>
+                        <span className="text-gray-400"> → </span>
+                        <span data-testid="summary-line-popup-actual" className={short ? 'text-amber-400' : 'text-teal-400'}>
+                          {short && '▼ '}{text(actual)}
+                        </span>
+                      </>
+                    )}
                   </span>
                 </li>
               )
@@ -134,12 +168,12 @@ function LinePane({ pane, label, slots, items, rateUnit }: SummaryLinePane & { i
       aria-label={label}
       data-testid="summary-line-pane"
       data-pane={pane}
-      className="flex items-center gap-2 min-w-0 px-2 overflow-hidden h-[34px] shrink-0 max-md:border-b max-md:border-gray-800 max-md:last:border-b-0 md:flex-1 md:h-10"
+      className="flex items-center gap-2 min-w-0 px-2 overflow-hidden h-[38px] shrink-0 max-md:border-b max-md:border-gray-800 max-md:last:border-b-0 md:flex-1 md:h-10"
     >
       <span className="text-[10px] uppercase tracking-[0.06em] text-gray-400 whitespace-nowrap">{label}</span>
       <span data-testid="summary-line-count" className="text-xs font-semibold text-gray-200 tabular-nums">{slots.length}</span>
-      <div ref={ref} className="flex flex-1 min-w-0 items-center overflow-hidden">
-        {slots.slice(0, shown).map(slot => <LineChip key={slot.id} slot={slot} items={items} />)}
+      <div ref={ref} className="flex flex-1 min-w-0 items-center py-0.5">
+        {slots.slice(0, shown).map(slot => <LineChip key={slot.id} pane={pane} slot={slot} items={items} rateUnit={rateUnit} />)}
         {shown < slots.length && (
           <LineMore pane={pane} label={label} slots={slots} hiddenCount={slots.length - shown} items={items} rateUnit={rateUnit} />
         )}
@@ -152,7 +186,7 @@ export function SummaryLine({ panes, items, rateUnit, onExpand, expandRef }: Sum
   return (
     <div
       data-testid="summary-line"
-      className="flex max-md:flex-col md:items-start md:gap-2 box-border px-3 max-md:py-1 md:py-[9px] max-md:h-[110px] md:h-[58px] max-md:overflow-hidden border-b border-gray-700"
+      className="flex max-md:flex-col md:items-start md:gap-2 box-border px-3 max-md:py-1 md:py-[9px] max-md:h-[122px] md:h-[58px] max-md:overflow-hidden border-b border-gray-700"
     >
       {panes.map(p => <LinePane key={p.pane} {...p} items={items} rateUnit={rateUnit} />)}
       {/* Below md the handle row under the strip expands instead. */}
