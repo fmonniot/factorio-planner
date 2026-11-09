@@ -8,11 +8,12 @@ import { loadPlanFixture } from './support/loadPlan'
 const BASE = path.resolve('e2e/fixtures/byproduct-consumer-base.json')
 const AREAS = path.resolve('e2e/fixtures/area-matrix.json')
 
-async function open(page: Page, fixture: string) {
+async function open(page: Page, fixture: string, ...also: string[]) {
   await page.setViewportSize({ width: 1440, height: 900 })
   await loadPlanFixture(page, fixture)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(page.locator('main table tbody tr [data-chip-quantity]').first()).toBeVisible({ timeout: 10000 })
+  // The machine chip carries data-chip-quantity too, so wait for the item chips (and whatever else the test reads) the solver renders.
+  for (const sel of ['[data-variant]', ...also]) await expect(page.locator(`main table tbody tr ${sel}`).first()).toBeVisible({ timeout: 10000 })
 }
 
 const itemChips = (page: Page) => page.locator('main table tbody tr [data-variant]')
@@ -42,9 +43,14 @@ const placeholderColors = (row: ReturnType<Page['locator']>, label: string) =>
 
 test('3 chipFmt: every chip quantity is compact and the tooltip keeps the exact rate', async ({ page }) => {
   await open(page, BASE)
+  await expect.poll(() => itemChips(page).count()).toBeGreaterThan(3)
   const quantities = await itemChips(page).evaluateAll(chips => chips.map(c => c.querySelector('[data-chip-quantity]')!.textContent!))
   expect(quantities.length).toBeGreaterThan(3)
   for (const q of quantities) expect(q, `quantity ${q}`).toMatch(/^(<\.01|\.\d\d|\d+(\.\d)?k?|\d+(\.\d)?[kMG]?W)$/)
+  for (const q of quantities) expect(q.length, `quantity ${q}`).toBeLessThanOrEqual(5)
+  // Every quantity stays inside its chip's 38 px slot: it may not spill over the icon's neighbour.
+  const widths = await itemChips(page).evaluateAll(chips => chips.map(c => c.querySelector('[data-chip-quantity]')!.getBoundingClientRect().width))
+  for (const w of widths) expect(w, 'quantity width').toBeLessThanOrEqual(38)
   // Exact rate in the title, with its unit.
   const titles = await itemChips(page).evaluateAll(chips => chips.map(c => c.getAttribute('title') ?? ''))
   for (const t of titles) expect(t, t).toMatch(/ — [\d.<e-]+(\/m|\/s|[kMG]?W)$/)
@@ -96,7 +102,7 @@ test('3 chipNum and chipPlate: an 11 px bold outlined quantity on a faint plate,
 })
 
 test('chipBig: a row with item chips is 37 px, a collapsed area row 37 px (was 33)', async ({ page }) => {
-  await open(page, AREAS)
+  await open(page, AREAS, '[data-direction]')
   const heights = await page.locator('main table tbody tr').evaluateAll(rows =>
     rows.filter(r => r.querySelector('[data-variant], [data-direction]')).map(r => ({ h: r.getBoundingClientRect().height, area: !!r.querySelector('[data-direction]') })))
   expect(heights.some(r => r.area), 'the fixture has a collapsed area row').toBe(true)

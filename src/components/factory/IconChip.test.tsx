@@ -54,6 +54,17 @@ describe('IconChip', () => {
     expect(screen.getByText('0/2')).toHaveClass('text-gray-400')
   })
 
+  it('does not brighten a disabled quiet placeholder on its own hover or focus', () => {
+    const { container } = render(<IconChip alt="Add" size="entity" empty quiet disabled onClick={() => {}} quantity="0/2" />)
+    expect(container.querySelector('.border-dashed')).toHaveClass('border-gray-700', 'group-hover/row:border-gray-600')
+    expect(container.querySelector('.border-dashed')!.className).not.toContain('group-hover/chip')
+    expect(container.querySelector('.border-dashed')!.className).not.toContain('group-focus-visible/chip')
+    const chip = container.firstElementChild!
+    expect(chip).toHaveClass('text-gray-600', 'group-hover/row:text-gray-400')
+    expect(chip.className).not.toContain('hover:text-gray-200')
+    expect(chip.className).not.toContain('focus-visible:text-gray-200')
+  })
+
   it('draws an empty slot as a dashed plus with its quantity', () => {
     const { container } = render(<IconChip alt="Add" empty quantity="0/4" />)
     expect(container.querySelector('.border-dashed')).toHaveTextContent('+')

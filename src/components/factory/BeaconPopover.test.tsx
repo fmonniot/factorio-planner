@@ -155,6 +155,10 @@ describe('BeaconCell — research horizon', () => {
     const btn = screen.getByLabelText('Add beacon')
     expect(btn).toBeDisabled()
     expect(btn).toHaveAttribute('title', 'No machine within research horizon')
+    // Not a quiet placeholder: gray-700 at 40% opacity would vanish, and it must not brighten on hover.
+    expect(btn.querySelector('.border-dashed')).toHaveClass('border-gray-600')
+    expect(btn.className).toContain('opacity-40')
+    expect(btn.querySelector('.border-dashed')!.className).not.toContain('border-gray-700')
   })
 
   it('is disabled when no beacon is within the horizon', () => {

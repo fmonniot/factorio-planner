@@ -115,8 +115,41 @@ describe('chipFmt', () => {
     expect(chipFmt(0)).toBe('0')
   })
 
+  it('carries a rounding across a threshold into the next format', () => {
+    expect(chipFmt(0.994)).toBe('.99')
+    expect(chipFmt(0.996)).toBe('1.0')
+    expect(chipFmt(0.9999)).toBe('1.0')
+    expect(chipFmt(999.4)).toBe('999')
+    expect(chipFmt(999.5)).toBe('1k')
+    expect(chipFmt(999.99)).toBe('1k')
+    expect(chipFmt(9.96)).toBe('10.0')
+    expect(chipFmt(99999.6)).toBe('100k')
+    expect(chipFmt(999499)).toBe('999k')
+    expect(chipFmt(999500)).toBe('1M')
+  })
+
+  it('continues with M and G for huge values and caps at >999G', () => {
+    expect(chipFmt(1e6)).toBe('1M')
+    expect(chipFmt(1.26e6)).toBe('1.3M')
+    expect(chipFmt(12.4e6)).toBe('12M')
+    expect(chipFmt(999.4e6)).toBe('999M')
+    expect(chipFmt(1e9)).toBe('1G')
+    expect(chipFmt(45e9)).toBe('45G')
+    expect(chipFmt(999.4e9)).toBe('999G')
+    expect(chipFmt(999.5e9)).toBe('>999G')
+    expect(chipFmt(1e15)).toBe('>999G')
+    expect(chipFmt(Infinity)).toBe('>999G')
+  })
+
+  it('writes NaN and negative values as ? and not as a tiny rate', () => {
+    expect(chipFmt(NaN)).toBe('?')
+    expect(chipFmt(-3)).toBe('?')
+    expect(chipFmt(-1e-12)).toBe('?')
+    expect(chipFmt(-Infinity)).toBe('?')
+  })
+
   it('never exceeds five characters', () => {
-    for (const v of [0, 0.001, 0.0099, 0.01, 0.995, 1, 9.96, 10, 99.96, 100, 999.5, 999.96, 1000, 9999.6, 10000, 99999.6, 999999]) {
+    for (const v of [0, 0.001, 0.0099, 0.01, 0.995, 0.9999, 1, 9.96, 10, 99.96, 100, 999.5, 999.96, 1000, 9999.6, 10000, 99999.6, 999999, 1e7, 1e9, 5e11, 1e13, 1e300, Infinity, NaN, -5]) {
       expect(chipFmt(v).length, String(v)).toBeLessThanOrEqual(5)
     }
   })
@@ -130,8 +163,27 @@ describe('fmtChipQuantity', () => {
     expect(fmtRate(200, 'min')).toBe('12000')
   })
 
-  it('keeps electricity and heat in power units', () => {
-    expect(fmtChipQuantity('power:electricity', 10, 'min')).toBe('10.0MW')
-    expect(fmtChipQuantity('power:heat', 0.042, 'sec')).toBe('42.0kW')
+  it('keeps electricity and heat in power units, without a decimal from 10 up', () => {
+    expect(fmtChipQuantity('power:electricity', 10, 'min')).toBe('10MW')
+    expect(fmtChipQuantity('power:electricity', 1.5, 'sec')).toBe('1.5MW')
+    expect(fmtChipQuantity('power:heat', 0.042, 'sec')).toBe('42kW')
+    expect(fmtChipQuantity('power:heat', 0.0042, 'sec')).toBe('4.2kW')
+    expect(fmtChipQuantity('power:electricity', 0.1, 'sec')).toBe('100kW')
+    expect(fmtChipQuantity('power:electricity', 0.0005, 'sec')).toBe('500W')
+    expect(fmtChipQuantity('power:electricity', 0, 'sec')).toBe('0W')
+    // The tooltip keeps the exact value.
+    expect(fmtItemRateText('power:electricity', 10, 'min')).toBe('10.0MW')
+  })
+
+  it('carries a rounding across a power unit', () => {
+    expect(fmtChipQuantity('power:electricity', 0.00099996, 'sec')).toBe('1.0kW')
+    expect(fmtChipQuantity('power:electricity', 0.9996, 'sec')).toBe('1.0MW')
+    expect(fmtChipQuantity('power:electricity', 999.96, 'sec')).toBe('1.0GW')
+  })
+
+  it('never exceeds five characters for electricity and heat', () => {
+    for (const v of [0, 1e-9, 0.0004, 0.000999, 0.00099996, 0.0099, 0.00999, 0.0999, 0.1, 0.9996, 0.99996, 1, 9.96, 10, 99.96, 100, 999.5, 999.96, 1000, 1e4, 5e5, 1e12, Infinity, NaN, -1]) {
+      expect(fmtChipQuantity('power:electricity', v, 'sec').length, String(v)).toBeLessThanOrEqual(5)
+    }
   })
 })

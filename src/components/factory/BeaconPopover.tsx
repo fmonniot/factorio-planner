@@ -53,6 +53,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
         onClose={close}
       />
     )
+    // A blocked placeholder is not quiet: gray-700 at 40% opacity would vanish, the plain dashed chip stays legible.
     const blocked = disabledTitle !== undefined
     return (
       <div className="flex items-center gap-1.5">
@@ -63,7 +64,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               aria-expanded={open}
               size="entity"
               empty
-              quiet
+              quiet={!blocked}
               alt="Add beacon"
               disabled={blocked}
               title={disabledTitle ?? 'Add beacon'}
@@ -81,7 +82,7 @@ export function BeaconCell({ nodeId, beacons, gameData, recipeId, machineId, rec
               aria-expanded={open}
               size="entity"
               empty
-              quiet
+              quiet={!blocked}
               alt="Add beacon module"
               quantity={newBeacon ? `0/${newBeacon.moduleSlots}` : undefined}
               disabled={blocked}
