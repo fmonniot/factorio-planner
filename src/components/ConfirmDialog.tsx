@@ -1,4 +1,4 @@
-import { createPortal } from 'react-dom'
+import { ModalPortal } from './ModalPortal'
 import { Modal } from './Modal'
 
 interface ConfirmDialogProps {
@@ -11,7 +11,8 @@ interface ConfirmDialogProps {
 
 /** A destructive-action confirmation modal, replacing `window.confirm`. Portalled, so it works inside table rows. */
 export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose }: ConfirmDialogProps) {
-  return createPortal(
+  return (
+    <ModalPortal>
     <Modal onClose={onClose} className="p-4 w-96 text-sm">
       <div role="alertdialog" aria-label={title}>
         <h2 className="font-semibold text-gray-100 mb-2">{title}</h2>
@@ -21,7 +22,7 @@ export function ConfirmDialog({ title, message, confirmLabel, onConfirm, onClose
           <button type="button" onClick={onConfirm} className="text-xs bg-red-600 text-white hover:bg-red-500 rounded px-3 py-1">{confirmLabel}</button>
         </div>
       </div>
-    </Modal>,
-    document.body,
+    </Modal>
+    </ModalPortal>
   )
 }

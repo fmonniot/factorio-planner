@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
+import { ModalPortal } from './ModalPortal'
 import { Modal } from './Modal'
 
 interface NameDialogProps {
@@ -11,7 +11,7 @@ interface NameDialogProps {
   submitLabel: string
   initialName: string
   maxLength?: number
-  /** Called with the name as typed; a blank name cannot be submitted. */
+  /** Called with the trimmed name; a blank name cannot be submitted. */
   onSubmit: (name: string) => void
   onClose: () => void
 }
@@ -20,14 +20,15 @@ interface NameDialogProps {
 export function NameDialog({ title, label, submitLabel, initialName, maxLength, onSubmit, onClose }: NameDialogProps) {
   const [name, setName] = useState(initialName)
   const blank = name.trim() === ''
-  return createPortal(
+  return (
+    <ModalPortal>
     <Modal onClose={onClose} className="p-4 w-80 text-sm">
       <form
         role="dialog"
         aria-label={title}
         onSubmit={e => {
           e.preventDefault()
-          if (!blank) onSubmit(name)
+          if (!blank) onSubmit(name.trim())
         }}
       >
         <h2 className="font-semibold text-gray-100 mb-2">{title}</h2>
@@ -51,7 +52,7 @@ export function NameDialog({ title, label, submitLabel, initialName, maxLength, 
           </button>
         </div>
       </form>
-    </Modal>,
-    document.body,
+    </Modal>
+    </ModalPortal>
   )
 }

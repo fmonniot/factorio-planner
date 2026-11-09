@@ -1103,6 +1103,17 @@ describe('RecipeRow sub-factory actions', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
   })
 
+  it('clicks and right-clicks inside a row dialog do not reach the row', () => {
+    setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
+    openMenu()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Rename subfactory…' }))
+    const selected = useUiStore.getState().selectedRow
+    fireEvent.click(screen.getByRole('heading', { name: 'Rename subfactory' }))
+    fireEvent.contextMenu(screen.getByRole('textbox', { name: 'Subfactory name' }))
+    expect(useUiStore.getState().selectedRow).toBe(selected)
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
   it('cancelling the rename dialog keeps the name, and a blank name cannot be submitted', () => {
     setupSubfactory(makeSubPlan('sp-123', 'My Subfactory'))
     openMenu()
