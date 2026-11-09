@@ -8,7 +8,9 @@ import { fmtItemRateText } from './ItemTile'
 
 // ---------------------------------------------------------------------------
 // AreaChipsMore — the "+N" of a collapsed area row: a button that opens a popup
-// listing the flows the row has no room for. Rendered in a portal: the
+// listing the flows the row has no room for (a row is one line high: what does not fit on it is here). The popup sits
+// under the button, above it when there is no room: where a recipe row's "+N" puts its list.
+// The button is one chip slot wide (32px), so the row counts it as a chip when it fits the line. Rendered in a portal: the
 // production table scrolls and would clip it.
 // ---------------------------------------------------------------------------
 
@@ -21,7 +23,7 @@ interface AreaChipsMoreProps {
 }
 
 export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMoreProps) {
-  const { open, hide, triggerProps, popupProps } = useHoverPopup<HTMLButtonElement>()
+  const { open, hide, triggerProps, popupProps } = useHoverPopup<HTMLButtonElement>({ placement: 'below' })
   const empty = flows.length === 0
   // A re-solve can empty the overflow while the popup is open: close it, so it does not come back stale.
   useEffect(() => { if (empty) hide() }, [empty, hide])
@@ -33,7 +35,7 @@ export function AreaChipsMore({ flows, direction, items, rateUnit }: AreaChipsMo
         type="button"
         data-testid="area-chips-more"
         aria-label={`${flows.length} more ${received ? 'received' : 'sent'} items`}
-        className="text-[10px] text-gray-500 hover:text-gray-300"
+        className="text-[10px] text-gray-400 hover:text-gray-300"
         {...triggerProps}
       >
         +{flows.length}

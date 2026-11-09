@@ -32,7 +32,7 @@ test('can pin a recipe even when initial throughput is 0', async ({ page }) => {
   // Not yet pinned: no badge, and the panel's Rate section offers an unchecked pin.
   await expect(row.getByTestId('chip-pin')).toHaveCount(0)
   const panel = await selectRow(page, row)
-  const pin = panel.getByRole('checkbox', { name: 'Pin rate' })
+  const pin = panel.getByRole('switch', { name: 'Pin rate' })
   await expect(pin).not.toBeChecked()
   await expect(panel.getByLabel('Pinned rate')).toHaveCount(0)
 

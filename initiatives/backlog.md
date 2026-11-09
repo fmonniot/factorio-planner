@@ -71,7 +71,7 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 - [ ] **Hover-only UI on touch.** `IconButton` tooltips and `useHoverPopup` popups appear on hover and focus only; make them reachable on tap.
 - [ ] **Enlarge small touch targets.** `ReorderCell`, the expand chevron, colour swatches and the add-product button are under 24px.
 - [ ] **Sticky Recipe column.** Keep the Recipe column visible while the table scrolls sideways on narrow screens.
-- [ ] **Escape closes the side panel.** With the pickers and popovers taking precedence over it. Below `xl` the drawer also needs focus management: move focus into it, trap Tab (or make the table inert) and set `role="dialog"` / `aria-modal` only while it is a drawer.
+- [ ] **Drawer focus management.** Below `xl` the drawer needs it: move focus into it, trap Tab (or make the table inert) and set `role="dialog"` / `aria-modal` only while it is a drawer.
 - [ ] **Recipe picker detail panel below `xl`.** The hover detail panel floats beside the picker and is hidden below 1280px, so on tablets and narrow windows hovering a recipe shows nothing; show it under the grid or in a bottom sheet (and on tap for touch).
 - [ ] **Short viewports.** A collapsible summary strip when the viewport is short (landscape phones).
 - [ ] **Playwright touch/mobile project.** Run a subset of the e2e suite with touch emulation.

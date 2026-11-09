@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ReactNode } from 'react'
+import { useOverlayOpen } from './factory/sidePanel/useDismiss'
 
 interface ModalProps {
   onClose: () => void
@@ -9,10 +10,14 @@ interface ModalProps {
 
 export function Modal({ onClose, children, className = '' }: ModalProps) {
   const panelRef = useRef<HTMLDivElement>(null)
+  // An open modal owns Escape: the side panel drawer underneath must not also close on it.
+  useOverlayOpen()
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      onClose()
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)

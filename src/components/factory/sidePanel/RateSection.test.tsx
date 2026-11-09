@@ -65,11 +65,22 @@ beforeEach(() => {
 })
 
 describe('RateSection — pin', () => {
-  it('has an unchecked pin checkbox and no rate input for an unpinned row', () => {
+  it('has an off pin switch and no rate input for an unpinned row', () => {
     renderRate(electrolysis())
-    expect(screen.getByRole('checkbox', { name: 'Pin rate' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Pin rate' })).not.toBeChecked()
     expect(screen.queryByLabelText('Pinned rate')).not.toBeInTheDocument()
     expect(screen.getByTestId('runs-per-min')).toHaveTextContent('= 10.0 runs/min')
+  })
+
+  it('puts the pinned rate input and its unit in one group after the switch, on the same line', () => {
+    renderRate(electrolysis({ pinnedRate: 20 }))
+    const sw = screen.getByRole('switch', { name: 'Pin rate' })
+    expect(sw).toBeChecked()
+    const input = screen.getByLabelText('Pinned rate')
+    expect(input.parentElement).toHaveTextContent('/m')
+    // Switch label and input group are siblings of one row: the input is not under the switch.
+    expect(sw.closest('label')!.parentElement).toBe(input.parentElement!.parentElement)
+    expect(sw.closest('label')!.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('pins at the current throughput, and unpins', () => {
@@ -79,26 +90,26 @@ describe('RateSection — pin', () => {
       return <RateSection node={node} solved={solved()} gameData={gd} />
     }
     render(<Live />)
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Pin rate' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Pin rate' }))
     expect(stored()).toBe(10)
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Pin rate' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Pin rate' }))
     expect(stored()).toBeUndefined()
   })
 
   it('pins at a value above 0 even when the throughput is 0', () => {
     renderRate(electrolysis(), solved({ throughput: 0 }))
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Pin rate' }))
+    fireEvent.click(screen.getByRole('switch', { name: 'Pin rate' }))
     expect(stored()).toBeGreaterThan(0)
   })
 
   it('cannot pin a row that absorbs a byproduct', () => {
     renderRate(electrolysis({ byproductConsumer: true }))
-    expect(screen.getByRole('checkbox', { name: 'Pin rate' })).toBeDisabled()
+    expect(screen.getByRole('switch', { name: 'Pin rate' })).toBeDisabled()
   })
 
   it('lets a pinned row that absorbs a byproduct be unpinned', () => {
     renderRate(electrolysis({ byproductConsumer: true, pinnedRate: 5 }))
-    const box = screen.getByRole('checkbox', { name: 'Pin rate' })
+    const box = screen.getByRole('switch', { name: 'Pin rate' })
     expect(box).toBeEnabled()
     fireEvent.click(box)
     expect(stored()).toBeUndefined()

@@ -29,7 +29,7 @@ test.describe('phone width', () => {
     await expectShellFits(page)
     await expectWithinViewport(page, menuTrigger(page))
     await expect(menuTrigger(page).getByText(/^Plan 1$/)).toBeHidden()
-    await expect(page.getByTitle('Add block')).toBeInViewport()
+    await expect(page.getByRole('button', { name: 'Add block', exact: true })).toBeInViewport()
   })
 
   test('the summary panes form a swipe strip', async ({ page }) => {
@@ -59,10 +59,11 @@ test.describe('phone width', () => {
     expect(Math.abs(headTop - top)).toBeLessThanOrEqual(1)
   })
 
-  test('the side panel takes the whole width', async ({ page }) => {
+  test('the side panel is a narrow drawer that leaves part of the table visible', async ({ page }) => {
     await load(page)
     const panel = await selectRow(page, row(page))
-    expect((await panel.boundingBox())!.width).toBe(390)
+    // min(300, max(200, viewport - 140)): 250 px of a 390 px phone.
+    expect((await panel.boundingBox())!.width).toBe(250)
   })
 
   test('the toolbar hides the filter and keeps the warnings popover on screen', async ({ page }) => {
@@ -253,9 +254,12 @@ test.describe('column widths', () => {
         expect(min).toBeGreaterThan(0)
         expect(w.reduce((a, b) => a + b, 0)).toBeGreaterThanOrEqual(min - 0.5)
         expect(w[1]).toBeGreaterThanOrEqual(149.5)
-        expect(w[4]).toBeCloseTo(72, 0)
-        expect(w[5]).toBeGreaterThanOrEqual(79.5)
-        expect(w[6]).toBeGreaterThanOrEqual(147.5)
+        // Below 768px the Machine and Beacons columns are gone (minimum 554px): reorder, recipe, products, byproducts, ingredients, power.
+        const [products, byproducts, ingredients] = width < 768 ? [w[2], w[3], w[4]] : [w[4], w[5], w[6]]
+        if (width < 768) { expect(w).toHaveLength(6); expect(min).toBe(554) }
+        expect(products).toBeCloseTo(72, 0)
+        expect(byproducts).toBeGreaterThanOrEqual(79.5)
+        expect(ingredients).toBeGreaterThanOrEqual(147.5)
         const [sw, cw] = await tableScroller(page).evaluate(el => [el.scrollWidth, el.clientWidth])
         // Both outcomes are asserted: a wrapper narrower than the minimum scrolls; a wider one fits without scrolling.
         if (cw < min) expect(sw, 'the narrow wrapper scrolls').toBeGreaterThan(cw)
@@ -286,22 +290,20 @@ test.describe('area row alignment', () => {
 test.describe('ingredients alignment', () => {
   test.use({ viewport: { width: 1470, height: 900 } })
 
-  test('a recipe row\'s ingredients end at the right edge of their column, like the items an area receives', async ({ page }) => {
+  test('a recipe row\'s ingredients start at the left of their column, 28px in, at the same x as the items an area receives', async ({ page }) => {
     await load(page)
     const cell = row(page).locator('td').nth(6)
-    const last = cell.locator(':scope > div > *').last()
-    await expect(last).toBeVisible()
+    const first = cell.locator(':scope > div > *').first()
+    await expect(first).toBeVisible()
     const box = (await cell.boundingBox())!
-    const chip = (await last.boundingBox())!
-    // Within the cell padding (8px) of the right edge, and the first chip is well clear of the left edge.
-    expect(box.x + box.width - (chip.x + chip.width)).toBeLessThanOrEqual(12)
-    const first = (await cell.locator(':scope > div > *').first().boundingBox())!
-    expect(first.x - box.x, 'the chips do not start at the left edge').toBeGreaterThan(24)
-    // Same right edge as the items an area receives, in the same column.
-    const received = page.locator('main table tbody tr').filter({ hasText: 'Compression' }).getByTestId('area-chips-in').locator('[data-direction="receives"]').last()
+    const chip = (await first.boundingBox())!
+    // The cell padding (8px) plus the 28px an area row borrows from the Products span for its +N.
+    expect(chip.x - box.x).toBeCloseTo(36, 0)
+    // Same left edge as the items an area receives, in the same column.
+    const received = page.locator('main table tbody tr').filter({ hasText: 'Compression' }).getByTestId('area-chips-in').locator('[data-direction="receives"]').first()
     if (await received.count()) {
       const r = (await received.boundingBox())!
-      expect(Math.abs((r.x + r.width) - (chip.x + chip.width))).toBeLessThanOrEqual(2)
+      expect(Math.abs(r.x - chip.x)).toBeLessThanOrEqual(1)
     }
   })
 })

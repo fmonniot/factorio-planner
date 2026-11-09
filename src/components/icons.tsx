@@ -2,10 +2,19 @@ import type { ReactNode } from 'react'
 
 // Small stroke icons for the UI chrome. Game images live in Icon.tsx / TechIcon.tsx.
 
-function SvgIcon({ className = 'w-4 h-4', children }: { className?: string; children: ReactNode }) {
+interface IconProps {
+  className?: string
+  /** Names the icon for assistive technology and as its tooltip; without it the icon is hidden from them. */
+  title?: string
+  testId?: string
+}
+
+function SvgIcon({ className = 'w-4 h-4', title, testId, children }: IconProps & { children: ReactNode }) {
   return (
     <svg
-      aria-hidden
+      // A titled icon is an image with a name and a tooltip; an untitled one is decoration.
+      {...(title ? { role: 'img', 'aria-label': title } : { 'aria-hidden': true })}
+      data-testid={testId}
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
@@ -14,12 +23,11 @@ function SvgIcon({ className = 'w-4 h-4', children }: { className?: string; chil
       strokeLinejoin="round"
       className={className}
     >
+      {title && <title>{title}</title>}
       {children}
     </svg>
   )
 }
-
-interface IconProps { className?: string }
 
 export const FlagIcon = (p: IconProps) => <SvgIcon {...p}><path d="M5 21V4M5 4h11l-2 4 2 4H5" /></SvgIcon>
 
@@ -38,6 +46,12 @@ export const AreasIcon = (p: IconProps) => (
     <rect x="14" y="3" width="7" height="7" rx="1" />
     <rect x="3" y="14" width="7" height="7" rx="1" />
     <rect x="14" y="14" width="7" height="7" rx="1" />
+  </SvgIcon>
+)
+
+export const FolderIcon = (p: IconProps) => (
+  <SvgIcon {...p}>
+    <path d="M3 6a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z" />
   </SvgIcon>
 )
 

@@ -129,7 +129,7 @@ test.describe('summary strip and bars', () => {
     await setup(page)
     await selectProduct(page, 'nullius-plastic')
     await segments(page, 'Products').first().click()
-    await expect(page.locator('button[title="Sciences"][aria-current="true"]')).toBeVisible()
+    await expect(page.locator('[data-testid="block-tab"] button[aria-label="Sciences"][aria-current="true"]')).toBeVisible()
   })
 
   // 1 ovBar

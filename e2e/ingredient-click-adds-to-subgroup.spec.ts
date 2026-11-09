@@ -18,8 +18,9 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await page.getByRole('button', { name: 'Expand Acid Sub' }).click()
 
     // Wait for the subgroup recipe row to appear.
+    // The count reads "N machines" when it equals the recipe count (one recipe on one machine: "1 machine").
     const subgroupBadge = page.locator('main').getByTestId('group-summary')
-    await expect(subgroupBadge).toContainText('1 recipe')
+    await expect(subgroupBadge).toHaveText('1 machine')
 
     // Scope to the row right after the subgroup header: that is the subgroup's recipe row.
     // Its ingredient tiles only render once the solver result lands, so rely on
@@ -41,7 +42,7 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await slots.first().click()
 
     // The subgroup badge should now show 2 recipes.
-    await expect(subgroupBadge).toContainText('2 recipes')
+    await expect(subgroupBadge).toHaveText(/^(2 machines|2 recipes · \d+ machines?)$/)
   })
 
   test('clicking an ingredient at root level adds the new recipe to root (regression)', async ({ page }) => {
@@ -50,7 +51,7 @@ test.describe('ingredient click adds to correct subgroup', () => {
     // Count root-level rows before: 1 game-recipe row + 1 subplan row = 2 visible rows
     // (don't expand the subgroup so we know subgroup count stays the same).
     const subgroupBadge = page.locator('main').getByTestId('group-summary')
-    await expect(subgroupBadge).toContainText('1 recipe')
+    await expect(subgroupBadge).toHaveText('1 machine')
 
     // Click an ingredient tile from the root recipe (the first one in DOM order).
     const ingredientTiles = page.locator('main button[title*="Find producer recipe"]')
@@ -66,6 +67,6 @@ test.describe('ingredient click adds to correct subgroup', () => {
     await slots.first().click()
 
     // Subgroup badge must still show 1 recipe — the new node went to root, not subgroup.
-    await expect(subgroupBadge).toContainText('1 recipe')
+    await expect(subgroupBadge).toHaveText('1 machine')
   })
 })

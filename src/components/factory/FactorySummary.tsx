@@ -92,13 +92,13 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
       )}
 
       {!showExtra && !showRequested && empty ? (
-        <span className="text-gray-500">nothing requested yet</span>
+        <span className="text-gray-400">nothing requested yet</span>
       ) : (
         <>
           {/* Separator + actual (only when solver has run) */}
           {actualDisplay !== null && (
             <>
-              {(showExtra || showRequested) && <span className="text-gray-600 text-[10px]">→</span>}
+              {(showExtra || showRequested) && <span className="text-gray-400 text-[10px]">→</span>}
               <span
                 title={short
                   ? `Actual: ${actualDisplay}${unitLabel} — short by ${shortfallDisplay}${unitLabel}`
@@ -111,7 +111,7 @@ function ProductRates({ product, info, rateUnit, editing, empty, onStart, onStop
             </>
           )}
 
-          {unitLabel && <span className="text-gray-600 text-[10px]">{unitLabel}</span>}
+          {unitLabel && <span className="text-gray-400 text-[10px]">{unitLabel}</span>}
         </>
       )}
     </span>
@@ -355,7 +355,7 @@ export function FactorySummary() {
           renderRates={slot => (
             <span className="text-xs text-gray-300">
               made <span className="font-mono tabular-nums">{fmtFor(slot.itemId, slot.scale).value}</span>
-              <span className="text-gray-600 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
+              <span className="text-gray-400 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
             </span>
           )}
           actionsFor={slot => [
@@ -386,7 +386,7 @@ export function FactorySummary() {
           renderRates={slot => (
             <span className="text-xs text-gray-300">
               need <span className="font-mono tabular-nums">{fmtFor(slot.itemId, slot.scale).value}</span>
-              <span className="text-gray-600 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
+              <span className="text-gray-400 text-[10px]">{fmtFor(slot.itemId, slot.scale).unit}</span>
             </span>
           )}
           actionsFor={slot => {

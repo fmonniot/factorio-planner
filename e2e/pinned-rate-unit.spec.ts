@@ -19,7 +19,7 @@ test('pinned rate is stored per minute and shown in the current unit', async ({ 
   await expect(row).toBeVisible({ timeout: 5000 })
 
   const panel = await selectRow(page, row)
-  await panel.getByRole('checkbox', { name: 'Pin rate' }).check()
+  await panel.getByRole('switch', { name: 'Pin rate' }).check()
   // The table keeps no inline input: the chip carries the pin badge.
   await expect(row.getByLabel('Pinned rate')).toHaveCount(0)
   await expect(row.getByTestId('chip-pin')).toBeVisible()

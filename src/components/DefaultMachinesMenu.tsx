@@ -42,7 +42,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
         className="flex items-center gap-2 px-3 py-1"
       >
         <span className="w-36 truncate text-gray-200" title={category}>{categoryLabel(category)}</span>
-        {rows > 0 && <span className="text-[11px] text-gray-500 shrink-0">{rows} {rows === 1 ? 'row' : 'rows'}</span>}
+        {rows > 0 && <span className="text-[11px] text-gray-400 shrink-0">{rows} {rows === 1 ? 'row' : 'rows'}</span>}
         <div className="flex flex-wrap gap-1 ml-auto justify-end">
           {availableMachinesFor(gameData, horizon, category).map(m => {
             const checked = m.id === horizon.defaultMachines[category]
@@ -98,7 +98,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
       >
         Reset all
       </button>
-      <div className="px-3 pb-1 text-[11px] text-gray-500">Used by rows set to &lsquo;Default&rsquo;</div>
+      <div className="px-3 pb-1 text-[11px] text-gray-400">Used by rows set to &lsquo;Default&rsquo;</div>
     </>
   )
 }

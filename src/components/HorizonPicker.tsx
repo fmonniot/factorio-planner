@@ -105,7 +105,6 @@ export function HorizonButton() {
         onClick={() => setPopoverOpen(o => !o)}
         hasPopup="dialog"
         expanded={popoverOpen}
-        hideTooltip={popoverOpen}
         buttonRef={buttonRef}
         extra={valid.length > 0 && (
           <span

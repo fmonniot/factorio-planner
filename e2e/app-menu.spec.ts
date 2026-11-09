@@ -9,7 +9,7 @@ const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 async function setup(page: Page) {
   await loadPlanFixture(page, FIXTURE)
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
-  await expect(page.locator('button[title="Gears"]')).toBeVisible()
+  await expect(page.locator('[data-testid="block-tab"] button[aria-label="Gears"]')).toBeVisible()
 }
 
 test.describe('workspace menu', () => {

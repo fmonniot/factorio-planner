@@ -8,7 +8,7 @@ test('icon <source> takes no layout space, so no phantom gap precedes the image'
   await loadPlanFixture(page, FIXTURE, 'kompetenz-seablock')
   await expect(page.locator('main').getByText('Load game data to begin')).not.toBeVisible({ timeout: 10000 })
 
-  const tab = page.locator('button[title="Red science"]')
+  const tab = page.locator('[data-testid="block-tab"] button[aria-label="Processing units"]')
   await expect(tab.locator('img')).toBeVisible()
 
   const displays = await page.evaluate(() =>
