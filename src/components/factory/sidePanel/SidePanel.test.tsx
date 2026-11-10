@@ -307,7 +307,7 @@ describe('SidePanel — where inputs come from', () => {
     const e = entry('plate')
     expect(e).toHaveTextContent('Iron Plate')
     expect(e).toHaveTextContent('120/m')
-    expect(within(e).getAllByRole('radio').map(r => r.textContent)).toEqual(['Make it here', "Only what's already made", 'Receive it first'])
+    expect(within(e).getAllByRole('radio').map(r => r.textContent)).toEqual(['Make it here', 'Receive it first', "Only what's already made"])
     expect(within(e).getByRole('radio', { name: 'Make it here' })).toHaveAttribute('aria-checked', 'true')
     expect(within(e).getByTestId('sourcing-sentence')).toHaveTextContent('Made here by Iron Plate (2 × Furnace).')
   })

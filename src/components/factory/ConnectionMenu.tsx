@@ -9,14 +9,13 @@ import { takeCandidates, requestCandidates, requestBlockerTitle } from '../../st
 import { isMadeByAnyRecipe } from '../../data/recipeProducts'
 import { hasProduct } from '../../solver/blockGraph'
 import { fmtItemRateText } from './ItemTile'
-import { itemSourcingActions, forbidImportsTitle } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
 // ConnectionMenu — pick the block that supplies an item to the active block
 // (not for its own products): Request from a block that has the item as a product
 // (it makes what this block needs), or Take existing output from a block that has
-// some to spare, or Make it in a new block and request it from there. Also sets how the
-// block sources the item (Make it here, Only what's already made or Receive it first), and forbids or allows imports.
+// some to spare, or Make it in a new block and request it from there. How the block sources the
+// item is set in the Comes from control of the Ingredients slot, not here.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {
@@ -34,8 +33,6 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
-  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
-  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const gameData = useGameDataStore(selectGameData)
@@ -75,27 +72,10 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   const itemName = gameData?.items[itemId]?.name ?? itemId
 
   const activeBlock = blocks.find(b => b.id === activeBlockId)
-  const locked = activeBlock?.noImportItems.includes(itemId) ?? false
   // A product shortfall cannot be fed by a connection (products never receive supply).
   const connectable = activeBlock ? !hasProduct(activeBlock, itemId) : false
-  // Only connections the solver honours count: a missing or own-block source is ignored.
-  const connected = activeBlock?.inputConnections.some(
-    c => c.itemId === itemId && c.fromBlockId !== activeBlock.id && blocks.some(b => b.id === c.fromBlockId),
-  ) ?? false
   // Raw resources have no recipe, so a new block could never make them.
   const makeable = connectable && !!gameData && isMadeByAnyRecipe(gameData, itemId)
-  // Forbid imports is disabled (with this reason) when no row of the block makes the item.
-  const forbidTitle = forbidImportsTitle(activeBlock, gameData, itemId)
-  const mode = activeBlock?.itemSourcing[itemId]
-
-  // A leftover mode on one of the block's own products is shown so it can be cleared (the other choices are disabled).
-  const productName = activeBlock && !connectable ? itemName : undefined
-  const sourcingActions = (connectable && connected) || mode !== undefined
-    ? itemSourcingActions(mode, m => setItemSourcing(itemId, m), {
-        disabledTitle: productName ? `${productName} is a product of this block, so the block always makes it` : undefined,
-      })
-    : []
-
   const requests = connectable ? requestCandidates(blocks, activeBlockId, itemId) : []
   const takes = connectable ? takeCandidates(blocks, activeBlockId, itemId, results, flows) : []
 
@@ -184,43 +164,6 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
           Make in a new block…
         </button>
       )}
-      {connectable && <div role="separator" className="border-t border-gray-700 my-1" />}
-      {sourcingActions.length > 0 && (
-        <>
-          {sourcingActions.map(action => (
-            <button
-              key={action.id}
-              type="button"
-              role="menuitemradio"
-              aria-checked={action.checked}
-              disabled={action.disabled}
-              title={action.title}
-              className="w-full flex items-center gap-2 text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:hover:bg-transparent"
-              onClick={() => {
-                action.onSelect()
-                onClose()
-              }}
-            >
-              <span aria-hidden className="w-3">{action.checked ? '•' : ''}</span>
-              {action.label}
-            </button>
-          ))}
-          <div role="separator" className="border-t border-gray-700 my-1" />
-        </>
-      )}
-      <button
-        type="button"
-        role="menuitem"
-        disabled={!!forbidTitle}
-        title={forbidTitle}
-        className="w-full text-left px-3 py-1 text-xs text-gray-200 hover:bg-gray-700 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-transparent"
-        onClick={() => {
-          toggleNoImportItem(itemId)
-          onClose()
-        }}
-      >
-        {locked ? 'Allow imports' : 'Forbid imports'}
-      </button>
     </div>,
     document.body,
   )

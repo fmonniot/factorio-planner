@@ -37,6 +37,10 @@ interface SummaryDetailStripProps {
   actions: StripAction[]
   /** Editable states only: one more entry at the end of the actions line. */
   keyExtra?: React.ReactNode
+  /** Selected state only: a block of controls under the actions line (the Ingredients pane's Comes from). */
+  controls?: React.ReactNode
+  /** The pane holds controls for its selected slot: the strip keeps room for them while another slot is previewed. */
+  tall?: boolean
   onBack: () => void
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
@@ -60,6 +64,8 @@ export function SummaryDetailStrip({
   rates,
   actions,
   keyExtra,
+  controls,
+  tall = false,
   onBack,
   onOpenBlock,
   onConnectionContextMenu,
@@ -72,8 +78,10 @@ export function SummaryDetailStrip({
   const lookOf = (kind: SegmentKind | OverlayKind, blockId: string | undefined, limited?: boolean) =>
     segmentLook(kind, blockId !== undefined ? colorOf(blockId) : undefined, limited)
   // A fixed 72px: the item's header, a 16px bar and the actions line, or the overview's heading and
-  // bar. The tooltips open upward over the slots, so the strip does not clip.
-  const root = 'h-[72px] shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]'
+  // bar. The tooltips open upward over the slots, so the strip does not clip. A pane that has controls for its
+  // selected slot keeps a minimum height that holds them, in every state, so the panes do not jump when the
+  // pointer passes over another slot.
+  const root = `${tall ? 'min-h-[156px]' : 'h-[72px]'} shrink-0 border-t border-gray-700 bg-gray-800 rounded-b-md px-2.5 flex flex-col text-[11px]`
 
   if (state === 'overview' || !slot) {
     const maxTotal = Math.max(...rows.map(r => r.total), 0)
@@ -206,6 +214,7 @@ export function SummaryDetailStrip({
           {keyExtra && <span data-testid="summary-key-extra" className="inline-flex">{keyExtra}</span>}
         </div>
       )}
+      {state === 'selected' && controls}
     </div>
   )
 }

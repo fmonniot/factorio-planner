@@ -5,14 +5,18 @@ import { detail, selectSlot, slot } from './support/summary'
 
 /**
  * Fixture: active block "Gears" needs plates and rods from outside. Selecting an
- * Ingredients slot offers Find recipe, Receive from… and Forbid imports in the
- * detail strip; the right-click menu keeps the connection entries and Forbid imports.
+ * Ingredients slot offers Find recipe and Receive from… in the detail strip, with the
+ * Comes from control under them (the three presets and the Import switch); the
+ * right-click menu holds the connection entries.
  */
 const FIXTURE = path.resolve('e2e/fixtures/block-connection.json')
 
 const plateSlot = (page: Page) => slot(page, 'Ingredients', 'Iron plate')
 const rodSlot = (page: Page) => slot(page, 'Ingredients', 'Iron rod')
 const stripAction = (page: Page, name: string) => detail(page, 'Ingredients').getByRole('button', { name })
+const comesFrom = (page: Page) => detail(page, 'Ingredients').getByTestId('comes-from')
+const preset = (page: Page, name: string) => comesFrom(page).getByRole('radio', { name })
+const importSwitch = (page: Page) => comesFrom(page).getByTestId('import-switch')
 
 test.describe('Ingredients pane', () => {
   test.beforeEach(async ({ page }) => {
@@ -50,24 +54,28 @@ test.describe('Ingredients pane', () => {
     await expect(plateSlot(page)).toHaveAttribute('aria-pressed', 'false')
   })
 
-  test('Forbid imports is disabled, with a hint, on a raw item that no row makes', async ({ page }) => {
-    await rodSlot(page).click({ button: 'right' })
-    const item = page.getByRole('menuitem', { name: 'Forbid imports' })
-    await expect(item).toBeDisabled()
-    await expect(item).toHaveAttribute('title', /No recipe in this block makes Iron rod/)
-    await page.keyboard.press('Escape')
-
+  test('Import can be turned off on a raw item that no row makes; the control says it changes nothing and removes it', async ({ page }) => {
     await selectSlot(page, 'Ingredients', 'Iron rod')
-    await expect(stripAction(page, 'Forbid imports')).toBeDisabled()
+    await importSwitch(page).click()
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'false')
+    await expect(rodSlot(page)).toHaveAttribute('data-status', 'locked')
+
+    const line = comesFrom(page).getByTestId('no-effect')
+    await expect(line).toHaveAttribute('data-no-effect', 'not-made')
+    await expect(line).toContainText('No row in this block makes Iron rod.')
+    await line.getByRole('button', { name: 'Remove' }).click()
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
+    await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(0)
     await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'locked')
   })
 
-  test('right click on a slot lists the source blocks and Forbid imports', async ({ page }) => {
+  test('right click on a slot lists the source blocks and no sourcing or import entry', async ({ page }) => {
     await plateSlot(page).click({ button: 'right' })
     const menu = page.getByRole('menu')
     await expect(menu.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' })).toBeVisible()
-    await expect(menu.getByRole('menuitem', { name: 'Forbid imports' })).toBeVisible()
     await expect(menu.getByRole('menuitem', { name: 'Make in a new block…' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: /imports/i })).toHaveCount(0)
+    await expect(menu.getByRole('menuitemradio')).toHaveCount(0)
     await expect(menu.getByRole('menuitemcheckbox')).toHaveCount(0)
   })
 
@@ -76,13 +84,38 @@ test.describe('Ingredients pane', () => {
     await stripAction(page, 'Receive from…').click()
     const menu = page.getByRole('menu')
     await expect(menu.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' })).toBeVisible()
-    await expect(menu.getByRole('menuitem', { name: 'Forbid imports' })).toBeVisible()
+    await expect(menu.getByRole('menuitem', { name: 'Make in a new block…' })).toBeVisible()
+  })
+
+  test('each preset and the Import switch has its help text, on hover and on keyboard focus', async ({ page }) => {
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(comesFrom(page)).toBeVisible()
+    await expect(comesFrom(page)).toHaveAccessibleName('Comes from')
+    const help = [
+      ['Make it here', 'Made here; connections and imports cover what is missing.'],
+      ['Receive it first', "Taken from this block's connections first; made here for the rest."],
+      ["Only what's already made", 'Uses what this block already makes; the rest is received or imported.'],
+    ]
+    for (const [name, text] of help) {
+      await expect(preset(page, name)).toHaveAccessibleDescription(text)
+      await preset(page, name).hover()
+      await expect(page.getByRole('tooltip').filter({ hasText: text })).toBeVisible()
+    }
+    await importSwitch(page).hover()
+    await expect(page.getByRole('tooltip').filter({ hasText: 'Bring it in from outside the plan.' })).toBeVisible()
+
+    // From the keyboard: Tab from Receive from… lands on the first preset.
+    await page.mouse.move(0, 0)
+    await stripAction(page, 'Receive from…').focus()
+    await page.keyboard.press('Tab')
+    await expect(preset(page, 'Make it here')).toBeFocused()
+    await expect(page.getByRole('tooltip').filter({ hasText: 'Made here; connections' })).toBeVisible()
   })
 })
 
 /**
  * Fixture: the Gears block has a plate row pinned low, so it makes Iron plate and still imports the rest.
- * Forbid imports is available on the item (a row makes it) and both Allow imports entries lift the lock.
+ * The item can be given any rule: the presets and the Import switch have an effect on it.
  */
 test.describe('Ingredients pane — an item the block makes and still imports', () => {
   test.beforeEach(async ({ page }) => {
@@ -90,25 +123,50 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
     await expect(plateSlot(page)).toBeVisible({ timeout: 10000 })
   })
 
-  test('forbid and allow imports through the right-click menu', async ({ page }) => {
-    await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Forbid imports' }).click()
-    await expect(plateSlot(page)).toHaveAttribute('data-status', 'locked')
+  test('sets each preset from the Ingredients slot', async ({ page }) => {
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await expect(preset(page, 'Make it here')).toBeChecked()
 
-    await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitem', { name: 'Allow imports' }).click()
-    await expect(plateSlot(page)).not.toHaveAttribute('data-status', 'locked')
+    await preset(page, 'Receive it first').click()
+    await expect(preset(page, 'Receive it first')).toBeChecked()
+    await preset(page, "Only what's already made").click()
+    await expect(preset(page, "Only what's already made")).toBeChecked()
+    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('No row here already makes Iron plate')
+    await preset(page, 'Make it here').click()
+    await expect(preset(page, 'Make it here')).toBeChecked()
   })
 
-  test('the strip forbids and allows imports; a left click on a locked slot only selects it', async ({ page }) => {
+  test("Only what's already made is disabled while Import is off, and the switch while it is chosen", async ({ page }) => {
     await selectSlot(page, 'Ingredients', 'Iron plate')
-    await stripAction(page, 'Forbid imports').click()
+    await importSwitch(page).click()
+    await expect(plateSlot(page)).toHaveAttribute('data-status', 'locked')
+    const third = preset(page, "Only what's already made")
+    await expect(third).toHaveAttribute('aria-disabled', 'true')
+    await expect(third).toHaveAccessibleDescription('Import is off for Iron plate, so the block has to make it.')
+    // Playwright treats aria-disabled as disabled, so force the click that must do nothing.
+    await third.click({ force: true })
+    await expect(preset(page, 'Make it here')).toBeChecked()
+
+    await importSwitch(page).click()
+    await expect(third).not.toHaveAttribute('aria-disabled', 'true')
+    await third.click()
+    await expect(third).toBeChecked()
+    await expect(importSwitch(page)).toHaveAttribute('aria-disabled', 'true')
+    await expect(importSwitch(page)).toHaveAccessibleDescription("Only what's already made relies on imports for the rest.")
+    await importSwitch(page).click({ force: true })
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
+  })
+
+  test('the Import switch locks and unlocks the slot; a left click on a locked slot only selects it', async ({ page }) => {
+    await selectSlot(page, 'Ingredients', 'Iron plate')
+    await importSwitch(page).click()
     await expect(plateSlot(page)).toHaveAttribute('data-status', 'locked')
 
     await page.keyboard.press('Escape')
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await expect(page.getByRole('heading', { name: 'Add recipe' })).not.toBeVisible()
-    await stripAction(page, 'Allow imports').click()
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'false')
+    await importSwitch(page).click()
     await expect(plateSlot(page)).not.toHaveAttribute('data-status', 'locked')
   })
 })

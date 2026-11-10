@@ -1,22 +1,17 @@
-import { useMemo } from 'react'
 import type { GameData, GameRecipeNode, ItemSourcingMode, SolvedNode } from '../../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
-import { useSolverStore, selectBlockResult, selectFlows } from '../../../store/solverStore'
 import { useUiStore } from '../../../store/uiStore'
 import { hasProduct } from '../../../solver/blockGraph'
 import { Icon } from '../../Icon'
 import { fmtItemRateText } from '../ItemTile'
 import { ITEM_SOURCING_CHOICES, forbidImportsTitle } from '../itemSourcing'
-import { itemConnections, itemMakers, sourcingText } from '../sourcingText'
+import { useSourcingSentence } from '../useSourcingSentence'
 import { PanelSection } from './PanelParts'
 
 function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; ratePerMin: number | undefined; gameData: GameData }) {
   const block = useBlockStore(selectActiveBlock)
-  const blocks = useBlockStore(s => s.blocks)
   const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
-  const result = useSolverStore(selectBlockResult(block?.id))
-  const flows = useSolverStore(selectFlows)
   const unit = useUiStore(s => s.rateUnit)
 
   const item = gameData.items[itemId]
@@ -28,16 +23,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
   const productTitle = `${name} is a product of this block, so the block always makes it`
   const forbidTitle = forbidImportsTitle(block, gameData, itemId)
 
-  const text = useMemo(
-    () => block
-      ? sourcingText({
-          itemId, itemName: name, mode, noImport, unit,
-          makers: itemMakers(block, gameData, result, itemId),
-          connections: itemConnections(block, blocks, flows, itemId),
-        })
-      : '',
-    [block, blocks, flows, gameData, result, itemId, name, mode, noImport, unit],
-  )
+  const text = useSourcingSentence(itemId, gameData)
 
   return (
     <li data-testid="sourcing-entry" data-item-id={itemId} className="py-2 border-b border-gray-800 last:border-b-0">
