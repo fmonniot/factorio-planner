@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { Block, GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
@@ -42,6 +42,13 @@ interface SummaryPaneProps {
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
   /** Products: reorder by dragging; moves the slot so it lands before `toIndex` (an index in the current order). */
   onReorder?: (slotId: string, toIndex: number) => void
+  /**
+   * An ask to open one slot: the pane selects it and moves keyboard focus to the first control of its strip
+   * (`renderControls`). Each new `seq` is acted on once; a pane that mounts with a request opens on it.
+   */
+  openRequest?: { seq: number; slotId: string }
+  /** Called with the selected slot's id (null for none) after the pane mounts, and again when the selection or the callback changes. */
+  onSelectedChange?: (slotId: string | null) => void
   /** Extra classes for the pane root (layout inside the summary strip). */
   className?: string
 }
@@ -67,11 +74,34 @@ export function SummaryPane({
   onOpenBlock,
   onConnectionContextMenu,
   onReorder,
+  openRequest,
+  onSelectedChange,
   className = '',
 }: SummaryPaneProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(openRequest?.slotId ?? null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
+  // A new open request selects its slot (state adjusted during render); the hover preview would hide its controls.
+  const [openedSeq, setOpenedSeq] = useState(openRequest?.seq)
+  if (openRequest && openRequest.seq !== openedSeq) {
+    setOpenedSeq(openRequest.seq)
+    setSelectedId(openRequest.slotId)
+    setEditing(false)
+    setHoveredId(null)
+  }
+  // Once per request, when its slot is on screen: bring the slot into view and focus the first control of the strip.
+  const rootRef = useRef<HTMLElement>(null)
+  const focusedSeq = useRef<number | undefined>(undefined)
+  useLayoutEffect(() => {
+    if (!openRequest || focusedSeq.current === openRequest.seq || selectedId !== openRequest.slotId) return
+    focusedSeq.current = openRequest.seq
+    const root = rootRef.current
+    root?.querySelector('[data-testid="summary-slot"][aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' })
+    root?.querySelector<HTMLElement>('[data-summary-controls] :is(button, input, select, [tabindex]):not([tabindex="-1"], :disabled)')?.focus()
+  })
+  useEffect(() => {
+    onSelectedChange?.(selectedId)
+  }, [selectedId, onSelectedChange])
   const [traceKey, setTraceKey] = useState<string | null>(null)
   // The dragged slot: the ref is set at once (drag handlers read it), the state later, so the
   // faded slot is not painted before the browser has captured the drag image.
@@ -258,6 +288,7 @@ export function SummaryPane({
 
   return (
     <section
+      ref={rootRef}
       aria-label={label}
       data-testid="summary-pane"
       data-pane={pane}
@@ -327,7 +358,7 @@ export function SummaryPane({
         rates={shown && renderRates(shown, editOf(shown))}
         actions={shown ? actionsFor(shown) : []}
         keyExtra={shown && renderKeyExtra?.(shown, editOf(shown))}
-        controls={shown && renderControls?.(shown)}
+        controls={shown && renderControls && <div data-summary-controls className="contents">{renderControls(shown)}</div>}
         tall={renderControls !== undefined && selected !== undefined}
         onBack={() => {
           setSelectedId(null)

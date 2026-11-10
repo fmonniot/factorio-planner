@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen, fireEvent, createEvent, waitFor, within, act } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
 import { lineRate } from './lineChipFit'
@@ -2416,5 +2416,137 @@ describe('lineRate', () => {
     expect(lineRate('products', { ...product({}), empty: true })).toEqual({ shown: 58, short: false, hasGoal: false })
     expect(lineRate('byproducts', product({}))).toEqual({ shown: 58, short: false, hasGoal: false })
     expect(lineRate('ingredients', base)).toEqual({ shown: 58, short: false, hasGoal: false })
+  })
+})
+
+describe('FactorySummary — opening an Ingredients slot on request', () => {
+  const open = (itemId: string) => act(() => useUiStore.getState().openIngredientSlot(itemId))
+  const ingredientIds = () =>
+    within(pane('Ingredients')).queryAllByTestId('summary-slot').map(s => s.getAttribute('data-item-id'))
+  const comesFrom = () => within(strip('Ingredients')).getByTestId('comes-from')
+  /** Slag is made and used inside the block: it is not imported, connected or locked, so it has no Ingredients slot. */
+  const withSlagRule = () =>
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { slag: 'byproducts-first' as const } })) }))
+
+  beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null, selectedRow: null }))
+  afterEach(() => vi.unstubAllGlobals())
+
+  it('selects the slot, focuses the chosen preset of its Comes from control, and consumes the request', () => {
+    render(<FactorySummary />)
+    open('iron-ore')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+    expect(strip('Ingredients')).toHaveAttribute('data-state', 'selected')
+    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
+    expect(document.activeElement).toBe(within(comesFrom()).getByRole('radio', { name: 'Make it here' }))
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+  })
+
+  it('focuses the preset that is chosen, the one tab stop of the group', () => {
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { 'iron-ore': 'connections-first' as const } })) }))
+    render(<FactorySummary />)
+    open('iron-ore')
+    expect(document.activeElement).toBe(within(comesFrom()).getByRole('radio', { name: 'Receive it first' }))
+  })
+
+  it('expands a collapsed summary first', () => {
+    useUiStore.setState({ summaryCollapsed: true })
+    render(<FactorySummary />)
+    expect(screen.queryByTestId('summary-pane')).not.toBeInTheDocument()
+    open('iron-ore')
+    expect(useUiStore.getState().summaryCollapsed).toBe(false)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('opens the same slot again after it was deselected', () => {
+    render(<FactorySummary />)
+    open('iron-ore')
+    select('Ingredients', 'Iron Ore')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'false')
+    open('iron-ore')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('gives an item that has a rule but is only an intermediate no slot, until it is asked for, and none again once deselected', () => {
+    withSlagRule()
+    render(<FactorySummary />)
+    expect(ingredientIds()).toEqual(['iron-ore'])
+    expect(pane('Ingredients').textContent).toContain('· 1')
+
+    open('slag')
+    expect(ingredientIds()).toEqual(['iron-ore', 'slag'])
+    expect(slot('Ingredients', 'Slag')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(comesFrom()).getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
+
+    // Changing the rule keeps the slot: it is still selected.
+    fireEvent.click(within(comesFrom()).getByRole('radio', { name: 'Receive it first' }))
+    expect(ingredientIds()).toEqual(['iron-ore', 'slag'])
+
+    select('Ingredients', 'Slag')
+    expect(ingredientIds()).toEqual(['iron-ore'])
+    expect(useBlockStore.getState().blocks[0].itemSourcing).toEqual({ slag: 'connections-first' })
+  })
+
+  it('drops the temporary slot on Escape, when another slot is selected, and when the summary collapses', () => {
+    render(<FactorySummary />)
+    open('slag')
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(ingredientIds()).toEqual(['iron-ore'])
+
+    open('slag')
+    select('Ingredients', 'Iron Ore')
+    expect(ingredientIds()).toEqual(['iron-ore'])
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+
+    open('slag')
+    fireEvent.click(screen.getByRole('button', { name: 'Collapse summary' }))
+    fireEvent.click(screen.getAllByRole('button', { name: 'Expand summary' })[0])
+    expect(ingredientIds()).toEqual(['iron-ore'])
+  })
+
+  it('keeps at most one temporary slot: a request for another item replaces it', () => {
+    render(<FactorySummary />)
+    open('slag')
+    open('iron-plate')
+    expect(ingredientIds()).toEqual(['iron-ore', 'iron-plate'])
+    expect(slot('Ingredients', 'Iron Plate')).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('drops the temporary slot when the block changes', () => {
+    const other = makeEmptyBlock('Other')
+    useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
+    const first = useBlockStore.getState().activeBlockId
+    render(<FactorySummary />)
+    open('slag')
+    act(() => useBlockStore.setState({ activeBlockId: other.id }))
+    expect(ingredientIds()).not.toContain('slag')
+    act(() => useBlockStore.setState({ activeBlockId: first }))
+    expect(ingredientIds()).toEqual(['iron-ore'])
+  })
+
+  it('ignores a request left over from before it mounted', () => {
+    useUiStore.getState().openIngredientSlot('slag')
+    useUiStore.setState({ summaryCollapsed: true })
+    render(<FactorySummary />)
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+  })
+
+  it('closes a side panel that is a drawer, and leaves a docked one open', () => {
+    const media = (matches: boolean) => () => ({ matches, addEventListener: () => {}, removeEventListener: () => {} })
+    useUiStore.setState({ selectedRow: { blockId: 'b', nodeId: 'n' } })
+    vi.stubGlobal('matchMedia', media(false))
+    const { unmount } = render(<FactorySummary />)
+    open('iron-ore')
+    expect(useUiStore.getState().selectedRow, 'docked').toEqual({ blockId: 'b', nodeId: 'n' })
+    unmount()
+
+    vi.stubGlobal('matchMedia', media(true))
+    render(<FactorySummary />)
+    open('iron-ore')
+    expect(useUiStore.getState().selectedRow, 'drawer').toBeNull()
+    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
   })
 })

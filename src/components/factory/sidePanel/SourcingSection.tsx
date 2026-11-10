@@ -1,28 +1,16 @@
-import type { GameData, GameRecipeNode, ItemSourcingMode, SolvedNode } from '../../../data/types'
-import { useBlockStore, selectActiveBlock } from '../../../store/blockStore'
+import type { GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 import { useUiStore } from '../../../store/uiStore'
-import { hasProduct } from '../../../solver/blockGraph'
 import { Icon } from '../../Icon'
 import { fmtItemRateText } from '../ItemTile'
-import { ITEM_SOURCING_CHOICES, forbidImportsTitle } from '../itemSourcing'
 import { useSourcingSentence } from '../useSourcingSentence'
 import { PanelSection } from './PanelParts'
 
 function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; ratePerMin: number | undefined; gameData: GameData }) {
-  const block = useBlockStore(selectActiveBlock)
-  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
-  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const unit = useUiStore(s => s.rateUnit)
+  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
 
   const item = gameData.items[itemId]
   const name = item?.name ?? itemId
-  const mode = block?.itemSourcing[itemId]
-  const noImport = block?.noImportItems.includes(itemId) ?? false
-  // A product of the block is always made by it: only Make it here applies (a leftover mode can still be cleared).
-  const isProduct = block !== undefined && hasProduct(block, itemId)
-  const productTitle = `${name} is a product of this block, so the block always makes it`
-  const forbidTitle = forbidImportsTitle(block, gameData, itemId)
-
   const text = useSourcingSentence(itemId, gameData)
 
   return (
@@ -38,47 +26,24 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
           <span className="text-[11px] text-green-300 tabular-nums">{fmtItemRateText(itemId, ratePerMin / 60, unit)}</span>
         )}
       </div>
-      <div role="radiogroup" aria-label={`How ${name} is sourced`} className="mt-1.5 flex rounded overflow-hidden border border-gray-700">
-        {ITEM_SOURCING_CHOICES.map(choice => {
-          const selected = choice.mode === mode
-          // Make it here stays enabled while a mode is set, so the entry can always be cleared.
-          const disabled = isProduct && !(choice.mode === undefined && mode !== undefined) && choice.mode !== undefined
-          return (
-            <button
-              key={choice.label}
-              type="button"
-              role="radio"
-              aria-checked={selected}
-              disabled={disabled}
-              title={disabled ? productTitle : choice.title}
-              data-sourcing-choice={choice.mode ?? 'own'}
-              onClick={() => setItemSourcing(itemId, choice.mode as ItemSourcingMode | undefined)}
-              className={`flex-1 min-w-0 px-0.5 py-1 text-[11px] leading-tight [overflow-wrap:anywhere] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
-            >
-              {choice.label}
-            </button>
-          )
-        })}
-      </div>
       <p data-testid="sourcing-sentence" className="mt-1.5 text-[11px] text-gray-400">{text}</p>
-      <label className="mt-1 flex items-center gap-1.5 text-[11px] text-gray-400" title={forbidTitle}>
-        <input
-          type="checkbox"
-          checked={noImport}
-          disabled={forbidTitle !== undefined}
-          onChange={() => toggleNoImportItem(itemId)}
-          data-testid="forbid-imports"
-          className="accent-teal-400"
-        />
-        Forbid imports
-      </label>
+      <button
+        type="button"
+        data-testid="sourcing-change"
+        aria-label={`Change where ${name} comes from`}
+        title="Open this item in the Ingredients pane, where its Comes from control is"
+        onClick={() => openIngredientSlot(itemId)}
+        className="mt-1 bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-[11px] leading-4 text-gray-300 hover:border-gray-500"
+      >
+        Change…
+      </button>
     </li>
   )
 }
 
 /**
- * Where inputs come from: one entry per ingredient with the three sourcing modes (per item for the whole block, so every
- * row that uses the item follows it), one sentence about what the solver did, and Forbid imports.
+ * Where inputs come from, read-only: one entry per ingredient with its rate, the sentence about what the solver did, and
+ * a Change… button that opens the item's Ingredients slot, where the Comes from control sets the rule.
  */
 export function SourcingSection({ node, solved, gameData }: {
   node: GameRecipeNode
@@ -99,7 +64,6 @@ export function SourcingSection({ node, solved, gameData }: {
           {entries.map(e => <SourcingEntry key={e.itemId} itemId={e.itemId} ratePerMin={e.rate} gameData={gameData} />)}
         </ul>
       )}
-      <p className="mt-2 text-[10px] text-gray-400">The mode is per item for the whole block: every row that uses the item follows it.</p>
     </PanelSection>
   )
 }
