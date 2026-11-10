@@ -5,6 +5,8 @@ Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
 recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; case 11 uses plain made-up item ids.
 
+Case 11 (made-up ids) is the exception to the Nullius ids: its recipes are only in the fixtures.
+
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
 the Nullius recipes at crafting speed 1. When a case value changes, update this

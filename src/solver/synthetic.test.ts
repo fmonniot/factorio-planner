@@ -535,7 +535,7 @@ describe('solver synthetic cases', () => {
         for (const [name, offer, received, makeX] of cases) {
           it(name, () => {
             const { result, received: got } = solveBlock(flattenBlock(block(withAreas)), makeGameData(), connected(offer))
-            const id = (recipeId: string) => result.nodes.find(n => n.recipeNodeId.startsWith(recipeId))!
+            const id = (recipeId: string) => nodeOf(result, `${recipeId}@${recipeId === 'case11-make-goal' ? 'S' : 'root'}`)
             // Guaranteed.
             expect(got.get('case11-x'), 'received').toBeCloseTo(received, 3)
             expect(id('case11-make-goal').throughput).toBeCloseTo(30, 3)
