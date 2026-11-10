@@ -43,6 +43,20 @@ export function SegmentBar({ slot, colorOf, traceKey }: SegmentBarProps) {
 // SummarySlot — one item in a summary pane
 // ---------------------------------------------------------------------------
 
+/** Drag-to-reorder wiring for a slot; only the Products pane passes it. */
+export interface SlotDnd {
+  dragging: boolean
+  dropSide: 'before' | 'after' | null
+  onDragStart: React.DragEventHandler<HTMLButtonElement>
+  onDragEnd: React.DragEventHandler<HTMLButtonElement>
+  onDragOver: React.DragEventHandler<HTMLButtonElement>
+  onDragLeave: React.DragEventHandler<HTMLButtonElement>
+  onDrop: React.DragEventHandler<HTMLButtonElement>
+}
+
+/** dataTransfer type of a dragged summary slot. */
+export const SLOT_DRAG_TYPE = 'application/x-product-slot'
+
 interface SummarySlotProps {
   slot: SlotModel
   item: Item | undefined
@@ -55,6 +69,7 @@ interface SummarySlotProps {
   onContextMenu: React.MouseEventHandler<HTMLButtonElement>
   onMouseEnter: () => void
   onMouseLeave: () => void
+  dnd?: SlotDnd
 }
 
 const BADGES = {
@@ -75,6 +90,7 @@ export function SummarySlot({
   onContextMenu,
   onMouseEnter,
   onMouseLeave,
+  dnd,
 }: SummarySlotProps) {
   const name = item?.name ?? slot.itemId
   const traced = traceKey ? (slotHasKey(slot, traceKey) ? 'in' : 'out') : undefined
@@ -82,7 +98,7 @@ export function SummarySlot({
   const tone = selected
     ? 'border-teal-400 bg-[#0f2a2a]'
     : `${warn ? 'border-amber-700' : 'border-gray-700'} bg-gray-800 hover:bg-gray-700`
-  const opacity = (slot.dimmed ? 0.55 : 1) * (traced === 'out' ? 0.3 : 1)
+  const opacity = (slot.dimmed ? 0.55 : 1) * (traced === 'out' ? 0.3 : 1) * (dnd?.dragging ? 0.4 : 1)
   const badge = slot.status ? BADGES[slot.status] : null
   const ariaRate = isEnergyItem(slot.itemId)
     ? (() => { const r = fmtItemRate(slot.itemId, slot.rate / 60, rateUnit); return `${r.value} ${r.unit}` })()
@@ -109,6 +125,13 @@ export function SummarySlot({
       onContextMenu={onContextMenu}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      draggable={dnd ? true : undefined}
+      data-dragging={dnd?.dragging || undefined}
+      onDragStart={dnd?.onDragStart}
+      onDragEnd={dnd?.onDragEnd}
+      onDragOver={dnd?.onDragOver}
+      onDragLeave={dnd?.onDragLeave}
+      onDrop={dnd?.onDrop}
       className={`relative w-[50px] h-[54px] shrink-0 rounded border ${slot.empty ? 'border-dashed ' : ''}${tone}`}
       style={opacity < 1 ? { opacity } : undefined}
     >
@@ -133,6 +156,14 @@ export function SummarySlot({
       <span className="absolute left-1 right-1 bottom-[3px]">
         <SegmentBar slot={slot} colorOf={colorOf} traceKey={traceKey} />
       </span>
+      {dnd?.dropSide && (
+        <span
+          aria-hidden="true"
+          data-testid="summary-slot-drop-line"
+          data-side={dnd.dropSide}
+          className={`absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none ${dnd.dropSide === 'before' ? '-left-[3px]' : '-right-[3px]'}`}
+        />
+      )}
     </button>
   )
 }

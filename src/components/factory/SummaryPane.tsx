@@ -2,12 +2,17 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Block, GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
-import { SummarySlot } from './SummarySlot'
+import { SummarySlot, SLOT_DRAG_TYPE } from './SummarySlot'
+import type { SlotDnd } from './SummarySlot'
 import { SummaryDetailStrip } from './SummaryDetailStrip'
 import type { StripAction, StripState } from './SummaryDetailStrip'
 import { overviewRows } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
+
+/** Distance from the grid's top or bottom edge that scrolls it during a drag, and the step per dragover. */
+const EDGE_PX = 12
+const EDGE_STEP_PX = 12
 
 interface SlotEdit {
   editing: boolean
@@ -32,6 +37,8 @@ interface SummaryPaneProps {
   renderKeyExtra?: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
+  /** Products: reorder by dragging; moves the slot so it lands before `toIndex` (an index in the current order). */
+  onReorder?: (slotId: string, toIndex: number) => void
   /** Extra classes for the pane root (layout inside the summary strip). */
   className?: string
 }
@@ -55,12 +62,15 @@ export function SummaryPane({
   renderKeyExtra,
   onOpenBlock,
   onConnectionContextMenu,
+  onReorder,
   className = '',
 }: SummaryPaneProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [traceKey, setTraceKey] = useState<string | null>(null)
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [drop, setDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null)
 
   // True while more slots sit below the visible part of the grid (drives the bottom fade).
   const { bodyRef, contentRef, hasMore, onScroll } = useMoreBelow<HTMLDivElement, HTMLDivElement>()
@@ -106,7 +116,7 @@ export function SummaryPane({
   useEffect(() => {
     if (!hasView) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || e.defaultPrevented) return
+      if (e.key !== 'Escape' || e.defaultPrevented || draggingId !== null) return
       if (selectedId !== null) {
         setSelectedId(null)
         setEditing(false)
@@ -116,10 +126,71 @@ export function SummaryPane({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [hasView, selectedId])
+  }, [hasView, selectedId, draggingId])
 
   // A hovered item that disappeared never gets a mouseleave, so forget it (state adjusted during render).
   if (hoveredId !== null && !slots.some(s => s.id === hoveredId)) setHoveredId(null)
+
+  /** Which half of the slot the pointer is over, or null when a drop here would not move anything. */
+  function computeSide(e: React.DragEvent<HTMLButtonElement>, index: number): 'before' | 'after' | null {
+    if (draggingId === null) return null
+    const rect = e.currentTarget.getBoundingClientRect()
+    const side = e.clientX - rect.left < rect.width / 2 ? 'before' : 'after'
+    const toIndex = side === 'before' ? index : index + 1
+    const from = slots.findIndex(s => s.id === draggingId)
+    if (from < 0 || toIndex === from || toIndex === from + 1) return null
+    return side
+  }
+
+  // Scroll the grid while a slot is dragged near its top or bottom edge.
+  function handleGridDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (draggingId === null) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    if (e.clientY - rect.top < EDGE_PX) e.currentTarget.scrollBy({ top: -EDGE_STEP_PX })
+    else if (rect.bottom - e.clientY < EDGE_PX) e.currentTarget.scrollBy({ top: EDGE_STEP_PX })
+  }
+
+  function dndFor(slot: SlotModel, index: number): SlotDnd | undefined {
+    if (!onReorder) return undefined
+    return {
+      dragging: draggingId === slot.id,
+      dropSide: drop?.id === slot.id ? drop.side : null,
+      onDragStart: e => {
+        e.dataTransfer.setData(SLOT_DRAG_TYPE, slot.id)
+        e.dataTransfer.effectAllowed = 'move'
+        setHoveredId(null)
+        setDraggingId(slot.id)
+      },
+      onDragEnd: () => {
+        setDraggingId(null)
+        setDrop(null)
+      },
+      onDragOver: e => {
+        const side = computeSide(e, index)
+        if (side) {
+          e.preventDefault()
+          e.dataTransfer.dropEffect = 'move'
+          setDrop(prev => (prev?.id === slot.id && prev.side === side ? prev : { id: slot.id, side }))
+        } else {
+          setDrop(prev => (prev?.id === slot.id ? null : prev))
+        }
+      },
+      onDragLeave: e => {
+        // dragleave bubbles from child spans; only clear when the pointer leaves the slot itself.
+        if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
+        setDrop(prev => (prev?.id === slot.id ? null : prev))
+      },
+      onDrop: e => {
+        const side = computeSide(e, index)
+        const id = draggingId
+        setDrop(null)
+        setDraggingId(null)
+        if (!side || id === null) return
+        e.preventDefault()
+        onReorder(id, side === 'before' ? index : index + 1)
+      },
+    }
+  }
 
   return (
     <section
@@ -143,10 +214,11 @@ export function SummaryPane({
           ref={bodyRef}
           onScroll={onScroll}
           data-testid="summary-slot-grid"
+          onDragOver={onReorder ? handleGridDragOver : undefined}
           className="max-h-[97px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5"
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
-            {slots.map(slot => (
+            {slots.map((slot, index) => (
               <SummarySlot
                 key={slot.id}
                 slot={slot}
@@ -167,6 +239,7 @@ export function SummaryPane({
                 onContextMenu={e => onSlotContextMenu(slot, e)}
                 onMouseEnter={() => setHoveredId(slot.id)}
                 onMouseLeave={() => setHoveredId(prev => (prev === slot.id ? null : prev))}
+                dnd={dndFor(slot, index)}
               />
             ))}
           </div>

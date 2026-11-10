@@ -927,6 +927,96 @@ describe('products', () => {
     expect(store().blocks, 'blocks unchanged').toBe(before)
   })
 
+  describe('moveProduct', () => {
+    // A fresh object per call: the store keeps what it is given.
+    const three = () => [
+      { id: 'a', itemId: 'iron-plate', extraRate: 60 },
+      { id: 'b', itemId: 'gear' },
+      { id: 'c', itemId: 'copper-plate' },
+    ]
+    const ids = () => products().map(p => p.id)
+    const depth = () => store().history[store().blocks[0].id]?.undoStack.length ?? 0
+    beforeEach(() => {
+      for (const p of three()) store().addProduct(p)
+    })
+
+    it('moves a product later and earlier, by insertion index', () => {
+      store().moveProduct('a', 2)
+      expect(ids()).toEqual(['b', 'a', 'c'])
+      store().moveProduct('c', 0)
+      expect(ids()).toEqual(['c', 'b', 'a'])
+    })
+
+    it('moves to the front', () => {
+      store().moveProduct('c', 0)
+      expect(ids()).toEqual(['c', 'a', 'b'])
+    })
+
+    it('clamps an index past the end', () => {
+      store().moveProduct('a', 3)
+      expect(ids()).toEqual(['b', 'c', 'a'])
+      store().undo()
+      store().moveProduct('a', 99)
+      expect(ids()).toEqual(['b', 'c', 'a'])
+    })
+
+    it.each([['b', 1], ['b', 2], ['nope', 0]])('moveProduct(%s, %i) is a no-op with no history entry', (id, to) => {
+      const before = store().blocks
+      const d = depth()
+      store().moveProduct(id, to)
+      expect(store().blocks, 'blocks unchanged').toBe(before)
+      expect(depth()).toBe(d)
+    })
+
+    it('is a no-op for a single product', () => {
+      useBlockStore.setState({ blocks: [{ ...store().blocks[0], products: [three()[0]] }] })
+      const before = store().blocks
+      store().moveProduct('a', 5)
+      store().moveProduct('a', 0)
+      expect(store().blocks).toBe(before)
+    })
+
+    it('undo and redo restore the order and keep the extra output', () => {
+      store().moveProduct('a', 3)
+      store().undo()
+      expect(ids()).toEqual(['a', 'b', 'c'])
+      expect(products()[0].extraRate).toBe(60)
+      store().redo()
+      expect(ids()).toEqual(['b', 'c', 'a'])
+      expect(products()[2].extraRate).toBe(60)
+    })
+
+    it('two moves then two undos restore the original order', () => {
+      store().moveProduct('a', 3)
+      store().moveProduct('c', 0)
+      expect(ids()).toEqual(['c', 'b', 'a'])
+      store().undo()
+      store().undo()
+      expect(ids()).toEqual(['a', 'b', 'c'])
+    })
+
+    it('leaves the other blocks untouched', () => {
+      const other = makeEmptyBlock('Other')
+      useBlockStore.setState(st => ({ blocks: [...st.blocks, other] }))
+      const before = store().blocks[1]
+      store().moveProduct('a', 3)
+      expect(store().blocks[1]).toBe(before)
+    })
+
+    it('keeps history per block', () => {
+      const other = makeEmptyBlock('Other')
+      useBlockStore.setState(st => ({ blocks: [...st.blocks, other] }))
+      store().moveProduct('a', 3)
+      store().setActiveBlock(other.id)
+      expect(store().history[other.id]?.undoStack ?? []).toHaveLength(0)
+      store().undo()
+      expect(ids()).toEqual(['b', 'c', 'a'])
+      store().setActiveBlock(store().blocks[0].id)
+      store().undo()
+      expect(ids()).toEqual(['a', 'b', 'c'])
+    })
+  })
+
   it('duplicateBlock copies products with fresh ids and the same extraRate', () => {
     store().addProduct(plate)
     store().duplicateBlock(store().blocks[0].id)
@@ -1721,6 +1811,40 @@ describe('block colours', () => {
       expect(colorOf(b.id)).not.toBe('#ffff00') // the second product does not count
       store().removeProduct('p1')
       expect(colorOf(b.id)).toBe('#ffff00')
+    })
+
+    it('recolours an auto block when a move changes its first product, and undo and redo follow', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'gear' })
+      store().addProduct({ id: 'p2', itemId: 'plate' })
+      expect(colorOf(b.id)).toBe('#7a7a79')
+      store().moveProduct('p2', 0)
+      expect(colorOf(b.id)).toBe('#ffff00')
+      store().undo()
+      expect(colorOf(b.id)).toBe('#7a7a79')
+      store().redo()
+      expect(colorOf(b.id)).toBe('#ffff00')
+    })
+
+    it('keeps the colour when a move leaves the first product alone', () => {
+      const { b } = seed()
+      store().resetBlockColor(b.id)
+      store().addProduct({ id: 'p1', itemId: 'plate' })
+      store().addProduct({ id: 'p2', itemId: 'gear' })
+      store().addProduct({ id: 'p3', itemId: 'plate' })
+      store().moveProduct('p3', 2)
+      store().moveProduct('p2', 3)
+      expect(colorOf(b.id)).toBe('#ffff00')
+    })
+
+    it('does not recolour a picked colour on a move', () => {
+      const { b } = seed()
+      store().setBlockColor(b.id, '#fda4af')
+      store().addProduct({ id: 'p1', itemId: 'gear' })
+      store().addProduct({ id: 'p2', itemId: 'plate' })
+      store().moveProduct('p2', 0)
+      expect(colorOf(b.id)).toBe('#fda4af')
     })
 
     it('keeps the colour when the last product is removed', () => {

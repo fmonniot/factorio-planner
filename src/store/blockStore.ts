@@ -274,6 +274,16 @@ function withMaxRate(block: Block, connectionId: string, maxRate: number | undef
 }
 
 /** Set or clear a product's extra output; clearing deletes the key so undo restores equality. */
+/** `block.products` with the product `id` moved to index `to` of the resulting array. */
+function moveProductTo(products: readonly Product[], id: string, to: number): Product[] {
+  const from = products.findIndex(p => p.id === id)
+  if (from < 0) return [...products]
+  const next = [...products]
+  const [moved] = next.splice(from, 1)
+  next.splice(to, 0, moved)
+  return next
+}
+
 function withExtra(block: Block, productId: string, extraRate: number | undefined): Block {
   return {
     ...block,
@@ -332,6 +342,8 @@ export interface BlockStoreState {
   // Products (block-level)
   addProduct: (product: Product) => void
   removeProduct: (productId: string) => void
+  /** Move a product of the active block so it lands before index `toIndex` (counted in the current order, as moveBlock). Undoable; no-op when it would not move. */
+  moveProduct: (productId: string, toIndex: number) => void
   updateProductExtra: (productId: string, extraRate: number | undefined) => void
 
   // No-import items (block-level; LP cannot import these as raw inputs)
@@ -874,6 +886,22 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
           products.splice(index, 0, target)
           return { ...b, products }
         },
+      }
+      return applyCommand(state, cmd)
+    }),
+
+  moveProduct: (productId, toIndex) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const from = block.products.findIndex(p => p.id === productId)
+      if (from < 0) return state
+      const clamped = Math.max(0, Math.min(toIndex, block.products.length))
+      const to = from < clamped ? clamped - 1 : clamped
+      if (to === from) return state
+      const cmd: Command = {
+        apply: b => ({ ...b, products: moveProductTo(b.products, productId, to) }),
+        undo: b => ({ ...b, products: moveProductTo(b.products, productId, from) }),
       }
       return applyCommand(state, cmd)
     }),

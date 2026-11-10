@@ -135,6 +135,7 @@ export function FactorySummary() {
   const setCollapsed = useUiStore(s => s.setSummaryCollapsed)
   const addProduct = useBlockStore(s => s.addProduct)
   const removeProduct = useBlockStore(s => s.removeProduct)
+  const moveProduct = useBlockStore(s => s.moveProduct)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
 
@@ -259,6 +260,26 @@ export function FactorySummary() {
     else setPendingChange({ change: 'add', product, effects })
   }
 
+  /** Move earlier / Move later for a product, for both menus; none with fewer than two products. */
+  function productMoveActions(productId: string): { label: string; onSelect: () => void; disabled?: boolean; title?: string }[] {
+    const index = products.findIndex(p => p.id === productId)
+    if (index < 0 || products.length < 2) return []
+    const first = index === 0
+    const last = index === products.length - 1
+    return [
+      {
+        label: 'Move earlier',
+        onSelect: () => moveProduct(productId, index - 1),
+        ...(first ? { disabled: true, title: 'Already the first product' } : {}),
+      },
+      {
+        label: 'Move later',
+        onSelect: () => moveProduct(productId, index + 2),
+        ...(last ? { disabled: true, title: 'Already the last product' } : {}),
+      },
+    ]
+  }
+
   function requestRemoveProduct(productId: string) {
     if (!activeBlock) return
     const product = activeBlock.products.find(p => p.id === productId)
@@ -329,6 +350,8 @@ export function FactorySummary() {
           blocks={blocks}
           rateUnit={rateUnit}
           editable
+          // Slot ids of the Products pane are product ids.
+          onReorder={(slotId, toIndex) => moveProduct(slotId, toIndex)}
           onSlotContextMenu={(slot, e) => {
             e.preventDefault()
             setProductMenu({ productId: slot.product!.id, x: e.clientX, y: e.clientY })
@@ -365,6 +388,7 @@ export function FactorySummary() {
             if (slot.product!.extra !== undefined) {
               actions.push({ label: 'Remove extra', onSelect: () => updateProductExtra(slot.product!.id, undefined) })
             }
+            actions.push(...productMoveActions(slot.product!.id))
             actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) })
             return actions
           }}
@@ -483,6 +507,7 @@ export function FactorySummary() {
         if (products.find(p => p.id === productMenu.productId)?.extraRate !== undefined) {
           actions.push({ label: 'Remove extra', onSelect: () => updateProductExtra(productMenu.productId, undefined) })
         }
+        actions.push(...productMoveActions(productMenu.productId))
         actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(productMenu.productId) })
         return (
           <RowActionsMenu
