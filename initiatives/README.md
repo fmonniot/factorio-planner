@@ -9,7 +9,9 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
    markers belong here.
 2. Small or not-yet-designed work is a line in [backlog.md](backlog.md). Work
    that needs a design doc gets its own folder with a primary design/plan doc,
-   linked from the backlog.
+   linked from the backlog. The folder then holds all of the initiative's state:
+   the backlog items it covers move into it, and the backlog keeps only work
+   without an initiative and follow-ups to one.
 3. The first non-heading line of that doc is `Status: Active | Future | Blocked — <reason>` (`Shipped` is optional once archived).
 4. When an initiative ships, run `git mv initiatives/<name> initiatives/archive/<name>`
    and fix in-folder references to the old path. Do not otherwise rewrite the documents.
@@ -20,6 +22,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
+| Sourcing priority: one Sources list per item | Active | [sourcing-priority/](sourcing-priority/plan.md) |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
 | Visual refinement of the main screen | Shipped | [archive/visual-refinement/](archive/visual-refinement/plan.md) |
