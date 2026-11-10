@@ -135,7 +135,7 @@ export function PinBadge() {
   )
 }
 
-/** Amber `B` or `C`: the item is not sourced from Own recipes first. */
+/** Amber `B` or `C`: the item is not sourced with Make it here. */
 export function SourcingBadge({ letter, mode }: { letter: 'B' | 'C'; mode: string }) {
   return (
     <span

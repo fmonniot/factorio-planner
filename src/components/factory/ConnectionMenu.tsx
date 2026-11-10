@@ -16,7 +16,7 @@ import { itemSourcingActions, forbidImportsTitle } from './itemSourcing'
 // (not for its own products): Request from a block that has the item as a product
 // (it makes what this block needs), or Take existing output from a block that has
 // some to spare, or Make it in a new block and request it from there. Also sets how the
-// block sources the item (own recipes, byproducts or connections first), and forbids or allows imports.
+// block sources the item (Make it here, Only what's already made or Receive it first), and forbids or allows imports.
 // ---------------------------------------------------------------------------
 
 interface ConnectionMenuProps {

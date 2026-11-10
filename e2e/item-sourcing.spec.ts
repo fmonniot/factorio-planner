@@ -10,7 +10,7 @@ import { selectRow } from './support/sidePanel'
  * Fixture: the active block "Acid" makes hydrogen 800 and nitric acid 125 with steam electrolysis
  * (whose side output is 400 oxygen), nitric acid synthesis (which needs 500 oxygen) and oxygen
  * decompression. By default decompression covers the 100 oxygen the electrolysis does not (it
- * takes 25 compressed oxygen). With Byproducts first on oxygen the 100 is imported instead.
+ * takes 25 compressed oxygen). With Only what's already made on oxygen the 100 is imported instead.
  * The block "O2 maker" has oxygen as a product, so it can be requested from.
  */
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
@@ -49,7 +49,7 @@ test.describe('item sourcing', () => {
     await setup(page)
   })
 
-  test('the panel sourcing section sets Byproducts first, which imports oxygen instead of decompressing it', async ({ page }) => {
+  test("the panel sourcing section sets Only what's already made, which imports oxygen instead of decompressing it",async ({ page }) => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
@@ -59,16 +59,16 @@ test.describe('item sourcing', () => {
     await expect(page.getByRole('menuitemradio')).toHaveCount(0)
 
     await expect((await oxygenEntry(page)).locator('[data-sourcing-choice="own"]')).toHaveAttribute('aria-checked', 'true')
-    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Made in this block by')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Made here by')
     await choose(page, 'byproducts-first')
-    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Uses byproducts of other rows first')
+    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
 
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
     await expect(oxygenChip(page).getByTestId('item-tile-sourcing')).toBeVisible()
 
     await oxygenSlot(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemradio', { name: 'Byproducts first' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('menuitemradio', { name: "Only what's already made" })).toHaveAttribute('aria-checked', 'true')
     await page.keyboard.press('Escape')
 
     const acid = await exportedAcid(page)

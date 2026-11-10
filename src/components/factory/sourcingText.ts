@@ -35,7 +35,7 @@ export interface SourcingTextInput {
   itemName: string
   itemId: string
   mode: ItemSourcingMode | undefined
-  /** "Forbid imports" is on for the item. */
+  /** Import is off for the item (it is in `Block.noImportItems`). */
   noImport: boolean
   makers: ItemMaker[]
   connections: ItemConnection[]
@@ -58,37 +58,38 @@ export function sourcingText(input: SourcingTextInput): string {
   const primaries = makers.filter(m => !m.byproduct)
   const byproducts = makers.filter(m => m.byproduct)
   const rate = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
+  // Import off is said under every preset: the item is not brought in from outside the plan.
+  const importOff = noImport ? ' Import is off.' : ''
 
   if (mode === 'byproducts-first') {
     const covers = primaries.length > 0 ? list(primaries.map(m => m.recipeName)) : undefined
     if (byproducts.length === 0) {
-      return covers
-        ? `No row here makes ${itemName} as a byproduct, so ${covers} covers it.`
-        : `No row here makes ${itemName} as a byproduct, so it is imported.`
+      return (covers
+        ? `No row here already makes ${itemName}, so ${covers} covers it.`
+        : `No row here already makes ${itemName}, so it is imported.`) + importOff
     }
     const used = byproducts.map(m => `${m.recipeName} ${rate(m.rate)}`).join(', ')
-    return covers
-      ? `Uses byproducts of other rows first (${used}). ${covers} makes the rest.`
-      : `Uses byproducts of other rows first (${used}). The rest is imported.`
+    return (covers
+      ? `Uses what this block already makes first (${used}). ${covers} makes the rest.`
+      : `Uses what this block already makes first (${used}). The rest is imported.`) + importOff
   }
 
   if (mode === 'connections-first') {
     const rest = primaries.length > 0 ? list(primaries.map(m => m.recipeName)) : undefined
     if (connections.length === 0) {
-      return rest ? `No connection for ${itemName}; ${rest} covers it.` : `No connection for ${itemName}; it is imported.`
+      return (rest ? `No connection for ${itemName}; ${rest} covers it.` : `No connection for ${itemName}; it is imported.`) + importOff
     }
     const offered = connections.reduce((sum, c) => sum + c.offered, 0)
-    const head = `Takes ${itemName} from ${list(connections.map(c => c.blockName))} first (${rate(offered)} offered)`
+    const head = `Taken from ${list(connections.map(c => c.blockName))} first (${rate(offered)} offered)`
     const made = primaries.reduce((sum, m) => sum + m.rate, 0)
     // The connection covers everything when no row of its own has to run for the item.
-    if (rest && made > EPS) return `${head}, then ${rest} makes the rest.`
-    return `${head}.`
+    if (rest && made > EPS) return `${head}, then ${rest} makes the rest.${importOff}`
+    return `${head}.${importOff}`
   }
 
-  // Own recipes first
-  const forbidden = noImport ? ' Imports are forbidden.' : ''
-  if (makers.length === 0) return `No row here makes ${itemName}; it is imported.${forbidden}`
-  return `Made in this block by ${list(makers.map(makerLabel))}.${forbidden}`
+  // Make it here
+  if (makers.length === 0) return `No row here makes ${itemName}; it is imported.${importOff}`
+  return `Made here by ${list(makers.map(makerLabel))}.${importOff}`
 }
 
 // ---------------------------------------------------------------------------

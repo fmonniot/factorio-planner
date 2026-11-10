@@ -307,30 +307,30 @@ describe('SidePanel — where inputs come from', () => {
     const e = entry('plate')
     expect(e).toHaveTextContent('Iron Plate')
     expect(e).toHaveTextContent('120/m')
-    expect(within(e).getAllByRole('radio').map(r => r.textContent)).toEqual(['Own recipes', 'Byproducts', 'Connections'])
-    expect(within(e).getByRole('radio', { name: 'Own recipes' })).toHaveAttribute('aria-checked', 'true')
-    expect(within(e).getByTestId('sourcing-sentence')).toHaveTextContent('Made in this block by Iron Plate (2 × Furnace).')
+    expect(within(e).getAllByRole('radio').map(r => r.textContent)).toEqual(['Make it here', "Only what's already made", 'Receive it first'])
+    expect(within(e).getByRole('radio', { name: 'Make it here' })).toHaveAttribute('aria-checked', 'true')
+    expect(within(e).getByTestId('sourcing-sentence')).toHaveTextContent('Made here by Iron Plate (2 × Furnace).')
   })
 
   it('sets the mode for the whole block and rewrites the sentence', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
-    fireEvent.click(within(entry('plate')).getByRole('radio', { name: 'Byproducts' }))
+    fireEvent.click(within(entry('plate')).getByRole('radio', { name: "Only what's already made" }))
     expect(useBlockStore.getState().blocks[0].itemSourcing.plate).toBe('byproducts-first')
-    expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here makes Iron Plate as a byproduct, so Iron Plate covers it.')
+    expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here already makes Iron Plate, so Iron Plate covers it.')
   })
 
-  it('disables the other choices for an item that is a product of the block, keeping Own recipes first', () => {
+  it('disables the other choices for an item that is a product of the block, keeping Make it here', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, products: [{ id: 'p1', itemId: 'plate', extraRate: 10 }] })) }))
     select('n2')
     renderWithSolve()
     const e = entry('plate')
-    expect(within(e).getByRole('radio', { name: 'Byproducts' })).toBeDisabled()
-    expect(within(e).getByRole('radio', { name: 'Connections' })).toBeDisabled()
-    expect(within(e).getByRole('radio', { name: 'Byproducts' })).toHaveAttribute('title', 'Iron Plate is a product of this block, so the block always makes it')
-    expect(within(e).getByRole('radio', { name: 'Own recipes' })).toBeEnabled()
+    expect(within(e).getByRole('radio', { name: "Only what's already made" })).toBeDisabled()
+    expect(within(e).getByRole('radio', { name: 'Receive it first' })).toBeDisabled()
+    expect(within(e).getByRole('radio', { name: "Only what's already made" })).toHaveAttribute('title', 'Iron Plate is a product of this block, so the block always makes it')
+    expect(within(e).getByRole('radio', { name: 'Make it here' })).toBeEnabled()
   })
 
   it('toggles Forbid imports, disabled for an item no row makes', () => {

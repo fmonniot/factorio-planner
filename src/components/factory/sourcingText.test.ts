@@ -11,15 +11,15 @@ const input = (over: Partial<SourcingTextInput> = {}): SourcingTextInput => ({
   itemName: 'Plastic bar', itemId: 'plastic', mode: undefined, noImport: false, makers: [], connections: [], unit: 'min', ...over,
 })
 
-describe('sourcingText — own recipes first', () => {
+describe('sourcingText — Make it here', () => {
   it('names the rows that make the item with their machines', () => {
-    expect(sourcingText(input({ makers: [maker({ machineCount: 2 })] }))).toBe('Made in this block by Plastic bar (2 × Chemical plant).')
+    expect(sourcingText(input({ makers: [maker({ machineCount: 2 })] }))).toBe('Made here by Plastic bar (2 × Chemical plant).')
   })
 
   it('lists several rows', () => {
     const makers = [maker(), maker({ recipeName: 'Plastic from coal', machineName: 'Assembler', machineCount: 3 })]
     expect(sourcingText(input({ makers }))).toBe(
-      'Made in this block by Plastic bar (1 × Chemical plant) and Plastic from coal (3 × Assembler).',
+      'Made here by Plastic bar (1 × Chemical plant) and Plastic from coal (3 × Assembler).',
     )
   })
 
@@ -27,21 +27,21 @@ describe('sourcingText — own recipes first', () => {
     expect(sourcingText(input())).toBe('No row here makes Plastic bar; it is imported.')
   })
 
-  it('appends that imports are forbidden', () => {
-    expect(sourcingText(input({ noImport: true }))).toBe('No row here makes Plastic bar; it is imported. Imports are forbidden.')
+  it('appends that Import is off', () => {
+    expect(sourcingText(input({ noImport: true }))).toBe('No row here makes Plastic bar; it is imported. Import is off.')
     expect(sourcingText(input({ noImport: true, makers: [maker()] }))).toBe(
-      'Made in this block by Plastic bar (1 × Chemical plant). Imports are forbidden.',
+      'Made here by Plastic bar (1 × Chemical plant). Import is off.',
     )
   })
 })
 
-describe('sourcingText — byproducts first', () => {
+describe("sourcingText — Only what's already made", () => {
   const mode = 'byproducts-first' as const
 
   it('lists the byproduct makers with their rates and names who makes the rest', () => {
     const makers = [maker(), maker({ recipeName: 'Coal liquefaction', byproduct: true, rate: 30 })]
     expect(sourcingText(input({ mode, makers }))).toBe(
-      'Uses byproducts of other rows first (Coal liquefaction 30.0/m). Plastic bar makes the rest.',
+      'Uses what this block already makes first (Coal liquefaction 30.0/m). Plastic bar makes the rest.',
     )
   })
 
@@ -52,40 +52,58 @@ describe('sourcingText — byproducts first', () => {
 
   it('falls back to the primary rows when nothing makes it as a byproduct', () => {
     expect(sourcingText(input({ mode, makers: [maker()] }))).toBe(
-      'No row here makes Plastic bar as a byproduct, so Plastic bar covers it.',
+      'No row here already makes Plastic bar, so Plastic bar covers it.',
     )
   })
 
   it('says the item is imported when no row makes it at all', () => {
-    expect(sourcingText(input({ mode }))).toBe('No row here makes Plastic bar as a byproduct, so it is imported.')
+    expect(sourcingText(input({ mode }))).toBe('No row here already makes Plastic bar, so it is imported.')
   })
 })
 
-describe('sourcingText — connections first', () => {
+describe('sourcingText — Receive it first', () => {
   const mode = 'connections-first' as const
   const conn = { blockName: 'Plastics block', offered: 120, taken: 100 }
 
   it('names the connection and the rows that make the rest', () => {
     expect(sourcingText(input({ mode, makers: [maker()], connections: [conn] }))).toBe(
-      'Takes Plastic bar from Plastics block first (120/m offered), then Plastic bar makes the rest.',
+      'Taken from Plastics block first (120/m offered), then Plastic bar makes the rest.',
     )
   })
 
   it('drops the second half when the connection covers everything', () => {
     expect(sourcingText(input({ mode, makers: [maker({ rate: 0 })], connections: [conn] }))).toBe(
-      'Takes Plastic bar from Plastics block first (120/m offered).',
+      'Taken from Plastics block first (120/m offered).',
     )
-    expect(sourcingText(input({ mode, connections: [conn] }))).toBe('Takes Plastic bar from Plastics block first (120/m offered).')
+    expect(sourcingText(input({ mode, connections: [conn] }))).toBe('Taken from Plastics block first (120/m offered).')
   })
 
   it('sums the offers of several connections', () => {
     const connections = [conn, { blockName: 'Oil', offered: 30, taken: 0 }]
-    expect(sourcingText(input({ mode, connections }))).toBe('Takes Plastic bar from Plastics block and Oil first (150/m offered).')
+    expect(sourcingText(input({ mode, connections }))).toBe('Taken from Plastics block and Oil first (150/m offered).')
   })
 
   it('says so when there is no connection', () => {
     expect(sourcingText(input({ mode, makers: [maker()] }))).toBe('No connection for Plastic bar; Plastic bar covers it.')
     expect(sourcingText(input({ mode }))).toBe('No connection for Plastic bar; it is imported.')
+  })
+})
+
+describe('sourcingText — Import is off', () => {
+  const conn = { blockName: 'Plastics block', offered: 120, taken: 100 }
+  const makers = [maker(), maker({ recipeName: 'Coal liquefaction', byproduct: true, rate: 30 })]
+
+  it('is appended to the sentence of every preset and branch', () => {
+    const cases: Partial<SourcingTextInput>[] = [
+      { mode: undefined }, { mode: undefined, makers: [maker()] },
+      { mode: 'byproducts-first' }, { mode: 'byproducts-first', makers: [maker()] },
+      { mode: 'byproducts-first', makers }, { mode: 'byproducts-first', makers: [makers[1]] },
+      { mode: 'connections-first' }, { mode: 'connections-first', makers: [maker()] },
+      { mode: 'connections-first', connections: [conn] }, { mode: 'connections-first', makers: [maker()], connections: [conn] },
+    ]
+    for (const over of cases) {
+      expect(sourcingText(input({ ...over, noImport: true })), JSON.stringify(over)).toBe(`${sourcingText(input(over))} Import is off.`)
+    }
   })
 })
 

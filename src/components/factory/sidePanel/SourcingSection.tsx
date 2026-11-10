@@ -23,7 +23,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
   const name = item?.name ?? itemId
   const mode = block?.itemSourcing[itemId]
   const noImport = block?.noImportItems.includes(itemId) ?? false
-  // A product of the block is always made by it: only Own recipes first applies (a leftover mode can still be cleared).
+  // A product of the block is always made by it: only Make it here applies (a leftover mode can still be cleared).
   const isProduct = block !== undefined && hasProduct(block, itemId)
   const productTitle = `${name} is a product of this block, so the block always makes it`
   const forbidTitle = forbidImportsTitle(block, gameData, itemId)
@@ -55,7 +55,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
       <div role="radiogroup" aria-label={`How ${name} is sourced`} className="mt-1.5 flex rounded overflow-hidden border border-gray-700">
         {ITEM_SOURCING_CHOICES.map(choice => {
           const selected = choice.mode === mode
-          // Own recipes first stays enabled while a mode is set, so the entry can always be cleared.
+          // Make it here stays enabled while a mode is set, so the entry can always be cleared.
           const disabled = isProduct && !(choice.mode === undefined && mode !== undefined) && choice.mode !== undefined
           return (
             <button
@@ -64,12 +64,12 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
               role="radio"
               aria-checked={selected}
               disabled={disabled}
-              title={disabled ? productTitle : choice.label}
+              title={disabled ? productTitle : choice.title}
               data-sourcing-choice={choice.mode ?? 'own'}
               onClick={() => setItemSourcing(itemId, choice.mode as ItemSourcingMode | undefined)}
               className={`flex-1 min-w-0 px-0.5 py-1 text-[11px] leading-tight [overflow-wrap:anywhere] border-r border-gray-700 last:border-r-0 disabled:opacity-40 ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
             >
-              {choice.label.replace(' first', '')}
+              {choice.label}
             </button>
           )
         })}
