@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL } from './itemSourcing'
+import { ITEM_SOURCING_CHOICES, IMPORT_SWITCH, COMES_FROM_LABEL, SOURCE_RULE_NAMES } from './itemSourcing'
 
 describe('the vocabulary', () => {
   it('names the three presets and gives each its help text', () => {
@@ -16,6 +16,14 @@ describe('the vocabulary', () => {
       title: 'Bring it in from outside the plan. Off: this block must make or receive all of it.',
     })
     expect(COMES_FROM_LABEL).toBe('Comes from')
+  })
+
+  it('names the three kinds of rule after the preset, or the Import switch turned off', () => {
+    expect(SOURCE_RULE_NAMES).toEqual({
+      'connections-first': 'Receive it first',
+      'byproducts-first': "Only what's already made",
+      'import-off': 'Import off',
+    })
   })
 
   it('uses none of the retired words in the names', () => {
