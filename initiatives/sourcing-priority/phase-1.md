@@ -82,17 +82,19 @@ Each ticket is one pull request. T1, T2 and T3 have no UI and can go first, in a
 
 - [x] **T2. One vocabulary module.** In `src/components/factory/itemSourcing.ts`, replace the labels and titles of `ITEM_SOURCING_CHOICES` with the names and help texts of [Vocabulary](#vocabulary), and add the Import switch's name and help text beside them, so every surface reads them from this file. Remove `itemSourcingLabel` once T6 removes its only use. Rewrite `sourcingText.ts` to the [Sentences](#sentences) table. Rewrite the `coproduct-driven` hint in `TableToolbar.tsx` ("set it to Byproducts first (right-click its chip)") to "set it to Only what's already made (select it in the Ingredients pane)". Update `sourcingText.test.ts`, `itemSourcing.test.ts` and `WarningsPopover.test.tsx`. Until T4 lands the old controls stay where they are and show the new names.
 
-- [ ] **T3. Which rules have an effect.** A new pure module `src/components/factory/sourceRules.ts` with `sourceRules.test.ts`:
+- [x] **T3. Which rules have an effect.** A new pure module `src/components/factory/sourceRules.ts` with `sourceRules.test.ts`:
 
   ```ts
   export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off'
   export type NoEffectReason = 'product' | 'not-made' | 'locked' | 'no-connection'
   export interface SourceRule { itemId: string; kind: SourceRuleKind; noEffect?: NoEffectReason }
   /** Every rule of the block: `itemSourcing` entries in key order, then `noImportItems` in order. */
-  export function sourceRules(block: Block, gameData: GameData): SourceRule[]
+  export function sourceRules(block: Block, gameData: GameData, blockIds: ReadonlySet<string>): SourceRule[]
   /** The text shown beside a rule that has no effect. */
   export function noEffectText(reason: NoEffectReason, itemName: string): string
   ```
+
+  `blockIds` holds the ids of every block of the plan: `no-connection` needs it to tell an existing source from a deleted one (it is the solver's own `receivesItem`). Callers pass `new Set(blocks.map(b => b.id))`.
 
   `noEffect` is the first reason that applies, tested in this order:
 
@@ -103,7 +105,7 @@ Each ticket is one pull request. T1, T2 and T3 have no UI and can go first, in a
   | `locked` | `'byproducts-first'` only | the item is in `block.noImportItems` | "Import is off for {item}, so the block has to make it." |
   | `no-connection` | `'connections-first'` only | no entry of `block.inputConnections` has this item and a `fromBlockId` that is another existing block | "No connection for {item}." |
 
-  The function reads the block only, never a solve result. So a product with no extra output and no request, which the solver does not treat as a goal, is still reported as `product`; that is accepted, and matches what the side panel does today. One unit test per reason and kind, one for the order of the reasons, one for an item with two rules.
+  The function reads the block and the set of block ids only, never a solve result. So a product with no extra output and no request, which the solver does not treat as a goal, is still reported as `product`; that is accepted, and matches what the side panel does today. One unit test per reason and kind, one for the order of the reasons, one for an item with two rules.
 
 - [ ] **T4. The Comes from control on the Ingredients slot.** In the strip of a selected Ingredients slot (`FactorySummary.tsx`), add a group `data-testid="comes-from"` labelled **Comes from** with:
   - the three presets as one radio group (`data-sourcing-choice` = `own`, `connections-first`, `byproducts-first`, the values the side panel uses today), calling `setItemSourcing`;
