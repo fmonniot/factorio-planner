@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { solve, flattenBlock } from './index'
+import { solve, solveBlock, flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
@@ -108,6 +108,10 @@ function recipes(): GameRecipe[] {
     // Vanilla recipes of case 10 (burner fuel).
     recipe('iron-plate', 'smelting', 3.2, [item('iron-ore', 1)], [item('iron-plate', 1)]),
     recipe('solid-fuel-from-light-oil', 'chemistry', 2, [fluid('light-oil', 10)], [item('solid-fuel', 1)]),
+    // Case 11 (spare output before connections), plain ids: A makes the goal with X on the side, U uses X, R makes X.
+    recipe('case11-make-goal', 'smelting', 1, [item('case11-ore', 1)], [item('case11-goal', 1), item('case11-x', 1)]),
+    recipe('case11-use-x', 'smelting', 1, [item('case11-x', 1)], [item('case11-other', 1)]),
+    recipe('case11-make-x', 'smelting', 1, [item('case11-feed', 1)], [item('case11-x', 2)]),
   ]
 }
 
@@ -494,5 +498,54 @@ describe('solver synthetic cases', () => {
       expect(unsatisfiedRate(r, 'nullius-oxygen')).toBeCloseTo(100, 3)
       expect(unsatisfiedRate(r, 'nullius-compressed-oxygen') ?? 0).toBe(0)
     })
+  })
+
+  describe('case 11: spare output before connections', () => {
+    // A runs for the goal and makes 30 X / min on the side; U uses 50 X / min; R can make X (2 X per run, so that it is cheaper than running A harder for X); X is connections-first
+    // with one connection. Guaranteed: the received rate is min(offer, 50 - 30), because `blockDiagnostics`
+    // reports the deficit after own production, and that R covers a shortfall of the connection. Observed: that R
+    // stays idle when the offer covers the deficit (supply costs 0 against 1 per run).
+    const connected = (offer: number) => new Map([['case11-x', offer]])
+    const block = (withAreas: boolean): Block => {
+      const a = rowIn('case11-make-goal', 'S')
+      const u = rowIn('case11-use-x', 'root')
+      const r = rowIn('case11-make-x', 'root')
+      const rootPlan = withAreas
+        ? subPlan('root', [u, r], [subPlan('S', [a], [], true)])
+        : subPlan('root', [a, u, r])
+      return {
+        id: 'block-11',
+        name: 'Block',
+        color: '#60a5fa',
+        products: [{ id: 'p0', itemId: 'case11-goal', extraRate: 30 }, { id: 'p1', itemId: 'case11-other', extraRate: 50 }],
+        noImportItems: [],
+        itemSourcing: { 'case11-x': 'connections-first' },
+        inputConnections: [{ id: 'c1', itemId: 'case11-x', fromBlockId: 'upstream' }],
+        rootPlan,
+      }
+    }
+    const cases: Array<[string, number, number, number]> = [
+      // offer, received, R throughput (2 X per run: running A harder for X would tie with R at 1 X per run)
+      ['a: offer 100', 100, 20, 0],
+      ['b: unlimited offer (request probe)', Infinity, 20, 0],
+      ['c: offer 5', 5, 5, 7.5],
+    ]
+    for (const withAreas of [false, true]) {
+      describe(withAreas ? 'with areas' : 'without areas', () => {
+        for (const [name, offer, received, makeX] of cases) {
+          it(name, () => {
+            const { result, received: got } = solveBlock(flattenBlock(block(withAreas)), makeGameData(), connected(offer))
+            const id = (recipeId: string) => result.nodes.find(n => n.recipeNodeId.startsWith(recipeId))!
+            // Guaranteed.
+            expect(got.get('case11-x'), 'received').toBeCloseTo(received, 3)
+            expect(id('case11-make-goal').throughput).toBeCloseTo(30, 3)
+            expect(id('case11-use-x').throughput).toBeCloseTo(50, 3)
+            // Observed for a and b (R idle); guaranteed for c's received rate, observed for R covering the rest.
+            expect(id('case11-make-x').throughput, 'R runs for X').toBeCloseTo(makeX, 3)
+            expect(unsatisfiedRate(result, 'case11-x') ?? 0, 'X is not imported').toBeCloseTo(0, 3)
+          })
+        }
+      })
+    }
   })
 })

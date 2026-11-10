@@ -1,9 +1,9 @@
 # Solver Synthetic Test Cases
 
-Ten recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Eleven recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; case 11 uses plain made-up item ids.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -431,4 +431,39 @@ Plates 60/min at 1 per run = 60 executions/min.
      Solid fuel 0.72/min = 0.72 runs/min of the 2 s recipe: light oil = 0.72 × 10 = 7.2/min.
 10c: machines = 60 × 3.2 / 60 / 1.2 = 2.667; fuel per run = 90 × 1.5 × 3.2 / 1.2 / 4000 = 0.09; × 60 = 5.4/min.
 10d: machines = 3.2; fuel per run = 90 kW × 3.2 s / 300 kJ per unit = 0.96 units; × 60 = 57.6/min. With heavy fuel: 90 × 3.2 / 1200 = 0.24; × 60 = 14.4/min.
+```
+
+---
+
+## Case 11 — Spare output before connections
+
+**Exercises:** `itemSourcing[item] = 'connections-first'` with a connection. A connections-first item uses what the block's rows already make of it before its connected supply, so the connection delivers only the deficit (`blockDiagnostics`, `src/solver/blockResult.ts`; the area solve calls the same function).
+
+**Goals:** 30 `case11-goal` / min and 50 `case11-other` / min. `case11-x` is connections-first, with one connection from another block.
+
+Recipes (all crafting time 1 s, plain ids):
+- A, `case11-make-goal`: 1 ore → 1 goal + 1 X. It runs for the goal; X does not decide how much it runs.
+- U, `case11-use-x`: 1 X → 1 other.
+- R, `case11-make-x`: 1 feed → 2 X. It can make X; at 2 X per run it is cheaper than running A harder for X (at 1 X per run the two would tie).
+
+### Expected solver output
+
+A runs 30 / min, so it makes 30 X / min, and U uses 50 X / min: the deficit is 20 X / min.
+
+| Case | Offer on the connection | Received | R runs for X | Why |
+|---|---|---|---|---|
+| a | 100 | 20 | no (0 / min) | Guaranteed: received is `min(offer, 50 − 30)`. R idle is observed: supply costs 0 against 1 per run |
+| b | unlimited (`Infinity`, the request probe) | 20 | no (0 / min) | Guaranteed, same clamp; a request therefore asks the source for 20. R idle is observed |
+| c | 5 | 5 | yes, 7.5 / min (the other 15 X) | Received is guaranteed; that R covers the rest instead of an import is observed |
+
+Each case runs twice: with no areas, and with areas where A is in an area other than U (and R). The numbers are the same. In every case X is not imported.
+
+### Derivation
+
+```
+A: 30 goal/min ÷ 1 = 30 runs/min → 30 X/min made on the side.
+U: 50 other/min ÷ 1 = 50 runs/min → 50 X/min used.
+Deficit after own production: 50 − 30 = 20 X/min.
+a, b: supply (cost 0) covers the 20; no recipe has to run for X.
+c: supply is 5; 15 X/min left. R at 2 X per run: 7.5 runs/min (cost 7.5), against 15 extra runs of A (cost 15).
 ```

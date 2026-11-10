@@ -66,7 +66,7 @@ One component, used on every surface, in place of `SourcingBadge`:
 
 Each ticket is one pull request. T1, T2 and T3 have no UI and can go first, in any order. T4 needs T2 and T3. T5, T6, T7 and T8 need T4. Each ticket updates the docs for what it changes; T9 is the final pass.
 
-- [ ] **T1. Solver test: spare output before connections.** No solver change. Pin today's behaviour that a `'connections-first'` item uses what the block already makes before its connected supply.
+- [x] **T1. Solver test: spare output before connections.** No solver change. Pin today's behaviour that a `'connections-first'` item uses what the block already makes before its connected supply.
 
   Fixture: a block where row A runs for a goal and makes 30 / min of item X as a co-product (X does not decide how much A runs), another row uses 50 / min of X, a recipe R in the block can make X, X is `'connections-first'`, and the block has one connection for X.
 
