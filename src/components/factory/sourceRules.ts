@@ -28,7 +28,8 @@ export function sourceRules(block: Block, gameData: GameData, blockIds: Readonly
   for (const [itemId, kind] of Object.entries(block.itemSourcing)) {
     rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
   }
-  for (const itemId of block.noImportItems) {
+  // The schema does not dedupe `noImportItems`; one lock is one rule.
+  for (const itemId of new Set(block.noImportItems)) {
     rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'import-off' }))
   }
   return rules

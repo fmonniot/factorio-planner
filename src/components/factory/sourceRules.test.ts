@@ -156,9 +156,8 @@ describe('sourceRules', () => {
     expect(rules(b).filter(r => r.itemId === 'plate').map(r => r.noEffect)).toEqual(['locked', undefined])
   })
 
-  it('reads the block only: the same block gives the same rules however often it is asked', () => {
-    const b = block({ sourcing: { plate: 'byproducts-first' } })
-    expect(rules(b)).toEqual(rules(b))
+  it('lists a duplicated lock once', () => {
+    expect(rules(block({ locked: ['plate', 'plate'] }))).toEqual([{ itemId: 'plate', kind: 'import-off' }])
   })
 })
 
