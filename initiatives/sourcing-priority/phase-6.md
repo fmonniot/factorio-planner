@@ -14,7 +14,9 @@ Out: any new control. The player-facing rule is only that the list is followed.
 - **How.** An extra pass, or a changed objective, for items made from an import. Check it against the [surplus-aware objective](../surplus-aware-objective/plan.md) initiative, which also changes the objective.
 - **Which plans move.** Measure on real plans before shipping: how many items change source, and by how much.
 
-## Backlog items it closes
+## Items it closes
+
+From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 - The rest of "Let connected supply replace an upstream import".
 

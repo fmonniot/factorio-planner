@@ -16,7 +16,9 @@ Out: choosing between two recipes for one item inside a block; *Make more here* 
 - **Routes first.** "Per-partner area figures elsewhere" is a prerequisite and needs no solver change (`SolverResult.areaRoutes`); it can ship ahead of the rest of the phase.
 - **The stored field.** A new optional field on an area sub-factory; decide what happens to its rules when the area flag is switched off.
 
-## Backlog items it closes
+## Items it closes
+
+From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 - "Byproducts first per consumer" (put the consumer in an area and set the rule there).
 - "Connections first vs local-first".

@@ -16,7 +16,9 @@ Out: rules on an area and the *Other areas* line expanded per area (phase 5); th
 - **Names, after phase 1.** Confirm or change the line and preset names from what phase 1 taught, before a format is built around them.
 - **A custom order as a sentence.** Every order must read as a sentence, never a code; list the orders the control allows and their sentences.
 
-## Backlog items it closes
+## Items it closes
+
+From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 - Part of "Let connected supply replace an upstream import": the order decides, where a connection exists. The default case is phase 6.
 

@@ -18,7 +18,9 @@ The case it must serve, from the author's own factories: iron is short; science 
 - **The stored field.** The phase 3 list gains groups, shares and area entries; a list without them loads as one consumer per rank. Decide how shares behave when a member leaves a group (renormalise or keep).
 - **The gesture.** Dropping onto a line against between lines, with a keyboard equivalent, and where the percentages are edited.
 
-## Backlog items it closes
+## Items it closes
+
+From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 - The rest of "Choose who is served first in a loop".
 

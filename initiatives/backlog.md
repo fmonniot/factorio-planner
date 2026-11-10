@@ -1,7 +1,9 @@
 # Backlog
 
 Single list of planned and possible work. When an item grows a design doc,
-promote it to its own folder under `initiatives/` and link it here. Shipped
+promote it to its own folder under `initiatives/` and link it here. The
+initiative's folder then holds all of its state: the items it covers leave
+this list, which keeps work without an initiative and follow-ups to one. Shipped
 initiatives are indexed in [README.md](README.md); smaller shipped items are
 in `git log`. For the timeless system specification, see [../spec/](../spec/).
 
@@ -37,20 +39,12 @@ Markers: `[ ]` not started · `[~]` partly done (the item says what is missing)
 
 ## Sourcing priority
 
-Designed as one initiative: [sourcing-priority/](sourcing-priority/plan.md) replaces the sourcing modes with one Sources list per item, in six phases; the tickets of phase 1 are in [phase-1.md](sourcing-priority/phase-1.md). The items below stay until the phase that covers them ships.
-
-- [ ] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority. Covered by phases 3 and 4 of [sourcing-priority/](sourcing-priority/plan.md).
-- [~] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md). **Connections first** (per item, in the Ingredients menu or an item chip's menu) now lets supply replace the import; the default still depends on the recipe ratio. Covered by phases 2 and 6 of [sourcing-priority/](sourcing-priority/plan.md).
-- [ ] **Connections first with partial supply.** The request probe gives a connections-first item unlimited supply, so when its connections deliver less than the block uses, the own recipes that top it up may need inputs that were not requested (they show as imports). Make the probe aware of the real supply. Not covered by [sourcing-priority/](sourcing-priority/plan.md): *Receive it first* inherits it.
-- [ ] **Byproducts first per consumer.** The mode is per item, so a second consumer of the item in the same block also gets imported supply. Let the mode apply to one consuming recipe. Covered by phase 5 of [sourcing-priority/](sourcing-priority/plan.md) (a rule on an area).
-- [ ] **Sourcing badge on Ingredients slots.** The `B` / `C` badge shows on the item chips of the production table only; the Ingredients and Byproducts slots, the areas matrix and the block graph show nothing. Covered by phase 1 of [sourcing-priority/](sourcing-priority/plan.md).
-- [ ] **Connections first vs local-first.** Items marked connections first are other supply, so connected supply does not override the local-first rule of an area. It may need to. See "Connections first" in the [open questions](archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Covered by phase 5 of [sourcing-priority/](sourcing-priority/plan.md).
+- [ ] **One Sources list per item.** Replace the sourcing modes, the import lock and the hidden serving orders with one ordered list per item, and a served-order list on the source. An active initiative: its design, phases and tickets are in [sourcing-priority/](sourcing-priority/plan.md), with the items it took from this list.
+- [ ] **Connections first with partial supply.** The request probe gives a connections-first item unlimited supply, so when its connections deliver less than the block uses, the own recipes that top it up may need inputs that were not requested (they show as imports). Make the probe aware of the real supply. Left out of [sourcing-priority/](sourcing-priority/plan.md) on purpose (*Receive it first* inherits it); a follow-up to it.
 
 ## Planning features
 
-- [ ] **Supplies other areas toggle.** An area without its own row of a recipe is supplied by the most productive row, then table order. A per-row toggle would let the player choose the supplier instead. See "Choice of supplier" in the [open questions](archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Covered by phase 5 of [sourcing-priority/](sourcing-priority/plan.md), if *Other areas* expands to one line per area.
 - [ ] **Mining productivity research.** Extraction rows use the drill's base mining speed. Mining productivity research and a drill's base `effect_receiver` are ignored.
-- [ ] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`. A prerequisite of phase 5 of [sourcing-priority/](sourcing-priority/plan.md).
 - [ ] **Wind turbines and other `electric-energy-interface` generators.** Seablock's `wind-turbine-2` (15 kW) and Nullius' wind turbines and Stirling engines are `electric-energy-interface` entities whose output is set by script (wind, altitude, heat). Decide an average per entity and export them as generation recipes.
 - [ ] **Burnt results of fuels.** A fuel with a `burnt_result` is never offered. Model the burnt item as an output of the burner row.
 - [ ] **Fluid-burning non-crafting machines.** Drills and pumps with a `burns_fluid` source are exported as `fluid-burner` but have no UI or tests.

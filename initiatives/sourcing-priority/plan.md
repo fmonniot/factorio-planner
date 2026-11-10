@@ -99,7 +99,7 @@ Most players never open the list. The slot offers three presets and an import sw
 
 ### Help on every line
 
-Every line and preset carries a one-sentence description, so a name never has to stand alone. It shows as a tooltip on hover and keyboard focus, and as a help line under the selected line in **Custom order…**. Each help text ships with the first version that shows its name (the presets and the Import switch in phase 1, the lines with the list in phase 2) and can be thinned out once the names have proven themselves. A preset's help is its sentence from the table above.
+Every line and preset carries a one-sentence description, so a name never has to stand alone. It shows as a tooltip on hover and keyboard focus, and as a help line under the selected line in **Custom order…**. Each help text ships with the first version that shows its name (the presets and the Import switch in phase 1, the lines with the list in phase 2) and can be thinned out once the names have proven themselves. A preset's help is its sentence from the table above with "this block's connections" in place of the block names, so the help never changes with the plan.
 
 | Line | Help text |
 | --- | --- |
@@ -146,29 +146,29 @@ Shortages are rare on requests, which make the source produce what is asked. The
 
 ## Keeping the power
 
-The list covers every case the modes cover today, and it closes five of the six open items under "Sourcing priority" in the [backlog](../backlog.md), plus the "Supplies other areas toggle" under Planning features. Packs like Seablock and Nullius need the cases below; each is one edit on the list or one rule on an area.
+The list covers every case the modes cover today, and it covers the seven items this initiative took from the backlog, listed under [Items taken from the backlog](#items-taken-from-the-backlog). Packs like Seablock and Nullius need the cases below; each is one edit on the list or one rule on an area.
 
 | Need in a complex pack | Today | With the Sources list |
 | --- | --- | --- |
 | Use a byproduct stream before making more (slag, waste water, hydrogen) | `B` on the item, block-wide | **Only what's already made**, or keep *Make more here* on below *Other blocks* to top up |
-| One consumer takes the byproduct, another keeps its own supply | Not possible (backlog: byproducts first per consumer) | Put the consumer in an area and set the rule on that area |
-| A central block feeds an area that also has its own row | Not possible (backlog: connections first vs local-first) | Move *Other blocks* above *Make more here* in that area's order |
+| One consumer takes the byproduct, another keeps its own supply | Not possible (item: byproducts first per consumer) | Put the consumer in an area and set the rule on that area |
+| A central block feeds an area that also has its own row | Not possible (item: connections first vs local-first) | Move *Other blocks* above *Make more here* in that area's order |
 | Prefer a cheap source, cap it, fall back to a second | Limits plus connection order, order not visible | Two block lines in order, a limit on the first |
-| Decide who is short, or how a shortage is shared, when a source cannot serve everyone | Block order, or loop member order (backlog: served first in a loop) | The source's **Served in this order** list |
-| Connected supply replaces an upstream import | Depends on the recipe ratio (backlog, partly done) | Follows the order: *Make more here* above *Other blocks* always makes it here, the reverse always receives it |
+| Decide who is short, or how a shortage is shared, when a source cannot serve everyone | Block order, or loop member order (item: served first in a loop) | The source's **Served in this order** list |
+| Connected supply replaces an upstream import | Depends on the recipe ratio (item: connected supply replaces an upstream import, partly done) | Follows the order: *Make more here* above *Other blocks* always makes it here, the reverse always receives it |
 | Force a closed block with no outside input | Forbid imports per item | *Import* off, per item or as a block default |
 
 ### Choosing the supplying area
 
-The backlog's **Supplies other areas toggle** (under Planning features) is covered only if *Other areas* expands like *Other blocks*: one line per area that makes the item, in order, each with a switch. Today an area without its own row is supplied by the most productive row, then table order. With per-area lines the receiving area picks its supplier, and switching a line off does what the toggle would do for that one receiver.
+The **Supplies other areas toggle** item is covered only if *Other areas* expands like *Other blocks*: one line per area that makes the item, in order, each with a switch. Today an area without its own row is supplied by the most productive row, then table order. With per-area lines the receiving area picks its supplier, and switching a line off does what the toggle would do for that one receiver.
 
 The toggle is per row and says "this row serves nobody else" in one click. The list needs that switched off in every receiving area. If that case is common, a **Served in this order** list on the supplying row, with an empty list meaning local only, is the source-side equivalent and matches the block-level design.
 
 ### Showing the routes where the rule is set
 
-The backlog's **Per-partner area figures elsewhere** belongs with phase 5 as a prerequisite, not something the model makes obsolete. Once a player can choose which area supplies which, the result has to show beside the control. Today only the matrix and its focus view show who supplies whom; the collapsed-area chips and an item's "Trades with" panel do not.
+The **Per-partner area figures elsewhere** item belongs with phase 5 as a prerequisite, not something the model makes obsolete. Once a player can choose which area supplies which, the result has to show beside the control. Today only the matrix and its focus view show who supplies whom; the collapsed-area chips and an item's "Trades with" panel do not.
 
-The per-area lines of the Sources list are the natural place for those figures: each line shows the rate the solver routed from that area, read from `SolverResult.areaRoutes`. The collapsed-area chips and the "Trades with" panel then read the same routes, so the backlog item ships as part of phase 5 and needs no solver change.
+The per-area lines of the Sources list are the natural place for those figures: each line shows the rate the solver routed from that area, read from `SolverResult.areaRoutes`. The collapsed-area chips and the "Trades with" panel then read the same routes, so the item ships as part of phase 5 and needs no solver change.
 
 ### Scopes
 
@@ -184,7 +184,7 @@ A block default for all items ("never import anything") is a natural extension a
 
 ### What stays out
 
-The sixth backlog item, connections first with partial supply, is a solver defect in the request probe. The new model does not fix it, and *Receive it first* inherits it until the probe knows the real supply.
+One related item stays in the [backlog](../backlog.md) as a follow-up: connections first with partial supply, a solver defect in the request probe. The new model does not fix it, and *Receive it first* inherits it until the probe knows the real supply.
 
 Choosing between two recipes for the same item inside one block is a related question the list does not answer. *Make more here* stays one line; the LP keeps picking the cheaper recipe.
 
@@ -194,7 +194,7 @@ The first phase removes most of the confusion and touches neither the solver nor
 
 | Phase | What ships | Solver | Saved plans |
 | --- | --- | --- | --- |
-| 1. Rename and relocate | Outcome names, the **Comes from** control on the Ingredients slot with the import switch, sentence and marker instead of `B` / `C`, greyed inert rules, the block's rule list, help text on every preset and on the Import switch, the third preset greyed with its reason while Import is off, a solver test pinning leftovers before connections | None | None: `itemSourcing` and `noImportItems` stay as stored |
+| 1. Rename and relocate | Outcome names, the **Comes from** control on the Ingredients slot with the import switch, sentence and marker instead of `B` / `C`, rules with no effect greyed, the block's rule list, help text on every preset and on the Import switch, the third preset greyed with its reason while Import is off, a solver test pinning leftovers before connections | None | None: `itemSourcing` and `noImportItems` stay as stored |
 | 2. The list | **Custom order…**, visible connection order, help text on every line, the requested / existing tag on each block line, the two new combinations | Small: both exist as LP terms already (free supply variable, cheap slack) but have never been combined on one item | `itemSourcing` and `noImportItems` load into one rule map, as `connectionsFirstItems` did |
 | 3. Served order | The source's consumer list with blocks as consumers, one per rank, dragged to reorder; extra output as a line | Medium: serving order in `solveAll` and in loop rounds reads the list instead of block order | New optional field on the source; absent means block order |
 | 4. Shares and areas | Groups in the consumer list with equal or percentage shares; a consumer block expands into its areas | Large: a shared group needs each member's need, then the split, then a second solve with the shares, also inside loop rounds; the area solve must divide what a block receives among its areas | The phase 3 field gains groups, shares and area entries; a list without them loads as one consumer per rank |
@@ -208,6 +208,18 @@ The first phase removes most of the confusion and touches neither the solver nor
 - **More LP calls.** A block with areas runs up to four LPs per solve today. An order with three movable tiers could need one pass per tier; the solve cache key must then include the rule.
 - **Phase 6 changes numbers in existing plans.** It should ship alone, with a release note.
 
+## Items taken from the backlog
+
+These items were in [backlog.md](../backlog.md) before the initiative and now live here; each is ticked when the phase that closes it ships.
+
+- [ ] **Sourcing badge on Ingredients slots.** The `B` / `C` badge shows on the item chips of the production table only; the Ingredients and Byproducts slots, the areas matrix and the block graph show nothing. Phase 1.
+- [~] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md). **Connections first** (per item, in the Ingredients menu or an item chip's menu) now lets supply replace the import; the default still depends on the recipe ratio. Phases 2 and 6.
+- [ ] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority. Phases 3 and 4.
+- [ ] **Byproducts first per consumer.** The mode is per item, so a second consumer of the item in the same block also gets imported supply. Let the mode apply to one consuming recipe. Phase 5 (a rule on an area).
+- [ ] **Connections first vs local-first.** Items marked connections first are other supply, so connected supply does not override the local-first rule of an area. It may need to. See "Connections first" in the [open questions](../archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5.
+- [ ] **Supplies other areas toggle.** An area without its own row of a recipe is supplied by the most productive row, then table order. A per-row toggle would let the player choose the supplier instead. See "Choice of supplier" in the [open questions](../archive/block-granularity/proposals/area-solve.md#open-questions) of the areas proposal. Phase 5, if *Other areas* expands to one line per area.
+- [ ] **Per-partner area figures elsewhere.** The matrix and its focus view show who supplies whom, but the collapsed-area chips and the "Trades with" panel of an item still show no per-partner routes. Feed them from `SolverResult.areaRoutes`. A prerequisite of phase 5.
+
 ## Decisions
 
 Taken with the author on 2026-11-10, in answer to the open questions of the first draft.
@@ -220,6 +232,6 @@ Taken with the author on 2026-11-10, in answer to the open questions of the firs
 | Drag order or priority numbers on the source side? | Drag, with groups. | One ordering gesture across the app. Ties between numbers cannot express 70 / 30, and their direction has to be learned. |
 | Is a shortage ever split? | Yes, and the player chooses how: consumers in one group share, equally by default, with editable percentages. Areas of a consumer block can be ranked and grouped like blocks. | This is how the author lays out factories: science first, then the hub's areas sharing what is left. A split in proportion to need is left out until someone asks. |
 | How many phases? | Six: the shares and areas work is its own phase 4. | It needs a second solve per shared group and a change to the area solve, too much to carry in the served-order phase. |
-| Is the chip marker needed? | Yes, but rarer: only for a non-default rule that has an effect, and only on the ingredient chips of the rows it changes. | The table is where a rule's effect shows, so the marker is the link from effect to cause. An inert rule is greyed in the block's rule list and shows nothing in the table. |
+| Is the chip marker needed? | Yes, but rarer: only for a non-default rule that has an effect, and only on the ingredient chips of the rows it changes. | The table is where a rule's effect shows, so the marker is the link from effect to cause. A rule with no effect is greyed in the block's rule list and shows nothing in the table. |
 | Phase 1 alone, or with phase 2? | Alone. | It is UI only, and the names get tried before a migration builds the stored format around them. Today a locked item ignores Byproducts first, so *Only what's already made* is greyed, with its reason, while Import is off, and the Import switch is greyed while that preset is chosen; phase 2 makes that combination real. |
 | Is request or take shown on a block line? | Yes, as a read-only tag, **requested** or **existing**, the words the block graph uses. It ships with phase 2. | A requested line can cover the whole need; an existing line gives only what is spare. Without the word, the order alone does not say which one the player has. The kind still follows from the source's products; an existing line links to the source's **Make it a product** action. |

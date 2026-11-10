@@ -16,7 +16,9 @@ Out: groups, shares and areas as consumers (phase 4).
 - **The stored field.** An optional list per source item; absent means block order. Decide how it follows a consumer that is added, removed or reconnected, and that a reorder of block tabs no longer changes the plan once a list exists.
 - **Showing the result.** The product bar already says who is short and why ("comes out of the extra"); decide how the list and that text fit together.
 
-## Backlog items it closes
+## Items it closes
+
+From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 - "Choose who is served first in a loop", for blocks. Shares come with phase 4.
 
