@@ -6,6 +6,7 @@ import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/are
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
+import { insertionTarget } from '../utils/insertionTarget'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -273,7 +274,6 @@ function withMaxRate(block: Block, connectionId: string, maxRate: number | undef
   }
 }
 
-/** Set or clear a product's extra output; clearing deletes the key so undo restores equality. */
 /** `block.products` with the product `id` moved to index `to` of the resulting array. */
 function moveProductTo(products: readonly Product[], id: string, to: number): Product[] {
   const from = products.findIndex(p => p.id === id)
@@ -284,6 +284,7 @@ function moveProductTo(products: readonly Product[], id: string, to: number): Pr
   return next
 }
 
+/** Set or clear a product's extra output; clearing deletes the key so undo restores equality. */
 function withExtra(block: Block, productId: string, extraRate: number | undefined): Block {
   return {
     ...block,
@@ -344,6 +345,8 @@ export interface BlockStoreState {
   removeProduct: (productId: string) => void
   /** Move a product of the active block so it lands before index `toIndex` (counted in the current order, as moveBlock). Undoable; no-op when it would not move. */
   moveProduct: (productId: string, toIndex: number) => void
+  /** Move a product of the active block one place earlier (-1) or later (1), resolved against the current order. Undoable; no-op at either end. */
+  moveProductBy: (productId: string, delta: -1 | 1) => void
   updateProductExtra: (productId: string, extraRate: number | undefined) => void
 
   // No-import items (block-level; LP cannot import these as raw inputs)
@@ -576,7 +579,7 @@ const initialBlock = makeEmptyBlock('Factory')
 // Store
 // ---------------------------------------------------------------------------
 
-export const useBlockStore = create<BlockStoreState>((set) => ({
+export const useBlockStore = create<BlockStoreState>((set, get) => ({
   blocks: [initialBlock],
   activeBlockId: initialBlock.id,
   horizonTechnologyIds: [],
@@ -896,15 +899,22 @@ export const useBlockStore = create<BlockStoreState>((set) => ({
       if (!block) return state
       const from = block.products.findIndex(p => p.id === productId)
       if (from < 0) return state
-      const clamped = Math.max(0, Math.min(toIndex, block.products.length))
-      const to = from < clamped ? clamped - 1 : clamped
-      if (to === from) return state
+      const to = insertionTarget(from, toIndex, block.products.length)
+      if (to === null) return state
       const cmd: Command = {
         apply: b => ({ ...b, products: moveProductTo(b.products, productId, to) }),
         undo: b => ({ ...b, products: moveProductTo(b.products, productId, from) }),
       }
       return applyCommand(state, cmd)
     }),
+
+  moveProductBy: (productId, delta) => {
+    const block = get().blocks.find(b => b.id === get().activeBlockId)
+    const from = block?.products.findIndex(p => p.id === productId) ?? -1
+    if (from < 0) return
+    // An insertion index: before the previous product, or after the next one.
+    get().moveProduct(productId, delta < 0 ? from - 1 : from + 2)
+  },
 
   updateProductExtra: (productId, extraRate) =>
     set(state => {

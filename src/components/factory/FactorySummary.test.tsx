@@ -188,7 +188,9 @@ describe('FactorySummary — reorder products', () => {
     dragOver(products()[2], dt, rightHalf(2))
     expect(lines()).toHaveLength(1)
     expect(lines()[0]).toHaveAttribute('data-side', 'after')
-    expect(products()[2]).toContainElement(lines()[0])
+    // The line sits beside the slot, in its wrapper, so the slot's fade does not dim it.
+    expect(products()[2].parentElement).toContainElement(lines()[0])
+    expect(products()[2]).not.toContainElement(lines()[0])
     dropOn(products()[2], dt, rightHalf(2))
     expect(order()).toEqual(['b', 'c', 'a'])
     expect(lines()).toHaveLength(0)
@@ -215,6 +217,49 @@ describe('FactorySummary — reorder products', () => {
     expect(products()[0]).not.toHaveAttribute('data-dragging')
     expect(order()).toEqual(['a', 'b', 'c'])
     expect(depth()).toBe(before)
+  })
+
+  it('fades the dragged slot after the drag image is taken, not at drag start', async () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    expect(products()[0]).not.toHaveAttribute('data-dragging')
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+  })
+
+  it('a document-level dragend clears a drag whose slot never got its dragend', async () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+    dragOver(products()[2], dt, rightHalf(2))
+    expect(lines()).toHaveLength(1)
+    fireEvent.dragEnd(document.body)
+    expect(lines()).toHaveLength(0)
+    expect(products()[0]).not.toHaveAttribute('data-dragging')
+  })
+
+  it('Escape still clears the selection after a drag', async () => {
+    select('Products', 'Iron Plate')
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+    fireEvent.dragEnd(products()[0], { dataTransfer: dt })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(slot('Products', 'Iron Plate')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the line while the pointer crosses between children of the grid, and clears it on leaving', () => {
+    const dt = dataTransfer()
+    const grid = within(pane('Products')).getByTestId('summary-slot-grid')
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    fireEvent.dragEnter(products()[2], { dataTransfer: dt })
+    dragOver(products()[2], dt, rightHalf(2))
+    // Enter a child, then leave the previous one: the depth stays above zero.
+    fireEvent.dragEnter(products()[2].firstElementChild!, { dataTransfer: dt })
+    fireEvent.dragLeave(products()[2], { dataTransfer: dt })
+    expect(lines()).toHaveLength(1)
+    fireEvent.dragLeave(products()[2].firstElementChild!, { dataTransfer: dt })
+    expect(lines()).toHaveLength(0)
+    expect(grid).toBeInTheDocument()
   })
 
   it('shows no line for a drag that did not start on a product slot', () => {

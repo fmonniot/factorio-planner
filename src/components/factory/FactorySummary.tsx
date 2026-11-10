@@ -136,6 +136,7 @@ export function FactorySummary() {
   const addProduct = useBlockStore(s => s.addProduct)
   const removeProduct = useBlockStore(s => s.removeProduct)
   const moveProduct = useBlockStore(s => s.moveProduct)
+  const moveProductBy = useBlockStore(s => s.moveProductBy)
   const updateProductExtra = useBlockStore(s => s.updateProductExtra)
   const [showProductPicker, setShowProductPicker] = useState(false)
 
@@ -269,12 +270,12 @@ export function FactorySummary() {
     return [
       {
         label: 'Move earlier',
-        onSelect: () => moveProduct(productId, index - 1),
+        onSelect: () => moveProductBy(productId, -1),
         ...(first ? { disabled: true, title: 'Already the first product' } : {}),
       },
       {
         label: 'Move later',
-        onSelect: () => moveProduct(productId, index + 2),
+        onSelect: () => moveProductBy(productId, 1),
         ...(last ? { disabled: true, title: 'Already the last product' } : {}),
       },
     ]

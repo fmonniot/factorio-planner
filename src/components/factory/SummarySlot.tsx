@@ -50,7 +50,6 @@ export interface SlotDnd {
   onDragStart: React.DragEventHandler<HTMLButtonElement>
   onDragEnd: React.DragEventHandler<HTMLButtonElement>
   onDragOver: React.DragEventHandler<HTMLButtonElement>
-  onDragLeave: React.DragEventHandler<HTMLButtonElement>
   onDrop: React.DragEventHandler<HTMLButtonElement>
 }
 
@@ -106,6 +105,8 @@ export function SummarySlot({
   const countColor = slot.status === 'short' ? 'text-amber-400' : slot.rate > 0 ? 'text-gray-100' : 'text-gray-400'
 
   return (
+    // The wrapper carries the size and the drop line, so the slot's own fade (dragged, dimmed, traced) does not dim the line.
+    <div className="relative w-[50px] h-[54px] shrink-0">
     <button
       type="button"
       data-testid="summary-slot"
@@ -130,9 +131,8 @@ export function SummarySlot({
       onDragStart={dnd?.onDragStart}
       onDragEnd={dnd?.onDragEnd}
       onDragOver={dnd?.onDragOver}
-      onDragLeave={dnd?.onDragLeave}
       onDrop={dnd?.onDrop}
-      className={`relative w-[50px] h-[54px] shrink-0 rounded border ${slot.empty ? 'border-dashed ' : ''}${tone}`}
+      className={`relative w-full h-full rounded border ${slot.empty ? 'border-dashed ' : ''}${tone}`}
       style={opacity < 1 ? { opacity } : undefined}
     >
       <span className="absolute inset-x-0 top-1.5 flex justify-center">
@@ -156,14 +156,15 @@ export function SummarySlot({
       <span className="absolute left-1 right-1 bottom-[3px]">
         <SegmentBar slot={slot} colorOf={colorOf} traceKey={traceKey} />
       </span>
-      {dnd?.dropSide && (
-        <span
-          aria-hidden="true"
-          data-testid="summary-slot-drop-line"
-          data-side={dnd.dropSide}
-          className={`absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none ${dnd.dropSide === 'before' ? '-left-[3px]' : '-right-[3px]'}`}
-        />
-      )}
     </button>
+    {dnd?.dropSide && (
+      <span
+        aria-hidden="true"
+        data-testid="summary-slot-drop-line"
+        data-side={dnd.dropSide}
+        className={`absolute top-0 bottom-0 w-0.5 bg-blue-500 pointer-events-none ${dnd.dropSide === 'before' ? '-left-[3px]' : '-right-[3px]'}`}
+      />
+    )}
+    </div>
   )
 }

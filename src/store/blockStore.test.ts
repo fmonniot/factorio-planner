@@ -947,6 +947,22 @@ describe('products', () => {
       expect(ids()).toEqual(['c', 'b', 'a'])
     })
 
+    it('moveProductBy resolves the index at call time and no-ops at the ends', () => {
+      store().moveProductBy('a', 1)
+      expect(ids()).toEqual(['b', 'a', 'c'])
+      // The order changed since: "later" is relative to the current position.
+      store().moveProductBy('a', 1)
+      expect(ids()).toEqual(['b', 'c', 'a'])
+      const before = depth()
+      store().moveProductBy('a', 1)
+      store().moveProductBy('b', -1)
+      store().moveProductBy('missing', -1)
+      expect(ids()).toEqual(['b', 'c', 'a'])
+      expect(depth()).toBe(before)
+      store().moveProductBy('c', -1)
+      expect(ids()).toEqual(['c', 'b', 'a'])
+    })
+
     it('moves to the front', () => {
       store().moveProduct('c', 0)
       expect(ids()).toEqual(['c', 'a', 'b'])

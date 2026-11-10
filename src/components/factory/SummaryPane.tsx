@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Block, GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { MISSING_BLOCK_COLOR } from '../../data/blockColors'
@@ -6,13 +6,14 @@ import { SummarySlot, SLOT_DRAG_TYPE } from './SummarySlot'
 import type { SlotDnd } from './SummarySlot'
 import { SummaryDetailStrip } from './SummaryDetailStrip'
 import type { StripAction, StripState } from './SummaryDetailStrip'
+import { insertionTarget } from '../../utils/insertionTarget'
 import { overviewRows } from './summarySegments'
 import { useMoreBelow } from './useMoreBelow'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
 
-/** Distance from the grid's top or bottom edge that scrolls it during a drag, and the step per dragover. */
+/** Distance from the grid's top or bottom edge that scrolls it during a drag, and the step per animation frame. */
 const EDGE_PX = 12
-const EDGE_STEP_PX = 12
+const EDGE_STEP_PX = 4
 
 interface SlotEdit {
   editing: boolean
@@ -69,7 +70,15 @@ export function SummaryPane({
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [traceKey, setTraceKey] = useState<string | null>(null)
+  // The dragged slot: the ref is set at once (drag handlers read it), the state later, so the
+  // faded slot is not painted before the browser has captured the drag image.
+  const draggingRef = useRef<string | null>(null)
   const [draggingId, setDraggingId] = useState<string | null>(null)
+  const dragStartTimer = useRef<number | undefined>(undefined)
+  // dragenter minus dragleave events inside the grid: zero means the pointer left it (relatedTarget is unreliable).
+  const dragDepth = useRef(0)
+  const scrollDir = useRef<-1 | 0 | 1>(0)
+  const scrollFrame = useRef<number | undefined>(undefined)
   const [drop, setDrop] = useState<{ id: string; side: 'before' | 'after' } | null>(null)
 
   // True while more slots sit below the visible part of the grid (drives the bottom fade).
@@ -116,7 +125,7 @@ export function SummaryPane({
   useEffect(() => {
     if (!hasView) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || e.defaultPrevented || draggingId !== null) return
+      if (e.key !== 'Escape' || e.defaultPrevented) return
       if (selectedId !== null) {
         setSelectedId(null)
         setEditing(false)
@@ -126,28 +135,84 @@ export function SummaryPane({
     }
     document.addEventListener('keydown', onKeyDown)
     return () => document.removeEventListener('keydown', onKeyDown)
-  }, [hasView, selectedId, draggingId])
+  }, [hasView, selectedId])
 
   // A hovered item that disappeared never gets a mouseleave, so forget it (state adjusted during render).
   if (hoveredId !== null && !slots.some(s => s.id === hoveredId)) setHoveredId(null)
 
-  /** Which half of the slot the pointer is over, or null when a drop here would not move anything. */
-  function computeSide(e: React.DragEvent<HTMLButtonElement>, index: number): 'before' | 'after' | null {
-    if (draggingId === null) return null
-    const rect = e.currentTarget.getBoundingClientRect()
-    const side = e.clientX - rect.left < rect.width / 2 ? 'before' : 'after'
-    const toIndex = side === 'before' ? index : index + 1
-    const from = slots.findIndex(s => s.id === draggingId)
-    if (from < 0 || toIndex === from || toIndex === from + 1) return null
-    return side
+  /** Forget the drag: the dragged slot, the drop line and the edge scrolling. */
+  function endDrag() {
+    window.clearTimeout(dragStartTimer.current)
+    window.cancelAnimationFrame(scrollFrame.current ?? 0)
+    scrollFrame.current = undefined
+    scrollDir.current = 0
+    dragDepth.current = 0
+    draggingRef.current = null
+    setDraggingId(null)
+    setDrop(null)
   }
 
-  // Scroll the grid while a slot is dragged near its top or bottom edge.
-  function handleGridDragOver(e: React.DragEvent<HTMLDivElement>) {
-    if (draggingId === null) return
+  // A drag whose slot has gone (product removed mid-drag) never gets its dragend, and one that ends
+  // outside the grid may not either: clear on the document's dragend and drop, and on unmount.
+  const isDragging = draggingId !== null
+  useEffect(() => {
+    if (!isDragging) return
+    document.addEventListener('dragend', endDrag)
+    document.addEventListener('drop', endDrag)
+    return () => {
+      document.removeEventListener('dragend', endDrag)
+      document.removeEventListener('drop', endDrag)
+    }
+  }, [isDragging])
+  useEffect(() => () => {
+    window.clearTimeout(dragStartTimer.current)
+    window.cancelAnimationFrame(scrollFrame.current ?? 0)
+  }, [])
+  // State adjusted during render; the ref is harmless stale (a drop finds no such slot).
+  if (draggingId !== null && !slots.some(s => s.id === draggingId)) {
+    setDraggingId(null)
+    setDrop(null)
+  }
+
+  /** Which half of the slot the pointer is over, or null when a drop here would not move anything. */
+  function computeSide(e: React.DragEvent<HTMLButtonElement>, index: number): 'before' | 'after' | null {
+    const id = draggingRef.current
+    if (id === null) return null
     const rect = e.currentTarget.getBoundingClientRect()
-    if (e.clientY - rect.top < EDGE_PX) e.currentTarget.scrollBy({ top: -EDGE_STEP_PX })
-    else if (rect.bottom - e.clientY < EDGE_PX) e.currentTarget.scrollBy({ top: EDGE_STEP_PX })
+    const side = e.clientX - rect.left < rect.width / 2 ? 'before' : 'after'
+    const from = slots.findIndex(s => s.id === id)
+    return insertionTarget(from, side === 'before' ? index : index + 1, slots.length) === null ? null : side
+  }
+
+  // Scroll the grid, a few pixels a frame, while a slot is held near its top or bottom edge.
+  function scrollLoop(grid: HTMLElement) {
+    if (scrollDir.current === 0) {
+      scrollFrame.current = undefined
+      return
+    }
+    grid.scrollBy({ top: scrollDir.current * EDGE_STEP_PX })
+    scrollFrame.current = window.requestAnimationFrame(() => scrollLoop(grid))
+  }
+
+  function handleGridDragOver(e: React.DragEvent<HTMLDivElement>) {
+    if (draggingRef.current === null) return
+    const grid = e.currentTarget
+    const rect = grid.getBoundingClientRect()
+    scrollDir.current = e.clientY - rect.top < EDGE_PX ? -1 : rect.bottom - e.clientY < EDGE_PX ? 1 : 0
+    if (scrollDir.current !== 0 && scrollFrame.current === undefined) scrollLoop(grid)
+  }
+
+  function handleGridDragEnter() {
+    if (draggingRef.current !== null) dragDepth.current += 1
+  }
+
+  function handleGridDragLeave() {
+    if (draggingRef.current === null) return
+    dragDepth.current = Math.max(0, dragDepth.current - 1)
+    if (dragDepth.current === 0) {
+      scrollDir.current = 0
+      setDrop(null)
+    }
   }
 
   function dndFor(slot: SlotModel, index: number): SlotDnd | undefined {
@@ -158,13 +223,15 @@ export function SummaryPane({
       onDragStart: e => {
         e.dataTransfer.setData(SLOT_DRAG_TYPE, slot.id)
         e.dataTransfer.effectAllowed = 'move'
-        setHoveredId(null)
-        setDraggingId(slot.id)
+        draggingRef.current = slot.id
+        dragDepth.current = 0
+        // After the browser has taken its drag image.
+        dragStartTimer.current = window.setTimeout(() => {
+          setHoveredId(null)
+          setDraggingId(slot.id)
+        }, 0)
       },
-      onDragEnd: () => {
-        setDraggingId(null)
-        setDrop(null)
-      },
+      onDragEnd: endDrag,
       onDragOver: e => {
         const side = computeSide(e, index)
         if (side) {
@@ -175,16 +242,10 @@ export function SummaryPane({
           setDrop(prev => (prev?.id === slot.id ? null : prev))
         }
       },
-      onDragLeave: e => {
-        // dragleave bubbles from child spans; only clear when the pointer leaves the slot itself.
-        if (e.relatedTarget instanceof Node && e.currentTarget.contains(e.relatedTarget)) return
-        setDrop(prev => (prev?.id === slot.id ? null : prev))
-      },
       onDrop: e => {
         const side = computeSide(e, index)
-        const id = draggingId
-        setDrop(null)
-        setDraggingId(null)
+        const id = draggingRef.current
+        endDrag()
         if (!side || id === null) return
         e.preventDefault()
         onReorder(id, side === 'before' ? index : index + 1)
@@ -215,6 +276,8 @@ export function SummaryPane({
           onScroll={onScroll}
           data-testid="summary-slot-grid"
           onDragOver={onReorder ? handleGridDragOver : undefined}
+          onDragEnter={onReorder ? handleGridDragEnter : undefined}
+          onDragLeave={onReorder ? handleGridDragLeave : undefined}
           className="max-h-[97px] min-h-[58px] overflow-y-auto px-2 pt-0.5 pb-2.5"
         >
           <div ref={contentRef} className="flex flex-wrap gap-1">
