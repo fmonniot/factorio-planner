@@ -20,6 +20,7 @@ For timeless reference docs (system-as-it-is), see [../spec/](../spec/).
 | Initiative                  | Status   | Folder                                                 |
 |-----------------------------|----------|--------------------------------------------------------|
 | Backlog                     | —        | [backlog.md](backlog.md)                               |
+| Sourcing priority: one Sources list per item | Active | [sourcing-priority/](sourcing-priority/plan.md) |
 | Share a plan by URL         | Future   | [share-by-url/](share-by-url/)                         |
 | Surplus-aware objective     | Future   | [surplus-aware-objective/](surplus-aware-objective/plan.md) |
 | Visual refinement of the main screen | Shipped | [archive/visual-refinement/](archive/visual-refinement/plan.md) |
