@@ -4,7 +4,7 @@ Phase 2 of [plan.md](plan.md). Not ticketed yet: the questions below come first.
 
 ## Scope
 
-In: **Custom order…** on the **Comes from** control, opening the Sources list itself (drag to reorder, a switch per line, a limit field on each block line); the *Other blocks* lines in their connection order, each with the read-only **requested** / **existing** tag and its help text; the two combinations the stored modes cannot express on one item (receive first and never make it here; *Only what's already made* with Import off); one stored rule per item in place of `itemSourcing` and `noImportItems`.
+In: **Custom order…** on the **Comes from** control, opening the Sources list itself (drag to reorder, a switch per line, a limit field on each block line); the line names with their help texts (plan.md, "Help on every line"); the *Other blocks* lines in their connection order, each with the read-only **requested** / **existing** tag and its help text; the two combinations the stored modes cannot express on one item (receive first and never make it here; *Only what's already made* with Import off); one stored rule per item in place of `itemSourcing` and `noImportItems`.
 
 Out: rules on an area and the *Other areas* line expanded per area (phase 5); the source side (phases 3 and 4); the default's dependence on the recipe ratio (phase 6).
 

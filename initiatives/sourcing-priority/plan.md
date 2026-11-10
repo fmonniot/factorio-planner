@@ -12,9 +12,9 @@ Replace the three sourcing modes, the import lock and the implicit ordering rule
 - **Named by outcome.** Three presets cover the common cases: *Make it here*, *Receive it first*, *Only what's already made*. The full list is one click further for complex packs.
 - **One place to set it.** The Ingredients pane owns the rule, because the rule belongs to the block and not to a row. The `B` / `C` pills go; the chip shows where the item comes from instead.
 - **Rules can attach to an area.** An area rule overrides its block's rule. That gives per-consumer control and settles how connections interact with local-first, with no new concept.
-- **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden orders: block order, connection order and loop member order.
+- **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden rules: block order, loop member order and extra output giving way first. Connection order, the fourth, becomes the visible order of the *Other blocks* lines.
 
-This plan is a design from the specs and the code. Nothing was prototyped, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md), and each later phase has a short doc with its scope and what to settle before it is ticketed: [2](phase-2.md), [3](phase-3.md), [4](phase-4.md), [5](phase-5.md), [6](phase-6.md).
+This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md), and each later phase has a short doc with its scope and what to settle before it is ticketed: [2](phase-2.md), [3](phase-3.md), [4](phase-4.md), [5](phase-5.md), [6](phase-6.md).
 
 ## How sourcing works today
 
@@ -76,8 +76,8 @@ Each line except Already made here can be switched off. *Make more here* and the
 | Today | Sources |
 | --- | --- |
 | Own recipes first (default) | Already made here, Make more here, Other areas, Other blocks, Import |
-| Connections first (`C`) | Already made here, Other blocks, Make more here, Import |
-| Byproducts first (`B`) | Already made here, Other areas, Other blocks, Import. *Make more here* is off. |
+| Connections first (`C`) | Already made here, Other blocks, Make more here, Other areas, Import. Connected supply reaches every area, so the block lines sit above both. |
+| Byproducts first (`B`) | Already made here, Other areas, Other blocks, Import. *Make more here* is off, in every area: *Other areas* gives only what those areas already make. |
 | Forbid imports | Any order with *Import* off |
 | Connection limit | A cap on one *Other blocks* line |
 | Connection order | The order of the *Other blocks* lines |
@@ -99,7 +99,7 @@ Most players never open the list. The slot offers three presets and an import sw
 
 ### Help on every line
 
-Every line and preset carries a one-sentence description, so a name never has to stand alone. It shows as a tooltip on hover and keyboard focus, and as a help line under the selected line in **Custom order…**. It ships with the first version and can be thinned out once the names have proven themselves. A preset's help is its sentence from the table above.
+Every line and preset carries a one-sentence description, so a name never has to stand alone. It shows as a tooltip on hover and keyboard focus, and as a help line under the selected line in **Custom order…**. Each help text ships with the first version that shows its name (the presets and the Import switch in phase 1, the lines with the list in phase 2) and can be thinned out once the names have proven themselves. A preset's help is its sentence from the table above.
 
 | Line | Help text |
 | --- | --- |
@@ -113,7 +113,7 @@ Every line and preset carries a one-sentence description, so a name never has to
 
 | Place | Today | Proposed |
 | --- | --- | --- |
-| Ingredients slot | Three radio items buried in the connection menu, no marker | Owns the rule: a **Comes from** control in the selected strip with the presets and **Custom order…** |
+| Ingredients slot | Three radio items buried in the connection menu, no marker | Owns the rule: a **Comes from** control in the selected strip with the presets and **Custom order…**. The slot itself carries the marker of the table chips, so a rule shows before the slot is selected. |
 | Item chip in the table | Amber `B` / `C` | No letter. One neutral marker on the ingredient chips of the rows a rule changes, and only for a non-default rule that has an effect; the tooltip is the sentence, and a click selects the Ingredients slot. |
 | Row side panel | Radio group and Forbid imports checkbox per ingredient | Read-only sentence per ingredient with a **Change…** link to the slot |
 | Forbid imports | Separate checkbox and menu item | The *Import* switch in the same control |
@@ -190,12 +190,12 @@ Choosing between two recipes for the same item inside one block is a related que
 
 ## Phasing and migration
 
-The first phase removes most of the confusion and touches neither the solver nor saved plans. Later phases add power and each stands alone.
+The first phase removes most of the confusion and touches neither the solver nor saved plans. Later phases add power and each ships on its own; phase 4 builds on phase 3 and phase 5 on the stored rule of phase 2, while phases 3 and 6 depend on no other.
 
 | Phase | What ships | Solver | Saved plans |
 | --- | --- | --- | --- |
-| 1. Rename and relocate | Outcome names, the **Comes from** control on the Ingredients slot with the import switch, sentence and marker instead of `B` / `C`, greyed inert rules, the block's rule list, help text on every line and preset, the third preset greyed with its reason while Import is off, a solver test pinning leftovers before connections | None | None: `itemSourcing` and `noImportItems` stay as stored |
-| 2. The list | **Custom order…**, visible connection order, the requested / existing tag on each block line, the two new combinations | Small: both exist as LP terms already (free supply variable, cheap slack) but have never been combined on one item | `itemSourcing` and `noImportItems` load into one rule map, as `connectionsFirstItems` did |
+| 1. Rename and relocate | Outcome names, the **Comes from** control on the Ingredients slot with the import switch, sentence and marker instead of `B` / `C`, greyed inert rules, the block's rule list, help text on every preset and on the Import switch, the third preset greyed with its reason while Import is off, a solver test pinning leftovers before connections | None | None: `itemSourcing` and `noImportItems` stay as stored |
+| 2. The list | **Custom order…**, visible connection order, help text on every line, the requested / existing tag on each block line, the two new combinations | Small: both exist as LP terms already (free supply variable, cheap slack) but have never been combined on one item | `itemSourcing` and `noImportItems` load into one rule map, as `connectionsFirstItems` did |
 | 3. Served order | The source's consumer list with blocks as consumers, one per rank, dragged to reorder; extra output as a line | Medium: serving order in `solveAll` and in loop rounds reads the list instead of block order | New optional field on the source; absent means block order |
 | 4. Shares and areas | Groups in the consumer list with equal or percentage shares; a consumer block expands into its areas | Large: a shared group needs each member's need, then the split, then a second solve with the shares, also inside loop rounds; the area solve must divide what a block receives among its areas | The phase 3 field gains groups, shares and area entries; a list without them loads as one consumer per rank |
 | 5. Area rules | Rules on an area, *Other blocks* above *Make more here* in an area | Large: the area LP needs the local-first penalty and the slack cost per area and item | New optional field on an area sub-factory |
@@ -203,7 +203,7 @@ The first phase removes most of the confusion and touches neither the solver nor
 
 ### Risks
 
-- **Phase 1 is a rename of visible strings.** The e2e specs `item-sourcing.spec.ts` and `block-requests.spec.ts` and the `sourcingText` tests assert the current labels.
+- **Phase 1 is a rename of visible strings.** The e2e specs `item-sourcing.spec.ts`, `block-requests.spec.ts` and `ingredients-pane.spec.ts`, the `sourcingText` tests and the `coproduct-driven` hint with its test assert the current labels; [phase-1.md](phase-1.md#tests) has the full list.
 - **Phases 2 to 6 change solver results or inputs.** Each needs its synthetic case in `spec/test-synthetic.md` first. `legacyParity.test.ts` already guards that default plans do not move.
 - **More LP calls.** A block with areas runs up to four LPs per solve today. An order with three movable tiers could need one pass per tier; the solve cache key must then include the rule.
 - **Phase 6 changes numbers in existing plans.** It should ship alone, with a release note.
@@ -214,12 +214,12 @@ Taken with the author on 2026-11-10, in answer to the open questions of the firs
 
 | Question | Decision | Why |
 | --- | --- | --- |
-| Does *Connections first* use the block's own spare output before a connection today? | Yes, in the single LP and in the area LP. A solver test pins it in phase 1. | Measured with throwaway `solveBlock` runs: a block with 30 spare plate and a need of 50 receives 20, also with an unlimited offer, so a request asks the source for 20. Nothing guarantees it: supply and surplus both cost 0, so it is a tie the solver happens to break this way. `spec/solver.md` says a connections-first item's need is "its whole use", which is loose. |
+| Does *Connections first* use the block's own spare output before a connection today? | Yes, in the single LP and in the area LP. A solver test pins it in phase 1. | Measured with throwaway `solveBlock` runs: a block with 30 spare plate and a need of 50 receives 20, also with an unlimited offer, so a request asks the source for 20. The amount is by construction, not a tie-break: supply and surplus both cost 0 in the LP, so the supply variable may sit anywhere up to the use, but `blockDiagnostics` (`src/solver/blockResult.ts`, shared by the area solve) reports what is received as the deficit left after own production, never the raw variable. It holds while the spare output comes from rows the item does not size. `spec/solver.md` says a connections-first item's need is "its whole use", which is loose. |
 | What are the things called? | The list is **Sources**, its control is labelled **Comes from**. Lines: *Already made here*, *Make more here*, *Other areas*, *Other blocks*, *Import*. Presets: *Make it here*, *Receive it first*, *Only what's already made*. | "Supply" already means what arrives over a connection. "Leftovers" did not explain itself against "Make here", since both are the block's own rows; the first two lines are named as a pair instead. |
-| Does a name need a backup explanation? | Yes: help text on every line and preset from the first version. | The names are new; they can be thinned out once they have proven themselves. |
+| Does a name need a backup explanation? | Yes: help text on every line and preset, from the first version that shows it. | The names are new; they can be thinned out once they have proven themselves. |
 | Drag order or priority numbers on the source side? | Drag, with groups. | One ordering gesture across the app. Ties between numbers cannot express 70 / 30, and their direction has to be learned. |
 | Is a shortage ever split? | Yes, and the player chooses how: consumers in one group share, equally by default, with editable percentages. Areas of a consumer block can be ranked and grouped like blocks. | This is how the author lays out factories: science first, then the hub's areas sharing what is left. A split in proportion to need is left out until someone asks. |
 | How many phases? | Six: the shares and areas work is its own phase 4. | It needs a second solve per shared group and a change to the area solve, too much to carry in the served-order phase. |
 | Is the chip marker needed? | Yes, but rarer: only for a non-default rule that has an effect, and only on the ingredient chips of the rows it changes. | The table is where a rule's effect shows, so the marker is the link from effect to cause. An inert rule is greyed in the block's rule list and shows nothing in the table. |
-| Phase 1 alone, or with phase 2? | Alone. | It is UI only, and the names get tried before a migration builds the stored format around them. Today a locked item ignores Byproducts first, so *Only what's already made* is greyed, with its reason, while Import is off; phase 2 makes that combination real. |
+| Phase 1 alone, or with phase 2? | Alone. | It is UI only, and the names get tried before a migration builds the stored format around them. Today a locked item ignores Byproducts first, so *Only what's already made* is greyed, with its reason, while Import is off, and the Import switch is greyed while that preset is chosen; phase 2 makes that combination real. |
 | Is request or take shown on a block line? | Yes, as a read-only tag, **requested** or **existing**, the words the block graph uses. It ships with phase 2. | A requested line can cover the whole need; an existing line gives only what is spare. Without the word, the order alone does not say which one the player has. The kind still follows from the source's products; an existing line links to the source's **Make it a product** action. |
