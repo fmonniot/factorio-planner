@@ -189,6 +189,26 @@ test.describe('side panel below xl', () => {
     await expect(sidePanel(page)).toHaveCount(0)
   })
 
+  test('the drawer is modal: focus moves in, Tab cycles inside it and Escape returns focus to the row', async ({ page }) => {
+    await load(page)
+    const recipe = row(page).getByTestId('recipe-name').locator('xpath=ancestor::button')
+    const panel = await selectRow(page, row(page))
+    await expect(panel).toHaveAttribute('role', 'dialog')
+    await expect(panel).toHaveAttribute('aria-modal', 'true')
+    await expect(panel).toBeFocused()
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Tab')
+      expect(await panel.evaluate(el => el.contains(document.activeElement)), `Tab ${i + 1} stays in the drawer`).toBe(true)
+    }
+    for (let i = 0; i < 40; i++) {
+      await page.keyboard.press('Shift+Tab')
+      expect(await panel.evaluate(el => el.contains(document.activeElement)), `Shift+Tab ${i + 1} stays in the drawer`).toBe(true)
+    }
+    await page.keyboard.press('Escape')
+    await expect(sidePanel(page)).toHaveCount(0)
+    await expect(recipe).toBeFocused()
+  })
+
   test('a picker opened over the drawer closes alone when its dimmed area is pressed', async ({ page }) => {
     await load(page)
     await selectRow(page, row(page))

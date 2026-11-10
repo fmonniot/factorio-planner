@@ -396,3 +396,49 @@ describe('SidePanel — backdrop', () => {
     expect(selected()).toBeNull()
   })
 })
+
+describe('SidePanel — drawer focus', () => {
+  const realMatchMedia = window.matchMedia
+  function mockDrawer(matches: boolean) {
+    window.matchMedia = ((query: string) => ({
+      matches, media: query, addEventListener: () => {}, removeEventListener: () => {},
+    })) as unknown as typeof window.matchMedia
+  }
+  afterEach(() => { window.matchMedia = realMatchMedia })
+
+  it('is a modal dialog that holds focus while it is a drawer', () => {
+    mockDrawer(true)
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderPanel()
+    const panel = screen.getByRole('dialog', { name: 'Row details' })
+    expect(panel).toHaveAttribute('aria-modal', 'true')
+    expect(panel).toHaveFocus()
+  })
+
+  it('is a plain region, not modal and not focused, when docked', () => {
+    mockDrawer(false)
+    setPlan([row('n1', 'r-plate')])
+    select('n1')
+    renderPanel()
+    const panel = screen.getByTestId('side-panel')
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(panel).not.toHaveAttribute('aria-modal')
+    expect(panel).not.toHaveAttribute('tabindex')
+    expect(panel).not.toHaveFocus()
+  })
+
+  it('returns focus to the element that had it when the drawer closes', () => {
+    mockDrawer(true)
+    setPlan([row('n1', 'r-plate')])
+    const opener = document.createElement('button')
+    document.body.append(opener)
+    opener.focus()
+    select('n1')
+    renderPanel()
+    expect(screen.getByTestId('side-panel')).toHaveFocus()
+    act(() => useUiStore.getState().clearSelectedRow())
+    expect(opener).toHaveFocus()
+    opener.remove()
+  })
+})

@@ -1,9 +1,10 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import type { GameData, SolverResult, SubPlan } from '../../../data/types'
 import { useUiStore } from '../../../store/uiStore'
 import { RecipePanel } from './RecipePanel'
 import { GroupPanel } from './GroupPanel'
 import { findPlanNode } from './findPlanNode'
+import { useDrawerLayout, tabbables } from './useDrawerLayout'
 import { isDismissibleOpen, pressStartedOverCloseableOverlay } from './useDismiss'
 
 /**
@@ -29,20 +30,57 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
   }, [stale, clear])
 
   const open = !!node && !!rootPlan && !!blockId
+  const drawer = useDrawerLayout()
+  const asideRef = useRef<HTMLElement>(null)
   // Escape closes the drawer (below xl; docked, the panel is part of the page and Escape keeps its other meanings). It
   // yields to anything already handling the key: a menu, popover, picker or modal opened from the drawer registers as an
   // open overlay, so one Escape closes only that.
   useEffect(() => {
     if (!open) return
-    const drawer = window.matchMedia('(max-width: 1279.98px)')
+    if (!drawer) return
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape' || e.defaultPrevented || isDismissibleOpen() || !drawer.matches) return
+      if (e.key !== 'Escape' || e.defaultPrevented || isDismissibleOpen()) return
       e.preventDefault()
       clear()
     }
     window.addEventListener('keydown', onKeyDown, true)
     return () => window.removeEventListener('keydown', onKeyDown, true)
-  }, [open, clear])
+  }, [open, drawer, clear])
+
+  // A drawer is modal: focus moves into it when it opens and returns to where it came from when it closes (or stops being
+  // a drawer), and Tab cycles inside it. While a menu, popover, picker or modal is open over it, that overlay owns Tab.
+  const modal = open && drawer
+  useEffect(() => {
+    if (!modal) return
+    const aside = asideRef.current
+    const origin = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    aside?.focus({ preventScroll: true })
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Tab' || e.defaultPrevented || isDismissibleOpen() || !aside) return
+      const items = tabbables(aside)
+      const first = items[0]
+      const last = items[items.length - 1]
+      const active = document.activeElement
+      if (!first || !last) { e.preventDefault(); aside.focus(); return }
+      if (!aside.contains(active) || active === aside) {
+        e.preventDefault()
+        ;(e.shiftKey ? last : first).focus()
+      } else if (e.shiftKey && active === first) {
+        e.preventDefault()
+        last.focus()
+      } else if (!e.shiftKey && active === last) {
+        e.preventDefault()
+        first.focus()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown, true)
+    return () => {
+      window.removeEventListener('keydown', onKeyDown, true)
+      // Restore only when the drawer closed (not when the window grew past xl and the panel docked, which keeps the user
+      // in it) and focus was lost with it (inside it, or dropped on the body), never over a deliberate move.
+      if (useUiStore.getState().selectedRow === null && origin?.isConnected && (!document.activeElement || document.activeElement === document.body || aside?.contains(document.activeElement))) origin.focus({ preventScroll: true })
+    }
+  }, [modal])
 
   if (!node || !rootPlan || !blockId) return null
   const solvedMap = new Map(result?.nodes.map(n => [n.recipeNodeId, n]) ?? [])
@@ -56,8 +94,13 @@ export function SidePanel({ blockId, rootPlan, result, gameData }: {
         onClick={e => { if (e.detail === 0 || !pressStartedOverCloseableOverlay()) clear() }} />
       <aside
         data-testid="side-panel"
+        ref={asideRef}
         aria-label="Row details"
-        className="fixed inset-y-0 right-0 z-40 w-[min(300px,max(200px,calc(100vw_-_140px)))] xl:w-[380px] shadow-2xl xl:static xl:z-auto xl:shadow-none shrink-0 border-l border-gray-700 bg-gray-900 overflow-y-auto"
+        // Only a drawer is modal; docked, the panel is a plain complementary region beside the table.
+        role={drawer ? 'dialog' : undefined}
+        aria-modal={drawer ? true : undefined}
+        tabIndex={drawer ? -1 : undefined}
+        className="fixed inset-y-0 right-0 z-40 w-[min(300px,max(200px,calc(100vw_-_140px)))] xl:w-[380px] shadow-2xl xl:static xl:z-auto xl:shadow-none shrink-0 focus:outline-none border-l border-gray-700 bg-gray-900 overflow-y-auto"
       >
         {node.kind === 'subplan' ? (
           <GroupPanel
