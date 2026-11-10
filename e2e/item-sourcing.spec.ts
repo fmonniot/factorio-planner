@@ -67,15 +67,18 @@ test.describe('item sourcing', () => {
     await expect(compressedSlot(page)).toHaveCount(0)
     await expect(oxygenChip(page).getByTestId('item-tile-sourcing')).toBeVisible()
 
-    await oxygenSlot(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemradio', { name: "Only what's already made" })).toHaveAttribute('aria-checked', 'true')
-    await page.keyboard.press('Escape')
+    // The slot that appeared holds the same rule in its Comes from control.
+    await selectSlot(page, 'Ingredients', 'Oxygen')
+    const comesFrom = detail(page, 'Ingredients').getByTestId('comes-from')
+    await expect(comesFrom.getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    await expect(comesFrom.getByTestId('import-switch')).toHaveAttribute('aria-disabled', 'true')
+    await expect(comesFrom.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
 
     const acid = await exportedAcid(page)
     expect(acid.itemSourcing).toEqual({ 'nullius-oxygen': 'byproducts-first' })
     expect(acid.connectionsFirstItems).toBeUndefined()
 
-    await choose(page, 'own')
+    await comesFrom.getByRole('radio', { name: 'Make it here' }).click()
     await expect(compressedSlot(page)).toContainText('25.0')
   })
 

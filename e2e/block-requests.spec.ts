@@ -308,9 +308,9 @@ test.describe('requests between blocks', () => {
     await expect(sourceSegment(page)).toHaveCount(0)
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
 
-    await plateSlot(page).click({ button: 'right' })
-    const first = page.getByRole('menuitemradio', { name: 'Receive it first' })
-    await expect(first).toHaveAttribute('aria-checked', 'false')
+    await ensureSelected(page)
+    const first = detail(page, 'Ingredients').getByRole('radio', { name: 'Receive it first' })
+    await expect(first).not.toBeChecked()
     await first.click()
 
     await ensureSelected(page)
@@ -321,17 +321,15 @@ test.describe('requests between blocks', () => {
     await expect(page.getByTitle(/^Actual: 90\.0/)).toBeVisible()
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
 
-    await plateSlot(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemradio', { name: 'Receive it first' })).toHaveAttribute('aria-checked', 'true')
-    await page.keyboard.press('Escape')
+    await ensureSelected(page)
+    await expect(detail(page, 'Ingredients').getByRole('radio', { name: 'Receive it first' })).toBeChecked()
     const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
     const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
     expect(gears.itemSourcing).toEqual({ 'nullius-iron-plate': 'connections-first' })
     expect(gears.connectionsFirstItems).toBeUndefined()
 
-    await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitemradio', { name: 'Make it here' }).click()
+    await detail(page, 'Ingredients').getByRole('radio', { name: 'Make it here' }).click()
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
   })
 })

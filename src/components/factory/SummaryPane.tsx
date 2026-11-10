@@ -36,6 +36,8 @@ interface SummaryPaneProps {
   actionsFor: (slot: SlotModel) => StripAction[]
   /** Products: an entry added to the end of the colour key while the slot is selected. */
   renderKeyExtra?: (slot: SlotModel, edit: SlotEdit) => React.ReactNode
+  /** Ingredients: controls under the actions line of the selected slot's strip. */
+  renderControls?: (slot: SlotModel) => React.ReactNode
   onOpenBlock: (blockId: string) => void
   onConnectionContextMenu?: (connectionId: string, e: React.MouseEvent) => void
   /** Products: reorder by dragging; moves the slot so it lands before `toIndex` (an index in the current order). */
@@ -61,6 +63,7 @@ export function SummaryPane({
   renderRates,
   actionsFor,
   renderKeyExtra,
+  renderControls,
   onOpenBlock,
   onConnectionContextMenu,
   onReorder,
@@ -324,6 +327,8 @@ export function SummaryPane({
         rates={shown && renderRates(shown, editOf(shown))}
         actions={shown ? actionsFor(shown) : []}
         keyExtra={shown && renderKeyExtra?.(shown, editOf(shown))}
+        controls={shown && renderControls?.(shown)}
+        tall={renderControls !== undefined && selected !== undefined}
         onBack={() => {
           setSelectedId(null)
           setEditing(false)

@@ -12,7 +12,7 @@ import type { RateUnit } from '../../store/uiStore'
 import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
-import { forbidImportsTitle } from './itemSourcing'
+import { ComesFrom } from './ComesFrom'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
@@ -157,7 +157,6 @@ export function FactorySummary() {
     ;(collapsed ? lineExpandRef.current : handleRef.current)?.focus()
   }, [collapsed])
 
-  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const noImportItems = activeBlock?.noImportItems ?? []
   const blocks = useBlockStore(s => s.blocks)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
@@ -248,7 +247,7 @@ export function FactorySummary() {
   })
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
   const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
-  // A product shortfall can neither receive supply nor be forbidden imports (products have no slack).
+  // A product shortfall cannot receive supply (products have no import slack either).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
   // Number and unit of a rate of `itemId` (power units for electricity and heat).
   const fmtFor = (itemId: string, perMin: number) => fmtItemRate(itemId, perMin / 60, rateUnit)
@@ -423,7 +422,7 @@ export function FactorySummary() {
           onOpenBlock={setActiveBlock}
         />
 
-        {/* Ingredients: select a slot for Find recipe / Receive from… / Forbid imports; right-click
+        {/* Ingredients: select a slot for Find recipe / Receive from… and the Comes from control; right-click
             it for the connection menu. Limit or remove a connection by right-clicking its segment. */}
         <SummaryPane
           key={`ingredients-${activeBlock?.id}`}
@@ -436,7 +435,7 @@ export function FactorySummary() {
           rateUnit={rateUnit}
           onSlotContextMenu={(slot, e) => {
             // A goal shortfall has no menu: there is nothing to offer.
-            if (!connectable(slot.itemId) && !slot.locked) return
+            if (!connectable(slot.itemId)) return
             e.preventDefault()
             const rect = e.currentTarget.getBoundingClientRect()
             setConnectionMenu({ itemId: slot.itemId, x: rect.left, y: rect.bottom })
@@ -461,16 +460,9 @@ export function FactorySummary() {
                 },
               })
             }
-            if (canConnect || slot.locked) {
-              const title = forbidImportsTitle(activeBlock, gameData, slot.itemId)
-              actions.push({
-                label: slot.locked ? 'Allow imports' : 'Forbid imports',
-                onSelect: () => toggleNoImportItem(slot.itemId),
-                ...(title ? { disabled: true, title } : {}),
-              })
-            }
             return actions
           }}
+          renderControls={slot => <ComesFrom itemId={slot.itemId} />}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}

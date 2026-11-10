@@ -107,7 +107,7 @@ Each ticket is one pull request. T1, T2 and T3 have no UI and can go first, in a
 
   The function reads the block and the set of block ids only, never a solve result. So a product with no extra output and no request, which the solver does not treat as a goal, is still reported as `product`; that is accepted, and matches what the side panel does today. One unit test per reason and kind, one for the order of the reasons, one for an item with two rules.
 
-- [ ] **T4. The Comes from control on the Ingredients slot.** In the strip of a selected Ingredients slot (`FactorySummary.tsx`), add a group `data-testid="comes-from"` labelled **Comes from** with:
+- [x] **T4. The Comes from control on the Ingredients slot.** In the strip of a selected Ingredients slot (`FactorySummary.tsx`), add a group `data-testid="comes-from"` labelled **Comes from** with:
   - the three presets as one radio group (`data-sourcing-choice` = `own`, `connections-first`, `byproducts-first`, the values the side panel uses today), calling `setItemSourcing`;
   - the Import switch (`role="switch"`, `data-testid="import-switch"`), calling `toggleNoImportItem`;
   - the item's sentence under them (`data-testid="sourcing-sentence"`);

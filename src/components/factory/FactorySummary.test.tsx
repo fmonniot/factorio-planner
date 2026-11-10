@@ -1014,29 +1014,21 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       expect(screen.queryByRole('menuitem', { name: 'Make in a new block…' })).not.toBeInTheDocument()
-      expect(screen.getByRole('menuitem', { name: 'Forbid imports' })).toBeInTheDocument()
     })
 
-    it('hides the sourcing choice when the only connection is ignored', () => {
+    it('holds neither a sourcing choice nor an import entry: those are in the Comes from control', () => {
+      withOreRecipe()
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       useBlockStore.setState(s => ({
         blocks: s.blocks.map(b => (b.id === 'consumer'
-          ? { ...b, inputConnections: [{ id: 'c1', itemId: 'iron-ore', fromBlockId: 'gone' }] }
+          ? { ...b, itemSourcing: { 'iron-ore': 'connections-first' as const }, noImportItems: ['iron-ore'] }
           : b)),
       }))
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
-    })
-
-    it('offers Make in a new block before Forbid imports, and no sourcing choice without a connection', () => {
-      withOreRecipe()
-      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
-      render(<FactorySummary />)
-      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      const items = screen.getAllByRole('menuitem').map(el => el.textContent)
-      expect(items.slice(-2)).toEqual(['Make in a new block…', 'Forbid imports'])
-      expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
+      expect(screen.queryByRole('menuitem', { name: /imports/i })).not.toBeInTheDocument()
+      expect(screen.getAllByRole('menuitem').at(-1)).toHaveTextContent('Make in a new block…')
     })
 
     it('Make in a new block creates the block, requests the item and opens the recipe picker', async () => {
@@ -1077,57 +1069,196 @@ describe('FactorySummary — connections', () => {
       fireEvent.click(screen.getByRole('menuitem', { name: 'Make in a new block…' }))
       expect(BLOCK_PALETTE).toContain(useBlockStore.getState().blocks[2].color as typeof BLOCK_PALETTE[number])
     })
+  })
 
-    it('sets Receive it first for a connected item, before Forbid imports', () => {
+  describe('Comes from', () => {
+    const consumer = () => useBlockStore.getState().blocks.find(b => b.id === 'consumer')!
+    const group = () => within(strip('Ingredients')).getByTestId('comes-from')
+    const choice = (name: RegExp | string) => within(group()).getByRole('radio', { name })
+    const importSwitch = () => within(group()).getByRole('switch')
+    const patch = (over: Partial<Block>) =>
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, ...over } : b)) }))
+
+    /** The consumer gets a row for a recipe that makes Iron Ore, so a rule on the item can have an effect. */
+    function withOreRow() {
+      const data = structuredClone(mockGameData)
+      data.recipes['ore-synth'] = {
+        id: 'ore-synth', name: 'Ore Synth', category: 'crafting', craftingTime: 1,
+        ingredients: [], products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }],
+        madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-ore',
+      } as unknown as GameData['recipes'][string]
+      useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+      patch({ rootPlan: { ...consumer().rootPlan, nodes: [makeRecipeNode('ore-synth')] } })
+    }
+
+    it('is in the strip of a selected slot, with the three presets and the Import switch', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       render(<FactorySummary />)
-      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-      expect(screen.getByRole('menuitemradio', { name: /Make it here/ })).toHaveAttribute('aria-checked', 'true')
-      const entry = screen.getByRole('menuitemradio', { name: /Receive it first/ })
-      expect(entry).toHaveAttribute('aria-checked', 'false')
-      const forbid = screen.getByRole('menuitem', { name: 'Forbid imports' })
-      expect(entry.compareDocumentPosition(forbid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+      expect(within(strip('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
+      select('Ingredients', 'Iron Ore')
+      expect(group()).toHaveAccessibleName('Comes from')
+      expect(within(group()).getAllByRole('radio').map(r => [r.textContent, r.getAttribute('data-sourcing-choice')])).toEqual([
+        ['Make it here', 'own'],
+        ['Receive it first', 'connections-first'],
+        ["Only what's already made", 'byproducts-first'],
+      ])
+      expect(choice('Make it here')).toBeChecked()
+      expect(importSwitch()).toBeChecked()
+      expect(importSwitch()).toHaveAttribute('data-testid', 'import-switch')
+      expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/^Made here|^No row here makes Iron Ore/)
+    })
 
-      fireEvent.click(entry)
+    it('is not on the Products strip', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Products', 'Iron Plate')
+      expect(screen.queryByTestId('comes-from')).not.toBeInTheDocument()
+      select('Ingredients', 'Iron Ore')
+      expect(screen.getAllByTestId('comes-from')).toHaveLength(1)
+    })
+
+    it('sets each preset, and Make it here clears it', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      withOreRow()
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      fireEvent.click(choice('Receive it first'))
       expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-
-      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      const checked = screen.getByRole('menuitemradio', { name: /Receive it first/ })
-      expect(checked).toHaveAttribute('aria-checked', 'true')
-      fireEvent.click(screen.getByRole('menuitemradio', { name: /Make it here/ }))
+      expect(choice('Receive it first')).toBeChecked()
+      fireEvent.click(choice("Only what's already made"))
+      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
+      fireEvent.click(choice('Make it here'))
       expect(consumer().itemSourcing).toEqual({})
     })
 
-    it('shows the sourcing choice for an unconnected item that has a mode', () => {
-      withOreRecipe()
+    it('turns Import off and on', () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
-      useBlockStore.setState(s => ({
-        blocks: s.blocks.map(b => (b.id === 'consumer' ? { ...b, itemSourcing: { 'iron-ore': 'byproducts-first' as const } } : b)),
-      }))
+      withOreRow()
       render(<FactorySummary />)
-      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getByRole('menuitemradio', { name: /Only what's already made/ })).toHaveAttribute('aria-checked', 'true')
+      select('Ingredients', 'Iron Ore')
+      fireEvent.click(importSwitch())
+      expect(consumer().noImportItems).toEqual(['iron-ore'])
+      expect(importSwitch()).not.toBeChecked()
+      expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/ Import is off\.$/)
+      fireEvent.click(importSwitch())
+      expect(consumer().noImportItems).toEqual([])
     })
 
-    it('lets a mode left on a product of the block be cleared, the other choices disabled', () => {
+    it('is one tab stop, and the arrows move between presets, wrapping and skipping one that is not available', () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
-      useBlockStore.setState(s => ({
-        blocks: s.blocks.map(b => (b.id === 'consumer'
-          ? {
-              ...b,
-              products: [...b.products, { id: 'p-ore', itemId: 'iron-ore', extraRate: 60 }],
-              noImportItems: ['iron-ore'],
-              itemSourcing: { 'iron-ore': 'byproducts-first' as const },
-            }
-          : b)),
-      }))
+      withOreRow()
       render(<FactorySummary />)
-      fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getByRole('menuitemradio', { name: /Only what's already made/ })).toBeDisabled()
-      fireEvent.click(screen.getByRole('menuitemradio', { name: /Make it here/ }))
+      select('Ingredients', 'Iron Ore')
+      expect(within(group()).getAllByRole('radio').map(r => r.tabIndex)).toEqual([0, -1, -1])
+
+      choice('Make it here').focus()
+      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowRight' })
+      expect(choice('Receive it first')).toBeChecked()
+      expect(choice('Receive it first')).toHaveFocus()
+      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
+      fireEvent.keyDown(choice('Receive it first'), { key: 'ArrowRight' })
+      expect(choice("Only what's already made")).toBeChecked()
+      fireEvent.keyDown(choice("Only what's already made"), { key: 'ArrowRight' })
+      expect(choice('Make it here')).toBeChecked()
+      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
+      expect(choice("Only what's already made")).toBeChecked()
+
+      // With Import off the third preset is skipped.
+      fireEvent.click(choice('Make it here'))
+      fireEvent.click(importSwitch())
+      choice('Make it here').focus()
+      fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
+      expect(choice('Receive it first')).toBeChecked()
+    })
+
+    it('gives each preset and the switch its help text as its description', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      expect(choice('Make it here')).toHaveAccessibleDescription('Made here; connections and imports cover what is missing.')
+      expect(choice('Receive it first')).toHaveAccessibleDescription("Taken from this block's connections first; made here for the rest.")
+      expect(choice("Only what's already made")).toHaveAccessibleDescription('Uses what this block already makes; the rest is received or imported.')
+      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: this block must make or receive all of it.')
+    })
+
+    it("disables Only what's already made while Import is off, with the reason, and the switch while it is chosen", () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      withOreRow()
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      fireEvent.click(importSwitch())
+      const third = choice("Only what's already made")
+      expect(third).toHaveAttribute('aria-disabled', 'true')
+      expect(third).toHaveAccessibleDescription('Import is off for Iron Ore, so the block has to make it.')
+      fireEvent.click(third)
       expect(consumer().itemSourcing).toEqual({})
+
+      fireEvent.click(importSwitch())
+      fireEvent.click(choice("Only what's already made"))
+      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
+      expect(importSwitch()).toHaveAttribute('aria-disabled', 'true')
+      expect(importSwitch()).toHaveAccessibleDescription("Only what's already made relies on imports for the rest.")
+      fireEvent.click(importSwitch())
+      expect(consumer().noImportItems).toEqual([])
+      // The other presets stay free, and choosing one frees the switch.
+      fireEvent.click(choice('Make it here'))
+      expect(importSwitch()).not.toHaveAttribute('aria-disabled')
+    })
+
+    it("shows a plan saved with both as Only what's already made, reported as locked, and lets it be removed", () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      withOreRow()
+      patch({ itemSourcing: { 'iron-ore': 'byproducts-first' }, noImportItems: ['iron-ore'] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      expect(choice("Only what's already made")).toBeChecked()
+      const [line] = within(group()).getAllByTestId('no-effect')
+      expect(line).toHaveAttribute('data-no-effect', 'locked')
+      expect(line).toHaveTextContent('Import is off for Iron Ore, so the block has to make it.')
+      fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
+      expect(consumer().itemSourcing).toEqual({})
+      expect(consumer().noImportItems).toEqual(['iron-ore'])
+    })
+
+    it('says a rule with no effect has none, and removes just that rule', () => {
+      // No row of the block makes Iron Ore: it is raw here, so a rule on it does nothing.
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      patch({ itemSourcing: { 'iron-ore': 'connections-first' }, noImportItems: ['iron-ore'] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      const lines = within(group()).getAllByTestId('no-effect')
+      expect(lines.map(l => [l.dataset.rule, l.dataset.noEffect])).toEqual([
+        ['connections-first', 'not-made'],
+        ['import-off', 'not-made'],
+      ])
+      expect(lines[0]).toHaveTextContent('No row in this block makes Iron Ore.')
+      // A rule with no effect stays selectable so it can be changed.
+      expect(choice('Receive it first')).not.toHaveAttribute('aria-disabled')
+      fireEvent.click(within(lines[1]).getByRole('button', { name: 'Remove' }))
+      expect(consumer().noImportItems).toEqual([])
+      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
+      fireEvent.click(within(within(group()).getByTestId('no-effect')).getByRole('button', { name: 'Remove' }))
+      expect(consumer().itemSourcing).toEqual({})
+      expect(within(group()).queryByTestId('no-effect')).not.toBeInTheDocument()
+    })
+
+    it('shows nothing grey for a rule that has an effect', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      withOreRow()
+      patch({ itemSourcing: { 'iron-ore': 'connections-first' } })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      expect(within(group()).queryByTestId('no-effect')).not.toBeInTheDocument()
+    })
+
+    it('keeps Find recipe and Receive from… in the strip, and has no Forbid or Allow imports action', () => {
+      setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      const buttons = within(strip('Ingredients')).getAllByRole('button').map(b => b.textContent)
+      expect(buttons).toContain('Find recipe')
+      expect(buttons).toContain('Receive from…')
+      expect(buttons.join('|')).not.toMatch(/imports/i)
     })
   })
 
@@ -1864,51 +1995,38 @@ describe('FactorySummary — import lock', () => {
     }))
   }
 
-  it('right-click then "Forbid imports" locks and dims the slot, below the connection entries', () => {
+  it('the Import switch locks and dims the slot, and lifts the lock', () => {
+    addOreRow()
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
+    expect(noImport()).toEqual(['iron-ore'])
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'locked')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-dimmed', 'true')
+    fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
+    expect(noImport()).toEqual([])
+  })
+
+  it('lets Import be turned off on an item no row makes (raw), saying it has no effect', () => {
+    render(<FactorySummary />)
+    select('Ingredients', 'Iron Ore')
+    const switchEl = within(strip('Ingredients')).getByRole('switch')
+    expect(switchEl).not.toHaveAttribute('aria-disabled')
+    fireEvent.click(switchEl)
+    expect(noImport()).toEqual(['iron-ore'])
+    const line = within(strip('Ingredients')).getByTestId('no-effect')
+    expect(line).toHaveTextContent('No row in this block makes Iron Ore.')
+    fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
+    expect(noImport()).toEqual([])
+  })
+
+  it('has no Forbid imports or Allow imports in the right-click menu', () => {
     addOreRow()
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
     expect(screen.getByText('Take existing Iron Ore from')).toBeInTheDocument()
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Forbid imports' }))
-    expect(noImport()).toEqual(['iron-ore'])
-    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'locked')
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-dimmed', 'true')
-  })
-
-  it('the strip toggles Forbid imports and Allow imports', () => {
-    addOreRow()
-    render(<FactorySummary />)
-    select('Ingredients', 'Iron Ore')
-    fireEvent.click(within(strip('Ingredients')).getByRole('button', { name: 'Forbid imports' }))
-    expect(noImport()).toEqual(['iron-ore'])
-    fireEvent.click(within(strip('Ingredients')).getByRole('button', { name: 'Allow imports' }))
-    expect(noImport()).toEqual([])
-  })
-
-  it('disables Forbid imports, with a hint, on an item no row of the block makes (raw)', () => {
-    render(<FactorySummary />)
-    fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-    const item = screen.getByRole('menuitem', { name: 'Forbid imports' })
-    expect(item).toBeDisabled()
-    expect(item.getAttribute('title')).toMatch(/No recipe in this block makes Iron Ore/)
-    fireEvent.click(item)
-    expect(noImport()).toEqual([])
-  })
-
-  it('disables the strip action on a raw item too', () => {
-    render(<FactorySummary />)
-    select('Ingredients', 'Iron Ore')
-    const button = within(strip('Ingredients')).getByRole('button', { name: 'Forbid imports' })
-    expect(button).toBeDisabled()
-    expect(button.getAttribute('title')).toMatch(/No recipe in this block makes Iron Ore/)
-  })
-
-  it('keeps Allow imports enabled on a locked raw item, so an old lock can be lifted', () => {
-    lock('iron-ore')
-    render(<FactorySummary />)
-    fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-    expect(screen.getByRole('menuitem', { name: 'Allow imports' })).toBeEnabled()
+    expect(screen.queryByRole('menuitem', { name: /imports/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitemradio')).not.toBeInTheDocument()
   })
 
   it('left click on a locked slot only selects it', () => {
@@ -1920,20 +2038,24 @@ describe('FactorySummary — import lock', () => {
     expect(screen.queryByRole('heading', { name: 'Add recipe' })).not.toBeInTheDocument()
   })
 
-  it('right-click on a locked slot offers "Allow imports"', () => {
+  it('right-click on a locked slot still opens the connection menu', () => {
     lock('iron-ore')
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-    fireEvent.click(screen.getByRole('menuitem', { name: 'Allow imports' }))
-    expect(noImport()).toEqual([])
+    expect(screen.getByRole('menu')).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: /imports/i })).not.toBeInTheDocument()
   })
 
-  it('right-click on a locked goal item offers only "Allow imports"', () => {
+  it('a lock left on a goal item has no menu, and is removed in the strip', () => {
     lock('iron-plate')
     render(<FactorySummary />)
     fireEvent.contextMenu(slot('Ingredients', 'Iron Plate'))
-    expect(screen.getAllByRole('menuitem').map(el => el.textContent)).toEqual(['Allow imports'])
-    expect(screen.queryByText(/Receive .* from/)).not.toBeInTheDocument()
+    expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+    select('Ingredients', 'Iron Plate')
+    const line = within(strip('Ingredients')).getByTestId('no-effect')
+    expect(line).toHaveTextContent('Iron Plate is a product of this block, so the block always makes it.')
+    fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
+    expect(noImport()).toEqual([])
   })
 })
 
