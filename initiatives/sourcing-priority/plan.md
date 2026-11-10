@@ -14,7 +14,7 @@ Replace the three sourcing modes, the import lock and the implicit ordering rule
 - **Rules can attach to an area.** An area rule overrides its block's rule. That gives per-consumer control and settles how connections interact with local-first, with no new concept.
 - **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden orders: block order, connection order and loop member order.
 
-This plan is a design from the specs and the code. Nothing was prototyped, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md).
+This plan is a design from the specs and the code. Nothing was prototyped, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md), and each later phase has a short doc with its scope and what to settle before it is ticketed: [2](phase-2.md), [3](phase-3.md), [4](phase-4.md), [5](phase-5.md), [6](phase-6.md).
 
 ## How sourcing works today
 
