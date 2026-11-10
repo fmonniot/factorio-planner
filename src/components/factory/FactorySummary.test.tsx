@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
-import { render, screen, fireEvent, waitFor, within, act } from '@testing-library/react'
+import { render, screen, fireEvent, createEvent, waitFor, within, act } from '@testing-library/react'
 import { FactorySummary } from './FactorySummary'
 import { lineRate } from './lineChipFit'
 import type { SlotModel } from './summarySegments'
@@ -128,6 +128,177 @@ describe('FactorySummary — header row', () => {
     expect(screen.queryByText('/min')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Click to rename')).not.toBeInTheDocument()
     expect(screen.queryByTitle('Show solver warnings')).not.toBeInTheDocument()
+  })
+})
+
+describe('FactorySummary — reorder products', () => {
+  // Three products: Iron Plate, Iron Ore, Slag. Slots are 50px wide, side by side from x = 0.
+  const three = (): Product[] => [
+    { id: 'a', itemId: 'iron-plate', extraRate: 60 },
+    { id: 'b', itemId: 'iron-ore', extraRate: 60 },
+    { id: 'c', itemId: 'slag', extraRate: 60 },
+  ]
+  const order = () => useBlockStore.getState().blocks[0].products.map(p => p.id)
+  const depth = () => {
+    const id = useBlockStore.getState().blocks[0].id
+    return useBlockStore.getState().history[id]?.undoStack.length ?? 0
+  }
+  const products = () => within(pane('Products')).getAllByTestId('summary-slot')
+  const lines = () => within(pane('Products')).queryAllByTestId('summary-slot-drop-line')
+  const dataTransfer = () => {
+    const data: Record<string, string> = {}
+    return { setData: (k: string, v: string) => { data[k] = v }, getData: (k: string) => data[k], effectAllowed: '', dropEffect: '' }
+  }
+  /** Stub the slot's box: 50px wide at x = index * 54. */
+  function stubRects() {
+    products().forEach((el, i) => {
+      el.getBoundingClientRect = () => ({ left: i * 54, right: i * 54 + 50, width: 50, top: 0, bottom: 54, height: 54, x: i * 54, y: 0, toJSON: () => ({}) })
+    })
+  }
+  // happy-dom's DragEvent ignores clientX in its init, so set it on the event.
+  const dragOver = (el: Element, dt: object, clientX: number) => {
+    const ev = createEvent.dragOver(el, { dataTransfer: dt })
+    Object.defineProperty(ev, 'clientX', { value: clientX })
+    return fireEvent(el, ev)
+  }
+  const dropOn = (el: Element, dt: object, clientX: number) => {
+    const ev = createEvent.drop(el, { dataTransfer: dt })
+    Object.defineProperty(ev, 'clientX', { value: clientX })
+    return fireEvent(el, ev)
+  }
+  const rightHalf = (i: number) => i * 54 + 40
+  const leftHalf = (i: number) => i * 54 + 5
+
+  beforeEach(() => {
+    setupStore(three())
+    render(<FactorySummary />)
+    stubRects()
+  })
+
+  it('makes Products slots draggable and the other panes not', () => {
+    for (const el of products()) expect(el).toHaveAttribute('draggable', 'true')
+    for (const name of ['Byproducts', 'Ingredients']) {
+      for (const el of within(pane(name)).queryAllByTestId('summary-slot')) expect(el).not.toHaveAttribute('draggable')
+    }
+  })
+
+  it('shows a drop line while dragging and reorders on drop', () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    dragOver(products()[2], dt, rightHalf(2))
+    expect(lines()).toHaveLength(1)
+    expect(lines()[0]).toHaveAttribute('data-side', 'after')
+    // The line sits beside the slot, in its wrapper, so the slot's fade does not dim it.
+    expect(products()[2].parentElement).toContainElement(lines()[0])
+    expect(products()[2]).not.toContainElement(lines()[0])
+    dropOn(products()[2], dt, rightHalf(2))
+    expect(order()).toEqual(['b', 'c', 'a'])
+    expect(lines()).toHaveLength(0)
+  })
+
+  it('shows no line and does not cancel dragover for a drop that would not move anything', () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[1], { dataTransfer: dt })
+    for (const [i, x] of [[1, leftHalf(1)], [1, rightHalf(1)], [0, rightHalf(0)], [2, leftHalf(2)]] as const) {
+      const notPrevented = dragOver(products()[i], dt, x)
+      expect(notPrevented, 'dragover not cancelled').toBe(true)
+      expect(lines()).toHaveLength(0)
+    }
+  })
+
+  it('clears the line when the drag ends without a drop', () => {
+    const dt = dataTransfer()
+    const before = depth()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    dragOver(products()[2], dt, rightHalf(2))
+    expect(lines()).toHaveLength(1)
+    fireEvent.dragEnd(products()[0], { dataTransfer: dt })
+    expect(lines()).toHaveLength(0)
+    expect(products()[0]).not.toHaveAttribute('data-dragging')
+    expect(order()).toEqual(['a', 'b', 'c'])
+    expect(depth()).toBe(before)
+  })
+
+  it('fades the dragged slot after the drag image is taken, not at drag start', async () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    expect(products()[0]).not.toHaveAttribute('data-dragging')
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+  })
+
+  it('a document-level dragend clears a drag whose slot never got its dragend', async () => {
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+    dragOver(products()[2], dt, rightHalf(2))
+    expect(lines()).toHaveLength(1)
+    fireEvent.dragEnd(document.body)
+    expect(lines()).toHaveLength(0)
+    expect(products()[0]).not.toHaveAttribute('data-dragging')
+  })
+
+  it('Escape still clears the selection after a drag', async () => {
+    select('Products', 'Iron Plate')
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    await waitFor(() => expect(products()[0]).toHaveAttribute('data-dragging'))
+    fireEvent.dragEnd(products()[0], { dataTransfer: dt })
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(slot('Products', 'Iron Plate')).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('keeps the line while the pointer crosses between children of the grid, and clears it on leaving', () => {
+    const dt = dataTransfer()
+    const grid = within(pane('Products')).getByTestId('summary-slot-grid')
+    fireEvent.dragStart(products()[0], { dataTransfer: dt })
+    fireEvent.dragEnter(products()[2], { dataTransfer: dt })
+    dragOver(products()[2], dt, rightHalf(2))
+    // Enter a child, then leave the previous one: the depth stays above zero.
+    fireEvent.dragEnter(products()[2].firstElementChild!, { dataTransfer: dt })
+    fireEvent.dragLeave(products()[2], { dataTransfer: dt })
+    expect(lines()).toHaveLength(1)
+    fireEvent.dragLeave(products()[2].firstElementChild!, { dataTransfer: dt })
+    expect(lines()).toHaveLength(0)
+    expect(grid).toBeInTheDocument()
+  })
+
+  it('shows no line for a drag that did not start on a product slot', () => {
+    const dt = dataTransfer()
+    dragOver(products()[2], dt, rightHalf(2))
+    expect(lines()).toHaveLength(0)
+  })
+
+  it('keeps the selection and the strip through a reorder', () => {
+    select('Products', 'Iron Plate')
+    const dt = dataTransfer()
+    fireEvent.dragStart(products()[1], { dataTransfer: dt })
+    dragOver(products()[0], dt, leftHalf(0))
+    dropOn(products()[0], dt, leftHalf(0))
+    expect(order()).toEqual(['b', 'a', 'c'])
+    expect(slot('Products', 'Iron Plate')).toHaveAttribute('aria-pressed', 'true')
+    expect(strip('Products')).toHaveAttribute('data-state', 'selected')
+  })
+
+  it('offers Move earlier and Move later in the right-click menu', () => {
+    fireEvent.contextMenu(slot('Products', 'Iron Plate'))
+    expect(screen.getByRole('menuitem', { name: 'Move earlier' })).toBeDisabled()
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Move later' }))
+    expect(order()).toEqual(['b', 'a', 'c'])
+  })
+
+  it('has no move actions with a single product', () => {
+    setupStore([ironGoal])
+    fireEvent.contextMenu(slot('Products', 'Iron Plate'))
+    expect(screen.queryByRole('menuitem', { name: 'Move later' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Move earlier' })).not.toBeInTheDocument()
+  })
+
+  it('the strip action moves the product and keeps it selected', () => {
+    select('Products', 'Iron Ore')
+    fireEvent.click(within(strip('Products')).getByRole('button', { name: 'Move later' }))
+    expect(order()).toEqual(['a', 'c', 'b'])
+    expect(slot('Products', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(strip('Products')).getByRole('button', { name: 'Move later' })).toBeDisabled()
   })
 })
 
