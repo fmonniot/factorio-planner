@@ -698,7 +698,7 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * How much each source must make for its requesting consumers. A consumer's need
  * for an item does not depend on what it receives (solving it with unlimited
  * supply on every connection, a "request probe", gives exactly what it would import; a
- * connections-first item's need is its whole use, as the probe's supply is unlimited; a
+ * connections-first item's need is its use minus what the block's rows already make of it, as the probe's supply is unlimited; a
  * byproducts-first item's need is what recipes that run anyway don't cover),
  * and a source's goals only depend on its own products plus what its consumers
  * request of it. So requests are computed before any supply is handed out, consumers first.
