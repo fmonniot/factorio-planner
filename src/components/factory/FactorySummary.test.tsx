@@ -1078,13 +1078,13 @@ describe('FactorySummary — connections', () => {
       expect(BLOCK_PALETTE).toContain(useBlockStore.getState().blocks[2].color as typeof BLOCK_PALETTE[number])
     })
 
-    it('sets Connections first for a connected item, before Forbid imports', () => {
+    it('sets Receive it first for a connected item, before Forbid imports', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
       expect(screen.getAllByRole('menuitemradio')).toHaveLength(3)
-      expect(screen.getByRole('menuitemradio', { name: /Own recipes first/ })).toHaveAttribute('aria-checked', 'true')
-      const entry = screen.getByRole('menuitemradio', { name: /Connections first/ })
+      expect(screen.getByRole('menuitemradio', { name: /Make it here/ })).toHaveAttribute('aria-checked', 'true')
+      const entry = screen.getByRole('menuitemradio', { name: /Receive it first/ })
       expect(entry).toHaveAttribute('aria-checked', 'false')
       const forbid = screen.getByRole('menuitem', { name: 'Forbid imports' })
       expect(entry.compareDocumentPosition(forbid) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
@@ -1094,9 +1094,9 @@ describe('FactorySummary — connections', () => {
       expect(screen.queryByRole('menu')).not.toBeInTheDocument()
 
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      const checked = screen.getByRole('menuitemradio', { name: /Connections first/ })
+      const checked = screen.getByRole('menuitemradio', { name: /Receive it first/ })
       expect(checked).toHaveAttribute('aria-checked', 'true')
-      fireEvent.click(screen.getByRole('menuitemradio', { name: /Own recipes first/ }))
+      fireEvent.click(screen.getByRole('menuitemradio', { name: /Make it here/ }))
       expect(consumer().itemSourcing).toEqual({})
     })
 
@@ -1108,7 +1108,7 @@ describe('FactorySummary — connections', () => {
       }))
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toHaveAttribute('aria-checked', 'true')
+      expect(screen.getByRole('menuitemradio', { name: /Only what's already made/ })).toHaveAttribute('aria-checked', 'true')
     })
 
     it('lets a mode left on a product of the block be cleared, the other choices disabled', () => {
@@ -1125,8 +1125,8 @@ describe('FactorySummary — connections', () => {
       }))
       render(<FactorySummary />)
       fireEvent.contextMenu(slot('Ingredients', 'Iron Ore'))
-      expect(screen.getByRole('menuitemradio', { name: /Byproducts first/ })).toBeDisabled()
-      fireEvent.click(screen.getByRole('menuitemradio', { name: /Own recipes first/ }))
+      expect(screen.getByRole('menuitemradio', { name: /Only what's already made/ })).toBeDisabled()
+      fireEvent.click(screen.getByRole('menuitemradio', { name: /Make it here/ }))
       expect(consumer().itemSourcing).toEqual({})
     })
   })

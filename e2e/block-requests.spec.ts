@@ -296,7 +296,7 @@ test.describe('requests between blocks', () => {
     )
   })
 
-  test('Connections first makes the source supply what the own recipe would make', async ({ page }) => {
+  test('Receive it first makes the source supply what the own recipe would make', async ({ page }) => {
     await setup(page)
     await requestPlates(page)
 
@@ -309,7 +309,7 @@ test.describe('requests between blocks', () => {
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
 
     await plateSlot(page).click({ button: 'right' })
-    const first = page.getByRole('menuitemradio', { name: 'Connections first' })
+    const first = page.getByRole('menuitemradio', { name: 'Receive it first' })
     await expect(first).toHaveAttribute('aria-checked', 'false')
     await first.click()
 
@@ -322,7 +322,7 @@ test.describe('requests between blocks', () => {
     await page.locator('[data-testid="block-tab"] button[aria-label="Gears"]').click()
 
     await plateSlot(page).click({ button: 'right' })
-    await expect(page.getByRole('menuitemradio', { name: 'Connections first' })).toHaveAttribute('aria-checked', 'true')
+    await expect(page.getByRole('menuitemradio', { name: 'Receive it first' })).toHaveAttribute('aria-checked', 'true')
     await page.keyboard.press('Escape')
     const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
@@ -331,7 +331,7 @@ test.describe('requests between blocks', () => {
     expect(gears.connectionsFirstItems).toBeUndefined()
 
     await plateSlot(page).click({ button: 'right' })
-    await page.getByRole('menuitemradio', { name: 'Own recipes first' }).click()
+    await page.getByRole('menuitemradio', { name: 'Make it here' }).click()
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')
   })
 })

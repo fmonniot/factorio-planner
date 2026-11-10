@@ -6,23 +6,33 @@ import type { RowAction } from './RowActionsMenu'
 // How a block sources an item: the three choices shared by the chip menus and the Ingredients menu.
 // ---------------------------------------------------------------------------
 
+/** The label of the control that holds the three presets and the Import switch. */
+export const COMES_FROM_LABEL = 'Comes from'
+
+/** The three presets: the name shown, and the fixed help text shown as a tooltip. `mode` is what the block stores. */
 export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label: string; title: string }[] = [
   {
     mode: undefined,
-    label: 'Own recipes first',
-    title: "This block's recipes make it; connections and imports cover only what they cannot",
+    label: 'Make it here',
+    title: 'Made here; connections and imports cover what is missing.',
   },
   {
     mode: 'byproducts-first',
-    label: 'Byproducts first',
-    title: 'Use what recipes running for other reasons make; import or connect the rest instead of running a recipe just for it',
+    label: "Only what's already made",
+    title: 'Uses what this block already makes; the rest is received or imported.',
   },
   {
     mode: 'connections-first',
-    label: 'Connections first',
-    title: "Use what this block's connections deliver before its own recipes, which make only the rest",
+    label: 'Receive it first',
+    title: "Taken from this block's connections first; made here for the rest.",
   },
 ]
+
+/** The Import switch (on when the item is not in `Block.noImportItems`): its name and fixed help text. */
+export const IMPORT_SWITCH = {
+  label: 'Import',
+  title: 'Bring it in from outside the plan. Off: this block must make or receive all of it.',
+}
 
 const ACTION_IDS = { own: 'sourcing-own', 'byproducts-first': 'sourcing-byproducts', 'connections-first': 'sourcing-connections' }
 
@@ -45,7 +55,7 @@ export function itemSourcingLabel(mode: ItemSourcingMode): string {
 
 /**
  * The three choices as radio actions of a RowActionsMenu. `disabledTitle` disables them and explains why, except
- * "Own recipes first" while a mode is set: that one stays enabled so the entry can always be cleared.
+ * "Make it here" while a mode is set: that one stays enabled so the entry can always be cleared.
  */
 export function itemSourcingActions(
   current: ItemSourcingMode | undefined,
