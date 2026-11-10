@@ -531,7 +531,9 @@ this plan" (categories with at least one row left on "Default", across all block
 separator, "Other categories". Each category is a group named after its label (`categoryLabel`: the
 data set's `categoryNames` entry, else the id with `:`, `_` and `-` as spaces, first letter capitalised; the id is the tooltip) with the number
 of such rows and one radio item per machine (24px tile with the icon, or the name's first letter;
-the name is the accessible name and tooltip). The checked one is the effective default; picking one
+the name is the accessible name and tooltip). The flyout is navigated as a grid: Up / Down move between
+category rows (wrapping; the column is kept, clamped to the row's length, and arriving from the Reset
+button lands on the row's checked machine) and Left / Right move within a row. The checked one is the effective default; picking one
 sets the plan's `defaultMachineOverrides` entry and leaves the menu open. Rows set to an explicit
 machine are not affected. The footer has **Reset all** (clears every override; disabled with none) and
 the note "Used by rows set to 'Default'". Overrides are not undoable.
@@ -551,7 +553,10 @@ names). Mods are the `modSet` entries other than `base`, `elevated-rails`, `qual
 `space-age`; recipes are the non-hidden ones. It shows only once the data has loaded.
 
 **Nested menus.** `SubmenuItem` (`MenuButton.tsx`) is the one nested-menu primitive. Arrow keys,
-Home and End move within the menu that holds focus (the panel or the flyout) and wrap there.
+Home and End move within the menu that holds focus (the panel or the flyout) and wrap there. Items
+under one `[data-menu-row]` element form a grid row: Up / Down move between rows, Right moves to
+the next item in the row (stopping at the last) and Left to the previous one (on the first item it
+closes the flyout as usual).
 ArrowRight (or Enter / Space) on a submenu item opens its flyout and focuses its checked item (else
 its first item, or the `initialFocus` target). Escape or ArrowLeft inside a flyout closes just the
 flyout and focuses its item; Escape at the top level closes the menu and ArrowLeft there does

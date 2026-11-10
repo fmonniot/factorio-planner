@@ -43,7 +43,7 @@ function DefaultMachinesFlyout({ gameData }: FlyoutProps) {
       >
         <span className="w-36 truncate text-gray-200" title={category}>{categoryLabel(category, gameData)}</span>
         {rows > 0 && <span className="text-[11px] text-gray-400 shrink-0">{rows} {rows === 1 ? 'row' : 'rows'}</span>}
-        <div className="flex flex-wrap gap-1 ml-auto justify-end">
+        <div data-menu-row className="flex flex-wrap gap-1 ml-auto justify-end">
           {availableMachinesFor(gameData, horizon, category).map(m => {
             const checked = m.id === horizon.defaultMachines[category]
             return (
