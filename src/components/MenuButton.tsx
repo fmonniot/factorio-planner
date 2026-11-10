@@ -156,14 +156,15 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
       const rows = menuRows(items)
       const rowIndex = rows.findIndex(r => r.some(el => el === active))
       const row = rowIndex < 0 ? [] : rows[rowIndex]
-      const inGridRow = rowIndex >= 0 && !!(active as Element).closest('[data-menu-row]')
+      const inGridRow = rowIndex >= 0 && active instanceof Element && !!active.closest('[data-menu-row]')
+      const column = row.findIndex(el => el === active)
       const moveRow = (delta: number) => {
         if (rows.length === 0) return
         const target = rows[rowIndex < 0 ? (delta > 0 ? 0 : rows.length - 1) : (rowIndex + delta + rows.length) % rows.length]
-        const column = inGridRow
-          ? Math.min(row.indexOf(active as HTMLElement), target.length - 1)
+        const targetColumn = inGridRow
+          ? Math.min(column, target.length - 1)
           : Math.max(target.findIndex(el => el.getAttribute('aria-checked') === 'true'), 0)
-        target[column]?.focus()
+        target[targetColumn]?.focus()
       }
       switch (e.key) {
         case 'Escape':
@@ -172,15 +173,19 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           else close(true)
           break
         case 'ArrowLeft':
+          if (inGridRow && column > 0) {
+            e.preventDefault()
+            row[column - 1].focus()
+            break
+          }
           if (!nested) break
           e.preventDefault()
-          if (inGridRow && row.indexOf(active as HTMLElement) > 0) row[row.indexOf(active as HTMLElement) - 1].focus()
-          else leaveFlyout()
+          leaveFlyout()
           break
         case 'ArrowRight':
-          if (nested && inGridRow) {
+          if (inGridRow) {
             e.preventDefault()
-            row[row.indexOf(active as HTMLElement) + 1]?.focus()
+            row[column + 1]?.focus()
             break
           }
           if (nested || !(active instanceof HTMLElement) || !['menu', 'dialog'].includes(active.getAttribute('aria-haspopup') ?? '')) break

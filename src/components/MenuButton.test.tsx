@@ -229,5 +229,7 @@ describe('MenuButton flyout with grid rows', () => {
     expect(radio('b2'), 'column clamped to the shorter row').toHaveFocus()
     await userEvent.keyboard('{ArrowUp}')
     expect(radio('a2')).toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(screen.getByRole('menuitem', { name: 'Reset' }), 'Up from the first row wraps to the last item').toHaveFocus()
   })
 })
