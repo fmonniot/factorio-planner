@@ -172,3 +172,64 @@ describe('MenuButton with a submenu', () => {
     })
   })
 })
+
+describe('MenuButton flyout with grid rows', () => {
+  const tile = (name: string, checked = false) => (
+    <button type="button" role="menuitemradio" aria-checked={checked} aria-label={name} tabIndex={-1} className={ITEM_CLASS} />
+  )
+  function GridHarness() {
+    return (
+      <MenuButton label="Menu" title="Menu" menuLabel="Main" align="left">
+        {() => (
+          <SubmenuItem label="Grid" menuLabel="Grid options">
+            <div data-menu-row>{[tile('a1'), tile('a2', true), tile('a3')]}</div>
+            <div data-menu-row>{[tile('b1'), tile('b2')]}</div>
+            <button type="button" role="menuitem" tabIndex={-1} className={ITEM_CLASS}>Reset</button>
+          </SubmenuItem>
+        )}
+      </MenuButton>
+    )
+  }
+  const open = async () => {
+    render(<GridHarness />)
+    await openWithKeyboard()
+    await userEvent.keyboard('{ArrowRight}')
+  }
+
+  it('moves Left / Right within a row, stopping at the last item', async () => {
+    await open()
+    expect(radio('a2')).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(radio('a3')).toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}')
+    expect(radio('a3')).toHaveFocus()
+    await userEvent.keyboard('{ArrowLeft}{ArrowLeft}')
+    expect(radio('a1')).toHaveFocus()
+  })
+
+  it('closes the flyout with Left on the first item of a row', async () => {
+    await open()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(radio('a1')).toHaveFocus()
+    expect(screen.getByRole('menu', { name: 'Grid options' })).toBeInTheDocument()
+    await userEvent.keyboard('{ArrowLeft}')
+    expect(screen.queryByRole('menu', { name: 'Grid options' })).not.toBeInTheDocument()
+    expect(screen.getByRole('menuitem', { name: 'Grid' })).toHaveFocus()
+  })
+
+  it('moves Up / Down between rows, keeping the column clamped and wrapping', async () => {
+    await open()
+    await userEvent.keyboard('{ArrowRight}{ArrowDown}')
+    expect(radio('b2')).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(screen.getByRole('menuitem', { name: 'Reset' })).toHaveFocus()
+    await userEvent.keyboard('{ArrowDown}')
+    expect(radio('a2'), 'wraps to the checked item of the first row').toHaveFocus()
+    await userEvent.keyboard('{ArrowRight}{ArrowRight}{ArrowDown}')
+    expect(radio('b2'), 'column clamped to the shorter row').toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(radio('a2')).toHaveFocus()
+    await userEvent.keyboard('{ArrowUp}')
+    expect(screen.getByRole('menuitem', { name: 'Reset' }), 'Up from the first row wraps to the last item').toHaveFocus()
+  })
+})

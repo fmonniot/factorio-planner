@@ -21,6 +21,26 @@ function menuItems(menu: HTMLElement): HTMLElement[] {
   )
 }
 
+/**
+ * The items of `menu` as grid rows: items under one `[data-menu-row]` element form a row
+ * (read with Left / Right), every other item is a row of its own. Up / Down move between rows.
+ */
+function menuRows(items: HTMLElement[]): HTMLElement[][] {
+  const rows: HTMLElement[][] = []
+  const byRow = new Map<Element, HTMLElement[]>()
+  for (const item of items) {
+    const rowEl = item.closest('[data-menu-row]')
+    const row = rowEl ? byRow.get(rowEl) : undefined
+    if (row) row.push(item)
+    else {
+      const fresh = [item]
+      rows.push(fresh)
+      if (rowEl) byRow.set(rowEl, fresh)
+    }
+  }
+  return rows
+}
+
 interface MenuButtonProps {
   label: ReactNode
   /** Accessible name of the trigger, when it differs from the visible label. */
@@ -124,7 +144,6 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
       const menu = panel ? currentMenu(panel, active) : null
       const nested = !!panel && !!menu && menu !== panel
       const items = menu ? menuItems(menu) : []
-      const index = items.findIndex(el => el === active)
       const focusAt = (i: number) => items[(i + items.length) % items.length]?.focus()
       // Back to the item that opened the flyout; that item's onFocus closes the flyout.
       const leaveFlyout = () => {
@@ -133,6 +152,20 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
         )
         if (owner instanceof HTMLElement) owner.focus()
       }
+      // Grid navigation: Up / Down between rows, Left / Right within one (a `[data-menu-row]` holds many items).
+      const rows = menuRows(items)
+      const rowIndex = rows.findIndex(r => r.some(el => el === active))
+      const row = rowIndex < 0 ? [] : rows[rowIndex]
+      const inGridRow = rowIndex >= 0 && active instanceof Element && !!active.closest('[data-menu-row]')
+      const column = row.findIndex(el => el === active)
+      const moveRow = (delta: number) => {
+        if (rows.length === 0) return
+        const target = rows[rowIndex < 0 ? (delta > 0 ? 0 : rows.length - 1) : (rowIndex + delta + rows.length) % rows.length]
+        const targetColumn = inGridRow
+          ? Math.min(column, target.length - 1)
+          : Math.max(target.findIndex(el => el.getAttribute('aria-checked') === 'true'), 0)
+        target[targetColumn]?.focus()
+      }
       switch (e.key) {
         case 'Escape':
           e.preventDefault()
@@ -140,11 +173,21 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           else close(true)
           break
         case 'ArrowLeft':
+          if (inGridRow && column > 0) {
+            e.preventDefault()
+            row[column - 1].focus()
+            break
+          }
           if (!nested) break
           e.preventDefault()
           leaveFlyout()
           break
         case 'ArrowRight':
+          if (inGridRow) {
+            e.preventDefault()
+            row[column + 1]?.focus()
+            break
+          }
           if (nested || !(active instanceof HTMLElement) || !['menu', 'dialog'].includes(active.getAttribute('aria-haspopup') ?? '')) break
           if (!panel?.contains(active)) break
           e.preventDefault()
@@ -152,11 +195,11 @@ export function MenuButton({ label, ariaLabel, title, menuLabel, align, disabled
           break
         case 'ArrowDown':
           e.preventDefault()
-          focusAt(index + 1)
+          moveRow(1)
           break
         case 'ArrowUp':
           e.preventDefault()
-          focusAt(index < 0 ? -1 : index - 1)
+          moveRow(-1)
           break
         case 'Home':
           e.preventDefault()

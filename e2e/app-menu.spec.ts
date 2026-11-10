@@ -66,6 +66,13 @@ test.describe('workspace menu', () => {
     const flyout = page.getByRole('menu', { name: 'Default machines' })
     await expect(flyout).toBeVisible()
     await expect(flyout.getByRole('menuitemradio', { checked: true }).first()).toBeFocused()
+    // Grid navigation: Down moves to another category row, Right stays within a row.
+    const groups = flyout.getByRole('group')
+    const firstGroup = groups.first()
+    await page.keyboard.press('ArrowDown')
+    await expect(groups.nth(1).locator(':focus')).toHaveCount(1)
+    await page.keyboard.press('ArrowUp')
+    await expect(firstGroup.getByRole('menuitemradio', { checked: true })).toBeFocused()
     await page.keyboard.press('Escape')
     await expect(flyout).toBeHidden()
     await expect(menu).toBeVisible()
