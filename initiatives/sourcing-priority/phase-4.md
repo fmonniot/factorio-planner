@@ -10,6 +10,13 @@ Out: a split in proportion to need (left out until someone asks); rules on the c
 
 The case it must serve, from the author's own factories: iron is short; science gets all it needs; the hub's logistics and building areas share what is left, 50 / 50 or one before the other.
 
+## What phase 3's reading of the code adds
+
+Noted on 2026-11-11 while planning [phase 3](phase-3.md#what-the-code-says); nothing here was prototyped.
+
+- **The case above needs a source that can be short.** Today a source makes all that is asked or its LP is infeasible, so there is no "what is left" to share between the hub's areas. Phase 3's first ticket (its D1) is the prerequisite of this phase, not only of phase 3.
+- **The split may need no second solve.** Phase 3 gives every listed consumer a share before supply is handed out: a request's amount, or a take's credit from the request probe. With the needs known, a group's split with overflow is arithmetic on those shares, and each consumer is then solved once against its grant, as today. The cost would be the probes, not a second solve per group. This contradicts the "Large" estimate of plan.md and is the first thing the prototype below should check.
+
 ## To settle before ticketing
 
 - **Solving a shared group.** Serving in order needs one solve per consumer. A group needs each member's need first, then the split with overflow, then a second solve with the shares. Decide where the needs come from (the request probe for requests; for takes, a solve against what is left) and what it costs inside loop rounds.

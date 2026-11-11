@@ -14,7 +14,7 @@ Replace the three sourcing modes, the import lock and the implicit ordering rule
 - **Rules can attach to an area.** An area rule overrides its block's rule. That gives per-consumer control and settles how connections interact with local-first, with no new concept.
 - **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden rules: block order, loop member order and extra output giving way first. Connection order, the fourth, becomes the visible order of the *Other blocks* lines.
 
-This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md), and each later phase has a short doc with its scope and what to settle before it is ticketed: [2](phase-2.md), [3](phase-3.md), [4](phase-4.md), [5](phase-5.md), [6](phase-6.md).
+This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md) and those of the second in [phase-2.md](phase-2.md). [phase-3.md](phase-3.md) has what the code says, the decisions it needs and a draft of its tickets. Each later phase has a short doc with its scope and what to settle before it is ticketed: [4](phase-4.md), [5](phase-5.md), [6](phase-6.md). What planning phases 2 and 3 found is under [Findings of 2026-11-11](#findings-of-2026-11-11); two of the findings correct this document.
 
 ## How sourcing works today
 
@@ -50,7 +50,7 @@ A connection limit is easy because it is a number on a visible thing, and the re
 | Scope does not match the place | The mode applies to the item across the whole block, but it is set in the side panel of one row. A line in the panel has to say that every other row follows it. |
 | Two controls, one question | "Where does this item come from?" is answered by the mode radio and by the separate **Forbid imports** checkbox, and they interact (a locked item ignores *Byproducts first*). |
 | Settings that do nothing | *Connections first* has no effect without a connection, on a raw item, or on an item the block cannot make. *Byproducts first* has no effect on a locked, raw or goal item. The badge still shows. |
-| One radio, two decisions | The modes mix "should my recipes run for this?" with "which comes first, my recipes or my connections?". There is no way to say "receive first, and never make it here". |
+| One radio, two decisions | The modes mix "should my recipes run for this?" with "which comes first, my recipes or my connections?". "Receive first, and never make it here" exists (*Only what's already made* with a connection) but nothing says so. |
 | Hidden orders | Who is served first depends on block order, connection order or loop member order. None is visible, and reordering tabs changes the plan. |
 | Areas follow different rules | Local-first is automatic and driven by the primary product. *Connections first* does not override it. The same question has a different answer inside a block and between blocks. |
 | Docs disagree | `spec/data-model.md` says the mode is set from an item chip's right-click menu; `spec/ui.md` says it is set in the panel and not from the chip. |
@@ -83,7 +83,7 @@ Each line except Already made here can be switched off. *Make more here* and the
 | Connection order | The order of the *Other blocks* lines |
 | Local first between areas | *Make more here* above *Other areas* in the area's order |
 
-Two combinations become possible that are not today: receive first and never make it here, and receive from another block ahead of the area's own row.
+One combination becomes possible that is not today: receive from another block ahead of the area's own row. "Receive first and never make it here" was thought to be a second one; it is what *Only what's already made* already does with a connection ([phase 2](phase-2.md#what-the-measurement-changed)), so it needs a clearer sentence, not a new rule. *Only what's already made* with Import off is the pair the stored modes accept but ignore; phase 2 gives it a meaning.
 
 ### Presets, named by outcome
 
@@ -142,7 +142,7 @@ Iron plate: served in this order
 3  Extra output
 ```
 
-Shortages are rare on requests, which make the source produce what is asked. The list matters most for takes of a finite byproduct and inside loops. A connection limit still caps one consumer whatever its rank.
+Shortages are rare on requests, which make the source produce what is asked. The list matters most for takes of a finite byproduct and inside loops. A connection limit still caps one consumer whatever its rank. Rarer than this paragraph assumed: today a source is never partly short, so the example above needs a solver change first ([phase 3](phase-3.md#a-source-is-never-partly-short)).
 
 ## Keeping the power
 
@@ -195,8 +195,8 @@ The first phase removes most of the confusion and touches neither the solver nor
 | Phase | What ships | Solver | Saved plans |
 | --- | --- | --- | --- |
 | 1. Rename and relocate | Outcome names, the **Comes from** control on the Ingredients slot with the import switch, sentence and marker instead of `B` / `C`, rules with no effect greyed, the block's rule list, help text on every preset and on the Import switch, the third preset greyed with its reason while Import is off, a solver test pinning leftovers before connections | None | None: `itemSourcing` and `noImportItems` stay as stored |
-| 2. The list | **Custom order…**, visible connection order, help text on every line, the requested / existing tag on each block line, the two new combinations | Small: both exist as LP terms already (free supply variable, cheap slack) but have never been combined on one item | `itemSourcing` and `noImportItems` load into one rule map, as `connectionsFirstItems` did |
-| 3. Served order | The source's consumer list with blocks as consumers, one per rank, dragged to reorder; extra output as a line | Medium: serving order in `solveAll` and in loop rounds reads the list instead of block order | New optional field on the source; absent means block order |
+| 2. The list | **Custom order…**, visible connection order, help text on every line, the requested / existing tag on each block line, *Only what's already made* with Import off | Small: one new state, which keeps the cheap import slack and reports what it holds as missing | `itemSourcing` and `noImportItems` load into one rule map, as `connectionsFirstItems` did |
+| 3. Served order | The source's consumer list with blocks as consumers, one per rank, dragged to reorder; extra output as a line | Medium to large: a share for every listed consumer and grants by rank, in `solveAll`, the request pass and loop rounds; and first, a source that can be short by a definite amount, which does not exist today | New optional field on the source; absent means today's order |
 | 4. Shares and areas | Groups in the consumer list with equal or percentage shares; a consumer block expands into its areas | Large: a shared group needs each member's need, then the split, then a second solve with the shares, also inside loop rounds; the area solve must divide what a block receives among its areas | The phase 3 field gains groups, shares and area entries; a list without them loads as one consumer per rank |
 | 5. Area rules | Rules on an area, *Other blocks* above *Make more here* in an area | Large: the area LP needs the local-first penalty and the slack cost per area and item | New optional field on an area sub-factory |
 | 6. Predictable default | *Make more here* no longer depends on the recipe ratio | Medium: an extra pass, or a changed objective, for items made from an import | None, but results change for affected plans |
@@ -235,3 +235,26 @@ Taken with the author on 2026-11-10, in answer to the open questions of the firs
 | Is the chip marker needed? | Yes, but rarer: only for a non-default rule that has an effect, and only on the ingredient chips of the rows it changes. | The table is where a rule's effect shows, so the marker is the link from effect to cause. A rule with no effect is greyed in the block's rule list and shows nothing in the table. |
 | Phase 1 alone, or with phase 2? | Alone. | It is UI only, and the names get tried before a migration builds the stored format around them. Today a locked item ignores Byproducts first, so *Only what's already made* is greyed, with its reason, while Import is off, and the Import switch is greyed while that preset is chosen; phase 2 makes that combination real. |
 | Is request or take shown on a block line? | Yes, as a read-only tag, **requested** or **existing**, the words the block graph uses. It ships with phase 2. | A requested line can cover the whole need; an existing line gives only what is spare. Without the word, the order alone does not say which one the player has. The kind still follows from the source's products; an existing line links to the source's **Make it a product** action. |
+
+Taken with the author on 2026-11-11, from the findings below.
+
+| Question | Decision | Why |
+| --- | --- | --- |
+| What is stored for a rule? | `Block.sourceRules[item] = { makeHere?, importOff? }`, with a load-time migration for every old save; connection order stays in `inputConnections`; exports write the new key only. | [phase 2](phase-2.md#the-stored-rule). |
+| What does Import off mean with *Make more here* off? | The rest shows as missing; the solve is otherwise the one with Import on. | A hard constraint runs a row for the item or makes the LP infeasible. |
+| May *Make more here* sit between two block lines, and does a block line have a switch? | No to both in phase 2: two positions, and **Remove** on a block line. This narrows "Each line except Already made here can be switched off" above. | [phase 2](phase-2.md#decisions), D3 and D4. |
+| Should a source hold at a capacity and be short by a definite amount? | Yes: phase 3 starts with a spike on it. | Ranks among requests and phase 4's shares need it. |
+
+## Findings of 2026-11-11
+
+From planning phases 2 and 3: a reading of the solver and two throwaway `solveBlock` runs (not kept). The author confirmed the decisions of [phase-2.md](phase-2.md#decisions) and the first of [phase-3.md](phase-3.md#decisions-for-the-author) the same day; the rest of phase 3's are still proposals.
+
+| Finding | Where | What it changes |
+| --- | --- | --- |
+| *Only what's already made* with a connection already receives before importing and never makes the item here. | [phase 2](phase-2.md#what-the-measurement-changed) | One of the two "new combinations" was a naming problem. Corrected above, in "How today's settings map onto it" and "Where it confuses". |
+| At block scope a rule is two parts: where *Make more here* sits (three positions) and whether Import is on. The presets are the three positions. | [phase 2](phase-2.md#what-the-measurement-changed) | In phase 2 **Custom order…** shows the list and the connections; it cannot make a rule the presets cannot. The first such rules come with phase 5. |
+| *Only what's already made* with Import off cannot be a hard constraint: the LP then runs a row for the item, or is infeasible. | [phase 2](phase-2.md#what-each-rule-does-in-the-solver) | The pair keeps its slack and shows what is missing. |
+| Under *Only what's already made*, two sentences of phase 1 say a row makes the rest. It does not; the rest is imported. | [phase 2](phase-2.md#sentences) | Fixed in phase 2. |
+| A source is never short by a definite amount: with a row pinned below its goal the LP is infeasible and the row runs at the goal. | [phase 3](phase-3.md#a-source-is-never-partly-short) | Ranks among requests, the extra output line and phase 4's shares have nothing to act on until a source can hold at a capacity. Phase 3 starts with a spike on that. |
+| Take credits are handed out in request-pass order: a fourth hidden order on the source side. | [phase 3](phase-3.md#where-the-order-is-read) | The served list has to replace it too. |
+| With a share for every listed consumer, a group's split is arithmetic, not a second solve. Not prototyped. | [phase 4](phase-4.md#what-phase-3s-reading-of-the-code-adds) | Phase 4 may cost less than its "Large". |
