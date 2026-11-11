@@ -92,9 +92,14 @@ export function SummaryPane({
   // Once per request, when its slot is on screen: bring the slot into view and focus the first control of the strip.
   const rootRef = useRef<HTMLElement>(null)
   const focusedSeq = useRef<number | undefined>(undefined)
+  // The pointer may rest where a slot now is (the request came from a popover that covered the grid): a slot it
+  // enters without moving is not hovered, or its preview would replace the controls. Held until the pointer moves.
+  const hoverHeld = useRef(false)
   useLayoutEffect(() => {
     if (!openRequest || focusedSeq.current === openRequest.seq || selectedId !== openRequest.slotId) return
     focusedSeq.current = openRequest.seq
+    hoverHeld.current = true
+    document.addEventListener('mousemove', () => { hoverHeld.current = false }, { once: true })
     const root = rootRef.current
     root?.querySelector('[data-testid="summary-slot"][aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' })
     root?.querySelector<HTMLElement>('[data-summary-controls] :is(button, input, select, [tabindex]):not([tabindex="-1"], :disabled)')?.focus()
@@ -334,7 +339,7 @@ export function SummaryPane({
                   if (editable) setEditing(true)
                 }}
                 onContextMenu={e => onSlotContextMenu(slot, e)}
-                onMouseEnter={() => setHoveredId(slot.id)}
+                onMouseEnter={() => { if (!hoverHeld.current) setHoveredId(slot.id) }}
                 onMouseLeave={() => setHoveredId(prev => (prev === slot.id ? null : prev))}
                 dnd={dndFor(slot, index)}
               />

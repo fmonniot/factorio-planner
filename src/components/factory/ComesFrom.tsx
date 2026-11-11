@@ -2,9 +2,9 @@ import { useId, useMemo } from 'react'
 import type { ItemSourcingMode } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT, SOURCE_RULE_NAMES } from './itemSourcing'
 import { noEffectText, sourceRules } from './sourceRules'
-import type { SourceRuleKind } from './sourceRules'
+import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
 
 // ---------------------------------------------------------------------------
@@ -39,12 +39,6 @@ function Tip({ id, align, children }: { id: string; align: TipAlign; children: s
   )
 }
 
-const RULE_KIND_NAME: Record<SourceRuleKind, string> = {
-  'connections-first': ITEM_SOURCING_CHOICES.find(c => c.mode === 'connections-first')!.label,
-  'byproducts-first': ITEM_SOURCING_CHOICES.find(c => c.mode === 'byproducts-first')!.label,
-  'import-off': `${IMPORT_SWITCH.label} off`,
-}
-
 const ARROW_STEP: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
 
 /**
@@ -74,6 +68,7 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   const setItemSourcing = useBlockStore(s => s.setItemSourcing)
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const gameData = useGameDataStore(selectGameData)
+  const removeRule = useRemoveSourceRule()
   const sentence = useSourcingSentence(itemId, gameData)
 
   const unavailable = useMemo(() => {
@@ -169,8 +164,8 @@ export function ComesFrom({ itemId }: { itemId: string }) {
               <button
                 type="button"
                 aria-describedby={`${baseId}-no-effect-${rule.kind}`}
-                title={`Remove the ${RULE_KIND_NAME[rule.kind]} rule`}
-                onClick={() => (rule.kind === 'import-off' ? toggleNoImportItem(itemId) : setItemSourcing(itemId, undefined))}
+                title={`Remove the ${SOURCE_RULE_NAMES[rule.kind]} rule`}
+                onClick={() => removeRule(rule)}
                 className="shrink-0 bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
               >
                 Remove

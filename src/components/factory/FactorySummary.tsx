@@ -13,6 +13,7 @@ import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
 import { ComesFrom } from './ComesFrom'
+import { SourceRulesButton } from './SourceRulesButton'
 import { useDrawerLayout } from './sidePanel/useDrawerLayout'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
@@ -468,6 +469,7 @@ export function FactorySummary() {
           pane="ingredients"
           className={PANE_RESPONSIVE}
           label="Ingredients"
+          action={<SourceRulesButton />}
           slots={ingredientSlots}
           items={gameData.items}
           blocks={blocks}

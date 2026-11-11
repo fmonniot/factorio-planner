@@ -1,4 +1,5 @@
 import type { ItemSourcingMode } from '../../data/types'
+import type { SourceRuleKind } from './sourceRules'
 
 // ---------------------------------------------------------------------------
 // How a block sources an item: the three presets and the Import switch, read by every surface that shows them.
@@ -30,6 +31,13 @@ export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label:
 export const IMPORT_SWITCH = {
   label: 'Import',
   title: 'Bring it in from outside the plan. Off: this block must make or receive all of it.',
+}
+
+/** The name of each kind of rule: the preset's name, and the Import switch turned off. */
+export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
+  'connections-first': ITEM_SOURCING_CHOICES[1].label,
+  'byproducts-first': ITEM_SOURCING_CHOICES[2].label,
+  'import-off': `${IMPORT_SWITCH.label} off`,
 }
 
 /** Why the Import switch is disabled while "Only what's already made" is chosen. */
