@@ -208,6 +208,13 @@ describe('ingredientSlot', () => {
     expect(slot).toMatchObject({ status: 'locked', dimmed: true, locked: true })
   })
 
+  it('flags the slot of an item that has a source rule with an effect, and no other', () => {
+    const row = ingredientRow({ importPerMin: 20 })
+    expect(ingredientSlot(row, new Map(), blocks, new Set([row.itemId])).sourceRule).toBe(true)
+    expect(ingredientSlot(row, new Map(), blocks, new Set(['another-item']))).not.toHaveProperty('sourceRule')
+    expect(ingredientSlot(row, new Map(), blocks)).not.toHaveProperty('sourceRule')
+  })
+
   it('keeps the import segment of a locked goal shortfall', () => {
     const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 5 }), new Map(), blocks)
     expect(shape(slot.segments)).toEqual([['import', 5]])

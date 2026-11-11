@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import type { ReactNode } from 'react'
 import type { GameData } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { Icon } from '../Icon'
@@ -29,6 +30,8 @@ export interface BlockAreaMatrixProps {
   closedTails: Set<string>
   onToggleTail: (groupId: string) => void
   onOpenArea: (area: MatrixArea) => void
+  /** The source rule marker of an item of the block, or nothing for an item without a rule that has an effect. */
+  sourceRuleMarker?: (itemId: string) => ReactNode
 }
 
 /** Appended to the counterpart tooltips: how the solver pairs senders and receivers. */
@@ -64,7 +67,7 @@ function headerNote(inRate: number, outRate: number, items: number): string {
 export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
   const {
     matrix, gameData, rateUnit, rowMode, columnMode, query, focusedAreaId, onFocus, showAllAreas, onShowAll,
-    groupOverrides, onToggleGroup, closedTails, onToggleTail, onOpenArea,
+    groupOverrides, onToggleGroup, closedTails, onToggleTail, onOpenArea, sourceRuleMarker,
   } = props
   const groups = useMemo(() => itemGroupMap(gameData), [gameData])
   const areaById = useMemo(() => new Map(matrix.areas.map(a => [a.areaId, a])), [matrix])
@@ -155,15 +158,19 @@ export function BlockAreaMatrix(props: BlockAreaMatrixProps) {
     const toV = outsideValue(row, 'to')
     const item = items[row.itemId]
     const energy = isEnergyItem(row.itemId)
+    const marker = sourceRuleMarker?.(row.itemId)
     return (
       <tr key={row.itemId} data-item-id={row.itemId} className="hover:bg-gray-800/40">
         <th scope="row" className="sticky left-0 z-10 bg-gray-900 px-2 py-0.5 text-left font-normal text-gray-200 border-b border-gray-800">
           <span className="flex items-center gap-2 min-w-0">
-            {item?.iconPath ? (
-              <Icon iconPath={item.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />
-            ) : (
-              <span aria-hidden className="w-4 h-4 shrink-0" />
-            )}
+            <span className="relative flex shrink-0">
+              {item?.iconPath ? (
+                <Icon iconPath={item.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />
+              ) : (
+                <span aria-hidden className="w-4 h-4 shrink-0" />
+              )}
+              {marker && <span className="absolute -top-1.5 -right-1.5 flex">{marker}</span>}
+            </span>
             <span className="truncate" title={row.name}>{row.name}</span>
           </span>
         </th>

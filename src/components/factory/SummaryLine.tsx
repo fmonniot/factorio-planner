@@ -9,6 +9,7 @@ import { IconChip } from './IconChip'
 import type { ChipTone } from './IconChip'
 import { fmtChipQuantity, fmtItemRateText } from './ItemTile'
 import { lineChipFit, lineRate } from './lineChipFit'
+import { SummarySourceRuleMarker } from './SourceRuleMarker'
 import type { SlotModel, SummaryPaneKind } from './summarySegments'
 
 // ---------------------------------------------------------------------------
@@ -76,7 +77,7 @@ function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot
       : hasGoal
         ? `${name} — goal ${text(shown)}`
         : `${name} — ${text(shown)}`
-  return (
+  const chip = (
     <IconChip
       iconPath={item?.iconPath || undefined}
       alt={name}
@@ -89,12 +90,16 @@ function LineChip({ pane, slot, items, rateUnit }: { pane: SummaryPaneKind; slot
       role="img"
       aria-label={title}
       badges={short ? <span aria-hidden className="text-[9px] leading-none text-amber-400" style={{ textShadow: '0 0 2px #000, 0 0 2px #000' }}>▼</span> : undefined}
-      className={`mr-1.5${slot.dimmed ? ' opacity-55' : ''}`}
+      // Nothing else on the line leads to the item's Comes from control, so the marker does: it expands the summary on the slot.
+      marker={slot.sourceRule ? <SummarySourceRuleMarker itemId={slot.itemId} /> : undefined}
+      className={`${slot.sourceRule ? '' : 'mr-1.5'}${slot.dimmed ? ' opacity-55' : ''}`}
       data-testid="summary-line-chip"
       data-item-id={slot.itemId}
       data-status={short ? 'short' : undefined}
     />
   )
+  // A chip with a marker sits in a frame the size of the chip, which carries the badge corner: the margin goes outside it.
+  return slot.sourceRule ? <span className="mr-1.5 inline-flex shrink-0">{chip}</span> : chip
 }
 
 /** The "+N": hover, focus or click opens the list of every item of the pane with its rate. Informational. */
@@ -138,6 +143,9 @@ function LineMore({ pane, label, slots, hiddenCount, items, rateUnit }: {
                 <li key={slot.id} data-item-id={slot.itemId} className="flex items-center gap-2 h-7 text-xs text-gray-300">
                   <span className="relative w-6 h-6 shrink-0">
                     {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain" />}
+                    {slot.sourceRule && (
+                      <span className="absolute -top-1 -right-1 flex"><SummarySourceRuleMarker itemId={slot.itemId} opens={false} /></span>
+                    )}
                   </span>
                   <span className="flex-1 min-w-0 truncate">{name}</span>
                   <span className={`font-mono tabular-nums text-[11px] ${RATE_TONE[pane]}`}>

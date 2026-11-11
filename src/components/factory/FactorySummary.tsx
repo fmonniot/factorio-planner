@@ -27,6 +27,7 @@ import { ingredientRows, byproductRows, isLeftover } from './summaryRows'
 import { productSlot, byproductSlot, ingredientSlot } from './summarySegments'
 import type { ProductInfo } from './summarySegments'
 import { netBalance as computeNetBalance, grossFlow, FLOW_TOLERANCE } from '../../solver/index'
+import { useSourceRuleItems } from './useSourceRuleItems'
 
 // ---------------------------------------------------------------------------
 // ProductRates — a product's extra → actual in the detail strip, with inline edit for the extra
@@ -197,6 +198,7 @@ export function FactorySummary() {
 
   const noImportItems = activeBlock?.noImportItems ?? []
   const blocks = useBlockStore(s => s.blocks)
+  const ruleItems = useSourceRuleItems(activeBlock, gameData)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
@@ -283,7 +285,7 @@ export function FactorySummary() {
     )
   })
   const byproductSlots = byproductRowList.map(r => byproductSlot(r, exportsOf(r.itemId)))
-  const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds))
+  const ingredientSlots = ingredientRowList.map(r => ingredientSlot(r, inputFlows, blockIds, ruleItems))
   // A product shortfall cannot receive supply (products have no import slack either).
   const connectable = (itemId: string) => (activeBlock ? !hasProduct(activeBlock, itemId) : false)
   // Number and unit of a rate of `itemId` (power units for electricity and heat).

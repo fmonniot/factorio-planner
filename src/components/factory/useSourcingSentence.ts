@@ -1,17 +1,16 @@
 import { useMemo } from 'react'
-import type { GameData } from '../../data/types'
+import type { Block, GameData } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
 import { itemConnections, itemMakers, sourcingText } from './sourcingText'
 
 /**
- * The sentence for `itemId` in the active block, from the last solve: how the block gets the item under the
- * preset and the Import switch it has now. Empty without an active block or game data. Shared by every surface that
- * shows it, so they never disagree.
+ * The sentence for `itemId` in `block`, any block of the plan, from the last solve: how the block gets the item under
+ * the preset and the Import switch it has now. Empty without a block or game data. The one implementation behind every
+ * surface that shows a sentence, so they never disagree.
  */
-export function useSourcingSentence(itemId: string, gameData: GameData | undefined): string {
-  const block = useBlockStore(selectActiveBlock)
+export function useBlockSourcingSentence(block: Block | undefined, itemId: string, gameData: GameData | undefined): string {
   const blocks = useBlockStore(s => s.blocks)
   const result = useSolverStore(selectBlockResult(block?.id))
   const flows = useSolverStore(selectFlows)
@@ -31,4 +30,9 @@ export function useSourcingSentence(itemId: string, gameData: GameData | undefin
       : '',
     [block, blocks, flows, gameData, result, itemId, name, mode, noImport, unit],
   )
+}
+
+/** The sentence for `itemId` in the active block (`useBlockSourcingSentence`). */
+export function useSourcingSentence(itemId: string, gameData: GameData | undefined): string {
+  return useBlockSourcingSentence(useBlockStore(selectActiveBlock), itemId, gameData)
 }

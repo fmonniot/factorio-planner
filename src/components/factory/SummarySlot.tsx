@@ -6,6 +6,7 @@ import { isEnergyItem } from '../../data/electricity'
 import { slotHasKey } from './summarySegments'
 import type { Overlay, Segment, SlotModel } from './summarySegments'
 import { segmentLook } from './segmentLooks'
+import { SummarySourceRuleMarker } from './SourceRuleMarker'
 
 // ---------------------------------------------------------------------------
 // SegmentBar — an item's allocation as the thin stacked bar at the bottom of
@@ -118,7 +119,7 @@ export function SummarySlot({
       aria-label={
         slot.empty
           ? `${name}, nothing requested yet`
-          : `${name}, ${ariaRate}${slot.status ? `, ${slot.status}` : ''}`
+          : `${name}, ${ariaRate}${slot.status ? `, ${slot.status}` : ''}${slot.sourceRule ? ', has a source rule' : ''}`
       }
       title={slot.empty ? `${name} — nothing requested yet` : name}
       onClick={onClick}
@@ -149,8 +150,15 @@ export function SummarySlot({
         {slot.empty ? '—' : isEnergyItem(slot.itemId) ? fmtItemRateText(slot.itemId, slot.rate / 60, rateUnit) : fmtItemRate(slot.itemId, slot.rate / 60, rateUnit).value}
       </span>
       {badge && (
-        <span aria-hidden="true" className={`absolute right-[3px] top-px text-[9px] font-bold leading-none ${badge.className}`}>
+        <span aria-hidden="true" className={`absolute ${slot.sourceRule ? 'right-[10px]' : 'right-[3px]'} top-px text-[9px] font-bold leading-none ${badge.className}`}>
           {badge.glyph}
+        </span>
+      )}
+      {/* The source rule marker, in the corner after the status badge. The slot is the way to the Comes from control, so
+          the marker only shows the rule; the slot's name already says it, so it is kept out of the accessibility tree. */}
+      {slot.sourceRule && (
+        <span aria-hidden="true" className="absolute -right-[3px] -top-[3px] flex">
+          <SummarySourceRuleMarker itemId={slot.itemId} opens={false} />
         </span>
       )}
       <span className="absolute left-1 right-1 bottom-[3px]">

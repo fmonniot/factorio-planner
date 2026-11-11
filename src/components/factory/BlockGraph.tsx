@@ -19,6 +19,8 @@ import { Popover } from './Popover'
 import { RateInput } from './RateInput'
 import { cappedTitle, cappingLimit } from './summarySegments'
 import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
+import { BlockSourceRuleMarker } from './SourceRuleMarker'
+import { useSourceRuleItems } from './useSourceRuleItems'
 
 // ---------------------------------------------------------------------------
 // Block graph — every block and the connections between them. Connections are
@@ -213,6 +215,9 @@ interface EdgeLabelsProps {
   blocks: Block[]
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
+  gameData: GameData
+  /** Opens the Ingredients slot of an item of the edge's target; given only when that block is the active one. */
+  onOpenSourceRule?: (itemId: string) => void
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
@@ -230,6 +235,10 @@ interface ConnectionChipProps {
   target: Block | undefined
   flow: ConnectionFlow | undefined
   items: GameData['items']
+  gameData: GameData
+  /** The items of the target block that have a source rule with an effect. */
+  ruleItems: ReadonlySet<string>
+  onOpenSourceRule?: (itemId: string) => void
   editing: boolean
   /** Spell the item name out after its icon (the summary chip's list). */
   showName?: boolean
@@ -240,7 +249,7 @@ interface ConnectionChipProps {
 }
 
 function ConnectionChip({
-  connectionId: id, edge, source, target, flow, items, editing, showName,
+  connectionId: id, edge, source, target, flow, items, gameData, ruleItems, onOpenSourceRule, editing, showName,
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -280,11 +289,24 @@ function ConnectionChip({
       className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap ${CHIP_TONE[status]}`}
     >
       {flow?.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
-      {item?.iconPath ? (
-        <Icon iconPath={item.iconPath} alt={showName ? '' : itemName} className="w-5 h-5 object-contain shrink-0" />
-      ) : (
-        <span className={`truncate ${showName ? 'text-[11px] max-w-[10rem]' : 'text-[10px] max-w-[4rem]'}`}>{itemName}</span>
-      )}
+      {/* The rule is the target block's: the marker sits on the item, and its sentence is the item's in that block. */}
+      <span className="relative inline-flex shrink-0">
+        {item?.iconPath ? (
+          <Icon iconPath={item.iconPath} alt={showName ? '' : itemName} className="w-5 h-5 object-contain shrink-0" />
+        ) : (
+          <span className={`truncate ${showName ? 'text-[11px] max-w-[10rem]' : 'text-[10px] max-w-[4rem]'}`}>{itemName}</span>
+        )}
+        {target && ruleItems.has(connection.itemId) && (
+          <span className="absolute -top-1 -right-1 flex">
+            <BlockSourceRuleMarker
+              block={target}
+              itemId={connection.itemId}
+              gameData={gameData}
+              onOpen={onOpenSourceRule && (() => onOpenSourceRule(connection.itemId))}
+            />
+          </span>
+        )}
+      </span>
       {showName && item?.iconPath && <span className="text-[11px] truncate max-w-[10rem]">{itemName}</span>}
       {flow?.kind === 'take' && (
         <span data-testid="graph-edge-existing" className="text-[9px] uppercase tracking-wide leading-none opacity-70">
@@ -334,7 +356,7 @@ function ConnectionChip({
 
 /** Tooltip of a summary chip: the count, then what is notable among its connections. */
 function edgeSummaryTitle(
-  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean,
+  n: number, sourceName: string, targetName: string, statuses: EdgeStatus[], loop: boolean, withRule = 0,
 ): string {
   let title = `${n} items from ${sourceName} to ${targetName}`
   const limited = statuses.filter(s => s === 'limited').length
@@ -342,10 +364,11 @@ function edgeSummaryTitle(
   if (limited > 0) title += `; ${limited} limited`
   if (unused > 0) title += `; ${unused} not used`
   if (loop) title += '; part of a loop'
+  if (withRule > 0) title += `; ${withRule} with a source rule in ${targetName}`
   return `${title} — click to list them`
 }
 
-function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLimit }: EdgeLabelsProps) {
+function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onOpenSourceRule, onRemove, onSetLimit }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -354,6 +377,7 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
   const target = blocks.find(b => b.id === edge.to)
   const sourceName = source?.name ?? edge.from
   const targetName = target?.name ?? edge.to
+  const ruleItems = useSourceRuleItems(target, gameData)
   const listOpen = edge.collapsed && open
 
   // The edge stopped being summarised: forget the list, so it does not pop open when it is summarised again.
@@ -384,6 +408,9 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
       target={target}
       flow={flowsById.get(id)}
       items={items}
+      gameData={gameData}
+      ruleItems={ruleItems}
+      onOpenSourceRule={onOpenSourceRule}
       editing={editingId === id}
       showName={showName}
       onEdit={() => setEditingId(id)}
@@ -431,7 +458,7 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
           aria-haspopup="dialog"
           aria-controls={listId}
           aria-label={`${n} items from ${sourceName} to ${targetName}`}
-          title={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop)}
+          title={edgeSummaryTitle(n, sourceName, targetName, statuses, edge.loop, connections.filter(c => ruleItems.has(c.itemId)).length)}
           style={status === 'ok' ? { borderColor: source?.color ?? MISSING_BLOCK_COLOR } : undefined}
           onClick={() => setOpen(o => !o)}
           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border whitespace-nowrap hover:brightness-125 ${CHIP_TONE[status]}`}
@@ -439,10 +466,20 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, onRemove, onSetLim
           {edge.loop && <span aria-hidden className="text-[10px] leading-none">↻</span>}
           {shown.map(c => {
             const item = items[c.itemId]
-            return item?.iconPath ? (
+            const icon = item?.iconPath ? (
               <Icon key={c.id} iconPath={item.iconPath} alt="" className="w-4 h-4 object-contain shrink-0" />
             ) : (
               <span key={c.id} aria-hidden className="text-[10px]">{(item?.name ?? c.itemId).charAt(0)}</span>
+            )
+            if (!target || !ruleItems.has(c.itemId)) return icon
+            // The summary chip is a button: the marker only shows the rule here, and the chip's tooltip counts it.
+            return (
+              <span key={c.id} aria-hidden className="relative inline-flex shrink-0">
+                {icon}
+                <span className="absolute -top-1 -right-1 flex">
+                  <BlockSourceRuleMarker block={target} itemId={c.itemId} gameData={gameData} />
+                </span>
+              </span>
             )
           })}
           {n > MAX_SUMMARY_ICONS && <span className="text-[10px] font-mono">+{n - MAX_SUMMARY_ICONS}</span>}
@@ -507,6 +544,7 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
+  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
@@ -568,6 +606,11 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
     } else if (entry.role === 'target') {
       setMenuTarget(id)
     }
+  }
+
+  function openSourceRule(itemId: string) {
+    openIngredientSlot(itemId)
+    onClose()
   }
 
   function pick(itemId: string) {
@@ -652,6 +695,9 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 blocks={blocks}
                 flowsById={flowsById}
                 items={gameData.items}
+                gameData={gameData}
+                // A slot can only be opened in the active block, and the modal covers it: the marker closes the graph on it.
+                onOpenSourceRule={e.to === activeBlockId ? openSourceRule : undefined}
                 onRemove={(id, to) => removeInputConnection(id, to)}
                 onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
               />
