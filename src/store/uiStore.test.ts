@@ -266,3 +266,36 @@ describe('panel highlight', () => {
     expect(useUiStore.getState().panelHighlight).toBeNull()
   })
 })
+
+describe('Comes from popover and connection menu', () => {
+  const anchor = { rect: { left: 1, top: 2, right: 3, bottom: 4 }, avoid: null }
+  beforeEach(() => useUiStore.setState({ comesFromPopover: null, connectionMenu: null }))
+
+  it('opens the popover for an item at an anchor, replaces it for another item, and closes', () => {
+    useUiStore.getState().openComesFrom('iron-ore', anchor)
+    expect(useUiStore.getState().comesFromPopover).toEqual({ itemId: 'iron-ore', anchor })
+    useUiStore.getState().openComesFrom('slag', anchor)
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'slag' })
+    useUiStore.getState().closeComesFrom()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
+  })
+
+  it('opens the connection menu for an item at a point, and closes it', () => {
+    useUiStore.getState().openConnectionMenu('iron-ore', 10, 20)
+    expect(useUiStore.getState().connectionMenu).toEqual({ itemId: 'iron-ore', x: 10, y: 20 })
+    useUiStore.getState().closeConnectionMenu()
+    expect(useUiStore.getState().connectionMenu).toBeNull()
+  })
+
+  it('touches nothing else, and is not persisted', () => {
+    useUiStore.setState({ summaryCollapsed: true, selectedRow: { blockId: 'b1', nodeId: 'n1' } })
+    const unsub = initUiStatePersistence()
+    vi.clearAllMocks()
+    useUiStore.getState().openComesFrom('iron-ore', anchor)
+    useUiStore.getState().openConnectionMenu('iron-ore', 1, 2)
+    unsub()
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    expect(useUiStore.getState().selectedRow).toEqual({ blockId: 'b1', nodeId: 'n1' })
+    expect(localStorageMock.setItem).not.toHaveBeenCalled()
+  })
+})

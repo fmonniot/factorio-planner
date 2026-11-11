@@ -216,8 +216,6 @@ interface EdgeLabelsProps {
   flowsById: Map<string, ConnectionFlow>
   items: GameData['items']
   gameData: GameData
-  /** Opens the Ingredients slot of an item of the edge's target; given only when that block is the active one. */
-  onOpenSourceRule?: (itemId: string) => void
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
@@ -238,7 +236,6 @@ interface ConnectionChipProps {
   gameData: GameData
   /** The items of the target block that have a source rule with an effect. */
   ruleItems: ReadonlySet<string>
-  onOpenSourceRule?: (itemId: string) => void
   editing: boolean
   /** Spell the item name out after its icon (the summary chip's list). */
   showName?: boolean
@@ -249,7 +246,7 @@ interface ConnectionChipProps {
 }
 
 function ConnectionChip({
-  connectionId: id, edge, source, target, flow, items, gameData, ruleItems, onOpenSourceRule, editing, showName,
+  connectionId: id, edge, source, target, flow, items, gameData, ruleItems, editing, showName,
   onEdit, onStopEdit, onRemove, onSetLimit,
 }: ConnectionChipProps) {
   const rateUnit = useUiStore(s => s.rateUnit)
@@ -302,7 +299,6 @@ function ConnectionChip({
               block={target}
               itemId={connection.itemId}
               gameData={gameData}
-              onOpen={onOpenSourceRule && (() => onOpenSourceRule(connection.itemId))}
             />
           </span>
         )}
@@ -368,7 +364,7 @@ function edgeSummaryTitle(
   return `${title} — click to list them`
 }
 
-function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onOpenSourceRule, onRemove, onSetLimit }: EdgeLabelsProps) {
+function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onRemove, onSetLimit }: EdgeLabelsProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const triggerRef = useRef<HTMLButtonElement>(null)
@@ -410,7 +406,6 @@ function EdgeLabels({ edge, status, blocks, flowsById, items, gameData, onOpenSo
       items={items}
       gameData={gameData}
       ruleItems={ruleItems}
-      onOpenSourceRule={onOpenSourceRule}
       editing={editingId === id}
       showName={showName}
       onEdit={() => setEditingId(id)}
@@ -544,7 +539,6 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
   const addInputConnection = useBlockStore(s => s.addInputConnection)
   const removeInputConnection = useBlockStore(s => s.removeInputConnection)
   const setConnectionMaxRate = useBlockStore(s => s.setConnectionMaxRate)
-  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
   const results = useSolverStore(selectBlockResults)
   const flows = useSolverStore(selectFlows)
   const loops = useSolverStore(selectLoops)
@@ -606,11 +600,6 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
     } else if (entry.role === 'target') {
       setMenuTarget(id)
     }
-  }
-
-  function openSourceRule(itemId: string) {
-    openIngredientSlot(itemId)
-    onClose()
   }
 
   function pick(itemId: string) {
@@ -696,8 +685,6 @@ function BlockGraphModal({ gameData, onClose }: { gameData: GameData; onClose: (
                 flowsById={flowsById}
                 items={gameData.items}
                 gameData={gameData}
-                // A slot can only be opened in the active block, and the modal covers it: the marker closes the graph on it.
-                onOpenSourceRule={e.to === activeBlockId ? openSourceRule : undefined}
                 onRemove={(id, to) => removeInputConnection(id, to)}
                 onSetLimit={(id, to, max) => setConnectionMaxRate(id, max, to)}
               />

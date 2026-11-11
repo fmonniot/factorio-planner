@@ -54,7 +54,7 @@ function setup({ sourcing = {}, locked = [], connected = false }: Rules = {}) {
   main.rootPlan = { ...main.rootPlan, nodes: [makeRecipeNode('smelt'), makeRecipeNode('ore-synth')] }
   if (connected) main.inputConnections = [{ id: 'c', itemId: 'ore', fromBlockId: 'source' }]
   useBlockStore.setState({ blocks: [main, source], activeBlockId: 'main', history: {} })
-  useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false, ingredientSlotRequest: null, selectedRow: null })
+  useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false, ingredientSlotRequest: null, selectedRow: null, connectionMenu: null, comesFromPopover: null })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: gameData(), sourceId: 'test' } })
   useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, flows: [], _setStatus: () => {} })
 }
@@ -300,47 +300,61 @@ describe('Source rules — focus and dismissal', () => {
 })
 
 describe('Source rules — a rule\'s item', () => {
-  it('asks the store to open the item\'s Ingredients slot and closes the popover', () => {
+  it('shows the Comes from control in its row, and hides it on a second press, without asking for a slot or a popover', () => {
     setup({ sourcing: { water: 'connections-first' }, locked: ['ore'] })
     render(<SourceRulesButton />)
     openPopover()
-    fireEvent.click(within(entry('ore', 'import-off')).getByTestId('source-rule-item'))
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'ore' })
-    expect(screen.queryByTestId('source-rules-popover')).not.toBeInTheDocument()
+    const row = entry('ore', 'import-off')
+    const toggle = within(row).getByTestId('source-rule-item')
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    expect(within(row).queryByTestId('comes-from')).not.toBeInTheDocument()
+    fireEvent.click(toggle)
+    expect(toggle).toHaveAttribute('aria-expanded', 'true')
+    expect(within(row).getByTestId('comes-from')).toBeInTheDocument()
+    // Only that row is open, and the list stays.
+    expect(within(entry('water', 'connections-first')).queryByTestId('comes-from')).not.toBeInTheDocument()
+    expect(screen.getByTestId('source-rules-popover')).toBeInTheDocument()
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
+    fireEvent.click(toggle)
+    expect(within(row).queryByTestId('comes-from')).not.toBeInTheDocument()
   })
 
-  it('lands in the Comes from control of the slot, also for an item that has no slot of its own', () => {
+  it('changes the rule from the row, also for an item that has no slot of its own', () => {
     // Ore is made and used inside the block: not imported, not connected, not locked.
     setup({ sourcing: { ore: 'byproducts-first' } })
     render(<FactorySummary />)
     const pane = screen.getByRole('region', { name: 'Ingredients' })
-    const slotIds = () => within(pane).queryAllByTestId('summary-slot').map(s => s.getAttribute('data-item-id'))
-    expect(slotIds()).not.toContain('ore')
+    expect(within(pane).queryAllByTestId('summary-slot').map(s => s.getAttribute('data-item-id'))).not.toContain('ore')
     openPopover()
     fireEvent.click(within(entry('ore', 'byproducts-first')).getByTestId('source-rule-item'))
-    expect(screen.queryByTestId('source-rules-popover')).not.toBeInTheDocument()
-    expect(slotIds()).toContain('ore')
-    const comesFrom = within(pane).getByTestId('comes-from')
-    expect(comesFrom).toContainElement(document.activeElement as HTMLElement)
-    expect(document.activeElement).toBe(within(comesFrom).getByRole('radio', { name: "Only what's already made" }))
+    const row = entry('ore', 'byproducts-first')
+    fireEvent.click(within(row).getByRole('radio', { name: 'Receive it first' }))
+    expect(mainBlock().itemSourcing).toEqual({ ore: 'connections-first' })
+    // The control is still open on the same item, now for its new rule (which has no connection to act on).
+    expect(within(entry('ore', 'connections-first')).getByTestId('comes-from')).toBeInTheDocument()
   })
 
-  it('keeps the slot\'s controls when the pointer is left resting on another slot, until it moves', () => {
-    // The popover covers the slot grid: once it closes, the pointer is over whatever slot was under it.
-    setup({ sourcing: { ore: 'byproducts-first' }, locked: ['water'] })
-    render(<FactorySummary />)
-    const pane = screen.getByRole('region', { name: 'Ingredients' })
-    const strip = () => within(pane).getByTestId('summary-detail')
-    const water = within(pane).getAllByTestId('summary-slot').find(s => s.getAttribute('data-item-id') === 'water')!
+  it('does not close on a press inside the expanded control, and Tab stays inside the list', () => {
+    setup({ locked: ['ore'] })
+    render(<SourceRulesButton />)
     openPopover()
-    fireEvent.click(within(entry('ore', 'byproducts-first')).getByTestId('source-rule-item'))
-    fireEvent.mouseEnter(water)
-    expect(strip()).toHaveAttribute('data-state', 'selected')
-    expect(within(pane).getByTestId('comes-from')).toContainElement(document.activeElement as HTMLElement)
-    // A pointer that moves hovers again.
-    fireEvent.mouseLeave(water)
-    fireEvent.mouseMove(document.body)
-    fireEvent.mouseEnter(water)
-    expect(strip()).toHaveAttribute('data-state', 'preview')
+    fireEvent.click(within(entry('ore', 'import-off')).getByTestId('source-rule-item'))
+    fireEvent.mouseDown(within(popover()).getByTestId('comes-from'))
+    expect(screen.getByTestId('source-rules-popover')).toBeInTheDocument()
+    const controls = [...popover().querySelectorAll<HTMLElement>('button:not([tabindex="-1"]):not(:disabled)')]
+    controls[controls.length - 1].focus()
+    fireEvent.keyDown(controls[controls.length - 1], { key: 'Tab' })
+    expect(document.activeElement).toBe(controls[0])
+  })
+
+  it('starts with every row closed when it opens again', () => {
+    setup({ locked: ['ore'] })
+    render(<SourceRulesButton />)
+    openPopover()
+    fireEvent.click(within(entry('ore', 'import-off')).getByTestId('source-rule-item'))
+    openPopover()
+    openPopover()
+    expect(within(popover()).queryByTestId('comes-from')).not.toBeInTheDocument()
   })
 })

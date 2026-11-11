@@ -1,6 +1,7 @@
 import { useId, useMemo } from 'react'
 import type { ItemSourcingMode } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
+import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT, SOURCE_RULE_NAMES } from './itemSourcing'
 import { noEffectText, sourceRules } from './sourceRules'
@@ -10,7 +11,8 @@ import { useSourcingSentence } from './useSourcingSentence'
 // ---------------------------------------------------------------------------
 // ComesFrom — where an item of the active block comes from: the three presets, the Import switch, the
 // sentence for the last solve, and any rule of the item that has no effect, with a button to remove it.
-// It is the one place the rule is set; it sits in the strip of a selected Ingredients slot.
+// It sits in the strip of a selected Ingredients slot and in the Comes from popover (`ComesFromPopover`), which holds it for
+// an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward.
 // ---------------------------------------------------------------------------
 
 /** Where a tooltip sits against its control: the first control of a row opens rightwards, the last leftwards. */
@@ -69,6 +71,7 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
   const gameData = useGameDataStore(selectGameData)
   const removeRule = useRemoveSourceRule()
+  const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
   const sentence = useSourcingSentence(itemId, gameData)
 
   const unavailable = useMemo(() => {
@@ -161,15 +164,32 @@ export function ComesFrom({ itemId }: { itemId: string }) {
               className="flex items-baseline gap-2 text-[11px] leading-snug text-gray-500"
             >
               <span id={`${baseId}-no-effect-${rule.kind}`} className="min-w-0 flex-1">{noEffectText(rule.noEffect!, name)}</span>
-              <button
-                type="button"
-                aria-describedby={`${baseId}-no-effect-${rule.kind}`}
-                title={`Remove the ${SOURCE_RULE_NAMES[rule.kind]} rule`}
-                onClick={() => removeRule(rule)}
-                className="shrink-0 bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
-              >
-                Remove
-              </button>
+              <span className="shrink-0 flex items-baseline gap-1">
+                {rule.noEffect === 'no-connection' && (
+                  <button
+                    type="button"
+                    data-testid="receive-from"
+                    aria-describedby={`${baseId}-no-effect-${rule.kind}`}
+                    title={`Pick the block that sends ${name} to this one`}
+                    onClick={e => {
+                      const r = e.currentTarget.getBoundingClientRect()
+                      openConnectionMenu(itemId, r.left, r.bottom)
+                    }}
+                    className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
+                  >
+                    Receive from…
+                  </button>
+                )}
+                <button
+                  type="button"
+                  aria-describedby={`${baseId}-no-effect-${rule.kind}`}
+                  title={`Remove the ${SOURCE_RULE_NAMES[rule.kind]} rule`}
+                  onClick={() => removeRule(rule)}
+                  className="bg-gray-900 border border-gray-700 rounded px-1.5 leading-4 text-gray-300 hover:border-gray-500"
+                >
+                  Remove
+                </button>
+              </span>
             </li>
           ))}
         </ul>

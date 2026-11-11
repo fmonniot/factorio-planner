@@ -30,7 +30,6 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const flows = useSolverStore(selectFlows)
   const rateUnit = useUiStore(s => s.rateUnit)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
-  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
 
   const withAreas = useMemo(() => blocks.filter(b => results[b.id]?.areas !== undefined), [blocks, results])
 
@@ -91,17 +90,10 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     onClose()
   }
 
-  // The marker of a row of the shown block. A slot can only be opened in the active block, and the modal covers it:
-  // there the marker closes the modal on the item's Ingredients slot; for another block it only shows the rule.
+  // The marker of a row of the shown block: it shows that block's rule for the item.
   function sourceRuleMarker(itemId: string) {
     if (!block || !ruleItems.has(itemId)) return null
-    const onOpen = block.id === activeBlockId
-      ? () => {
-          openIngredientSlot(itemId)
-          onClose()
-        }
-      : undefined
-    return <BlockSourceRuleMarker block={block} itemId={itemId} gameData={gameData} onOpen={onOpen} />
+    return <BlockSourceRuleMarker block={block} itemId={itemId} gameData={gameData} />
   }
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'

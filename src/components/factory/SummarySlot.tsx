@@ -158,7 +158,7 @@ export function SummarySlot({
           the marker only shows the rule; the slot's name already says it, so it is kept out of the accessibility tree. */}
       {slot.sourceRule && (
         <span aria-hidden="true" className="absolute -right-[3px] -top-[3px] flex">
-          <SummarySourceRuleMarker itemId={slot.itemId} opens={false} />
+          <SummarySourceRuleMarker itemId={slot.itemId} />
         </span>
       )}
       <span className="absolute left-1 right-1 bottom-[3px]">

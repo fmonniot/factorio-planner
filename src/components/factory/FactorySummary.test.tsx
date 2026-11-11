@@ -54,7 +54,7 @@ function setupStore(goals: Product[] = [ironGoal], withSolver = true) {
     history: {},
   })
   // Most tests work with the full panes; the collapsed summary has its own describe.
-  useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false })
+  useUiStore.setState({ rateUnit: 'min', summaryCollapsed: false, connectionMenu: null, comesFromPopover: null })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: mockGameData, sourceId: 'test' } })
   useSolverStore.setState({
     status: { type: 'idle' },
@@ -2468,62 +2468,28 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
     expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
   })
 
-  it('gives an item that has a rule but is only an intermediate no slot, until it is asked for, and none again once deselected', () => {
+  it('gives an item that has a rule but is only an intermediate no slot, even when it is asked for', () => {
+    // Its Comes from control is in the popover (ComesFromPopover); the pane does not list intermediates.
     withSlagRule()
     render(<FactorySummary />)
     expect(ingredientIds()).toEqual(['iron-ore'])
     expect(pane('Ingredients').textContent).toContain('· 1')
-
     open('slag')
-    expect(ingredientIds()).toEqual(['iron-ore', 'slag'])
-    expect(slot('Ingredients', 'Slag')).toHaveAttribute('aria-pressed', 'true')
-    expect(within(comesFrom()).getByRole('radio', { name: "Only what's already made" })).toBeChecked()
-    expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
-
-    // Changing the rule keeps the slot: it is still selected.
-    fireEvent.click(within(comesFrom()).getByRole('radio', { name: 'Receive it first' }))
-    expect(ingredientIds()).toEqual(['iron-ore', 'slag'])
-
-    select('Ingredients', 'Slag')
     expect(ingredientIds()).toEqual(['iron-ore'])
-    expect(useBlockStore.getState().blocks[0].itemSourcing).toEqual({ slag: 'connections-first' })
+    expect(strip('Ingredients')).not.toHaveAttribute('data-state', 'selected')
+    expect(within(pane('Ingredients')).queryByTestId('comes-from')).not.toBeInTheDocument()
   })
 
-  it('drops the temporary slot on Escape, when another slot is selected, and when the summary collapses', () => {
-    render(<FactorySummary />)
-    open('slag')
-    fireEvent.keyDown(document, { key: 'Escape' })
-    expect(ingredientIds()).toEqual(['iron-ore'])
-
-    open('slag')
-    select('Ingredients', 'Iron Ore')
-    expect(ingredientIds()).toEqual(['iron-ore'])
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
-
-    open('slag')
-    fireEvent.click(screen.getByRole('button', { name: 'Collapse summary' }))
-    fireEvent.click(screen.getAllByRole('button', { name: 'Expand summary' })[0])
-    expect(ingredientIds()).toEqual(['iron-ore'])
-  })
-
-  it('keeps at most one temporary slot: a request for another item replaces it', () => {
-    render(<FactorySummary />)
-    open('slag')
-    open('iron-plate')
-    expect(ingredientIds()).toEqual(['iron-ore', 'iron-plate'])
-    expect(slot('Ingredients', 'Iron Plate')).toHaveAttribute('aria-pressed', 'true')
-  })
-
-  it('drops the temporary slot when the block changes', () => {
+  it('does not keep the selection when the block changes', () => {
     const other = makeEmptyBlock('Other')
     useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
     const first = useBlockStore.getState().activeBlockId
     render(<FactorySummary />)
-    open('slag')
+    open('iron-ore')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
     act(() => useBlockStore.setState({ activeBlockId: other.id }))
-    expect(ingredientIds()).not.toContain('slag')
     act(() => useBlockStore.setState({ activeBlockId: first }))
-    expect(ingredientIds()).toEqual(['iron-ore'])
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'false')
   })
 
   it('ignores a request left over from before it mounted', () => {
@@ -2593,6 +2559,7 @@ describe('FactorySummary — source rule marker', () => {
     expect(marker.closest('[aria-hidden="true"]')).not.toBeNull()
     expect(within(ore).queryByRole('img')).toBeNull()
 
+    // A click on it is a click on the slot, which selects it; the strip then says the same sentence.
     fireEvent.click(marker)
     expect(ore).toHaveAttribute('aria-pressed', 'true')
     expect(markers(ore)).toHaveLength(1)
@@ -2632,17 +2599,12 @@ describe('FactorySummary — source rule marker', () => {
     expect(slot('Byproducts', 'Slag')).toHaveAccessibleName('Slag, 10.0 per minute')
     expect(markers(pane('Byproducts'))).toHaveLength(0)
     expect(markers(pane('Products'))).toHaveLength(0)
-    // Slag has a rule with an effect but is not imported, connected or locked: it has no Ingredients slot.
+    // Slag has a rule with an effect but is not imported, connected or locked: it has no Ingredients slot, and no marker there.
     expect(within(pane('Ingredients')).getAllByTestId('summary-slot').map(s => s.dataset.itemId)).toEqual(['iron-ore'])
     expect(markers(pane('Ingredients'))).toHaveLength(0)
-
-    // The temporary slot it is given on request shows the marker.
-    act(() => useUiStore.getState().openIngredientSlot('slag'))
-    expect(slot('Ingredients', 'Slag')).toHaveAccessibleName('Slag, 0.00 per minute, has a source rule')
-    expect(markers(slot('Ingredients', 'Slag'))).toHaveLength(1)
   })
 
-  it('is on the chip of the collapsed line, beside it, and opens the slot', () => {
+  it('is on the chip of the collapsed line, beside it, and only shows the rule', () => {
     withMakerRow()
     patch({ itemSourcing: { 'iron-ore': 'byproducts-first', slag: 'byproducts-first' } })
     useUiStore.setState({ summaryCollapsed: true })
@@ -2652,8 +2614,9 @@ describe('FactorySummary — source rule marker', () => {
     const chip = within(line).getByTestId('summary-line-chip')
     expect(markers(line)).toHaveLength(1)
     const marker = markers(line)[0]
-    // A button of its own, in the chip's frame and not inside the chip.
-    expect(marker.tagName).toBe('BUTTON')
+    // An image, in the chip's frame and not inside the chip.
+    expect(marker.tagName).toBe('SPAN')
+    expect(marker).toHaveAttribute('role', 'img')
     expect(marker).toHaveAttribute('data-item-id', 'iron-ore')
     expect(chip.contains(marker)).toBe(false)
     expect(chip.parentElement).toHaveAttribute('data-chip-frame')
@@ -2663,10 +2626,11 @@ describe('FactorySummary — source rule marker', () => {
     expect(markers(pane('Byproducts'))).toHaveLength(0)
     expect(markers(pane('Products'))).toHaveLength(0)
 
+    // The collapsed line selects nothing, and the marker opens nothing.
     fireEvent.click(marker)
-    expect(useUiStore.getState().summaryCollapsed).toBe(false)
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
-    expect(within(strip('Ingredients')).getByTestId('comes-from')).toContainElement(document.activeElement as HTMLElement)
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
   })
 
   it('is absent from the collapsed line for the default and for a rule with no effect', () => {

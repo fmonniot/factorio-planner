@@ -144,7 +144,7 @@ function LineMore({ pane, label, slots, hiddenCount, items, rateUnit }: {
                   <span className="relative w-6 h-6 shrink-0">
                     {item?.iconPath && <Icon iconPath={item.iconPath} alt="" className="w-6 h-6 object-contain" />}
                     {slot.sourceRule && (
-                      <span className="absolute -top-1 -right-1 flex"><SummarySourceRuleMarker itemId={slot.itemId} opens={false} /></span>
+                      <span className="absolute -top-1 -right-1 flex"><SummarySourceRuleMarker itemId={slot.itemId} /></span>
                     )}
                   </span>
                   <span className="flex-1 min-w-0 truncate">{name}</span>

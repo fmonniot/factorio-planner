@@ -114,8 +114,8 @@ Every line and preset carries a one-sentence description, so a name never has to
 | Place | Today | Proposed |
 | --- | --- | --- |
 | Ingredients slot | Three radio items buried in the connection menu, no marker | Owns the rule: a **Comes from** control in the selected strip with the presets and **Custom order…**. The slot itself carries the marker of the table chips, so a rule shows before the slot is selected. |
-| Item chip in the table | Amber `B` / `C` | No letter. One neutral marker on the ingredient chips of the rows a rule changes, and only for a non-default rule that has an effect; the tooltip is the sentence, and a click selects the Ingredients slot. |
-| Row side panel | Radio group and Forbid imports checkbox per ingredient | Read-only sentence per ingredient with a **Change…** link to the slot |
+| Item chip in the table | Amber `B` / `C` | No letter. One neutral marker on the ingredient chips of the rows a rule changes, and only for a non-default rule that has an effect; the tooltip is the sentence. The marker is not clickable; the **Comes from** control opens from a right-click on the chip ([T10](phase-1.md)). |
+| Row side panel | Radio group and Forbid imports checkbox per ingredient | Read-only sentence per ingredient with a **Change…** button that opens the **Comes from** popover ([T10](phase-1.md)) |
 | Forbid imports | Separate checkbox and menu item | The *Import* switch in the same control |
 | A rule with no effect | Badge shows as if active | Greyed with the reason ("No connection for iron plate") and a **Remove** action |
 | Block level | Nothing | A "Source rules (3)" entry listing every non-default rule of the block, each removable |

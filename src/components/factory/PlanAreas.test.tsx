@@ -368,16 +368,17 @@ describe('PlanAreasModal — source rule marker', () => {
     expect(markers()).toHaveLength(0)
   })
 
-  it('opens the Ingredients slot and closes the matrix when the block is the active one', () => {
+  it('only shows the rule, also in the matrix of the active block: a click opens nothing and the matrix stays', () => {
     const onClose = vi.fn()
     lockHydrogen('A')
     render(<PlanAreasModal gameData={dataWithMaker()} onClose={onClose} />)
     const marker = screen.getByTestId('source-rule-marker')
-    expect(marker.tagName).toBe('BUTTON')
+    expect(marker.tagName).toBe('SPAN')
+    expect(marker).toHaveAttribute('role', 'img')
     fireEvent.click(marker)
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'h2' })
-    expect(onClose).toHaveBeenCalledTimes(1)
-    expect(useBlockStore.getState().activeBlockId).toBe('A')
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
   })
 
   it('only shows the rule in the matrix of a block that is not the active one', () => {

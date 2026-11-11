@@ -24,14 +24,12 @@ export interface IngredientRow {
 /**
  * Rows in order of first appearance: connected items, then imported items,
  * then locked items. Every item appears once. An item that is none of the three (the block covers it by
- * itself) has no row, whatever its source rule; `openedItemId` is the one exception: the item whose slot
- * was asked for (`uiStore.openIngredientSlot`) gets a last row, with nothing in it, when it has none.
+ * itself) has no row, whatever its source rule: its Comes from control is in a popover (`ComesFromPopover`).
  */
 export function ingredientRows(
   connections: BlockConnection[],
   unsatisfied: { itemId: string; rate: number }[],
   noImportItems: string[],
-  openedItemId?: string,
 ): IngredientRow[] {
   const rows = new Map<string, IngredientRow>()
   const row = (itemId: string): IngredientRow => {
@@ -47,7 +45,6 @@ export function ingredientRows(
     if (u.rate > 0) row(u.itemId).importPerMin = u.rate
   }
   for (const itemId of noImportItems) row(itemId)
-  if (openedItemId !== undefined) row(openedItemId)
   return [...rows.values()]
 }
 

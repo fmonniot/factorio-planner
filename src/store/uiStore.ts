@@ -53,19 +53,50 @@ export interface UiStoreState {
   selectRowSection: (blockId: string, nodeId: string, section: PanelHighlightSection) => void
   clearPanelHighlight: (seq: number) => void
   /**
-   * A transient (not persisted) ask to open the Ingredients slot of one item of the active block. `seq` changes on
+   * A transient (not persisted) ask to show the Ingredients slot of one item of the active block. `seq` changes on
    * every request. Set by `openIngredientSlot` and consumed by the summary strip (`FactorySummary`), which clears it
    * with `clearIngredientSlotRequest(seq)`; nothing else reads it.
    */
   ingredientSlotRequest: { seq: number; itemId: string } | null
   /**
-   * Open the Ingredients slot of `itemId` in the active block, where its **Comes from** control is. This one call
-   * is all a caller does: the summary strip expands if it is collapsed, selects the slot (showing one for as long
-   * as it is selected when the item has none), and moves keyboard focus into the Comes from group. A row side
-   * panel that is a drawer closes, since it would cover the strip and hold the focus.
+   * Show the Ingredients slot of `itemId` in the active block (an item that has one: it is imported, connected or locked).
+   * The summary strip expands if it is collapsed, selects the slot and moves keyboard focus into its Comes from group; a
+   * row side panel that is a drawer closes, since it would cover the strip and hold the focus. Where a rule is set is
+   * `openComesFrom`, not this.
    */
   openIngredientSlot: (itemId: string) => void
   clearIngredientSlotRequest: (seq: number) => void
+  /**
+   * The Comes from popover (`ComesFromPopover`): the item whose control it shows and where it was opened from. Transient.
+   * At most one is open; opening another replaces it. It holds for any item of the active block, whether or not the item
+   * has an Ingredients slot, and it closes with a block change.
+   */
+  comesFromPopover: { itemId: string; anchor: PopoverAnchor } | null
+  openComesFrom: (itemId: string, anchor: PopoverAnchor) => void
+  closeComesFrom: () => void
+  /**
+   * The connection menu (`ConnectionMenu`) for an item of the active block, at viewport coordinates. It is a store
+   * request because two places open it: the Ingredients slot (strip and right-click) and the Comes from control (the
+   * **Receive from…** button of a "No connection" line, which may sit in a popover). `FactorySummary` draws it.
+   */
+  connectionMenu: { itemId: string; x: number; y: number } | null
+  openConnectionMenu: (itemId: string, x: number, y: number) => void
+  closeConnectionMenu: () => void
+}
+
+/** A box in viewport coordinates. */
+export interface ViewportRect { left: number; top: number; right: number; bottom: number }
+
+/**
+ * Where a popover opens from: the box of the element that asked, and the box of the row side panel when that element is
+ * in it. The panel sits at the right edge and the popover would cover what it explains, so it opens beside the panel.
+ * The boxes are a snapshot for when the element has left the page.
+ */
+export interface PopoverAnchor {
+  rect: ViewportRect
+  avoid: ViewportRect | null
+  /** The element that asked, so that the popover follows it while it stays in the page (it scrolls with the table or the panel). */
+  el?: Element
 }
 
 export type PanelHighlightSection = 'machine' | 'beacons'
@@ -114,6 +145,12 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   ingredientSlotRequest: null,
   openIngredientSlot: (itemId) => set({ ingredientSlotRequest: { seq: (ingredientSlotSeq += 1), itemId } }),
   clearIngredientSlotRequest: (seq) => set(state => (state.ingredientSlotRequest?.seq === seq ? { ingredientSlotRequest: null } : state)),
+  comesFromPopover: null,
+  openComesFrom: (itemId, anchor) => set({ comesFromPopover: { itemId, anchor } }),
+  closeComesFrom: () => set(state => (state.comesFromPopover === null ? state : { comesFromPopover: null })),
+  connectionMenu: null,
+  openConnectionMenu: (itemId, x, y) => set({ connectionMenu: { itemId, x, y } }),
+  closeConnectionMenu: () => set(state => (state.connectionMenu === null ? state : { connectionMenu: null })),
 }))
 
 // ---------------------------------------------------------------------------

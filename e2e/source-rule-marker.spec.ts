@@ -3,7 +3,7 @@ import fs from 'fs'
 import path from 'path'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
-import { changeSourcing, sidePanel } from './support/sidePanel'
+import { changeSourcing, comesFromPopover } from './support/sidePanel'
 
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
 const OXYGEN = 'nullius-oxygen'
@@ -105,15 +105,16 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   await expect(markers(page)).toHaveCount(0)
 })
 
-test('a click on the marker opens the Ingredients slot of the item and leaves the chip and the row alone', async ({ page }, testInfo) => {
+test('the marker only shows the rule: a click on it opens nothing, and a right-click on the chip is how the rule is changed', async ({ page }, testInfo) => {
   await open(page, markerPlan(testInfo.outputPath('marker-plan.json'), { [OXYGEN]: 'byproducts-first' }))
   // The row inside the sub-factory.
   const row = methanolRow(page)
   const marker = markers(row)
   await expect(marker).toBeVisible()
+  await expect(marker).toHaveRole('img')
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
 
-  // The dot is 6px in the top-right corner of the chip; what takes the click is larger and is the marker at the dot's centre.
+  // The dot is 6px in the top-right corner of the chip, in a larger box that carries the tooltip.
   const chip = row.locator('[data-variant="ingredient"][title^="Oxygen"]')
   const chipBox = (await chip.boundingBox())!
   const dotBox = (await marker.locator('span').boundingBox())!
@@ -127,25 +128,20 @@ test('a click on the marker opens the Ingredients slot of the item and leaves th
   const centre = { x: dotBox.x + dotBox.width / 2, y: dotBox.y + dotBox.height / 2 }
   expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid]')?.getAttribute('data-testid'), centre)).toBe('source-rule-marker')
 
+  // A click on it opens neither the popover, nor the slot, nor the chip's producer picker.
   await page.mouse.click(centre.x, centre.y)
-  await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-  await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
-  await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
-  // Neither the chip's own click (the producer picker) nor the row's (the side panel) happened.
-  await expect(picker(page)).toHaveCount(0)
-  await expect(sidePanel(page)).toHaveCount(0)
-
-  // The keyboard reaches it too: it is a button.
-  await page.keyboard.press('Escape')
+  await expect(comesFromPopover(page)).toHaveCount(0)
   await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
-  await marker.focus()
-  await page.keyboard.press('Enter')
-  await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-  await expect(comesFrom(page).locator(':focus')).toHaveCount(1)
   await expect(picker(page)).toHaveCount(0)
-  await expect(sidePanel(page)).toHaveCount(0)
+  // It is not in the tab order.
+  await expect(markers(page).locator('xpath=self::button')).toHaveCount(0)
 
-  // The rest of the chip keeps its click: it opens the producer picker.
+  // The chip keeps its click (the producer picker) and has a right-click: its Comes from popover, with the rule set.
+  await chip.click({ button: 'right' })
+  await page.getByRole('menuitem', { name: 'Comes from…' }).click()
+  await expect(comesFromPopover(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
+  await page.keyboard.press('Escape')
+  await expect(comesFromPopover(page)).toHaveCount(0)
   await chip.click()
   await expect(picker(page)).toBeVisible()
 })
@@ -228,26 +224,23 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: 'All blocks' }).click()
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(0)
   await page.getByRole('group', { name: 'Block' }).getByRole('button', { name: /^Acid/ }).click()
-  // Acid is the active block: the marker closes the matrix on the item's Ingredients slot.
-  await markers(matrixHeader).click()
-  await expect(matrix).toHaveCount(0)
-  await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-  await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
-  await page.keyboard.press('Escape')
+  // Acid is the active block, and the marker still only shows the rule: a click on it leaves the matrix open.
+  await expect(markers(matrixHeader)).toHaveRole('img')
+  await markers(matrixHeader).click({ force: true })
+  await expect(matrix).toBeVisible()
+  await close()
 
-  // The block graph: on the edge chip of the oxygen connection into Acid, with the same sentence; it opens the slot too.
+  // The block graph: on the edge chip of the oxygen connection into Acid, with the same sentence.
   await openGraph()
   await expect(markers(page.getByTestId('modal-panel'))).toHaveCount(1)
   await expect(markers(edgeChip)).toHaveAccessibleName(sentence)
   const chipBox = (await edgeChip.boundingBox())!
   const chipDot = (await markers(edgeChip).locator('span').boundingBox())!
   expect(chipDot.y, 'inside the chip').toBeGreaterThanOrEqual(chipBox.y)
-  await markers(edgeChip).click()
-  await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
-  await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-  await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
+  await expect(markers(edgeChip)).toHaveRole('img')
+  await close()
 
-  // From O2 maker, which holds no rule, the same chip only shows Acid's rule: it is not a button there.
+  // From O2 maker, which holds no rule, the same chip shows Acid's rule too.
   await openGraph()
   await page.getByTestId('graph-node').getByRole('button', { name: 'O2 maker', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Block graph' })).toHaveCount(0)
@@ -258,7 +251,7 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   await page.getByTestId('graph-node').getByRole('button', { name: 'Acid', exact: true }).click()
   await expect(oxygenSlot(page)).toBeVisible()
 
-  // The collapsed line: on the chip of oxygen only, as a button beside the chip; it expands the summary on the slot.
+  // The collapsed line: on the chip of oxygen only, as an image beside the chip; it expands nothing.
   await page.getByRole('button', { name: 'Collapse summary' }).click()
   await expect(lineChip).toBeVisible()
   await expect(markers(summary)).toHaveCount(1)
@@ -271,10 +264,13 @@ test('the marker is on the Ingredients slot, the collapsed line, the areas matri
   // The line clips what overflows it: the dot is the topmost element at its own centre.
   const centre = { x: lineDot.x + lineDot.width / 2, y: lineDot.y + lineDot.height / 2 }
   expect(await page.evaluate(({ x, y }) => document.elementFromPoint(x, y)?.closest('[data-testid]')?.getAttribute('data-testid'), centre)).toBe('source-rule-marker')
+  await expect(lineMarker).toHaveRole('img')
   await lineMarker.click()
+  await expect(page.getByTestId('summary-line')).toBeVisible()
+  // The summary expands by its own button, and the slot is selected to take the rule off.
+  await page.getByRole('button', { name: 'Expand summary' }).first().click()
   await expect(page.getByTestId('summary-line')).toHaveCount(0)
-  await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-  await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
+  await oxygenSlot(page).click()
 
   // Back to the default: the marker goes from every surface.
   await comesFrom(page).locator('[data-sourcing-choice="own"]').click()

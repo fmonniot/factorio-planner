@@ -1,5 +1,5 @@
-import { useEffect, useRef } from 'react'
-import { useOverlayOpen } from './sidePanel/useDismiss'
+import { useEffect, useLayoutEffect, useRef } from 'react'
+import { useDismiss } from './sidePanel/useDismiss'
 import { createPortal } from 'react-dom'
 import { useBlockStore } from '../../store/blockStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -29,7 +29,6 @@ interface ConnectionMenuProps {
 }
 
 export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: ConnectionMenuProps) {
-  useOverlayOpen()
   const blocks = useBlockStore(s => s.blocks)
   const activeBlockId = useBlockStore(s => s.activeBlockId)
   const addInputConnection = useBlockStore(s => s.addInputConnection)
@@ -39,35 +38,32 @@ export function ConnectionMenu({ itemId, x, y, onClose, onMakeInNewBlock }: Conn
   const rateUnit = useUiStore(s => s.rateUnit)
   const ref = useRef<HTMLDivElement>(null)
 
-  // Keep the latest onClose in a ref so the document listeners bind once.
+  // A press outside, or Escape, closes the menu and nothing else: Escape goes to the most recently opened dismissible only
+  // (a popover this menu was opened from stays), and is marked as handled so it does not also clear a selection.
+  useDismiss(ref, true, onClose)
+
+  // Keep the latest onClose in a ref so the scroll listener binds once.
   const onCloseRef = useRef(onClose)
   useEffect(() => {
     onCloseRef.current = onClose
   })
 
+  // A fixed menu would float away from its tile, so close on scroll.
   useEffect(() => {
-    function handleMouseDown(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) onCloseRef.current()
-    }
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key !== 'Escape') return
-      // Mark the key as handled (capture phase, before the pane's listener) so it does not also clear a selection.
-      e.preventDefault()
-      onCloseRef.current()
-    }
-    // A fixed menu would float away from its tile, so close on scroll.
     function handleScroll() {
       onCloseRef.current()
     }
-    document.addEventListener('mousedown', handleMouseDown)
-    document.addEventListener('keydown', handleKeyDown, true)
     window.addEventListener('scroll', handleScroll, true)
-    return () => {
-      document.removeEventListener('mousedown', handleMouseDown)
-      document.removeEventListener('keydown', handleKeyDown, true)
-      window.removeEventListener('scroll', handleScroll, true)
-    }
+    return () => window.removeEventListener('scroll', handleScroll, true)
   }, [])
+
+  // Near the bottom of the window (a popover low on the screen) the menu moves up so that it stays whole.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    // `mt-1` puts the menu 4px under `top`.
+    el.style.top = `${Math.max(0, Math.min(y, window.innerHeight - el.getBoundingClientRect().height - 8 - 4))}px`
+  })
 
   const itemName = gameData?.items[itemId]?.name ?? itemId
 

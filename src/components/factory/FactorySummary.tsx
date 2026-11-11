@@ -13,6 +13,7 @@ import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
 import { ComesFrom } from './ComesFrom'
+import { ComesFromPopover } from './ComesFromPopover'
 import { SourceRulesButton } from './SourceRulesButton'
 import { useDrawerLayout } from './sidePanel/useDrawerLayout'
 import { ProductChangeDialog } from './ProductChangeDialog'
@@ -164,10 +165,9 @@ export function FactorySummary() {
 
   const activeBlockId = activeBlock?.id
 
-  // A request to open an item's Ingredients slot (`uiStore.openIngredientSlot`): the Ingredients pane selects the
-  // slot and focuses its Comes from control, and the strip expands. `opened` is that slot for as long as it stays
-  // selected; an item with no slot of its own (the block covers it by itself) is given one for that time only.
-  // A request left over from before this strip mounted is ignored.
+  // A request to show an item's Ingredients slot (`uiStore.openIngredientSlot`, from the Comes from popover's "Show in
+  // Ingredients"): the strip expands, the Ingredients pane selects the slot and focuses its Comes from control. `opened` is
+  // the request for the pane. A request left over from before this strip mounted is ignored.
   const slotRequest = useUiStore(s => s.ingredientSlotRequest)
   const clearSlotRequest = useUiStore(s => s.clearIngredientSlotRequest)
   const clearSelectedRow = useUiStore(s => s.clearSelectedRow)
@@ -190,12 +190,6 @@ export function FactorySummary() {
     // The pane takes the focus in the same commit, before the drawer would hand it back to the row.
     if (drawer) clearSelectedRow()
   }, [slotRequest, openedSeq, drawer, clearSlotRequest, clearSelectedRow, setCollapsed])
-  // Called by the Ingredients pane after every render with its selection: the opened slot ends with its selection.
-  // It only ever sets a new value (no updater that may leave the state as it is): React could replay such a no-op
-  // over the `setOpened` made during a render above and lose it.
-  const onIngredientSelected = (slotId: string | null) => {
-    if (opened && opened.itemId !== slotId) setOpened(null)
-  }
 
   const noImportItems = activeBlock?.noImportItems ?? []
   const blocks = useBlockStore(s => s.blocks)
@@ -218,7 +212,9 @@ export function FactorySummary() {
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   // The limit editor outlives the menu, which closes itself after a selection.
   const [limitEditor, setLimitEditor] = useState<{ connectionId: string; toBlockId: string; x: number; y: number } | null>(null)
-  const [connectionMenu, setConnectionMenu] = useState<{ itemId: string; x: number; y: number } | null>(null)
+  const connectionMenu = useUiStore(s => s.connectionMenu)
+  const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
+  const closeConnectionMenu = useUiStore(s => s.closeConnectionMenu)
 
   const products: Product[] = activeBlock?.products ?? []
   const productItemIds = new Set(products.map(p => p.itemId))
@@ -262,7 +258,7 @@ export function FactorySummary() {
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
   const connections = activeBlock?.inputConnections ?? []
-  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems, opened?.itemId)
+  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
   const limitConnection =
     limitEditor && limitEditor.toBlockId === activeBlockId
       ? connections.find(c => c.id === limitEditor.connectionId)
@@ -479,7 +475,7 @@ export function FactorySummary() {
             if (!connectable(slot.itemId)) return
             e.preventDefault()
             const rect = e.currentTarget.getBoundingClientRect()
-            setConnectionMenu({ itemId: slot.itemId, x: rect.left, y: rect.bottom })
+            openConnectionMenu(slot.itemId, rect.left, rect.bottom)
           }}
           renderRates={slot => (
             <span className="text-xs text-gray-300">
@@ -497,7 +493,7 @@ export function FactorySummary() {
                 label: 'Receive from…',
                 onSelect: e => {
                   const rect = e.currentTarget.getBoundingClientRect()
-                  setConnectionMenu({ itemId: slot.itemId, x: rect.left, y: rect.bottom })
+                  openConnectionMenu(slot.itemId, rect.left, rect.bottom)
                 },
               })
             }
@@ -506,7 +502,6 @@ export function FactorySummary() {
           renderControls={slot => <ComesFrom itemId={slot.itemId} />}
           // Slot ids of the Ingredients pane are item ids.
           openRequest={opened ? { seq: opened.seq, slotId: opened.itemId } : undefined}
-          onSelectedChange={onIngredientSelected}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}
@@ -529,12 +524,14 @@ export function FactorySummary() {
         {collapsed ? 'Expand summary' : 'Collapse summary'}
       </button>
 
+      <ComesFromPopover hasSlot={itemId => ingredientRowList.some(r => r.itemId === itemId)} />
+
       {connectionMenu && (
         <ConnectionMenu
           itemId={connectionMenu.itemId}
           x={connectionMenu.x}
           y={connectionMenu.y}
-          onClose={() => setConnectionMenu(null)}
+          onClose={closeConnectionMenu}
           onMakeInNewBlock={makeInNewBlock}
         />
       )}

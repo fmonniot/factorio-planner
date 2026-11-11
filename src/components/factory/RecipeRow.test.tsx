@@ -875,19 +875,41 @@ describe('RecipeRow byproduct context menu', () => {
   })
 })
 
-describe('RecipeRow item chips: no sourcing menu', () => {
+describe('RecipeRow item chips: the Comes from menu', () => {
   beforeEach(() => {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan }], activeBlockId: block.id, history: {} })
   })
 
-  it('right-clicking an ingredient or a product chip opens no menu', () => {
+  beforeEach(() => {
+    useUiStore.setState({ comesFromPopover: null })
+  })
+
+  it('right-clicking an ingredient chip opens a menu whose one entry opens the Comes from popover of its item', () => {
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    const items = screen.getAllByRole('menuitem')
+    expect(items.map(i => i.textContent)).toEqual(['Comes from…'])
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
+    fireEvent.click(items[0])
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'water' })
+    // The menu closes after the choice.
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('right-clicking a product chip opens no menu', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
     fireEvent.contextMenu(screen.getByTitle(/^Hydrogen/))
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
+  })
+
+  it('the ingredient menu does not open the row menu, and the browser menu stays out', () => {
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
+    const notPrevented = fireEvent.contextMenu(screen.getByTitle(/^Water/))
+    expect(notPrevented).toBe(false)
+    expect(screen.getAllByRole('menu')).toHaveLength(1)
+    expect(screen.queryByRole('menuitem', { name: /Duplicate|Remove/ })).not.toBeInTheDocument()
   })
 
 })
@@ -954,7 +976,7 @@ describe('RecipeRow source rule marker', () => {
     setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
     renderCombustion()
     const sentence = /^Uses what this block already makes first \(Electrolysis [^)]+\)\. The rest is imported\.$/
-    expect(screen.getByRole('button', { name: sentence })).toBe(markers()[0])
+    expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
     expect(markers()[0].getAttribute('title')).toMatch(sentence)
     expect(screen.getByTitle(/^Oxygen/).getAttribute('title')).toMatch(/^Oxygen — \S+$/)
     expect(document.querySelector('[title*="first)"]')).toBeNull()
@@ -986,18 +1008,17 @@ describe('RecipeRow source rule marker', () => {
     expect(markers()).toHaveLength(0)
   })
 
-  it('a click on the marker asks for the Ingredients slot and does nothing else', () => {
+  it('a click on the marker opens nothing: it is an image, and the chip keeps its own click', () => {
     setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
     const onIngredientClick = vi.fn()
     renderCombustion({ onIngredientClick })
+    expect(markers()[0].tagName).not.toBe('BUTTON')
     fireEvent.click(markers()[0])
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'oxygen' })
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
     expect(onIngredientClick).not.toHaveBeenCalled()
-    expect(useUiStore.getState().selectedRow).toBeNull()
-    // The chip keeps its own click.
     fireEvent.click(screen.getByTitle(/^Oxygen/))
     expect(onIngredientClick).toHaveBeenCalledWith('oxygen', expect.anything())
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'oxygen' })
   })
 })
 
@@ -2077,11 +2098,11 @@ describe('RecipeRow on a narrow screen', () => {
       expect(onAddConsumer).toHaveBeenCalledWith('b4', rootId)
     })
 
-    it('does not open the row menu from a hidden ingredient, and the list stays', () => {
+    it('opens the Comes from menu from a hidden ingredient, closing the list that would lie over it, and not the row menu', () => {
       const { list } = open('More ingredients', { onIngredientClick: vi.fn() })
       fireEvent.contextMenu(within(list).getByTitle(/^i3 — Find producer recipe/))
-      expect(screen.queryByRole('menu')).not.toBeInTheDocument()
-      expect(dialog('More ingredients')).not.toBeNull()
+      expect(dialog('More ingredients')).toBeNull()
+      expect(screen.getAllByRole('menuitem').map(i => i.textContent)).toEqual(['Comes from…'])
     })
 
     it('marks the fuel among the hidden ingredients', () => {

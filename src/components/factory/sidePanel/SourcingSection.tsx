@@ -1,5 +1,6 @@
 import type { GameData, GameRecipeNode, SolvedNode } from '../../../data/types'
 import { useUiStore } from '../../../store/uiStore'
+import { anchorOf } from '../popoverAnchor'
 import { Icon } from '../../Icon'
 import { fmtItemRateText } from '../ItemTile'
 import { useSourcingSentence } from '../useSourcingSentence'
@@ -7,7 +8,7 @@ import { PanelSection } from './PanelParts'
 
 function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; ratePerMin: number | undefined; gameData: GameData }) {
   const unit = useUiStore(s => s.rateUnit)
-  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
+  const openComesFrom = useUiStore(s => s.openComesFrom)
 
   const item = gameData.items[itemId]
   const name = item?.name ?? itemId
@@ -31,8 +32,9 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
         type="button"
         data-testid="sourcing-change"
         aria-label={`Change where ${name} comes from`}
-        title="Open this item in the Ingredients pane, where its Comes from control is"
-        onClick={() => openIngredientSlot(itemId)}
+        title="Choose where this item comes from, for every row of the block"
+        aria-haspopup="dialog"
+        onClick={e => openComesFrom(itemId, anchorOf(e.currentTarget))}
         className="mt-1 bg-gray-900 border border-gray-700 rounded px-2 py-0.5 text-[11px] leading-4 text-gray-300 hover:border-gray-500"
       >
         Change…
@@ -43,7 +45,7 @@ function SourcingEntry({ itemId, ratePerMin, gameData }: { itemId: string; rateP
 
 /**
  * Where inputs come from, read-only: one entry per ingredient with its rate, the sentence about what the solver did, and
- * a Change… button that opens the item's Ingredients slot, where the Comes from control sets the rule.
+ * a Change… button that opens the Comes from popover of the item, which sets the block's rule for it.
  */
 export function SourcingSection({ node, solved, gameData }: {
   node: GameRecipeNode
