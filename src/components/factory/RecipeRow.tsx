@@ -7,6 +7,8 @@ import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
+import { ItemSourceRuleMarker } from './SourceRuleMarker'
+import { useSourceRuleItems } from './useSourceRuleItems'
 import { treeGuideStyle, guideLevels, groupRowBackground, OPEN_GROUP_HAIRLINE, INGREDIENTS_INDENT_PX, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { MachineCell } from './MachineCell'
@@ -136,6 +138,8 @@ export function RecipeRow({
   const buildRowAlsoIn = useBlockStore(s => s.buildRowAlsoIn)
   const duplicateSubPlanTo = useBlockStore(s => s.duplicateSubPlanTo)
   const activeBlock = useBlockStore(selectActiveBlock)
+  // The items of the block that have a source rule with an effect: their ingredient chips carry the marker.
+  const ruleItems = useSourceRuleItems(activeBlock, gameData)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
   const rateUnit = useUiStore(s => s.rateUnit)
   const horizon = useHorizon(gameData)
@@ -784,7 +788,6 @@ export function RecipeRow({
                   ratePerSec={ratePerMin / 60}
                   variant="product"
                   pinned={showPin}
-                  sourcing={activeBlock?.itemSourcing[itemId]}
                   temperature={productTemp}
                   title={productTemp ? `${gameData.items[itemId]?.name ?? itemId} (${productTemp})` : undefined}
                 />
@@ -807,7 +810,6 @@ export function RecipeRow({
             const byproductTemp = productTemperatures[itemId]
             const itemName = byproductTemp ? `${baseName} (${byproductTemp})` : baseName
             const openItemMenu = (e: React.MouseEvent) => openByproductMenu(e, itemId)
-            const sourcing = activeBlock?.itemSourcing[itemId]
             const hint = onAddConsumer ? '; right-click to add a consumer recipe' : ''
 
             if (isMultiOutput) {
@@ -821,7 +823,6 @@ export function RecipeRow({
                   temperature={byproductTemp}
                   onClick={() => updateNodePrimaryProduct(planNode.id, itemId)}
                   onContextMenu={openItemMenu}
-                  sourcing={sourcing}
                   title={`${itemName} — Set as primary${hasAreas ? PRIMARY_AREA_HINT : ''}${hint}`}
                 />
               )
@@ -843,7 +844,6 @@ export function RecipeRow({
                   })
                 }
                 onContextMenu={openItemMenu}
-                sourcing={sourcing}
                 title={`${itemName} — ${policy} (click to toggle)${hint}`}
               />
             )
@@ -880,7 +880,7 @@ export function RecipeRow({
                 variant="ingredient"
                 fuel={isFuel}
                 onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
-                sourcing={activeBlock?.itemSourcing[itemId]}
+                marker={ruleItems.has(itemId) ? <ItemSourceRuleMarker itemId={itemId} gameData={gameData} /> : undefined}
                 temperature={temp}
                 title={isFuel
                   ? `Fuel: ${label}${onIngredientClick ? ' — Find producer recipe' : ''}`

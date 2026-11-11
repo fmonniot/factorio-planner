@@ -80,7 +80,9 @@ test.describe('item sourcing', () => {
     // Oxygen is imported now, so its slot is there in its own right.
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
-    await expect(oxygenChip(page).getByTestId('item-tile-sourcing')).toBeVisible()
+    // The rule shows on the row that uses oxygen: a marker beside its chip, named with the sentence.
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes first/)
+    await expect(oxygenChip(page)).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
 
     const acid = await exportedAcid(page)
     expect(acid.itemSourcing).toEqual({ 'nullius-oxygen': 'byproducts-first' })
@@ -88,6 +90,7 @@ test.describe('item sourcing', () => {
 
     await comesFrom(page).getByRole('radio', { name: 'Make it here' }).click()
     await expect(compressedSlot(page)).toContainText('25.0')
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(0)
   })
 
   // Oxygen is made and used inside the block: it is not imported, connected or locked, so the pane has no slot for it.

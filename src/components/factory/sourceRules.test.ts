@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { noEffectText, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
+import { itemsWithEffect, noEffectText, sourceRuleItems, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
 import { makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import type { Block, GameData, ItemSourcingMode } from '../../data/types'
 
@@ -158,6 +158,50 @@ describe('sourceRules', () => {
 
   it('lists a duplicated lock once', () => {
     expect(rules(block({ locked: ['plate', 'plate'] }))).toEqual([{ itemId: 'plate', kind: 'import-off' }])
+  })
+})
+
+describe('itemsWithEffect', () => {
+  it('holds the items with at least one rule that has an effect', () => {
+    expect([...itemsWithEffect([
+      { itemId: 'a', kind: 'byproducts-first' },
+      { itemId: 'b', kind: 'connections-first', noEffect: 'no-connection' },
+      // Two rules: the preset has no effect, the lock has one.
+      { itemId: 'c', kind: 'byproducts-first', noEffect: 'locked' },
+      { itemId: 'c', kind: 'import-off' },
+      { itemId: 'd', kind: 'import-off', noEffect: 'not-made' },
+    ])]).toEqual(['a', 'c'])
+  })
+
+  it('is empty without a rule', () => {
+    expect(itemsWithEffect([]).size).toBe(0)
+  })
+})
+
+describe('sourceRuleItems', () => {
+  const source = () => ({ ...makeEmptyBlock('Source'), id: SOURCE_ID })
+
+  it('holds the items of the block whose rule has an effect, and no item for the default', () => {
+    expect(sourceRuleItems(block(), gameData, []).size).toBe(0)
+    const b = block({ sourcing: { plate: 'byproducts-first', ore: 'byproducts-first' } })
+    // Ore is made by no row: its rule has no effect.
+    expect([...sourceRuleItems(b, gameData, [b])]).toEqual(['plate'])
+  })
+
+  it('reads the other blocks of the plan: a connection counts only while its source exists', () => {
+    const b = block({ sourcing: { plate: 'connections-first' }, connected: true })
+    expect([...sourceRuleItems(b, gameData, [b, source()])]).toEqual(['plate'])
+    expect([...sourceRuleItems(b, gameData, [b])]).toEqual([])
+  })
+
+  it('answers from memory for the same block, plan and game data', () => {
+    const b = block({ locked: ['plate'] })
+    const blocks = [b]
+    const first = sourceRuleItems(b, gameData, blocks)
+    expect(sourceRuleItems(b, gameData, blocks)).toBe(first)
+    // Another plan array, or a replaced block, is answered afresh.
+    expect(sourceRuleItems(b, gameData, [b])).not.toBe(first)
+    expect([...sourceRuleItems({ ...b, noImportItems: [] }, gameData, blocks)]).toEqual([])
   })
 })
 

@@ -890,13 +890,114 @@ describe('RecipeRow item chips: no sourcing menu', () => {
     expect(screen.queryByRole('menu')).not.toBeInTheDocument()
   })
 
-  it('shows a badge and a title suffix on a chip with a mode', () => {
-    const block = useBlockStore.getState().blocks[0]
-    useBlockStore.setState({ blocks: [{ ...block, itemSourcing: { water: 'byproducts-first' } }] })
-    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved })
-    const tile = screen.getByTitle(/\(byproducts first\) — \S+$/)
-    const badge = tile.querySelector('[data-sourcing="byproducts-first"]')
-    expect(badge).toHaveTextContent('B')
+})
+
+describe('RecipeRow source rule marker', () => {
+  // Combustion uses the hydrogen and the oxygen that electrolysis makes.
+  const combustionPlanNode: RecipeNode = { kind: 'game-recipe', id: 'node-comb', recipeId: 'combustion', modules: [], byproductPolicy: {} }
+  const combustionSolved: SolvedNode = {
+    recipeNodeId: 'node-comb',
+    inputRates: { hydrogen: 60, oxygen: 30 },
+    outputRates: { steam: 60 },
+    throughput: 10,
+    machineCountExact: 1,
+    machineCountCeil: 1,
+    powerKw: 0,
+  }
+  const gameData = {
+    ...mockGameData,
+    recipes: {
+      ...mockGameData.recipes,
+      combustion: {
+        ...mockGameData.recipes['steam-cracking'],
+        id: 'combustion',
+        name: 'Combustion',
+        ingredients: [{ itemId: 'hydrogen', type: 'fluid', amount: 6 }, { itemId: 'oxygen', type: 'fluid', amount: 3 }],
+        products: [{ itemId: 'steam', type: 'fluid', amount: 6 }],
+        mainProduct: 'steam',
+      },
+    },
+  } as GameData
+
+  /** A block with the two rows and the given rules. */
+  function setBlock(rules: { itemSourcing?: Record<string, 'byproducts-first' | 'connections-first'>; noImportItems?: string[] }) {
+    const block = makeEmptyBlock('Test')
+    const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode, combustionPlanNode] }
+    useBlockStore.setState({ blocks: [{ ...block, rootPlan, ...rules }], activeBlockId: block.id, history: {} })
+  }
+  const renderCombustion = (props: Partial<Parameters<typeof RecipeRow>[0]> = {}) =>
+    renderRow({ planNode: combustionPlanNode, solvedNode: combustionSolved, gameData, ...props })
+  const markers = () => screen.queryAllByTestId('source-rule-marker')
+
+  beforeEach(() => {
+    useUiStore.setState({ ingredientSlotRequest: null, selectedRow: null })
+  })
+
+  it('marks the ingredient chip of an item whose rule has an effect, and only that chip', () => {
+    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    renderCombustion()
+    expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
+    const marker = markers()[0]
+    // Beside the oxygen chip, in its frame, not inside the chip.
+    const chip = screen.getByTitle(/^Oxygen/)
+    expect(chip).toHaveAttribute('data-variant', 'ingredient')
+    expect(chip.parentElement).toHaveAttribute('data-chip-frame')
+    expect(chip.parentElement).toContainElement(marker)
+    expect(chip).not.toContainElement(marker)
+    // A dot: no letter, and none of the old attributes.
+    expect(marker).toHaveTextContent('')
+    expect(screen.queryByTestId('item-tile-sourcing')).toBeNull()
+    expect(document.querySelector('[data-sourcing]')).toBeNull()
+  })
+
+  it('names the marker with the sentence of the item, and leaves the chip title without a suffix', () => {
+    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    renderCombustion()
+    const sentence = /^Uses what this block already makes first \(Electrolysis [^)]+\)\. The rest is imported\.$/
+    expect(screen.getByRole('button', { name: sentence })).toBe(markers()[0])
+    expect(markers()[0].getAttribute('title')).toMatch(sentence)
+    expect(screen.getByTitle(/^Oxygen/).getAttribute('title')).toMatch(/^Oxygen — \S+$/)
+    expect(document.querySelector('[title*="first)"]')).toBeNull()
+  })
+
+  it('marks no product or byproduct chip of that item', () => {
+    setBlock({ itemSourcing: { oxygen: 'byproducts-first' }, noImportItems: ['hydrogen'] })
+    // Electrolysis makes both: hydrogen is its product, oxygen its byproduct.
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, gameData })
+    expect(screen.getByTitle(/^Oxygen/)).toHaveAttribute('data-variant', 'byproduct')
+    expect(markers()).toHaveLength(0)
+    cleanup()
+    // Combustion uses both: each ingredient chip has one.
+    renderCombustion()
+    expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['hydrogen', 'oxygen'])
+  })
+
+  it('marks nothing for a rule with no effect or for the default', () => {
+    setBlock({})
+    renderCombustion()
+    expect(markers()).toHaveLength(0)
+    cleanup()
+    // Receive it first without a connection; a lock on an item no row makes.
+    setBlock({ itemSourcing: { oxygen: 'connections-first' }, noImportItems: ['water'] })
+    renderCombustion()
+    expect(markers()).toHaveLength(0)
+    cleanup()
+    renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, gameData })
+    expect(markers()).toHaveLength(0)
+  })
+
+  it('a click on the marker asks for the Ingredients slot and does nothing else', () => {
+    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    const onIngredientClick = vi.fn()
+    renderCombustion({ onIngredientClick })
+    fireEvent.click(markers()[0])
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'oxygen' })
+    expect(onIngredientClick).not.toHaveBeenCalled()
+    expect(useUiStore.getState().selectedRow).toBeNull()
+    // The chip keeps its own click.
+    fireEvent.click(screen.getByTitle(/^Oxygen/))
+    expect(onIngredientClick).toHaveBeenCalledWith('oxygen', expect.anything())
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'oxygen' })
   })
 })
 
