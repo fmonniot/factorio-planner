@@ -218,7 +218,7 @@ describe('WarningsPopover — coproduct-driven', () => {
     expect(title.className).toContain('text-yellow-400')
     expect(screen.getByText(/"Boiler Recipe" runs mainly to make Steam, Oxygen as a co-product/)).toBeInTheDocument()
     expect(screen.getByText(/about 40%/)).toBeInTheDocument()
-    expect(screen.getByText(/Only what's already made \(select it in the Ingredients pane\)/)).toBeInTheDocument()
+    expect(screen.getByText(/Only what's already made \(right-click its ingredient chip, then Comes from…\)/)).toBeInTheDocument()
     expect(screen.getByText(/pin the recipe/)).toBeInTheDocument()
     expect(screen.getByTitle('Show solver warnings').className).toContain('text-yellow-300')
   })
@@ -304,7 +304,7 @@ describe('WarningsPopover — area-shortfall', () => {
   })
 
   it('hint suggests unpinning or allowing imports, and the warning is not critical', () => {
-    expect(screen.getByText(/Unpin that row, or allow imports of its inputs/)).toBeInTheDocument()
+    expect(screen.getByText(/Unpin that row, or turn Import on for its inputs/)).toBeInTheDocument()
     expect(screen.getByText(/Area can't cover its own need/).className).toContain('text-yellow-400')
   })
 })

@@ -25,7 +25,7 @@ export function SegmentBar({ slot, colorOf, traceKey }: SegmentBarProps) {
     segmentLook(e.kind, e.blockId !== undefined ? colorOf(e.blockId) : undefined, 'limited' in e && e.limited)
   const fade = (key: string) => (traceKey && traceKey !== key ? 0.2 : undefined)
 
-  // A slot with nothing allocated (an unused source, imports forbidden) shows its overlays across the bar.
+  // A slot with nothing allocated (an unused source, Import off) shows its overlays across the bar.
   const overlayOnly = slot.segments.length === 0 && slot.overlays.length > 0
   const parts: { entry: Segment | Overlay; pct: number }[] = overlayOnly
     ? slot.overlays.map(o => ({ entry: o, pct: 100 / slot.overlays.length }))

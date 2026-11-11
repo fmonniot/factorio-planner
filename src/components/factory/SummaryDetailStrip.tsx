@@ -134,7 +134,7 @@ export function SummaryDetailStrip({
   const itemName = item?.name ?? slot.itemId
   const editable = state === 'selected' || state === 'editing'
   const entries: (Segment | Overlay)[] = [...slot.segments, ...slot.overlays]
-  // A slot with nothing allocated (an unused source, imports forbidden) shows its overlays across the bar;
+  // A slot with nothing allocated (an unused source, Import off) shows its overlays across the bar;
   // on a slot that has segments they are marks at its end.
   const overlayOnly = slot.segments.length === 0 && slot.overlays.length > 0
   const segments: BarSegment[] = entries.map(entry => {
