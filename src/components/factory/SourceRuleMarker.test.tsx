@@ -1,8 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { ItemSourceRuleMarker, SourceRuleMarker } from './SourceRuleMarker'
+import { BlockSourceRuleMarker, ItemSourceRuleMarker, SourceRuleMarker, SummarySourceRuleMarker } from './SourceRuleMarker'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
+import { useGameDataStore } from '../../store/gameDataStore'
 import type { GameData } from '../../data/types'
 
 const SENTENCE = 'Uses what this block already makes first (Smelt 30/m). The rest is imported.'
@@ -87,5 +88,61 @@ describe('ItemSourceRuleMarker', () => {
     expect(screen.queryByRole('button')).toBeNull()
     fireEvent.click(screen.getByRole('img'))
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+  })
+})
+
+describe('BlockSourceRuleMarker and SummarySourceRuleMarker', () => {
+  const gameData = {
+    items: { plate: { id: 'plate', name: 'Plate' }, ore: { id: 'ore', name: 'Ore' } },
+    recipes: {
+      smelt: {
+        id: 'smelt', name: 'Smelt', category: 'smelting', craftingTime: 1,
+        ingredients: [{ itemId: 'ore', type: 'item', amount: 1 }],
+        products: [{ itemId: 'plate', type: 'item', amount: 1 }],
+      },
+    },
+    machines: {},
+    defaultMachines: {},
+  } as unknown as GameData
+
+  /** Two blocks: the active one has no rule, the other makes plate with Import off. */
+  function twoBlocks() {
+    const active = makeEmptyBlock('Active')
+    const other = makeEmptyBlock('Other')
+    other.rootPlan.nodes = [makeRecipeNode('smelt')]
+    other.noImportItems = ['plate']
+    useBlockStore.setState({ blocks: [active, other], activeBlockId: active.id, history: {} })
+    useUiStore.setState({ ingredientSlotRequest: null })
+    return { active, other }
+  }
+
+  it('reads the sentence of the item in the block it is given, not in the active one', () => {
+    const { active, other } = twoBlocks()
+    const { unmount } = render(<BlockSourceRuleMarker block={other} itemId="plate" gameData={gameData} />)
+    expect(screen.getByRole('img')).toHaveAccessibleName(/^Made here by Smelt.* Import is off\.$/)
+    unmount()
+    render(<BlockSourceRuleMarker block={active} itemId="plate" gameData={gameData} />)
+    expect(screen.getByRole('img')).toHaveAccessibleName('No row here makes Plate; it is imported.')
+  })
+
+  it('is a button only when it is given somewhere to lead, and never opens a slot by itself', () => {
+    const { other } = twoBlocks()
+    const onOpen = vi.fn()
+    render(<BlockSourceRuleMarker block={other} itemId="plate" gameData={gameData} onOpen={onOpen} />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(onOpen).toHaveBeenCalledTimes(1)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+  })
+
+  it('SummarySourceRuleMarker is the marker of the active block with the game data of the store', () => {
+    const { other } = twoBlocks()
+    useBlockStore.setState({ activeBlockId: other.id })
+    useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
+    const { unmount } = render(<SummarySourceRuleMarker itemId="plate" opens={false} />)
+    expect(screen.getByRole('img')).toHaveAccessibleName(/^Made here by Smelt.* Import is off\.$/)
+    unmount()
+    render(<SummarySourceRuleMarker itemId="plate" />)
+    fireEvent.click(screen.getByRole('button'))
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'plate' })
   })
 })

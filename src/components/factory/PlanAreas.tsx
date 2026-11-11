@@ -12,6 +12,8 @@ import { AllBlocksMatrix } from './AllBlocksMatrix'
 import { blockMatrix, machineItemIds, type ColumnMode, type MatrixArea, type RowMode } from './areaMatrix'
 import { planMatrix } from './planAreaMatrix'
 import type { GameData } from '../../data/types'
+import { BlockSourceRuleMarker } from './SourceRuleMarker'
+import { useSourceRuleItems } from './useSourceRuleItems'
 
 // ---------------------------------------------------------------------------
 // Areas as a balance matrix: items as rows, areas as columns, the outside at both ends. One block
@@ -28,6 +30,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
   const flows = useSolverStore(selectFlows)
   const rateUnit = useUiStore(s => s.rateUnit)
   const requestRevealRow = useUiStore(s => s.requestRevealRow)
+  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
 
   const withAreas = useMemo(() => blocks.filter(b => results[b.id]?.areas !== undefined), [blocks, results])
 
@@ -52,6 +55,8 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
     () => (block ? blockMatrix(block, results[block.id], gameData, machines) : undefined),
     [block, results, gameData, machines],
   )
+  // The items of the shown block that carry the source rule marker on their row header.
+  const ruleItems = useSourceRuleItems(block, gameData)
   const plan = useMemo(
     () => (tab === ALL ? planMatrix(blocks, results, flows, gameData, machines, { crossingOnly }) : undefined),
     [tab, blocks, results, flows, gameData, machines, crossingOnly],
@@ -84,6 +89,19 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
       requestRevealRow(area.handleNodeId)
     }
     onClose()
+  }
+
+  // The marker of a row of the shown block. A slot can only be opened in the active block, and the modal covers it:
+  // there the marker closes the modal on the item's Ingredients slot; for another block it only shows the rule.
+  function sourceRuleMarker(itemId: string) {
+    if (!block || !ruleItems.has(itemId)) return null
+    const onOpen = block.id === activeBlockId
+      ? () => {
+          openIngredientSlot(itemId)
+          onClose()
+        }
+      : undefined
+    return <BlockSourceRuleMarker block={block} itemId={itemId} gameData={gameData} onOpen={onOpen} />
   }
 
   const btn = 'text-sm bg-gray-800 text-gray-200 hover:text-white border border-gray-600 rounded px-3 py-1'
@@ -141,6 +159,7 @@ export function PlanAreasModal({ gameData, onClose }: { gameData: GameData; onCl
           closedTails={closedTails}
           onToggleTail={toggleTail}
           onOpenArea={openArea}
+          sourceRuleMarker={sourceRuleMarker}
         />
       )}
       {plan && (

@@ -1,12 +1,13 @@
-import type { GameData } from '../../data/types'
+import type { Block, GameData } from '../../data/types'
+import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
-import { useSourcingSentence } from './useSourcingSentence'
+import { useBlockSourcingSentence, useSourcingSentence } from './useSourcingSentence'
 
 // ---------------------------------------------------------------------------
 // The source rule marker: the small grey dot that says "this item has a source rule with an effect".
 // One component for every surface. `SourceRuleMarker` draws it and knows nothing of where it sits or of the
-// stores; `ItemSourceRuleMarker` is the same marker for an item of the active block. Which items of a block
-// get one is `useSourceRuleItems` (`useSourceRuleItems.ts`).
+// stores; `ItemSourceRuleMarker` is the same marker for an item of the active block, `BlockSourceRuleMarker` for an
+// item of any block. Which items of a block get one is `useSourceRuleItems` (`useSourceRuleItems.ts`).
 // ---------------------------------------------------------------------------
 
 /** Shown when there is no sentence to read (no active block, no game data). */
@@ -75,4 +76,38 @@ export function ItemSourceRuleMarker({ itemId, gameData, opens = true }: ItemSou
   const sentence = useSourcingSentence(itemId, gameData)
   const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
   return <SourceRuleMarker sentence={sentence} itemId={itemId} onOpen={opens ? () => openIngredientSlot(itemId) : undefined} />
+}
+
+interface SummarySourceRuleMarkerProps {
+  itemId: string
+  /** False: the marker only shows the rule. By default a click opens the item's Ingredients slot. */
+  opens?: boolean
+}
+
+/**
+ * `ItemSourceRuleMarker` for the summary strip, whose slots and chips are handed the items and not the game data:
+ * it reads the game data from its store.
+ */
+export function SummarySourceRuleMarker({ itemId, opens }: SummarySourceRuleMarkerProps) {
+  const gameData = useGameDataStore(selectGameData)
+  return <ItemSourceRuleMarker itemId={itemId} gameData={gameData} opens={opens} />
+}
+
+interface BlockSourceRuleMarkerProps {
+  /** The block that holds the rule: any block of the plan. */
+  block: Block
+  itemId: string
+  gameData: GameData | undefined
+  /** Given: the marker is a button that calls it. The caller gives it only where a click has somewhere to lead. */
+  onOpen?: () => void
+}
+
+/**
+ * The marker of an item of `block`, for the surfaces that show blocks other than the active one (the areas matrix,
+ * the block graph): its sentence is the item's in that block (`useBlockSourcingSentence`). Like the others it does
+ * not test that the item has a rule.
+ */
+export function BlockSourceRuleMarker({ block, itemId, gameData, onOpen }: BlockSourceRuleMarkerProps) {
+  const sentence = useBlockSourcingSentence(block, itemId, gameData)
+  return <SourceRuleMarker sentence={sentence} itemId={itemId} onOpen={onOpen} />
 }

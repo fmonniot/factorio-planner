@@ -102,6 +102,8 @@ export interface SlotModel {
   product?: ProductInfo
   /** ingredients only */
   locked?: boolean
+  /** ingredients only: the item has a source rule with an effect, so the slot and its line chip show the marker */
+  sourceRule?: true
   /** products only: nothing requested, no extra, nothing exported or made; drawn as "—" */
   empty?: true
 }
@@ -275,10 +277,12 @@ export function byproductSlot(row: ByproductRow, exports: ConnectionFlow[]): Slo
   }
 }
 
+/** `ruleItems`: the items of the block that have a source rule with an effect (`sourceRuleItems`). */
 export function ingredientSlot(
   row: IngredientRow,
   flows: Map<string, ConnectionFlow>,
   blockIds: ReadonlySet<string>,
+  ruleItems?: ReadonlySet<string>,
 ): SlotModel {
   const segments: Segment[] = []
   const overlays: Overlay[] = []
@@ -325,6 +329,7 @@ export function ingredientSlot(
     status: segments.some(s => s.limited) ? 'limited' : row.locked ? 'locked' : null,
     dimmed: row.locked || need <= FLOW_TOLERANCE,
     locked: row.locked,
+    ...(ruleItems?.has(row.itemId) ? { sourceRule: true as const } : {}),
   }
 }
 

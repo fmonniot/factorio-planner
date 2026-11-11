@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { render, screen, fireEvent, within, act } from '@testing-library/react'
 import { PlanAreasButton, PlanAreasModal } from './PlanAreas'
-import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
@@ -317,5 +317,90 @@ describe('PlanAreasButton', () => {
     setup(false)
     render(<PlanAreasButton />)
     expect(screen.queryByRole('button', { name: 'Areas in every block' })).toBeNull()
+  })
+})
+
+describe('PlanAreasModal — source rule marker', () => {
+  /** Game data with a recipe that makes Hydrogen, and a row for it in `blockId`, so Import off on Hydrogen has an effect there. */
+  const dataWithMaker = (): GameData => ({
+    ...gameData,
+    recipes: {
+      'h2-synth': {
+        id: 'h2-synth', name: 'Hydrogen synthesis', category: 'crafting', craftingTime: 1, ingredients: [],
+        products: [{ itemId: 'h2', type: 'fluid', amount: 1 }], madeIn: [], allowProductivity: false, hidden: false,
+      },
+    },
+  }) as unknown as GameData
+  function lockHydrogen(blockId: string, withRow = true) {
+    useBlockStore.setState(s => ({
+      blocks: s.blocks.map(b => b.id !== blockId ? b : {
+        ...b,
+        noImportItems: ['h2'],
+        rootPlan: withRow ? { ...b.rootPlan, nodes: [...b.rootPlan.nodes, makeRecipeNode('h2-synth')] } : b.rootPlan,
+      }),
+    }))
+  }
+  const markers = () => screen.queryAllByTestId('source-rule-marker')
+  const row = (block: string, itemId: string) => table(block).querySelector(`tr[data-item-id="${itemId}"]`) as HTMLElement
+
+  beforeEach(() => {
+    setup(true, ['o2'])
+    useUiStore.setState({ ingredientSlotRequest: null })
+  })
+
+  it('is on the row header of the item, in the matrix of the block that holds the rule only', () => {
+    const data = dataWithMaker()
+    lockHydrogen('A')
+    render(<PlanAreasModal gameData={data} onClose={() => {}} />)
+    expect(markers()).toHaveLength(1)
+    const marker = within(within(row('Alpha', 'h2')).getByRole('rowheader')).getByTestId('source-rule-marker')
+    expect(marker).toHaveAttribute('data-item-id', 'h2')
+    // The sentence of the item in that block.
+    expect(marker).toHaveAccessibleName(/^Made here by Hydrogen synthesis .* Import is off\.$/)
+    expect(marker).toHaveAttribute('title', marker.getAttribute('aria-label')!)
+    expect(within(row('Alpha', 'o2')).queryByTestId('source-rule-marker')).toBeNull()
+
+    // Charlie moves hydrogen between its areas too and has no rule.
+    fireEvent.click(group('Charlie'))
+    expect(row('Charlie', 'h2')).not.toBeNull()
+    expect(markers()).toHaveLength(0)
+    fireEvent.click(group('All blocks'))
+    expect(markers()).toHaveLength(0)
+  })
+
+  it('opens the Ingredients slot and closes the matrix when the block is the active one', () => {
+    const onClose = vi.fn()
+    lockHydrogen('A')
+    render(<PlanAreasModal gameData={dataWithMaker()} onClose={onClose} />)
+    const marker = screen.getByTestId('source-rule-marker')
+    expect(marker.tagName).toBe('BUTTON')
+    fireEvent.click(marker)
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'h2' })
+    expect(onClose).toHaveBeenCalledTimes(1)
+    expect(useBlockStore.getState().activeBlockId).toBe('A')
+  })
+
+  it('only shows the rule in the matrix of a block that is not the active one', () => {
+    const onClose = vi.fn()
+    lockHydrogen('C')
+    render(<PlanAreasModal gameData={dataWithMaker()} onClose={onClose} />)
+    expect(markers(), 'Alpha, the active block, has no rule').toHaveLength(0)
+    fireEvent.click(group('Charlie'))
+    const marker = within(row('Charlie', 'h2')).getByTestId('source-rule-marker')
+    expect(marker.tagName).toBe('SPAN')
+    expect(marker).toHaveAttribute('role', 'img')
+    expect(marker).toHaveAccessibleName(/Import is off\.$/)
+    fireEvent.click(marker)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(onClose).not.toHaveBeenCalled()
+  })
+
+  it('is absent for the default and for a rule with no effect', () => {
+    render(<PlanAreasModal gameData={dataWithMaker()} onClose={() => {}} />)
+    expect(markers()).toHaveLength(0)
+    // No row of Alpha makes hydrogen: the lock is stored and has no effect.
+    act(() => lockHydrogen('A', false))
+    expect(row('Alpha', 'h2')).not.toBeNull()
+    expect(markers()).toHaveLength(0)
   })
 })

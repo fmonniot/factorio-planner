@@ -2550,3 +2550,146 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
     expect(comesFrom()).toContainElement(document.activeElement as HTMLElement)
   })
 })
+
+describe('FactorySummary — source rule marker', () => {
+  const proto = HTMLElement.prototype
+  const savedWidth = Object.getOwnPropertyDescriptor(proto, 'clientWidth')
+  afterEach(() => {
+    if (savedWidth) Object.defineProperty(proto, 'clientWidth', savedWidth)
+    else delete (proto as unknown as Record<string, unknown>).clientWidth
+  })
+  const withRoom = (px: number) => Object.defineProperty(proto, 'clientWidth', { configurable: true, get: () => px })
+  const patch = (over: Partial<Block>) =>
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, ...over })) }))
+  const markers = (el: HTMLElement) => within(el).queryAllByTestId('source-rule-marker')
+
+  /** The block gets a row that makes Iron Ore and Slag, so a rule on either can have an effect. */
+  function withMakerRow() {
+    const data = structuredClone(mockGameData)
+    data.recipes['ore-synth'] = {
+      id: 'ore-synth', name: 'Ore Synth', category: 'crafting', craftingTime: 1,
+      ingredients: [],
+      products: [{ itemId: 'iron-ore', type: 'item', amount: 1 }, { itemId: 'slag', type: 'item', amount: 1 }],
+      madeIn: [], allowProductivity: false, hidden: false, mainProduct: 'iron-ore',
+    } as unknown as GameData['recipes'][string]
+    useGameDataStore.setState({ status: { type: 'loaded', gameData: data, sourceId: 'test' } })
+    patch({ rootPlan: { ...useBlockStore.getState().blocks[0].rootPlan, nodes: [makeRecipeNode('ore-synth')] } })
+  }
+
+  beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null, selectedRow: null }))
+
+  it('is on the Ingredients slot of an item with a rule that has an effect, selected or not, and named by the slot', () => {
+    withMakerRow()
+    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    render(<FactorySummary />)
+    const ore = slot('Ingredients', 'Iron Ore')
+    expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, has a source rule')
+    expect(markers(ore)).toHaveLength(1)
+    // It shows the rule and takes no click of its own: the slot is the way to the control. Its tooltip is the sentence.
+    const marker = markers(ore)[0]
+    expect(marker.tagName).toBe('SPAN')
+    expect(marker).toHaveAttribute('title', expect.stringContaining('Iron Ore'))
+    // The slot's name already says it: the marker is out of the accessibility tree.
+    expect(marker.closest('[aria-hidden="true"]')).not.toBeNull()
+    expect(within(ore).queryByRole('img')).toBeNull()
+
+    fireEvent.click(marker)
+    expect(ore).toHaveAttribute('aria-pressed', 'true')
+    expect(markers(ore)).toHaveLength(1)
+    expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('title')!)
+  })
+
+  it('follows the status in the slot name, and sits after the status badge of a locked slot', () => {
+    withMakerRow()
+    patch({ noImportItems: ['iron-ore'] })
+    render(<FactorySummary />)
+    const ore = slot('Ingredients', 'Iron Ore')
+    expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, locked, has a source rule')
+    expect(ore).toHaveAttribute('data-status', 'locked')
+    const badge = within(ore).getByText('⊘')
+    const marker = markers(ore)[0]
+    expect(badge.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING, 'badge first, then marker').toBeTruthy()
+    // The badge makes room for the marker in the corner.
+    expect(badge).toHaveClass('right-[10px]')
+  })
+
+  it('is absent for the default and for a rule with no effect', () => {
+    render(<FactorySummary />)
+    expect(markers(pane('Ingredients'))).toHaveLength(0)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute')
+    expect(within(slot('Ingredients', 'Iron Ore')).getByText('120')).toBeInTheDocument()
+
+    // No row of the block makes Iron Ore: both rules are stored and neither has an effect.
+    act(() => patch({ itemSourcing: { 'iron-ore': 'byproducts-first' }, noImportItems: ['iron-ore'] }))
+    expect(markers(pane('Ingredients'))).toHaveLength(0)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, locked')
+  })
+
+  it('is never on a Byproducts or Products slot, and adds no Ingredients slot', () => {
+    withMakerRow()
+    patch({ itemSourcing: { slag: 'byproducts-first' } })
+    render(<FactorySummary />)
+    expect(slot('Byproducts', 'Slag')).toHaveAccessibleName('Slag, 10.0 per minute')
+    expect(markers(pane('Byproducts'))).toHaveLength(0)
+    expect(markers(pane('Products'))).toHaveLength(0)
+    // Slag has a rule with an effect but is not imported, connected or locked: it has no Ingredients slot.
+    expect(within(pane('Ingredients')).getAllByTestId('summary-slot').map(s => s.dataset.itemId)).toEqual(['iron-ore'])
+    expect(markers(pane('Ingredients'))).toHaveLength(0)
+
+    // The temporary slot it is given on request shows the marker.
+    act(() => useUiStore.getState().openIngredientSlot('slag'))
+    expect(slot('Ingredients', 'Slag')).toHaveAccessibleName('Slag, 0.00 per minute, has a source rule')
+    expect(markers(slot('Ingredients', 'Slag'))).toHaveLength(1)
+  })
+
+  it('is on the chip of the collapsed line, beside it, and opens the slot', () => {
+    withMakerRow()
+    patch({ itemSourcing: { 'iron-ore': 'byproducts-first', slag: 'byproducts-first' } })
+    useUiStore.setState({ summaryCollapsed: true })
+    withRoom(300)
+    render(<FactorySummary />)
+    const line = pane('Ingredients')
+    const chip = within(line).getByTestId('summary-line-chip')
+    expect(markers(line)).toHaveLength(1)
+    const marker = markers(line)[0]
+    // A button of its own, in the chip's frame and not inside the chip.
+    expect(marker.tagName).toBe('BUTTON')
+    expect(marker).toHaveAttribute('data-item-id', 'iron-ore')
+    expect(chip.contains(marker)).toBe(false)
+    expect(chip.parentElement).toHaveAttribute('data-chip-frame')
+    expect(chip.parentElement).toContainElement(marker)
+    expect(marker).toHaveAccessibleName(/Iron Ore|Ore Synth/)
+    // Byproduct and product chips never show one.
+    expect(markers(pane('Byproducts'))).toHaveLength(0)
+    expect(markers(pane('Products'))).toHaveLength(0)
+
+    fireEvent.click(marker)
+    expect(useUiStore.getState().summaryCollapsed).toBe(false)
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('aria-pressed', 'true')
+    expect(within(strip('Ingredients')).getByTestId('comes-from')).toContainElement(document.activeElement as HTMLElement)
+  })
+
+  it('is absent from the collapsed line for the default and for a rule with no effect', () => {
+    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    useUiStore.setState({ summaryCollapsed: true })
+    withRoom(300)
+    render(<FactorySummary />)
+    expect(within(pane('Ingredients')).getAllByTestId('summary-line-chip')).toHaveLength(1)
+    expect(screen.queryAllByTestId('source-rule-marker')).toHaveLength(0)
+    expect(document.querySelector('[data-chip-frame]')).toBeNull()
+  })
+
+  it('is in the +N list of the collapsed line for an item whose chip does not fit, and only shows the rule there', () => {
+    withMakerRow()
+    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    useUiStore.setState({ summaryCollapsed: true })
+    withRoom(0)
+    render(<FactorySummary />)
+    expect(screen.queryAllByTestId('source-rule-marker')).toHaveLength(0)
+    fireEvent.click(within(pane('Ingredients')).getByTestId('summary-line-more'))
+    const popup = screen.getByTestId('summary-line-popup')
+    const marker = within(popup).getByTestId('source-rule-marker')
+    expect(marker.tagName).toBe('SPAN')
+    expect(marker.closest('li')).toHaveAttribute('data-item-id', 'iron-ore')
+  })
+})

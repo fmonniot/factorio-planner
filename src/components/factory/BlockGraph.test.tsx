@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, within, waitFor, act } from '@testing-library/react'
 import { BlockGraphButton } from './BlockGraph'
-import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
+import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
@@ -731,6 +731,118 @@ describe('BlockGraph', () => {
       fireEvent.click(within(node('miner')).getByTestId('graph-connect-handle'))
       fireEvent.click(summary())
       expect(screen.getByTestId('graph-connect-hint')).toBeTruthy()
+    })
+  })
+
+  describe('source rule marker', () => {
+    const markers = () => screen.queryAllByTestId('source-rule-marker')
+    const label = (connectionId: string) =>
+      document.querySelector(`[data-testid="graph-edge-label"][data-connection-id="${connectionId}"]`) as HTMLElement
+    const patch = (id: string, over: (b: Block) => Partial<Block>) =>
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === id ? { ...b, ...over(b) } : b)) }))
+    /** Import off on iron ore in `id`; with a row that makes it there (the `mine` recipe) the rule has an effect. */
+    const lockOre = (id: string, withRow = true) => patch(id, b => ({
+      noImportItems: ['iron-ore'],
+      rootPlan: withRow ? { ...b.rootPlan, nodes: [makeRecipeNode('mine')] } : b.rootPlan,
+    }))
+
+    beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null }))
+
+    it('is on the edge chip of a connection of the item into the block that holds the rule', () => {
+      setup({ connected: true, extra: 1 })
+      lockOre('consumer')
+      render(<BlockGraphButton />)
+      open()
+      expect(markers()).toHaveLength(1)
+      const marker = within(label('c1')).getByTestId('source-rule-marker')
+      expect(marker).toHaveAttribute('data-item-id', 'iron-ore')
+      // The sentence of the item in the block that receives it.
+      expect(marker).toHaveAccessibleName(/^Made here by mine .* Import is off\.$/)
+      // The other connection into the same block carries another item.
+      expect(within(label('x0')).queryByTestId('source-rule-marker')).toBeNull()
+    })
+
+    it('is absent for the default and for a rule with no effect', () => {
+      setup({ connected: true })
+      render(<BlockGraphButton />)
+      open()
+      expect(markers()).toHaveLength(0)
+      // No row of Consumer makes iron ore: the lock has no effect.
+      act(() => lockOre('consumer', false))
+      expect(label('c1')).not.toBeNull()
+      expect(markers()).toHaveLength(0)
+    })
+
+    it('is not on a connection of the item out of the block that holds the rule', () => {
+      setup({ connected: true })
+      lockOre('miner')
+      render(<BlockGraphButton />)
+      open()
+      expect(label('c1')).not.toBeNull()
+      expect(markers()).toHaveLength(0)
+    })
+
+    it('is not on a connection of the same item into another block', () => {
+      setup({ connected: true })
+      lockOre('consumer')
+      const other: Block = {
+        ...makeEmptyBlock('Other'), id: 'other',
+        inputConnections: [{ id: 'c9', itemId: 'iron-ore', fromBlockId: 'miner' }],
+      }
+      useBlockStore.setState(s => ({ blocks: [...s.blocks, other] }))
+      render(<BlockGraphButton />)
+      open()
+      expect(within(label('c1')).getAllByTestId('source-rule-marker')).toHaveLength(1)
+      expect(within(label('c9')).queryByTestId('source-rule-marker')).toBeNull()
+      expect(markers()).toHaveLength(1)
+    })
+
+    it('opens the Ingredients slot and closes the graph when the block is the active one', () => {
+      setup({ connected: true })
+      lockOre('consumer')
+      render(<BlockGraphButton />)
+      open()
+      const marker = markers()[0]
+      expect(marker.tagName).toBe('BUTTON')
+      fireEvent.click(marker)
+      expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'iron-ore' })
+      expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+      expect(useBlockStore.getState().activeBlockId).toBe('consumer')
+    })
+
+    it('only shows the rule when the block is not the active one', () => {
+      setup({ connected: true })
+      lockOre('consumer')
+      useBlockStore.setState({ activeBlockId: 'miner' })
+      render(<BlockGraphButton />)
+      open()
+      const marker = markers()[0]
+      expect(marker.tagName).toBe('SPAN')
+      expect(marker).toHaveAttribute('role', 'img')
+      expect(marker).toHaveAccessibleName(/Import is off\.$/)
+      fireEvent.click(marker)
+      expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
+    })
+
+    it('marks the item on a summary chip, counts it in the tooltip, and is on its chip in the list', () => {
+      setup({ connected: true, extra: 11 })
+      lockOre('consumer')
+      render(<BlockGraphButton />)
+      open()
+      const summary = screen.getByTestId('graph-edge-summary')
+      // The chip is a button and keeps its name: the dot inside is out of the accessibility tree and takes no click.
+      expect(summary).toHaveAccessibleName('12 items from Miner to Consumer')
+      expect(summary.getAttribute('title')).toContain('; 1 with a source rule in Consumer')
+      const dot = within(summary).getByTestId('source-rule-marker')
+      expect(dot.tagName).toBe('SPAN')
+      expect(dot.closest('[aria-hidden]')).not.toBeNull()
+      expect(markers()).toHaveLength(1)
+
+      fireEvent.click(dot)
+      const list = screen.getByTestId('graph-edge-list')
+      expect(within(list).getAllByTestId('source-rule-marker')).toHaveLength(1)
+      expect(within(label('c1')).getByTestId('source-rule-marker').tagName).toBe('BUTTON')
     })
   })
 })
