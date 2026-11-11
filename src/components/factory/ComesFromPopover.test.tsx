@@ -110,6 +110,16 @@ describe('ComesFromPopover', () => {
     expect(screen.queryByTestId('comes-from-popover')).not.toBeInTheDocument()
   })
 
+  it('gives the focus to the anchor when what had it is gone (a menu entry that opened the popover)', () => {
+    render(<button type="button">Chip</button>)
+    const chip = screen.getByRole('button', { name: 'Chip' })
+    render(<ComesFromPopover hasSlot={() => false} />)
+    // Nothing is focused when it opens, as after a menu closed with its choice.
+    act(() => useUiStore.getState().openComesFrom('ore', { ...anchor, el: chip }))
+    fireEvent.keyDown(document, { key: 'Escape' })
+    expect(chip).toHaveFocus()
+  })
+
   it('closes on a press outside, not on a press inside', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')

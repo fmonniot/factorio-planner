@@ -33,6 +33,13 @@ export function ComesFromPopover({ hasSlot }: {
   // Where the focus was when the popover opened, to give it back on Escape.
   const origin = useRef<HTMLElement | null>(null)
 
+  // Escape gives the focus back to what had it. Opened from a menu entry, that element is gone with the menu: the anchor
+  // (the chip, when it is a button) takes it then.
+  const returnFocus = () => {
+    const target = origin.current?.isConnected && origin.current !== document.body ? origin.current : popover?.anchor.el
+    if (target instanceof HTMLElement && target.isConnected) target.focus()
+  }
+
   // The rule is the active block's: another block, another popover.
   useEffect(() => { close() }, [activeBlockId, close])
 
@@ -42,7 +49,7 @@ export function ComesFromPopover({ hasSlot }: {
   useDismiss(ref, shown, () => {
     if (useUiStore.getState().connectionMenu) return
     close()
-    if (origin.current?.isConnected) origin.current.focus()
+    returnFocus()
   })
 
   // Beside the side panel when it opened from there, else under its anchor; flipped and clamped to stay in the window. It
@@ -75,9 +82,13 @@ export function ComesFromPopover({ hasSlot }: {
     place()
     window.addEventListener('resize', place)
     window.addEventListener('scroll', place, true)
+    // The control grows or shrinks with the chosen rule: keep the popover inside the window when it does.
+    const observer = typeof ResizeObserver === 'undefined' || !ref.current ? undefined : new ResizeObserver(place)
+    if (ref.current) observer?.observe(ref.current)
     return () => {
       window.removeEventListener('resize', place)
       window.removeEventListener('scroll', place, true)
+      observer?.disconnect()
     }
   }, [shown, anchor])
 
@@ -113,7 +124,7 @@ export function ComesFromPopover({ hasSlot }: {
         <button
           type="button"
           aria-label="Close"
-          onClick={() => { close(); if (origin.current?.isConnected) origin.current.focus() }}
+          onClick={() => { close(); returnFocus() }}
           className="shrink-0 inline-flex text-gray-400 hover:text-gray-100 pl-1 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 rounded"
         >
           <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
