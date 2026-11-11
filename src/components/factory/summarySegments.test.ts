@@ -332,7 +332,7 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentLabel(ov('unused'), 'Miner')).toBe('← Miner · unused')
     expect(segmentLabel(ov('self'), 'Miner')).toBe('← Miner · self, ignored')
     expect(segmentLabel(ov('missing-source'), undefined)).toBe('(deleted block)')
-    expect(segmentLabel(ov('locked'), undefined)).toBe('Imports forbidden')
+    expect(segmentLabel(ov('locked'), undefined)).toBe('Import off')
   })
 
   it('marks loop segments in labels and titles', () => {
@@ -358,7 +358,7 @@ describe('segmentLabel / segmentTitle', () => {
     expect(segmentTitle(ov('missing-source'), ctx)).toMatch(/source block was deleted/)
     expect(segmentTitle(ov('self'), ctx)).toMatch(/cannot supply itself/)
     expect(segmentTitle(seg('kept'), ctx)).toBe('Left')
-    expect(segmentTitle(ov('locked'), ctx)).toBe('Imports forbidden')
+    expect(segmentTitle(ov('locked'), ctx)).toBe('Import off')
   })
 })
 
@@ -537,7 +537,7 @@ describe('keyEntryText', () => {
   it('leaves entries of other panes as label and amount', () => {
     const e = { key: 'from:A', kind: 'source', amount: 12 } as Segment
     expect(join(e, 'Miner')).toBe('← Miner 12.0')
-    expect(join({ key: 'locked', kind: 'locked' } as Overlay, undefined)).toBe('Imports forbidden')
+    expect(join({ key: 'locked', kind: 'locked' } as Overlay, undefined)).toBe('Import off')
     const take = flow({ toBlockId: 'B', rate: 5 })
     const p = productOf(goal(10), 15, [], [take])
     expect(join(p.seg('to:B'), 'B', p.product)).toBe('→ B 5.0')

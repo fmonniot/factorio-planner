@@ -212,7 +212,7 @@ The first phase removes most of the confusion and touches neither the solver nor
 
 These items were in [backlog.md](../backlog.md) before the initiative and now live here; each is ticked when the phase that closes it ships.
 
-- [ ] **Sourcing badge on Ingredients slots.** The `B` / `C` badge shows on the item chips of the production table only; the Ingredients and Byproducts slots, the areas matrix and the block graph show nothing. Phase 1.
+- [x] **Sourcing badge on Ingredients slots.** The `B` / `C` badge shows on the item chips of the production table only; the Ingredients and Byproducts slots, the areas matrix and the block graph show nothing. Phase 1.
 - [~] **Let connected supply replace an upstream import.** When a block makes X only from an imported Y, connected X is not used (the block keeps importing Y). Supply could replace that import. Today the outcome depends on the recipe ratio: with 1 Y per X supply does replace the import, with a recipe that yields more X than it consumes Y it does not (see spec/solver.md). **Connections first** (per item, in the Ingredients menu or an item chip's menu) now lets supply replace the import; the default still depends on the recipe ratio. Phases 2 and 6.
 - [ ] **Choose who is served first in a loop.** Consumers that compete for one offer inside a loop are served in loop member order (the entry block first, then breadth-first, see spec/solver.md#loops). Let the user set a priority. Phases 3 and 4.
 - [ ] **Byproducts first per consumer.** The mode is per item, so a second consumer of the item in the same block also gets imported supply. Let the mode apply to one consuming recipe. Phase 5 (a rule on an area).

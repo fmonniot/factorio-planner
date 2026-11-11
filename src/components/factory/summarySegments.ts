@@ -400,7 +400,7 @@ export function segmentLabel(
     case 'unused': return `← ${blockName ?? GONE} · unused`
     case 'self': return `← ${blockName ?? GONE} · self, ignored`
     case 'missing-source': return GONE
-    case 'locked': return 'Imports forbidden'
+    case 'locked': return 'Import off'
   }
 }
 
