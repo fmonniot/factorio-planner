@@ -2,13 +2,14 @@ import { useState, useRef, useMemo } from 'react'
 import type { SolvedNode, SolvedArea, GameData, RecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { isSubPlanDescendant } from '../../store/blockStore'
-import { useUiStore, type RateUnit } from '../../store/uiStore'
+import { useUiStore, type PopoverAnchor, type RateUnit } from '../../store/uiStore'
 import { useHorizon } from '../../store/horizon'
 import { resolveRowMachine } from '../../data/horizon'
 import { fmtPower, fmtItemRateText } from './ItemTile'
 import { ItemChip } from './ItemChip'
 import { ItemSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
+import { anchorOf } from './popoverAnchor'
 import { treeGuideStyle, guideLevels, groupRowBackground, OPEN_GROUP_HAIRLINE, INGREDIENTS_INDENT_PX, INGREDIENTS_PADDING_LEFT } from './treeGuides'
 import { canAddGroupIn, canMoveNodeInto, NESTING_LIMIT_TITLE } from '../../data/nesting'
 import { MachineCell } from './MachineCell'
@@ -184,12 +185,14 @@ export function RecipeRow({
   }, [planNode, areaView, gameData, rootPlan])
   // At most one context menu is open at a time:
   // - 'row': the row menu (recipe row or sub-factory),
-  // - 'item': the menu of a byproduct chip, its single entry "Add consumer recipe…" (product and ingredient chips have none),
+  // - 'item': the menu of a byproduct chip, its single entry "Add consumer recipe…" (product chips have none),
+  // - 'ingredient': the menu of an ingredient chip, its single entry "Comes from…", which opens the item's Comes from popover,
   // - 'build' / 'goto': opened from the row menu's "Build also in…" and "Go to row in…",
   // - 'duplicate': a sub-factory's "Duplicate to…".
   const [openMenu, setOpenMenu] = useState<
     { kind: 'row' | 'build' | 'goto' | 'duplicate'; x: number; y: number }
     | { kind: 'item'; itemId: string; x: number; y: number }
+    | { kind: 'ingredient'; itemId: string; x: number; y: number; anchor: PopoverAnchor }
     | null
   >(null)
   // The dialog a row action opened (it replaces the browser's prompt and confirm): a name for a sub-factory, or a removal to confirm.
@@ -205,13 +208,19 @@ export function RecipeRow({
   const rowMenu = openMenu?.kind === 'row' ? openMenu : null
   // The byproduct menu only shows while there is something to add a consumer to.
   const itemMenu = openMenu?.kind === 'item' && onAddConsumer ? openMenu : null
-  const areaMenu = openMenu && openMenu.kind !== 'row' && openMenu.kind !== 'item' ? openMenu : null
+  const ingredientMenu = openMenu?.kind === 'ingredient' ? openMenu : null
+  const areaMenu = openMenu && openMenu.kind !== 'row' && openMenu.kind !== 'item' && openMenu.kind !== 'ingredient' ? openMenu : null
 
   function openByproductMenu(e: React.MouseEvent, itemId: string) {
     // Without an entry to offer there is no menu, and the browser's own one stays.
     if (!onAddConsumer) return
     e.preventDefault()
     setOpenMenu({ kind: 'item', itemId, x: e.clientX, y: e.clientY })
+  }
+
+  function openIngredientMenu(e: React.MouseEvent, itemId: string) {
+    e.preventDefault()
+    setOpenMenu({ kind: 'ingredient', itemId, x: e.clientX, y: e.clientY, anchor: anchorOf(e.currentTarget) })
   }
 
   function handleDragStart(e: React.DragEvent) {
@@ -880,6 +889,7 @@ export function RecipeRow({
                 variant="ingredient"
                 fuel={isFuel}
                 onClick={onIngredientClick ? () => onIngredientClick(itemId, parentSubPlanId) : undefined}
+                onContextMenu={e => openIngredientMenu(e, itemId)}
                 marker={ruleItems.has(itemId) ? <ItemSourceRuleMarker itemId={itemId} gameData={gameData} /> : undefined}
                 temperature={temp}
                 title={isFuel
@@ -888,7 +898,20 @@ export function RecipeRow({
               />
             )
           }}
-        />
+        >
+          {ingredientMenu && (
+            <RowActionsMenu
+              x={ingredientMenu.x}
+              y={ingredientMenu.y}
+              actions={[{
+                label: 'Comes from…',
+                title: 'Choose where this item comes from, for every row of the block',
+                onSelect: () => useUiStore.getState().openComesFrom(ingredientMenu.itemId, ingredientMenu.anchor),
+              }]}
+              onClose={() => closeMenu('ingredient')}
+            />
+          )}
+        </ChipColumn>
       </td>
 
       {/* Power */}

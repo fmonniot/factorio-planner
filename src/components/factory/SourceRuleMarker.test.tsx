@@ -22,23 +22,21 @@ describe('SourceRuleMarker', () => {
     expect(marker.className + dot.className).not.toContain('amber')
   })
 
-  it('is an image without onOpen: nothing to press', () => {
+  it('is an image, larger than the dot, with nothing to press', () => {
     render(<SourceRuleMarker sentence={SENTENCE} />)
-    expect(screen.getByRole('img', { name: SENTENCE })).toBe(screen.getByTestId('source-rule-marker'))
+    const marker = screen.getByRole('img', { name: SENTENCE })
+    expect(marker).toBe(screen.getByTestId('source-rule-marker'))
+    expect(marker).toHaveClass('w-3.5', 'h-3.5')
     expect(screen.queryByRole('button')).toBeNull()
   })
 
-  it('is a button with onOpen, larger than the dot, whose click stays off its parent', () => {
-    const onOpen = vi.fn()
+  it('does nothing of its own on a click: the click is a click on what it sits on', () => {
     const onParent = vi.fn()
-    render(<div onClick={onParent}><SourceRuleMarker sentence={SENTENCE} onOpen={onOpen} /></div>)
-    const marker = screen.getByRole('button', { name: SENTENCE })
-    expect(marker).toBe(screen.getByTestId('source-rule-marker'))
-    expect(marker).toHaveAttribute('type', 'button')
-    expect(marker).toHaveClass('w-3.5', 'h-3.5')
-    fireEvent.click(marker)
-    expect(onOpen).toHaveBeenCalledTimes(1)
-    expect(onParent).not.toHaveBeenCalled()
+    render(<div onClick={onParent}><SourceRuleMarker sentence={SENTENCE} /></div>)
+    fireEvent.click(screen.getByRole('img'))
+    expect(onParent).toHaveBeenCalledTimes(1)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
   })
 
   it('still has a name without a sentence', () => {
@@ -77,17 +75,12 @@ describe('ItemSourceRuleMarker', () => {
     expect(marker).toHaveAttribute('data-item-id', 'plate')
   })
 
-  it("opens the item's Ingredients slot on a click", () => {
+  it('only shows the rule: no button, and a click opens nothing', () => {
     render(<ItemSourceRuleMarker itemId="plate" gameData={gameData} />)
-    fireEvent.click(screen.getByRole('button'))
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'plate' })
-  })
-
-  it('only shows the rule with opens={false}', () => {
-    render(<ItemSourceRuleMarker itemId="plate" gameData={gameData} opens={false} />)
     expect(screen.queryByRole('button')).toBeNull()
     fireEvent.click(screen.getByRole('img'))
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
   })
 })
 
@@ -125,24 +118,20 @@ describe('BlockSourceRuleMarker and SummarySourceRuleMarker', () => {
     expect(screen.getByRole('img')).toHaveAccessibleName('No row here makes Plate; it is imported.')
   })
 
-  it('is a button only when it is given somewhere to lead, and never opens a slot by itself', () => {
+  it('never opens a slot or a popover by itself', () => {
     const { other } = twoBlocks()
-    const onOpen = vi.fn()
-    render(<BlockSourceRuleMarker block={other} itemId="plate" gameData={gameData} onOpen={onOpen} />)
-    fireEvent.click(screen.getByRole('button'))
-    expect(onOpen).toHaveBeenCalledTimes(1)
+    render(<BlockSourceRuleMarker block={other} itemId="plate" gameData={gameData} />)
+    expect(screen.queryByRole('button')).toBeNull()
+    fireEvent.click(screen.getByRole('img'))
     expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+    expect(useUiStore.getState().comesFromPopover).toBeNull()
   })
 
   it('SummarySourceRuleMarker is the marker of the active block with the game data of the store', () => {
     const { other } = twoBlocks()
     useBlockStore.setState({ activeBlockId: other.id })
     useGameDataStore.setState({ status: { type: 'loaded', gameData, sourceId: 'test' } })
-    const { unmount } = render(<SummarySourceRuleMarker itemId="plate" opens={false} />)
-    expect(screen.getByRole('img')).toHaveAccessibleName(/^Made here by Smelt.* Import is off\.$/)
-    unmount()
     render(<SummarySourceRuleMarker itemId="plate" />)
-    fireEvent.click(screen.getByRole('button'))
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'plate' })
+    expect(screen.getByRole('img')).toHaveAccessibleName(/^Made here by Smelt.* Import is off\.$/)
   })
 })

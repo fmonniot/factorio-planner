@@ -37,7 +37,6 @@ const rulesButton = (page: Page) => pane(page, 'Ingredients').getByTestId('sourc
 const popover = (page: Page) => page.getByTestId('source-rules-popover')
 const rule = (page: Page, itemId: string, kind: string) =>
   popover(page).locator(`[data-testid="source-rule"][data-item-id="${itemId}"][data-rule="${kind}"]`)
-const comesFrom = (page: Page) => detail(page, 'Ingredients').getByTestId('comes-from')
 const oxygenSlot = (page: Page) => slot(page, 'Ingredients', 'Oxygen')
 
 /** The popover is whole inside the viewport, and nothing covers its corners. */
@@ -59,7 +58,7 @@ async function expectUnclipped(page: Page) {
 }
 
 test.describe('source rules', () => {
-  test('lists the rules of the block, removes one, and opens the slot of another', async ({ page }, testInfo) => {
+  test('lists the rules of the block, removes one, and changes another in its row', async ({ page }, testInfo) => {
     await setup(page, testInfo, {
       itemSourcing: { [OXYGEN]: 'connections-first', [COMPRESSED]: 'byproducts-first' },
       noImportItems: [OXYGEN],
@@ -107,15 +106,19 @@ test.describe('source rules', () => {
     await expect(popover(page)).toHaveCount(0)
     await expect(rulesButton(page)).toBeFocused()
 
-    // A rule's item opens its Ingredients slot, on the Comes from control; the button does not take the focus back.
+    // A rule's item shows its Comes from control in the row, and the list stays: nothing is selected in the pane.
     await rulesButton(page).click()
-    await rule(page, OXYGEN, 'import-off').getByTestId('source-rule-item').click()
-    await expect(popover(page)).toHaveCount(0)
-    await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-    await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
-    await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
-    await page.waitForTimeout(300)
-    await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
+    const row = rule(page, OXYGEN, 'import-off')
+    await row.getByTestId('source-rule-item').click()
+    await expect(popover(page)).toBeVisible()
+    await expect(row.getByTestId('comes-from')).toBeVisible()
+    await expect(row.getByTestId('source-rule-item')).toHaveAttribute('aria-expanded', 'true')
+    await expect(detail(page, 'Ingredients')).not.toHaveAttribute('data-state', 'selected')
+    await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'false')
+    // The switch is the rule: turning Import on takes the entry away, and the control goes with it.
+    await row.getByTestId('import-switch').click()
+    await expect(row).toHaveCount(0)
+    await expect(rulesButton(page)).toHaveText('Source rules (1)')
   })
 
   test('finds the rule of an item that is only an intermediate, and removes the last rule', async ({ page }, testInfo) => {
@@ -131,20 +134,20 @@ test.describe('source rules', () => {
     await expect(only).toHaveAttribute('data-no-effect', 'no-connection')
     await expect(only.getByTestId('source-rule-text')).toHaveText('No connection for Oxygen.')
 
-    // Its item opens a slot for as long as it is selected, on the Comes from control.
+    // Its item shows its Comes from control in the row, with the way forward; no slot appears, in the pane or anywhere.
     await only.getByTestId('source-rule-item').click()
-    await expect(popover(page)).toHaveCount(0)
-    await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-    await expect(slots).toHaveCount(count + 1)
-    await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
-    await page.waitForTimeout(300)
-    await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
-    await page.keyboard.press('Escape')
+    await expect(popover(page)).toBeVisible()
+    await expect(only.getByTestId('comes-from').getByRole('radio', { name: 'Receive it first' })).toBeChecked()
+    await expect(only.getByTestId('receive-from')).toBeVisible()
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(slots).toHaveCount(count)
+    // Escape closes the list; opening it again starts with the row closed.
+    await page.keyboard.press('Escape')
+    await expect(popover(page)).toHaveCount(0)
+    await rulesButton(page).click()
+    await expect(only.getByTestId('comes-from')).toHaveCount(0)
 
     // Removing the last rule takes the button and the popover away; focus stays in the pane.
-    await rulesButton(page).click()
     await only.getByRole('button', { name: /^Remove/ }).click()
     await expect(popover(page)).toHaveCount(0)
     await expect(rulesButton(page)).toHaveCount(0)

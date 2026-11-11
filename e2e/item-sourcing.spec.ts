@@ -4,7 +4,7 @@ import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
 import { detail, pane, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
-import { changeSourcing, selectRow, sidePanel } from './support/sidePanel'
+import { changeSourcing, comesFromPopover, selectRow, sidePanel } from './support/sidePanel'
 
 /**
  * Fixture: the active block "Acid" makes hydrogen 800 and nitric acid 125 with steam electrolysis
@@ -33,11 +33,13 @@ async function oxygenEntry(page: Page) {
   return panel.getByTestId('panel-sourcing').locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]')
 }
 
+/** The Comes from control of the selected Ingredients slot (its strip), and the one in the popover. */
 const comesFrom = (page: Page) => detail(page, 'Ingredients').getByTestId('comes-from')
+const popoverControl = (page: Page) => comesFromPopover(page).getByTestId('comes-from')
 
 /**
  * Choose a preset for oxygen ('own' | 'byproducts-first' | 'connections-first'): Change… on the side panel's oxygen
- * entry opens the Ingredients slot, whose Comes from control sets it. The slot stays selected.
+ * entry opens the Comes from popover, which sets it. The popover stays open.
  */
 async function choose(page: Page, mode: string) {
   const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
@@ -55,14 +57,19 @@ test.describe('item sourcing', () => {
     await setup(page)
   })
 
-  test("Change… opens a slot for oxygen, where Only what's already made imports it instead of decompressing it", async ({ page }) => {
+  test("Change… opens a popover for oxygen, where Only what's already made imports it instead of decompressing it", async ({ page }) => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
-    // The chip has no menu of its own.
+    // A right-click on the ingredient chip has one entry, which opens the same popover; Escape closes it.
     await oxygenChip(page).click({ button: 'right' })
-    await expect(page.getByRole('menu')).toHaveCount(0)
-    await expect(page.getByRole('menuitemradio')).toHaveCount(0)
+    await expect(page.getByRole('menuitem')).toHaveText(['Comes from…'])
+    await page.getByRole('menuitem', { name: 'Comes from…' }).click()
+    await expect(comesFromPopover(page)).toBeVisible()
+    await expect(comesFromPopover(page)).toContainText('Applies to every row of this block')
+    await expect(comesFromPopover(page).getByRole('radio', { name: 'Make it here' })).toBeFocused()
+    await page.keyboard.press('Escape')
+    await expect(comesFromPopover(page)).toHaveCount(0)
 
     // The side panel reads the rule and sets nothing.
     const entry = await oxygenEntry(page)
@@ -72,14 +79,17 @@ test.describe('item sourcing', () => {
     await expect(page.getByTestId('panel-sourcing')).not.toContainText(/forbid imports/i)
 
     await choose(page, 'byproducts-first')
-    await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeChecked()
-    await expect(comesFrom(page).getByTestId('import-switch')).toHaveAttribute('aria-disabled', 'true')
-    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
-    await expect((await oxygenEntry(page)).getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
+    const control = popoverControl(page)
+    await expect(control.getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    await expect(control.getByTestId('import-switch')).toHaveAttribute('aria-disabled', 'true')
+    await expect(control.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
+    // The panel behind it says the same (a press on the row would close the popover, so the entry is read where it is).
+    await expect(sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
 
-    // Oxygen is imported now, so its slot is there in its own right.
+    // Oxygen is imported now, so its slot is there in its own right, and the popover links to it.
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
+    await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
     // The rule shows on the row that uses oxygen: a marker beside its chip, named with the sentence.
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes first/)
     await expect(oxygenChip(page)).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
@@ -88,73 +98,131 @@ test.describe('item sourcing', () => {
     expect(acid.itemSourcing).toEqual({ 'nullius-oxygen': 'byproducts-first' })
     expect(acid.connectionsFirstItems).toBeUndefined()
 
-    await comesFrom(page).getByRole('radio', { name: 'Make it here' }).click()
+    // The export menu closed the popover (a press outside it); Change… opens it again, with the rule.
+    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    await expect(again.getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    await again.getByRole('radio', { name: 'Make it here' }).click()
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(0)
+    await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toHaveCount(0)
   })
 
-  // Oxygen is made and used inside the block: it is not imported, connected or locked, so the pane has no slot for it.
+  // Oxygen is made and used inside the block: it is not imported, connected or locked, so the pane has no slot for it, and
+  // Change… does not expand the summary or select anything: it opens the popover, whatever the summary and the panel are doing.
   for (const [layout, width] of [['docked', 1280], ['drawer', 1000]] as const) {
-    test(`Change… with the summary collapsed expands it, selects the slot and focuses Comes from (${layout} panel)`, async ({ page }) => {
+    test(`Change… opens the popover over a collapsed summary and the ${layout} panel; Show in Ingredients expands and selects the slot`, async ({ page }) => {
       await page.setViewportSize({ width, height: 800 })
+      // Importing oxygen gives it a slot, which the popover can then link to.
+      await choose(page, 'byproducts-first')
+      await expect(oxygenSlot(page)).toContainText('100')
+      await page.keyboard.press('Escape')
+      await expect(comesFromPopover(page)).toHaveCount(0)
+      // A drawer covers the page: the next Escape closes it too, and the row is selected again below.
+      if (layout === 'drawer') {
+        await page.keyboard.press('Escape')
+        await expect(sidePanel(page)).toHaveCount(0)
+      }
       await page.getByRole('button', { name: 'Collapse summary' }).click()
       await expect(page.getByTestId('summary-line')).toBeVisible()
       await expect(page.getByTestId('summary-pane')).toHaveCount(0)
 
-      const panel = await selectRow(page, acidRow(page))
-      await panel.locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-change').click()
+      await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+      // Nothing moved: the summary is still collapsed, and the side panel is where it was (a drawer stays under the popover).
+      await expect(page.getByTestId('summary-line')).toBeVisible()
+      await expect(sidePanel(page)).toHaveCount(1)
+      const popoverBox = (await comesFromPopover(page).boundingBox())!
+      const viewport = page.viewportSize()!
+      expect(popoverBox.x).toBeGreaterThanOrEqual(0)
+      expect(popoverBox.x + popoverBox.width).toBeLessThanOrEqual(viewport.width)
+      expect(popoverBox.y + popoverBox.height).toBeLessThanOrEqual(viewport.height)
 
+      await comesFromPopover(page).getByTestId('comes-from-show-slot').click()
+      await expect(comesFromPopover(page)).toHaveCount(0)
       await expect(page.getByTestId('summary-line')).toHaveCount(0)
       await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
       await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
       // Focus is on the chosen preset, and stays there: a drawer closes instead of taking it back.
-      await expect(comesFrom(page).getByRole('radio', { name: 'Make it here' })).toBeFocused()
+      await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
       await expect(sidePanel(page)).toHaveCount(layout === 'drawer' ? 0 : 1)
       await page.waitForTimeout(300)
-      await expect(comesFrom(page).getByRole('radio', { name: 'Make it here' })).toBeFocused()
+      await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
 
       // The keyboard goes on from there: the arrow chooses the next preset.
-      await page.keyboard.press('ArrowRight')
+      await page.keyboard.press('ArrowLeft')
       await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeChecked()
       await expect(comesFrom(page).getByRole('radio', { name: 'Receive it first' })).toBeFocused()
     })
   }
 
-  test('an item that is only an intermediate has no slot, rule or not, except while Change… has it selected', async ({ page }) => {
+  test('an item that is only an intermediate has no slot, rule or not, and the popover is where its rule lives', async ({ page }) => {
     const count = await pane(page, 'Ingredients').getByTestId('summary-slot').count()
     await expect(oxygenSlot(page)).toHaveCount(0)
+    const summaryHeight = (await page.getByTestId('summary-pane').first().boundingBox())!.height
 
-    // Receive it first with no connection: a rule (with no effect), and oxygen is still made here.
+    // Receive it first with no connection: a rule (with no effect), oxygen is still made here, and nothing in the pane moves.
     await choose(page, 'connections-first')
-    await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
-    await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count + 1)
-    await expect(comesFrom(page).getByTestId('no-effect')).toContainText('No connection for Oxygen.')
-
-    // Deselecting takes the slot away: having a rule does not keep it.
-    await page.keyboard.press('Escape')
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count)
+    expect((await page.getByTestId('summary-pane').first().boundingBox())!.height).toBe(summaryHeight)
+    const control = popoverControl(page)
+    await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
     expect((await exportedAcid(page)).itemSourcing).toEqual({ 'nullius-oxygen': 'connections-first' })
 
-    // Asked for again, it is back with its rule, which can be removed there; another slot's selection ends it.
-    const control = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-    await expect(control.getByRole('radio', { name: 'Receive it first' })).toBeChecked()
-    await control.getByTestId('no-effect').getByRole('button', { name: 'Remove' }).click()
-    await expect(control.getByRole('radio', { name: 'Make it here' })).toBeChecked()
-    await expect(oxygenSlot(page)).toHaveCount(1)
-    await compressedSlot(page).click()
+    // Escape closes the popover; the rule is kept, and is there again when it opens. Removing it there leaves no slot either.
+    await page.keyboard.press('Escape')
+    await expect(comesFromPopover(page)).toHaveCount(0)
+    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    await expect(again.getByRole('radio', { name: 'Receive it first' })).toBeChecked()
+    await again.getByTestId('no-effect').getByRole('button', { name: 'Remove' }).click()
+    await expect(again.getByRole('radio', { name: 'Make it here' })).toBeChecked()
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count)
     expect((await exportedAcid(page)).itemSourcing).toEqual({})
   })
 
+  test('Receive from… in the popover connects the item, and the rule then acts; Escape closes the menu before the popover', async ({ page }) => {
+    await choose(page, 'connections-first')
+    const control = popoverControl(page)
+    await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
+    await expect(oxygenSlot(page)).toHaveCount(0)
+
+    // The menu opens over the popover; Escape closes it and only it.
+    await control.getByTestId('receive-from').click()
+    const menu = page.getByRole('menu')
+    await expect(menu).toBeVisible()
+    await page.keyboard.press('Escape')
+    await expect(menu).toHaveCount(0)
+    await expect(comesFromPopover(page)).toBeVisible()
+    // So does a press outside both: it closes the menu, and the popover stays.
+    await control.getByTestId('receive-from').click()
+    await expect(menu).toBeVisible()
+    await page.getByTestId('summary-pane').first().click({ position: { x: 10, y: 10 } })
+    await expect(menu).toHaveCount(0)
+    await expect(comesFromPopover(page)).toBeVisible()
+
+    await control.getByTestId('receive-from').click()
+    await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'O2 maker' }).click()
+    // The popover stays open and now says what the rule does; the item is connected, so it has a slot.
+    await expect(comesFromPopover(page)).toBeVisible()
+    await expect(control.getByTestId('no-effect')).toHaveCount(0)
+    await expect(control.getByTestId('sourcing-sentence')).toContainText('Taken from O2 maker first')
+    await expect(oxygenSlot(page)).toBeVisible()
+    await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(1)
+
+    // Two presses, then, from the row to a connected item. The menu closed with its choice; Escape closes the popover.
+    await page.keyboard.press('Escape')
+    await expect(comesFromPopover(page)).toHaveCount(0)
+  })
+
   test('a request from another block covers only what the byproducts do not', async ({ page }) => {
     await choose(page, 'byproducts-first')
     await expect(oxygenSlot(page)).toContainText('100')
+    await page.keyboard.press('Escape')
 
     await oxygenSlot(page).click({ button: 'right' })
     await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'O2 maker' }).click()
-    // The slot is still selected from the Change… above.
+    await oxygenSlot(page).click()
     await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]').getByTestId('summary-segment-tip')).toContainText('100')
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="import"]')).toHaveCount(0)

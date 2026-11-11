@@ -16,14 +16,20 @@ export async function openMachinePicker(page: Page): Promise<void> {
   await sidePanel(page).getByTestId('machine-picker-button').click()
 }
 
+/** The Comes from popover (`ComesFromPopover`): where an item with no Ingredients slot gets its rule. */
+export const comesFromPopover = (page: Page): Locator => page.getByTestId('comes-from-popover')
+
 /**
- * Select a row and press Change… on one ingredient of its "Where inputs come from" section. That opens the item's
- * Ingredients slot; the returned locator is the slot's Comes from control, which has the keyboard focus.
+ * Select a row and press Change… on one ingredient of its "Where inputs come from" section. That opens the item's Comes
+ * from popover, beside the panel; the returned locator is its Comes from control, which has the keyboard focus. The row
+ * stays selected, and the popover open, until something closes them.
  */
 export async function changeSourcing(page: Page, row: Locator, itemId: string): Promise<Locator> {
-  const panel = await selectRow(page, row)
+  const panel = sidePanel(page)
+  if (!(await panel.isVisible())) await selectRow(page, row)
   await panel.locator(`[data-testid="sourcing-entry"][data-item-id="${itemId}"]`).getByTestId('sourcing-change').click()
-  const comesFrom = page.getByRole('region', { name: 'Ingredients', exact: true }).getByTestId('comes-from')
-  await expect(comesFrom.locator(':focus')).toHaveCount(1)
-  return comesFrom
+  const control = comesFromPopover(page).getByTestId('comes-from')
+  await expect(control).toBeVisible()
+  await expect(control.locator(':focus')).toHaveCount(1)
+  return control
 }

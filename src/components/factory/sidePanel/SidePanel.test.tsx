@@ -61,7 +61,7 @@ const select = (nodeId: string, blockId = block.id) => useUiStore.setState({ sel
 const selected = () => useUiStore.getState().selectedRow
 
 beforeEach(() => {
-  useUiStore.setState({ selectedRow: null, panelHighlight: null, ingredientSlotRequest: null, rateUnit: 'min' })
+  useUiStore.setState({ selectedRow: null, panelHighlight: null, ingredientSlotRequest: null, comesFromPopover: null, rateUnit: 'min' })
   useSolverStore.setState({ lastResults: {}, flows: [] })
 })
 
@@ -323,7 +323,7 @@ describe('SidePanel — where inputs come from', () => {
     expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here already makes Iron Plate, so Iron Plate covers it.')
   })
 
-  it('Change… asks for the item\'s Ingredients slot and changes nothing itself', () => {
+  it('Change… opens the Comes from popover of the item, anchored to the button, and changes nothing itself', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
@@ -332,7 +332,10 @@ describe('SidePanel — where inputs come from', () => {
     expect(button).toHaveTextContent('Change…')
     expect(button).toHaveAccessibleName('Change where Iron Plate comes from')
     fireEvent.click(button)
-    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'plate' })
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'plate' })
+    // The button sits in the panel, so the popover opens beside the panel.
+    expect(useUiStore.getState().comesFromPopover?.anchor.avoid).not.toBeNull()
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
     expect(useBlockStore.getState().blocks[0]).toBe(before)
   })
 

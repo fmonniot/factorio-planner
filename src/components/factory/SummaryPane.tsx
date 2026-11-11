@@ -47,8 +47,6 @@ interface SummaryPaneProps {
    * (`renderControls`). Each new `seq` is acted on once; a pane that mounts with a request opens on it.
    */
   openRequest?: { seq: number; slotId: string }
-  /** Called with the selected slot's id (null for none) after the pane mounts, and again when the selection or the callback changes. */
-  onSelectedChange?: (slotId: string | null) => void
   /** Extra classes for the pane root (layout inside the summary strip). */
   className?: string
 }
@@ -75,7 +73,6 @@ export function SummaryPane({
   onConnectionContextMenu,
   onReorder,
   openRequest,
-  onSelectedChange,
   className = '',
 }: SummaryPaneProps) {
   const [selectedId, setSelectedId] = useState<string | null>(openRequest?.slotId ?? null)
@@ -104,9 +101,6 @@ export function SummaryPane({
     root?.querySelector('[data-testid="summary-slot"][aria-pressed="true"]')?.scrollIntoView?.({ block: 'nearest' })
     root?.querySelector<HTMLElement>('[data-summary-controls] :is(button, input, select, [tabindex]):not([tabindex="-1"], :disabled)')?.focus()
   })
-  useEffect(() => {
-    onSelectedChange?.(selectedId)
-  }, [selectedId, onSelectedChange])
   const [traceKey, setTraceKey] = useState<string | null>(null)
   // The dragged slot: the ref is set at once (drag handlers read it), the state later, so the
   // faded slot is not painted before the browser has captured the drag image.

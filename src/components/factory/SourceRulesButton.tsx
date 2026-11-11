@@ -6,7 +6,9 @@ import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { Icon } from '../Icon'
 import { SOURCE_RULE_NAMES } from './itemSourcing'
+import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
+import { keepTabInside } from './keepTabInside'
 import { noEffectText, sourceRules } from './sourceRules'
 import type { SourceRule } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
@@ -15,20 +17,22 @@ import { useSourcingSentence } from './useSourcingSentence'
 // ---------------------------------------------------------------------------
 // SourceRulesButton — the "Source rules (N)" button of the Ingredients pane's header and the popover it opens:
 // every rule of the active block, with or without an Ingredients slot, each with what it does (or why it
-// does nothing) and a button to remove it. A rule's item opens its Ingredients slot.
+// does nothing) and a button to remove it. A rule's item expands the Comes from control in its row, to change the rule.
 // ---------------------------------------------------------------------------
 
 const TITLE = 'Source rules'
 const MARGIN = 8
 const GAP = 4
 
-/** One rule: its item (a button that opens the item's Ingredients slot), its name, what it does, and Remove. */
-function RuleEntry({ rule, gameData, onOpenItem, onRemove }: {
+/** One rule: its item (a button that shows or hides the Comes from control in the row), its name, what it does, and Remove. */
+function RuleEntry({ rule, gameData, expanded, onToggle, onRemove }: {
   rule: SourceRule
   gameData: GameData
-  onOpenItem: () => void
+  expanded: boolean
+  onToggle: () => void
   onRemove: () => void
 }) {
+  const controlId = useId()
   const item = gameData.items[rule.itemId]
   const name = item?.name ?? rule.itemId
   const sentence = useSourcingSentence(rule.itemId, gameData)
@@ -40,37 +44,42 @@ function RuleEntry({ rule, gameData, onOpenItem, onRemove }: {
       data-item-id={rule.itemId}
       data-rule={rule.kind}
       data-no-effect={rule.noEffect}
-      className="flex items-start gap-2 px-3 py-2 border-b border-gray-800 last:border-b-0"
+      className="px-3 py-2 border-b border-gray-800 last:border-b-0"
     >
-      <div className="min-w-0 flex-1">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
-          <button
-            type="button"
-            data-testid="source-rule-item"
-            title={`Open ${name} in the Ingredients pane`}
-            onClick={onOpenItem}
-            className={`flex min-w-0 items-center gap-1.5 rounded text-left text-xs font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-teal-400 ${off ? 'text-gray-400' : 'text-gray-100'}`}
-          >
-            {item?.iconPath && (
-              <Icon iconPath={item.iconPath} alt="" className={`w-5 h-5 shrink-0 object-contain ${off ? 'opacity-50 grayscale' : ''}`} />
-            )}
-            <span className="min-w-0 break-words">{name}</span>
-          </button>
-          <span data-testid="source-rule-name" className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}>{ruleName}</span>
+      <div className="flex items-start gap-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
+            <button
+              type="button"
+              data-testid="source-rule-item"
+              title={expanded ? `Hide where ${name} comes from` : `Change where ${name} comes from`}
+              aria-expanded={expanded}
+              aria-controls={expanded ? controlId : undefined}
+              onClick={onToggle}
+              className={`flex min-w-0 items-center gap-1.5 rounded text-left text-xs font-medium outline-none hover:underline focus-visible:ring-2 focus-visible:ring-teal-400 ${off ? 'text-gray-400' : 'text-gray-100'}`}
+            >
+              {item?.iconPath && (
+                <Icon iconPath={item.iconPath} alt="" className={`w-5 h-5 shrink-0 object-contain ${off ? 'opacity-50 grayscale' : ''}`} />
+              )}
+              <span className="min-w-0 break-words">{name}</span>
+            </button>
+            <span data-testid="source-rule-name" className={`text-[11px] ${off ? 'text-gray-400' : 'text-teal-300'}`}>{ruleName}</span>
+          </div>
+          <p data-testid="source-rule-text" className={`mt-0.5 text-[11px] leading-snug break-words ${off ? 'text-gray-400' : 'text-gray-300'}`}>
+            {off ? noEffectText(rule.noEffect!, name) : sentence}
+          </p>
         </div>
-        <p data-testid="source-rule-text" className={`mt-0.5 text-[11px] leading-snug break-words ${off ? 'text-gray-400' : 'text-gray-300'}`}>
-          {off ? noEffectText(rule.noEffect!, name) : sentence}
-        </p>
+        <button
+          type="button"
+          data-testid="source-rule-remove"
+          aria-label={`Remove the ${ruleName} rule of ${name}`}
+          onClick={onRemove}
+          className="shrink-0 bg-gray-900 border border-gray-700 rounded px-1.5 text-[11px] leading-5 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          Remove
+        </button>
       </div>
-      <button
-        type="button"
-        data-testid="source-rule-remove"
-        aria-label={`Remove the ${ruleName} rule of ${name}`}
-        onClick={onRemove}
-        className="shrink-0 bg-gray-900 border border-gray-700 rounded px-1.5 text-[11px] leading-5 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
-      >
-        Remove
-      </button>
+      {expanded && <div id={controlId} className="mt-1.5"><ComesFrom itemId={rule.itemId} /></div>}
     </li>
   )
 }
@@ -85,25 +94,35 @@ export function SourceRulesButton() {
   const block = useBlockStore(selectActiveBlock)
   const blocks = useBlockStore(s => s.blocks)
   const gameData = useGameDataStore(selectGameData)
-  const openIngredientSlot = useUiStore(s => s.openIngredientSlot)
   const removeRule = useRemoveSourceRule()
   const panelId = useId()
   const titleId = useId()
   const buttonRef = useRef<HTMLButtonElement>(null)
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
+  // The rule whose Comes from control is expanded in its row; a popover opened again starts with none.
+  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRule['kind'] } | null>(null)
 
   const rules = useMemo(
     () => (block && gameData ? sourceRules(block, gameData, new Set(blocks.map(b => b.id))) : []),
     [block, blocks, gameData],
   )
+  // Changing the rule in the expanded control keeps it open on the item's rule that is there now (its first one).
+  const expandedRule = expanded
+    ? (rules.find(r => r.itemId === expanded.itemId && r.kind === expanded.kind) ?? rules.find(r => r.itemId === expanded.itemId))
+    : undefined
   // The last rule went (removed here, or by an undo): the button goes, and the popover with it.
   if (open && rules.length === 0) setOpen(false)
   const shown = open && rules.length > 0
 
-  /** Escape, or a press outside: focus goes back to the button (a press on something focusable then takes it). */
+  /**
+   * Escape, or a press outside: focus goes back to the button (a press on something focusable then takes it). A connection
+   * menu opened from an expanded control is outside the popover and closes first: a press on it belongs to the menu.
+   */
   useDismiss([panelRef, buttonRef], shown, () => {
+    if (useUiStore.getState().connectionMenu) return
     setOpen(false)
+    setExpanded(null)
     if (panelRef.current?.contains(document.activeElement)) buttonRef.current?.focus()
   })
 
@@ -157,21 +176,6 @@ export function SourceRulesButton() {
     pane.focus()
   })
 
-  /** The popover is outside the page's tab order, so Tab wraps inside it. */
-  function keepTabInside(e: React.KeyboardEvent<HTMLDivElement>) {
-    if (e.key !== 'Tab') return
-    const controls = [...e.currentTarget.querySelectorAll<HTMLElement>('button')]
-    const first = controls[0]
-    const last = controls[controls.length - 1]
-    if (e.shiftKey && document.activeElement === first) {
-      e.preventDefault()
-      last.focus()
-    } else if (!e.shiftKey && document.activeElement === last) {
-      e.preventDefault()
-      first.focus()
-    }
-  }
-
   if (!gameData || rules.length === 0) return null
 
   return (
@@ -184,7 +188,7 @@ export function SourceRulesButton() {
         aria-expanded={shown}
         aria-controls={shown ? panelId : undefined}
         title="Show this block's source rules"
-        onClick={() => setOpen(o => !o)}
+        onClick={() => { setOpen(o => !o); setExpanded(null) }}
         className={`h-5 px-1.5 rounded border text-[11px] leading-none normal-case tracking-normal whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${shown ? 'border-gray-500 text-gray-200' : 'border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
       >
         {TITLE} ({rules.length})
@@ -207,11 +211,8 @@ export function SourceRulesButton() {
                 key={`${rule.itemId}:${rule.kind}`}
                 rule={rule}
                 gameData={gameData}
-                onOpenItem={() => {
-                  // No focus return here: the Ingredients pane takes the focus for the slot's Comes from control.
-                  setOpen(false)
-                  openIngredientSlot(rule.itemId)
-                }}
+                expanded={expandedRule === rule}
+                onToggle={() => setExpanded(expandedRule === rule ? null : { itemId: rule.itemId, kind: rule.kind })}
                 onRemove={() => {
                   afterRemove.current = { index, pane: buttonRef.current?.closest<HTMLElement>('[data-testid="summary-pane"]') ?? null }
                   removeRule(rule)

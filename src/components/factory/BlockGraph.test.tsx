@@ -797,16 +797,18 @@ describe('BlockGraph', () => {
       expect(markers()).toHaveLength(1)
     })
 
-    it('opens the Ingredients slot and closes the graph when the block is the active one', () => {
+    it('only shows the rule, also when the block is the active one: a click opens nothing and the graph stays', () => {
       setup({ connected: true })
       lockOre('consumer')
       render(<BlockGraphButton />)
       open()
       const marker = markers()[0]
-      expect(marker.tagName).toBe('BUTTON')
+      expect(marker.tagName).toBe('SPAN')
+      expect(marker).toHaveAttribute('role', 'img')
       fireEvent.click(marker)
-      expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'iron-ore' })
-      expect(screen.queryByRole('heading', { name: 'Block graph' })).toBeNull()
+      expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+      expect(useUiStore.getState().comesFromPopover).toBeNull()
+      expect(screen.getByRole('heading', { name: 'Block graph' })).toBeTruthy()
       expect(useBlockStore.getState().activeBlockId).toBe('consumer')
     })
 
@@ -831,7 +833,7 @@ describe('BlockGraph', () => {
       render(<BlockGraphButton />)
       open()
       const summary = screen.getByTestId('graph-edge-summary')
-      // The chip is a button and keeps its name: the dot inside is out of the accessibility tree and takes no click.
+      // The chip is a button and keeps its name: the dot inside is out of the accessibility tree.
       expect(summary).toHaveAccessibleName('12 items from Miner to Consumer')
       expect(summary.getAttribute('title')).toContain('; 1 with a source rule in Consumer')
       const dot = within(summary).getByTestId('source-rule-marker')
@@ -842,7 +844,7 @@ describe('BlockGraph', () => {
       fireEvent.click(dot)
       const list = screen.getByTestId('graph-edge-list')
       expect(within(list).getAllByTestId('source-rule-marker')).toHaveLength(1)
-      expect(within(label('c1')).getByTestId('source-rule-marker').tagName).toBe('BUTTON')
+      expect(within(label('c1')).getByTestId('source-rule-marker').tagName).toBe('SPAN')
     })
   })
 })
