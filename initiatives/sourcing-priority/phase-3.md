@@ -60,7 +60,9 @@ The block solve cache keys on the flattened plan and the caps, and the list chan
 
 ## Decisions for the author
 
-| # | Question | Proposal | Why |
+Taken with the author on 2026-11-11.
+
+| # | Question | Decision | Why |
 | --- | --- | --- | --- |
 | D1 | Should a source be able to hold at a capacity and be short by a definite amount? | **Confirmed on 2026-11-11.** Yes, as the first ticket of this phase, a spike with its own synthetic case: when a block's LP is infeasible, solve it again with elastic goal rows (a shortfall variable per goal, costed above an import), so pins and locks hold and each product reports what it lacks. | Without it, ranking requests and moving the extra output up have nothing to act on, and phase 4's shares neither. The Products pane already draws a short product and says where the shortage comes from. It changes numbers only for blocks that are infeasible today, whose numbers are arbitrary. If the spike fails, this phase ranks takes only and says so. |
 | D2 | Does one list rank requests and takes? | **Confirmed on 2026-11-11.** Yes. | A product is requested; a spare output is taken; the two meet in one list only for an ignored request. For a request the rank means: whose share is honoured first when the source is short. |
