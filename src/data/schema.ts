@@ -440,7 +440,7 @@ function migrateBlock(input: unknown): unknown {
   }
 }
 
-/** A saved map keeps its entries with a known mode (an unknown one loads as own recipes first); without a map,
+/** A saved map keeps its entries with a known mode (an unknown one loads as Make it here); without a map,
  *  legacy `connectionsFirstItems` become 'connections-first' entries. Undefined lets the schema default apply. */
 function migrateItemSourcing(data: Record<string, unknown>): unknown {
   if (isRecord(data.itemSourcing))
@@ -520,7 +520,7 @@ export const BlockConnectionSchema = z
     return c
   })
 
-/** How a block sources an item; an absent entry means own recipes first. */
+/** How a block sources an item; an absent entry means Make it here, the default. */
 export const ItemSourcingModeSchema = z.enum(['byproducts-first', 'connections-first'])
 export const ItemSourcingSchema = z.record(z.string(), ItemSourcingModeSchema)
 
@@ -536,7 +536,7 @@ export const BlockSchema = z.preprocess(
     products: z.array(ProductSchema).default([]),
     /** Items the LP solver must not import as raw inputs (no slack variable). */
     noImportItems: z.array(z.string()).default([]),
-    /** itemId → how the block sources it; absent = own recipes first. */
+    /** itemId → how the block sources it; absent = Make it here, the default. */
     itemSourcing: ItemSourcingSchema.default({}),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),

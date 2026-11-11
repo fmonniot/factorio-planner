@@ -242,7 +242,7 @@ function toggleNoImportCommand(itemId: string): Command {
   return { apply: toggle, undo: toggle }
 }
 
-/** The block with itemId's sourcing mode set, or its entry removed for undefined (own recipes first). */
+/** The block with itemId's sourcing mode set, or its entry removed for undefined (Make it here, the default). */
 function withItemSourcing(block: Block, itemId: string, mode: ItemSourcingMode | undefined): Block {
   const rest = Object.fromEntries(Object.entries(block.itemSourcing).filter(([id]) => id !== itemId))
   return { ...block, itemSourcing: mode === undefined ? rest : { ...rest, [itemId]: mode } }
@@ -351,7 +351,7 @@ export interface BlockStoreState {
 
   // No-import items (block-level; LP cannot import these as raw inputs)
   toggleNoImportItem: (itemId: string) => void
-  /** Set how the active block sources an item (undefined = own recipes first). Undoable; no-op when unchanged. */
+  /** Set how the active block sources an item (undefined = Make it here, the default). Undoable; no-op when unchanged. */
   setItemSourcing: (itemId: string, mode: ItemSourcingMode | undefined) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item

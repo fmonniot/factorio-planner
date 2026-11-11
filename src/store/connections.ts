@@ -3,7 +3,7 @@ import { grossFlow, receivesItem, surplusTolerance, FLOW_TOLERANCE } from '../so
 import type { Block, ConnectionFlow, SolverResult } from '../data/types'
 
 // ---------------------------------------------------------------------------
-// Connection rules shared by the store, the Ingredients menu and the block graph
+// Connection rules shared by the store, the connection menu and the block graph
 // ---------------------------------------------------------------------------
 
 /**

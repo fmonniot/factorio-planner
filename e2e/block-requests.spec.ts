@@ -29,7 +29,7 @@ async function setup(page: Page, fixture = FIXTURE) {
   await expect(plateSlot(page)).toBeVisible({ timeout: 10000 })
 }
 
-/** On Gears: request iron plate from Plates through the Ingredients menu. */
+/** On Gears: request iron plate from Plates through the connection menu. */
 async function requestPlates(page: Page) {
   await plateSlot(page).click({ button: 'right' })
   await page.locator('[role="menuitem"][data-kind="request"]', { hasText: 'Plates' }).click()

@@ -197,7 +197,7 @@ export function coproductDrivenWarning(args: {
   itemSurplus: Map<string, number>
   itemGross: Map<string, number>
   fixed: Set<string>
-  /** Items the block may not import (also its byproduct consumers' ingredients): "Byproducts first" cannot relax them. */
+  /** Items the block may not import (also its byproduct consumers' ingredients): `'byproducts-first'` cannot relax them. */
   noImportItems: Set<string>
   recipeOf: (columnId: string) => string
   mainItemOf: (columnId: string) => string | undefined
