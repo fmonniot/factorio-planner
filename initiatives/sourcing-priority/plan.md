@@ -14,7 +14,7 @@ Replace the three sourcing modes, the import lock and the implicit ordering rule
 - **Rules can attach to an area.** An area rule overrides its block's rule. That gives per-consumer control and settles how connections interact with local-first, with no new concept.
 - **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden rules: block order, loop member order and extra output giving way first. Connection order, the fourth, becomes the visible order of the *Other blocks* lines.
 
-This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md) and those of the second in [phase-2.md](phase-2.md). [phase-3.md](phase-3.md) has what the code says, the decisions it needs and a draft of its tickets. Each later phase has a short doc with its scope and what to settle before it is ticketed: [4](phase-4.md), [5](phase-5.md), [6](phase-6.md). What planning phases 2 and 3 found is under [Findings of 2026-11-11](#findings-of-2026-11-11); two of the findings correct this document.
+This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md) and those of the second in [phase-2.md](phase-2.md). [phase-3.md](phase-3.md) has what the code says, its decisions and a draft of its tickets, which waits on a spike. Each later phase has a short doc with its scope and what to settle before it is ticketed: [4](phase-4.md), [5](phase-5.md), [6](phase-6.md). What planning phases 2 and 3 found is under [Findings of 2026-11-11](#findings-of-2026-11-11); two of the findings correct this document.
 
 ## How sourcing works today
 
@@ -247,7 +247,7 @@ Taken with the author on 2026-11-11, from the findings below.
 
 ## Findings of 2026-11-11
 
-From planning phases 2 and 3: a reading of the solver and two throwaway `solveBlock` runs (not kept). The author confirmed the decisions of [phase-2.md](phase-2.md#decisions) and the first of [phase-3.md](phase-3.md#decisions-for-the-author) the same day; the rest of phase 3's are still proposals.
+From planning phases 2 and 3: a reading of the solver and two throwaway `solveBlock` runs (not kept). The author confirmed the decisions of [phase-2.md](phase-2.md#decisions) and of [phase-3.md](phase-3.md#decisions-for-the-author) the same day.
 
 | Finding | Where | What it changes |
 | --- | --- | --- |

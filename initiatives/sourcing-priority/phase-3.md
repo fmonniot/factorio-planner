@@ -2,7 +2,7 @@
 
 Phase 3 of [plan.md](plan.md). It does not depend on phase 2 and can ship before it.
 
-The questions of the first draft were answered from the code on 2026-11-11 ([What the code says](#what-the-code-says)). One answer changes the phase: a source is never short by a definite amount today, so a rank among requests has almost nothing to act on. The author confirmed D1 to D4 the same day: the phase starts with the spike of T1, one list ranks requests and takes, the list leaves loop member order alone, and it stores consumer block ids from the first drag on. D5 and D6 are still proposals; the [tickets](#tickets-draft) are a draft that holds only if they are confirmed, and the spike can still change them.
+The questions of the first draft were answered from the code on 2026-11-11 ([What the code says](#what-the-code-says)). One answer changes the phase: a source is never short by a definite amount today, so a rank among requests has almost nothing to act on. The author confirmed the [decisions](#decisions-for-the-author) the same day, D1 first: the phase starts with the spike of T1. The [tickets](#tickets-draft) stay a draft until that spike reports, because it can still change them.
 
 ## Scope
 
@@ -66,12 +66,24 @@ The block solve cache keys on the flattened plan and the caps, and the list chan
 | D2 | Does one list rank requests and takes? | **Confirmed on 2026-11-11.** Yes. | A product is requested; a spare output is taken; the two meet in one list only for an ignored request. For a request the rank means: whose share is honoured first when the source is short. |
 | D3 | Does the list change loop member order? | **Confirmed on 2026-11-11.** No: only who is served. | Member order decides the back connections and the rounds; changing it changes what a loop converges to. |
 | D4 | What does the stored list hold? | **Confirmed on 2026-11-11.** `Block.servedOrder?: Record<itemId, ServedEntry[]>` on the source, an entry being a consumer block id or the extra output. Absent means today's order. The list is written on the first drag, from the order shown, and **Reset order** removes it. Consumers not in the list are served after it, in today's order, and the player is told: the list draws them under a divider, **Not ranked: served after the list**, where each can be dragged into the list, and the **Served order…** action carries their count ("Served order… · 2 not ranked") so a consumer added after the order was set is noticed without opening the list. An entry whose consumer no longer takes the item is ignored by the solver and removed by the store with the consumer's last connection for it (undo restores it). | Block ids, not connection ids: a consumer has one counting connection per source item, and reconnecting must not lose its rank. A new connection never takes from a consumer the player ranked, and connecting from one block does not write into another block's history. Once a list exists, reordering tabs no longer changes who is served among its entries. Phase 4 adds groups, shares and areas to the entry, so the entry is an object from the start. |
-| D5 | How do the list and the "comes out of the extra" text fit together? | The list is where the result shows: each line carries what its consumer asked or needs, what it got, and what it is short. The short segment keeps its text, which names the same consumers. | The plan's principle: the result shows on the thing that was set. |
-| D6 | Where is the list opened? | A **Served order…** action in the strip of a selected Products or Byproducts slot, opening a popover; shown only when the item has two consumers or more, or one consumer and an extra output. On the graph, the chips of a listed source item carry their rank. | The 72px strip has no room for a list. A source with one consumer has nothing to order. |
+| D5 | How do the list and the "comes out of the extra" text fit together? | **Confirmed on 2026-11-11.** The list is where the result shows: each line carries what its consumer asked or needs, what it got, and what it is short. The short segment keeps its text, which names the same consumers. | The plan's principle: the result shows on the thing that was set. |
+| D6 | Where is the list opened? | **Confirmed on 2026-11-11.** A **Served order…** action in the strip of a selected Products or Byproducts slot, opening a popover; shown only when the item has two consumers or more, or one consumer and an extra output. On the graph, the chips of a listed source item carry their rank. | The 72px strip has no room for a list. A source with one consumer has nothing to order. |
+
+The list of D4 and D5, on a short source:
+
+```
+Iron plate: served in this order
+1  Science          asked 30   got 30
+2  Hub              asked 20   got 15   short 5
+3  Extra output           10   got  0   short 10
+-------------------------------------------------
+Not ranked: served after the list
+   Mall             needs 8    got  0   short 8
+```
 
 ## Tickets (draft)
 
-Not final: they assume D5 and D6 as proposed. T1 and T2 are safe to start whatever the answers.
+Not final until the spike of T1 reports: if a source cannot be made to hold its capacity, T4 to T6 shrink to takes. T1 and T2 are safe to start now.
 
 - [ ] **T1. Spike: a source that holds its capacity.** Prototype the second solve of D1 in `solveBlock` and `solveAreaBlock` on a branch, with the three rows of the table above as a synthetic case and one `solveAll` case: a pinned source, an extra of 10 and requests of 30 and 20, 45 made (the example of spec/solver.md's "Shortfall", which no scenario reaches today). Report: which e2e fixtures change (`legacyParity.test.ts`), what a locked item that cannot be covered does, the cost of the second solve, and whether `infeasible-pins` still has a job. The outcome decides D1 and the rest of this list.
 - [ ] **T2. The solver says in what order it served.** No change of behaviour. `MultiBlockSolve` gains, per source item with at least one consumer, the consumers in the order they were served, each with its share and what it got, and the extra output's place. The list ships read-only in the Products and Byproducts panes: the hidden order becomes visible before it becomes editable.
