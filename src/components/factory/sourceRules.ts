@@ -54,6 +54,30 @@ function noEffectReason(
   return undefined
 }
 
+/** The ids of the items that have at least one rule with an effect: the items that carry the marker. */
+export function itemsWithEffect(rules: readonly SourceRule[]): ReadonlySet<string> {
+  return new Set(rules.filter(r => r.noEffect === undefined).map(r => r.itemId))
+}
+
+const NO_ITEMS: ReadonlySet<string> = new Set()
+const ruleItemsCache = new WeakMap<Block, { gameData: GameData; blocks: readonly Block[]; items: ReadonlySet<string> }>()
+
+/**
+ * `itemsWithEffect` for one block of the plan, where `blocks` is every block of the plan (the block store's array).
+ * The answer is kept per block object, so asking once per chip costs one `sourceRules` call per block and per change
+ * of the plan. It relies on the store replacing a block, the array and the game data when they change, never
+ * mutating them.
+ */
+export function sourceRuleItems(block: Block, gameData: GameData, blocks: readonly Block[]): ReadonlySet<string> {
+  const cached = ruleItemsCache.get(block)
+  if (cached && cached.gameData === gameData && cached.blocks === blocks) return cached.items
+  // A block without a rule, the usual case, needs no walk and shares one empty set.
+  const hasRule = block.noImportItems.length > 0 || Object.keys(block.itemSourcing).length > 0
+  const items = hasRule ? itemsWithEffect(sourceRules(block, gameData, new Set(blocks.map(b => b.id)))) : NO_ITEMS
+  ruleItemsCache.set(block, { gameData, blocks, items })
+  return items
+}
+
 /** The text shown beside a rule that has no effect. */
 export function noEffectText(reason: NoEffectReason, itemName: string): string {
   switch (reason) {

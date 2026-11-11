@@ -29,8 +29,14 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
   /** Bottom-right corner. */
   quantity?: ReactNode
   tone?: ChipTone
-  /** Top-right corner: pin, `+N`, `B` / `C`. */
+  /** Top-right corner: pin, `+N`. */
   badges?: ReactNode
+  /**
+   * An interactive badge in the top-right corner (the source rule marker). It is drawn beside the chip's own element,
+   * never inside it, so a chip that is a button does not hold another button: the chip is then wrapped in a frame
+   * (`data-chip-frame`) that carries the corner, and the `badges` move there too, before the marker.
+   */
+  marker?: ReactNode
   /** An empty slot: dashed outline and a `+` instead of an icon. */
   empty?: boolean
   /**
@@ -50,7 +56,7 @@ interface IconChipProps extends Omit<HTMLAttributes<HTMLElement>, 'children'> {
 }
 
 export function IconChip({
-  iconPath, alt, fallback, size = 'item', quantity, tone = 'neutral', badges, empty = false, quiet = false, warn = false,
+  iconPath, alt, fallback, size = 'item', quantity, tone = 'neutral', badges, marker, empty = false, quiet = false, warn = false,
   corner, onClick, disabled, quantityTestId, className = '', ...rest
 }: IconChipProps) {
   const item = size === 'item'
@@ -86,20 +92,29 @@ export function IconChip({
           {quantity}
         </span>
       )}
-      {badges && <span className="absolute -top-1 -right-1 flex gap-px z-[1]">{badges}</span>}
+      {badges && !marker && <span className={CORNER_CLASS}>{badges}</span>}
     </>
   )
   const plate = item ? 'rounded-[5px] bg-[rgba(148,163,184,0.09)] shadow-[inset_0_0_0_1px_rgba(148,163,184,0.10)]' : 'rounded'
   const base = `relative inline-flex shrink-0 group/chip ${plate} ${ring} ${quietEmpty ? quietText(!locked) : ''} ${className}`
-  if (onClick) {
-    return (
-      <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...rest}>
-        {body}
-      </button>
-    )
-  }
-  return <span className={base} {...rest}>{body}</span>
+  const chip = onClick ? (
+    <button type="button" onClick={onClick} disabled={disabled} className={`${base} ${disabled ? '' : 'hover:ring-1 hover:ring-gray-500 cursor-pointer'}`} {...rest}>
+      {body}
+    </button>
+  ) : (
+    <span className={base} {...rest}>{body}</span>
+  )
+  if (!marker) return chip
+  return (
+    <span data-chip-frame="" className="relative inline-flex shrink-0">
+      {chip}
+      <span className={`${CORNER_CLASS} items-center`}>{badges}{marker}</span>
+    </span>
+  )
 }
+
+/** The badge corner: top-right, 4px outside the chip. */
+const CORNER_CLASS = 'absolute -top-1 -right-1 flex gap-px z-[1]'
 
 // A quiet placeholder: gray-700 border and gray-600 glyph at rest, gray-600 and gray-400 on the row's hover / selection / focus,
 // gray-400 and gray-200 on the placeholder itself (`!`: it wins over the row's rule whatever the order of the generated CSS). The glyph
@@ -131,20 +146,6 @@ export function PinBadge() {
       <svg width="8" height="8" viewBox="0 0 12 12" aria-hidden="true">
         <path d="M4 1h4l-.6 4 2 2H2.6l2-2zM6 7v4" fill="#422006" stroke="#422006" strokeWidth="1.2" />
       </svg>
-    </span>
-  )
-}
-
-/** Amber `B` or `C`: the item is not sourced with Make it here. */
-export function SourcingBadge({ letter, mode }: { letter: 'B' | 'C'; mode: string }) {
-  return (
-    <span
-      data-testid="item-tile-sourcing"
-      data-sourcing={mode}
-      aria-hidden
-      className="w-3.5 h-3.5 box-border rounded-full bg-amber-300 text-amber-950 border border-gray-900 text-[9px] font-bold leading-[12px] text-center"
-    >
-      {letter}
     </span>
   )
 }

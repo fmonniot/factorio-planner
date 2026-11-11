@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
-import { IconChip, MoreBadge, PinBadge, SourcingBadge } from './IconChip'
+import { IconChip, MoreBadge, PinBadge } from './IconChip'
 
 describe('IconChip', () => {
   it('draws the quantity in the bottom-right corner and the badges in the top-right corner', () => {
@@ -77,8 +77,35 @@ describe('IconChip', () => {
     expect(screen.getByTestId('chip-more')).toHaveTextContent('+2')
   })
 
-  it('badges: sourcing letters', () => {
-    render(<SourcingBadge letter="B" mode="byproducts-first" />)
-    expect(screen.getByTestId('item-tile-sourcing')).toHaveTextContent('B')
+  it('draws a marker in the corner of a frame around the chip, never inside the chip', () => {
+    const onClick = vi.fn()
+    const onMarker = vi.fn()
+    const marker = <button type="button" data-testid="marker" onClick={onMarker} />
+    const { container } = render(<IconChip alt="Gear" title="Gear" data-testid="chip" onClick={onClick} marker={marker} />)
+    const chip = screen.getByTestId('chip')
+    expect(chip.tagName).toBe('BUTTON')
+    expect(chip).toHaveAttribute('title', 'Gear')
+    // A button holds no button: the marker is the chip's sibling, in the badge corner of the frame.
+    expect(chip.querySelector('button')).toBeNull()
+    expect(container.firstElementChild).toHaveAttribute('data-chip-frame')
+    expect(chip.parentElement).toBe(container.firstElementChild)
+    expect(screen.getByTestId('marker').parentElement).toHaveClass('absolute', '-top-1', '-right-1')
+    fireEvent.click(screen.getByTestId('marker'))
+    expect(onMarker).toHaveBeenCalledTimes(1)
+    expect(onClick).not.toHaveBeenCalled()
+    fireEvent.click(chip)
+    expect(onClick).toHaveBeenCalledTimes(1)
+  })
+
+  it('puts the badges before the marker, in the same corner', () => {
+    render(<IconChip alt="Gear" badges={<PinBadge />} marker={<span data-testid="marker" />} />)
+    const corner = screen.getByTestId('marker').parentElement!
+    expect([...corner.children].map(c => c.getAttribute('data-testid'))).toEqual(['chip-pin', 'marker'])
+    expect(screen.getAllByTestId('chip-pin')).toHaveLength(1)
+  })
+
+  it('has no frame without a marker', () => {
+    const { container } = render(<IconChip alt="Gear" badges={<PinBadge />} />)
+    expect(container.querySelector('[data-chip-frame]')).toBeNull()
   })
 })

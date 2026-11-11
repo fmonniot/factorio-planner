@@ -34,8 +34,3 @@ export const IMPORT_SWITCH = {
 
 /** Why the Import switch is disabled while "Only what's already made" is chosen. */
 export const RELIES_ON_IMPORT_TEXT = "Only what's already made relies on imports for the rest."
-
-/** Lower-case name of a mode, for tooltips. */
-export function itemSourcingLabel(mode: ItemSourcingMode): string {
-  return mode === 'byproducts-first' ? 'byproducts first' : 'connections first'
-}
