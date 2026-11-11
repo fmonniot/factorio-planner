@@ -34,6 +34,20 @@ describe('ingredientRows', () => {
     expect(rows[0].connections).toHaveLength(2)
   })
 
+  it('makes no row for an item that is neither connected, imported nor locked, and one empty last row for the opened item', () => {
+    expect(ingredientRows([conn()], [], []).map(r => r.itemId)).toEqual(['iron-ore'])
+    expect(ingredientRows([conn()], [], [], 'oxygen')).toEqual([
+      expect.objectContaining({ itemId: 'iron-ore' }),
+      { itemId: 'oxygen', connections: [], importPerMin: undefined, locked: false },
+    ])
+  })
+
+  it('adds no second row for an opened item that already has one', () => {
+    const rows = ingredientRows([conn()], [unsat('iron-ore', 5)], [], 'iron-ore')
+    expect(rows).toHaveLength(1)
+    expect(rows[0].importPerMin).toBe(5)
+  })
+
   it('makes no row for an unsatisfied entry with rate 0', () => {
     expect(ingredientRows([], [unsat('iron-ore', 0)], [])).toEqual([])
   })

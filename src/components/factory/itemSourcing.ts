@@ -1,5 +1,4 @@
-import type { Block, GameData, ItemSourcingMode } from '../../data/types'
-import { blockMakesItem } from '../../solver/index'
+import type { ItemSourcingMode } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // How a block sources an item: the three presets and the Import switch, read by every surface that shows them.
@@ -35,19 +34,6 @@ export const IMPORT_SWITCH = {
 
 /** Why the Import switch is disabled while "Only what's already made" is chosen. */
 export const RELIES_ON_IMPORT_TEXT = "Only what's already made relies on imports for the rest."
-
-/**
- * Why the side panel's "Forbid imports" checkbox is disabled for an item, or undefined when it is available (the Comes
- * from control does not use it: it lets an Import-off with no effect be set and says so). It is disabled when no
- * recipe row of the block makes the item (raw in the block, no LP row: a lock would change nothing) and the
- * item is not locked already (an existing lock can always be lifted).
- */
-export function forbidImportsTitle(block: Block | undefined, gameData: GameData | undefined, itemId: string): string | undefined {
-  if (!block || !gameData || block.noImportItems.includes(itemId)) return undefined
-  if (blockMakesItem(block, gameData, itemId)) return undefined
-  const name = gameData.items[itemId]?.name ?? itemId
-  return `No recipe in this block makes ${name}, so forbidding imports would change nothing. Add a recipe that makes it first.`
-}
 
 /** Lower-case name of a mode, for tooltips. */
 export function itemSourcingLabel(mode: ItemSourcingMode): string {

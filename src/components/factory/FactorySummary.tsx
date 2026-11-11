@@ -1,4 +1,4 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -13,6 +13,7 @@ import { productChangeEffects } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { hasProduct } from '../../solver/blockGraph'
 import { ComesFrom } from './ComesFrom'
+import { useDrawerLayout } from './sidePanel/useDrawerLayout'
 import { ProductChangeDialog } from './ProductChangeDialog'
 import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
@@ -149,6 +150,8 @@ export function FactorySummary() {
   const focusAfterToggle = useRef(false)
   const toggle = (next: boolean) => {
     focusAfterToggle.current = true
+    // Collapsing unmounts the panes and their selection with them.
+    if (next) setOpened(null)
     setCollapsed(next)
   }
   useLayoutEffect(() => {
@@ -156,6 +159,41 @@ export function FactorySummary() {
     focusAfterToggle.current = false
     ;(collapsed ? lineExpandRef.current : handleRef.current)?.focus()
   }, [collapsed])
+
+  const activeBlockId = activeBlock?.id
+
+  // A request to open an item's Ingredients slot (`uiStore.openIngredientSlot`): the Ingredients pane selects the
+  // slot and focuses its Comes from control, and the strip expands. `opened` is that slot for as long as it stays
+  // selected; an item with no slot of its own (the block covers it by itself) is given one for that time only.
+  // A request left over from before this strip mounted is ignored.
+  const slotRequest = useUiStore(s => s.ingredientSlotRequest)
+  const clearSlotRequest = useUiStore(s => s.clearIngredientSlotRequest)
+  const clearSelectedRow = useUiStore(s => s.clearSelectedRow)
+  const drawer = useDrawerLayout()
+  const [handledSlotSeq, setHandledSlotSeq] = useState(() => useUiStore.getState().ingredientSlotRequest?.seq ?? 0)
+  const [opened, setOpened] = useState<{ seq: number; blockId: string; itemId: string } | null>(null)
+  if (slotRequest && slotRequest.seq !== handledSlotSeq) {
+    setHandledSlotSeq(slotRequest.seq)
+    if (activeBlockId !== undefined) setOpened({ ...slotRequest, blockId: activeBlockId })
+  }
+  // The panes are keyed by block, so the selection does not survive a block change.
+  if (opened && opened.blockId !== activeBlockId) setOpened(null)
+  const openedSeq = opened?.seq
+  useEffect(() => {
+    if (!slotRequest) return
+    clearSlotRequest(slotRequest.seq)
+    if (slotRequest.seq !== openedSeq) return
+    setCollapsed(false)
+    // A side panel that is a drawer is modal: it covers the strip and keeps Tab inside itself, so it closes.
+    // The pane takes the focus in the same commit, before the drawer would hand it back to the row.
+    if (drawer) clearSelectedRow()
+  }, [slotRequest, openedSeq, drawer, clearSlotRequest, clearSelectedRow, setCollapsed])
+  // Called by the Ingredients pane after every render with its selection: the opened slot ends with its selection.
+  // It only ever sets a new value (no updater that may leave the state as it is): React could replay such a no-op
+  // over the `setOpened` made during a render above and lose it.
+  const onIngredientSelected = (slotId: string | null) => {
+    if (opened && opened.itemId !== slotId) setOpened(null)
+  }
 
   const noImportItems = activeBlock?.noImportItems ?? []
   const blocks = useBlockStore(s => s.blocks)
@@ -185,7 +223,6 @@ export function FactorySummary() {
   const netBalance = solverResult ? computeNetBalance(solverResult.nodes) : new Map<string, number>()
   const gross = solverResult ? grossFlow(solverResult.nodes) : new Map<string, number>()
 
-  const activeBlockId = activeBlock?.id
   const inputFlows = useMemo(
     () => new Map(allFlows.filter(f => f.toBlockId === activeBlockId).map(f => [f.connectionId, f])),
     [allFlows, activeBlockId],
@@ -222,7 +259,7 @@ export function FactorySummary() {
   // Ingredients: unsatisfied raw inputs
   const ingredientItems = (solverResult?.unsatisfied ?? []).filter(u => u.rate > 0)
   const connections = activeBlock?.inputConnections ?? []
-  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems)
+  const ingredientRowList = ingredientRows(connections, ingredientItems, noImportItems, opened?.itemId)
   const limitConnection =
     limitEditor && limitEditor.toBlockId === activeBlockId
       ? connections.find(c => c.id === limitEditor.connectionId)
@@ -463,6 +500,9 @@ export function FactorySummary() {
             return actions
           }}
           renderControls={slot => <ComesFrom itemId={slot.itemId} />}
+          // Slot ids of the Ingredients pane are item ids.
+          openRequest={opened ? { seq: opened.seq, slotId: opened.itemId } : undefined}
+          onSelectedChange={onIngredientSelected}
           onOpenBlock={setActiveBlock}
           onConnectionContextMenu={(connectionId, e) =>
             setConnectionChipMenu({ connectionId, x: e.clientX, y: e.clientY })}

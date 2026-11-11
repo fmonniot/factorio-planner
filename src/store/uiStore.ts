@@ -52,6 +52,20 @@ export interface UiStoreState {
   /** Select the row and highlight a section of its panel. */
   selectRowSection: (blockId: string, nodeId: string, section: PanelHighlightSection) => void
   clearPanelHighlight: (seq: number) => void
+  /**
+   * A transient (not persisted) ask to open the Ingredients slot of one item of the active block. `seq` changes on
+   * every request. Set by `openIngredientSlot` and consumed by the summary strip (`FactorySummary`), which clears it
+   * with `clearIngredientSlotRequest(seq)`; nothing else reads it.
+   */
+  ingredientSlotRequest: { seq: number; itemId: string } | null
+  /**
+   * Open the Ingredients slot of `itemId` in the active block, where its **Comes from** control is. This one call
+   * is all a caller does: the summary strip expands if it is collapsed, selects the slot (showing one for as long
+   * as it is selected when the item has none), and moves keyboard focus into the Comes from group. A row side
+   * panel that is a drawer closes, since it would cover the strip and hold the focus.
+   */
+  openIngredientSlot: (itemId: string) => void
+  clearIngredientSlotRequest: (seq: number) => void
 }
 
 export type PanelHighlightSection = 'machine' | 'beacons'
@@ -63,6 +77,7 @@ export type PanelHighlightSection = 'machine' | 'beacons'
 /** How long a chip shortcut's highlight of a panel section lasts. */
 export const HIGHLIGHT_MS = 1600
 let highlightSeq = 0
+let ingredientSlotSeq = 0
 
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
@@ -96,6 +111,9 @@ export const useUiStore = create<UiStoreState>()((set) => ({
     setTimeout(() => useUiStore.getState().clearPanelHighlight(seq), HIGHLIGHT_MS)
   },
   clearPanelHighlight: (seq) => set(state => (state.panelHighlight?.seq === seq ? { panelHighlight: null } : state)),
+  ingredientSlotRequest: null,
+  openIngredientSlot: (itemId) => set({ ingredientSlotRequest: { seq: (ingredientSlotSeq += 1), itemId } }),
+  clearIngredientSlotRequest: (seq) => set(state => (state.ingredientSlotRequest?.seq === seq ? { ingredientSlotRequest: null } : state)),
 }))
 
 // ---------------------------------------------------------------------------

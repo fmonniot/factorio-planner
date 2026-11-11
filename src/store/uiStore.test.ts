@@ -200,6 +200,45 @@ describe('initUiStatePersistence', () => {
   })
 })
 
+describe('ingredient slot request', () => {
+  beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null }))
+
+  it('names the item, with a new seq on every call (the same item twice is two requests)', () => {
+    useUiStore.getState().openIngredientSlot('iron-ore')
+    const first = useUiStore.getState().ingredientSlotRequest
+    expect(first).toMatchObject({ itemId: 'iron-ore' })
+    useUiStore.getState().openIngredientSlot('iron-ore')
+    const second = useUiStore.getState().ingredientSlotRequest
+    expect(second?.itemId).toBe('iron-ore')
+    expect(second?.seq).not.toBe(first?.seq)
+  })
+
+  it('is cleared by its own seq only, so a consumer never drops a newer request', () => {
+    useUiStore.getState().openIngredientSlot('iron-ore')
+    const stale = useUiStore.getState().ingredientSlotRequest!.seq
+    useUiStore.getState().openIngredientSlot('slag')
+    useUiStore.getState().clearIngredientSlotRequest(stale)
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'slag' })
+    useUiStore.getState().clearIngredientSlotRequest(useUiStore.getState().ingredientSlotRequest!.seq)
+    expect(useUiStore.getState().ingredientSlotRequest).toBeNull()
+  })
+
+  it('touches nothing else: expanding the summary and closing a drawer are the consumer\'s', () => {
+    useUiStore.setState({ summaryCollapsed: true, selectedRow: { blockId: 'b1', nodeId: 'n1' } })
+    useUiStore.getState().openIngredientSlot('iron-ore')
+    expect(useUiStore.getState().summaryCollapsed).toBe(true)
+    expect(useUiStore.getState().selectedRow).toEqual({ blockId: 'b1', nodeId: 'n1' })
+  })
+
+  it('is not persisted', () => {
+    const unsub = initUiStatePersistence()
+    vi.clearAllMocks()
+    useUiStore.getState().openIngredientSlot('iron-ore')
+    expect(localStorageMock.setItem).not.toHaveBeenCalled()
+    unsub()
+  })
+})
+
 describe('panel highlight', () => {
   beforeEach(() => {
     vi.useFakeTimers()

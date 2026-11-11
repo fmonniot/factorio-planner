@@ -61,7 +61,7 @@ const select = (nodeId: string, blockId = block.id) => useUiStore.setState({ sel
 const selected = () => useUiStore.getState().selectedRow
 
 beforeEach(() => {
-  useUiStore.setState({ selectedRow: null, panelHighlight: null, rateUnit: 'min' })
+  useUiStore.setState({ selectedRow: null, panelHighlight: null, ingredientSlotRequest: null, rateUnit: 'min' })
   useSolverStore.setState({ lastResults: {}, flows: [] })
 })
 
@@ -300,54 +300,52 @@ describe('SidePanel — where inputs come from', () => {
   }
   const entry = (itemId: string) => screen.getAllByTestId('sourcing-entry').find(e => e.getAttribute('data-item-id') === itemId)!
 
-  it('lists an entry per ingredient with the rate, the mode choice and a sentence built from the solve', () => {
+  it('lists an entry per ingredient with the rate and a sentence built from the solve, and no control that sets a rule', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     select('n2')
     renderWithSolve()
     const e = entry('plate')
     expect(e).toHaveTextContent('Iron Plate')
     expect(e).toHaveTextContent('120/m')
-    expect(within(e).getAllByRole('radio').map(r => r.textContent)).toEqual(['Make it here', 'Receive it first', "Only what's already made"])
-    expect(within(e).getByRole('radio', { name: 'Make it here' })).toHaveAttribute('aria-checked', 'true')
     expect(within(e).getByTestId('sourcing-sentence')).toHaveTextContent('Made here by Iron Plate (2 × Furnace).')
+    const section = screen.getByTestId('panel-sourcing')
+    expect(within(section).queryByRole('radio')).not.toBeInTheDocument()
+    expect(within(section).queryByRole('checkbox')).not.toBeInTheDocument()
+    expect(within(section).queryByRole('switch')).not.toBeInTheDocument()
+    expect(section).not.toHaveTextContent(/forbid imports|every row that uses the item/i)
   })
 
-  it('sets the mode for the whole block and rewrites the sentence', () => {
+  it('shows the sentence of the rule the block holds', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { plate: 'byproducts-first' as const } })) }))
     select('n2')
     renderWithSolve()
-    fireEvent.click(within(entry('plate')).getByRole('radio', { name: "Only what's already made" }))
-    expect(useBlockStore.getState().blocks[0].itemSourcing.plate).toBe('byproducts-first')
     expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here already makes Iron Plate, so Iron Plate covers it.')
   })
 
-  it('disables the other choices for an item that is a product of the block, keeping Make it here', () => {
+  it('Change… asks for the item\'s Ingredients slot and changes nothing itself', () => {
+    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    select('n2')
+    renderWithSolve()
+    const before = useBlockStore.getState().blocks[0]
+    const button = within(entry('plate')).getByTestId('sourcing-change')
+    expect(button).toHaveTextContent('Change…')
+    expect(button).toHaveAccessibleName('Change where Iron Plate comes from')
+    fireEvent.click(button)
+    expect(useUiStore.getState().ingredientSlotRequest).toMatchObject({ itemId: 'plate' })
+    expect(useBlockStore.getState().blocks[0]).toBe(before)
+  })
+
+  it('offers Change… for a product of the block and for an item no row makes', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, products: [{ id: 'p1', itemId: 'plate', extraRate: 10 }] })) }))
     select('n2')
-    renderWithSolve()
-    const e = entry('plate')
-    expect(within(e).getByRole('radio', { name: "Only what's already made" })).toBeDisabled()
-    expect(within(e).getByRole('radio', { name: 'Receive it first' })).toBeDisabled()
-    expect(within(e).getByRole('radio', { name: "Only what's already made" })).toHaveAttribute('title', 'Iron Plate is a product of this block, so the block always makes it')
-    expect(within(e).getByRole('radio', { name: 'Make it here' })).toBeEnabled()
-  })
-
-  it('toggles Forbid imports, disabled for an item no row makes', () => {
-    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
-    select('n2')
-    renderWithSolve()
-    fireEvent.click(within(entry('plate')).getByTestId('forbid-imports'))
-    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual(['plate'])
-  })
-
-  it('disables Forbid imports for a raw item with the reason', () => {
-    setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
+    const { unmount } = render(<SidePanel blockId={block.id} rootPlan={block.rootPlan} result={result()} gameData={gd} />)
+    expect(within(entry('plate')).getByTestId('sourcing-change')).toBeEnabled()
+    unmount()
     select('n1')
     renderWithSolve()
-    const box = within(entry('ore')).getByTestId('forbid-imports')
-    expect(box).toBeDisabled()
-    expect(box.closest('label')).toHaveAttribute('title', expect.stringContaining('No recipe in this block makes Iron Ore'))
+    expect(within(entry('ore')).getByTestId('sourcing-change')).toBeEnabled()
   })
 })
 
