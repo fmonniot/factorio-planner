@@ -9,7 +9,7 @@
  * warm solve runs none of the demand rounds; those entries are not counted by `size` or `has`,
  * and `retain` drops the ones the solve since the last `retain` did not use.
  */
-import type { GameData, SolverGoal, RecipeNode, SolverResult, ItemSourcing } from '../data/types'
+import type { GameData, SolverGoal, RecipeNode, SolverResult, SourceRule } from '../data/types'
 
 export interface BlockSolve {
   result: SolverResult
@@ -65,20 +65,21 @@ export function exactKey(value: unknown): string {
   return JSON.stringify(value, exactNumberReplacer)
 }
 
-/** An item-sourcing map as sorted entries, so equal maps give equal keys. */
-export function sourcingKey(s?: ItemSourcing): [string, string][] {
-  return Object.entries(s ?? {}).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+/** A source-rule map as sorted entries with both keys spelled out, so equal maps give equal keys. */
+export function sourcingKey(s?: Record<string, SourceRule>): [string, string | null, boolean][] {
+  return Object.entries(s ?? {})
+    .map(([id, r]): [string, string | null, boolean] => [id, r.makeHere ?? null, r.importOff === true])
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
 }
 
 /** Everything `solveBlock` reads from a flattened plan, as an exact string. */
 export function planKey(plan: {
   goals: SolverGoal[]
   nodes: RecipeNode[]
-  noImportItems?: string[]
-  itemSourcing?: ItemSourcing
+  sourceRules?: Record<string, SourceRule>
   areas?: unknown
 }): string {
-  const key = [plan.goals, plan.nodes, plan.noImportItems ?? [], sourcingKey(plan.itemSourcing)]
+  const key = [plan.goals, plan.nodes, sourcingKey(plan.sourceRules)]
   return exactKey(plan.areas ? [...key, plan.areas] : key)
 }
 

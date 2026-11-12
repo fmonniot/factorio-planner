@@ -35,7 +35,7 @@ function plan(recipeIds: string[], goal: string, rate: number): SolverPlan {
   return {
     nodes: recipeIds.map(id => node(`n-${id}`, id)),
     goals: [{ id: 'g', itemId: goal, rate }],
-    noImportItems: [],
+    sourceRules: {},
   } as unknown as SolverPlan
 }
 

@@ -1,15 +1,17 @@
-import type { ItemSourcingMode } from '../../data/types'
+import { makeHereOf, presetOf, type SourcingPreset } from '../../data/sourceRules'
 import type { SourceRuleKind } from './sourceRules'
 
 // ---------------------------------------------------------------------------
 // How a block sources an item: the three presets and the Import switch, read by every surface that shows them.
 // ---------------------------------------------------------------------------
 
+export { makeHereOf, presetOf, type SourcingPreset }
+
 /** The label of the control that holds the three presets and the Import switch. */
 export const COMES_FROM_LABEL = 'Comes from'
 
 /** The three presets: the name shown, and the fixed help text shown as a tooltip. `mode` is what the block stores. */
-export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label: string; title: string }[] = [
+export const ITEM_SOURCING_CHOICES: { mode: SourcingPreset | undefined; label: string; title: string }[] = [
   {
     mode: undefined,
     label: 'Make it here',
@@ -27,7 +29,7 @@ export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label:
   },
 ]
 
-/** The Import switch (on when the item is not in `Block.noImportItems`): its name and fixed help text. */
+/** The Import switch (on unless the item's rule has `importOff`): its name and fixed help text. */
 export const IMPORT_SWITCH = {
   label: 'Import',
   title: 'Bring it in from outside the plan. Off: what the other sources leave is shown as missing.',

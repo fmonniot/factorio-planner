@@ -742,7 +742,7 @@ describe('BlockGraph', () => {
       useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === id ? { ...b, ...over(b) } : b)) }))
     /** Import off on iron ore in `id`; with a row that makes it there (the `mine` recipe) the rule has an effect. */
     const lockOre = (id: string, withRow = true) => patch(id, b => ({
-      noImportItems: ['iron-ore'],
+      sourceRules: { 'iron-ore': { importOff: true as const } },
       rootPlan: withRow ? { ...b.rootPlan, nodes: [makeRecipeNode('mine')] } : b.rootPlan,
     }))
 

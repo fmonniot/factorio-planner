@@ -5,7 +5,7 @@ import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nestin
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, ItemSourcingMode } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
 
 // ---------------------------------------------------------------------------
@@ -156,8 +156,7 @@ export function makeEmptyBlock(name: string, color: string = pickBlockColor([]),
     color,
     colorAuto,
     products: [],
-    noImportItems: [],
-    itemSourcing: {},
+    sourceRules: {},
     inputConnections: [],
     rootPlan: makeEmptySubPlan('Main'),
   }
@@ -231,21 +230,32 @@ export function clonePlan(appState: AppState): AppState {
   }
 }
 
-/** `list` without `itemId` if it has it, with it appended otherwise. */
-function toggled(list: string[], itemId: string): string[] {
-  return list.includes(itemId) ? list.filter(i => i !== itemId) : [...list, itemId]
+/**
+ * The block with itemId's rule replaced, or its entry removed when the rule has no key (the default rule).
+ * An item that has an entry keeps its place in the map; a new entry goes at `at` (default: the end).
+ */
+function withSourceRule(block: Block, itemId: string, rule: SourceRule, at?: number): Block {
+  // An absent key is never written: spell the rule out from the keys it has.
+  const clean: SourceRule = {
+    ...(rule.makeHere !== undefined && { makeHere: rule.makeHere }),
+    ...(rule.importOff !== undefined && { importOff: rule.importOff }),
+  }
+  const empty = clean.makeHere === undefined && clean.importOff === undefined
+  const entries = Object.entries(block.sourceRules)
+  if (Object.hasOwn(block.sourceRules, itemId))
+    return { ...block, sourceRules: Object.fromEntries(empty ? entries.filter(([id]) => id !== itemId) : entries.map(([id, r]) => [id, id === itemId ? clean : r])) }
+  if (empty) return block
+  entries.splice(at ?? entries.length, 0, [itemId, clean])
+  return { ...block, sourceRules: Object.fromEntries(entries) }
 }
 
-/** Toggle `itemId` in the block's no-import list; the toggle is its own inverse. */
-function toggleNoImportCommand(itemId: string): Command {
-  const toggle = (b: Block): Block => ({ ...b, noImportItems: toggled(b.noImportItems, itemId) })
-  return { apply: toggle, undo: toggle }
-}
-
-/** The block with itemId's sourcing mode set, or its entry removed for undefined (Make it here, the default). */
-function withItemSourcing(block: Block, itemId: string, mode: ItemSourcingMode | undefined): Block {
-  const rest = Object.fromEntries(Object.entries(block.itemSourcing).filter(([id]) => id !== itemId))
-  return { ...block, itemSourcing: mode === undefined ? rest : { ...rest, [itemId]: mode } }
+/** Command setting `itemId`'s rule from `before` to `after`; undo puts a removed entry back at its old place in the map. */
+function sourceRuleCommand(block: Block, itemId: string, before: SourceRule, after: SourceRule): Command {
+  const index = Object.keys(block.sourceRules).indexOf(itemId)
+  return {
+    apply: b => withSourceRule(b, itemId, after),
+    undo: b => withSourceRule(b, itemId, before, index < 0 ? undefined : index),
+  }
 }
 
 /** Command adding a connection for `itemId` from `fromBlockId`; undo removes it, redo is checked against the then-current blocks. */
@@ -349,10 +359,10 @@ export interface BlockStoreState {
   moveProductBy: (productId: string, delta: -1 | 1) => void
   updateProductExtra: (productId: string, extraRate: number | undefined) => void
 
-  // No-import items (block-level; LP cannot import these as raw inputs)
-  toggleNoImportItem: (itemId: string) => void
-  /** Set how the active block sources an item (undefined = Make it here, the default). Undoable; no-op when unchanged. */
-  setItemSourcing: (itemId: string, mode: ItemSourcingMode | undefined) => void
+  /** Set where "Make more here" sits in the active block's rule for an item (undefined = before the block lines, the default). The item's Import switch stays. Undoable; no-op when unchanged. */
+  setMakeHere: (itemId: string, makeHere: 'after-blocks' | 'off' | undefined) => void
+  /** Turn Import off for an item in the active block, or back on. Undoable. */
+  toggleImportOff: (itemId: string) => void
   /**
    * Append a block that makes `itemId` (named `name`), make it active, and request the item
    * from it on `consumerId` (default: the active block). The block has the default colour (from the
@@ -931,21 +941,22 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       return applyCommand(state, cmd)
     }),
 
-  toggleNoImportItem: (itemId) =>
-    set(state => {
-      return applyCommand(state, toggleNoImportCommand(itemId))
-    }),
-
-  setItemSourcing: (itemId, mode) =>
+  toggleImportOff: (itemId) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const old = block.itemSourcing[itemId]
-      if (old === mode) return state
-      return applyCommand(state, {
-        apply: b => withItemSourcing(b, itemId, mode),
-        undo: b => withItemSourcing(b, itemId, old),
-      })
+      const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
+      const after: SourceRule = before.importOff ? { ...before, importOff: undefined } : { ...before, importOff: true }
+      return applyCommand(state, sourceRuleCommand(block, itemId, before, after))
+    }),
+
+  setMakeHere: (itemId, makeHere) =>
+    set(state => {
+      const block = state.blocks.find(b => b.id === state.activeBlockId)
+      if (!block) return state
+      const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
+      if (before.makeHere === makeHere) return state
+      return applyCommand(state, sourceRuleCommand(block, itemId, before, { ...before, makeHere }))
     }),
 
   addBlockForItem: (itemId, name, consumerId) => {

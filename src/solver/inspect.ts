@@ -1,11 +1,12 @@
 import { solveAll } from './index'
+import { makeHereOf } from '../data/sourceRules'
 import type {
   AppState,
   AreaRoute,
   Block,
   ConnectionFlow,
   GameData,
-  ItemSourcingMode,
+  SourceRule,
   SolverWarning,
   SubPlan,
   UnsatisfiedItem,
@@ -20,8 +21,10 @@ export interface WhatIf {
   pins?: Record<string, number>
   /** Recipe ids whose rows are removed from the block. */
   drop?: string[]
-  /** itemId -> sourcing mode, set on the block. */
-  sourcing?: Record<string, ItemSourcingMode>
+  /** itemId -> sourcing preset, set on the block as the rule's `makeHere`. */
+  sourcing?: Record<string, 'byproducts-first' | 'connections-first'>
+  /** Items whose Import is turned off on the block. */
+  importOff?: string[]
   /** Clear the `area` flag of every sub-factory of the block. */
   noArea?: boolean
 }
@@ -73,6 +76,18 @@ function mapPlan(plan: SubPlan, fn: (plan: SubPlan) => SubPlan): SubPlan {
   return fn({ ...plan, subPlans: plan.subPlans.map(p => mapPlan(p, fn)) })
 }
 
+function whatIfRules(rules: Record<string, SourceRule>, whatIf: WhatIf): Record<string, SourceRule> {
+  const out: Record<string, SourceRule> = { ...rules }
+  for (const [id, mode] of Object.entries(whatIf.sourcing ?? {})) {
+    if (mode !== 'connections-first' && mode !== 'byproducts-first') {
+      throw new Error(`--sourcing ${id}=${String(mode)}: expected byproducts-first or connections-first`)
+    }
+    out[id] = { ...out[id], makeHere: makeHereOf(mode) }
+  }
+  for (const id of whatIf.importOff ?? []) out[id] = { ...out[id], importOff: true }
+  return out
+}
+
 /** A copy of `appState` with the what-if edits applied to `blockId`; the input is not modified. */
 export function applyWhatIf(appState: AppState, blockId: string, whatIf: WhatIf): AppState {
   const drop = new Set(whatIf.drop ?? [])
@@ -94,7 +109,7 @@ export function applyWhatIf(appState: AppState, blockId: string, whatIf: WhatIf)
         ? b
         : {
             ...b,
-            itemSourcing: { ...b.itemSourcing, ...(whatIf.sourcing ?? {}) },
+            sourceRules: whatIfRules(b.sourceRules, whatIf),
             rootPlan: mapPlan(b.rootPlan, edit),
           },
     ),

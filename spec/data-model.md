@@ -581,10 +581,14 @@ interface Block {
   color: string              // '#rrggbb', display colour; the user can change it to any `#rrggbb`; the UI offers the palette
   colorAuto?: boolean        // true: the colour follows the icon of the first product (the default colour); absent or false: the user picked it, or the plan predates the field
   products: Product[]        // default []; what the block makes; other blocks may request them
-  noImportItems: string[]    // default []; item ids the LP may not import as raw inputs
-  itemSourcing: Record<string, 'byproducts-first' | 'connections-first'>  // default {}; how the block sources an item; absent = Make it here, the default
+  sourceRules: Record<string, SourceRule>  // default {}; item id -> how the block sources it; an item with no entry has the default rule (Make it here, Import on)
   inputConnections: BlockConnection[]  // default []; items received from other blocks
   rootPlan: SubPlan
+}
+
+interface SourceRule {
+  makeHere?: 'after-blocks' | 'off'  // where "Make more here" sits: absent = before the block lines (Make it here); 'after-blocks' = Receive it first; 'off' = Don't make more here
+  importOff?: true                   // present = the Import switch is off for the item
 }
 
 interface BlockConnection {
@@ -603,17 +607,27 @@ interface Product {
 
 A saved `extraRate` of `0` loads as an absent key (like `maxRate`); a negative one is rejected. The solver reads each product as a solver-only `SolverGoal` `{ id, itemId, rate }` with `rate = extraRate ?? 0` plus what other blocks request, built when the block is flattened and dropped when it is 0 (see [spec/solver.md](solver.md)); `SolverGoal` is not part of the stored plan.
 
-`itemSourcing` and `noImportItems` are set per item on the block, in the **Comes from** control (see [ui.md](ui.md#comes-from)): its three presets are *Make it here* (no entry), *Receive it first* (`'connections-first'`) and *Don't make more here* (`'byproducts-first'`), and its **Import** switch is off while the item is in `noImportItems`. Each change is an undoable command in the block's history; choosing the current preset changes nothing, and *Make it here* removes the entry. The control never sets `'byproducts-first'` on an item in `noImportItems`; a plan saved with both loads as it is and the UI reports the preset as having no effect. `'connections-first'` applies to every connection the block has for the item and has no effect without a connection or for an item the block cannot make; `'byproducts-first'` works with or without connections and has no effect on a locked item, a raw item or a goal item; a product with no extra output and no request is not a goal, so a mode left on it still applies (the control, which reads the block and not the solve, reports it as having no effect and offers **Remove**). The entry is kept when the item's last connection is removed (it is active again on reconnect), and copied when a block or plan is duplicated. See [solver.md](solver.md#connections-first) and [solver.md](solver.md#byproducts-first).
+`sourceRules` holds one rule per item, set in the **Comes from** control (see [ui.md](ui.md#comes-from)): its three presets are the positions of `makeHere`, *Make it here* (absent), *Receive it first* (`'after-blocks'`) and *Don't make more here* (`'off'`), and its **Import** switch is `importOff`. An absent key is never written, and a rule with no key is dropped (on load and by the store), as `maxRate` is on a connection. The store commands are `setMakeHere(itemId, 'after-blocks' | 'off' | undefined)` and `toggleImportOff(itemId)`; each is an undoable command in the block's history, choosing the current preset changes nothing, and an emptied rule removes the item's entry. The control never sets `makeHere: 'off'` on an item with `importOff`; the UI reports the preset as having no effect on one (the solver gives the lock priority). `'after-blocks'` applies to every connection the block has for the item and has no effect without a connection or for an item the block cannot make; `'off'` works with or without connections and has no effect on an Import-off item, a raw item or a goal item; a product with no extra output and no request is not a goal, so a rule left on it still applies (the control, which reads the block and not the solve, reports it as having no effect and offers **Remove**). The entry is kept when the item's last connection is removed (it is active again on reconnect), and copied when a block or plan is duplicated. The order of a block's connections for an item is the order of `inputConnections`, not part of the rule. See [solver.md](solver.md#connections-first) and [solver.md](solver.md#byproducts-first).
 
 **Legacy migration.** `BlockSchema` preprocesses its input with `migrateBlock`.
 Block-level `goals` load as `products` and each `rate` as `extraRate`. Older plans stored
 `goals` and `noImportItems` on each sub-plan: the migration walks the tree, hoists them to
 the block (goals become products, deduplicated by `itemId` with rates summed; non-positive
-rates dropped; no-import items deduplicated), and strips them from the sub-plans. A
+rates dropped; no-import items deduplicated and then read as Import-off rules, see below), and strips them from the sub-plans. A
 non-empty `products` on the input wins over legacy `goals`, which win over goals hoisted from
 sub-plans. Saved plans are written back in the new shape on the next save.
 
-`connectionsFirstItems: string[]` (older plans) loads as `itemSourcing` entries of `'connections-first'`, and the legacy key is dropped; when both are present the `itemSourcing` map wins. Entries of a saved map with an unknown mode are dropped (the item loads as *Make it here*) and the file still loads; a map that is not an object is rejected like any malformed field. The migration is idempotent. Older builds of the app ignore `itemSourcing`.
+**Legacy sourcing keys.** Plans saved before `sourceRules` stored `itemSourcing` (item id to `'connections-first'` or `'byproducts-first'`), `noImportItems` (a list of item ids, on the block; on each sub-plan in the oldest plans) and, older still, `connectionsFirstItems` (a list, read as `'connections-first'` entries). `migrateBlock` builds `sourceRules` from them after hoisting the sub-plans' lists, and drops all three keys:
+
+| Stored before | Loads as |
+| --- | --- |
+| item in `noImportItems` | `{ importOff: true }` |
+| `itemSourcing[item] = 'connections-first'` (or in `connectionsFirstItems`) | `{ makeHere: 'after-blocks' }` |
+| `itemSourcing[item] = 'byproducts-first'` | `{ makeHere: 'off' }` |
+| `'byproducts-first'` on an item in `noImportItems` | `{ importOff: true }` only (the lock won in the solver, so the plan keeps its numbers) |
+| both a mode and a lock, otherwise | both keys |
+
+Entries come out in the order of the `itemSourcing` keys (or `connectionsFirstItems`), then the remaining locked items. `itemSourcing` wins over `connectionsFirstItems`; an entry with an unknown mode is dropped (the item loads as *Make it here*) and the file still loads; a legacy map that is not an object is rejected like any malformed field. When `sourceRules` is present on the input it wins and the legacy keys are ignored and dropped, so the migration is idempotent and a saved plan is written back in the new shape on its next save. Exports write `sourceRules` only; an older build of the app ignores it.
 
 **Stranded sub-plans.** Before `moveNode` moved the `SubPlan` with its handle, dragging a sub-factory into another plan left the object where it was. `BlockSchema` post-processes the parsed block with `reparentSubPlans` ([src/data/subPlanTree.ts](../src/data/subPlanTree.ts)), so every load path (local storage, import, duplicate) stores each sub-plan under the plan that holds its handle. A sub-plan with several handles goes under the first one in tree order (a plan's nodes, then its sub-plans, depth first). One without a handle, or whose handle is in no plan of the tree, stays put. Sub-plans that stay keep their order and adopted ones follow in handle order, so a well-formed tree comes back as the same object. A sub-plan whose move would cut it off from the root (handles that form a cycle) stays where it is stored, the other moves still apply. The migration is idempotent and saved plans are written back in the new shape on the next save.
 

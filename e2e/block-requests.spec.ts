@@ -326,8 +326,9 @@ test.describe('requests between blocks', () => {
     const download = await exportPlan(page)
     const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
     const gears = exported.blocks.find((b: { name: string }) => b.name === 'Gears')
-    expect(gears.itemSourcing).toEqual({ 'nullius-iron-plate': 'connections-first' })
+    expect(gears.sourceRules).toEqual({ 'nullius-iron-plate': { makeHere: 'after-blocks' } })
     expect(gears.connectionsFirstItems).toBeUndefined()
+    expect(gears.itemSourcing).toBeUndefined()
 
     await detail(page, 'Ingredients').getByRole('radio', { name: 'Make it here' }).click()
     await expect(slot(page, 'Ingredients', 'Iron ingot')).toContainText('40.0')

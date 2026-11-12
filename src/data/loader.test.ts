@@ -692,48 +692,132 @@ describe('parseAppState — inputConnections', () => {
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
-  describe('itemSourcing', () => {
+  describe('sourceRules', () => {
     const load = (extra: Record<string, unknown> = {}) =>
       parseAppState({ blocks: [blockJson(extra)], activeBlockId: 'b1' }).blocks[0]
+    const legacyKeys = ['itemSourcing', 'noImportItems', 'connectionsFirstItems']
 
     it('defaults to an empty map', () => {
-      expect(load().itemSourcing).toEqual({})
+      expect(load().sourceRules).toEqual({})
     })
 
-    it('turns the legacy connectionsFirstItems list into connections-first entries and drops the key', () => {
-      const block = load({ connectionsFirstItems: ['x', 'y', 'x', 3] })
-      expect(block.itemSourcing).toEqual({ x: 'connections-first', y: 'connections-first' })
-      expect(block).not.toHaveProperty('connectionsFirstItems')
+    describe('migration of the stored modes and locks', () => {
+      it('loads a locked item as Import off', () => {
+        expect(load({ noImportItems: ['x'] }).sourceRules).toEqual({ x: { importOff: true } })
+      })
+
+      it('loads connections-first as makeHere after-blocks', () => {
+        expect(load({ itemSourcing: { x: 'connections-first' } }).sourceRules).toEqual({ x: { makeHere: 'after-blocks' } })
+      })
+
+      it('loads the older connectionsFirstItems list as makeHere after-blocks', () => {
+        expect(load({ connectionsFirstItems: ['x', 'y', 'x', 3] }).sourceRules)
+          .toEqual({ x: { makeHere: 'after-blocks' }, y: { makeHere: 'after-blocks' } })
+      })
+
+      it('loads byproducts-first as makeHere off', () => {
+        expect(load({ itemSourcing: { x: 'byproducts-first' } }).sourceRules).toEqual({ x: { makeHere: 'off' } })
+      })
+
+      it('drops byproducts-first on a locked item: the lock won in the solver, so only Import off stays', () => {
+        expect(load({ itemSourcing: { x: 'byproducts-first' }, noImportItems: ['x'] }).sourceRules)
+          .toEqual({ x: { importOff: true } })
+      })
+
+      it('keeps both a mode and a lock otherwise', () => {
+        expect(load({ itemSourcing: { x: 'connections-first' }, noImportItems: ['x'] }).sourceRules)
+          .toEqual({ x: { makeHere: 'after-blocks', importOff: true } })
+      })
+
+      it('lists the itemSourcing keys first, then the remaining locked items', () => {
+        const rules = load({ itemSourcing: { b: 'connections-first', a: 'byproducts-first' }, noImportItems: ['z', 'b', 'c', 'z'] }).sourceRules
+        expect(Object.keys(rules)).toEqual(['b', 'a', 'z', 'c'])
+      })
+
+      it('drops entries with an unknown mode and still loads the file', () => {
+        expect(load({ itemSourcing: { x: 'imports-first', y: 'byproducts-first', z: 3 } }).sourceRules)
+          .toEqual({ y: { makeHere: 'off' } })
+      })
+
+      it('prefers itemSourcing over the older connectionsFirstItems list', () => {
+        expect(load({ itemSourcing: { y: 'byproducts-first' }, connectionsFirstItems: ['x'] }).sourceRules)
+          .toEqual({ y: { makeHere: 'off' } })
+      })
+
+      it('drops every legacy key', () => {
+        const block = load({ itemSourcing: { x: 'connections-first' }, noImportItems: ['y'], connectionsFirstItems: ['z'] })
+        for (const key of legacyKeys) expect(block).not.toHaveProperty(key)
+      })
+
+      it('gives a legacy block with sub-plan goals an empty map', () => {
+        const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
+        expect(parseAppState({ blocks: [legacy], activeBlockId: 'b1' }).blocks[0].sourceRules).toEqual({})
+      })
+
+      it('reads the oldest shapes at once: connectionsFirstItems and noImportItems on a sub-plan', () => {
+        const nested = { ...rootPlan(), subPlans: [{ ...rootPlan(), id: 'sub', noImportItems: ['w', 'x'] }] }
+        const block = load({ connectionsFirstItems: ['x', 'y'], rootPlan: nested })
+        expect(block.sourceRules).toEqual({
+          x: { makeHere: 'after-blocks', importOff: true },
+          y: { makeHere: 'after-blocks' },
+          w: { importOff: true },
+        })
+        expect(block.rootPlan.subPlans[0]).not.toHaveProperty('noImportItems')
+      })
+
+      it('treats names of Object.prototype as ordinary items', () => {
+        expect(load({ noImportItems: ['constructor'] }).sourceRules).toEqual({ constructor: { importOff: true } })
+      })
+
+      it('rejects a block-level noImportItems with a non-string, as before', () => {
+        expect(() => load({ noImportItems: ['x', 3] })).toThrow()
+      })
+
+      it('rejects a malformed legacy map', () => {
+        expect(() => load({ itemSourcing: ['x'] })).toThrow()
+      })
     })
 
-    it('prefers the map over the legacy list', () => {
-      expect(load({ itemSourcing: { y: 'byproducts-first' }, connectionsFirstItems: ['x'] }).itemSourcing)
-        .toEqual({ y: 'byproducts-first' })
-    })
+    describe('a block saved with sourceRules', () => {
+      it('keeps the map and ignores the legacy keys that come with it', () => {
+        const block = load({
+          sourceRules: { y: { makeHere: 'off' } },
+          itemSourcing: { x: 'connections-first' },
+          noImportItems: ['x'],
+          connectionsFirstItems: ['z'],
+        })
+        expect(block.sourceRules).toEqual({ y: { makeHere: 'off' } })
+        for (const key of legacyKeys) expect(block).not.toHaveProperty(key)
+      })
 
-    it('drops entries with an unknown mode and still loads the file', () => {
-      expect(load({ itemSourcing: { x: 'imports-first', y: 'byproducts-first', z: 3 } }).itemSourcing)
-        .toEqual({ y: 'byproducts-first' })
-    })
+      it('drops what a rule cannot hold, as for a legacy entry with an unknown mode', () => {
+        expect(load({ sourceRules: { a: { importOff: false }, b: { makeHere: 'sideways', importOff: true }, c: 3, d: { makeHere: 'off' } } }).sourceRules)
+          .toEqual({ b: { importOff: true }, d: { makeHere: 'off' } })
+      })
 
-    it('keeps an item in both noImportItems and the legacy list', () => {
-      const block = load({ noImportItems: ['x'], connectionsFirstItems: ['x'] })
-      expect(block.noImportItems).toEqual(['x'])
-      expect(block.itemSourcing).toEqual({ x: 'connections-first' })
-    })
+      it('drops a rule with no key', () => {
+        expect(load({ sourceRules: { x: {}, y: { importOff: true } } }).sourceRules).toEqual({ y: { importOff: true } })
+      })
 
-    it('gives a legacy block with sub-plan goals an empty map', () => {
-      const legacy = blockJson({ products: undefined, rootPlan: { ...rootPlan(), goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }] } })
-      expect(parseAppState({ blocks: [legacy], activeBlockId: 'b1' }).blocks[0].itemSourcing).toEqual({})
-    })
+      it('is idempotent: loading a loaded block changes nothing', () => {
+        const once = parseAppState({
+          blocks: [blockJson({ itemSourcing: { a: 'connections-first', b: 'byproducts-first' }, noImportItems: ['a', 'b', 'c'] })],
+          activeBlockId: 'b1',
+        })
+        expect(parseAppState(JSON.parse(JSON.stringify(once)))).toEqual(once)
+      })
 
-    it('round-trips', () => {
-      const state = parseAppState({ blocks: [blockJson({ itemSourcing: { x: 'byproducts-first', y: 'connections-first' } })], activeBlockId: 'b1' })
-      expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
-    })
+      it('round-trips', () => {
+        const state = parseAppState({
+          blocks: [blockJson({ sourceRules: { x: { makeHere: 'off' }, y: { makeHere: 'after-blocks', importOff: true } } })],
+          activeBlockId: 'b1',
+        })
+        expect(parseAppState(JSON.parse(JSON.stringify(state)))).toEqual(state)
+      })
 
-    it('rejects an array', () => {
-      expect(() => load({ itemSourcing: ['x'] })).toThrow()
+      it('rejects an array', () => {
+        expect(() => load({ sourceRules: ['x'] })).toThrow()
+      })
     })
   })
 

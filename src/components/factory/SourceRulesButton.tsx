@@ -10,7 +10,7 @@ import { ComesFrom } from './ComesFrom'
 import { useDismiss } from './sidePanel/useDismiss'
 import { keepTabInside } from './keepTabInside'
 import { noEffectText, sourceRules } from './sourceRules'
-import type { SourceRule } from './sourceRules'
+import type { SourceRulePart } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
 
@@ -26,7 +26,7 @@ const GAP = 4
 
 /** One rule: its item (a button that shows or hides the Comes from control in the row), its name, what it does, and Remove. */
 function RuleEntry({ rule, gameData, expanded, onToggle, onRemove }: {
-  rule: SourceRule
+  rule: SourceRulePart
   gameData: GameData
   expanded: boolean
   onToggle: () => void
@@ -101,7 +101,7 @@ export function SourceRulesButton() {
   const panelRef = useRef<HTMLDivElement>(null)
   const [open, setOpen] = useState(false)
   // The rule whose Comes from control is expanded in its row; a popover opened again starts with none.
-  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRule['kind'] } | null>(null)
+  const [expanded, setExpanded] = useState<{ itemId: string; kind: SourceRulePart['kind'] } | null>(null)
 
   const rules = useMemo(
     () => (block && gameData ? sourceRules(block, gameData, new Set(blocks.map(b => b.id))) : []),

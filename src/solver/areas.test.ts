@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
+import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
@@ -139,8 +140,7 @@ function blk(rootPlan: SubPlan, products: [string, number][], id = 'block-1'): B
     name: id,
     color: '#60a5fa',
     products: products.map(([itemId, extraRate]): Product => ({ id: `p-${itemId}`, itemId, extraRate })),
-    noImportItems: [],
-    itemSourcing: {},
+    sourceRules: {},
     inputConnections: [],
     rootPlan,
   }
@@ -513,7 +513,7 @@ describe('areas in the solve', () => {
     })
 
     it('uses the other area\'s byproduct and imports the rest instead of running x-make', () => {
-      const r = solved(s5({ itemSourcing: { x: 'byproducts-first' } }))
+      const r = solved(s5({ sourceRules: { x: { makeHere: 'off' as const } } }))
       expect(node(r, 'x-make@s').throughput).toBeCloseTo(0, 6)
       expect(node(r, 'r-main@root').throughput).toBeCloseTo(10, 6)
       expect(r.unsatisfied.find(u => u.itemId === 'x')?.rate).toBeCloseTo(20, 6)
@@ -530,7 +530,7 @@ describe('areas in the solve', () => {
       root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
       [['y', 10], ['z', 30]],
     )
-    const withSourcing = (itemSourcing: Block['itemSourcing']): Block => ({ ...base, noImportItems: ['x'], itemSourcing })
+    const withSourcing = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>): Block => ({ ...base, sourceRules: sourceRulesOf(sourcing, ['x']) })
     const caps = () => new Map([['x', 5]])
     const run = (b: Block) => solveBlock(flattenBlock(b), gd(), caps())
     expect(run(withSourcing({ x: 'byproducts-first' }))).toEqual(run(withSourcing({})))
@@ -636,7 +636,7 @@ describe('areas in the solve', () => {
 
   it('conflicting pins in an area block name recipes and raise no shortfall', () => {
     const b = scenario1(true, { pinnedRate: 10 })
-    b.noImportItems = ['hydrogen']
+    b.sourceRules = { hydrogen: { importOff: true } }
     const p = b.rootPlan.subPlans.find(x => x.id === 'P')!
     ;(p.nodes.find(n => n.id === 'plastic@P') as GameRecipeNode).pinnedRate = 500
     ;(b.rootPlan.nodes.find(n => n.id === 'electrolysis@root') as GameRecipeNode).pinnedRate = 5
@@ -671,7 +671,7 @@ describe('areas and R9 (blocks without areas)', () => {
       const plan = flattenBlock(b)
       expect('areas' in plan).toBe(false)
       expect(solve(plan, gd())).toStrictEqual(solve(flattenBlock(flat), gd()))
-      expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, [], []]))
+      expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, []]))
     }
     expect(planKey(flattenBlock(rowsIn(false)))).toBe(planKey(flattenBlock(rowsIn(undefined))))
   })

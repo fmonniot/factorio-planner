@@ -335,7 +335,7 @@ describe('PlanAreasModal — source rule marker', () => {
     useBlockStore.setState(s => ({
       blocks: s.blocks.map(b => b.id !== blockId ? b : {
         ...b,
-        noImportItems: ['h2'],
+        sourceRules: { 'h2': { importOff: true as const } },
         rootPlan: withRow ? { ...b.rootPlan, nodes: [...b.rootPlan.nodes, makeRecipeNode('h2-synth')] } : b.rootPlan,
       }),
     }))

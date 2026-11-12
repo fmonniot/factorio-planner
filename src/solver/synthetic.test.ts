@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest'
+import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveBlock, flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
@@ -220,8 +221,7 @@ function runBlock(rootPlan: SubPlan, products: Array<[string, number]>): SolverR
     name: 'Block',
     color: '#60a5fa',
     products: products.map(([itemId, extraRate], i) => ({ id: `p${i}`, itemId, extraRate })),
-    noImportItems: [],
-    itemSourcing: {},
+    sourceRules: {},
     inputConnections: [],
     rootPlan,
   }
@@ -472,11 +472,11 @@ describe('solver synthetic cases', () => {
     // Electrolysis makes H2 (the goal) and O2 on the side; decompression is the only other source of O2.
     const recipeIds = ['nullius-steam-electrolysis', 'nullius-decompress-oxygen', 'nullius-acid-nitric']
     const goals: Array<[string, number]> = [['nullius-hydrogen', 800], ['nullius-acid-nitric', 125]]
-    const solveWith = (itemSourcing: Block['itemSourcing']) => {
-      const plan: { goals: SolverGoal[]; nodes: RecipeNode[]; itemSourcing: Block['itemSourcing'] } = {
+    const solveWith = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>) => {
+      const plan: { goals: SolverGoal[]; nodes: RecipeNode[]; sourceRules: Block['sourceRules'] } = {
         goals: goals.map(([itemId, rate], i) => ({ id: `g${i}`, itemId, rate })),
         nodes: recipeIds.map(id => planNode(id)),
-        itemSourcing,
+        sourceRules: sourceRulesOf(sourcing),
       }
       return solve(plan, makeGameData())
     }
@@ -518,8 +518,7 @@ describe('solver synthetic cases', () => {
         name: 'Block',
         color: '#60a5fa',
         products: [{ id: 'p0', itemId: 'case11-goal', extraRate: 30 }, { id: 'p1', itemId: 'case11-other', extraRate: 50 }],
-        noImportItems: [],
-        itemSourcing: { 'case11-x': 'connections-first' },
+        sourceRules: { 'case11-x': { makeHere: 'after-blocks' as const } },
         inputConnections: [{ id: 'c1', itemId: 'case11-x', fromBlockId: 'upstream' }],
         rootPlan,
       }

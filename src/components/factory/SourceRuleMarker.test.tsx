@@ -62,7 +62,7 @@ describe('ItemSourceRuleMarker', () => {
   beforeEach(() => {
     const block = makeEmptyBlock('Test')
     block.rootPlan.nodes = [makeRecipeNode('smelt')]
-    block.noImportItems = ['plate']
+    block.sourceRules = { plate: { importOff: true } }
     useBlockStore.setState({ blocks: [block], activeBlockId: block.id, history: {} })
     useUiStore.setState({ ingredientSlotRequest: null })
   })
@@ -103,7 +103,7 @@ describe('BlockSourceRuleMarker and SummarySourceRuleMarker', () => {
     const active = makeEmptyBlock('Active')
     const other = makeEmptyBlock('Other')
     other.rootPlan.nodes = [makeRecipeNode('smelt')]
-    other.noImportItems = ['plate']
+    other.sourceRules = { plate: { importOff: true } }
     useBlockStore.setState({ blocks: [active, other], activeBlockId: active.id, history: {} })
     useUiStore.setState({ ingredientSlotRequest: null })
     return { active, other }

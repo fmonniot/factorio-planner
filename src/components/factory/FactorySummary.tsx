@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { importOffItems } from '../../data/sourceRules'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
@@ -191,7 +192,7 @@ export function FactorySummary() {
     if (drawer) clearSelectedRow()
   }, [slotRequest, openedSeq, drawer, clearSlotRequest, clearSelectedRow, setCollapsed])
 
-  const noImportItems = activeBlock?.noImportItems ?? []
+  const noImportItems = importOffItems(activeBlock?.sourceRules)
   const blocks = useBlockStore(s => s.blocks)
   const ruleItems = useSourceRuleItems(activeBlock, gameData)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)

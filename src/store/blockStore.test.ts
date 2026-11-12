@@ -768,54 +768,68 @@ describe('moveNode', () => {
 })
 
 // ---------------------------------------------------------------------------
-// toggleNoImportItem
+// toggleImportOff
 // ---------------------------------------------------------------------------
 
-describe('toggleNoImportItem', () => {
+describe('toggleImportOff', () => {
   it('adds an item to block-level noImportItems on first call', () => {
-    useBlockStore.getState().toggleNoImportItem('benzene')
-    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual(['benzene'])
+    useBlockStore.getState().toggleImportOff('benzene')
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual({ 'benzene': { importOff: true } })
   })
 
   it('removes the item on a second call (toggle)', () => {
-    const t = useBlockStore.getState().toggleNoImportItem
+    const t = useBlockStore.getState().toggleImportOff
     t('benzene')
     t('benzene')
-    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual([])
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual({})
   })
 
   it('keeps existing items when adding a new one', () => {
-    const t = useBlockStore.getState().toggleNoImportItem
+    const t = useBlockStore.getState().toggleImportOff
     t('benzene')
     t('oxygen')
-    expect(useBlockStore.getState().blocks[0].noImportItems.slice().sort())
+    expect(Object.keys(useBlockStore.getState().blocks[0].sourceRules).sort())
       .toEqual(['benzene', 'oxygen'])
   })
 
-  it('undo restores previous noImportItems list', () => {
+  it('undo of a removal puts the rule back at its place in the map', () => {
+    const t = useBlockStore.getState().toggleImportOff
+    t('a'); t('b'); t('c')
+    t('b') // Import back on: the entry goes
+    expect(Object.keys(useBlockStore.getState().blocks[0].sourceRules)).toEqual(['a', 'c'])
+    useBlockStore.getState().undo()
+    expect(Object.keys(useBlockStore.getState().blocks[0].sourceRules)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('treats names of Object.prototype as ordinary items', () => {
+    useBlockStore.getState().toggleImportOff('toString')
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual({ toString: { importOff: true } })
+  })
+
+  it('undo restores the previous rules', () => {
     const s = useBlockStore.getState()
-    s.toggleNoImportItem('benzene')
+    s.toggleImportOff('benzene')
     s.undo()
-    expect(useBlockStore.getState().blocks[0].noImportItems).toEqual([])
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual({})
   })
 })
 
 describe('setItemSourcing', () => {
   const store = () => useBlockStore.getState()
-  const sourcing = (i = 0) => store().blocks[i].itemSourcing
+  const sourcing = (i = 0) => Object.fromEntries(Object.entries(store().blocks[i].sourceRules).map(([id, r]) => [id, r.makeHere === 'after-blocks' ? 'connections-first' : 'byproducts-first']))
 
   it('sets, switches and clears a mode', () => {
-    store().setItemSourcing('plate', 'byproducts-first')
+    store().setMakeHere('plate', 'off')
     expect(sourcing()).toEqual({ plate: 'byproducts-first' })
-    store().setItemSourcing('plate', 'connections-first')
+    store().setMakeHere('plate', 'after-blocks')
     expect(sourcing()).toEqual({ plate: 'connections-first' })
-    store().setItemSourcing('plate', undefined)
+    store().setMakeHere('plate', undefined)
     expect(Object.keys(sourcing())).toEqual([])
   })
 
   it('undoes and redoes', () => {
-    store().setItemSourcing('plate', 'byproducts-first')
-    store().setItemSourcing('plate', 'connections-first')
+    store().setMakeHere('plate', 'off')
+    store().setMakeHere('plate', 'after-blocks')
     store().undo()
     expect(sourcing()).toEqual({ plate: 'byproducts-first' })
     store().undo()
@@ -826,10 +840,10 @@ describe('setItemSourcing', () => {
   })
 
   it('is a no-op when the mode does not change', () => {
-    store().setItemSourcing('plate', 'byproducts-first')
+    store().setMakeHere('plate', 'off')
     const before = store()
-    store().setItemSourcing('plate', 'byproducts-first')
-    store().setItemSourcing('gear', undefined)
+    store().setMakeHere('plate', 'off')
+    store().setMakeHere('gear', undefined)
     expect(store().history[before.activeBlockId].undoStack).toHaveLength(before.history[before.activeBlockId].undoStack.length)
     expect(store().blocks).toBe(before.blocks)
   })
@@ -837,7 +851,7 @@ describe('setItemSourcing', () => {
   it('changes only the active block', () => {
     const other = makeEmptyBlock('Other')
     useBlockStore.setState({ blocks: [...store().blocks, other] })
-    store().setItemSourcing('plate', 'byproducts-first')
+    store().setMakeHere('plate', 'off')
     expect(sourcing(0)).toEqual({ plate: 'byproducts-first' })
     expect(sourcing(1)).toEqual({})
   })
@@ -1661,13 +1675,13 @@ describe('duplicateBlock', () => {
     expect(blocks()[0]).toEqual(snapshot)
   })
 
-  it('copies itemSourcing', () => {
+  it('copies sourceRules', () => {
     useBlockStore.setState({
-      blocks: blocks().map(b => (b.id === original.id ? { ...b, itemSourcing: { plate: 'byproducts-first' as const } } : b)),
+      blocks: blocks().map(b => (b.id === original.id ? { ...b, sourceRules: { plate: { makeHere: 'off' as const } } } : b)),
     })
     useBlockStore.getState().duplicateBlock(original.id)
-    expect(blocks()[1].itemSourcing).toEqual({ plate: 'byproducts-first' })
-    expect(blocks()[1].itemSourcing).not.toBe(blocks()[0].itemSourcing)
+    expect(blocks()[1].sourceRules).toEqual({ plate: { makeHere: 'off' } })
+    expect(blocks()[1].sourceRules).not.toBe(blocks()[0].sourceRules)
   })
 
   it('keeps the structure but gives every entity a fresh id', () => {

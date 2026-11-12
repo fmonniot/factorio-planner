@@ -3,6 +3,7 @@ import type { Block, GameData } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
 import { useUiStore } from '../../store/uiStore'
+import { presetOf } from './itemSourcing'
 import { itemConnections, itemMakers, sourcingText } from './sourcingText'
 
 /**
@@ -17,8 +18,9 @@ export function useBlockSourcingSentence(block: Block | undefined, itemId: strin
   const unit = useUiStore(s => s.rateUnit)
 
   const name = gameData?.items[itemId]?.name ?? itemId
-  const mode = block?.itemSourcing[itemId]
-  const noImport = block?.noImportItems.includes(itemId) ?? false
+  const rule = block?.sourceRules[itemId]
+  const mode = presetOf(rule)
+  const noImport = rule?.importOff === true
 
   return useMemo(
     () => block && gameData

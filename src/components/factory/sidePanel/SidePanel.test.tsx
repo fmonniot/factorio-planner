@@ -317,7 +317,7 @@ describe('SidePanel — where inputs come from', () => {
 
   it('shows the sentence of the rule the block holds', () => {
     setPlan([row('n1', 'r-plate'), row('n2', 'r-gear')])
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { plate: 'byproducts-first' as const } })) }))
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { plate: { makeHere: 'off' as const } } })) }))
     select('n2')
     renderWithSolve()
     expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here already makes Iron Plate, so Iron Plate covers it.')

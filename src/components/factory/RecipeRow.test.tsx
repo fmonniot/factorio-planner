@@ -9,7 +9,7 @@ import { useBlockStore, makeEmptyBlock } from '../../store/blockStore'
 import { findSubPlan } from '../../data/subPlanTree'
 import { indexRecipeAreas } from './recipeAreas'
 import { useUiStore } from '../../store/uiStore'
-import type { GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
+import type { Block, GameData, SolvedNode, RecipeNode, GameRecipeNode, SubPlanNode, SubPlan } from '../../data/types'
 
 // ---------------------------------------------------------------------------
 // Fixtures — single-output
@@ -942,7 +942,7 @@ describe('RecipeRow source rule marker', () => {
   } as GameData
 
   /** A block with the two rows and the given rules. */
-  function setBlock(rules: { itemSourcing?: Record<string, 'byproducts-first' | 'connections-first'>; noImportItems?: string[] }) {
+  function setBlock(rules: Partial<Pick<Block, 'sourceRules'>>) {
     const block = makeEmptyBlock('Test')
     const rootPlan = { ...block.rootPlan, nodes: [electrolysisPlanNode, combustionPlanNode] }
     useBlockStore.setState({ blocks: [{ ...block, rootPlan, ...rules }], activeBlockId: block.id, history: {} })
@@ -956,7 +956,7 @@ describe('RecipeRow source rule marker', () => {
   })
 
   it('marks the ingredient chip of an item whose rule has an effect, and only that chip', () => {
-    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     renderCombustion()
     expect(markers().map(m => m.getAttribute('data-item-id'))).toEqual(['oxygen'])
     const marker = markers()[0]
@@ -973,7 +973,7 @@ describe('RecipeRow source rule marker', () => {
   })
 
   it('names the marker with the sentence of the item, and leaves the chip title without a suffix', () => {
-    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     renderCombustion()
     const sentence = /^Uses what this block already makes first \(Electrolysis [^)]+\)\. The rest is imported\.$/
     expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
@@ -983,7 +983,7 @@ describe('RecipeRow source rule marker', () => {
   })
 
   it('marks no product or byproduct chip of that item', () => {
-    setBlock({ itemSourcing: { oxygen: 'byproducts-first' }, noImportItems: ['hydrogen'] })
+    setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const }, 'hydrogen': { importOff: true as const } } })
     // Electrolysis makes both: hydrogen is its product, oxygen its byproduct.
     renderRow({ planNode: electrolysisPlanNode, solvedNode: electrolysisSolved, gameData })
     expect(screen.getByTitle(/^Oxygen/)).toHaveAttribute('data-variant', 'byproduct')
@@ -1000,7 +1000,7 @@ describe('RecipeRow source rule marker', () => {
     expect(markers()).toHaveLength(0)
     cleanup()
     // Receive it first without a connection; a lock on an item no row makes.
-    setBlock({ itemSourcing: { oxygen: 'connections-first' }, noImportItems: ['water'] })
+    setBlock({ sourceRules: { oxygen: { makeHere: 'after-blocks' as const }, 'water': { importOff: true as const } } })
     renderCombustion()
     expect(markers()).toHaveLength(0)
     cleanup()
@@ -1009,7 +1009,7 @@ describe('RecipeRow source rule marker', () => {
   })
 
   it('a click on the marker opens nothing: it is an image, and the chip keeps its own click', () => {
-    setBlock({ itemSourcing: { oxygen: 'byproducts-first' } })
+    setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     const onIngredientClick = vi.fn()
     renderCombustion({ onIngredientClick })
     expect(markers()[0].tagName).not.toBe('BUTTON')

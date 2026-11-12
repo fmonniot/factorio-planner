@@ -22,13 +22,13 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, importOffItems, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
- * node, and surface the block's products as goals + noImportItems. SubPlanNode handles
+ * node, and surface the block's products as goals and its source rules. SubPlanNode handles
  * are pure UI grouping; solve() skips them by filtering on kind. When a sub-factory is a
  * separate area the plan also lists the areas (see areas.ts); otherwise it has no `areas` key.
  */
@@ -42,15 +42,14 @@ export function flattenBlock(block: Block): SolverPlan {
   const plan: SolverPlan = {
     goals: productGoals(block.products),
     nodes,
-    noImportItems: block.noImportItems,
-    itemSourcing: block.itemSourcing,
+    sourceRules: block.sourceRules,
   }
   const areas = blockAreas(block.rootPlan)
   return areas ? { ...plan, areas } : plan
 }
 
 /**
- * Does a recipe row of the block make `itemId`? Such an item has an LP row, so `noImportItems` can
+ * Does a recipe row of the block make `itemId`? Such an item has an LP row, so Import off can
  * forbid importing it; any other item is raw in the block and a lock on it changes nothing.
  */
 export function blockMakesItem(block: Block, gameData: GameData, itemId: string): boolean {
@@ -145,9 +144,9 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  *   2. Only if a connected intermediate is short, solve again with the original
  *      locks and a supply variable per short item, capped at min(offer, shortfall).
  * `received` is what the block actually takes from each offer (items/min).
- * Exception: connections-first items (`itemSourcing`) have their supply in every
+ * Exception: connections-first items (`makeHere: 'after-blocks'`) have their supply in every
  * pass, capped by the offer only, so it is used before the block's own recipes.
- * Byproducts-first items (`itemSourcing`) get a cheap import slack (not BIG_M) in both passes, so
+ * Byproducts-first items (`makeHere: 'off'`) get a cheap import slack (not BIG_M) in both passes, so
  * the LP imports them rather than run a recipe just for them; the pass-1 residual is then exactly
  * what the byproducts don't cover, and the passes are otherwise unchanged. Locked items and
  * byproduct consumers' ingredients keep the default cost.
@@ -241,7 +240,7 @@ export function solveBlock(
   // trigger new ingredient production" semantics: with no slack allowed on
   // a bc ingredient, the LP can't import it just to fire the bc bonus —
   // it must come from an in-plan producer (or raw if no producer exists).
-  const noImportItems = new Set(plan.noImportItems ?? [])
+  const noImportItems = new Set(importOffItems(plan))
   for (const n of representatives) {
     if (!n.byproductConsumer) continue
     const recipe = gameData.recipes[n.recipeId]
@@ -262,7 +261,7 @@ export function solveBlock(
   // offer only, so the LP uses it before the block's own recipes.
   const byproductsFirst = byproductsFirstSet(plan, noImportItems)
   const firstItems = new Set(
-    itemsWithSourcing(plan, 'connections-first').filter(
+    itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
@@ -867,8 +866,7 @@ function computeRequests(
             return [
               m.products,
               flat.nodes,
-              flat.noImportItems ?? [],
-              sourcingKey(flat.itemSourcing),
+              sourcingKey(flat.sourceRules),
               [...connectedCaps(m, byId, selfConnectionIds).keys()],
               (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
               [...(takeOf.get(m.id) ?? [])].map(([itemId, takes]) => [

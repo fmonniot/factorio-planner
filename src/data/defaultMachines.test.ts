@@ -88,7 +88,7 @@ describe('defaultMachineRowCounts', () => {
   }
   function block(id: string, nodes: Block['rootPlan']['nodes'], nested: Block['rootPlan']['nodes'] = []): Block {
     return {
-      id, name: id, color: '#000000', products: [], noImportItems: [], itemSourcing: {}, inputConnections: [],
+      id, name: id, color: '#000000', products: [], sourceRules: {}, inputConnections: [],
       rootPlan: {
         id: `${id}-root`, name: 'Main', nodes, createdAt: now, updatedAt: now,
         subPlans: [{ id: `${id}-sub`, name: 'Sub', nodes: nested, subPlans: [], createdAt: now, updatedAt: now }],

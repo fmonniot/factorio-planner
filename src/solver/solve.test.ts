@@ -442,7 +442,7 @@ describe('v2 solver — elastic slack on intermediates', () => {
     const plan = {
       goals: [{ id: 'g1', itemId: 'paper', rate: 60 }],
       nodes: [planNode('n1', 'paper'), planNode('n2', 'chopper')],
-      noImportItems: ['wood'],
+      sourceRules: { 'wood': { importOff: true as const } },
     }
     const result = solve(plan, gd)
     const byId = new Map(result.nodes.map(n => [n.recipeNodeId, n]))

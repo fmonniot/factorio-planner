@@ -26,7 +26,7 @@ Per block, `solveBlock` runs the steps below. When `plan.areas` is present its f
 3. `buildClassifiedSystem` — net stoichiometry `S[item][recipe]` with productivity and heat bonus applied, and item classification ([src/solver/build.ts](../src/solver/build.ts)).
 4. `no-recipe` check on goals.
 5. Apply `byproductPolicy = 'discard'` (zeroes coefficients in `S`).
-6. Collect pins and the no-import set, then the byproducts-first set (`itemSourcing` items that are not in the no-import set).
+6. Collect pins and the no-import set, then the byproducts-first set (items whose rule has `makeHere: 'off'` that are not in the no-import set). The no-import set is the items whose rule has `importOff`, plus the ingredients of byproduct consumers.
 7. `solveLP` — build and solve the LP ([src/solver/solve.ts](../src/solver/solve.ts)); a second pass when connected supply is needed; connections-first items have supply in every pass; byproducts-first items have a cheap import slack in every pass.
 8. Diagnostics: overconstrained surplus, goal shortfalls, intermediate slack, raw consumption (reduced by what was received).
 9. `computeMachineMetrics` — machine count and power per node.
@@ -54,7 +54,7 @@ Variables:
 
 ```
 x_j ≥ 0   for each recipe j                                   (throughput, executions/minute)
-s_i ≥ 0   for each intermediate i not in noImportItems        (external import slack; cheap for byproducts-first items)
+s_i ≥ 0   for each intermediate i not in the no-import set      (external import slack; cheap for byproducts-first items)
 u_i ≥ 0   for each intermediate i with a supply cap           (supply from another block; pass 2, or every pass if connections-first)
 ```
 
@@ -63,7 +63,7 @@ Constraints:
 ```
 Σ S_ij · x_j        ≥ d_i      for each goal i with a row in S             (hard, no slack)
 Σ S_ij · x_j + s_i  ≥ 0        for each intermediate i                     (elastic)
-Σ S_ij · x_j        ≥ 0        for each intermediate i in noImportItems    (hard)
+Σ S_ij · x_j        ≥ 0        for each intermediate i in the no-import set  (hard)
 Σ S_ij · x_j + u_i (+ s_i)  ≥ 0, u_i ≤ cap_i   for each intermediate i with a supply cap (no row when cap_i is infinite)
 u_i + Σ_{j∉BC, S_ij<0} S_ij · x_j  ≤ 0        for each connections-first intermediate i (BC = byproduct-consumer recipes)
 x_j                 = pin_j    for each pinned recipe j
@@ -99,7 +99,7 @@ Tolerances: slack is reported only above `SLACK_TOLERANCE = 1e-6`; intermediate 
 
 ## Infeasibility
 
-Goals have no slack and `noImportItems` intermediates have no slack, so the LP can be infeasible: conflicting pins, or a no-import item the network cannot produce in sufficient quantity. When it is infeasible:
+Goals have no slack and no-import intermediates (items with `importOff`) have no slack, so the LP can be infeasible: conflicting pins, or a no-import item the network cannot produce in sufficient quantity. When it is infeasible:
 
 - If any pin is present, the `infeasible-pins` warning is emitted with all pinned recipe ids.
 - Without pins, no warning is emitted; the problem shows up only as goal shortfalls in `unsatisfied`.
@@ -138,14 +138,14 @@ Unsatisfied items (`UnsatisfiedItem`, surfaced in the Ingredients pane):
 
 ## Pinned rates, byproduct policies, byproduct consumers, no-import items
 
-The first three knobs sit on individual recipe nodes; `noImportItems` and `itemSourcing` sit on the `Block`.
+The first three knobs sit on individual recipe nodes; the per-item `sourceRules` sit on the `Block` (flattened to `SolverPlan.sourceRules`; the LP's "no-import set" below is its `importOff` items).
 
 - **`pinnedRate`** — translates to `x_j = rate` (equality constraint), where `rate` is in executions per minute. Useful for "I want exactly N executions per minute of this" (and so a fixed machine count).
 - **`byproductPolicy[itemId] = 'discard'`** — zeroes the recipe's positive coefficient for that item in `S`. This happens **after** classification and before the LP, so the item keeps its classification; it affects only the LP rows. `SolvedNode.outputRates` still include the discarded product.
 - **`byproductPolicy[itemId] = 'feed-back'`** — the default in the UI. A no-op for the solver.
 - **`byproductConsumer = true`** — flips the recipe's objective coefficient from `+1` to `BC_BONUS`. Its ingredients are added to the no-import set, so the LP can't import them just to fire the bonus — they must come from another in-plan producer.
-- **`noImportItems`** (per block) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input. An ore that has an extraction row is an intermediate, so a lock on it applies. The UI lets Import be switched off for an item no recipe row of the block makes, and says that it has no effect (see [ui.md](ui.md#comes-from)); the lock stays and takes effect once a row makes it.
-- **`itemSourcing`** (per block) — per item, `'connections-first'` or `'byproducts-first'`; absent means own recipes first. The UI names them **Receive it first**, **Don't make more here** and **Make it here** (see [ui.md](ui.md#comes-from)); this document keeps the stored names. It changes the supply and slack handling of that item only, see [Connections first](#connections-first) and [Byproducts first](#byproducts-first).
+- **`importOff`** (a part of `Block.sourceRules[item]`; the LP's *no-import set*) — removes the slack variable from the item's row, making it hard. This only matters for intermediates: goals never have slack, and raw items have no LP row, so a raw byproduct-consumer ingredient stays a free input. An ore that has an extraction row is an intermediate, so a lock on it applies. The UI lets Import be switched off for an item no recipe row of the block makes, and says that it has no effect (see [ui.md](ui.md#comes-from)); the lock stays and takes effect once a row makes it. Where this document says *locked* or *no-import*, it means an item with `importOff`.
+- **`makeHere`** (a part of `Block.sourceRules[item]`) — per item, `'after-blocks'` (*connections first*) or `'off'` (*byproducts first*); absent means own recipes first. The UI names them **Receive it first**, **Don't make more here** and **Make it here** (see [ui.md](ui.md#comes-from)); this document keeps the names of the two LP mechanisms. It changes the supply and slack handling of that item only, see [Connections first](#connections-first) and [Byproducts first](#byproducts-first).
 
 `primaryProduct` on a node is display-only in a block without areas, where the solver ignores it. In a block with areas it decides which item a row is dedicated to (see [Areas](#areas)).
 
@@ -165,14 +165,14 @@ A `BlockConnection` on block B says "B receives item X from block A" (see [data-
 - **Intermediate in B** (B can make X): the slack B needs for X after running its own recipes as far as they go. Pins, locked upstream items or missing upstream recipes limit how far that is.
 - **Product (goal) or byproduct in B**: nothing is taken (flow status `unused`).
 
-By default **B uses its own recipes first**; per item, `itemSourcing` changes it: **Connections first** (*Receive it first* in the UI) reverses it, see [Connections first](#connections-first), and **Byproducts first** (*Don't make more here*) imports or connects what recipes running anyway do not make instead of running a recipe just for it, see [Byproducts first](#byproducts-first).
+By default **B uses its own recipes first**; per item, `makeHere` changes it: **Connections first** (*Receive it first* in the UI) reverses it, see [Connections first](#connections-first), and **Byproducts first** (*Don't make more here*) imports or connects what recipes running anyway do not make instead of running a recipe just for it, see [Byproducts first](#byproducts-first).
 
 **Own production first: two passes.** One LP cannot guarantee the ordering (a cost on the supply variable would have to exceed an unbounded recipe-chain cost yet stay below `BIG_M` times the units it replaces), so `solveBlock` runs up to two:
 
 1. *Measure.* Solve with no supply variables. Connected items are removed from the no-import set for this pass only, so a locked connected item reports its shortfall as slack instead of making the LP infeasible. The residual of a connected intermediate is its slack.
 2. *Fill.* Only if some connected intermediate has a residual above `surplusTolerance` of its pass-1 gross flow (the `pass2Plan` helper in `blockResult.ts`, shared with the area solve): solve again with the original no-import set plus, per connected intermediate with a residual above `FLOW_TOLERANCE` (the absolute floor, so a locked item is never left short by a residual the run did not cover; an item whose offer is below its residual by more than `FLOW_TOLERANCE` is unlocked), a supply variable `u_i` (objective cost 0) and a constraint `u_i ≤ min(cap_i, residual_i)`. Capping at the residual keeps own production at its pass-1 level (replacing it would bring slack back at `BIG_M`), and supply fills the gap ahead of slack (0 < `BIG_M`).
 
-Diagnostics come from the final pass only. The amount actually received is computed after the solve as `min(u_i, max(0, −net_i))` rather than from `u_i` alone, because a degenerate optimum may leave `u_i` above the deficit. Locking an item (`noImportItems`) does not block connected supply. If the offer covers the whole residual of a locked item, the lock holds in pass 2. If it covers only part, the lock is dropped for that item in pass 2 (an infeasible LP would return meaningless values and discard the valid pass-1 answer): pins stay honoured, supply fills what is on offer, the rest shows up as an import, and the flow is `limited`.
+Diagnostics come from the final pass only. The amount actually received is computed after the solve as `min(u_i, max(0, −net_i))` rather than from `u_i` alone, because a degenerate optimum may leave `u_i` above the deficit. Locking an item (`importOff`) does not block connected supply. If the offer covers the whole residual of a locked item, the lock holds in pass 2. If it covers only part, the lock is dropped for that item in pass 2 (an infeasible LP would return meaningless values and discard the valid pass-1 answer): pins stay honoured, supply fills what is on offer, the rest shows up as an import, and the flow is `limited`.
 
 **Own production that needs an import.** If B can make X only by importing an upstream item Y, whether the connected X replaces that import depends on the recipe ratio, because pass 1 picks the cheaper of two slacks. Slack on X costs `BIG_M` per unit; slack on Y plus running the recipe costs `BIG_M · (Y per X) + 1`. With 1 Y per X (or more Y per X) the slack on X is cheaper, so X is reported short and the supply fills it. When the recipe yields more X than it consumes Y (for example 1 Y makes 2 X), importing Y is cheaper: Y stays an import and the connected X is not used. Connect Y as well to feed it. The rule is an artefact of the objective and is not tuned; see the backlog item "Let connected supply replace an upstream import". Supply never makes a byproduct-consumer recipe run harder: it only fills a shortfall, while that recipe only consumes surplus. For connected X to replace the import regardless of the ratio, see [Connections first](#connections-first).
 
@@ -190,7 +190,7 @@ A repeated `(fromBlockId, itemId)` on one block counts once. A block whose solve
 
 ### Connections first
 
-Items with `Block.itemSourcing[item] = 'connections-first'` have their connected supply used by B *before* its own recipes, which then only top up the rest. It is set per item on the consumer, as **Receive it first** in the [Comes from](ui.md#comes-from) control, and applies to every connection B has for that item.
+Items with `Block.sourceRules[item].makeHere = 'after-blocks'` have their connected supply used by B *before* its own recipes, which then only top up the rest. It is set per item on the consumer, as **Receive it first** in the [Comes from](ui.md#comes-from) control, and applies to every connection B has for that item.
 
 - *Single LP.* `solveBlock` keeps the items that are intermediates in B and have an offer. Their supply variable `u_i` (cost 0, against at least 1 per recipe run) is in every pass, capped by the offer only, not by the pass-1 residual. Other connected items keep the two-pass rule above and their pass-2 caps; with only connections-first items connected there is no pass 2 effect. With no connections-first item the arguments of both `solveLP` calls are the ones of the default.
 - *Raw items* have no LP row and already take supply before any import, so the mode changes nothing for them (the Comes from control still offers it and reports it as having no effect).
@@ -201,11 +201,11 @@ Items with `Block.itemSourcing[item] = 'connections-first'` have their connected
 
 ### Byproducts first
 
-Items with `Block.itemSourcing[item] = 'byproducts-first'` are never made by a recipe that would run only for them: B uses what recipes running for other reasons make (co-products, byproduct consumers, pinned recipes), and imports or takes the rest. It is set per item on the block, as **Don't make more here** in the [Comes from](ui.md#comes-from) control, and works with or without connections.
+Items with `Block.sourceRules[item].makeHere = 'off'` are never made by a recipe that would run only for them: B uses what recipes running for other reasons make (co-products, byproduct consumers, pinned recipes), and imports or takes the rest. It is set per item on the block, as **Don't make more here** in the [Comes from](ui.md#comes-from) control, and works with or without connections.
 
 - *LP change.* The item's import slack costs `BYPRODUCTS_FIRST_SLACK_COST = 1e-5` per unit instead of `BIG_M`; nothing else changes. A recipe run costs 1, so the LP imports a unit rather than run a recipe for it unless one run would replace more than 1e5 imported units (the bundled data sets yield at most 5000 per run). The cost is above 0 so that output made anyway is used before importing (at 0 the LP may import and leave that output as surplus), above the area shipping cost `SHIP_COST·(1 + RANK_STEP·area)` (1e-6 for area 0, growing to 1e-5 at area 90) for areas below about 90, so another area's output is shipped before importing (at area 90 the two costs tie, and beyond it importing is cheaper than shipping), and 1000 times the solver's 1e-8 pivot precision.
 - *Passes unchanged.* The two passes of [Own production first](#connections-between-blocks) keep their rules. The pass-1 residual of a byproducts-first item is exactly what the byproducts do not cover, so a connection delivers only that: a request asks the source for it, a take gives what is on offer, and the rest stays an import. An item has one mode, so it is never both byproducts-first and connections-first.
-- *Not affected.* Locked items (`noImportItems`) and the ingredients of byproduct consumers have no slack (or must not be imported to collect `BC_BONUS`), so they keep the default cost. The set is built from the full no-import set, not the pass-1 one, since pass 1 unlocks connected items but their slack stays `BIG_M`. Raw items have no LP row. A goal item has no slack, so the mode changes nothing for it; but a product with no extra output and no request is dropped from the goals and stays an intermediate with a slack, so a mode left on it still applies. A surplus that results is still reported (`overconstrained`).
+- *Not affected.* Locked items (`importOff`) and the ingredients of byproduct consumers have no slack (or must not be imported to collect `BC_BONUS`), so they keep the default cost. The set is built from the full no-import set, not the pass-1 one, since pass 1 unlocks connected items but their slack stays `BIG_M`. Raw items have no LP row. A goal item has no slack, so the mode changes nothing for it; but a product with no extra output and no request is dropped from the goals and stays an intermediate with a slack, so a mode left on it still applies. A surplus that results is still reported (`overconstrained`).
 - *Areas.* Stage 2 of the area LP carries the cheap slack, so it chooses the import over running a row. Stage 1 keeps `BIG_M` on every slack: it only produces the bound `L` on dedicated imports, and epsilon there would make it prefer importing over another area's dedicated row, forcing `L = 0` and forbidding the use of another area's dedicated output that is made anyway. Byproducts of other areas' non-dedicated rows flow through the `o…` pools at `SHIP_COST`, below the slack cost, so they are shipped before importing.
 - *Limits.* The mode is per item, not per consumer: a second consumer of the item in the same block also gets imported supply. An import feeding a normal recipe whose output fills 100 or more byproduct-consumer runs per run can attract the import for `BC_BONUS`, as raw inputs already can.
 

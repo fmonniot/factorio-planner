@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs'
+import { sourceRulesOf } from '../test/sourceRulesOf'
 import { resolve } from 'node:path'
 import { describe, it, expect } from 'vitest'
 import { solve, solveAll, flattenBlock, netBalance } from './index'
@@ -233,8 +234,7 @@ describe('solver on the real Nullius data', () => {
         { id: 'p1', itemId: 'nullius-hydrogen', extraRate: 800 },
         { id: 'p2', itemId: 'nullius-compressed-hydrogen', extraRate: 240 },
       ],
-      noImportItems: [],
-      itemSourcing: {},
+      sourceRules: {},
       inputConnections: [],
       rootPlan: {
         id: 'root',
@@ -290,8 +290,7 @@ describe('multi-block loops on the real Seablock data', () => {
       name: id,
       color: '#60a5fa',
       products,
-      noImportItems: [],
-      itemSourcing: {},
+      sourceRules: {},
       inputConnections,
       rootPlan: { id: `root-${id}`, name: id, nodes: recipeIds.map(planNode), subPlans: [], createdAt: now, updatedAt: now },
     }
@@ -453,7 +452,7 @@ describe('byproducts first on the real Seablock data', () => {
   const BYPRODUCT_CONSUMERS = new Set(['angels-yellow-waste-water-purification', 'angels-water-viscous-mud', 'angels-solid-sulfur'])
   const LIQUIFY = ['blue', 'yellow', 'purple', 'lightgreen', 'cyan', 'red'].map(c => `angels-geode-${c}-liquify`)
 
-  function solveAgri(itemSourcing: Block['itemSourcing']) {
+  function solveAgri(itemSourcing: Record<string, 'byproducts-first' | 'connections-first'>) {
     const now = '2020-01-01T00:00:00.000Z'
     const nodes: RecipeNode[] = RECIPE_IDS.map(id => ({
       ...planNode(id),
@@ -465,8 +464,7 @@ describe('byproducts first on the real Seablock data', () => {
       name: 'Agri mod 1',
       color: '#60a5fa',
       products: [{ id: 'p1', itemId: 'angels-bio-yield-module', extraRate: 1 }],
-      noImportItems: [],
-      itemSourcing,
+      sourceRules: sourceRulesOf(itemSourcing),
       inputConnections: [],
       rootPlan: { id: 'root', name: 'Agri mod 1', nodes, subPlans: [], createdAt: now, updatedAt: now },
     }

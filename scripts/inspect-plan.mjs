@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Solves an exported plan (the JSON from the workspace menu's "Export plan") with the app's own
 // solver and prints what one block came out as: rows, left-over items, imports, warnings and
-// connection flows. Optional what-if edits (pin, drop, sourcing, no-area) answer "what would it
+// connection flows. Optional what-if edits (pin, drop, sourcing, import-off, no-area) answer "what would it
 // do if...?" without touching the file. The logic is src/solver/inspect.ts; this file only reads
 // the files and loads that module through Vite so TypeScript needs no build step.
 // Usage: node scripts/inspect-plan.mjs --help
@@ -22,6 +22,7 @@ const HELP = `Usage: node scripts/inspect-plan.mjs <plan.json> [options]
   --pin <recipe=rate>      pin every row of a recipe to executions/min (repeatable)
   --drop <recipe>          remove every row of a recipe (repeatable)
   --sourcing <item=mode>   byproducts-first | connections-first for an item (repeatable)
+  --import-off <item>      turn Import off for an item (repeatable)
   --no-area                clear the area flag of the block's sub-factories
   --all-rows               also list rows that solved to zero
   --all-items              also list balanced items and idle connections
@@ -38,6 +39,7 @@ const { values, positionals } = parseArgs({
     pin: { type: 'string', multiple: true },
     drop: { type: 'string', multiple: true },
     sourcing: { type: 'string', multiple: true },
+    'import-off': { type: 'string', multiple: true },
     'no-area': { type: 'boolean' },
     'all-rows': { type: 'boolean' },
     'all-items': { type: 'boolean' },
@@ -105,6 +107,7 @@ try {
     pins,
     drop: values.drop,
     sourcing: pairs(values.sourcing, '--sourcing'),
+    importOff: values['import-off'],
     noArea: values['no-area'],
   })
   console.log(
