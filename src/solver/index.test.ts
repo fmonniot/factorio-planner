@@ -1275,6 +1275,23 @@ describe('solveAll — requests', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
   })
 
+  it('shares a need among requests for one item in connection order', () => {
+    const run = (order: string[]) => {
+      const links = { c1: link('c1', 'A', 'plate', { maxRate: 30 }), c2: link('c2', 'A2', 'plate', { maxRate: 30 }) }
+      const all = solveAll([smelter(), smelter('A2'), gearmaker('B', 25, order.map(id => links[id as 'c1' | 'c2']))], requestGameData())
+      return { all, c1: flowOf(all, 'c1').requested, c2: flowOf(all, 'c2').requested }
+    }
+    // The consumer needs 50 plate: the first request gets its whole limit, the next one the rest.
+    const forward = run(['c1', 'c2'])
+    expect(forward.c1).toBeCloseTo(30, 4)
+    expect(forward.c2).toBeCloseTo(20, 4)
+    expect(rate(forward.all.results.B.unsatisfied, 'plate')).toBe(0)
+    const swapped = run(['c2', 'c1'])
+    expect(swapped.c2).toBeCloseTo(30, 4)
+    expect(swapped.c1).toBeCloseTo(20, 4)
+    expect(rate(swapped.all.results.B.unsatisfied, 'plate')).toBe(0)
+  })
+
   it('adds the request to the extra of the same product', () => {
     const all = solveAll([smelter('A', [prod('plate', 10)]), gearmaker('B', 25, [link('c1', 'A')])], requestGameData())
     expect(throughput(all, 'A')).toBeCloseTo(60, 4)

@@ -270,6 +270,30 @@ function addConnectionCommand(itemId: string, fromBlockId: string): Command {
   }
 }
 
+/**
+ * `connections` with `id` placed just before `beforeId` among the connections of its item (after the item's last
+ * one when null), or undefined when nothing would move or the two differ in item. The item's connections are
+ * rearranged within the slots they already occupy, so every other item's connections stay exactly where they are.
+ */
+function withConnectionMoved(connections: BlockConnection[], id: string, beforeId: string | null): BlockConnection[] | undefined {
+  const moving = connections.find(c => c.id === id)
+  if (!moving || beforeId === id) return undefined
+  const slots = connections.flatMap((c, i) => (c.itemId === moving.itemId ? [i] : []))
+  const rest = slots.map(i => connections[i]).filter(c => c.id !== id)
+  const at = beforeId === null ? rest.length : rest.findIndex(c => c.id === beforeId)
+  if (at < 0) return undefined
+  const arranged = [...rest.slice(0, at), moving, ...rest.slice(at)]
+  const next = [...connections]
+  slots.forEach((slot, k) => { next[slot] = arranged[k] })
+  return next.every((c, i) => c === connections[i]) ? undefined : next
+}
+
+/** `connections` in the order of `ids` (every id is present: the undo stack is linear). */
+function reorderConnections(connections: BlockConnection[], ids: string[]): BlockConnection[] {
+  const byId = new Map(connections.map(c => [c.id, c]))
+  return ids.map(id => byId.get(id)).filter((c): c is BlockConnection => c !== undefined)
+}
+
 /** Set or clear a connection's limit; clearing deletes the key so undo restores equality. */
 function withMaxRate(block: Block, connectionId: string, maxRate: number | undefined): Block {
   return {
@@ -377,6 +401,11 @@ export interface BlockStoreState {
   removeInputConnection: (connectionId: string, toBlockId?: string) => void
   /** Cap what the consumer takes over a connection (items/min); undefined removes the cap. */
   setConnectionMaxRate: (connectionId: string, maxRate: number | undefined, toBlockId?: string) => void
+
+  /** Reorder a block's connections (the order is the order they are tried): put `connectionId` just before `beforeConnectionId`, or after the last connection of its item when null. Both must be connections of the same block and item; otherwise, or when nothing would move, a no-op with no history entry. Undoable in the target block. */
+  moveConnection: (connectionId: string, beforeConnectionId: string | null, toBlockId?: string) => void
+  /** Move a connection one place among the connections of its item (others are skipped over); a no-op at either end. */
+  moveConnectionBy: (connectionId: string, delta: -1 | 1, toBlockId?: string) => void
 
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
@@ -1024,6 +1053,36 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       }
       return applyCommand(state, cmd, targetId)
     }),
+
+  moveConnection: (connectionId, beforeConnectionId, toBlockId) =>
+    set(state => {
+      const targetId = toBlockId ?? state.activeBlockId
+      const block = state.blocks.find(b => b.id === targetId)
+      if (!block) return state
+      const next = withConnectionMoved(block.inputConnections, connectionId, beforeConnectionId)
+      if (!next) return state
+      const oldOrder = block.inputConnections.map(c => c.id)
+      const newOrder = next.map(c => c.id)
+      const cmd: Command = {
+        apply: b => ({ ...b, inputConnections: reorderConnections(b.inputConnections, newOrder) }),
+        undo: b => ({ ...b, inputConnections: reorderConnections(b.inputConnections, oldOrder) }),
+      }
+      return applyCommand(state, cmd, targetId)
+    }),
+
+  moveConnectionBy: (connectionId, delta, toBlockId) => {
+    const targetId = toBlockId ?? useBlockStore.getState().activeBlockId
+    const block = useBlockStore.getState().blocks.find(b => b.id === targetId)
+    const connection = block?.inputConnections.find(c => c.id === connectionId)
+    if (!block || !connection) return
+    const siblings = block.inputConnections.filter(c => c.itemId === connection.itemId)
+    const at = siblings.findIndex(c => c.id === connectionId)
+    const to = at + delta
+    if (to < 0 || to >= siblings.length) return
+    // Moving up goes before the previous sibling; moving down goes before the one after next (null: the end).
+    const before = delta < 0 ? siblings[to].id : (siblings[to + 1]?.id ?? null)
+    useBlockStore.getState().moveConnection(connectionId, before, targetId)
+  },
 
   // ── Nodes ─────────────────────────────────────────────────────────────────
   //

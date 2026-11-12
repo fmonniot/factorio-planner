@@ -1179,6 +1179,96 @@ describe('input connections', () => {
     expect(useBlockStore.getState().history[otherId()].undoStack).toHaveLength(1)
   })
 
+  describe('moveConnection', () => {
+    const store = () => useBlockStore.getState()
+    const order = () => active().inputConnections.map(c => c.id)
+    let a: string, b: string, c: string, g: string
+    // plate from source, plate from third, gear from source (between), plate from fourth: [a, g, b, c] by item p g p p.
+    beforeEach(() => {
+      const third = makeEmptyBlock('Third')
+      const fourth = makeEmptyBlock('Fourth')
+      useBlockStore.setState(s => ({ blocks: [...s.blocks, third, fourth] }))
+      store().addInputConnection('plate', sourceId)
+      store().addInputConnection('gear', sourceId)
+      store().addInputConnection('plate', third.id)
+      store().addInputConnection('plate', fourth.id)
+      ;[a, g, b, c] = order()
+    })
+    const depth = (id = activeId) => store().history[id].undoStack.length
+
+    it('moves a connection before another of the same item, leaving other items in place', () => {
+      store().moveConnection(c, a)
+      expect(order()).toEqual([c, g, a, b])
+    })
+
+    it('moves to the end of its item with null, after the last connection of the item', () => {
+      store().moveConnection(a, null)
+      expect(order()).toEqual([b, g, c, a])
+      store().moveConnection(a, null)
+      expect(order()).toEqual([b, g, c, a])
+    })
+
+    it('moveConnectionBy moves one place among the connections of its item', () => {
+      store().moveConnectionBy(b, -1)
+      expect(order()).toEqual([b, g, a, c])
+      store().moveConnectionBy(b, 1)
+      expect(order()).toEqual([a, g, b, c])
+      store().moveConnectionBy(a, 1)
+      expect(order()).toEqual([b, g, a, c])
+      store().moveConnectionBy(a, 1)
+      expect(order()).toEqual([b, g, c, a])
+    })
+
+    it('is a no-op with no history entry at either end, for itself, in place, across items or unknown ids', () => {
+      const before = store().blocks
+      const d = depth()
+      store().moveConnectionBy(a, -1)
+      store().moveConnectionBy(c, 1)
+      store().moveConnectionBy(g, 1)
+      store().moveConnectionBy(g, -1)
+      store().moveConnection(a, a)
+      store().moveConnection(a, b) // a already precedes b among the plates
+      store().moveConnection(c, null)
+      store().moveConnection(a, g)
+      store().moveConnection(g, a)
+      store().moveConnection('ghost', a)
+      store().moveConnection(a, 'ghost')
+      expect(order()).toEqual([a, g, b, c])
+      expect(depth()).toBe(d)
+      expect(store().blocks).toBe(before)
+    })
+
+    it('undo and redo restore the exact order', () => {
+      const d = depth()
+      store().moveConnection(c, a)
+      store().moveConnection(a, null)
+      expect(order()).toEqual([c, g, b, a])
+      store().undo()
+      expect(order()).toEqual([c, g, a, b])
+      store().undo()
+      expect(order()).toEqual([a, g, b, c])
+      expect(depth()).toBe(d)
+      store().redo()
+      store().redo()
+      expect(order()).toEqual([c, g, b, a])
+    })
+
+    it('can target a block that is not active and its undo lives there', () => {
+      store().addInputConnection('plate', sourceId, otherId())
+      const third = store().blocks.find(x => x.name === 'Third')!
+      store().addInputConnection('plate', third.id, otherId())
+      const other = () => store().blocks.find(x => x.id === otherId())!.inputConnections.map(x => x.id)
+      const [x, y] = other()
+      store().moveConnection(y, x, otherId())
+      expect(other()).toEqual([y, x])
+      expect(order()).toEqual([a, g, b, c])
+      expect(depth(otherId())).toBe(3)
+      store().setActiveBlock(otherId())
+      store().undo()
+      expect(other()).toEqual([x, y])
+    })
+  })
+
   describe('setConnectionMaxRate', () => {
     const store = () => useBlockStore.getState()
     const connect = () => {
