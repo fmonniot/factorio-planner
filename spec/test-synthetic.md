@@ -489,7 +489,7 @@ As in case 11, A runs 30 / min and makes 30 X / min on the side, and U uses 50 X
 | c | unlimited (`Infinity`, the request probe) | 20 | no (0 / min) | 0 | Same clamp; a request therefore asks the source for 20 |
 | d | 5 | 5 | no (0 / min) | 15 | Received is guaranteed; that R stays idle is the point of the rule (it would cover the 15 under case 11's rule) |
 
-Each case runs twice: with no areas, and with areas where A is in an area other than U (and R). The numbers are the same. Without the rule (Import on) the same plan imports the 20, 0, 0 and 15 X / min instead of missing them; with the rule on a plan where R is the only way to make X, R still does not run (the lock of Import off no longer wins over *Don't make more here*).
+Each case runs twice: with no areas, and with areas where A is in an area other than U (and R). The numbers are the same. With `{ makeHere: 'off' }` alone (Import on) the same plan solves to the same numbers and reads the 20, 0, 0 and 15 X / min as imports. With `{ importOff: true }` alone, or with `{ makeHere: 'after-blocks', importOff: true }`, the item keeps its hard row instead: R runs for X.
 
 ### Derivation
 

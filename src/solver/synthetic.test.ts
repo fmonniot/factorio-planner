@@ -573,6 +573,17 @@ describe('solver synthetic cases', () => {
             expect(id('case11-use-x').throughput).toBeCloseTo(50, 3)
             expect(id('case11-make-x').throughput, 'R runs for X').toBeCloseTo(0, 3)
             expect(unsatisfiedRate(result, 'case11-x') ?? 0, 'X missing').toBeCloseTo(missing, 3)
+            // The solve is the one of Import on: only the reading of the rest differs.
+            const on = solveBlock(flattenBlock(case11Block(withAreas, { makeHere: 'off' }, offer !== undefined)), makeGameData(), supply)
+            expect(result, 'same solve as Import on').toEqual(on.result)
+            expect(got, 'same received as Import on').toEqual(on.received)
+          })
+        }
+        for (const [name, rule] of [['Import off alone', { importOff: true }], ['Receive it first + Import off', { makeHere: 'after-blocks', importOff: true }]] as const) {
+          it(`${name} keeps the hard row: R runs for X`, () => {
+            const { result } = solveBlock(flattenBlock(case11Block(withAreas, rule, false)), makeGameData(), new Map())
+            expect(nodeOf(result, 'case11-make-x@root').throughput, 'R runs for X').toBeCloseTo(10, 3)
+            expect(unsatisfiedRate(result, 'case11-x') ?? 0).toBeCloseTo(0, 3)
           })
         }
       })

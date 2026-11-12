@@ -22,7 +22,7 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, lockedItems, importOffItems, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -235,25 +235,23 @@ export function solveBlock(
     }
   }
 
-  // No-import set: user's explicit list, plus bc recipes' ingredients.
+  // Ingredients of byproduct consumers: locked (no import slack) whatever the rule of the item.
   // Auto-adding bc ingredients preserves the "consume surplus only, don't
   // trigger new ingredient production" semantics: with no slack allowed on
   // a bc ingredient, the LP can't import it just to fire the bc bonus —
   // it must come from an in-plan producer (or raw if no producer exists).
-  const noImportItems = new Set(importOffItems(plan))
   const consumerIngredients = new Set<string>()
   for (const n of representatives) {
     if (!n.byproductConsumer) continue
     const recipe = gameData.recipes[n.recipeId]
     if (!recipe) continue
     for (const ing of lockedIngredients(recipe, nodeEffectsMap.get(n.recipeId), n)) {
-      noImportItems.add(ing.itemId)
       consumerIngredients.add(ing.itemId)
     }
   }
 
-  // What the LP locks: `noImportItems` less the items of the pair Don't make more here + Import off.
-  const locked = lockedItems(plan, consumerIngredients)
+  // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
+  const { locked, cannotImport, byproductsFirst } = sourcingSets(plan, consumerIngredients)
 
   const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
 
@@ -264,7 +262,6 @@ export function solveBlock(
     : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
   // Connections-first intermediates have their supply in every pass, capped by the
   // offer only, so the LP uses it before the block's own recipes.
-  const byproductsFirst = byproductsFirstSet(plan, locked)
   const firstItems = new Set(
     itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
@@ -277,7 +274,7 @@ export function solveBlock(
   // the residual keeps own production at its pass-1 level (replacing it would
   // bring slack back at BIG_M); raw items need no LP row and are handled below.
   const pass2 = pass2Plan({
-    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems: locked,
+    totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput,
   })
   if (pass2.run) {
@@ -319,7 +316,7 @@ export function solveBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput: throughputMap, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...bcRecipeIds]), noImportItems, recipeOf: id => id,
+    fixed: new Set([...pinnedRates.keys(), ...bcRecipeIds]), noImportItems: cannotImport, recipeOf: id => id,
     mainItemOf: id => mainItemOfRecipe.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)

@@ -37,21 +37,29 @@ export function importOffItems(plan: SolverPlan): string[] {
   return importOffOf(plan.sourceRules)
 }
 
-/**
- * The items the LP gives no import slack (a hard row), from the block's rules and its byproduct
- * consumers' ingredients. An item with `makeHere: 'off'` and Import off is not locked: it keeps the
- * cheap slack of Byproducts first, whose rate is then the item's missing amount (`unsatisfied`), so
- * no row runs for it. A byproduct consumer's ingredient is locked whatever its rule.
- */
-export function lockedItems(plan: SolverPlan, byproductConsumerIngredients: Set<string>): Set<string> {
-  const locked = new Set(importOffItems(plan).filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
-  for (const id of byproductConsumerIngredients) locked.add(id)
-  return locked
+/** The sets of items a block's rules and byproduct consumers sort the LP's imports into. */
+export interface SourcingSets {
+  /** Items with no import slack in the LP (a hard row). */
+  locked: Set<string>
+  /** Items the block may not import: `locked` plus the items whose rule has Import off but that keep a cheap slack (`makeHere: 'off'`). Read by `coproductDrivenWarning` only. */
+  cannotImport: Set<string>
+  /** Items whose import slack is cheap (`BYPRODUCTS_FIRST_SLACK_COST`). */
+  byproductsFirst: Set<string>
 }
 
-/** `makeHere: 'off'` items whose import slack is cheap: all of them but the byproduct consumers' ingredients (`lockedItems` holds those back). */
-export function byproductsFirstSet(plan: SolverPlan, locked: Set<string>): Set<string> {
-  return new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
+/**
+ * Sorts the items the rules and the byproduct consumers' ingredients name. An item with `makeHere: 'off'`
+ * and Import off is not locked: it keeps the cheap slack of Byproducts first, whose rate is then the
+ * item's missing amount (`unsatisfied`), so no row runs for it. A byproduct consumer's ingredient is
+ * locked whatever its rule.
+ */
+export function sourcingSets(plan: SolverPlan, byproductConsumerIngredients: Set<string>): SourcingSets {
+  const importOff = importOffItems(plan)
+  const locked = new Set(importOff.filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  for (const id of byproductConsumerIngredients) locked.add(id)
+  const cannotImport = new Set([...importOff, ...byproductConsumerIngredients])
+  const byproductsFirst = new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
+  return { locked, cannotImport, byproductsFirst }
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
@@ -95,13 +103,13 @@ export function pass2Plan(args: {
   totalCaps: Map<string, number>
   intermediates: Set<string>
   firstItems: Set<string>
-  noImportItems: Set<string>
+  locked: Set<string>
   slack: Map<string, number>
   S: Map<string, Map<string, number>>
   throughput: Map<string, number>
 }): { run: boolean; caps: Map<string, number>; noImport: Set<string> } {
   const caps = new Map<string, number>()
-  const noImport = new Set(args.noImportItems)
+  const noImport = new Set(args.locked)
   let run = false
   for (const [itemId, cap] of args.totalCaps) {
     if (!args.intermediates.has(itemId)) continue
