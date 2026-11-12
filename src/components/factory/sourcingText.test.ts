@@ -87,6 +87,12 @@ describe("sourcingText — Don't make more here", () => {
     expect(sourcingText(input({ rule, makers: [maker({ rate: 0 })] }))).toBe('No row here already makes Plastic bar; it is imported.')
   })
 
+  it('names the byproduct rows without a rate when there is no solve', () => {
+    expect(sourcingText(input({ rule, makers: [maker(), used[0]], solved: false }))).toBe(
+      'Uses what this block already makes (Coal liquefaction). The rest is imported.',
+    )
+  })
+
   it('formats the rates in the rate unit', () => {
     expect(sourcingText(input({ rule, makers: used, unit: 'sec' }))).toContain('Coal liquefaction 0.50/s')
   })

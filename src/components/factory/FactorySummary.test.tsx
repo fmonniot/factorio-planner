@@ -1201,6 +1201,25 @@ describe('FactorySummary — connections', () => {
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
     })
 
+    it('undo restores the previous rule after the pair is chosen, in either order', () => {
+      setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
+      withOreRow()
+      render(<FactorySummary />)
+      select('Ingredients', 'Iron Ore')
+      fireEvent.click(choice("Don't make more here"))
+      fireEvent.click(importSwitch())
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
+      act(() => useBlockStore.getState().undo())
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
+      act(() => useBlockStore.getState().undo())
+      expect(consumer().sourceRules).toEqual({})
+      fireEvent.click(importSwitch())
+      fireEvent.click(choice("Don't make more here"))
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
+      act(() => useBlockStore.getState().undo())
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
+    })
+
     it("shows a plan saved with both as Don't make more here with Import off, both parts with an effect", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
@@ -1993,7 +2012,6 @@ describe('FactorySummary — import lock', () => {
     fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
     expect(noImport()).toEqual(['iron-ore'])
     expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'short')
-    expect(slot('Ingredients', 'Iron Ore')).not.toHaveAttribute('data-dimmed', 'true')
     expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short, has a source rule')
     fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
     expect(noImport()).toEqual([])

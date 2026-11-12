@@ -68,6 +68,7 @@ test.describe('Ingredients pane', () => {
     await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
     await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(0)
     await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'short')
+    await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'locked')
   })
 
   test('right click on a slot lists the source blocks and no sourcing or import entry', async ({ page }) => {
@@ -159,7 +160,7 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
     await expect(third).toBeChecked()
     // The block runs no row for it and the slot says what is missing.
     await expect(plateSlot(page)).toHaveAttribute('data-status', 'short')
-    await expect(plateSlot(page)).toHaveAccessibleName(/, short, has a source rule$/)
+    await expect(plateSlot(page)).toHaveAccessibleName(/^Iron plate, \d[\d.]* per minute, short, has a source rule$/)
   })
 
   test('the Import switch locks and unlocks the slot; a left click on a locked slot only selects it', async ({ page }) => {

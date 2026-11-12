@@ -123,7 +123,7 @@ test.describe('item sourcing', () => {
     await expect(control.getByTestId('sourcing-sentence')).toContainText('The rest is missing: Import is off.')
     // Nothing is imported or made for it: the slot reads short, with the missing amount.
     await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
-    await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, .*, short, has a source rule$/)
+    await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, 100 per minute, short, has a source rule$/)
     await expect(compressedSlot(page)).toHaveCount(0)
 
     const acid = await exportedAcid(page)

@@ -22,7 +22,7 @@ export function useBlockSourcingSentence(block: Block | undefined, itemId: strin
   return useMemo(
     () => block && gameData
       ? sourcingText({
-          itemId, itemName: name, rule, unit,
+          itemId, itemName: name, rule, unit, solved: result !== undefined,
           makers: itemMakers(block, gameData, result, itemId),
           connections: itemConnections(block, blocks, flows, itemId),
         })

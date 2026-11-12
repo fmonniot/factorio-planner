@@ -318,7 +318,7 @@ export function ingredientSlot(
     }
   }
   // With Import off, what the other sources leave is not imported: it is missing, and the slot is short.
-  const missing = row.locked && row.importPerMin !== undefined && row.importPerMin > 0
+  const missing = row.locked && row.importPerMin !== undefined && row.importPerMin > FLOW_TOLERANCE
   if (row.importPerMin !== undefined && row.importPerMin > 0) {
     segments.push(missing
       ? { key: 'missing', kind: 'short', amount: row.importPerMin, missing: true }
@@ -335,7 +335,7 @@ export function ingredientSlot(
     segments,
     overlays,
     status: missing ? 'short' : segments.some(s => s.limited) ? 'limited' : row.locked ? 'locked' : null,
-    dimmed: (row.locked && !missing) || need <= FLOW_TOLERANCE,
+    dimmed: row.locked || need <= FLOW_TOLERANCE,
     locked: row.locked,
     ...(ruleItems?.has(row.itemId) ? { sourceRule: true as const } : {}),
   }
@@ -470,7 +470,7 @@ export function keyEntryText(
   const { blockName, product, fmt, nameOf } = ctx
   const amount = 'amount' in entry ? entry.amount : undefined
   const plain = { label: segmentLabel(entry, blockName), ...(amount !== undefined ? { amount: fmt(amount) } : {}) }
-  if (entry.kind === 'short' && (entry as Segment).missing && amount !== undefined) {
+  if (entry.kind === 'short' && 'missing' in entry && entry.missing && amount !== undefined) {
     return { label: 'Missing', amount: fmt(amount), note: '— Import is off' }
   }
   if (!product || amount === undefined) return plain

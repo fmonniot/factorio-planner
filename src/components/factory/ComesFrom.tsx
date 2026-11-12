@@ -43,7 +43,7 @@ const ARROW_STEP: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowL
 
 /**
  * The keyboard contract of a radio group: an arrow moves to the next (or previous) preset, wrapping, and
- * chooses it. 
+ * chooses it.
  */
 function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   const step = ARROW_STEP[e.key]
@@ -52,12 +52,9 @@ function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   const from = radios.indexOf(document.activeElement as HTMLButtonElement)
   if (from < 0) return
   e.preventDefault()
-  for (let i = 1; i < radios.length; i++) {
-    const next = radios[(from + step * i + radios.length * i) % radios.length]
-    next.focus()
-    next.click()
-    return
-  }
+  const next = radios[(from + step + radios.length) % radios.length]
+  next.focus()
+  next.click()
 }
 
 export function ComesFrom({ itemId }: { itemId: string }) {

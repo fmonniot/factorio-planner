@@ -40,6 +40,8 @@ export interface SourcingTextInput {
   makers: ItemMaker[]
   connections: ItemConnection[]
   unit: RateUnit
+  /** There is a solve for the block; without one the rows' rates are unknown. */
+  solved?: boolean
 }
 
 const EPS = 1e-6
@@ -54,7 +56,7 @@ function makerLabel(m: ItemMaker): string {
 }
 
 export function sourcingText(input: SourcingTextInput): string {
-  const { itemName, itemId, rule, makers, connections, unit } = input
+  const { itemName, itemId, rule, makers, connections, unit, solved = true } = input
   const mode = presetOf(rule)
   const noImport = rule?.importOff === true
   const primaries = makers.filter(m => !m.byproduct)
@@ -64,7 +66,10 @@ export function sourcingText(input: SourcingTextInput): string {
 
   if (mode === 'byproducts-first') {
     // Every row that already makes the item, whatever its dedicated product.
-    const used = makers.filter(m => m.rate > EPS).map(m => `${m.recipeName} ${rate(m.rate)}`).join(', ')
+    // Without a solve the rates are unknown: name the rows that make it as a byproduct, without a rate.
+    const used = solved
+      ? makers.filter(m => m.rate > EPS).map(m => `${m.recipeName} ${rate(m.rate)}`).join(', ')
+      : makers.filter(m => m.byproduct).map(m => m.recipeName).join(', ')
     const rest = (imported: string) => (noImport ? 'missing: Import is off' : imported)
     const blocks = list(connections.map(c => c.blockName))
     if (used) {
