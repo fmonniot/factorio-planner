@@ -4,7 +4,7 @@ import type { Block, BlockConnection, ConnectionFlow, Product } from '../../data
 import { blockAreas } from '../../solver/areas'
 import { hasProduct } from '../../solver/blockGraph'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
-import { productChangeEffects } from '../../store/connections'
+import { productChangeEffects, requestBlockerTitle } from '../../store/connections'
 import type { ProductChangeEffect } from '../../store/connections'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
@@ -123,8 +123,13 @@ interface BlockRow {
   tagTitle?: string
   /** The action *Make it a product* is offered. */
   canMakeProduct: boolean
+  /** Why it cannot be used: the source receives the item itself, so the request would be ignored. */
+  productBlocked?: string
   status: string
 }
+
+/** The three drop handlers of a row. */
+type DropHandlers = Required<Pick<React.HTMLAttributes<HTMLLIElement>, 'onDragOver' | 'onDragLeave' | 'onDrop'>>
 
 const DRAG_BLOCK = 'application/x-sources-block-line'
 
@@ -179,6 +184,8 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   const [editingLimit, setEditingLimit] = useState<string | null>(null)
   const [pending, setPending] = useState<{ sourceId: string; product: Product; effects: ProductChangeEffect[] } | null>(null)
 
+  const blockById = useMemo(() => new Map(blocks.map(b => [b.id, b])), [blocks])
+  const flowById = useMemo(() => new Map(flows.map(f => [f.connectionId, f])), [flows])
   const rootPlan = block?.rootPlan
   const hasAreas = useMemo(() => rootPlan !== undefined && blockAreas(rootPlan) !== undefined, [rootPlan])
   const makers = useMemo(
@@ -206,8 +213,8 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   // The block lines, in connection order.
   const connections = block.inputConnections.filter(c => c.itemId === itemId)
   const rows: BlockRow[] = connections.map(connection => {
-    const source = blocks.find(b => b.id === connection.fromBlockId)
-    const flow = flows.find(f => f.connectionId === connection.id)
+    const source = blockById.get(connection.fromBlockId)
+    const flow = flowById.get(connection.id)
     const greyed = source === undefined || connection.fromBlockId === block.id
     if (greyed) {
       return { connection, source, flow, greyed, canMakeProduct: false, status: source === undefined ? 'the source block was deleted' : 'ignored: a block cannot supply itself' }
@@ -227,7 +234,10 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
       const cap = cappingLimit(true, flow.capped, connection.maxRate)
       status = cap !== undefined ? cappedTitle(rate(cap)) : `Limited: ${sourceName} only offers ${rate(flow.available)}`
     }
-    return { connection, source, flow, greyed, tag, tagTitle, canMakeProduct: tag === 'existing' && !hasProduct(source, itemId), status }
+    const canMakeProduct = tag === 'existing' && !hasProduct(source, itemId)
+    // As in the connection menu: a source that receives the item itself would ignore the request, so the action is disabled.
+    const blocker = canMakeProduct ? productChangeEffects(blocks, source.id, itemId, 'add', flows).find(e => e.blocker)?.blocker : undefined
+    return { connection, source, flow, greyed, tag, tagTitle, canMakeProduct, ...(blocker ? { productBlocked: requestBlockerTitle(blocker, sourceName, name) } : {}), status }
   })
 
   /** Make more here goes above (Make it here) or below (Receive it first) the block lines. */
@@ -290,7 +300,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   // The rows of the block group (the block lines and the Receive from… line) take the drop of Make more here: before the
   // group or after it, by the half of the group the pointer is over (a row's position plus the pointer's place in it).
   const groupRows = rows.length + 1
-  const groupFrame = (index: number): LineProps['frame'] => {
+  const groupDrop = (index: number): DropHandlers => {
     const sideOf = (e: React.DragEvent<HTMLLIElement>) => {
       const r = e.currentTarget.getBoundingClientRect()
       return index + (e.clientY - r.top) / r.height < groupRows / 2 ? 'before' : 'after'
@@ -318,9 +328,10 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
   /** The connection id of the block line being dragged, if one is. */
   const draggedRow = () => (dragRef.current?.startsWith('block:') ? dragRef.current.slice('block:'.length) : null)
 
-  // A block line takes the drop of another block line: before it or before the next one, by the half it is over.
+  // A block line takes the drop of another block line: before it or before the next one, by the half it is over. A drop of
+  // Make more here goes to the group's handlers.
   const rowFrame = (index: number, connectionId: string, movable: boolean): LineProps['frame'] => {
-    const dragged = draggedRow
+    const group = groupDrop(index)
     const target = (e: React.DragEvent<HTMLLIElement>) => {
       const r = e.currentTarget.getBoundingClientRect()
       const side = e.clientY < r.top + r.height / 2 ? 'before' : 'after'
@@ -334,10 +345,9 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
     return {
       ...(movable ? { draggable: true, onDragStart: (e: React.DragEvent<HTMLLIElement>) => startDrag(e, `block:${connectionId}`, DRAG_BLOCK), onDragEnd: endDrag } : {}),
       ...(dragging === `block:${connectionId}` ? { style: { opacity: 0.4 } } : {}),
-      ...groupFrame(index),
       onDragOver: e => {
-        const dragId = dragged()
-        if (dragId === null) return groupFrame(index)?.onDragOver?.(e)
+        const dragId = draggedRow()
+        if (dragId === null) return group.onDragOver(e)
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
         const t = target(e)
@@ -347,8 +357,8 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
         if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setDrop(null); setLineDrop(null) }
       },
       onDrop: e => {
-        const dragId = dragged()
-        if (dragId === null) return groupFrame(index)?.onDrop?.(e)
+        const dragId = draggedRow()
+        if (dragId === null) return group.onDrop(e)
         e.preventDefault()
         const t = target(e)
         if (moves(dragId, t.beforeId)) {
@@ -362,19 +372,21 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
 
   // The Receive from… line is the end of the block group: a block line dropped on it goes last.
   const receiveFrame = (): LineProps['frame'] => {
-    const base = groupFrame(rows.length)
+    const group = groupDrop(rows.length)
     return {
-      ...base,
       onDragOver: e => {
         const dragId = draggedRow()
-        if (dragId === null) return base?.onDragOver?.(e)
+        if (dragId === null) return group.onDragOver(e)
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
         setLineDrop(connections[connections.length - 1]?.id !== dragId ? { id: 'add-block', side: 'before' } : null)
       },
+      onDragLeave: e => {
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) { setDrop(null); setLineDrop(null) }
+      },
       onDrop: e => {
         const dragId = draggedRow()
-        if (dragId === null) return base?.onDrop?.(e)
+        if (dragId === null) return group.onDrop(e)
         e.preventDefault()
         refocus.current = `[data-connection-id="${dragId}"]`
         moveConnection(dragId, null)
@@ -448,7 +460,12 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
               controls={
                 <span className="flex shrink-0 flex-wrap items-center gap-1">
                   {row.canMakeProduct && (
-                    <button type="button" data-testid="sources-make-product" aria-describedby={rowHelpId} onClick={() => requestSourceProduct(c.fromBlockId)} className={MINI_BUTTON_CLASS}>
+                    <button
+                      type="button" data-testid="sources-make-product" aria-describedby={rowHelpId}
+                      aria-disabled={row.productBlocked !== undefined || undefined} title={row.productBlocked}
+                      onClick={() => { if (!row.productBlocked) requestSourceProduct(c.fromBlockId) }}
+                      className={MINI_BUTTON_CLASS}
+                    >
                       Make it a product
                     </button>
                   )}
@@ -460,8 +477,9 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
                         ariaLabel={`Limit of ${sourceName}`}
                         allowClear
                         onCommit={perMin => setConnectionMaxRate(c.id, perMin)}
-                        onStop={() => {
-                          refocus.current = `[data-connection-id="${c.id}"] [data-testid="sources-limit"]`
+                        onStop={how => {
+                          // Enter and Escape give the focus back to the button; a blur means it went elsewhere on purpose.
+                          if (how === 'key') refocus.current = `[data-connection-id="${c.id}"] [data-testid="sources-limit"]`
                           setEditingLimit(null)
                         }}
                       />
@@ -608,7 +626,7 @@ export function SourcesList({ itemId, id }: { itemId: string; id?: string }) {
           change="add"
           itemId={itemId}
           itemName={name}
-          blockName={blocks.find(b => b.id === pending.sourceId)?.name ?? ''}
+          blockName={blockById.get(pending.sourceId)?.name ?? ''}
           effects={pending.effects}
           rateUnit={unit}
           onCancel={() => setPending(null)}

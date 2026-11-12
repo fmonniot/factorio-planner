@@ -96,7 +96,12 @@ export function sourcingText(input: SourcingTextInput): string {
   }
 
   // Make it here
-  if (makers.length === 0) return `No row here makes ${itemName}; it is imported.${importOff}`
+  if (makers.length === 0) {
+    // Connections deliver what they can; only the rest is imported (the sentence of Don't make more here, with no row).
+    return connections.length > 0
+      ? `No row here makes ${itemName}; it is taken from ${list(connections.map(c => c.blockName))}, and the rest is imported.${importOff}`
+      : `No row here makes ${itemName}; it is imported.${importOff}`
+  }
   return `Made here by ${list(makers.map(makerLabel))}.${importOff}`
 }
 

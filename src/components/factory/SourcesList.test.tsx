@@ -523,6 +523,17 @@ describe('the block lines', () => {
       expect(within(row('c2')).getByTestId('sources-block-status')).toHaveTextContent('not used')
     })
 
+    it('disables Make it a product, with the reason, when the source receives the item itself', () => {
+      twoSources()
+      useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'beta' ? { ...b, inputConnections: [{ id: 'cb', fromBlockId: 'alpha', itemId: 'ore' }] } : b)) }))
+      openList()
+      const action = within(row('c2')).getByTestId('sources-make-product')
+      expect(action).toHaveAttribute('aria-disabled', 'true')
+      expect(action.getAttribute('title')).toMatch(/receives/)
+      fireEvent.click(action)
+      expect(screen.queryByTestId('product-change-confirm')).toBeNull()
+    })
+
     it('Make it a product asks first, then adds the product on the source block, in that block\'s history', () => {
       twoSources()
       openList()
@@ -622,6 +633,23 @@ describe('the block lines', () => {
       fireEvent.change(input, { target: { value: '' } })
       fireEvent.keyDown(input, { key: 'Enter' })
       expect(limit()).toBeUndefined()
+    })
+
+    it('gives the focus back to the limit button after Enter, not after a blur', () => {
+      twoSources()
+      openList()
+      const button = () => within(row('c1')).getByTestId('sources-limit')
+      fireEvent.click(button())
+      let input = screen.getByLabelText('Limit of Alpha')
+      fireEvent.change(input, { target: { value: '20' } })
+      fireEvent.blur(input)
+      expect(button()).toHaveTextContent('Limit 20.0/m')
+      expect(document.activeElement).not.toBe(button())
+      fireEvent.click(button())
+      input = screen.getByLabelText('Limit of Alpha')
+      fireEvent.change(input, { target: { value: '30' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(document.activeElement).toBe(button())
     })
 
     it('reorders by drag: before the line it is dropped on the upper half of, after the lower half, last on Receive from…', () => {
