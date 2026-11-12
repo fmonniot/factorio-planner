@@ -19,8 +19,7 @@ import {
   FLOW_TOLERANCE,
   blockDiagnostics,
   coproductDrivenWarning,
-  byproductsFirstSet,
-  importOffItems,
+  sourcingSets,
   itemsWithSourcing,
   pass2Plan,
   solvedNodeOf,
@@ -527,22 +526,24 @@ export function solveAreaBlock(
   }
   const bcColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
 
-  // No-import set: user's explicit list, plus byproduct consumers' ingredients (see solveBlock).
-  const noImportItems = new Set(importOffItems(plan))
+  // Ingredients of byproduct consumers (see solveBlock).
+  const consumerIngredients = new Set<string>()
   for (const col of columns) {
     if (!col.node.byproductConsumer || !col.recipe) continue
     for (const ing of lockedIngredients(col.recipe, col.effects, col.node)) {
-      noImportItems.add(ing.itemId)
+      consumerIngredients.add(ing.itemId)
     }
   }
+
+  // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
+  const { locked, cannotImport, byproductsFirst } = sourcingSets(plan, consumerIngredients)
 
   const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
 
   // The passes are those of solveBlock.
   const pass1NoImport = totalCaps.size === 0
-    ? noImportItems
-    : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
-  const byproductsFirst = byproductsFirstSet(plan, noImportItems)
+    ? locked
+    : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
   const firstItems = new Set(
     itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
@@ -552,7 +553,7 @@ export function solveAreaBlock(
   let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst)
 
   const pass2 = pass2Plan({
-    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems,
+    totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput,
   })
   if (pass2.run) {
@@ -590,7 +591,7 @@ export function solveAreaBlock(
   // Pins that cannot be met make the flows meaningless for this check.
   const coproductDriven = warnings.some(w => w.type === 'infeasible-pins') ? undefined : coproductDrivenWarning({
     goals: plan.goals, system, throughput, slack: lp.slack, itemSurplus, itemGross,
-    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), noImportItems, recipeOf: id => recipeOfCol.get(id) ?? id,
+    fixed: new Set([...pinnedRates.keys(), ...bcColumns]), noImportItems: cannotImport, recipeOf: id => recipeOfCol.get(id) ?? id,
     mainItemOf: id => mainItemOfCol.get(id),
   })
   if (coproductDriven) warnings.push(coproductDriven)

@@ -3,11 +3,18 @@ import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock, surplusTolerance } from './index'
 import { subPlanAreaIds, areaRecipeIds, subPlanCopyBlocker } from './areas'
 import { createSolveCache, exactKey, planKey } from './solveCache'
+import { coproductDrivenWarning } from './blockResult'
 import { parseAppState } from '../data/loader'
 import type { Block, GameData, GameRecipeNode, Product, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
 
 // Areas: a sub-factory with `area: true` is solved as its own area. Every recipe takes 1 s in a
 // speed-1 machine, so machineCountExact = throughput / 60. Fixtures are built fresh by each call.
+
+// Delegates to the real function; lets a test read the set of items the warning is told cannot be imported.
+vi.mock('./blockResult', async importOriginal => {
+  const actual = await importOriginal<typeof import('./blockResult')>()
+  return { ...actual, coproductDrivenWarning: vi.fn(actual.coproductDrivenWarning) }
+})
 
 type GameRecipe = GameData['recipes'][string]
 
@@ -525,15 +532,63 @@ describe('areas in the solve', () => {
     })
   })
 
-  it('ignores byproducts first on a locked item that a connection partly covers (area LP)', () => {
+  it('solves Import off like Import on under byproducts first, on an item a connection partly covers (area LP)', () => {
     const base = blk(
       root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
       [['y', 10], ['z', 30]],
     )
-    const withSourcing = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>): Block => ({ ...base, sourceRules: sourceRulesOf(sourcing, ['x']) })
+    const withSourcing = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>, locked: string[]): Block => ({ ...base, sourceRules: sourceRulesOf(sourcing, locked) })
     const caps = () => new Map([['x', 5]])
     const run = (b: Block) => solveBlock(flattenBlock(b), gd(), caps())
-    expect(run(withSourcing({ x: 'byproducts-first' }))).toEqual(run(withSourcing({})))
+    const pair = run(withSourcing({ x: 'byproducts-first' }, ['x']))
+    expect(pair).toEqual(run(withSourcing({ x: 'byproducts-first' }, [])))
+    expect(pair.result.nodes.find(n => n.recipeNodeId === 'x-make@s')!.throughput).toBeCloseTo(0, 6)
+  })
+
+  describe("the pair don't make more here + Import off (area LP)", () => {
+    const pair = { makeHere: 'off' as const, importOff: true as const }
+    // The area S uses 30 x through a byproduct consumer; the root's r-main makes 10 x on the side, both producers are pinned.
+    const consumerPlan = (extra: Partial<Block> = {}): Block => ({
+      ...blk(
+        root([row('r-main', 'root')], [sub('S', [row('use-x', 's', { byproductConsumer: true }), row('x-make', 's')], [], true)]),
+        [['y', 10], ['z', 30]],
+      ),
+      ...extra,
+    })
+    const pinnedPlan = (rule: Block['sourceRules'][string]): Block => ({
+      ...blk(
+        root([row('r-main', 'root', { pinnedRate: 10 })], [sub('S', [row('use-x', 's'), row('x-make', 's', { pinnedRate: 0 })], [], true)]),
+        [['y', 10], ['z', 30]],
+      ),
+      sourceRules: { x: rule },
+    })
+    const run = (b: Block, caps: Map<string, number> = new Map()) => solveBlock(flattenBlock(b), gd(), caps)
+
+    it("keeps a byproduct consumer's ingredient locked, with and without a connection that partly covers it", () => {
+      for (const caps of [new Map<string, number>(), new Map([['x', 5]])]) {
+        expect(run(consumerPlan({ sourceRules: { x: pair } }), caps)).toEqual(run(consumerPlan(), caps))
+      }
+    })
+
+    it('leaves the item unlocked: a pin that cannot cover it leaves it missing, with no infeasible-pins', () => {
+      const { result } = run(pinnedPlan(pair))
+      expect(result.warnings.map(w => w.type)).not.toContain('infeasible-pins')
+      expect(result.unsatisfied.find(u => u.itemId === 'x')?.rate).toBeCloseTo(20, 6)
+    })
+
+    it.each([
+      ['Import off alone', { importOff: true as const }],
+      ['Receive it first + Import off', { makeHere: 'after-blocks' as const, importOff: true as const }],
+    ])('keeps the hard row for %s: the same pin makes the LP infeasible', (_name, rule) => {
+      expect(run(pinnedPlan(rule)).result.warnings.map(w => w.type)).toContain('infeasible-pins')
+    })
+
+    it("tells the coproduct-driven check every Import-off item and the byproduct consumers' ingredients", () => {
+      const b = consumerPlan({ sourceRules: { y: pair, w: { importOff: true }, z: { makeHere: 'off' } } })
+      run(b)
+      const told = vi.mocked(coproductDrivenWarning).mock.calls.at(-1)![0].noImportItems
+      expect([...told].sort()).toEqual(['w', 'x', 'y'])
+    })
   })
 
   it('S5b: a surplus byproduct goes to the area that makes x itself', () => {

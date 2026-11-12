@@ -135,7 +135,7 @@ Each ticket is one pull request and updates the docs for what it changes; T8 is 
   - Tests: `loader.test.ts` gets one case per row of the migration table, one for idempotence, one for a plan that has both `sourceRules` and legacy keys, and one for the oldest shapes at once (`connectionsFirstItems`, and `noImportItems` on a sub-plan). `persistence.test.ts` gets a state stored in local storage in the old shape that loads into rules and is saved back with `sourceRules` and without the old keys. The plans in `e2e/fixtures/` keep the old keys on purpose: they are the migration's real-data test, and `legacyParity.test.ts` must stay green without regenerating its golden file. Add one fixture saved in the new shape.
   - Docs: `spec/data-model.md` (the `Block` fields and the legacy migration), `spec/solver.md` where it names the stored fields.
 
-- [ ] **T3. Solver: *Don't make more here* with Import off.** Write the synthetic case first: case 12 in `spec/test-synthetic.md`, on the fixture of case 11 with the rule `{ makeHere: 'off', importOff: true }` on X, automated in `src/solver/synthetic.test.ts`, with and without areas.
+- [x] **T3. Solver: *Don't make more here* with Import off.** Write the synthetic case first: case 12 in `spec/test-synthetic.md`, on the fixture of case 11 with the rule `{ makeHere: 'off', importOff: true }` on X, automated in `src/solver/synthetic.test.ts`, with and without areas.
 
   | Case | Offer | Received | R runs for X | X missing (`unsatisfied`) |
   | --- | --- | --- | --- | --- |

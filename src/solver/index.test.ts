@@ -1,9 +1,15 @@
 import { describe, it, expect, vi } from 'vitest'
 import { solve, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMakesItem, netBalance, grossFlow, connectionOffer, surplusTolerance } from './index'
-import { itemGrossFlow, pass2Plan } from './blockResult'
+import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import { createSolveCache } from './solveCache'
 import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
+
+// Delegates to the real function; lets a test read the set of items the warning is told cannot be imported.
+vi.mock('./blockResult', async importOriginal => {
+  const actual = await importOriginal<typeof import('./blockResult')>()
+  return { ...actual, coproductDrivenWarning: vi.fn(actual.coproductDrivenWarning) }
+})
 
 function makeGameData(overrides: Partial<GameData> = {}): GameData {
   return {
@@ -545,10 +551,13 @@ describe('solveBlock — byproducts first', () => {
     expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(20, 4)
   })
 
-  it('ignores the mode on a locked item', () => {
-    const locked = { sourceRules: { 'plate': { importOff: true as const } } }
-    expect(solveBlock({ ...plan(), sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }, connectionGameData()))
-      .toEqual(solveBlock({ ...plan(), ...locked }, connectionGameData()))
+  it('solves the same with Import off on the item: the rest is missing, not made', () => {
+    // The pair keeps the cheap slack, so no row runs for plate; only the reading of the slack (missing) differs, in the UI.
+    const pair = { sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }
+    const { result } = solveBlock({ ...plan(), ...pair }, connectionGameData())
+    expect(own(result, 'p')).toBeCloseTo(0, 4)
+    expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(30, 4)
+    expect(solveBlock({ ...plan(), ...pair }, connectionGameData())).toEqual(solveBlock({ ...plan(), ...bf }, connectionGameData()))
   })
 
   it("ignores the mode on a byproduct consumer's ingredient", () => {
@@ -558,12 +567,15 @@ describe('solveBlock — byproducts first', () => {
     expect(solveBlock({ ...plan(burn), ...bf }, data)).toEqual(solveBlock(plan(burn), data))
   })
 
-  it('ignores the mode on a locked item that a connection partly covers', () => {
-    // The offer (10) is below the residual (30): the lock must still decide, not the cheap slack of pass 1.
-    const locked = { sourceRules: { 'plate': { importOff: true as const } } }
+  it('solves the same with Import off on an item that a connection partly covers', () => {
+    // The offer (10) is below the residual (30): the cheap slack holds the other 20 as missing, and no row runs for plate.
+    const pair = { sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }
     const caps = () => new Map([['plate', 10]])
-    expect(solveBlock({ ...plan(), sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }, connectionGameData(), caps()))
-      .toEqual(solveBlock({ ...plan(), ...locked }, connectionGameData(), caps()))
+    const { result, received } = solveBlock({ ...plan(), ...pair }, connectionGameData(), caps())
+    expect(received.get('plate')).toBeCloseTo(10, 4)
+    expect(own(result, 'p')).toBeCloseTo(0, 4)
+    expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+    expect(solveBlock({ ...plan(), ...pair }, connectionGameData(), caps())).toEqual(solveBlock({ ...plan(), ...bf }, connectionGameData(), caps()))
   })
 
   it("ignores the mode on a byproduct consumer's ingredient that a connection partly covers", () => {
@@ -572,6 +584,41 @@ describe('solveBlock — byproducts first', () => {
     const burn: RecipeNode = { ...planNode('b', 'burn'), byproductConsumer: true }
     const caps = () => new Map([['plate', 10]])
     expect(solveBlock({ ...plan(burn), ...bf }, data, caps())).toEqual(solveBlock(plan(burn), data, caps()))
+  })
+
+  describe("with the pair don't make more here + Import off", () => {
+    const pair = { makeHere: 'off' as const, importOff: true as const }
+    const burnData = () => {
+      const data = connectionGameData()
+      data.recipes.burn = recipe('burn', 1, [{ itemId: 'plate', type: 'item', amount: 1 }], [product('ash', 1)])
+      return data
+    }
+    const burn: RecipeNode = { ...planNode('b', 'burn'), byproductConsumer: true }
+    const pinnedPlan = () => ({ goals, nodes: [planNode('g', 'gear'), pinned('t', 'twin', 20), pinned('p', 'plateFromIngot', 10)] })
+    const infeasiblePins = (result: ReturnType<typeof solveBlock>['result']) => result.warnings.some(w => w.type === 'infeasible-pins')
+
+    it("keeps a byproduct consumer's ingredient locked: the rule of the item does not open its slack", () => {
+      expect(solveBlock({ ...plan(burn), sourceRules: { plate: pair } }, burnData())).toEqual(solveBlock(plan(burn), burnData()))
+    })
+
+    it("keeps a byproduct consumer's ingredient locked when a connection partly covers it", () => {
+      const caps = () => new Map([['plate', 10]])
+      expect(solveBlock({ ...plan(burn), sourceRules: { plate: pair } }, burnData(), caps())).toEqual(solveBlock(plan(burn), burnData(), caps()))
+    })
+
+    it('leaves the item unlocked: a pin that cannot cover it leaves it missing, with no infeasible-pins', () => {
+      const { result } = solveBlock({ ...pinnedPlan(), sourceRules: { plate: pair } }, connectionGameData())
+      expect(infeasiblePins(result)).toBe(false)
+      expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+    })
+
+    it.each([
+      ['Import off alone', { importOff: true as const }],
+      ['Receive it first + Import off', { makeHere: 'after-blocks' as const, importOff: true as const }],
+    ])('keeps the hard row for %s: the same pin makes the LP infeasible', (_name, rule) => {
+      const { result } = solveBlock({ ...pinnedPlan(), sourceRules: { plate: rule } }, connectionGameData())
+      expect(infeasiblePins(result)).toBe(true)
+    })
   })
 
   it('does not import when the byproducts cover the need', () => {
@@ -1302,6 +1349,38 @@ describe('solveAll — requests', () => {
     expect(flowOf(all, 'c1').requested).toBeCloseTo(30, 4)
     expect(throughput(all, 'A')).toBeCloseTo(30, 4)
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+  })
+
+  describe("with the item set to don't make more here and Import off", () => {
+    // B needs 50 plate / min for its gear goal and already makes 30 on the side (the twin row runs for slag).
+    // The plate row of B must stay idle: the 20 left are asked of the source, and missing when it cannot give them.
+    const consumer = () => block(
+      'B',
+      [prod('gear', 25), prod('slag', 30)],
+      [planNode('g', 'gear'), planNode('t', 'twin'), planNode('f', 'plateFromIngot')],
+      [link('c1', 'A')],
+      { sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } },
+    )
+    const rowRate = (all: ReturnType<typeof solveAll>, id: string) => all.results.B.nodes.find(n => n.recipeNodeId === id)!.throughput
+
+    it('asks the source for what the block does not already make and runs no row for it', () => {
+      const all = solveAll([smelter(), consumer()], requestGameData())
+      expect(flowOf(all, 'c1').requested).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'c1').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'c1').status).toBe('ok')
+      expect(throughput(all, 'A')).toBeCloseTo(20, 4)
+      expect(rowRate(all, 'f')).toBeCloseTo(0, 4)
+      expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
+    })
+
+    it('reports the amount missing and a limited flow when the source makes nothing', () => {
+      const all = solveAll([block('A', [prod('plate')], [planNode('i', 'ingot')]), consumer()], requestGameData())
+      expect(flowOf(all, 'c1').requested).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'c1').rate).toBe(0)
+      expect(flowOf(all, 'c1').status).toBe('limited')
+      expect(rowRate(all, 'f')).toBeCloseTo(0, 4)
+      expect(rate(all.results.B.unsatisfied, 'plate')).toBeCloseTo(20, 4)
+    })
   })
 
   it('leaves a request unserved when the source has no recipe for the item', () => {
@@ -2235,7 +2314,7 @@ describe('pass2Plan', () => {
     totalCaps: new Map([['x', over.cap], ['y', 1e6]]),
     intermediates: new Set(['x', 'y']),
     firstItems: new Set(),
-    noImportItems: new Set(over.locked === false ? [] : ['x']),
+    locked: new Set(over.locked === false ? [] : ['x']),
     slack: new Map([['x', over.residual], ['y', over.other ?? 0]]),
     S: new Map([['x', new Map([['mk', 1], ['use', -1]])], ['y', new Map([['mk', 1]])]]),
     throughput: new Map([['mk', over.gross], ['use', over.gross]]),
@@ -2378,9 +2457,30 @@ describe('solve — coproduct-driven warning', () => {
   })
 
   it('is silent when the co-product cannot be imported anyway', () => {
-    const r = solve({ goals: gadgetGoal(), nodes: nodes(), sourceRules: { W: { makeHere: 'off' as const, importOff: true as const } } }, gd(100))
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), sourceRules: { W: { importOff: true as const } } }, gd(100))
     expect(tp(r, 'n0')).toBeCloseTo(150, 3)
     expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it("is silent when the co-product is set to don't make more here with Import off (missing, not made)", () => {
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), sourceRules: { W: { makeHere: 'off' as const, importOff: true as const } } }, gd(100))
+    expect(tp(r, 'n0')).toBeCloseTo(60, 3)
+    expect(types(r)).not.toContain('overconstrained')
+    expect(types(r)).not.toContain('coproduct-driven')
+  })
+
+  it('tells the warning every Import-off item, the pair included, and the byproduct consumers\' ingredients', () => {
+    const data = gd(100)
+    data.recipes.burn = recipe('burn', 1, [{ itemId: 'ash0', type: 'item', amount: 1 }], [product('ash', 1)])
+    const bc: RecipeNode = { ...planNode('n2', 'burn'), byproductConsumer: true }
+    const sourceRules = {
+      W: { makeHere: 'off' as const, importOff: true as const },
+      P: { importOff: true as const },
+      other: { makeHere: 'off' as const },
+    }
+    solve({ goals: gadgetGoal(), nodes: [...nodes(), bc], sourceRules }, data)
+    const told = vi.mocked(coproductDrivenWarning).mock.calls.at(-1)![0].noImportItems
+    expect([...told].sort()).toEqual(['P', 'W', 'ash0'])
   })
 
   it('is silent when the co-product is absorbed by a byproduct consumer', () => {

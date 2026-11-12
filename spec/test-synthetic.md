@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Eleven recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Twelve recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; case 11 uses plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 and 12 use plain made-up item ids.
 
-Case 11 (made-up ids) is the exception to the Nullius ids: its recipes are only in the fixtures.
+Cases 11 and 12 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -468,4 +468,37 @@ U: 50 other/min ÷ 1 = 50 runs/min → 50 X/min used.
 Deficit after own production: 50 − 30 = 20 X/min.
 a, b: supply (cost 0) covers the 20; no recipe has to run for X.
 c: supply is 5; 15 X/min left. R at 2 X per run: 7.5 runs/min (cost 7.5), against 15 extra runs of A (cost 15).
+```
+
+---
+
+## Case 12 — Don't make more here, Import off
+
+**Exercises:** `sourceRules[item] = { makeHere: 'off', importOff: true }` with and without a connection. The item keeps the cheap slack of *Byproducts first*, so no row runs for it, and the slack is read as the amount **missing** (`unsatisfied`), not as an import. The solve is the one of case 11's item with `{ makeHere: 'off' }` alone (Import on); only the name of the rest changes.
+
+**Goals:** 30 `case11-goal` / min and 50 `case11-other` / min, on the plan of case 11 (A, U and R, with A in an area of its own in the second run). `case11-x` has the rule above and, in b to d, one connection from another block.
+
+### Expected solver output
+
+As in case 11, A runs 30 / min and makes 30 X / min on the side, and U uses 50 X / min: the deficit is 20 X / min.
+
+| Case | Offer on the connection | Received | R runs for X | X missing (`unsatisfied`) | Why |
+|---|---|---|---|---|---|
+| a | no connection | 0 | no (0 / min) | 20 | Guaranteed: nothing can cover the deficit, and the block does not make X for itself |
+| b | 100 | 20 | no (0 / min) | 0 | Guaranteed: received is `min(offer, 50 − 30)` |
+| c | unlimited (`Infinity`, the request probe) | 20 | no (0 / min) | 0 | Same clamp; a request therefore asks the source for 20 |
+| d | 5 | 5 | no (0 / min) | 15 | Received is guaranteed; that R stays idle is the point of the rule (it would cover the 15 under case 11's rule) |
+
+Each case runs twice: with no areas, and with areas where A is in an area other than U (and R). The numbers are the same. With `{ makeHere: 'off' }` alone (Import on) the same plan solves to the same numbers and reads the 20, 0, 0 and 15 X / min as imports. With `{ importOff: true }` alone, or with `{ makeHere: 'after-blocks', importOff: true }`, the item keeps its hard row instead: R runs for X.
+
+### Derivation
+
+```
+A: 30 goal/min ÷ 1 = 30 runs/min → 30 X/min made on the side.
+U: 50 other/min ÷ 1 = 50 runs/min → 50 X/min used.
+Deficit after own production: 50 − 30 = 20 X/min.
+X is in the byproducts-first set and out of the no-import set: its slack costs 1e-5 per item, a run of R costs 1 per run.
+a: no supply, so the 20 X/min stay in the slack. R at 2 X per run would cost 10 > 20 × 1e-5, so it stays idle: 20 missing.
+b, c: supply (cost 0) covers the 20: received 20, nothing missing.
+d: supply is 5; the other 15 X/min stay in the slack (15 × 1e-5 < 7.5): 15 missing.
 ```

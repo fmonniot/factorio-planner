@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveBlock, flattenBlock } from './index'
-import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SubPlan } from '../data/types'
+import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -236,6 +236,25 @@ function nodeOf(result: SolverResult, recipeId: string) {
 
 function unsatisfiedRate(result: SolverResult, itemId: string): number | undefined {
   return result.unsatisfied.find(u => u.itemId === itemId)?.rate
+}
+
+// The plan of cases 11 and 12: A (in an area of its own when `withAreas`) makes the goal with X on the side, U uses X, R makes X.
+function case11Block(withAreas: boolean, rule: SourceRule, connections = true): Block {
+  const a = rowIn('case11-make-goal', 'S')
+  const u = rowIn('case11-use-x', 'root')
+  const r = rowIn('case11-make-x', 'root')
+  const rootPlan = withAreas
+    ? subPlan('root', [u, r], [subPlan('S', [a], [], true)])
+    : subPlan('root', [a, u, r])
+  return {
+    id: 'block-11',
+    name: 'Block',
+    color: '#60a5fa',
+    products: [{ id: 'p0', itemId: 'case11-goal', extraRate: 30 }, { id: 'p1', itemId: 'case11-other', extraRate: 50 }],
+    sourceRules: { 'case11-x': rule },
+    inputConnections: connections ? [{ id: 'c1', itemId: 'case11-x', fromBlockId: 'upstream' }] : [],
+    rootPlan,
+  }
 }
 
 describe('solver synthetic cases', () => {
@@ -506,23 +525,6 @@ describe('solver synthetic cases', () => {
     // reports the deficit after own production, and that R covers a shortfall of the connection. Observed: that R
     // stays idle when the offer covers the deficit (supply costs 0 against 1 per run).
     const connected = (offer: number) => new Map([['case11-x', offer]])
-    const block = (withAreas: boolean): Block => {
-      const a = rowIn('case11-make-goal', 'S')
-      const u = rowIn('case11-use-x', 'root')
-      const r = rowIn('case11-make-x', 'root')
-      const rootPlan = withAreas
-        ? subPlan('root', [u, r], [subPlan('S', [a], [], true)])
-        : subPlan('root', [a, u, r])
-      return {
-        id: 'block-11',
-        name: 'Block',
-        color: '#60a5fa',
-        products: [{ id: 'p0', itemId: 'case11-goal', extraRate: 30 }, { id: 'p1', itemId: 'case11-other', extraRate: 50 }],
-        sourceRules: { 'case11-x': { makeHere: 'after-blocks' as const } },
-        inputConnections: [{ id: 'c1', itemId: 'case11-x', fromBlockId: 'upstream' }],
-        rootPlan,
-      }
-    }
     const cases: Array<[string, number, number, number]> = [
       // offer, received, R throughput (2 X per run: running A harder for X would tie with R at 1 X per run)
       ['a: offer 100', 100, 20, 0],
@@ -533,7 +535,7 @@ describe('solver synthetic cases', () => {
       describe(withAreas ? 'with areas' : 'without areas', () => {
         for (const [name, offer, received, makeX] of cases) {
           it(name, () => {
-            const { result, received: got } = solveBlock(flattenBlock(block(withAreas)), makeGameData(), connected(offer))
+            const { result, received: got } = solveBlock(flattenBlock(case11Block(withAreas, { makeHere: 'after-blocks' })), makeGameData(), connected(offer))
             const id = (recipeId: string) => nodeOf(result, `${recipeId}@${recipeId === 'case11-make-goal' ? 'S' : 'root'}`)
             // Guaranteed.
             expect(got.get('case11-x'), 'received').toBeCloseTo(received, 3)
@@ -542,6 +544,46 @@ describe('solver synthetic cases', () => {
             // Observed for a and b (R idle); guaranteed for c's received rate, observed for R covering the rest.
             expect(id('case11-make-x').throughput, 'R runs for X').toBeCloseTo(makeX, 3)
             expect(unsatisfiedRate(result, 'case11-x') ?? 0, 'X is not imported').toBeCloseTo(0, 3)
+          })
+        }
+      })
+    }
+  })
+
+  describe("case 12: don't make more here, Import off", () => {
+    // Case 11's plan with X set to { makeHere: 'off', importOff: true }: R never runs for X, and what the
+    // connection does not deliver is reported as `unsatisfied` (missing) instead of being made.
+    const rule: SourceRule = { makeHere: 'off', importOff: true }
+    const cases: Array<[string, number | undefined, number, number]> = [
+      // offer (undefined: no connection), received, missing
+      ['a: no connection', undefined, 0, 20],
+      ['b: offer 100', 100, 20, 0],
+      ['c: unlimited offer (request probe)', Infinity, 20, 0],
+      ['d: offer 5', 5, 5, 15],
+    ]
+    for (const withAreas of [false, true]) {
+      describe(withAreas ? 'with areas' : 'without areas', () => {
+        for (const [name, offer, received, missing] of cases) {
+          it(name, () => {
+            const supply = new Map(offer === undefined ? [] : [['case11-x', offer]])
+            const { result, received: got } = solveBlock(flattenBlock(case11Block(withAreas, rule, offer !== undefined)), makeGameData(), supply)
+            const id = (recipeId: string) => nodeOf(result, `${recipeId}@${recipeId === 'case11-make-goal' ? 'S' : 'root'}`)
+            expect(got.get('case11-x') ?? 0, 'received').toBeCloseTo(received, 3)
+            expect(id('case11-make-goal').throughput).toBeCloseTo(30, 3)
+            expect(id('case11-use-x').throughput).toBeCloseTo(50, 3)
+            expect(id('case11-make-x').throughput, 'R runs for X').toBeCloseTo(0, 3)
+            expect(unsatisfiedRate(result, 'case11-x') ?? 0, 'X missing').toBeCloseTo(missing, 3)
+            // The solve is the one of Import on: only the reading of the rest differs.
+            const on = solveBlock(flattenBlock(case11Block(withAreas, { makeHere: 'off' }, offer !== undefined)), makeGameData(), supply)
+            expect(result, 'same solve as Import on').toEqual(on.result)
+            expect(got, 'same received as Import on').toEqual(on.received)
+          })
+        }
+        for (const [name, rule] of [['Import off alone', { importOff: true }], ['Receive it first + Import off', { makeHere: 'after-blocks', importOff: true }]] as const) {
+          it(`${name} keeps the hard row: R runs for X`, () => {
+            const { result } = solveBlock(flattenBlock(case11Block(withAreas, rule, false)), makeGameData(), new Map())
+            expect(nodeOf(result, 'case11-make-x@root').throughput, 'R runs for X').toBeCloseTo(10, 3)
+            expect(unsatisfiedRate(result, 'case11-x') ?? 0).toBeCloseTo(0, 3)
           })
         }
       })
