@@ -320,7 +320,7 @@ describe('SidePanel — where inputs come from', () => {
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { plate: { makeHere: 'off' as const } } })) }))
     select('n2')
     renderWithSolve()
-    expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('No row here already makes Iron Plate, so Iron Plate covers it.')
+    expect(within(entry('plate')).getByTestId('sourcing-sentence')).toHaveTextContent('Uses what this block already makes (Iron Plate 120/m). The rest is imported.')
   })
 
   it('Change… opens the Comes from popover of the item, anchored to the button, and changes nothing itself', () => {

@@ -54,6 +54,8 @@ export interface Segment {
   requested?: true
   /** export only: items/min the consumer requested, when the connection is a request */
   requestedRate?: number
+  /** short only, on an ingredient: the item has Import off and this is what the other sources leave of it ("Missing") */
+  missing?: true
 }
 
 /** Marks drawn across the whole bar instead of taking a share of it. */
@@ -121,6 +123,8 @@ export interface OverviewRow {
   /** Number of slots carrying this key. */
   count: number
   limited: boolean
+  /** The segments under this key are an Import-off item's missing amount. */
+  missing?: true
 }
 
 /**
@@ -313,8 +317,12 @@ export function ingredientSlot(
       overlays.push({ key, kind: status, blockId: c.fromBlockId, connectionId: c.id })
     }
   }
+  // With Import off, what the other sources leave is not imported: it is missing, and the slot is short.
+  const missing = row.locked && row.importPerMin !== undefined && row.importPerMin > FLOW_TOLERANCE
   if (row.importPerMin !== undefined && row.importPerMin > 0) {
-    segments.push({ key: 'import', kind: 'import', amount: row.importPerMin })
+    segments.push(missing
+      ? { key: 'missing', kind: 'short', amount: row.importPerMin, missing: true }
+      : { key: 'import', kind: 'import', amount: row.importPerMin })
   }
   if (row.locked) overlays.push({ key: 'locked', kind: 'locked' })
 
@@ -326,14 +334,14 @@ export function ingredientSlot(
     scale: need,
     segments,
     overlays,
-    status: segments.some(s => s.limited) ? 'limited' : row.locked ? 'locked' : null,
+    status: missing ? 'short' : segments.some(s => s.limited) ? 'limited' : row.locked ? 'locked' : null,
     dimmed: row.locked || need <= FLOW_TOLERANCE,
     locked: row.locked,
     ...(ruleItems?.has(row.itemId) ? { sourceRule: true as const } : {}),
   }
 }
 
-const RANK: Record<string, number> = { kept: 1, left: 1, short: 2, import: 2, locked: 3 }
+const RANK: Record<string, number> = { kept: 1, left: 1, short: 2, missing: 2, import: 2, locked: 3 }
 const rankOf = (key: string) => RANK[key] ?? 0
 
 /** One row per segment key across the pane, blocks first, then what stays, then what is missing. */
@@ -367,6 +375,7 @@ export function overviewRows(slots: SlotModel[]): OverviewRow[] {
       else row.total += s.amount
       if (s.loop) row.loop = true
       if (s.limited) row.limited = true
+      if (s.missing) row.missing = true
     }
     for (const o of slot.overlays) {
       if (!rows.has(o.key)) overlayOnly.add(o.key)
@@ -386,7 +395,7 @@ export function slotHasKey(slot: SlotModel, key: string): boolean {
 const GONE = '(deleted block)'
 
 export function segmentLabel(
-  e: { kind: SegmentKind | OverlayKind; loop?: true },
+  e: { kind: SegmentKind | OverlayKind; loop?: true; missing?: true },
   blockName: string | undefined,
 ): string {
   const mark = e.loop ? ' ↻' : ''
@@ -396,7 +405,7 @@ export function segmentLabel(
     case 'kept': return 'Left'
     case 'left': return 'Left'
     case 'import': return 'Imported'
-    case 'short': return 'Short'
+    case 'short': return e.missing ? 'Missing' : 'Short'
     case 'unused': return `← ${blockName ?? GONE} · unused`
     case 'self': return `← ${blockName ?? GONE} · self, ignored`
     case 'missing-source': return GONE
@@ -461,6 +470,9 @@ export function keyEntryText(
   const { blockName, product, fmt, nameOf } = ctx
   const amount = 'amount' in entry ? entry.amount : undefined
   const plain = { label: segmentLabel(entry, blockName), ...(amount !== undefined ? { amount: fmt(amount) } : {}) }
+  if (entry.kind === 'short' && 'missing' in entry && entry.missing && amount !== undefined) {
+    return { label: 'Missing', amount: fmt(amount), note: '— Import is off' }
+  }
   if (!product || amount === undefined) return plain
   switch (entry.kind) {
     case 'export': {

@@ -58,7 +58,8 @@ test.describe('Ingredients pane', () => {
     await selectSlot(page, 'Ingredients', 'Iron rod')
     await importSwitch(page).click()
     await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'false')
-    await expect(rodSlot(page)).toHaveAttribute('data-status', 'locked')
+    // No row makes it and Import is off: what the connections do not bring is missing.
+    await expect(rodSlot(page)).toHaveAttribute('data-status', 'short')
 
     const line = comesFrom(page).getByTestId('no-effect')
     await expect(line).toHaveAttribute('data-no-effect', 'not-made')
@@ -66,6 +67,7 @@ test.describe('Ingredients pane', () => {
     await line.getByRole('button', { name: 'Remove' }).click()
     await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
     await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(0)
+    await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'short')
     await expect(rodSlot(page)).not.toHaveAttribute('data-status', 'locked')
   })
 
@@ -131,30 +133,34 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
     await expect(preset(page, 'Receive it first')).toBeChecked()
     await preset(page, "Don't make more here").click()
     await expect(preset(page, "Don't make more here")).toBeChecked()
-    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('No row here already makes Iron plate')
+    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (Iron plate')
     await preset(page, 'Make it here').click()
     await expect(preset(page, 'Make it here')).toBeChecked()
   })
 
-  test("Don't make more here is disabled while Import is off, and the switch while it is chosen", async ({ page }) => {
+  test("Don't make more here and Import off can be chosen together, in either order", async ({ page }) => {
     await selectSlot(page, 'Ingredients', 'Iron plate')
-    await importSwitch(page).click()
-    await expect(plateSlot(page)).toHaveAttribute('data-status', 'locked')
     const third = preset(page, "Don't make more here")
-    await expect(third).toHaveAttribute('aria-disabled', 'true')
-    await expect(third).toHaveAccessibleDescription('Import is off for Iron plate, so the block has to make it.')
-    // Playwright treats aria-disabled as disabled, so force the click that must do nothing.
-    await third.click({ force: true })
-    await expect(preset(page, 'Make it here')).toBeChecked()
 
+    // Import off first: the preset stays available.
     await importSwitch(page).click()
     await expect(third).not.toHaveAttribute('aria-disabled', 'true')
     await third.click()
     await expect(third).toBeChecked()
-    await expect(importSwitch(page)).toHaveAttribute('aria-disabled', 'true')
-    await expect(importSwitch(page)).toHaveAccessibleDescription("Don't make more here relies on imports for the rest.")
-    await importSwitch(page).click({ force: true })
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'false')
+    await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('Import is off')
+    await expect(comesFrom(page).getByTestId('no-effect')).toHaveCount(0)
+
+    // Then the switch back on, and off again, with the preset chosen.
+    await importSwitch(page).click()
     await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
+    await expect(third).toBeChecked()
+    await importSwitch(page).click()
+    await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'false')
+    await expect(third).toBeChecked()
+    // The block runs no row for it and the slot says what is missing.
+    await expect(plateSlot(page)).toHaveAttribute('data-status', 'short')
+    await expect(plateSlot(page)).toHaveAccessibleName(/^Iron plate, \d[\d.]* per minute, short, has a source rule$/)
   })
 
   test('the Import switch locks and unlocks the slot; a left click on a locked slot only selects it', async ({ page }) => {

@@ -92,7 +92,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   // A grey dot with the item's sentence as its name and tooltip: no letter, none of the old badge.
   const marker = markers(acidRow(page))
   const sentence = (await control.getByTestId('sourcing-sentence').textContent())!
-  expect(sentence).toContain('Uses what this block already makes first')
+  expect(sentence).toContain('Uses what this block already makes (')
   await expect(marker).toHaveAccessibleName(sentence)
   await expect(marker).toHaveAttribute('title', sentence)
   await expect(marker).toHaveText('')

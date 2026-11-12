@@ -148,7 +148,7 @@ Each ticket is one pull request and updates the docs for what it changes; T8 is 
 
   In `solveBlock` and `solveAreaBlock`: an item with `makeHere: 'off'` and `importOff` is left out of the LP's no-import set and is in the byproducts-first set, in every pass. A byproduct consumer's ingredient keeps its hard row whatever its rule. `coproductDrivenWarning` keeps receiving every item with `importOff` plus the byproduct consumers' ingredients, so its hint is unchanged. `pass2Plan` needs no change: the item is not locked in the LP, so there is no lock to restore. Add one `solveAll` test: a request for such an item asks its source for 20, and with a source that makes nothing the consumer reports 20 missing and the flow is `limited`. Docs: `spec/solver.md` ("Byproducts first": *Not affected* no longer lists user locks; "Pinned rates, … no-import items").
 
-- [ ] **T4. The pair in the control, the missing amount, the sentences.**
+- [x] **T4. The pair in the control, the missing amount, the sentences.**
   - `ComesFrom.tsx`: *Don't make more here* is selectable while Import is off and the Import switch while that preset is chosen. `RELIES_ON_IMPORT_TEXT` and the `locked` reason (`NoEffectReason`, `noEffectText`) go.
   - `summarySegments.ts`: for an item with Import off that still has an `unsatisfied` rate, the segment is drawn with the `short` look instead of `import`, reads `Missing N` with the note "— Import is off", and the slot's status is `short` (amber border, `▼`, ", short" in the accessible name). This also covers a state that exists today: a locked item whose connection delivers only part of the need.
   - `sourcingText.ts` to [Sentences](#sentences), with `sourcingText.test.ts`.

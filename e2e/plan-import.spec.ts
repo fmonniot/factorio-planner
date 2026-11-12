@@ -84,6 +84,22 @@ test.describe('Plan import', () => {
     await expect(page.locator('main')).toContainText('250')
   })
 
+  test("a plan in the old shape that carries Don't make more here and Import off loads as Import off alone", async ({ page }) => {
+    const plan = JSON.parse(fs.readFileSync(path.resolve('e2e/fixtures/item-sourcing.json'), 'utf8'))
+    const oxygen = 'nullius-oxygen'
+    plan.blocks[0].itemSourcing = { [oxygen]: 'byproducts-first' }
+    plan.blocks[0].noImportItems = [oxygen]
+    await pickPlanFile(page, { name: 'old-pair.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(plan)) })
+    await expectPlan(page, 'old-pair')
+
+    const download = await exportPlan(page)
+    const exported = JSON.parse(fs.readFileSync((await download.path())!, 'utf8'))
+    const acid = exported.blocks.find((b: { name: string }) => b.name === 'Acid')
+    expect(acid.sourceRules).toEqual({ [oxygen]: { importOff: true } })
+    expect(acid.itemSourcing).toBeUndefined()
+    expect(acid.noImportItems).toBeUndefined()
+  })
+
   test('a plan exported for another data set warns about the mismatch', async ({ page }) => {
     const download = await exportPlan(page)
     const exportedName = download.suggestedFilename()

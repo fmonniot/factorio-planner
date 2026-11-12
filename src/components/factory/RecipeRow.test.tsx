@@ -975,7 +975,8 @@ describe('RecipeRow source rule marker', () => {
   it('names the marker with the sentence of the item, and leaves the chip title without a suffix', () => {
     setBlock({ sourceRules: { oxygen: { makeHere: 'off' as const } } })
     renderCombustion()
-    const sentence = /^Uses what this block already makes first \(Electrolysis [^)]+\)\. The rest is imported\.$/
+    // No solve in this test: the rows that make Oxygen as a byproduct are named without a rate.
+    const sentence = /^Uses what this block already makes \(Electrolysis\)\. The rest is imported\.$/
     expect(screen.getByRole('img', { name: sentence })).toBe(markers()[0])
     expect(markers()[0].getAttribute('title')).toMatch(sentence)
     expect(screen.getByTitle(/^Oxygen/).getAttribute('title')).toMatch(/^Oxygen — \S+$/)

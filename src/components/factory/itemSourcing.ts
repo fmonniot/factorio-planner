@@ -42,9 +42,6 @@ export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'import-off': `${IMPORT_SWITCH.label} off`,
 }
 
-/** Why the Import switch is disabled while "Don't make more here" is chosen. */
-export const RELIES_ON_IMPORT_TEXT = "Don't make more here relies on imports for the rest."
-
 // ---------------------------------------------------------------------------
 // The Sources list (phase 2 of sourcing priority), named with the author on 2026-11-12. Nothing draws it yet.
 // ---------------------------------------------------------------------------

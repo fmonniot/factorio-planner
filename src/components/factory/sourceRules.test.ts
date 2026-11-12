@@ -94,13 +94,16 @@ describe('sourceRules', () => {
     })
   })
 
-  describe('locked', () => {
-    it('is reported for byproducts-first on an item whose import is off', () => {
+  describe("Don't make more here with Import off", () => {
+    it('has an effect on both parts', () => {
       const found = rules(block({ sourcing: { plate: 'byproducts-first' }, locked: ['plate'] }))
-      expect(found.find(r => r.kind === 'byproducts-first')).toEqual({ itemId: 'plate', kind: 'byproducts-first', noEffect: 'locked' })
+      expect(found).toEqual([
+        { itemId: 'plate', kind: 'byproducts-first' },
+        { itemId: 'plate', kind: 'import-off' },
+      ])
     })
 
-    it('does not apply to connections-first or to import-off itself', () => {
+    it('does not change connections-first or import-off', () => {
       const found = rules(block({ sourcing: { plate: 'connections-first' }, locked: ['plate'], connected: true }))
       expect(found.map(r => r.noEffect)).toEqual([undefined, undefined])
     })
@@ -140,8 +143,8 @@ describe('sourceRules', () => {
     // Not a product, no row makes it, locked: not-made wins over locked.
     expect(rules(block({ sourcing: { ore: 'byproducts-first' }, locked: ['ore'] })).map(r => r.noEffect))
       .toEqual(['not-made', 'not-made'])
-    // A row makes it, byproducts-first and locked: locked.
-    expect(rules(block({ sourcing: { plate: 'byproducts-first' }, locked: ['plate'] }))[0].noEffect).toBe('locked')
+    // A row makes it, byproducts-first and locked: both parts have an effect.
+    expect(rules(block({ sourcing: { plate: 'byproducts-first' }, locked: ['plate'] })).map(r => r.noEffect)).toEqual([undefined, undefined])
   })
 
   it('lists an item with two rules once per rule, itemSourcing entries first', () => {
@@ -152,8 +155,8 @@ describe('sourceRules', () => {
       ['plate', 'import-off'],
       ['ore', 'import-off'],
     ])
-    // The two rules of Plate are judged apart: the preset is locked, the lock itself has an effect.
-    expect(rules(b).filter(r => r.itemId === 'plate').map(r => r.noEffect)).toEqual(['locked', undefined])
+    // The two rules of Plate are judged apart; both have an effect.
+    expect(rules(b).filter(r => r.itemId === 'plate').map(r => r.noEffect)).toEqual([undefined, undefined])
   })
 
   it('lists a duplicated lock once', () => {
@@ -166,8 +169,8 @@ describe('itemsWithEffect', () => {
     expect([...itemsWithEffect([
       { itemId: 'a', kind: 'byproducts-first' },
       { itemId: 'b', kind: 'connections-first', noEffect: 'no-connection' },
-      // Two rules: the preset has no effect, the lock has one.
-      { itemId: 'c', kind: 'byproducts-first', noEffect: 'locked' },
+      // Two rules: the first has no effect, the lock has one.
+      { itemId: 'c', kind: 'byproducts-first', noEffect: 'not-made' },
       { itemId: 'c', kind: 'import-off' },
       { itemId: 'd', kind: 'import-off', noEffect: 'not-made' },
     ])]).toEqual(['a', 'c'])
@@ -209,7 +212,6 @@ describe('noEffectText', () => {
   const reasons: [NoEffectReason, string][] = [
     ['product', 'Plate is a product of this block, so the block always makes it.'],
     ['not-made', 'No row in this block makes Plate.'],
-    ['locked', 'Import is off for Plate, so the block has to make it.'],
     ['no-connection', 'No connection for Plate.'],
   ]
   it.each(reasons)('words %s', (reason, text) => {

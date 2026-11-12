@@ -215,11 +215,40 @@ describe('ingredientSlot', () => {
     expect(ingredientSlot(row, new Map(), blocks)).not.toHaveProperty('sourceRule')
   })
 
-  it('keeps the import segment of a locked goal shortfall', () => {
+  it('draws what an Import-off item still lacks as missing: a short segment and a short slot (dimming as before)', () => {
     const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 5 }), new Map(), blocks)
-    expect(shape(slot.segments)).toEqual([['import', 5]])
+    expect(slot.segments).toEqual([{ key: 'missing', kind: 'short', amount: 5, missing: true }])
     expect(slot.overlays.map(o => o.kind)).toEqual(['locked'])
-    expect(slot.dimmed).toBe(true)
+    expect(slot).toMatchObject({ status: 'short', dimmed: true, rate: 5 })
+  })
+
+  it('covers a locked item whose connection delivers only part of the need', () => {
+    const slot = ingredientSlot(
+      ingredientRow({ connections: [conn('c1', 'A')], importPerMin: 15, locked: true }),
+      new Map([['c1', flow({ rate: 5, status: 'limited' })]]),
+      new Set(['A']),
+    )
+    expect(shape(slot.segments)).toEqual([['from:A', 5], ['missing', 15]])
+    expect(slot.status).toBe('short')
+  })
+
+  it('does not call a near-zero remainder missing', () => {
+    const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 1e-9 }), new Map(), blocks)
+    expect(slot.segments.every(s => !s.missing)).toBe(true)
+    expect(slot.status).toBe('locked')
+  })
+
+  it('keeps the import segment and the import look for an item that may be imported', () => {
+    const slot = ingredientSlot(ingredientRow({ importPerMin: 5 }), new Map(), blocks)
+    expect(shape(slot.segments)).toEqual([['import', 5]])
+    expect(slot.status).toBe(null)
+  })
+
+  it('writes the missing segment as "Missing N" with the note "— Import is off"', () => {
+    const slot = ingredientSlot(ingredientRow({ locked: true, importPerMin: 5 }), new Map(), blocks)
+    const ctx = { blockName: undefined, product: undefined, fmt: (n: number) => `${n}/m`, nameOf: () => undefined }
+    expect(keyEntryText(slot.segments[0], ctx)).toEqual({ label: 'Missing', amount: '5/m', note: '— Import is off' })
+    expect(segmentLabel({ kind: 'short', missing: true }, undefined)).toBe('Missing')
   })
 })
 
@@ -245,13 +274,13 @@ describe('overviewRows', () => {
     expect(overviewRows([elec])).toMatchObject([{ key: 'kept', total: 0, power: 600 }])
   })
 
-  it('ranks block keys, then kept/left, then import/short, then locked', () => {
+  it('ranks block keys, then kept/left, then import/short/missing, then locked', () => {
     const slot = ingredientSlot(
       ingredientRow({ connections: [conn('c1', 'A')], importPerMin: 5, locked: true }),
       new Map([['c1', flow({ rate: 30 })]]),
       new Set(['A']),
     )
-    expect(overviewRows([slot]).map(r => r.key)).toEqual(['from:A', 'import', 'locked'])
+    expect(overviewRows([slot]).map(r => r.key)).toEqual(['from:A', 'missing', 'locked'])
   })
 
   it('gives an overlay-only block row a zero total', () => {
