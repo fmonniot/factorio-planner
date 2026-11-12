@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import path from 'path'
 import fs from 'fs'
 import { loadPlanFixture } from './support/loadPlan'
-import { detail, pane, slot } from './support/summary'
+import { detail, pane, selectSlot, slot } from './support/summary'
 import { exportPlan } from './support/appMenu'
 import { changeSourcing, comesFromPopover, selectRow, sidePanel } from './support/sidePanel'
 
@@ -81,17 +81,18 @@ test.describe('item sourcing', () => {
     await choose(page, 'byproducts-first')
     const control = popoverControl(page)
     await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
-    await expect(control.getByTestId('import-switch')).toHaveAttribute('aria-disabled', 'true')
-    await expect(control.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
+    await expect(control.getByTestId('import-switch')).not.toHaveAttribute('aria-disabled')
+    await expect(control.getByTestId('import-switch')).toBeChecked()
+    await expect(control.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (')
     // The panel behind it says the same (a press on the row would close the popover, so the entry is read where it is).
-    await expect(sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
+    await expect(sidePanel(page).locator('[data-testid="sourcing-entry"][data-item-id="nullius-oxygen"]').getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes (')
 
     // Oxygen is imported now, so its slot is there in its own right, and the popover links to it.
     await expect(oxygenSlot(page)).toContainText('100')
     await expect(compressedSlot(page)).toHaveCount(0)
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toBeVisible()
     // The rule shows on the row that uses oxygen: a marker beside its chip, named with the sentence.
-    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes first/)
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes \(/)
     await expect(oxygenChip(page)).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
 
     const acid = await exportedAcid(page)
@@ -107,6 +108,40 @@ test.describe('item sourcing', () => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(0)
     await expect(comesFromPopover(page).getByTestId('comes-from-show-slot')).toHaveCount(0)
+  })
+
+  test("Don't make more here with Import off is chosen in either order and leaves the 100 oxygen missing", async ({ page }) => {
+    await choose(page, 'byproducts-first')
+    await expect(oxygenSlot(page)).toContainText('100')
+    await expect(oxygenSlot(page)).not.toHaveAttribute('data-status', 'short')
+
+    // The switch is free while the preset is chosen: both stay chosen.
+    const control = popoverControl(page)
+    await control.getByTestId('import-switch').click()
+    await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
+    await expect(control.getByTestId('import-switch')).not.toBeChecked()
+    await expect(control.getByTestId('sourcing-sentence')).toContainText('The rest is missing: Import is off.')
+    // Nothing is imported or made for it: the slot reads short, with the missing amount.
+    await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
+    await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, .*, short, has a source rule$/)
+    await expect(compressedSlot(page)).toHaveCount(0)
+
+    const acid = await exportedAcid(page)
+    expect(acid.sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'off', importOff: true } })
+
+    // Choosing the preset first, from the other side: Make it here keeps Import off, and the pair comes back by the preset.
+    const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
+    await again.getByRole('radio', { name: 'Make it here' }).click()
+    await expect(again.getByTestId('import-switch')).not.toBeChecked()
+    await again.getByRole('radio', { name: "Don't make more here" }).click()
+    await expect(again.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
+    await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
+
+    // Its strip names what is missing and why.
+    await selectSlot(page, 'Ingredients', 'Oxygen')
+    const segment = detail(page, 'Ingredients').getByTestId('summary-segment')
+    await expect(segment).toHaveCount(2)
+    await expect(segment.filter({ hasText: 'Missing' })).toContainText('100')
   })
 
   // Oxygen is made and used inside the block: it is not imported, connected or locked, so the pane has no slot for it, and
@@ -262,7 +297,7 @@ test.describe('stored rules', () => {
     await loadPlanFixture(page, file)
     await expect(oxygenSlot(page)).toContainText('100', { timeout: 10000 })
     await expect(compressedSlot(page)).toHaveCount(0)
-    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes first/)
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes \(/)
     await expectOxygenRule(page)
   })
 

@@ -1164,12 +1164,12 @@ describe('FactorySummary — connections', () => {
       fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
       expect(choice("Don't make more here")).toBeChecked()
 
-      // With Import off the third preset is skipped.
+      // With Import off the third preset is reached like the others.
       fireEvent.click(choice('Make it here'))
       fireEvent.click(importSwitch())
       choice('Make it here').focus()
       fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
-      expect(choice('Receive it first')).toBeChecked()
+      expect(choice("Don't make more here")).toBeChecked()
     })
 
     it('gives each preset and the switch its help text as its description', () => {
@@ -1182,42 +1182,34 @@ describe('FactorySummary — connections', () => {
       expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
     })
 
-    it("disables Don't make more here while Import is off, with the reason, and the switch while it is chosen", () => {
+    it("lets Don't make more here and Import off be chosen together, in either order", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       fireEvent.click(importSwitch())
-      const third = choice("Don't make more here")
-      expect(third).toHaveAttribute('aria-disabled', 'true')
-      expect(third).toHaveAccessibleDescription('Import is off for Iron Ore, so the block has to make it.')
-      fireEvent.click(third)
-      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
+      expect(choice("Don't make more here")).not.toHaveAttribute('aria-disabled')
+      fireEvent.click(choice("Don't make more here"))
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
+      expect(choice("Don't make more here")).toBeChecked()
+      expect(importSwitch()).not.toHaveAttribute('aria-disabled')
+      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
 
       fireEvent.click(importSwitch())
-      fireEvent.click(choice("Don't make more here"))
       expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
-      expect(importSwitch()).toHaveAttribute('aria-disabled', 'true')
-      expect(importSwitch()).toHaveAccessibleDescription("Don't make more here relies on imports for the rest.")
       fireEvent.click(importSwitch())
-      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
-      // The other presets stay free, and choosing one frees the switch.
-      fireEvent.click(choice('Make it here'))
-      expect(importSwitch()).not.toHaveAttribute('aria-disabled')
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off', importOff: true } })
     })
 
-    it("shows a plan saved with both as Don't make more here, reported as locked, and lets it be removed", () => {
+    it("shows a plan saved with both as Don't make more here with Import off, both parts with an effect", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const, importOff: true as const } } })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       expect(choice("Don't make more here")).toBeChecked()
-      const [line] = within(group()).getAllByTestId('no-effect')
-      expect(line).toHaveAttribute('data-no-effect', 'locked')
-      expect(line).toHaveTextContent('Import is off for Iron Ore, so the block has to make it.')
-      fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
-      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
+      expect(importSwitch()).not.toBeChecked()
+      expect(within(group()).queryAllByTestId('no-effect')).toHaveLength(0)
     })
 
     it('says a rule with no effect has none, and removes just that rule', () => {
@@ -1994,14 +1986,15 @@ describe('FactorySummary — import lock', () => {
     }))
   }
 
-  it('the Import switch locks and dims the slot, and lifts the lock', () => {
+  it('the Import switch turns the slot short (what the other sources leave is missing), and lifts the lock', () => {
     addOreRow()
     render(<FactorySummary />)
     select('Ingredients', 'Iron Ore')
     fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
     expect(noImport()).toEqual(['iron-ore'])
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'locked')
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-dimmed', 'true')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAttribute('data-status', 'short')
+    expect(slot('Ingredients', 'Iron Ore')).not.toHaveAttribute('data-dimmed', 'true')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short, has a source rule')
     fireEvent.click(within(strip('Ingredients')).getByRole('switch'))
     expect(noImport()).toEqual([])
   })
@@ -2565,14 +2558,14 @@ describe('FactorySummary — source rule marker', () => {
     expect(within(strip('Ingredients')).getByTestId('sourcing-sentence')).toHaveTextContent(marker.getAttribute('title')!)
   })
 
-  it('follows the status in the slot name, and sits after the status badge of a locked slot', () => {
+  it('follows the status in the slot name, and sits after the status badge of a short slot', () => {
     withMakerRow()
     patch({ sourceRules: { 'iron-ore': { importOff: true as const } } })
     render(<FactorySummary />)
     const ore = slot('Ingredients', 'Iron Ore')
-    expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, locked, has a source rule')
-    expect(ore).toHaveAttribute('data-status', 'locked')
-    const badge = within(ore).getByText('⊘')
+    expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, short, has a source rule')
+    expect(ore).toHaveAttribute('data-status', 'short')
+    const badge = within(ore).getByText('▼')
     const marker = markers(ore)[0]
     expect(badge.compareDocumentPosition(marker) & Node.DOCUMENT_POSITION_FOLLOWING, 'badge first, then marker').toBeTruthy()
     // The badge makes room for the marker in the corner.
@@ -2588,7 +2581,7 @@ describe('FactorySummary — source rule marker', () => {
     // No row of the block makes Iron Ore: both rules are stored and neither has an effect.
     act(() => patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const, importOff: true as const } } }))
     expect(markers(pane('Ingredients'))).toHaveLength(0)
-    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, locked')
+    expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, short')
   })
 
   it('is never on a Byproducts or Products slot, and adds no Ingredients slot', () => {

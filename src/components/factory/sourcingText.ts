@@ -1,9 +1,9 @@
-import type { Block, GameData, SolverResult, ConnectionFlow } from '../../data/types'
+import type { Block, GameData, SolverResult, ConnectionFlow, SourceRule } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { dedicatedProduct } from '../../solver/areas'
 import { rowMachine } from '../../solver/effects'
 import { fmtItemRateText } from './ItemTile'
-import type { SourcingPreset } from './itemSourcing'
+import { presetOf } from '../../data/sourceRules'
 
 // ---------------------------------------------------------------------------
 // The sentence under each sourcing choice of the side panel: how this block gets one item under the
@@ -35,9 +35,8 @@ export interface ItemConnection {
 export interface SourcingTextInput {
   itemName: string
   itemId: string
-  mode: SourcingPreset | undefined
-  /** Import is off for the item (its rule has `importOff`). */
-  noImport: boolean
+  /** The item's stored rule; undefined is the default rule (Make it here, Import on). */
+  rule: SourceRule | undefined
   makers: ItemMaker[]
   connections: ItemConnection[]
   unit: RateUnit
@@ -55,24 +54,27 @@ function makerLabel(m: ItemMaker): string {
 }
 
 export function sourcingText(input: SourcingTextInput): string {
-  const { itemName, itemId, mode, noImport, makers, connections, unit } = input
+  const { itemName, itemId, rule, makers, connections, unit } = input
+  const mode = presetOf(rule)
+  const noImport = rule?.importOff === true
   const primaries = makers.filter(m => !m.byproduct)
-  const byproducts = makers.filter(m => m.byproduct)
   const rate = (perMin: number) => fmtItemRateText(itemId, perMin / 60, unit)
-  // Import off is said under every preset: the item is not brought in from outside the plan.
+  // Import is off: Make it here and Receive it first say so in a suffix, Don't make more here in its last clause.
   const importOff = noImport ? ' Import is off.' : ''
 
   if (mode === 'byproducts-first') {
-    const covers = primaries.length > 0 ? list(primaries.map(m => m.recipeName)) : undefined
-    if (byproducts.length === 0) {
-      return (covers
-        ? `No row here already makes ${itemName}, so ${covers} covers it.`
-        : `No row here already makes ${itemName}, so it is imported.`) + importOff
+    // Every row that already makes the item, whatever its dedicated product.
+    const used = makers.filter(m => m.rate > EPS).map(m => `${m.recipeName} ${rate(m.rate)}`).join(', ')
+    const rest = (imported: string) => (noImport ? 'missing: Import is off' : imported)
+    const blocks = list(connections.map(c => c.blockName))
+    if (used) {
+      return connections.length > 0
+        ? `Uses what this block already makes (${used}), then takes from ${blocks}. The rest is ${rest('imported')}.`
+        : `Uses what this block already makes (${used}). The rest is ${rest('imported')}.`
     }
-    const used = byproducts.map(m => `${m.recipeName} ${rate(m.rate)}`).join(', ')
-    return (covers
-      ? `Uses what this block already makes first (${used}). ${covers} makes the rest.`
-      : `Uses what this block already makes first (${used}). The rest is imported.`) + importOff
+    return connections.length > 0
+      ? `No row here already makes ${itemName}; it is taken from ${blocks}, and the rest is ${rest('imported')}.`
+      : `No row here already makes ${itemName}; it is ${rest('imported')}.`
   }
 
   if (mode === 'connections-first') {

@@ -14,6 +14,8 @@ const OXYGEN = 'nullius-oxygen'
 const COMPRESSED = 'nullius-compressed-oxygen'
 
 interface AcidPatch {
+  /** The stored rules, in the shape of this build; the legacy keys below are the old shape. */
+  sourceRules?: Record<string, { makeHere?: string; importOff?: true }>
   itemSourcing?: Record<string, string>
   noImportItems?: string[]
   /** Acid receives oxygen from O2 maker. */
@@ -25,6 +27,7 @@ async function setup(page: Page, testInfo: TestInfo, patch: AcidPatch) {
   const [acid, maker] = plan.blocks
   acid.itemSourcing = patch.itemSourcing ?? {}
   acid.noImportItems = patch.noImportItems ?? []
+  if (patch.sourceRules) acid.sourceRules = patch.sourceRules
   if (patch.connected) acid.inputConnections = [{ id: 'dddd0001-0000-0000-0000-0000000000c1', itemId: OXYGEN, fromBlockId: maker.id }]
   const file = testInfo.outputPath('plan.json')
   fs.writeFileSync(file, JSON.stringify(plan))
@@ -119,6 +122,23 @@ test.describe('source rules', () => {
     await row.getByTestId('import-switch').click()
     await expect(row).toHaveCount(0)
     await expect(rulesButton(page)).toHaveText('Source rules (1)')
+  })
+
+  test("lists Don't make more here and Import off as two parts with an effect, and shows what is missing", async ({ page }, testInfo) => {
+    await setup(page, testInfo, { sourceRules: { [OXYGEN]: { makeHere: 'off', importOff: true } } })
+    await expect(rulesButton(page)).toHaveText('Source rules (2)')
+    await rulesButton(page).click()
+    await expect(popover(page).getByRole('listitem')).toHaveCount(2)
+    const dont = rule(page, OXYGEN, 'byproducts-first')
+    const off = rule(page, OXYGEN, 'import-off')
+    await expect(dont).not.toHaveAttribute('data-no-effect')
+    await expect(off).not.toHaveAttribute('data-no-effect')
+    await expect(dont.getByTestId('source-rule-name')).toHaveText("Don't make more here")
+    await expect(off.getByTestId('source-rule-name')).toHaveText('Import off')
+    await expect(dont.getByTestId('source-rule-text')).toContainText('The rest is missing: Import is off.')
+    // Oxygen is not imported: its slot is there for what is missing, and reads short.
+    await expect(oxygenSlot(page)).toHaveAttribute('data-status', 'short')
+    await expect(oxygenSlot(page)).toHaveAccessibleName(/^Oxygen, 100 per minute, short, has a source rule$/)
   })
 
   test('finds the rule of an item that is only an intermediate, and removes the last rule', async ({ page }, testInfo) => {

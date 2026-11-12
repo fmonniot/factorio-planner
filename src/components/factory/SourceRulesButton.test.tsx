@@ -135,7 +135,7 @@ describe('Source rules — the list', () => {
 
   it.each([
     ['connections-first', 'Receive it first', { sourcing: { ore: 'connections-first' }, connected: true }, 'Taken from Source first'],
-    ['byproducts-first', "Don't make more here", { sourcing: { ore: 'byproducts-first' } }, 'No row here already makes Ore, so Ore Synth covers it.'],
+    ['byproducts-first', "Don't make more here", { sourcing: { ore: 'byproducts-first' } }, 'No row here already makes Ore; it is imported.'],
     ['import-off', 'Import off', { locked: ['ore'] }, 'Import is off.'],
   ] as [string, string, Rules, string][])('shows a %s rule with its item, the name "%s" and the item\'s sentence', (kind, name, rules, sentence) => {
     setup(rules)
@@ -163,7 +163,6 @@ describe('Source rules — the list', () => {
   it.each([
     ['not-made', { sourcing: { water: 'byproducts-first' } }, 'water', 'byproducts-first', 'No row in this block makes Water.'],
     ['no-connection', { sourcing: { ore: 'connections-first' } }, 'ore', 'connections-first', 'No connection for Ore.'],
-    ['locked', { sourcing: { ore: 'byproducts-first' }, locked: ['ore'] }, 'ore', 'byproducts-first', 'Import is off for Ore, so the block has to make it.'],
   ] as [string, Rules, string, string, string][])('greys a rule with no effect (%s) and says why in place of the sentence', (reason, rules, itemId, kind, why) => {
     setup(rules)
     render(<SourceRulesButton />)

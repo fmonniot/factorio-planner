@@ -2,7 +2,7 @@ import { useId, useMemo } from 'react'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
 import { noEffectText, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
@@ -25,8 +25,7 @@ const TIP_ALIGN: Record<TipAlign, string> = {
 
 /**
  * The black tooltip of the summary bar, for a control: shown on hover and on keyboard focus (not on the focus
- * a click leaves), and the control's accessible description. A control that is not available is
- * `aria-disabled`, not `disabled`, so it keeps the focus that shows its reason.
+ * a click leaves), and the control's accessible description.
  */
 function Tip({ id, align, children }: { id: string; align: TipAlign; children: string }) {
   return (
@@ -44,7 +43,7 @@ const ARROW_STEP: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowL
 
 /**
  * The keyboard contract of a radio group: an arrow moves to the next (or previous) preset, wrapping, and
- * chooses it. A preset that is not available is skipped.
+ * chooses it. 
  */
 function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   const step = ARROW_STEP[e.key]
@@ -55,7 +54,6 @@ function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   e.preventDefault()
   for (let i = 1; i < radios.length; i++) {
     const next = radios[(from + step * i + radios.length * i) % radios.length]
-    if (next.getAttribute('aria-disabled') === 'true') continue
     next.focus()
     next.click()
     return
@@ -84,11 +82,6 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   const name = gameData.items[itemId]?.name ?? itemId
   const preset = presetOf(block.sourceRules[itemId])
   const importOn = !block.sourceRules[itemId]?.importOff
-  const lockedTitle = noEffectText('locked', name)
-
-  // The control never creates the pair of "Don't make more here" and Import off. A plan saved with
-  // both shows the preset chosen and leaves the other presets free, so one click gets out of it.
-  const switchDisabled = preset === 'byproducts-first'
 
   return (
     <div
@@ -107,7 +100,6 @@ export function ComesFrom({ itemId }: { itemId: string }) {
         >
           {ITEM_SOURCING_CHOICES.map((choice, i) => {
             const selected = choice.mode === preset
-            const disabled = choice.mode === 'byproducts-first' && !importOn
             const tipId = `${baseId}-preset-${i}`
             return (
               <span key={choice.label} className="group relative flex border-r border-gray-700 last:border-r-0">
@@ -115,17 +107,16 @@ export function ComesFrom({ itemId }: { itemId: string }) {
                   type="button"
                   role="radio"
                   aria-checked={selected}
-                  aria-disabled={disabled || undefined}
                   aria-describedby={tipId}
                   // One tab stop for the group, the chosen preset; the arrows move between presets.
                   tabIndex={selected ? 0 : -1}
                   data-sourcing-choice={choice.mode ?? 'own'}
-                  onClick={() => { if (!disabled) setMakeHere(itemId, makeHereOf(choice.mode)) }}
-                  className={`px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-inset ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'} ${disabled ? 'opacity-40 cursor-default hover:bg-transparent' : ''}`}
+                  onClick={() => setMakeHere(itemId, makeHereOf(choice.mode))}
+                  className={`px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-inset ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'}`}
                 >
                   {choice.label}
                 </button>
-                <Tip id={tipId} align={i === 0 ? 'start' : 'center'}>{disabled ? lockedTitle : choice.title}</Tip>
+                <Tip id={tipId} align={i === 0 ? 'start' : 'center'}>{choice.title}</Tip>
               </span>
             )
           })}
@@ -135,18 +126,17 @@ export function ComesFrom({ itemId }: { itemId: string }) {
             type="button"
             role="switch"
             aria-checked={importOn}
-            aria-disabled={switchDisabled || undefined}
             aria-describedby={`${baseId}-import`}
             data-testid="import-switch"
-            onClick={() => { if (!switchDisabled) toggleImportOff(itemId) }}
-            className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${switchDisabled ? 'opacity-40 cursor-default' : 'hover:text-gray-100'}`}
+            onClick={() => toggleImportOff(itemId)}
+            className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 hover:text-gray-100`}
           >
             {IMPORT_SWITCH.label}
             <span aria-hidden="true" className={`relative inline-block w-6 h-3 rounded-full ${importOn ? 'bg-teal-600' : 'bg-gray-600'}`}>
               <span className={`absolute top-0.5 w-2 h-2 rounded-full bg-gray-100 ${importOn ? 'left-3.5' : 'left-0.5'}`} />
             </span>
           </button>
-          <Tip id={`${baseId}-import`} align="end">{switchDisabled ? RELIES_ON_IMPORT_TEXT : IMPORT_SWITCH.title}</Tip>
+          <Tip id={`${baseId}-import`} align="end">{IMPORT_SWITCH.title}</Tip>
         </span>
       </div>
 

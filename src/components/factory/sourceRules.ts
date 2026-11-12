@@ -10,7 +10,7 @@ import { blockMakesItem } from '../../solver/index'
 // ---------------------------------------------------------------------------
 
 export type SourceRuleKind = 'connections-first' | 'byproducts-first' | 'import-off'
-export type NoEffectReason = 'product' | 'not-made' | 'locked' | 'no-connection'
+export type NoEffectReason = 'product' | 'not-made' | 'no-connection'
 
 export interface SourceRulePart {
   itemId: string
@@ -48,7 +48,6 @@ function noEffectReason(
 ): NoEffectReason | undefined {
   if (hasProduct(block, itemId)) return 'product'
   if (!blockMakesItem(block, gameData, itemId)) return 'not-made'
-  if (kind === 'byproducts-first' && block.sourceRules[itemId]?.importOff) return 'locked'
   if (kind === 'connections-first' && !receivesItem(block, itemId, blockIds)) return 'no-connection'
   return undefined
 }
@@ -82,7 +81,6 @@ export function noEffectText(reason: NoEffectReason, itemName: string): string {
   switch (reason) {
     case 'product': return `${itemName} is a product of this block, so the block always makes it.`
     case 'not-made': return `No row in this block makes ${itemName}.`
-    case 'locked': return `Import is off for ${itemName}, so the block has to make it.`
     case 'no-connection': return `No connection for ${itemName}.`
   }
 }
