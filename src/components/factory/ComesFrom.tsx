@@ -1,11 +1,14 @@
-import { useId, useMemo } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, SOURCES_BUTTON_LABEL, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
 import { noEffectText, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
+import { SourcesList } from './SourcesList'
+import { Tip } from './Tip'
+import { anchorOf } from './popoverAnchor'
 
 // ---------------------------------------------------------------------------
 // ComesFrom — where an item of the active block comes from: the three presets, the Import switch, the
@@ -13,31 +16,6 @@ import { useSourcingSentence } from './useSourcingSentence'
 // It sits in the strip of a selected Ingredients slot and in the Comes from popover (`ComesFromPopover`), which holds it for
 // an item that has no slot. A rule that has nothing to act on yet ("No connection for X.") offers the way forward.
 // ---------------------------------------------------------------------------
-
-/** Where a tooltip sits against its control: the first control of a row opens rightwards, the last leftwards. */
-type TipAlign = 'start' | 'center' | 'end'
-
-const TIP_ALIGN: Record<TipAlign, string> = {
-  start: 'left-0',
-  center: 'left-1/2 -translate-x-1/2',
-  end: 'right-0',
-}
-
-/**
- * The black tooltip of the summary bar, for a control: shown on hover and on keyboard focus (not on the focus
- * a click leaves), and the control's accessible description.
- */
-function Tip({ id, align, children }: { id: string; align: TipAlign; children: string }) {
-  return (
-    <span
-      id={id}
-      role="tooltip"
-      className={`hidden group-hover:block group-has-[:focus-visible]:block w-max max-w-[240px] absolute z-50 bottom-[calc(100%+6px)] ${TIP_ALIGN[align]} bg-black text-gray-100 text-[11px] leading-normal font-normal text-left whitespace-normal border border-gray-700 rounded px-2 py-1 pointer-events-none shadow-lg shadow-black/60`}
-    >
-      {children}
-    </span>
-  )
-}
 
 const ARROW_STEP: Record<string, 1 | -1> = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }
 
@@ -57,8 +35,16 @@ function moveWithArrows(e: React.KeyboardEvent<HTMLDivElement>) {
   next.click()
 }
 
-export function ComesFrom({ itemId }: { itemId: string }) {
+export function ComesFrom({ itemId, initialListOpen = false, listInPopover = false }: {
+  itemId: string
+  /** The Sources list starts open (the popover opened from a strip's Sources… button). */
+  initialListOpen?: boolean
+  /** The control sits where the list has no room (an Ingredients slot's strip): Sources… opens the Comes from popover with the list open. */
+  listInPopover?: boolean
+}) {
   const baseId = useId()
+  const [listOpen, setListOpen] = useState(initialListOpen)
+  const openComesFrom = useUiStore(s => s.openComesFrom)
   const block = useBlockStore(selectActiveBlock)
   const blocks = useBlockStore(s => s.blocks)
   const setMakeHere = useBlockStore(s => s.setMakeHere)
@@ -136,6 +122,21 @@ export function ComesFrom({ itemId }: { itemId: string }) {
           <Tip id={`${baseId}-import`} align="end">{IMPORT_SWITCH.title}</Tip>
         </span>
       </div>
+
+      <div className="flex">
+        <button
+          type="button"
+          data-testid="sources-button"
+          aria-expanded={listInPopover ? false : listOpen}
+          aria-controls={!listInPopover && listOpen ? `${baseId}-sources` : undefined}
+          aria-haspopup={listInPopover ? 'dialog' : undefined}
+          onClick={e => listInPopover ? openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }) : setListOpen(o => !o)}
+          className="bg-gray-900 border border-gray-700 rounded px-1.5 text-[11px] leading-4 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          {SOURCES_BUTTON_LABEL}
+        </button>
+      </div>
+      {!listInPopover && listOpen && <SourcesList id={`${baseId}-sources`} itemId={itemId} />}
 
       <p data-testid="sourcing-sentence" className="text-[11px] leading-snug text-gray-400">{sentence}</p>
 

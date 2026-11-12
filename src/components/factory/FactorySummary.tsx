@@ -500,7 +500,7 @@ export function FactorySummary() {
             }
             return actions
           }}
-          renderControls={slot => <ComesFrom itemId={slot.itemId} />}
+          renderControls={slot => <ComesFrom itemId={slot.itemId} listInPopover />}
           // Slot ids of the Ingredients pane are item ids.
           openRequest={opened ? { seq: opened.seq, slotId: opened.itemId } : undefined}
           onOpenBlock={setActiveBlock}

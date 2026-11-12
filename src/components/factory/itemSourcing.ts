@@ -73,3 +73,27 @@ export const SOURCES_LINES = {
   },
   import: IMPORT_SWITCH,
 } as const satisfies Record<string, { label: string; title: string }>
+
+// ---------------------------------------------------------------------------
+// The order of the Sources list's lines, a function of the rule and of the block.
+// ---------------------------------------------------------------------------
+
+export type LineKey = 'made-here' | 'make-here' | 'other-areas' | 'block' | 'import'
+
+/** Where *Make more here* is drawn against the block lines. */
+export type Side = 'above' | 'below'
+
+/**
+ * The lines top to bottom. *Already made here* is first and *Import* last. *Make more here* sits directly above the block lines
+ * (no `makeHere`) or directly below them (`'after-blocks'`); switched off it stays where it was drawn last (`lastSide`). *Other
+ * areas* follows *Make more here*, or *Already made here* when that is off, as in the mapping table of plan.md.
+ */
+export function sourcesLineOrder(makeHere: 'after-blocks' | 'off' | undefined, hasAreas: boolean, lastSide: Side): LineKey[] {
+  const areas: LineKey[] = hasAreas ? ['other-areas'] : []
+  if (makeHere === 'off') {
+    return ['made-here', ...areas, ...(lastSide === 'above' ? ['make-here', 'block'] as const : ['block', 'make-here'] as const), 'import']
+  }
+  return makeHere === 'after-blocks'
+    ? ['made-here', 'block', 'make-here', ...areas, 'import']
+    : ['made-here', 'make-here', ...areas, 'block', 'import']
+}

@@ -71,8 +71,8 @@ export interface UiStoreState {
    * At most one is open; opening another replaces it. It holds for any item of the active block, whether or not the item
    * has an Ingredients slot, and it closes with a block change.
    */
-  comesFromPopover: { itemId: string; anchor: PopoverAnchor } | null
-  openComesFrom: (itemId: string, anchor: PopoverAnchor) => void
+  comesFromPopover: { itemId: string; anchor: PopoverAnchor; /** The Sources list is open in it. */ list?: boolean } | null
+  openComesFrom: (itemId: string, anchor: PopoverAnchor, opts?: { list?: boolean }) => void
   closeComesFrom: () => void
   /**
    * The connection menu (`ConnectionMenu`) for an item of the active block, at viewport coordinates. It is a store
@@ -146,7 +146,7 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   openIngredientSlot: (itemId) => set({ ingredientSlotRequest: { seq: (ingredientSlotSeq += 1), itemId } }),
   clearIngredientSlotRequest: (seq) => set(state => (state.ingredientSlotRequest?.seq === seq ? { ingredientSlotRequest: null } : state)),
   comesFromPopover: null,
-  openComesFrom: (itemId, anchor) => set({ comesFromPopover: { itemId, anchor } }),
+  openComesFrom: (itemId, anchor, opts) => set({ comesFromPopover: { itemId, anchor, ...(opts?.list ? { list: true } : {}) } }),
   closeComesFrom: () => set(state => (state.comesFromPopover === null ? state : { comesFromPopover: null })),
   connectionMenu: null,
   openConnectionMenu: (itemId, x, y) => set({ connectionMenu: { itemId, x, y } }),
