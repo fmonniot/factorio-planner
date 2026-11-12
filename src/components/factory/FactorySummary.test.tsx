@@ -8,6 +8,7 @@ import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
 import { BLOCK_PALETTE } from '../../data/blockColors'
+import { sourceRulesOf } from '../../test/sourceRulesOf'
 import type { Block, ConnectionFlow, GameData, SolverResult, Product } from '../../data/types'
 
 const mockGameData: GameData = {
@@ -1021,7 +1022,7 @@ describe('FactorySummary — connections', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       useBlockStore.setState(s => ({
         blocks: s.blocks.map(b => (b.id === 'consumer'
-          ? { ...b, itemSourcing: { 'iron-ore': 'connections-first' as const }, noImportItems: ['iron-ore'] }
+          ? { ...b, sourceRules: { 'iron-ore': { makeHere: 'after-blocks' as const, importOff: true as const } } }
           : b)),
       }))
       render(<FactorySummary />)
@@ -1123,12 +1124,12 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       fireEvent.click(choice('Receive it first'))
-      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
       expect(choice('Receive it first')).toBeChecked()
       fireEvent.click(choice("Don't make more here"))
-      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
       fireEvent.click(choice('Make it here'))
-      expect(consumer().itemSourcing).toEqual({})
+      expect(consumer().sourceRules).toEqual({})
     })
 
     it('turns Import off and on', () => {
@@ -1137,11 +1138,11 @@ describe('FactorySummary — connections', () => {
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       fireEvent.click(importSwitch())
-      expect(consumer().noImportItems).toEqual(['iron-ore'])
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
       expect(importSwitch()).not.toBeChecked()
       expect(within(group()).getByTestId('sourcing-sentence')).toHaveTextContent(/ Import is off\.$/)
       fireEvent.click(importSwitch())
-      expect(consumer().noImportItems).toEqual([])
+      expect(consumer().sourceRules).toEqual({})
     })
 
     it('is one tab stop, and the arrows move between presets, wrapping and skipping one that is not available', () => {
@@ -1155,7 +1156,7 @@ describe('FactorySummary — connections', () => {
       fireEvent.keyDown(choice('Make it here'), { key: 'ArrowRight' })
       expect(choice('Receive it first')).toBeChecked()
       expect(choice('Receive it first')).toHaveFocus()
-      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
       fireEvent.keyDown(choice('Receive it first'), { key: 'ArrowRight' })
       expect(choice("Don't make more here")).toBeChecked()
       fireEvent.keyDown(choice("Don't make more here"), { key: 'ArrowRight' })
@@ -1191,15 +1192,15 @@ describe('FactorySummary — connections', () => {
       expect(third).toHaveAttribute('aria-disabled', 'true')
       expect(third).toHaveAccessibleDescription('Import is off for Iron Ore, so the block has to make it.')
       fireEvent.click(third)
-      expect(consumer().itemSourcing).toEqual({})
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
 
       fireEvent.click(importSwitch())
       fireEvent.click(choice("Don't make more here"))
-      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
       expect(importSwitch()).toHaveAttribute('aria-disabled', 'true')
       expect(importSwitch()).toHaveAccessibleDescription("Don't make more here relies on imports for the rest.")
       fireEvent.click(importSwitch())
-      expect(consumer().noImportItems).toEqual([])
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'off' } })
       // The other presets stay free, and choosing one frees the switch.
       fireEvent.click(choice('Make it here'))
       expect(importSwitch()).not.toHaveAttribute('aria-disabled')
@@ -1208,7 +1209,7 @@ describe('FactorySummary — connections', () => {
     it("shows a plan saved with both as Don't make more here, reported as locked, and lets it be removed", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
-      patch({ itemSourcing: { 'iron-ore': 'byproducts-first' }, noImportItems: ['iron-ore'] })
+      patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const, importOff: true as const } } })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       expect(choice("Don't make more here")).toBeChecked()
@@ -1216,14 +1217,13 @@ describe('FactorySummary — connections', () => {
       expect(line).toHaveAttribute('data-no-effect', 'locked')
       expect(line).toHaveTextContent('Import is off for Iron Ore, so the block has to make it.')
       fireEvent.click(within(line).getByRole('button', { name: 'Remove' }))
-      expect(consumer().itemSourcing).toEqual({})
-      expect(consumer().noImportItems).toEqual(['iron-ore'])
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { importOff: true } })
     })
 
     it('says a rule with no effect has none, and removes just that rule', () => {
       // No row of the block makes Iron Ore: it is raw here, so a rule on it does nothing.
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
-      patch({ itemSourcing: { 'iron-ore': 'connections-first' }, noImportItems: ['iron-ore'] })
+      patch({ sourceRules: { 'iron-ore': { makeHere: 'after-blocks' as const, importOff: true as const } } })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       const lines = within(group()).getAllByTestId('no-effect')
@@ -1235,17 +1235,16 @@ describe('FactorySummary — connections', () => {
       // A rule with no effect stays selectable so it can be changed.
       expect(choice('Receive it first')).not.toHaveAttribute('aria-disabled')
       fireEvent.click(within(lines[1]).getByRole('button', { name: 'Remove' }))
-      expect(consumer().noImportItems).toEqual([])
-      expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
+      expect(consumer().sourceRules).toEqual({ 'iron-ore': { makeHere: 'after-blocks' } })
       fireEvent.click(within(within(group()).getByTestId('no-effect')).getByRole('button', { name: 'Remove' }))
-      expect(consumer().itemSourcing).toEqual({})
+      expect(consumer().sourceRules).toEqual({})
       expect(within(group()).queryByTestId('no-effect')).not.toBeInTheDocument()
     })
 
     it('shows nothing grey for a rule that has an effect', () => {
       setupBlocks({ activeId: 'consumer', connected: true, result: mockSolverResult, flows: [flow()] })
       withOreRow()
-      patch({ itemSourcing: { 'iron-ore': 'connections-first' } })
+      patch({ sourceRules: { 'iron-ore': { makeHere: 'after-blocks' as const } } })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       expect(within(group()).queryByTestId('no-effect')).not.toBeInTheDocument()
@@ -1977,9 +1976,9 @@ describe('FactorySummary — Find recipe', () => {
 })
 
 describe('FactorySummary — import lock', () => {
-  const noImport = () => useBlockStore.getState().blocks[0].noImportItems
+  const noImport = () => Object.entries(useBlockStore.getState().blocks[0].sourceRules).filter(([, r]) => r.importOff).map(([id]) => id)
   const lock = (...ids: string[]) =>
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, noImportItems: ids })) }))
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: sourceRulesOf({}, ids) })) }))
 
   /** The block gets a row for a recipe that makes Iron Ore, so the item has an LP row and can be locked. */
   function addOreRow() {
@@ -2426,7 +2425,7 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
   const comesFrom = () => within(strip('Ingredients')).getByTestId('comes-from')
   /** Slag is made and used inside the block: it is not imported, connected or locked, so it has no Ingredients slot. */
   const withSlagRule = () =>
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { slag: 'byproducts-first' as const } })) }))
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { slag: { makeHere: 'off' as const } } })) }))
 
   beforeEach(() => useUiStore.setState({ ingredientSlotRequest: null, selectedRow: null }))
   afterEach(() => vi.unstubAllGlobals())
@@ -2442,7 +2441,7 @@ describe('FactorySummary — opening an Ingredients slot on request', () => {
   })
 
   it('focuses the preset that is chosen, the one tab stop of the group', () => {
-    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, itemSourcing: { 'iron-ore': 'connections-first' as const } })) }))
+    useBlockStore.setState(s => ({ blocks: s.blocks.map(b => ({ ...b, sourceRules: { 'iron-ore': { makeHere: 'after-blocks' as const } } })) }))
     render(<FactorySummary />)
     open('iron-ore')
     expect(document.activeElement).toBe(within(comesFrom()).getByRole('radio', { name: 'Receive it first' }))
@@ -2546,7 +2545,7 @@ describe('FactorySummary — source rule marker', () => {
 
   it('is on the Ingredients slot of an item with a rule that has an effect, selected or not, and named by the slot', () => {
     withMakerRow()
-    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const } } })
     render(<FactorySummary />)
     const ore = slot('Ingredients', 'Iron Ore')
     expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, has a source rule')
@@ -2568,7 +2567,7 @@ describe('FactorySummary — source rule marker', () => {
 
   it('follows the status in the slot name, and sits after the status badge of a locked slot', () => {
     withMakerRow()
-    patch({ noImportItems: ['iron-ore'] })
+    patch({ sourceRules: { 'iron-ore': { importOff: true as const } } })
     render(<FactorySummary />)
     const ore = slot('Ingredients', 'Iron Ore')
     expect(ore).toHaveAccessibleName('Iron Ore, 120 per minute, locked, has a source rule')
@@ -2587,14 +2586,14 @@ describe('FactorySummary — source rule marker', () => {
     expect(within(slot('Ingredients', 'Iron Ore')).getByText('120')).toBeInTheDocument()
 
     // No row of the block makes Iron Ore: both rules are stored and neither has an effect.
-    act(() => patch({ itemSourcing: { 'iron-ore': 'byproducts-first' }, noImportItems: ['iron-ore'] }))
+    act(() => patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const, importOff: true as const } } }))
     expect(markers(pane('Ingredients'))).toHaveLength(0)
     expect(slot('Ingredients', 'Iron Ore')).toHaveAccessibleName('Iron Ore, 120 per minute, locked')
   })
 
   it('is never on a Byproducts or Products slot, and adds no Ingredients slot', () => {
     withMakerRow()
-    patch({ itemSourcing: { slag: 'byproducts-first' } })
+    patch({ sourceRules: { slag: { makeHere: 'off' as const } } })
     render(<FactorySummary />)
     expect(slot('Byproducts', 'Slag')).toHaveAccessibleName('Slag, 10.0 per minute')
     expect(markers(pane('Byproducts'))).toHaveLength(0)
@@ -2606,7 +2605,7 @@ describe('FactorySummary — source rule marker', () => {
 
   it('is on the chip of the collapsed line, beside it, and only shows the rule', () => {
     withMakerRow()
-    patch({ itemSourcing: { 'iron-ore': 'byproducts-first', slag: 'byproducts-first' } })
+    patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const }, slag: { makeHere: 'off' as const } } })
     useUiStore.setState({ summaryCollapsed: true })
     withRoom(300)
     render(<FactorySummary />)
@@ -2634,7 +2633,7 @@ describe('FactorySummary — source rule marker', () => {
   })
 
   it('is absent from the collapsed line for the default and for a rule with no effect', () => {
-    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const } } })
     useUiStore.setState({ summaryCollapsed: true })
     withRoom(300)
     render(<FactorySummary />)
@@ -2645,7 +2644,7 @@ describe('FactorySummary — source rule marker', () => {
 
   it('is in the +N list of the collapsed line for an item whose chip does not fit, and only shows the rule there', () => {
     withMakerRow()
-    patch({ itemSourcing: { 'iron-ore': 'byproducts-first' } })
+    patch({ sourceRules: { 'iron-ore': { makeHere: 'off' as const } } })
     useUiStore.setState({ summaryCollapsed: true })
     withRoom(0)
     render(<FactorySummary />)

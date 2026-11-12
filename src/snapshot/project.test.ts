@@ -69,7 +69,7 @@ function richNode(id: string, recipeId: string, over: Partial<GameRecipeNode>): 
 
 function makeBlock(id: string, over: Partial<Block> = {}): Block {
   return {
-    id, name: id, color: '#112233', products: [], noImportItems: [], itemSourcing: {}, inputConnections: [],
+    id, name: id, color: '#112233', products: [], sourceRules: {}, inputConnections: [],
     rootPlan: plan(`${id}-root`, 'Main', []), ...over,
   }
 }

@@ -341,7 +341,7 @@ Total ingot is 52 exec/min, as in one area (6.933 machines, 7 buildings), but sp
 
 ## Case 8 — Byproducts first
 
-**Exercises:** the per-item mode `itemSourcing[item] = 'byproducts-first'`. An item set to it is imported rather than made by a recipe that would run only for it; what recipes make anyway is used first.
+**Exercises:** the per-item rule `sourceRules[item] = { makeHere: 'off' }`. An item set to it is imported rather than made by a recipe that would run only for it; what recipes make anyway is used first.
 
 **Goals:** 800 `nullius-hydrogen` / min and 125 `nullius-acid-nitric` / min
 
@@ -439,7 +439,7 @@ Plates 60/min at 1 per run = 60 executions/min.
 
 ## Case 11 — Spare output before connections
 
-**Exercises:** `itemSourcing[item] = 'connections-first'` with a connection. A connections-first item uses what the block's rows already make of it before its connected supply, so the connection delivers only the deficit (`blockDiagnostics`, `src/solver/blockResult.ts`; the area solve calls the same function).
+**Exercises:** `sourceRules[item] = { makeHere: 'after-blocks' }` with a connection. A connections-first item uses what the block's rows already make of it before its connected supply, so the connection delivers only the deficit (`blockDiagnostics`, `src/solver/blockResult.ts`; the area solve calls the same function).
 
 **Goals:** 30 `case11-goal` / min and 50 `case11-other` / min. `case11-x` is connections-first, with one connection from another block.
 

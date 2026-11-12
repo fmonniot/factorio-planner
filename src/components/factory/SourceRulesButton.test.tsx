@@ -6,7 +6,8 @@ import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/block
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore } from '../../store/gameDataStore'
 import { useSolverStore } from '../../store/solverStore'
-import type { Block, GameData, ItemSourcingMode } from '../../data/types'
+import { sourceRulesOf } from '../../test/sourceRulesOf'
+import type { Block, GameData } from '../../data/types'
 
 // Smelt turns Ore into Plate; Ore Synth makes Ore. So Ore and Plate are made by the block, Water is not.
 function gameData(): GameData {
@@ -41,7 +42,7 @@ function gameData(): GameData {
 }
 
 interface Rules {
-  sourcing?: Record<string, ItemSourcingMode>
+  sourcing?: Record<string, 'byproducts-first' | 'connections-first'>
   locked?: string[]
   /** A connection for Ore from the other block. */
   connected?: boolean
@@ -50,7 +51,7 @@ interface Rules {
 /** The active block "Main" (rows Smelt and Ore Synth) with the given rules, and a block "Source" beside it. */
 function setup({ sourcing = {}, locked = [], connected = false }: Rules = {}) {
   const source: Block = { ...makeEmptyBlock('Source'), id: 'source', products: [{ id: 'p', itemId: 'ore' }] }
-  const main: Block = { ...makeEmptyBlock('Main'), id: 'main', itemSourcing: sourcing, noImportItems: locked }
+  const main: Block = { ...makeEmptyBlock('Main'), id: 'main', sourceRules: sourceRulesOf(sourcing, locked) }
   main.rootPlan = { ...main.rootPlan, nodes: [makeRecipeNode('smelt'), makeRecipeNode('ore-synth')] }
   if (connected) main.inputConnections = [{ id: 'c', itemId: 'ore', fromBlockId: 'source' }]
   useBlockStore.setState({ blocks: [main, source], activeBlockId: 'main', history: {} })
@@ -206,8 +207,7 @@ describe('Source rules — Remove', () => {
     render(<SourceRulesButton />)
     openPopover()
     fireEvent.click(remove(entry(itemId, kind)))
-    expect(mainBlock().itemSourcing).toEqual({})
-    expect(mainBlock().noImportItems).toEqual(['plate'])
+    expect(mainBlock().sourceRules).toEqual({ 'plate': { importOff: true } })
     expect(button()).toHaveTextContent('Source rules (1)')
     expect(entries().map(e => e.dataset.rule)).toEqual(['import-off'])
   })
@@ -217,8 +217,7 @@ describe('Source rules — Remove', () => {
     render(<SourceRulesButton />)
     openPopover()
     fireEvent.click(remove(entry('ore', 'import-off')))
-    expect(mainBlock().noImportItems).toEqual(['plate'])
-    expect(mainBlock().itemSourcing).toEqual({ water: 'connections-first' })
+    expect(mainBlock().sourceRules).toEqual({ water: { makeHere: 'after-blocks' }, plate: { importOff: true } })
     expect(button()).toHaveTextContent('Source rules (2)')
   })
 
@@ -227,10 +226,9 @@ describe('Source rules — Remove', () => {
     render(<SourceRulesButton />)
     openPopover()
     fireEvent.click(remove(entry('ore', 'import-off')))
-    expect(mainBlock().noImportItems).toEqual([])
-    expect(mainBlock().itemSourcing).toEqual({ ore: 'connections-first' })
+    expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'after-blocks' } })
     fireEvent.click(remove(entry('ore', 'connections-first')))
-    expect(mainBlock().itemSourcing).toEqual({})
+    expect(mainBlock().sourceRules).toEqual({})
   })
 
   it('keeps the popover open and moves focus to the next rule\'s Remove, else the previous one', () => {
@@ -330,7 +328,7 @@ describe('Source rules — a rule\'s item', () => {
     fireEvent.click(within(entry('ore', 'byproducts-first')).getByTestId('source-rule-item'))
     const row = entry('ore', 'byproducts-first')
     fireEvent.click(within(row).getByRole('radio', { name: 'Receive it first' }))
-    expect(mainBlock().itemSourcing).toEqual({ ore: 'connections-first' })
+    expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'after-blocks' } })
     // The control is still open on the same item, now for its new rule (which has no connection to act on).
     expect(within(entry('ore', 'connections-first')).getByTestId('comes-from')).toBeInTheDocument()
   })

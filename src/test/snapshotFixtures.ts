@@ -56,8 +56,7 @@ function block(spec: BlockSpec): Block {
       itemId,
       ...(extraRate !== undefined ? { extraRate } : {}),
     })),
-    noImportItems: [],
-    itemSourcing: {},
+    sourceRules: {},
     inputConnections: (spec.connections ?? []).map(([itemId, fromBlockId], i) => ({
       id: `${spec.id}-c${i}`,
       itemId,

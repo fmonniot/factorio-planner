@@ -59,7 +59,7 @@ describe('inspectPlan', () => {
   it('pins a recipe and sets item sourcing on the block only', () => {
     const state = plan()
     const next = applyWhatIf(state, state.blocks[0].id, { pins: { 'angels-solid-sulfur': 1 }, sourcing: { sulfur: 'byproducts-first' } })
-    expect(next.blocks[0].itemSourcing).toEqual({ sulfur: 'byproducts-first' })
+    expect(next.blocks[0].sourceRules).toEqual({ sulfur: { makeHere: 'off' } })
     expect(next.blocks[0].rootPlan.nodes.find(n => n.kind === 'game-recipe' && n.recipeId === 'angels-solid-sulfur')).toMatchObject({
       pinnedRate: 1,
     })

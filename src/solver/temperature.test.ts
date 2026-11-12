@@ -56,7 +56,7 @@ function node(id: string, recipeId: string, pinnedRate?: number): GameRecipeNode
 function block(id: string, nodes: RecipeNode[], products: Product[] = [{ id: `g-${id}`, itemId: 'electricity', extraRate: 60 }], connections: Block['inputConnections'] = []): Block {
   const now = new Date().toISOString()
   return {
-    id, name: id, color: '#60a5fa', products, noImportItems: [], itemSourcing: {}, inputConnections: connections,
+    id, name: id, color: '#60a5fa', products, sourceRules: {}, inputConnections: connections,
     rootPlan: { id: `root-${id}`, name: `root-${id}`, nodes, subPlans: [], createdAt: now, updatedAt: now },
   }
 }

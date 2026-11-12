@@ -217,10 +217,34 @@ describe('switching data sets', () => {
     localStorageMock.setItem(legacyPlanStorageKey('nullius'), JSON.stringify({ blocks: [block], activeBlockId: block.id }))
     useGameDataStore.setState({ status: loadedStatus('nullius') })
     expect(useBlockStore.getState().blocks[0].products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
-    useBlockStore.getState().toggleNoImportItem('benzene') // any change triggers a save
+    useBlockStore.getState().toggleImportOff('benzene') // any change triggers a save
     const saved = JSON.parse(store[KEY()])
     expect(saved.blocks[0].products).toEqual([{ id: 'g1', itemId: 'iron-plate', extraRate: 60 }])
     expect(saved.blocks[0], 'saved block has no legacy goals').not.toHaveProperty('goals')
+  })
+
+  it('loads a stored plan with the old sourcing keys as rules and saves it with sourceRules only', () => {
+    const { sourceRules: _rules, ...rest } = makeEmptyBlock('Old')
+    void _rules
+    const block = {
+      ...rest,
+      itemSourcing: { ore: 'connections-first', plate: 'byproducts-first', gear: 'byproducts-first' },
+      noImportItems: ['plate', 'water'],
+    }
+    localStorageMock.setItem(legacyPlanStorageKey('nullius'), JSON.stringify({ blocks: [block], activeBlockId: block.id }))
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    const expected = {
+      ore: { makeHere: 'after-blocks' },
+      plate: { importOff: true },
+      gear: { makeHere: 'off' },
+      water: { importOff: true },
+    }
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual(expected)
+    useBlockStore.getState().toggleImportOff('benzene') // any change triggers a save
+    useBlockStore.getState().toggleImportOff('benzene')
+    const saved = JSON.parse(store[KEY()]).blocks[0]
+    expect(saved.sourceRules).toEqual(expected)
+    for (const key of ['itemSourcing', 'noImportItems', 'connectionsFirstItems']) expect(saved, `saved block has no ${key}`).not.toHaveProperty(key)
   })
 
   it('leaves the plan alone when loading fails', () => {
@@ -1196,7 +1220,7 @@ describe('plan import', () => {
 
     it('accepts a legacy block with per-subplan goals', () => {
       const legacy = {
-        id: 'b1', name: 'Block', noImportItems: [],
+        id: 'b1', name: 'Block', sourceRules: {},
         rootPlan: {
           id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now,
           goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }],

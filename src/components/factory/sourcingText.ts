@@ -1,8 +1,9 @@
-import type { Block, GameData, ItemSourcingMode, SolverResult, ConnectionFlow } from '../../data/types'
+import type { Block, GameData, SolverResult, ConnectionFlow } from '../../data/types'
 import type { RateUnit } from '../../store/uiStore'
 import { dedicatedProduct } from '../../solver/areas'
 import { rowMachine } from '../../solver/effects'
 import { fmtItemRateText } from './ItemTile'
+import type { SourcingPreset } from './itemSourcing'
 
 // ---------------------------------------------------------------------------
 // The sentence under each sourcing choice of the side panel: how this block gets one item under the
@@ -34,8 +35,8 @@ export interface ItemConnection {
 export interface SourcingTextInput {
   itemName: string
   itemId: string
-  mode: ItemSourcingMode | undefined
-  /** Import is off for the item (it is in `Block.noImportItems`). */
+  mode: SourcingPreset | undefined
+  /** Import is off for the item (its rule has `importOff`). */
   noImport: boolean
   makers: ItemMaker[]
   connections: ItemConnection[]

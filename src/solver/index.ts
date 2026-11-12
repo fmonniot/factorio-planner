@@ -22,7 +22,7 @@ import { hasTemperatureData, temperatureWarnings } from './temperature'
 import { computeNodeEffects } from './effects'
 import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopShape } from './blockGraph'
 import {
-  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
+  FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, byproductsFirstSet, importOffItems, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
@@ -42,8 +42,7 @@ export function flattenBlock(block: Block): SolverPlan {
   const plan: SolverPlan = {
     goals: productGoals(block.products),
     nodes,
-    noImportItems: block.noImportItems,
-    itemSourcing: block.itemSourcing,
+    sourceRules: block.sourceRules,
   }
   const areas = blockAreas(block.rootPlan)
   return areas ? { ...plan, areas } : plan
@@ -241,7 +240,7 @@ export function solveBlock(
   // trigger new ingredient production" semantics: with no slack allowed on
   // a bc ingredient, the LP can't import it just to fire the bc bonus —
   // it must come from an in-plan producer (or raw if no producer exists).
-  const noImportItems = new Set(plan.noImportItems ?? [])
+  const noImportItems = new Set(importOffItems(plan))
   for (const n of representatives) {
     if (!n.byproductConsumer) continue
     const recipe = gameData.recipes[n.recipeId]
@@ -262,7 +261,7 @@ export function solveBlock(
   // offer only, so the LP uses it before the block's own recipes.
   const byproductsFirst = byproductsFirstSet(plan, noImportItems)
   const firstItems = new Set(
-    itemsWithSourcing(plan, 'connections-first').filter(
+    itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
@@ -867,8 +866,7 @@ function computeRequests(
             return [
               m.products,
               flat.nodes,
-              flat.noImportItems ?? [],
-              sourcingKey(flat.itemSourcing),
+              sourcingKey(flat.sourceRules),
               [...connectedCaps(m, byId, selfConnectionIds).keys()],
               (requestsOf.get(m.id) ?? []).map(c => [c.id, c.itemId, c.fromBlockId, c.maxRate ?? null]),
               [...(takeOf.get(m.id) ?? [])].map(([itemId, takes]) => [

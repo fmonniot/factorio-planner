@@ -1,9 +1,8 @@
 import { useId, useMemo } from 'react'
-import type { ItemSourcingMode } from '../../data/types'
 import { useBlockStore, selectActiveBlock } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
-import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT, SOURCE_RULE_NAMES } from './itemSourcing'
+import { COMES_FROM_LABEL, IMPORT_SWITCH, ITEM_SOURCING_CHOICES, RELIES_ON_IMPORT_TEXT, SOURCE_RULE_NAMES, makeHereOf, presetOf } from './itemSourcing'
 import { noEffectText, sourceRules } from './sourceRules'
 import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
@@ -67,8 +66,8 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   const baseId = useId()
   const block = useBlockStore(selectActiveBlock)
   const blocks = useBlockStore(s => s.blocks)
-  const setItemSourcing = useBlockStore(s => s.setItemSourcing)
-  const toggleNoImportItem = useBlockStore(s => s.toggleNoImportItem)
+  const setMakeHere = useBlockStore(s => s.setMakeHere)
+  const toggleImportOff = useBlockStore(s => s.toggleImportOff)
   const gameData = useGameDataStore(selectGameData)
   const removeRule = useRemoveSourceRule()
   const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
@@ -83,8 +82,8 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   if (!block || !gameData) return null
 
   const name = gameData.items[itemId]?.name ?? itemId
-  const preset = block.itemSourcing[itemId]
-  const importOn = !block.noImportItems.includes(itemId)
+  const preset = presetOf(block.sourceRules[itemId])
+  const importOn = !block.sourceRules[itemId]?.importOff
   const lockedTitle = noEffectText('locked', name)
 
   // The control never creates the pair of "Don't make more here" and Import off. A plan saved with
@@ -121,7 +120,7 @@ export function ComesFrom({ itemId }: { itemId: string }) {
                   // One tab stop for the group, the chosen preset; the arrows move between presets.
                   tabIndex={selected ? 0 : -1}
                   data-sourcing-choice={choice.mode ?? 'own'}
-                  onClick={() => { if (!disabled) setItemSourcing(itemId, choice.mode as ItemSourcingMode | undefined) }}
+                  onClick={() => { if (!disabled) setMakeHere(itemId, makeHereOf(choice.mode)) }}
                   className={`px-1.5 py-0.5 text-[11px] leading-4 whitespace-nowrap outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-inset ${selected ? 'bg-teal-900/60 text-teal-200' : 'text-gray-300 hover:bg-gray-800'} ${disabled ? 'opacity-40 cursor-default hover:bg-transparent' : ''}`}
                 >
                   {choice.label}
@@ -139,7 +138,7 @@ export function ComesFrom({ itemId }: { itemId: string }) {
             aria-disabled={switchDisabled || undefined}
             aria-describedby={`${baseId}-import`}
             data-testid="import-switch"
-            onClick={() => { if (!switchDisabled) toggleNoImportItem(itemId) }}
+            onClick={() => { if (!switchDisabled) toggleImportOff(itemId) }}
             className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 ${switchDisabled ? 'opacity-40 cursor-default' : 'hover:text-gray-100'}`}
           >
             {IMPORT_SWITCH.label}

@@ -73,8 +73,7 @@ function makeBlock(rootPlan: SubPlan, products: Product[]): Block {
     name: 'Block',
     color: '#60a5fa',
     products,
-    noImportItems: [],
-    itemSourcing: {},
+    sourceRules: {},
     inputConnections: [],
     rootPlan,
   }
@@ -355,7 +354,7 @@ describe('solveBlock — own production first', () => {
     const plan = {
       goals: gearGoal,
       nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)],
-      noImportItems: ['plate'],
+      sourceRules: { 'plate': { importOff: true as const } },
     }
     const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 100]]))
     expect(received.get('plate')).toBeCloseTo(30, 4)
@@ -366,7 +365,7 @@ describe('solveBlock — own production first', () => {
     const plan = {
       goals: gearGoal,
       nodes: [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)],
-      noImportItems: ['plate'],
+      sourceRules: { 'plate': { importOff: true as const } },
     }
     const { result, received } = solveBlock(plan, connectionGameData(), new Map([['plate', 10]]))
     expect(result.warnings.some(w => w.type === 'infeasible-pins')).toBe(false)
@@ -388,7 +387,7 @@ describe('solveBlock — own production first', () => {
 
 describe('solveBlock — connections first', () => {
   const gearGoal: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }]
-  const cf = { itemSourcing: { plate: 'connections-first' as const } }
+  const cf = { sourceRules: { plate: { makeHere: 'after-blocks' as const } } }
   const own = (result: ReturnType<typeof solveBlock>['result'], id: string) =>
     result.nodes.find(n => n.recipeNodeId === id)!.throughput
   const plan = (...nodes: RecipeNode[]) => ({ goals: gearGoal, nodes: [planNode('g', 'gear'), ...nodes] })
@@ -448,7 +447,7 @@ describe('solveBlock — connections first', () => {
   describe('with a locked item', () => {
     it('keeps the lock honoured when the offer covers the need', () => {
       const { result, received } = solveBlock(
-        { ...plan(planNode('p', 'plateFromIngot')), ...cf, noImportItems: ['plate'] },
+        { ...plan(planNode('p', 'plateFromIngot')), sourceRules: { plate: { makeHere: 'after-blocks' as const, importOff: true as const } } },
         connectionGameData(), new Map([['plate', 30]]),
       )
       expect(received.get('plate')).toBeCloseTo(30, 4)
@@ -458,7 +457,7 @@ describe('solveBlock — connections first', () => {
 
     it('shows the part the offer and the pin cannot cover as an import', () => {
       const { result } = solveBlock(
-        { ...plan(pinned('p', 'plateFromIngot', 10)), ...cf, noImportItems: ['plate'] },
+        { ...plan(pinned('p', 'plateFromIngot', 10)), sourceRules: { plate: { makeHere: 'after-blocks' as const, importOff: true as const } } },
         connectionGameData(), new Map([['plate', 30]]),
       )
       expect(rate(result.unsatisfied, 'plate')).toBeCloseTo(10, 4)
@@ -504,7 +503,7 @@ describe('solveBlock — connections first', () => {
   it('changes nothing for an empty list, or for an item the block cannot make', () => {
     const p = plan(planNode('p', 'plateFromIngot'))
     const caps = () => new Map([['plate', 30]])
-    expect(solveBlock({ ...p, itemSourcing: {} }, connectionGameData(), caps()))
+    expect(solveBlock({ ...p, sourceRules: {} }, connectionGameData(), caps()))
       .toEqual(solveBlock(p, connectionGameData(), caps()))
     const raw = { goals: gearGoal, nodes: [planNode('g', 'gear')] }
     expect(solveBlock({ ...raw, ...cf }, connectionGameData(), caps()))
@@ -514,7 +513,7 @@ describe('solveBlock — connections first', () => {
 
 describe('solveBlock — byproducts first', () => {
   const goals: SolverGoal[] = [{ id: 'g', itemId: 'gear', rate: 25 }, { id: 's', itemId: 'slag', rate: 20 }]
-  const bf = { itemSourcing: { plate: 'byproducts-first' as const } }
+  const bf = { sourceRules: { plate: { makeHere: 'off' as const } } }
   const own = (result: ReturnType<typeof solveBlock>['result'], id: string) =>
     result.nodes.find(n => n.recipeNodeId === id)!.throughput
   const plan = (...extra: RecipeNode[]) => ({
@@ -547,8 +546,8 @@ describe('solveBlock — byproducts first', () => {
   })
 
   it('ignores the mode on a locked item', () => {
-    const locked = { noImportItems: ['plate'] }
-    expect(solveBlock({ ...plan(), ...locked, ...bf }, connectionGameData()))
+    const locked = { sourceRules: { 'plate': { importOff: true as const } } }
+    expect(solveBlock({ ...plan(), sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }, connectionGameData()))
       .toEqual(solveBlock({ ...plan(), ...locked }, connectionGameData()))
   })
 
@@ -561,9 +560,9 @@ describe('solveBlock — byproducts first', () => {
 
   it('ignores the mode on a locked item that a connection partly covers', () => {
     // The offer (10) is below the residual (30): the lock must still decide, not the cheap slack of pass 1.
-    const locked = { noImportItems: ['plate'] }
+    const locked = { sourceRules: { 'plate': { importOff: true as const } } }
     const caps = () => new Map([['plate', 10]])
-    expect(solveBlock({ ...plan(), ...locked, ...bf }, connectionGameData(), caps()))
+    expect(solveBlock({ ...plan(), sourceRules: { plate: { makeHere: 'off' as const, importOff: true as const } } }, connectionGameData(), caps()))
       .toEqual(solveBlock({ ...plan(), ...locked }, connectionGameData(), caps()))
   })
 
@@ -584,10 +583,10 @@ describe('solveBlock — byproducts first', () => {
 
   it('changes nothing for an empty map, a goal item or a raw item', () => {
     const base = solveBlock(plan(), connectionGameData())
-    expect(solveBlock({ ...plan(), itemSourcing: {} }, connectionGameData())).toEqual(base)
-    expect(solveBlock({ ...plan(), itemSourcing: { gear: 'byproducts-first' } }, connectionGameData())).toEqual(base)
+    expect(solveBlock({ ...plan(), sourceRules: {} }, connectionGameData())).toEqual(base)
+    expect(solveBlock({ ...plan(), sourceRules: { gear: { makeHere: 'off' as const } } }, connectionGameData())).toEqual(base)
     const withOre = { goals, nodes: [...plan().nodes, planNode('o', 'ingotFromOre')] }
-    expect(solveBlock({ ...withOre, itemSourcing: { ore: 'byproducts-first' } }, connectionGameData()))
+    expect(solveBlock({ ...withOre, sourceRules: { ore: { makeHere: 'off' as const } } }, connectionGameData()))
       .toEqual(solveBlock(withOre, connectionGameData()))
   })
 })
@@ -766,7 +765,7 @@ describe('solveAll', () => {
   it('reports a limited flow, not ok, for a locked item that is only partly offered', () => {
     const locked: Block = {
       ...block('B', gearGoal(25), [planNode('g', 'gear'), pinned('p', 'plateFromIngot', 20)], [link('c1', 'A')]),
-      noImportItems: ['plate'],
+      sourceRules: { 'plate': { importOff: true as const } },
     }
     const all = solveAll([block('A', plateGoal(10), [planNode('p', 'twin')]), locked], connectionGameData())
     const f = flowOf(all, 'c1')
@@ -1297,7 +1296,7 @@ describe('solveAll — requests', () => {
       [prod('gear', 25)],
       [planNode('g', 'gear'), pinned('f', 'plateFromIngot', 20)],
       [link('c1', 'A')],
-      { noImportItems: ['plate'] },
+      { sourceRules: { 'plate': { importOff: true as const } } },
     )
     const all = solveAll([smelter(), consumer], requestGameData())
     expect(flowOf(all, 'c1').requested).toBeCloseTo(30, 4)
@@ -1632,7 +1631,7 @@ describe('solveAll — requests', () => {
 
   describe('connections first', () => {
     // B makes 25 gears (50 plate) with its own plateFromIngot recipe, ingot being raw.
-    const cf = { itemSourcing: { plate: 'connections-first' as const } }
+    const cf = { sourceRules: { plate: { makeHere: 'after-blocks' as const } } }
     const consumerB = (connections: Block['inputConnections'], extra: Partial<Block> = {}) =>
       block('B', [prod('gear', 25)], [planNode('g', 'gear'), planNode('p', 'plateFromIngot')], connections, extra)
     const nodeRate = (all: ReturnType<typeof solveAll>, blockId: string, nodeId: string) =>
@@ -1711,8 +1710,8 @@ describe('solveAll — requests', () => {
       const plain = solveAll(blocks({}), data, cache)
       expect(flowOf(plain, 'ca').requested).toBeCloseTo(0, 4)
 
-      const warm = solveAll(blocks({ itemSourcing: { y: 'connections-first' } }), data, cache)
-      const cold = solveAll(blocks({ itemSourcing: { y: 'connections-first' } }), data)
+      const warm = solveAll(blocks({ sourceRules: { y: { makeHere: 'after-blocks' as const } } }), data, cache)
+      const cold = solveAll(blocks({ sourceRules: { y: { makeHere: 'after-blocks' as const } } }), data)
       expect(flowOf(warm, 'ca').requested).toBeCloseTo(40, 4)
       expect(flowOf(warm, 'cb').requested).toBeCloseTo(20, 4)
       expect(nodeRate(warm, 'A', 'ym')).toBeCloseTo(0, 4)
@@ -1741,7 +1740,7 @@ describe('solveAll — requests', () => {
   describe('byproducts first', () => {
     // B makes 25 gears (50 plate) and 20 slag (20 plate on the side); the 30 plate left would
     // need plateFromIngot, which byproducts first replaces by a request or an import.
-    const bf = { itemSourcing: { plate: 'byproducts-first' as const } }
+    const bf = { sourceRules: { plate: { makeHere: 'off' as const } } }
     const consumerB = (connections: Block['inputConnections'], extra: Partial<Block> = {}, slag = 20) =>
       block(
         'B', [prod('gear', 25), prod('slag', slag)],
@@ -1936,7 +1935,7 @@ describe('solve — extraction recipes', () => {
     const plan = {
       goals: [ironGoal],
       nodes: [planNode('smelt', 'iron-plate'), { ...(planNode('mine', 'mining:iron-ore') as GameRecipeNode), pinnedRate: 30 }],
-      noImportItems: ['iron-ore'],
+      sourceRules: { 'iron-ore': { importOff: true as const } },
     }
     const result = solve(plan, extractionData())
     // The pin cannot meet the goal without importing ore, so the solver reports it
@@ -2122,7 +2121,7 @@ describe('solve — burner fuel', () => {
 
   it('takes the fuel from a connection', () => {
     const { result, received } = solveBlock(
-      { goals: plateGoal, nodes: [planNode('s', 'smelt'), planNode('c', 'coal-from-wood')], itemSourcing: { coal: 'connections-first' } },
+      { goals: plateGoal, nodes: [planNode('s', 'smelt'), planNode('c', 'coal-from-wood')], sourceRules: { coal: { makeHere: 'after-blocks' as const } } },
       fuelGameData(), new Map([['coal', 100]]),
     )
     expect(received.get('coal')).toBeCloseTo(2.7, 4)
@@ -2359,7 +2358,7 @@ describe('solve — coproduct-driven warning', () => {
   })
 
   it('is silent when the co-product is set to byproducts first', () => {
-    const r = solve({ goals: gadgetGoal(), nodes: nodes(), itemSourcing: { W: 'byproducts-first' } }, gd(100))
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), sourceRules: { W: { makeHere: 'off' as const } } }, gd(100))
     expect(tp(r, 'n0')).toBeCloseTo(60, 3)
     expect(types(r)).not.toContain('overconstrained')
     expect(types(r)).not.toContain('coproduct-driven')
@@ -2379,7 +2378,7 @@ describe('solve — coproduct-driven warning', () => {
   })
 
   it('is silent when the co-product cannot be imported anyway', () => {
-    const r = solve({ goals: gadgetGoal(), nodes: nodes(), noImportItems: ['W'], itemSourcing: { W: 'byproducts-first' } }, gd(100))
+    const r = solve({ goals: gadgetGoal(), nodes: nodes(), sourceRules: { W: { makeHere: 'off' as const, importOff: true as const } } }, gd(100))
     expect(tp(r, 'n0')).toBeCloseTo(150, 3)
     expect(types(r)).not.toContain('coproduct-driven')
   })

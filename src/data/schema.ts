@@ -426,31 +426,48 @@ function migrateBlock(input: unknown): unknown {
     ? data.noImportItems
     : [...collectedNoImports]
 
-  const { goals: _legacy, connectionsFirstItems: _cf, ...restWithoutGoals } = data
-  void _legacy; void _cf
+  const {
+    goals: _legacy, connectionsFirstItems: _cf, noImportItems: _ni, itemSourcing: _is, ...restWithoutGoals
+  } = data
+  void _legacy; void _cf; void _ni; void _is
 
-  const itemSourcing = migrateItemSourcing(data)
+  const sourceRules = migrateSourceRules(data, blockNoImports)
 
   return {
     ...restWithoutGoals,
     products,
-    noImportItems: blockNoImports,
-    ...(itemSourcing === undefined ? {} : { itemSourcing }),
+    ...(sourceRules === undefined ? {} : { sourceRules }),
     rootPlan: migratedRoot,
   }
 }
 
-/** A saved map keeps its entries with a known mode (an unknown one loads as Make it here); without a map,
- *  legacy `connectionsFirstItems` become 'connections-first' entries. Undefined lets the schema default apply. */
-function migrateItemSourcing(data: Record<string, unknown>): unknown {
-  if (isRecord(data.itemSourcing))
-    return Object.fromEntries(Object.entries(data.itemSourcing).filter(([, m]) => ItemSourcingModeSchema.safeParse(m).success))
-  if (data.itemSourcing === undefined && Array.isArray(data.connectionsFirstItems)) {
-    const out: Record<string, string> = {}
-    for (const id of data.connectionsFirstItems) if (typeof id === 'string') out[id] = 'connections-first'
-    return out
+/**
+ * The block's `sourceRules` from whatever it was saved with. A present `sourceRules` wins and the legacy keys
+ * are ignored (idempotent). Otherwise: `itemSourcing` entries (or the older `connectionsFirstItems`), in key
+ * order, then the remaining `noImportItems`. A 'byproducts-first' preset on a locked item is dropped (the lock
+ * won in the solver, so the plan keeps its numbers). Undefined lets the schema default apply; a malformed
+ * `sourceRules` is passed through to be rejected like any malformed field.
+ */
+function migrateSourceRules(data: Record<string, unknown>, noImports: unknown[]): unknown {
+  if (data.sourceRules !== undefined) return data.sourceRules
+  // A malformed legacy map (array, string, null) is rejected by the schema, like any malformed field.
+  if (data.itemSourcing !== undefined && !isRecord(data.itemSourcing)) return data.itemSourcing
+  const locked = new Set(noImports.filter((i): i is string => typeof i === 'string'))
+  const out: Record<string, { makeHere?: 'after-blocks' | 'off'; importOff?: true }> = {}
+  const modes: [string, unknown][] = isRecord(data.itemSourcing)
+    ? Object.entries(data.itemSourcing)
+    : Array.isArray(data.connectionsFirstItems)
+      ? data.connectionsFirstItems.filter((i): i is string => typeof i === 'string').map(i => [i, 'connections-first'])
+      : []
+  for (const [id, mode] of modes) {
+    const rule: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
+    if (mode === 'connections-first') rule.makeHere = 'after-blocks'
+    else if (mode === 'byproducts-first' && !locked.has(id)) rule.makeHere = 'off'
+    if (locked.has(id)) rule.importOff = true
+    if (rule.makeHere || rule.importOff) out[id] = rule
   }
-  return data.itemSourcing // undefined -> default {}; anything else (array, string, null) -> rejected by the schema, like any malformed field
+  for (const id of locked) if (!(id in out)) out[id] = { importOff: true }
+  return out
 }
 
 function isRecord(v: unknown): v is Record<string, unknown> {
@@ -520,9 +537,20 @@ export const BlockConnectionSchema = z
     return c
   })
 
-/** How a block sources an item; an absent entry means Make it here, the default. */
-export const ItemSourcingModeSchema = z.enum(['byproducts-first', 'connections-first'])
-export const ItemSourcingSchema = z.record(z.string(), ItemSourcingModeSchema)
+/** How a block sources one item. An absent key is never written; an item with no entry has the default rule (Make it here, Import on). */
+export const SourceRuleSchema = z
+  .object({
+    /** Where "Make more here" sits. Absent: before the block lines (Make it here). */
+    makeHere: z.enum(['after-blocks', 'off']).optional(),
+    /** Present: the Import line is off. */
+    importOff: z.literal(true).optional(),
+  })
+  .transform(r => {
+    const out: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
+    if (r.makeHere !== undefined) out.makeHere = r.makeHere
+    if (r.importOff !== undefined) out.importOff = r.importOff
+    return out
+  })
 
 export const BlockSchema = z.preprocess(
   migrateBlock,
@@ -534,10 +562,11 @@ export const BlockSchema = z.preprocess(
     /** The colour follows the icon of the first product (the store recolours the block when it changes); absent or false once the user picks a colour, as in plans saved before it existed. */
     colorAuto: z.boolean().optional(),
     products: z.array(ProductSchema).default([]),
-    /** Items the LP solver must not import as raw inputs (no slack variable). */
-    noImportItems: z.array(z.string()).default([]),
-    /** itemId → how the block sources it; absent = Make it here, the default. */
-    itemSourcing: ItemSourcingSchema.default({}),
+    /** itemId → the item's source rule; an item with no entry has the default rule. A rule with no key is dropped on load. */
+    sourceRules: z
+      .record(z.string(), SourceRuleSchema)
+      .transform(rules => Object.fromEntries(Object.entries(rules).filter(([, r]) => r.makeHere !== undefined || r.importOff !== undefined)))
+      .default({}),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),
     rootPlan: SubPlanSchema,
@@ -612,8 +641,7 @@ export type GameRecipeNode = z.output<typeof GameRecipeNodeSchema>
 export type SubPlanNode = z.output<typeof SubPlanNodeSchema>
 export type SubPlan = SubPlanType
 export type BlockConnection = z.output<typeof BlockConnectionSchema>
-export type ItemSourcingMode = z.output<typeof ItemSourcingModeSchema>
-export type ItemSourcing = z.output<typeof ItemSourcingSchema>
+export type SourceRule = z.output<typeof SourceRuleSchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
 export type PlanDataSetStamp = z.output<typeof PlanDataSetStampSchema>

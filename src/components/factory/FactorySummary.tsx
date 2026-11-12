@@ -191,7 +191,7 @@ export function FactorySummary() {
     if (drawer) clearSelectedRow()
   }, [slotRequest, openedSeq, drawer, clearSlotRequest, clearSelectedRow, setCollapsed])
 
-  const noImportItems = activeBlock?.noImportItems ?? []
+  const noImportItems = Object.entries(activeBlock?.sourceRules ?? {}).filter(([, r]) => r.importOff).map(([id]) => id)
   const blocks = useBlockStore(s => s.blocks)
   const ruleItems = useSourceRuleItems(activeBlock, gameData)
   const setActiveBlock = useBlockStore(s => s.setActiveBlock)

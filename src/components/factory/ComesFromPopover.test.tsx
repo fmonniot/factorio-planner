@@ -80,7 +80,7 @@ describe('ComesFromPopover', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')
     fireEvent.click(within(popover()).getByRole('radio', { name: "Don't make more here" }))
-    expect(mainBlock().itemSourcing).toEqual({ ore: 'byproducts-first' })
+    expect(mainBlock().sourceRules).toEqual({ ore: { makeHere: 'off' } })
     // It stays open, and the same on another item.
     expect(popover()).toBeInTheDocument()
   })
@@ -175,7 +175,7 @@ describe('Receive from… in the popover', () => {
   const menu = () => screen.queryByRole('menu')
 
   function openWithNoConnection() {
-    setup({ itemSourcing: { ore: 'connections-first' } })
+    setup({ sourceRules: { ore: { makeHere: 'after-blocks' as const } } })
     render(<FactorySummary />)
     open('ore')
     return within(popover()).getByTestId('no-effect')
@@ -188,7 +188,7 @@ describe('Receive from… in the popover', () => {
     expect(within(line).getByRole('button', { name: 'Remove' })).toBeInTheDocument()
     // An item no row makes (the rule has another reason not to act) gets no such button.
     act(() => useUiStore.getState().closeComesFrom())
-    setup({ itemSourcing: { plate: 'byproducts-first' } })
+    setup({ sourceRules: { plate: { makeHere: 'off' as const } } })
     useBlockStore.setState(s => ({ blocks: s.blocks.map(b => b.id === 'main' ? { ...b, products: [{ id: 'q', itemId: 'plate' }] } : b) }))
     open('plate')
     expect(within(popover()).getByTestId('no-effect')).toHaveTextContent('Plate is a product of this block')

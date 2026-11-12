@@ -1,7 +1,8 @@
 import { describe, it, expect } from 'vitest'
 import { itemsWithEffect, noEffectText, sourceRuleItems, sourceRules, type NoEffectReason, type SourceRuleKind } from './sourceRules'
 import { makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
-import type { Block, GameData, ItemSourcingMode } from '../../data/types'
+import type { Block, GameData } from '../../data/types'
+import { sourceRulesOf } from '../../test/sourceRulesOf'
 
 const gameData = {
   items: {
@@ -23,7 +24,7 @@ const OTHER_BLOCKS = new Set(['source'])
 
 /** A block with a smelting row (it makes Plate), the given settings, and optionally a connection for Plate. */
 function block(opts: {
-  sourcing?: Record<string, ItemSourcingMode>
+  sourcing?: Record<string, 'byproducts-first' | 'connections-first'>
   locked?: string[]
   connected?: boolean
   product?: string
@@ -32,8 +33,7 @@ function block(opts: {
   const b = makeEmptyBlock('B')
   b.id = 'self'
   if (opts.row ?? true) b.rootPlan.nodes = [makeRecipeNode('smelt')]
-  b.itemSourcing = opts.sourcing ?? {}
-  b.noImportItems = opts.locked ?? []
+  b.sourceRules = sourceRulesOf(opts.sourcing, opts.locked)
   if (opts.connected) b.inputConnections = [{ id: 'c', itemId: 'plate', fromBlockId: SOURCE_ID }]
   if (opts.product) b.products = [{ id: 'p', itemId: opts.product }]
   return b
@@ -201,7 +201,7 @@ describe('sourceRuleItems', () => {
     expect(sourceRuleItems(b, gameData, blocks)).toBe(first)
     // Another plan array, or a replaced block, is answered afresh.
     expect(sourceRuleItems(b, gameData, [b])).not.toBe(first)
-    expect([...sourceRuleItems({ ...b, noImportItems: [] }, gameData, blocks)]).toEqual([])
+    expect([...sourceRuleItems({ ...b, sourceRules: {} }, gameData, blocks)]).toEqual([])
   })
 })
 

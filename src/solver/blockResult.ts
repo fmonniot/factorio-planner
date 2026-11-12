@@ -5,8 +5,7 @@ import type {
   Recipe,
   SolvedNode,
   SolverGoal,
-  ItemSourcing,
-  ItemSourcingMode,
+  SourceRule,
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
@@ -21,20 +20,25 @@ import type { SolverArea } from './areas'
 export interface SolverPlan {
   goals: SolverGoal[]
   nodes: RecipeNode[]
-  noImportItems?: string[]
-  itemSourcing?: ItemSourcing
+  /** itemId → the block's source rule for it. */
+  sourceRules?: Record<string, SourceRule>
   /** Present only when a sub-factory is a separate area; its absence selects the plain solve. */
   areas?: SolverArea[]
 }
 
-/** Items set to `mode` in the plan's itemSourcing. */
-export function itemsWithSourcing(plan: SolverPlan, mode: ItemSourcingMode): string[] {
-  return Object.entries(plan.itemSourcing ?? {}).filter(([, m]) => m === mode).map(([id]) => id)
+/** Items whose rule has `makeHere` set to `makeHere`. */
+export function itemsWithSourcing(plan: SolverPlan, makeHere: 'after-blocks' | 'off'): string[] {
+  return Object.entries(plan.sourceRules ?? {}).filter(([, r]) => r.makeHere === makeHere).map(([id]) => id)
 }
 
-/** Byproducts-first items whose import is cheap: not in `noImportItems` (a user lock, or a byproduct consumer's ingredient). */
+/** Items whose rule has Import off. */
+export function importOffItems(plan: SolverPlan): string[] {
+  return Object.entries(plan.sourceRules ?? {}).filter(([, r]) => r.importOff).map(([id]) => id)
+}
+
+/** `makeHere: 'off'` items whose import is cheap: not in `noImportItems` (an Import-off item, or a byproduct consumer's ingredient). */
 export function byproductsFirstSet(plan: SolverPlan, noImportItems: Set<string>): Set<string> {
-  return new Set(itemsWithSourcing(plan, 'byproducts-first').filter(id => !noImportItems.has(id)))
+  return new Set(itemsWithSourcing(plan, 'off').filter(id => !noImportItems.has(id)))
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */

@@ -13,7 +13,7 @@ function subPlan(name: string, nodes: RecipeNode[], updatedAt: string, subPlans:
 
 function block(rootPlan: SubPlan, extra: Partial<Block> = {}): Block {
   const products: Product[] = [{ id: 'g', itemId: 'plate', extraRate: 60 }]
-  return { id: 'b', name: 'Block', color: '#60a5fa', products, noImportItems: [], itemSourcing: {}, inputConnections: [], rootPlan, ...extra }
+  return { id: 'b', name: 'Block', color: '#60a5fa', products, sourceRules: {}, inputConnections: [], rootPlan, ...extra }
 }
 
 const keyOf = (nodes: RecipeNode[]) =>
@@ -23,11 +23,11 @@ const gameData = () => ({ items: {} }) as unknown as GameData
 const solved = (): BlockSolve => ({ result: { nodes: [], unsatisfied: [], warnings: [] }, received: new Map() })
 
 describe('planKey', () => {
-  it('is the exact key of the four plan parts when there are no areas, and appends the areas otherwise', () => {
+  it('is the exact key of the three plan parts when there are no areas, and appends the areas otherwise', () => {
     const plan = flattenBlock(block(subPlan('r', [node('n', 'plate')], '2020-01-01T00:00:00.000Z')))
-    expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, [], []]))
+    expect(planKey(plan)).toBe(exactKey([plan.goals, plan.nodes, []]))
     const areas = [{ id: 'root', nodeIds: ['n'] }]
-    expect(planKey({ ...plan, areas })).toBe(exactKey([plan.goals, plan.nodes, [], [], areas]))
+    expect(planKey({ ...plan, areas })).toBe(exactKey([plan.goals, plan.nodes, [], areas]))
   })
 
   it('ignores block name, colour, sub-plan names and updatedAt', () => {
@@ -39,18 +39,18 @@ describe('planKey', () => {
   it('differs when item sourcing changes; absent equals empty', () => {
     const nodes = [node('n', 'plate')]
     const base = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'))
-    const first = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { plate: 'connections-first' } })
-    const byproducts = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { plate: 'byproducts-first' } })
+    const first = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { sourceRules: { plate: { makeHere: 'after-blocks' as const } } })
+    const byproducts = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { sourceRules: { plate: { makeHere: 'off' as const } } })
     expect(planKey(flattenBlock(first))).not.toBe(planKey(flattenBlock(base)))
     expect(planKey(flattenBlock(byproducts))).not.toBe(planKey(flattenBlock(base)))
     expect(planKey(flattenBlock(byproducts))).not.toBe(planKey(flattenBlock(first)))
-    expect(planKey({ ...flattenBlock(base), itemSourcing: undefined })).toBe(planKey(flattenBlock(base)))
+    expect(planKey({ ...flattenBlock(base), sourceRules: undefined })).toBe(planKey(flattenBlock(base)))
   })
 
   it('does not depend on the order of the item sourcing entries', () => {
     const nodes = [node('n', 'plate')]
-    const ab = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { a: 'byproducts-first', b: 'connections-first' } })
-    const ba = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { itemSourcing: { b: 'connections-first', a: 'byproducts-first' } })
+    const ab = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { sourceRules: { a: { makeHere: 'off' as const }, b: { makeHere: 'after-blocks' as const } } })
+    const ba = block(subPlan('r', nodes, '2020-01-01T00:00:00.000Z'), { sourceRules: { b: { makeHere: 'after-blocks' as const }, a: { makeHere: 'off' as const } } })
     expect(planKey(flattenBlock(ab))).toBe(planKey(flattenBlock(ba)))
   })
 

@@ -20,6 +20,7 @@ import {
   blockDiagnostics,
   coproductDrivenWarning,
   byproductsFirstSet,
+  importOffItems,
   itemsWithSourcing,
   pass2Plan,
   solvedNodeOf,
@@ -527,7 +528,7 @@ export function solveAreaBlock(
   const bcColumns = new Set(columns.filter(c => c.node.byproductConsumer).map(c => c.id))
 
   // No-import set: user's explicit list, plus byproduct consumers' ingredients (see solveBlock).
-  const noImportItems = new Set(plan.noImportItems ?? [])
+  const noImportItems = new Set(importOffItems(plan))
   for (const col of columns) {
     if (!col.node.byproductConsumer || !col.recipe) continue
     for (const ing of lockedIngredients(col.recipe, col.effects, col.node)) {
@@ -543,7 +544,7 @@ export function solveAreaBlock(
     : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
   const byproductsFirst = byproductsFirstSet(plan, noImportItems)
   const firstItems = new Set(
-    itemsWithSourcing(plan, 'connections-first').filter(
+    itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )

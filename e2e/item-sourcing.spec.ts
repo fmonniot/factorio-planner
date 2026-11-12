@@ -95,7 +95,9 @@ test.describe('item sourcing', () => {
     await expect(oxygenChip(page)).toHaveAttribute('title', /^Oxygen — Find producer recipe — /)
 
     const acid = await exportedAcid(page)
-    expect(acid.itemSourcing).toEqual({ 'nullius-oxygen': 'byproducts-first' })
+    expect(acid.sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'off' } })
+    expect(acid.itemSourcing).toBeUndefined()
+    expect(acid.noImportItems).toBeUndefined()
     expect(acid.connectionsFirstItems).toBeUndefined()
 
     // The export menu closed the popover (a press outside it); Change… opens it again, with the rule.
@@ -166,7 +168,7 @@ test.describe('item sourcing', () => {
     expect((await page.getByTestId('summary-pane').first().boundingBox())!.height).toBe(summaryHeight)
     const control = popoverControl(page)
     await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
-    expect((await exportedAcid(page)).itemSourcing).toEqual({ 'nullius-oxygen': 'connections-first' })
+    expect((await exportedAcid(page)).sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'after-blocks' } })
 
     // Escape closes the popover; the rule is kept, and is there again when it opens. Removing it there leaves no slot either.
     await page.keyboard.press('Escape')
@@ -177,7 +179,7 @@ test.describe('item sourcing', () => {
     await expect(again.getByRole('radio', { name: 'Make it here' })).toBeChecked()
     await expect(oxygenSlot(page)).toHaveCount(0)
     await expect(pane(page, 'Ingredients').getByTestId('summary-slot')).toHaveCount(count)
-    expect((await exportedAcid(page)).itemSourcing).toEqual({})
+    expect((await exportedAcid(page)).sourceRules).toEqual({})
   })
 
   test('Receive from… in the popover connects the item, and the rule then acts; Escape closes the menu before the popover', async ({ page }) => {
@@ -236,5 +238,38 @@ test.describe('item sourcing', () => {
     await choose(page, 'own')
     await expect(detail(page, 'Ingredients').locator('[data-testid="summary-segment"][data-kind="source"]')).toHaveCount(0)
     await expect(compressedSlot(page)).toContainText('25.0')
+  })
+})
+
+test.describe('stored rules', () => {
+  const expectOxygenRule = async (page: Page) => {
+    const acid = await exportedAcid(page)
+    expect(acid.sourceRules).toEqual({ 'nullius-oxygen': { makeHere: 'off' } })
+    expect(acid.itemSourcing).toBeUndefined()
+    expect(acid.noImportItems).toBeUndefined()
+  }
+
+  test('a plan saved with sourceRules loads as that rule', async ({ page }, testInfo) => {
+    // The fixture of this spec, saved in the new shape (the fixtures folder keeps the old one on purpose: it is
+    // the migration's real-data test, and every plan in it is pinned by the legacy parity golden file).
+    const plan = JSON.parse(fs.readFileSync(FIXTURE, 'utf8'))
+    for (const block of plan.blocks) {
+      delete block.noImportItems
+      block.sourceRules = block.name === 'Acid' ? { 'nullius-oxygen': { makeHere: 'off' } } : {}
+    }
+    const file = testInfo.outputPath('plan.json')
+    fs.writeFileSync(file, JSON.stringify(plan))
+    await loadPlanFixture(page, file)
+    await expect(oxygenSlot(page)).toContainText('100', { timeout: 10000 })
+    await expect(compressedSlot(page)).toHaveCount(0)
+    await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveAccessibleName(/^Uses what this block already makes first/)
+    await expectOxygenRule(page)
+  })
+
+  test('a plan saved in the old shape is exported with sourceRules once it has a rule', async ({ page }) => {
+    await setup(page)
+    await choose(page, 'byproducts-first')
+    await expect(oxygenSlot(page)).toContainText('100')
+    await expectOxygenRule(page)
   })
 })
