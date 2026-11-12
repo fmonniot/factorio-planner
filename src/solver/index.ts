@@ -28,7 +28,7 @@ import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache 
 
 /**
  * Flatten a Block into a SolverPlan: walk the rootPlan tree, collect every
- * node, and surface the block's products as goals + noImportItems. SubPlanNode handles
+ * node, and surface the block's products as goals and its source rules. SubPlanNode handles
  * are pure UI grouping; solve() skips them by filtering on kind. When a sub-factory is a
  * separate area the plan also lists the areas (see areas.ts); otherwise it has no `areas` key.
  */
@@ -49,7 +49,7 @@ export function flattenBlock(block: Block): SolverPlan {
 }
 
 /**
- * Does a recipe row of the block make `itemId`? Such an item has an LP row, so `noImportItems` can
+ * Does a recipe row of the block make `itemId`? Such an item has an LP row, so Import off can
  * forbid importing it; any other item is raw in the block and a lock on it changes nothing.
  */
 export function blockMakesItem(block: Block, gameData: GameData, itemId: string): boolean {
@@ -144,9 +144,9 @@ export function solve(plan: SolverPlan, gameData: GameData): SolverResult {
  *   2. Only if a connected intermediate is short, solve again with the original
  *      locks and a supply variable per short item, capped at min(offer, shortfall).
  * `received` is what the block actually takes from each offer (items/min).
- * Exception: connections-first items (`itemSourcing`) have their supply in every
+ * Exception: connections-first items (`makeHere: 'after-blocks'`) have their supply in every
  * pass, capped by the offer only, so it is used before the block's own recipes.
- * Byproducts-first items (`itemSourcing`) get a cheap import slack (not BIG_M) in both passes, so
+ * Byproducts-first items (`makeHere: 'off'`) get a cheap import slack (not BIG_M) in both passes, so
  * the LP imports them rather than run a recipe just for them; the pass-1 residual is then exactly
  * what the byproducts don't cover, and the passes are otherwise unchanged. Locked items and
  * byproduct consumers' ingredients keep the default cost.

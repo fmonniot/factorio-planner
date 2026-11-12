@@ -1,22 +1,11 @@
-import type { SourceRule } from '../../data/types'
+import { makeHereOf, presetOf, type SourcingPreset } from '../../data/sourceRules'
 import type { SourceRuleKind } from './sourceRules'
 
 // ---------------------------------------------------------------------------
 // How a block sources an item: the three presets and the Import switch, read by every surface that shows them.
 // ---------------------------------------------------------------------------
 
-/** A preset other than Make it here, as the controls and the sentences name it. */
-export type SourcingPreset = 'byproducts-first' | 'connections-first'
-
-/** The preset a rule chooses: where its `makeHere` sits; undefined (Make it here) when it has none. */
-export function presetOf(rule: SourceRule | undefined): SourcingPreset | undefined {
-  return rule?.makeHere === 'after-blocks' ? 'connections-first' : rule?.makeHere === 'off' ? 'byproducts-first' : undefined
-}
-
-/** The `makeHere` value a preset stores. */
-export function makeHereOf(preset: SourcingPreset | undefined): 'after-blocks' | 'off' | undefined {
-  return preset === 'connections-first' ? 'after-blocks' : preset === 'byproducts-first' ? 'off' : undefined
-}
+export { makeHereOf, presetOf, type SourcingPreset }
 
 /** The label of the control that holds the three presets and the Import switch. */
 export const COMES_FROM_LABEL = 'Comes from'

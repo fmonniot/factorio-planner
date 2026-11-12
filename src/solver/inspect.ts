@@ -1,4 +1,5 @@
 import { solveAll } from './index'
+import { makeHereOf } from '../data/sourceRules'
 import type {
   AppState,
   AreaRoute,
@@ -77,8 +78,12 @@ function mapPlan(plan: SubPlan, fn: (plan: SubPlan) => SubPlan): SubPlan {
 
 function whatIfRules(rules: Record<string, SourceRule>, whatIf: WhatIf): Record<string, SourceRule> {
   const out: Record<string, SourceRule> = { ...rules }
-  for (const [id, mode] of Object.entries(whatIf.sourcing ?? {}))
-    out[id] = { ...out[id], makeHere: mode === 'connections-first' ? 'after-blocks' : 'off' }
+  for (const [id, mode] of Object.entries(whatIf.sourcing ?? {})) {
+    if (mode !== 'connections-first' && mode !== 'byproducts-first') {
+      throw new Error(`--sourcing ${id}=${String(mode)}: expected byproducts-first or connections-first`)
+    }
+    out[id] = { ...out[id], makeHere: makeHereOf(mode) }
+  }
   for (const id of whatIf.importOff ?? []) out[id] = { ...out[id], importOff: true }
   return out
 }

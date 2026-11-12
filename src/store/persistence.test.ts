@@ -1220,7 +1220,7 @@ describe('plan import', () => {
 
     it('accepts a legacy block with per-subplan goals', () => {
       const legacy = {
-        id: 'b1', name: 'Block', sourceRules: {},
+        id: 'b1', name: 'Block', noImportItems: [],
         rootPlan: {
           id: 'root', name: 'Main', nodes: [], subPlans: [], createdAt: now, updatedAt: now,
           goals: [{ id: 'g', itemId: 'iron-plate', rate: 60 }],

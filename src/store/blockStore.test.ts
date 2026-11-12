@@ -792,6 +792,20 @@ describe('toggleImportOff', () => {
       .toEqual(['benzene', 'oxygen'])
   })
 
+  it('undo of a removal puts the rule back at its place in the map', () => {
+    const t = useBlockStore.getState().toggleImportOff
+    t('a'); t('b'); t('c')
+    t('b') // Import back on: the entry goes
+    expect(Object.keys(useBlockStore.getState().blocks[0].sourceRules)).toEqual(['a', 'c'])
+    useBlockStore.getState().undo()
+    expect(Object.keys(useBlockStore.getState().blocks[0].sourceRules)).toEqual(['a', 'b', 'c'])
+  })
+
+  it('treats names of Object.prototype as ordinary items', () => {
+    useBlockStore.getState().toggleImportOff('toString')
+    expect(useBlockStore.getState().blocks[0].sourceRules).toEqual({ toString: { importOff: true } })
+  })
+
   it('undo restores the previous rules', () => {
     const s = useBlockStore.getState()
     s.toggleImportOff('benzene')

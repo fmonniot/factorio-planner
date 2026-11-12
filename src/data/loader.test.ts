@@ -765,6 +765,14 @@ describe('parseAppState — inputConnections', () => {
         expect(block.rootPlan.subPlans[0]).not.toHaveProperty('noImportItems')
       })
 
+      it('treats names of Object.prototype as ordinary items', () => {
+        expect(load({ noImportItems: ['constructor'] }).sourceRules).toEqual({ constructor: { importOff: true } })
+      })
+
+      it('rejects a block-level noImportItems with a non-string, as before', () => {
+        expect(() => load({ noImportItems: ['x', 3] })).toThrow()
+      })
+
       it('rejects a malformed legacy map', () => {
         expect(() => load({ itemSourcing: ['x'] })).toThrow()
       })
@@ -780,6 +788,11 @@ describe('parseAppState — inputConnections', () => {
         })
         expect(block.sourceRules).toEqual({ y: { makeHere: 'off' } })
         for (const key of legacyKeys) expect(block).not.toHaveProperty(key)
+      })
+
+      it('drops what a rule cannot hold, as for a legacy entry with an unknown mode', () => {
+        expect(load({ sourceRules: { a: { importOff: false }, b: { makeHere: 'sideways', importOff: true }, c: 3, d: { makeHere: 'off' } } }).sourceRules)
+          .toEqual({ b: { importOff: true }, d: { makeHere: 'off' } })
       })
 
       it('drops a rule with no key', () => {

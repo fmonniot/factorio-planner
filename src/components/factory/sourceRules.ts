@@ -1,4 +1,5 @@
 import type { Block, GameData } from '../../data/types'
+import { presetOf } from '../../data/sourceRules'
 import { hasProduct, receivesItem } from '../../solver/blockGraph'
 import { blockMakesItem } from '../../solver/index'
 
@@ -26,10 +27,8 @@ export interface SourceRulePart {
 export function sourceRules(block: Block, gameData: GameData, blockIds: ReadonlySet<string>): SourceRulePart[] {
   const rules: SourceRulePart[] = []
   for (const [itemId, rule] of Object.entries(block.sourceRules)) {
-    if (rule.makeHere) {
-      const kind = rule.makeHere === 'after-blocks' ? 'connections-first' : 'byproducts-first'
-      rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
-    }
+    const kind = presetOf(rule)
+    if (kind) rules.push(withEffect(block, gameData, blockIds, { itemId, kind }))
     if (rule.importOff) rules.push(withEffect(block, gameData, blockIds, { itemId, kind: 'import-off' }))
   }
   return rules

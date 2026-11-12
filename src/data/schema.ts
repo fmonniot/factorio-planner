@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { HEX_COLOR_RE, assignMissingBlockColors } from './blockColors'
 import { reparentSubPlans } from './subPlanTree'
+import { makeHereOf } from './sourceRules'
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -441,18 +442,36 @@ function migrateBlock(input: unknown): unknown {
   }
 }
 
+/** A rule from a saved `sourceRules` with what it cannot hold dropped: an unknown `makeHere`, an `importOff` that is not true. */
+function sanitizeRule(raw: unknown): { makeHere?: 'after-blocks' | 'off'; importOff?: true } | undefined {
+  if (!isRecord(raw)) return undefined
+  const rule: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
+  if (raw.makeHere === 'after-blocks' || raw.makeHere === 'off') rule.makeHere = raw.makeHere
+  if (raw.importOff === true) rule.importOff = true
+  return rule
+}
+
 /**
  * The block's `sourceRules` from whatever it was saved with. A present `sourceRules` wins and the legacy keys
- * are ignored (idempotent). Otherwise: `itemSourcing` entries (or the older `connectionsFirstItems`), in key
- * order, then the remaining `noImportItems`. A 'byproducts-first' preset on a locked item is dropped (the lock
- * won in the solver, so the plan keeps its numbers). Undefined lets the schema default apply; a malformed
- * `sourceRules` is passed through to be rejected like any malformed field.
+ * are ignored (idempotent); its rules lose any key they cannot hold, as a legacy entry with an unknown mode does.
+ * Otherwise: `itemSourcing` entries (or the older `connectionsFirstItems`), in key order, then the remaining
+ * `noImportItems`. A 'byproducts-first' preset on a locked item is dropped (the lock won in the solver, so the
+ * plan keeps its numbers). Undefined lets the schema default apply; a malformed container (not an object, or a
+ * block-level `noImportItems` with a non-string) is passed through to be rejected like any malformed field.
  */
 function migrateSourceRules(data: Record<string, unknown>, noImports: unknown[]): unknown {
-  if (data.sourceRules !== undefined) return data.sourceRules
-  // A malformed legacy map (array, string, null) is rejected by the schema, like any malformed field.
+  if (data.sourceRules !== undefined) {
+    if (!isRecord(data.sourceRules)) return data.sourceRules
+    const out: Record<string, unknown> = {}
+    for (const [id, raw] of Object.entries(data.sourceRules)) {
+      const rule = sanitizeRule(raw)
+      if (rule) out[id] = rule
+    }
+    return out
+  }
   if (data.itemSourcing !== undefined && !isRecord(data.itemSourcing)) return data.itemSourcing
-  const locked = new Set(noImports.filter((i): i is string => typeof i === 'string'))
+  if (noImports.some(i => typeof i !== 'string')) return noImports
+  const locked = new Set(noImports as string[])
   const out: Record<string, { makeHere?: 'after-blocks' | 'off'; importOff?: true }> = {}
   const modes: [string, unknown][] = isRecord(data.itemSourcing)
     ? Object.entries(data.itemSourcing)
@@ -461,12 +480,11 @@ function migrateSourceRules(data: Record<string, unknown>, noImports: unknown[])
       : []
   for (const [id, mode] of modes) {
     const rule: { makeHere?: 'after-blocks' | 'off'; importOff?: true } = {}
-    if (mode === 'connections-first') rule.makeHere = 'after-blocks'
-    else if (mode === 'byproducts-first' && !locked.has(id)) rule.makeHere = 'off'
+    if (mode === 'connections-first' || (mode === 'byproducts-first' && !locked.has(id))) rule.makeHere = makeHereOf(mode)
     if (locked.has(id)) rule.importOff = true
     if (rule.makeHere || rule.importOff) out[id] = rule
   }
-  for (const id of locked) if (!(id in out)) out[id] = { importOff: true }
+  for (const id of locked) if (!Object.hasOwn(out, id)) out[id] = { importOff: true }
   return out
 }
 

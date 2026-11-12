@@ -230,8 +230,11 @@ export function clonePlan(appState: AppState): AppState {
   }
 }
 
-/** The block with itemId's rule replaced, or its entry removed when the rule has no key (the default rule). */
-function withSourceRule(block: Block, itemId: string, rule: SourceRule): Block {
+/**
+ * The block with itemId's rule replaced, or its entry removed when the rule has no key (the default rule).
+ * An item that has an entry keeps its place in the map; a new entry goes at `at` (default: the end).
+ */
+function withSourceRule(block: Block, itemId: string, rule: SourceRule, at?: number): Block {
   // An absent key is never written: spell the rule out from the keys it has.
   const clean: SourceRule = {
     ...(rule.makeHere !== undefined && { makeHere: rule.makeHere }),
@@ -239,17 +242,19 @@ function withSourceRule(block: Block, itemId: string, rule: SourceRule): Block {
   }
   const empty = clean.makeHere === undefined && clean.importOff === undefined
   const entries = Object.entries(block.sourceRules)
-  // An item that has a rule keeps its place in the map when the rule changes.
-  if (itemId in block.sourceRules)
+  if (Object.hasOwn(block.sourceRules, itemId))
     return { ...block, sourceRules: Object.fromEntries(empty ? entries.filter(([id]) => id !== itemId) : entries.map(([id, r]) => [id, id === itemId ? clean : r])) }
-  return empty ? block : { ...block, sourceRules: { ...block.sourceRules, [itemId]: clean } }
+  if (empty) return block
+  entries.splice(at ?? entries.length, 0, [itemId, clean])
+  return { ...block, sourceRules: Object.fromEntries(entries) }
 }
 
-/** Command setting `itemId`'s rule from `before` to `after`; both sides are explicit so undo restores the rule exactly. */
-function sourceRuleCommand(itemId: string, before: SourceRule, after: SourceRule): Command {
+/** Command setting `itemId`'s rule from `before` to `after`; undo puts a removed entry back at its old place in the map. */
+function sourceRuleCommand(block: Block, itemId: string, before: SourceRule, after: SourceRule): Command {
+  const index = Object.keys(block.sourceRules).indexOf(itemId)
   return {
     apply: b => withSourceRule(b, itemId, after),
-    undo: b => withSourceRule(b, itemId, before),
+    undo: b => withSourceRule(b, itemId, before, index < 0 ? undefined : index),
   }
 }
 
@@ -940,18 +945,18 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const before = block.sourceRules[itemId] ?? {}
+      const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
       const after: SourceRule = before.importOff ? { ...before, importOff: undefined } : { ...before, importOff: true }
-      return applyCommand(state, sourceRuleCommand(itemId, before, after))
+      return applyCommand(state, sourceRuleCommand(block, itemId, before, after))
     }),
 
   setMakeHere: (itemId, makeHere) =>
     set(state => {
       const block = state.blocks.find(b => b.id === state.activeBlockId)
       if (!block) return state
-      const before = block.sourceRules[itemId] ?? {}
+      const before = Object.hasOwn(block.sourceRules, itemId) ? block.sourceRules[itemId] : {}
       if (before.makeHere === makeHere) return state
-      return applyCommand(state, sourceRuleCommand(itemId, before, { ...before, makeHere }))
+      return applyCommand(state, sourceRuleCommand(block, itemId, before, { ...before, makeHere }))
     }),
 
   addBlockForItem: (itemId, name, consumerId) => {

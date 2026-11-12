@@ -9,6 +9,7 @@ import type {
   SolverWarning,
   UnsatisfiedItem,
 } from '../data/types'
+import { importOffItems as importOffOf } from '../data/sourceRules'
 import { rowIngredients, rowProductAmount, type ClassifiedSystem } from './build'
 import { computeMachineMetrics, rowMachine, type NodeEffects } from './effects'
 import type { SolverArea } from './areas'
@@ -33,7 +34,7 @@ export function itemsWithSourcing(plan: SolverPlan, makeHere: 'after-blocks' | '
 
 /** Items whose rule has Import off. */
 export function importOffItems(plan: SolverPlan): string[] {
-  return Object.entries(plan.sourceRules ?? {}).filter(([, r]) => r.importOff).map(([id]) => id)
+  return importOffOf(plan.sourceRules)
 }
 
 /** `makeHere: 'off'` items whose import is cheap: not in `noImportItems` (an Import-off item, or a byproduct consumer's ingredient). */
