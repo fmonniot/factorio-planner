@@ -10,7 +10,7 @@ import { changeSourcing, comesFromPopover, selectRow, sidePanel } from './suppor
  * Fixture: the active block "Acid" makes hydrogen 800 and nitric acid 125 with steam electrolysis
  * (whose side output is 400 oxygen), nitric acid synthesis (which needs 500 oxygen) and oxygen
  * decompression. By default decompression covers the 100 oxygen the electrolysis does not (it
- * takes 25 compressed oxygen). With Only what's already made on oxygen the 100 is imported instead.
+ * takes 25 compressed oxygen). With Don't make more here on oxygen the 100 is imported instead.
  * The block "O2 maker" has oxygen as a product, so it can be requested from.
  */
 const FIXTURE = path.resolve('e2e/fixtures/item-sourcing.json')
@@ -57,7 +57,7 @@ test.describe('item sourcing', () => {
     await setup(page)
   })
 
-  test("Change… opens a popover for oxygen, where Only what's already made imports it instead of decompressing it", async ({ page }) => {
+  test("Change… opens a popover for oxygen, where Don't make more here imports it instead of decompressing it", async ({ page }) => {
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(oxygenSlot(page)).toHaveCount(0)
 
@@ -80,7 +80,7 @@ test.describe('item sourcing', () => {
 
     await choose(page, 'byproducts-first')
     const control = popoverControl(page)
-    await expect(control.getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    await expect(control.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
     await expect(control.getByTestId('import-switch')).toHaveAttribute('aria-disabled', 'true')
     await expect(control.getByTestId('sourcing-sentence')).toContainText('Uses what this block already makes first')
     // The panel behind it says the same (a press on the row would close the popover, so the entry is read where it is).
@@ -100,7 +100,7 @@ test.describe('item sourcing', () => {
 
     // The export menu closed the popover (a press outside it); Change… opens it again, with the rule.
     const again = await changeSourcing(page, acidRow(page), 'nullius-oxygen')
-    await expect(again.getByRole('radio', { name: "Only what's already made" })).toBeChecked()
+    await expect(again.getByRole('radio', { name: "Don't make more here" })).toBeChecked()
     await again.getByRole('radio', { name: 'Make it here' }).click()
     await expect(compressedSlot(page)).toContainText('25.0')
     await expect(acidRow(page).getByTestId('source-rule-marker')).toHaveCount(0)
@@ -142,10 +142,10 @@ test.describe('item sourcing', () => {
       await expect(oxygenSlot(page)).toHaveAttribute('aria-pressed', 'true')
       await expect(detail(page, 'Ingredients')).toHaveAttribute('data-state', 'selected')
       // Focus is on the chosen preset, and stays there: a drawer closes instead of taking it back.
-      await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
+      await expect(comesFrom(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
       await expect(sidePanel(page)).toHaveCount(layout === 'drawer' ? 0 : 1)
       await page.waitForTimeout(300)
-      await expect(comesFrom(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
+      await expect(comesFrom(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
 
       // The keyboard goes on from there: the arrow chooses the next preset.
       await page.keyboard.press('ArrowLeft')

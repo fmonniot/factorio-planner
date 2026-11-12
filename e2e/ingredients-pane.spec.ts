@@ -94,7 +94,7 @@ test.describe('Ingredients pane', () => {
     const help = [
       ['Make it here', 'Made here; connections and imports cover what is missing.'],
       ['Receive it first', "Taken from this block's connections first; made here for the rest."],
-      ["Only what's already made", 'Uses what this block already makes; the rest is received or imported.'],
+      ["Don't make more here", 'Runs no row for this item: uses what this block already makes, then its connections, then Import.'],
     ]
     for (const [name, text] of help) {
       await expect(preset(page, name)).toHaveAccessibleDescription(text)
@@ -129,18 +129,18 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
 
     await preset(page, 'Receive it first').click()
     await expect(preset(page, 'Receive it first')).toBeChecked()
-    await preset(page, "Only what's already made").click()
-    await expect(preset(page, "Only what's already made")).toBeChecked()
+    await preset(page, "Don't make more here").click()
+    await expect(preset(page, "Don't make more here")).toBeChecked()
     await expect(comesFrom(page).getByTestId('sourcing-sentence')).toContainText('No row here already makes Iron plate')
     await preset(page, 'Make it here').click()
     await expect(preset(page, 'Make it here')).toBeChecked()
   })
 
-  test("Only what's already made is disabled while Import is off, and the switch while it is chosen", async ({ page }) => {
+  test("Don't make more here is disabled while Import is off, and the switch while it is chosen", async ({ page }) => {
     await selectSlot(page, 'Ingredients', 'Iron plate')
     await importSwitch(page).click()
     await expect(plateSlot(page)).toHaveAttribute('data-status', 'locked')
-    const third = preset(page, "Only what's already made")
+    const third = preset(page, "Don't make more here")
     await expect(third).toHaveAttribute('aria-disabled', 'true')
     await expect(third).toHaveAccessibleDescription('Import is off for Iron plate, so the block has to make it.')
     // Playwright treats aria-disabled as disabled, so force the click that must do nothing.
@@ -152,7 +152,7 @@ test.describe('Ingredients pane — an item the block makes and still imports', 
     await third.click()
     await expect(third).toBeChecked()
     await expect(importSwitch(page)).toHaveAttribute('aria-disabled', 'true')
-    await expect(importSwitch(page)).toHaveAccessibleDescription("Only what's already made relies on imports for the rest.")
+    await expect(importSwitch(page)).toHaveAccessibleDescription("Don't make more here relies on imports for the rest.")
     await importSwitch(page).click({ force: true })
     await expect(importSwitch(page)).toHaveAttribute('aria-checked', 'true')
   })

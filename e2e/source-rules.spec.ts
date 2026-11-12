@@ -85,7 +85,7 @@ test.describe('source rules', () => {
     // A rule with no effect: why, in place of the sentence.
     const unused = rule(page, COMPRESSED, 'byproducts-first')
     await expect(unused).toHaveAttribute('data-no-effect', 'not-made')
-    await expect(unused.getByTestId('source-rule-name')).toHaveText("Only what's already made")
+    await expect(unused.getByTestId('source-rule-name')).toHaveText("Don't make more here")
     await expect(unused.getByTestId('source-rule-text')).toHaveText('No row in this block makes Compressed oxygen.')
 
     // Tab reaches every control and stays in the popover.

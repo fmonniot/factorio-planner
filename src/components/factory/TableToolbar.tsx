@@ -219,7 +219,7 @@ function warningHint(w: SolverWarning): string {
     case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
-    case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Only what's already made (right-click its ingredient chip, then Comes from…), or pin the recipe's rate."
+    case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Don't make more here (right-click its ingredient chip, then Comes from…), or pin the recipe's rate."
     case 'loop-not-converged': return "Remove one of the loop's connections, or set a limit on one."
     case 'request-loop-not-converged': return "Set a limit on one of the loop's requests, or remove one."
     case 'temperature-mismatch': return 'Use a boiler or recipe whose output is in range, or connect a block that makes it at the right temperature.'

@@ -79,7 +79,7 @@ describe('ComesFromPopover', () => {
   it('sets the rule of the block from the control', () => {
     render(<ComesFromPopover hasSlot={() => false} />)
     open('ore')
-    fireEvent.click(within(popover()).getByRole('radio', { name: "Only what's already made" }))
+    fireEvent.click(within(popover()).getByRole('radio', { name: "Don't make more here" }))
     expect(mainBlock().itemSourcing).toEqual({ ore: 'byproducts-first' })
     // It stays open, and the same on another item.
     expect(popover()).toBeInTheDocument()

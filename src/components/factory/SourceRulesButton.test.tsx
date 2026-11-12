@@ -134,7 +134,7 @@ describe('Source rules — the list', () => {
 
   it.each([
     ['connections-first', 'Receive it first', { sourcing: { ore: 'connections-first' }, connected: true }, 'Taken from Source first'],
-    ['byproducts-first', "Only what's already made", { sourcing: { ore: 'byproducts-first' } }, 'No row here already makes Ore, so Ore Synth covers it.'],
+    ['byproducts-first', "Don't make more here", { sourcing: { ore: 'byproducts-first' } }, 'No row here already makes Ore, so Ore Synth covers it.'],
     ['import-off', 'Import off', { locked: ['ore'] }, 'Import is off.'],
   ] as [string, string, Rules, string][])('shows a %s rule with its item, the name "%s" and the item\'s sentence', (kind, name, rules, sentence) => {
     setup(rules)

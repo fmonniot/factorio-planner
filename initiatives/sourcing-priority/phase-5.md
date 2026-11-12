@@ -13,8 +13,8 @@ Out: choosing between two recipes for one item inside a block; *Make more here* 
 From [phase 2](phase-2.md), if its decisions are confirmed.
 
 - **The rule type.** An area rule is the block's `SourceRule` (`makeHere`, `importOff`) on a sub-factory, plus what this phase adds for *Other areas*. The block-scope list already draws *Other areas* as a read-only line that follows *Make more here*; this phase makes it a group of lines.
-- **First rules a preset cannot express.** At block scope every order is a preset plus the Import switch. An area order with *Other blocks* above *Make more here* and a chosen supplying area is not, so this is the phase where a rule needs its own sentence and the control a state besides the three presets.
-- ***Only what's already made* already receives before importing**, and with Import off it shows what is missing instead of forcing a row to run. "Byproducts first per consumer" therefore needs only the scope, not a new mechanism.
+- **First rules a preset cannot express.** At block scope every order is a preset plus the Import switch. An area order with *Other blocks* above *Make more here* and a chosen supplying area is not, so this is the phase where a rule needs its own sentence and the control a state besides the three presets: the read-only **Custom** state of [phase 2, D8](phase-2.md#decisions), while **Sources…** keeps only opening the list.
+- ***Don't make more here* already receives before importing**, and with Import off it shows what is missing instead of forcing a row to run. "Byproducts first per consumer" therefore needs only the scope, not a new mechanism.
 
 ## To settle before ticketing
 

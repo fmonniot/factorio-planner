@@ -1100,7 +1100,7 @@ describe('FactorySummary — connections', () => {
       expect(within(group()).getAllByRole('radio').map(r => [r.textContent, r.getAttribute('data-sourcing-choice')])).toEqual([
         ['Make it here', 'own'],
         ['Receive it first', 'connections-first'],
-        ["Only what's already made", 'byproducts-first'],
+        ["Don't make more here", 'byproducts-first'],
       ])
       expect(choice('Make it here')).toBeChecked()
       expect(importSwitch()).toBeChecked()
@@ -1125,7 +1125,7 @@ describe('FactorySummary — connections', () => {
       fireEvent.click(choice('Receive it first'))
       expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
       expect(choice('Receive it first')).toBeChecked()
-      fireEvent.click(choice("Only what's already made"))
+      fireEvent.click(choice("Don't make more here"))
       expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
       fireEvent.click(choice('Make it here'))
       expect(consumer().itemSourcing).toEqual({})
@@ -1157,11 +1157,11 @@ describe('FactorySummary — connections', () => {
       expect(choice('Receive it first')).toHaveFocus()
       expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'connections-first' })
       fireEvent.keyDown(choice('Receive it first'), { key: 'ArrowRight' })
-      expect(choice("Only what's already made")).toBeChecked()
-      fireEvent.keyDown(choice("Only what's already made"), { key: 'ArrowRight' })
+      expect(choice("Don't make more here")).toBeChecked()
+      fireEvent.keyDown(choice("Don't make more here"), { key: 'ArrowRight' })
       expect(choice('Make it here')).toBeChecked()
       fireEvent.keyDown(choice('Make it here'), { key: 'ArrowLeft' })
-      expect(choice("Only what's already made")).toBeChecked()
+      expect(choice("Don't make more here")).toBeChecked()
 
       // With Import off the third preset is skipped.
       fireEvent.click(choice('Make it here'))
@@ -1177,27 +1177,27 @@ describe('FactorySummary — connections', () => {
       select('Ingredients', 'Iron Ore')
       expect(choice('Make it here')).toHaveAccessibleDescription('Made here; connections and imports cover what is missing.')
       expect(choice('Receive it first')).toHaveAccessibleDescription("Taken from this block's connections first; made here for the rest.")
-      expect(choice("Only what's already made")).toHaveAccessibleDescription('Uses what this block already makes; the rest is received or imported.')
-      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: this block must make or receive all of it.')
+      expect(choice("Don't make more here")).toHaveAccessibleDescription('Runs no row for this item: uses what this block already makes, then its connections, then Import.')
+      expect(importSwitch()).toHaveAccessibleDescription('Bring it in from outside the plan. Off: what the other sources leave is shown as missing.')
     })
 
-    it("disables Only what's already made while Import is off, with the reason, and the switch while it is chosen", () => {
+    it("disables Don't make more here while Import is off, with the reason, and the switch while it is chosen", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
       fireEvent.click(importSwitch())
-      const third = choice("Only what's already made")
+      const third = choice("Don't make more here")
       expect(third).toHaveAttribute('aria-disabled', 'true')
       expect(third).toHaveAccessibleDescription('Import is off for Iron Ore, so the block has to make it.')
       fireEvent.click(third)
       expect(consumer().itemSourcing).toEqual({})
 
       fireEvent.click(importSwitch())
-      fireEvent.click(choice("Only what's already made"))
+      fireEvent.click(choice("Don't make more here"))
       expect(consumer().itemSourcing).toEqual({ 'iron-ore': 'byproducts-first' })
       expect(importSwitch()).toHaveAttribute('aria-disabled', 'true')
-      expect(importSwitch()).toHaveAccessibleDescription("Only what's already made relies on imports for the rest.")
+      expect(importSwitch()).toHaveAccessibleDescription("Don't make more here relies on imports for the rest.")
       fireEvent.click(importSwitch())
       expect(consumer().noImportItems).toEqual([])
       // The other presets stay free, and choosing one frees the switch.
@@ -1205,13 +1205,13 @@ describe('FactorySummary — connections', () => {
       expect(importSwitch()).not.toHaveAttribute('aria-disabled')
     })
 
-    it("shows a plan saved with both as Only what's already made, reported as locked, and lets it be removed", () => {
+    it("shows a plan saved with both as Don't make more here, reported as locked, and lets it be removed", () => {
       setupBlocks({ activeId: 'consumer', connected: false, result: mockSolverResult })
       withOreRow()
       patch({ itemSourcing: { 'iron-ore': 'byproducts-first' }, noImportItems: ['iron-ore'] })
       render(<FactorySummary />)
       select('Ingredients', 'Iron Ore')
-      expect(choice("Only what's already made")).toBeChecked()
+      expect(choice("Don't make more here")).toBeChecked()
       const [line] = within(group()).getAllByTestId('no-effect')
       expect(line).toHaveAttribute('data-no-effect', 'locked')
       expect(line).toHaveTextContent('Import is off for Iron Ore, so the block has to make it.')

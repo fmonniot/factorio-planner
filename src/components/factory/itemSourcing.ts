@@ -22,15 +22,15 @@ export const ITEM_SOURCING_CHOICES: { mode: ItemSourcingMode | undefined; label:
   },
   {
     mode: 'byproducts-first',
-    label: "Only what's already made",
-    title: 'Uses what this block already makes; the rest is received or imported.',
+    label: "Don't make more here",
+    title: 'Runs no row for this item: uses what this block already makes, then its connections, then Import.',
   },
 ]
 
 /** The Import switch (on when the item is not in `Block.noImportItems`): its name and fixed help text. */
 export const IMPORT_SWITCH = {
   label: 'Import',
-  title: 'Bring it in from outside the plan. Off: this block must make or receive all of it.',
+  title: 'Bring it in from outside the plan. Off: what the other sources leave is shown as missing.',
 }
 
 /** The name of each kind of rule: the preset's name, and the Import switch turned off. */
@@ -40,5 +40,37 @@ export const SOURCE_RULE_NAMES: Record<SourceRuleKind, string> = {
   'import-off': `${IMPORT_SWITCH.label} off`,
 }
 
-/** Why the Import switch is disabled while "Only what's already made" is chosen. */
-export const RELIES_ON_IMPORT_TEXT = "Only what's already made relies on imports for the rest."
+/** Why the Import switch is disabled while "Don't make more here" is chosen. */
+export const RELIES_ON_IMPORT_TEXT = "Don't make more here relies on imports for the rest."
+
+// ---------------------------------------------------------------------------
+// The Sources list (phase 2 of sourcing priority), named with the author on 2026-11-12. Nothing draws it yet.
+// ---------------------------------------------------------------------------
+
+/** The button of the Comes from control that opens the Sources list. It only opens the list, in every phase. */
+export const SOURCES_BUTTON_LABEL = 'Sources…'
+
+/**
+ * The fixed lines of the Sources list: the name shown, and the help text shown as a tooltip and under the focused line.
+ * `other-blocks` has no line of its own: each connection is a line named after its source, and carries this help text.
+ * The Import line holds the same switch as the Comes from control, so it carries that switch's name and help text.
+ */
+export const SOURCES_LINES = {
+  'made-here': {
+    label: 'Already made here',
+    title: "What this block's rows already make while running for something else: byproducts and spare output. Using it adds no machines.",
+  },
+  'make-here': {
+    label: 'Make more here',
+    title: "Run this block's rows, or more of them, for this item. Adds machines.",
+  },
+  'other-areas': {
+    label: 'Other areas',
+    title: 'Take it from rows in another area of this block.',
+  },
+  'other-blocks': {
+    label: 'Other blocks',
+    title: "Receive it from a connected block, up to the connection's limit.",
+  },
+  import: IMPORT_SWITCH,
+} as const satisfies Record<string, { label: string; title: string }>
