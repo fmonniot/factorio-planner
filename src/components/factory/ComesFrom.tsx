@@ -87,7 +87,7 @@ export function ComesFrom({ itemId }: { itemId: string }) {
   const importOn = !block.noImportItems.includes(itemId)
   const lockedTitle = noEffectText('locked', name)
 
-  // The control never creates the pair of "Only what's already made" and Import off. A plan saved with
+  // The control never creates the pair of "Don't make more here" and Import off. A plan saved with
   // both shows the preset chosen and leaves the other presets free, so one click gets out of it.
   const switchDisabled = preset === 'byproducts-first'
 

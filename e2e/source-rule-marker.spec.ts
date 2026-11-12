@@ -76,7 +76,7 @@ test('the marker is on every ingredient chip of an item with a rule that has an 
   await expect(control.getByTestId('no-effect')).toContainText('No connection for Oxygen.')
   await expect(markers(table(page))).toHaveCount(0)
 
-  // Only what's already made has an effect: one marker per ingredient chip, the row in the sub-factory included.
+  // Don't make more here has an effect: one marker per ingredient chip, the row in the sub-factory included.
   await control.locator('[data-sourcing-choice="byproducts-first"]').click()
   await expect(markers(table(page))).toHaveCount(2)
   for (const row of await userRows(page).all()) {
@@ -139,7 +139,7 @@ test('the marker only shows the rule: a click on it opens nothing, and a right-c
   // The chip keeps its click (the producer picker) and has a right-click: its Comes from popover, with the rule set.
   await chip.click({ button: 'right' })
   await page.getByRole('menuitem', { name: 'Comes from…' }).click()
-  await expect(comesFromPopover(page).getByRole('radio', { name: "Only what's already made" })).toBeFocused()
+  await expect(comesFromPopover(page).getByRole('radio', { name: "Don't make more here" })).toBeFocused()
   await page.keyboard.press('Escape')
   await expect(comesFromPopover(page)).toHaveCount(0)
   await chip.click()

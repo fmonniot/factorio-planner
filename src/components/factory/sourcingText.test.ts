@@ -35,7 +35,7 @@ describe('sourcingText — Make it here', () => {
   })
 })
 
-describe("sourcingText — Only what's already made", () => {
+describe("sourcingText — Don't make more here", () => {
   const mode = 'byproducts-first' as const
 
   it('lists the byproduct makers with their rates and names who makes the rest', () => {
