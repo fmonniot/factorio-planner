@@ -19,7 +19,7 @@ import {
   FLOW_TOLERANCE,
   blockDiagnostics,
   coproductDrivenWarning,
-  byproductsFirstSet,
+  byproductsFirstSet, lockedItems,
   importOffItems,
   itemsWithSourcing,
   pass2Plan,
@@ -529,20 +529,25 @@ export function solveAreaBlock(
 
   // No-import set: user's explicit list, plus byproduct consumers' ingredients (see solveBlock).
   const noImportItems = new Set(importOffItems(plan))
+  const consumerIngredients = new Set<string>()
   for (const col of columns) {
     if (!col.node.byproductConsumer || !col.recipe) continue
     for (const ing of lockedIngredients(col.recipe, col.effects, col.node)) {
       noImportItems.add(ing.itemId)
+      consumerIngredients.add(ing.itemId)
     }
   }
+
+  // What the LP locks: `noImportItems` less the items of the pair Don't make more here + Import off.
+  const locked = lockedItems(plan, consumerIngredients)
 
   const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
 
   // The passes are those of solveBlock.
   const pass1NoImport = totalCaps.size === 0
-    ? noImportItems
-    : new Set([...noImportItems].filter(itemId => !totalCaps.has(itemId)))
-  const byproductsFirst = byproductsFirstSet(plan, noImportItems)
+    ? locked
+    : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
+  const byproductsFirst = byproductsFirstSet(plan, locked)
   const firstItems = new Set(
     itemsWithSourcing(plan, 'after-blocks').filter(
       itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
@@ -552,7 +557,7 @@ export function solveAreaBlock(
   let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst)
 
   const pass2 = pass2Plan({
-    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems,
+    totalCaps, intermediates: system.classification.intermediates, firstItems, noImportItems: locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput,
   })
   if (pass2.run) {

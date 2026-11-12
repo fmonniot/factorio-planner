@@ -525,15 +525,17 @@ describe('areas in the solve', () => {
     })
   })
 
-  it('ignores byproducts first on a locked item that a connection partly covers (area LP)', () => {
+  it('solves Import off like Import on under byproducts first, on an item a connection partly covers (area LP)', () => {
     const base = blk(
       root([row('r-main', 'root')], [sub('S', [row('use-x', 's'), row('x-make', 's')], [], true)]),
       [['y', 10], ['z', 30]],
     )
-    const withSourcing = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>): Block => ({ ...base, sourceRules: sourceRulesOf(sourcing, ['x']) })
+    const withSourcing = (sourcing: Record<string, 'byproducts-first' | 'connections-first'>, locked: string[]): Block => ({ ...base, sourceRules: sourceRulesOf(sourcing, locked) })
     const caps = () => new Map([['x', 5]])
     const run = (b: Block) => solveBlock(flattenBlock(b), gd(), caps())
-    expect(run(withSourcing({ x: 'byproducts-first' }))).toEqual(run(withSourcing({})))
+    const pair = run(withSourcing({ x: 'byproducts-first' }, ['x']))
+    expect(pair).toEqual(run(withSourcing({ x: 'byproducts-first' }, [])))
+    expect(pair.result.nodes.find(n => n.recipeNodeId === 'x-make@s')!.throughput).toBeCloseTo(0, 6)
   })
 
   it('S5b: a surplus byproduct goes to the area that makes x itself', () => {

@@ -37,9 +37,21 @@ export function importOffItems(plan: SolverPlan): string[] {
   return importOffOf(plan.sourceRules)
 }
 
-/** `makeHere: 'off'` items whose import is cheap: not in `noImportItems` (an Import-off item, or a byproduct consumer's ingredient). */
-export function byproductsFirstSet(plan: SolverPlan, noImportItems: Set<string>): Set<string> {
-  return new Set(itemsWithSourcing(plan, 'off').filter(id => !noImportItems.has(id)))
+/**
+ * The items the LP gives no import slack (a hard row), from the block's rules and its byproduct
+ * consumers' ingredients. An item with `makeHere: 'off'` and Import off is not locked: it keeps the
+ * cheap slack of Byproducts first, whose rate is then the item's missing amount (`unsatisfied`), so
+ * no row runs for it. A byproduct consumer's ingredient is locked whatever its rule.
+ */
+export function lockedItems(plan: SolverPlan, byproductConsumerIngredients: Set<string>): Set<string> {
+  const locked = new Set(importOffItems(plan).filter(id => plan.sourceRules?.[id]?.makeHere !== 'off'))
+  for (const id of byproductConsumerIngredients) locked.add(id)
+  return locked
+}
+
+/** `makeHere: 'off'` items whose import slack is cheap: all of them but the byproduct consumers' ingredients (`lockedItems` holds those back). */
+export function byproductsFirstSet(plan: SolverPlan, locked: Set<string>): Set<string> {
+  return new Set(itemsWithSourcing(plan, 'off').filter(id => !locked.has(id)))
 }
 
 /** Rates at or below this are treated as zero when comparing supply and demand. */
