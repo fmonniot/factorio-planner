@@ -1253,6 +1253,54 @@ describe('input connections', () => {
       expect(order()).toEqual([c, g, b, a])
     })
 
+    it('moves A before B among A, C, B of one item: C, A, B', () => {
+      store().moveConnection(c, b) // plates a, b, c -> a, c, b
+      store().moveConnection(a, b) // -> c, a, b
+      expect(order()).toEqual([c, g, a, b])
+    })
+
+    it('moves a connection after another by moving it before the one that follows', () => {
+      store().moveConnection(a, c) // a goes after b, just before c
+      expect(order()).toEqual([b, g, a, c])
+    })
+
+    it('ignores a connection id of another block and leaves other blocks alone', () => {
+      store().addInputConnection('plate', sourceId, otherId())
+      const theirs = store().blocks.find(x => x.id === otherId())!.inputConnections[0].id
+      const before = store().blocks.find(x => x.id === otherId())
+      store().moveConnection(a, theirs)
+      store().moveConnection(theirs, a)
+      expect(order()).toEqual([a, g, b, c])
+      store().moveConnection(c, a)
+      expect(store().blocks.find(x => x.id === otherId())).toBe(before)
+    })
+
+    it('undo and redo move only that connection when other commands ran in between', () => {
+      store().moveConnection(c, a) // c, g, a, b
+      store().removeInputConnection(b)
+      store().setConnectionMaxRate(a, 9)
+      store().undo()
+      store().undo() // undo the limit and the removal
+      store().undo() // the move
+      expect(order()).toEqual([a, g, b, c])
+      store().redo()
+      expect(order()).toEqual([c, g, a, b])
+    })
+
+    it('does not lose or duplicate connections when undo meets a changed list', () => {
+      store().moveConnection(c, a) // c, g, a, b
+      const third = makeEmptyBlock('Fifth')
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(x => x.id === activeId
+          ? { ...x, inputConnections: [...x.inputConnections.filter(k => k.id !== a), { id: 'late', itemId: 'plate', fromBlockId: third.id }] }
+          : x),
+      }))
+      store().undo()
+      expect([...order()].sort()).toEqual([b, c, g, 'late'].sort())
+      store().redo()
+      expect([...order()].sort()).toEqual([b, c, g, 'late'].sort())
+    })
+
     it('can target a block that is not active and its undo lives there', () => {
       store().addInputConnection('plate', sourceId, otherId())
       const third = store().blocks.find(x => x.name === 'Third')!
