@@ -37,8 +37,8 @@ async function expectState(control: Locator, preset: string, makeHere: boolean, 
   expect(await lineOrder(control)).toEqual(order)
 }
 
-const TOP = ['made-here', 'make-here', 'block', 'import']
-const BELOW = ['made-here', 'block', 'make-here', 'import']
+const TOP = ['made-here', 'make-here', 'add-block', 'import']
+const BELOW = ['made-here', 'add-block', 'make-here', 'import']
 
 test.describe('the Sources list', () => {
   test.beforeEach(async ({ page }) => {
@@ -112,9 +112,9 @@ test.describe('the Sources list', () => {
   test('dragging Make more here below the block lines chooses Receive it first', async ({ page }) => {
     const control = await openList(page)
     await expectState(control, 'own', true, true, TOP)
-    await control.locator('[data-line="make-here"]').dragTo(control.locator('[data-line="block"]'), { targetPosition: { x: 20, y: 18 } })
+    await control.locator('[data-line="make-here"]').dragTo(control.locator('[data-line="add-block"]'), { targetPosition: { x: 20, y: 18 } })
     await expectState(control, 'connections-first', true, true, BELOW)
-    await control.locator('[data-line="make-here"]').dragTo(control.locator('[data-line="block"]'), { targetPosition: { x: 20, y: 2 } })
+    await control.locator('[data-line="make-here"]').dragTo(control.locator('[data-line="add-block"]'), { targetPosition: { x: 20, y: 2 } })
     await expectState(control, 'own', true, true, TOP)
   })
 
@@ -122,7 +122,7 @@ test.describe('the Sources list', () => {
     const control = await openList(page)
     const order: string[] = []
     await control.getByTestId('sources-button').focus()
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 9; i++) {
       await page.keyboard.press('Tab')
       order.push(await page.evaluate(() => {
         const el = document.activeElement as HTMLElement
@@ -131,7 +131,7 @@ test.describe('the Sources list', () => {
     }
     expect(order).toEqual([
       'line:made-here', 'line:make-here', 'sources-move-up', 'sources-move-down', 'sources-make-here-switch',
-      'line:block', 'line:import', 'sources-import-switch',
+      'line:add-block', 'sources-receive-from', 'line:import', 'sources-import-switch',
     ])
 
     // Move down with the keyboard: the focus stays in the Make more here line, on the other move button.

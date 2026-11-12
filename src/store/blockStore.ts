@@ -401,7 +401,8 @@ export interface BlockStoreState {
   renameSubPlan: (subPlanId: string, name: string) => void
 
   // Products (block-level)
-  addProduct: (product: Product) => void
+  /** Add a product to the active block, or to block `toBlockId` (the history entry goes to that block, as the connection commands do). */
+  addProduct: (product: Product, toBlockId?: string) => void
   removeProduct: (productId: string) => void
   /** Move a product of the active block so it lands before index `toIndex` (counted in the current order, as moveBlock). Undoable; no-op when it would not move. */
   moveProduct: (productId: string, toIndex: number) => void
@@ -931,13 +932,15 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
 
   // ── Products (block-level) ────────────────────────────────────────────────
 
-  addProduct: (product) =>
+  addProduct: (product, toBlockId) =>
     set(state => {
+      const targetId = toBlockId ?? state.activeBlockId
+      if (!state.blocks.some(b => b.id === targetId)) return state
       const cmd: Command = {
         apply: b => ({ ...b, products: [...b.products, product] }),
         undo: b => ({ ...b, products: b.products.filter(p => p.id !== product.id) }),
       }
-      return applyCommand(state, cmd)
+      return applyCommand(state, cmd, targetId)
     }),
 
   removeProduct: (productId) =>

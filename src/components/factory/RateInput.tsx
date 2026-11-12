@@ -43,7 +43,11 @@ export function RateInput({
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter') commit()
+    if (e.key === 'Enter') {
+      // The key's default action must not follow focus to whatever takes it when the field closes (a button would click).
+      e.preventDefault()
+      commit()
+    }
     if (e.key === 'Escape') {
       // Cancel the edit only: the pane must not also clear the selection.
       e.preventDefault()

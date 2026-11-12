@@ -1179,6 +1179,23 @@ describe('input connections', () => {
     expect(useBlockStore.getState().history[otherId()].undoStack).toHaveLength(1)
   })
 
+  it('addProduct can target a block that is not active, with the history entry in that block', () => {
+    const store = () => useBlockStore.getState()
+    const product = { id: 'prod-x', itemId: 'plate' }
+    const productsOf = (id: string) => store().blocks.find(b => b.id === id)!.products
+    store().addProduct(product, sourceId)
+    expect(productsOf(sourceId)).toEqual([product])
+    expect(active().products).toEqual([])
+    expect(store().activeBlockId).toBe(activeId)
+    expect(store().history[sourceId].undoStack).toHaveLength(1)
+    expect(store().history[activeId]?.undoStack ?? []).toHaveLength(0)
+    store().setActiveBlock(sourceId)
+    store().undo()
+    expect(productsOf(sourceId)).toEqual([])
+    store().addProduct(product, 'no-such-block')
+    expect(productsOf(sourceId)).toEqual([])
+  })
+
   describe('moveConnection', () => {
     const store = () => useBlockStore.getState()
     const order = () => active().inputConnections.map(c => c.id)
