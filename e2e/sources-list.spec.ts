@@ -117,4 +117,54 @@ test.describe('the Sources list', () => {
     await control.locator('[data-line="make-here"]').dragTo(control.locator('[data-line="block"]'), { targetPosition: { x: 20, y: 2 } })
     await expectState(control, 'own', true, true, TOP)
   })
+
+  test('the keyboard reaches every line and action, keeps the focus after a move, and a click opens no help line', async ({ page }) => {
+    const control = await openList(page)
+    const order: string[] = []
+    await control.getByTestId('sources-button').focus()
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Tab')
+      order.push(await page.evaluate(() => {
+        const el = document.activeElement as HTMLElement
+        return el.dataset.testid === 'sources-line' ? `line:${el.dataset.line}` : (el.dataset.testid ?? '?')
+      }))
+    }
+    expect(order).toEqual([
+      'line:made-here', 'line:make-here', 'sources-move-up', 'sources-move-down', 'sources-make-here-switch',
+      'line:block', 'line:import', 'sources-import-switch',
+    ])
+
+    // Move down with the keyboard: the focus stays in the Make more here line, on the other move button.
+    await control.getByTestId('sources-move-down').focus()
+    await page.keyboard.press('Enter')
+    await expectState(control, 'connections-first', true, true, BELOW)
+    await expect(control.getByTestId('sources-move-up')).toBeFocused()
+    await page.keyboard.press('Enter')
+    await expectState(control, 'own', true, true, TOP)
+    await expect(control.getByTestId('sources-move-down')).toBeFocused()
+    // The switch keeps its focus when the line moves under it.
+    await control.getByTestId('sources-make-here-switch').focus()
+    await page.keyboard.press('Space')
+    await page.keyboard.press('Space')
+    await expect(control.getByTestId('sources-make-here-switch')).toBeFocused()
+
+    // A press on a control opens no help line (it would shift the lines under the pointer); the keyboard does.
+    await control.getByTestId('sources-import-switch').click()
+    await expect(control.getByTestId('sources-help')).toHaveCount(0)
+    await expect(control.locator('[data-line="import"]').getByRole('tooltip')).toBeHidden()
+    await control.locator('[data-line="made-here"]').focus()
+    await page.keyboard.press('Shift+Tab')
+    await page.keyboard.press('Tab')
+    await expect(control.getByTestId('sources-help')).toHaveCount(1)
+    await expect(control.locator('[data-line="made-here"]').getByRole('tooltip')).toBeHidden()
+  })
+
+  test('a list closed and opened again, and a second popover, keep the side Make more here was on', async ({ page }) => {
+    const control = await openList(page)
+    await control.getByTestId('sources-move-down').click()
+    await control.getByTestId('sources-make-here-switch').click()
+    await control.getByTestId('sources-button').click()
+    await control.getByTestId('sources-button').click()
+    await expectState(control, 'byproducts-first', false, true, BELOW)
+  })
 })

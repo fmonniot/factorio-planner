@@ -13,12 +13,18 @@ const TIP_ALIGN: Record<TipAlign, string> = {
  * The black tooltip of the summary bar, for a control: shown on hover and on keyboard focus (not on the focus
  * a click leaves), and the control's accessible description.
  */
-export function Tip({ id, align, children }: { id: string; align: TipAlign; children: string }) {
+export function Tip({ id, align, hoverOnly = false, children }: {
+  id: string
+  align: TipAlign
+  /** Shown on hover only: the keyboard gets the text another way (the Sources list's help line). */
+  hoverOnly?: boolean
+  children: string
+}) {
   return (
     <span
       id={id}
       role="tooltip"
-      className={`hidden group-hover:block group-has-[:focus-visible]:block group-focus-visible:block w-max max-w-[240px] absolute z-50 bottom-[calc(100%+6px)] ${TIP_ALIGN[align]} bg-black text-gray-100 text-[11px] leading-normal font-normal text-left whitespace-normal border border-gray-700 rounded px-2 py-1 pointer-events-none shadow-lg shadow-black/60`}
+      className={`hidden group-hover:block ${hoverOnly ? '' : 'group-has-[:focus-visible]:block '}w-max max-w-[240px] absolute z-50 bottom-[calc(100%+6px)] ${TIP_ALIGN[align]} bg-black text-gray-100 text-[11px] leading-normal font-normal text-left whitespace-normal border border-gray-700 rounded px-2 py-1 pointer-events-none shadow-lg shadow-black/60`}
     >
       {children}
     </span>

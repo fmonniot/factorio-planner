@@ -8,6 +8,7 @@ import { useRemoveSourceRule } from './useRemoveSourceRule'
 import { useSourcingSentence } from './useSourcingSentence'
 import { SourcesList } from './SourcesList'
 import { Tip } from './Tip'
+import { MINI_BUTTON_CLASS, Switch } from './Switch'
 import { anchorOf } from './popoverAnchor'
 
 // ---------------------------------------------------------------------------
@@ -105,20 +106,9 @@ export function ComesFrom({ itemId, initialListOpen = false, listInPopover = fal
           })}
         </div>
         <span className="group relative flex ml-auto">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={importOn}
-            aria-describedby={`${baseId}-import`}
-            data-testid="import-switch"
-            onClick={() => toggleImportOff(itemId)}
-            className={`inline-flex items-center gap-1.5 rounded px-1 py-0.5 text-[11px] leading-4 text-gray-300 outline-none focus-visible:ring-2 focus-visible:ring-teal-400 hover:text-gray-100`}
-          >
+          <Switch on={importOn} label={IMPORT_SWITCH.label} testId="import-switch" describedBy={`${baseId}-import`} onToggle={() => toggleImportOff(itemId)}>
             {IMPORT_SWITCH.label}
-            <span aria-hidden="true" className={`relative inline-block w-6 h-3 rounded-full ${importOn ? 'bg-teal-600' : 'bg-gray-600'}`}>
-              <span className={`absolute top-0.5 w-2 h-2 rounded-full bg-gray-100 ${importOn ? 'left-3.5' : 'left-0.5'}`} />
-            </span>
-          </button>
+          </Switch>
           <Tip id={`${baseId}-import`} align="end">{IMPORT_SWITCH.title}</Tip>
         </span>
       </div>
@@ -131,7 +121,7 @@ export function ComesFrom({ itemId, initialListOpen = false, listInPopover = fal
           aria-controls={!listInPopover && listOpen ? `${baseId}-sources` : undefined}
           aria-haspopup={listInPopover ? 'dialog' : undefined}
           onClick={e => listInPopover ? openComesFrom(itemId, anchorOf(e.currentTarget), { list: true }) : setListOpen(o => !o)}
-          className="bg-gray-900 border border-gray-700 rounded px-1.5 text-[11px] leading-4 text-gray-300 outline-none hover:border-gray-500 focus-visible:ring-2 focus-visible:ring-teal-400"
+          className={MINI_BUTTON_CLASS}
         >
           {SOURCES_BUTTON_LABEL}
         </button>

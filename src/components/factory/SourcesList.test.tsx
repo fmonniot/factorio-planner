@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen, fireEvent, createEvent, within, act } from '@testing-library/react'
 import { ComesFrom } from './ComesFrom'
+import { ComesFromPopover } from './ComesFromPopover'
 import { sourcesLineOrder } from './itemSourcing'
 import { useBlockStore, makeEmptyBlock, makeRecipeNode } from '../../store/blockStore'
 import { useUiStore } from '../../store/uiStore'
@@ -34,17 +35,19 @@ function gameData(): GameData {
   } as unknown as GameData
 }
 
+const TOP = ['made-here', 'make-here', 'block', 'import']
+const BELOW = ['made-here', 'block', 'make-here', 'import']
 const mainBlock = () => useBlockStore.getState().blocks.find(b => b.id === 'main')!
 const ruleOf = () => mainBlock().sourceRules.ore
 const lines = () => screen.getAllByTestId('sources-line').map(l => l.getAttribute('data-line'))
 const line = (name: string) => screen.getAllByTestId('sources-line').find(l => l.getAttribute('data-line') === name)!
-const checkedPreset = () => screen.getAllByRole('radio').find(r => r.getAttribute('aria-checked') === 'true')!.getAttribute('data-sourcing-choice')
+const checkedPreset = () => screen.getAllByRole('radio').find(r => r.getAttribute('aria-checked') === 'true')!.getAttribute('data-sourcing-choice')!
 
 function setup(over: Partial<Block> = {}) {
   const main: Block = { ...makeEmptyBlock('Main'), id: 'main', ...over }
   main.rootPlan = { ...main.rootPlan, nodes: [makeRecipeNode('smelt'), makeRecipeNode('ore-synth')] }
   useBlockStore.setState({ blocks: [main], activeBlockId: 'main', history: {} })
-  useUiStore.setState({ rateUnit: 'min', comesFromPopover: null, connectionMenu: null })
+  useUiStore.setState({ rateUnit: 'min', comesFromPopover: null, connectionMenu: null, sourcesSides: {} })
   useGameDataStore.setState({ status: { type: 'loaded', gameData: gameData(), sourceId: 'test' } })
   useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, flows: [], _setStatus: () => {} })
 }
@@ -307,7 +310,8 @@ describe('what the lines read', () => {
 
   it('lists the dedicated rows under Make more here', () => {
     openList()
-    expect(line('make-here')).toHaveTextContent('Ore Synth (0 × machine)')
+    expect(line('make-here')).toHaveTextContent('Ore Synth')
+    expect(line('make-here')).not.toHaveTextContent('×')
   })
 
   it('lists the rows making it at a rate above 0 under Don\'t make more here, the byproduct ones otherwise', () => {
@@ -330,5 +334,115 @@ describe('what the lines read', () => {
     fireEvent.click(screen.getByTestId('sources-import-switch'))
     expect(line('import')).toHaveTextContent('Missing')
     expect(line('import')).toHaveTextContent('12')
+  })
+})
+
+describe('a solved dedicated row', () => {
+  it('reads its machine count, and the recipe alone while it is idle', () => {
+    const synth = mainBlock().rootPlan.nodes.find(n => n.kind === 'game-recipe' && n.recipeId === 'ore-synth')!.id
+    act(() => useSolverStore.setState({
+      lastResults: { main: { nodes: [{ recipeNodeId: synth, machineCountCeil: 2, outputRates: { ore: 30 } }], unsatisfied: [], warnings: [] } as unknown as SolverResult },
+    }))
+    openList()
+    expect(line('make-here')).toHaveTextContent('Ore Synth (2 × machine)')
+    act(() => useSolverStore.setState({
+      lastResults: { main: { nodes: [{ recipeNodeId: synth, machineCountCeil: 0, outputRates: {} }], unsatisfied: [], warnings: [] } as unknown as SolverResult },
+    }))
+    expect(line('make-here')).not.toHaveTextContent('×')
+  })
+})
+
+describe('history', () => {
+  const stack = () => useBlockStore.getState().history.main?.undoStack.length ?? 0
+
+  it('makes one undoable entry per action, and undo restores the preset and the side', () => {
+    openList()
+    const steps = ['sources-move-down', 'sources-make-here-switch', 'sources-make-here-switch', 'sources-import-switch']
+    const before: { preset: string; order: (string | null)[] }[] = []
+    steps.forEach((testId, i) => {
+      before.push({ preset: checkedPreset(), order: lines() })
+      fireEvent.click(screen.getByTestId(testId))
+      expect(stack(), `entry after step ${i}`).toBe(i + 1)
+    })
+    for (let i = steps.length - 1; i >= 0; i--) {
+      act(() => useBlockStore.getState().undo())
+      expect(checkedPreset()).toBe(before[i].preset)
+      // A switched-off line has no stored side: undoing back into it draws it where it was drawn last, not where it was.
+      if (before[i].preset !== 'byproducts-first') expect(lines()).toEqual(before[i].order)
+    }
+    expect(ruleOf()).toBeUndefined()
+  })
+
+  it('adds no entry for a move that goes nowhere', () => {
+    openList()
+    fireEvent.click(screen.getByTestId('sources-move-up'))
+    expect(stack()).toBe(0)
+  })
+})
+
+describe('the side Make more here was drawn on', () => {
+  it('is remembered when the list closes and opens again', () => {
+    setup({ sourceRules: { ore: { makeHere: 'after-blocks' } } })
+    openList()
+    fireEvent.click(screen.getByTestId('sources-make-here-switch'))
+    expect(lines()).toEqual(BELOW)
+    fireEvent.click(screen.getByTestId('sources-button'))
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(lines()).toEqual(BELOW)
+  })
+})
+
+describe('focus', () => {
+  it('stays in the Make more here line after a move: on the other move button, and on the switch after a switch', () => {
+    openList()
+    expect(lines()).toEqual(TOP)
+    const down = screen.getByTestId('sources-move-down')
+    act(() => down.focus())
+    fireEvent.click(down)
+    expect(document.activeElement).toBe(screen.getByTestId('sources-move-up'))
+    expect(line('make-here').contains(document.activeElement)).toBe(true)
+    fireEvent.click(screen.getByTestId('sources-move-up'))
+    expect(document.activeElement).toBe(screen.getByTestId('sources-move-down'))
+    const sw = screen.getByTestId('sources-make-here-switch')
+    act(() => sw.focus())
+    fireEvent.click(sw)
+    expect(document.activeElement).toBe(sw)
+  })
+
+  it('reaches every action and line with the keyboard: buttons and focusable lines, none out of the tab order', () => {
+    openList()
+    for (const id of ['sources-move-up', 'sources-move-down', 'sources-make-here-switch', 'sources-import-switch']) {
+      const el = screen.getByTestId(id)
+      expect(el.tagName).toBe('BUTTON')
+      expect(el).not.toBeDisabled()
+      expect(el.getAttribute('tabindex')).toBeNull()
+    }
+    for (const l of screen.getAllByTestId('sources-line')) expect(l).toHaveAttribute('tabindex', '0')
+  })
+})
+
+describe('the description of a line', () => {
+  it('is one tooltip, set on the line and on its controls, and the help line is hidden from assistive tech', () => {
+    openList()
+    const tip = within(line('make-here')).getByRole('tooltip')
+    expect(line('make-here')).toHaveAttribute('aria-describedby', tip.id)
+    expect(screen.getByTestId('sources-make-here-switch')).toHaveAttribute('aria-describedby', tip.id)
+    act(() => line('make-here').focus())
+    expect(screen.getByTestId('sources-help')).toHaveAttribute('aria-hidden', 'true')
+    // The tooltip shows on hover only for a line: the keyboard has the help line.
+    expect(tip.className).not.toContain('focus-visible')
+  })
+})
+
+describe('the popover', () => {
+  it('follows each open request for the list, also for the same item', () => {
+    render(<ComesFromPopover hasSlot={() => false} />)
+    const anchor = { rect: { left: 0, top: 0, right: 10, bottom: 10 }, avoid: null }
+    act(() => useUiStore.getState().openComesFrom('ore', anchor, { list: true }))
+    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
+    fireEvent.click(screen.getByTestId('sources-button'))
+    expect(screen.queryByTestId('sources-list')).toBeNull()
+    act(() => useUiStore.getState().openComesFrom('ore', anchor, { list: true }))
+    expect(screen.getByTestId('sources-list')).toBeInTheDocument()
   })
 })

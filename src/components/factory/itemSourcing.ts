@@ -84,9 +84,9 @@ export type LineKey = 'made-here' | 'make-here' | 'other-areas' | 'block' | 'imp
 export type Side = 'above' | 'below'
 
 /**
- * The lines top to bottom. *Already made here* is first and *Import* last. *Make more here* sits directly above the block lines
- * (no `makeHere`) or directly below them (`'after-blocks'`); switched off it stays where it was drawn last (`lastSide`). *Other
- * areas* follows *Make more here*, or *Already made here* when that is off, as in the mapping table of plan.md.
+ * The lines top to bottom. *Already made here* is first and *Import* last. *Make more here* is above the block lines (no `makeHere`) or
+ * below them (`'after-blocks'`), and *Other areas* always follows it directly (plan.md's mapping table); switched off it keeps the
+ * side it was drawn last (`lastSide`) and *Other areas* follows *Already made here*.
  */
 export function sourcesLineOrder(makeHere: 'after-blocks' | 'off' | undefined, hasAreas: boolean, lastSide: Side): LineKey[] {
   const areas: LineKey[] = hasAreas ? ['other-areas'] : []
