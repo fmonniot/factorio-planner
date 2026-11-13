@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock } from './index'
-import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
+import type { Block, GameData, ServedEntry, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
 // Every category maps to a speed-1 machine, so machineCountExact = throughput × craftingTime / 60.
@@ -683,6 +683,166 @@ describe('solver synthetic cases', () => {
       expect(result.warnings.filter(w => w.type === 'infeasible-pins')).toEqual([
         { type: 'infeasible-pins', recipeIds: ['case13-make-plate'] },
       ])
+    })
+  })
+
+  // Cases 14 and 15: the served list of a source.
+  const listOf = (...names: string[]): ServedEntry[] =>
+    names.map((n): ServedEntry => (n === 'extra' ? { kind: 'extra' } : { kind: 'block', blockId: n }))
+  const flowIn = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
+  const mk = (
+    id: string,
+    products: Array<[string, number]>,
+    rows: RecipeNode[],
+    links: Block['inputConnections'] = [],
+    servedOrder?: ServedEntry[],
+    itemId?: string,
+  ): Block => ({
+    id,
+    name: id,
+    color: '#60a5fa',
+    products: products.map(([i, extraRate], k) => ({ id: `p-${id}-${k}`, itemId: i, extraRate })),
+    sourceRules: {},
+    inputConnections: links,
+    rootPlan: subPlan(`root-${id}`, rows),
+    ...(servedOrder && itemId ? { servedOrder: { [itemId]: servedOrder } } : {}),
+  })
+
+  describe('case 14: served order of a byproduct', () => {
+    const X = 'case11-x'
+    const T = (list?: ServedEntry[]) => mk('T', [['case11-goal', 30]], [planNode('case11-make-goal')], [], list, X)
+    const H = (id: string, other: number) =>
+      mk(id, [['case11-other', other]], [planNode('case11-use-x')], [{ id: `c-${id}`, itemId: X, fromBlockId: 'T' }])
+    const check = (all: ReturnType<typeof solveAll>, id: string, rate: number, status: string, imported: number) => {
+      const f = flowIn(all, `c-${id}`)
+      expect(f.rate, `${id} rate`).toBeCloseTo(rate, 6)
+      expect(f.status, `${id} status`).toBe(status)
+      expect(unsatisfiedRate(all.results[id], X) ?? 0, `${id} imports`).toBeCloseTo(imported, 6)
+      expect(all.results[id].warnings, `${id} warnings`).toEqual([])
+    }
+    const cases: Array<[string, string[], string[], [number, string, number], [number, string, number]]> = [
+      // name, tabs, list, H1 (rate, status, imported), H2
+      ['a: no list, H1 first', ['T', 'H1', 'H2'], [], [20, 'ok', 0], [10, 'limited', 15]],
+      ['a: no list, H2 first', ['T', 'H2', 'H1'], [], [5, 'limited', 15], [25, 'ok', 0]],
+      ['b: H2, H1 in tab order T, H1, H2', ['T', 'H1', 'H2'], ['H2', 'H1'], [5, 'limited', 15], [25, 'ok', 0]],
+      ['b: H2, H1 in tab order T, H2, H1', ['T', 'H2', 'H1'], ['H2', 'H1'], [5, 'limited', 15], [25, 'ok', 0]],
+      ['b: H1, H2 in tab order T, H1, H2', ['T', 'H1', 'H2'], ['H1', 'H2'], [20, 'ok', 0], [10, 'limited', 15]],
+      ['b: H1, H2 in tab order T, H2, H1', ['T', 'H2', 'H1'], ['H1', 'H2'], [20, 'ok', 0], [10, 'limited', 15]],
+    ]
+    for (const [name, tabs, list, h1, h2] of cases) {
+      it(name, () => {
+        const byId: Record<string, Block> = { T: T(list.length ? listOf(...list) : undefined), H1: H('H1', 20), H2: H('H2', 25) }
+        const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+        check(all, 'H1', ...h1)
+        check(all, 'H2', ...h2)
+        expect(nodeOf(all.results.T, 'case11-make-goal').throughput).toBeCloseTo(30, 6)
+        expect(all.results.T.warnings).toEqual([])
+      })
+    }
+
+    it('b: reports the order, shares and amounts', () => {
+      const all = solveAll([T(listOf('H2', 'H1')), H('H1', 20), H('H2', 25)], makeGameData())
+      const list = all.served.T[X]
+      expect(list.consumers.map(c => c.blockId)).toEqual(['H2', 'H1'])
+      expect(list.consumers.map(c => c.kind)).toEqual(['take', 'take'])
+      expect(list.consumers[0].share).toBeCloseTo(25, 6)
+      expect(list.consumers[0].got).toBeCloseTo(25, 6)
+      expect(list.consumers[1].share).toBeCloseTo(5, 6)
+      expect(list.consumers[1].got).toBeCloseTo(5, 6)
+      expect(list.extra).toBeUndefined()
+    })
+
+    describe('c: a takes-first consumer asks its other source for the rest', () => {
+      const blocks = (list?: ServedEntry[]): Block[] => [
+        T(list),
+        mk('A', [[X, 0]], [planNode('case11-make-x')]),
+        H('H', 20),
+        mk('B', [['case11-other', 25]], [planNode('case11-use-x')], [
+          { id: 'c-BT', itemId: X, fromBlockId: 'T' },
+          { id: 'c-BA', itemId: X, fromBlockId: 'A' },
+        ]),
+      ]
+      it('no list: B takes 25 from T, asks A for nothing, H is left 5', () => {
+        const all = solveAll(blocks(), makeGameData())
+        check(all, 'H', 5, 'limited', 15)
+        expect(flowIn(all, 'c-BT').rate).toBeCloseTo(25, 6)
+        expect(flowIn(all, 'c-BT').status).toBe('ok')
+        expect(flowIn(all, 'c-BA')).toMatchObject({ rate: 0, status: 'unused', requested: 0 })
+        expect(unsatisfiedRate(all.results.B, X) ?? 0).toBeCloseTo(0, 6)
+        expect(all.served.T[X].consumers.find(c => c.blockId === 'B')!.share).toBeCloseTo(25, 6)
+        expect(all.results.A.nodes).toEqual([])
+      })
+      it('list H, B: H 20, B 10 from T and 15 from A', () => {
+        const all = solveAll(blocks(listOf('H', 'B')), makeGameData())
+        check(all, 'H', 20, 'ok', 0)
+        expect(flowIn(all, 'c-BT').rate).toBeCloseTo(10, 6)
+        expect(flowIn(all, 'c-BT').status).toBe('ok')
+        expect(flowIn(all, 'c-BA').rate).toBeCloseTo(15, 6)
+        expect(flowIn(all, 'c-BA').requested).toBeCloseTo(15, 6)
+        expect(flowIn(all, 'c-BA').status).toBe('ok')
+        expect(unsatisfiedRate(all.results.B, X) ?? 0).toBeCloseTo(0, 6)
+        expect(nodeOf(all.results.A, 'case11-make-x').throughput).toBeCloseTo(7.5, 6)
+        const shares = Object.fromEntries(all.served.T[X].consumers.map(c => [c.blockId, c.share]))
+        expect(shares.H).toBeCloseTo(20, 6)
+        expect(shares.B).toBeCloseTo(10, 6)
+      })
+    })
+  })
+
+  describe('case 15: served order of a short product', () => {
+    const P = 'case13-plate'
+    const A = (list?: ServedEntry[]): Block =>
+      mk('A', [[P, 10]], [{ ...rowIn('case13-make-plate', 'root'), pinnedRate: 45 }], [], list, P)
+    const C = (id: string, gears: number): Block =>
+      mk(id, [['case13-gear', gears]], [planNode('case13-use-plate')], [{ id: `c-${id}`, itemId: P, fromBlockId: 'A' }])
+    const E = (): Block => mk('E', [['case13-gear', 5]], [planNode('case13-use-plate')])
+    const asked: Record<string, number> = { B: 30, C: 20, D: 10 }
+    type Want = Record<string, [number, string, number]> // id → rate, status, imported
+    const cases: Array<[string, string[], string[], Want, string[], number, number]> = [
+      // name, tabs, list, want, served order, extra got, extra place
+      ['a: no list, A B C', ['A', 'B', 'C'], [], { B: [30, 'ok', 0], C: [15, 'limited', 5] }, ['B', 'C'], 0, 2],
+      ['b: no list, A C B', ['A', 'C', 'B'], [], { B: [25, 'limited', 5], C: [20, 'ok', 0] }, ['C', 'B'], 0, 2],
+      ['c: B, C in tab order A B C', ['A', 'B', 'C'], ['B', 'C'], { B: [30, 'ok', 0], C: [15, 'limited', 5] }, ['B', 'C'], 0, 2],
+      ['c: B, C in tab order A C B', ['A', 'C', 'B'], ['B', 'C'], { B: [30, 'ok', 0], C: [15, 'limited', 5] }, ['B', 'C'], 0, 2],
+      ['d: C, B in tab order A B C', ['A', 'B', 'C'], ['C', 'B'], { B: [25, 'limited', 5], C: [20, 'ok', 0] }, ['C', 'B'], 0, 2],
+      ['d: C, B in tab order A C B', ['A', 'C', 'B'], ['C', 'B'], { B: [25, 'limited', 5], C: [20, 'ok', 0] }, ['C', 'B'], 0, 2],
+      ['e: B, extra, C in tab order A B C', ['A', 'B', 'C'], ['B', 'extra', 'C'], { B: [30, 'ok', 0], C: [5, 'limited', 15] }, ['B', 'C'], 10, 1],
+      ['e: B, extra, C in tab order A C B', ['A', 'C', 'B'], ['B', 'extra', 'C'], { B: [30, 'ok', 0], C: [5, 'limited', 15] }, ['B', 'C'], 10, 1],
+      ['f: entries that do not apply, A B C E', ['A', 'B', 'C', 'E'], ['E', 'ghost', 'C', 'B'], { B: [25, 'limited', 5], C: [20, 'ok', 0] }, ['C', 'B'], 0, 2],
+      ['f: entries that do not apply, A C B E', ['A', 'C', 'B', 'E'], ['E', 'ghost', 'C', 'B'], { B: [25, 'limited', 5], C: [20, 'ok', 0] }, ['C', 'B'], 0, 2],
+      ['g: no list', ['A', 'B', 'C', 'D'], [], { B: [30, 'ok', 0], C: [15, 'limited', 5], D: [0, 'limited', 10] }, ['B', 'C', 'D'], 0, 3],
+      ['g: list D', ['A', 'B', 'C', 'D'], ['D'], { B: [30, 'ok', 0], C: [5, 'limited', 15], D: [10, 'ok', 0] }, ['D', 'B', 'C'], 0, 3],
+    ]
+    for (const [name, tabs, list, want, order, extraGot, place] of cases) {
+      it(name, () => {
+        const byId: Record<string, Block> = { A: A(list.length ? listOf(...list) : undefined), B: C('B', 30), C: C('C', 20), D: C('D', 10), E: E() }
+        const all = solveAll(tabs.map(t => byId[t]), makeGameData())
+        expect(nodeOf(all.results.A, 'case13-make-plate@root').throughput, 'A runs at its pin').toBeCloseTo(45, 6)
+        expect(all.results.A.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case13-make-plate'] })
+        for (const [id, [rate, status, imported]] of Object.entries(want)) {
+          const f = flowIn(all, `c-${id}`)
+          expect(f.rate, `${id} rate`).toBeCloseTo(rate, 6)
+          expect(f.status, `${id} status`).toBe(status)
+          expect(f.requested, `${id} requested`).toBeCloseTo(asked[id], 6)
+          expect(unsatisfiedRate(all.results[id], P) ?? 0, `${id} imports`).toBeCloseTo(imported, 6)
+        }
+        const served = all.served.A[P]
+        expect(served.consumers.map(c => c.blockId)).toEqual(order)
+        for (const c of served.consumers) {
+          expect(c.share, `${c.blockId} share`).toBeCloseTo(asked[c.blockId], 6)
+          expect(c.got, `${c.blockId} got`).toBeCloseTo(want[c.blockId][0], 6)
+        }
+        expect(served.extra?.place, 'extra place').toBe(place)
+        expect(served.extra?.got, 'extra got').toBeCloseTo(extraGot, 6)
+      })
+    }
+
+    it("c: a list in today's order changes nothing", () => {
+      const plain = solveAll([A(), C('B', 30), C('C', 20)], makeGameData())
+      const ranked = solveAll([A(listOf('B', 'C')), C('B', 30), C('C', 20)], makeGameData())
+      expect(ranked.results).toEqual(plain.results)
+      expect(ranked.flows).toEqual(plain.flows)
+      expect(ranked.served).toEqual(plain.served)
     })
   })
 })
