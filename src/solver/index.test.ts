@@ -728,6 +728,22 @@ describe('solveAll', () => {
   const link = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
 
+  it('does not read servedOrder yet', () => {
+    const plain = () => [
+      block('A', plateGoal(60), [planNode('p', 'twin')]),
+      block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+      block('C', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
+    ]
+    const ranked = plain()
+    ranked[0] = { ...ranked[0], servedOrder: { plate: [{ kind: 'extra' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'B' }] } }
+    expect(flattenBlock(ranked[0])).toEqual(flattenBlock(plain()[0]))
+    const a = solveAll(plain(), connectionGameData())
+    const b = solveAll(ranked, connectionGameData())
+    expect(b.results).toEqual(a.results)
+    expect(b.flows).toEqual(a.flows)
+    expect(b.served).toEqual(a.served)
+  })
+
   it('feeds the consumer from the source and reports an ok flow', () => {
     const all = solveAll([
       block('A', plateGoal(60), [planNode('p', 'twin')]),

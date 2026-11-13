@@ -112,7 +112,7 @@ T1 reported on 2026-11-13 ([Spike report](#spike-report-t1)); the list below kee
 
 - [x] **T1. Spike: a source that holds its capacity.** Prototype the second solve of D1 in `solveBlock` and `solveAreaBlock` on a branch, with the three rows of the table above as a synthetic case and one `solveAll` case: a pinned source, an extra of 10 and requests of 30 and 20, 45 made (the example of spec/solver.md's "Shortfall", which no scenario reaches today). Report: which e2e fixtures change (`legacyParity.test.ts`), what a locked item that cannot be covered does, the cost of the second solve, and whether `infeasible-pins` still has a job. The outcome decides D1 and the rest of this list.
 - [x] **T2. The solver says in what order it served.** No change of behaviour. `MultiBlockSolve` gains, per source item with at least one consumer, the consumers in the order they were served, each with its share and what it got, and the extra output's place. The list ships read-only in the Products and Byproducts panes: the hidden order becomes visible before it becomes editable. Also the new text of `infeasible-pins` ([Spike report](#spike-report-t1)): the pins now hold and the products fall short; it names only the pins that bind, where it can tell.
-- [ ] **T3. The stored list and its commands.** `Block.servedOrder` (D4), `moveServed`, `resetServedOrder`, the cleanup with a consumer's last connection. Nothing reads it yet.
+- [x] **T3. The stored list and its commands.** `Block.servedOrder` (D4), `moveServed`, `resetServedOrder`, the cleanup with a consumer's last connection. Nothing reads it yet.
 - [ ] **T4. Solver: grants by rank, outside loops.** The two steps of [How a rank can be honoured](#how-a-rank-can-be-honoured). Synthetic cases first: two takes of one byproduct, served by rank and unchanged by a reorder of the tabs; a consumer that is solved first and ranked last; a plan with no list, unchanged (`legacyParity.test.ts`).
 - [ ] **T5. Solver: loops.** Grants inside the supply rounds, credits inside the demand rounds, the memo key. A synthetic loop in which the second member in member order is ranked first.
 - [ ] **T6. The list, editable.** Drag and **Move up** / **Move down**, the extra output line on a product with an extra, **Reset order**, the figures of D5, and the consumers that are not ranked: the divider and the count on the action (D4). e2e: a consumer connected after the order was set shows under the divider, is counted on the action, is served last, and joins the list when dragged into it.
@@ -140,3 +140,11 @@ Deviations and additions only.
 - In the Products pane **Served order…** is the last action, not the one after **Find recipe**: the strip's action row has no room to spare and the first placement pushed **Move later** out of reach (`product-reorder.spec.ts`). Byproducts keep it first.
 - `infeasible-pins` gains `conflict?: true`: set when the elastic solve failed too. The held case (no `conflict`) has the new text "Pins cap a product". The existing `WarningsPopover` test fixture for the old text now carries `conflict: true`, and a new case covers the held text.
 - The pin-binding probe (`bindingPins`): one first-stage LP per pin with its row deleted, at most `PIN_PROBE_LIMIT = 8` pins; more pins, or no single pin lowering the total shortfall, name all pins as before. Runs only for infeasible blocks with pins and feeds no result.
+
+## T3 report
+
+Deviations and additions only.
+
+- `Command` gained a `blocks` argument on `apply` and `undo`, and optional `applyOthers` / `undoOthers`: the cleanup writes into the source block from the consumer's history. `runCommand` replaces the three inlined copies in `applyCommand`, `undo` and `redo`. The undo of an add and the redo of a removal also clean and restore the entry.
+- `clonePlan` remaps the block ids in every list and `cloneBlock` drops the list.
+- `shown` is a parameter of `moveServed`, not a read of `solverStore` (import cycle).

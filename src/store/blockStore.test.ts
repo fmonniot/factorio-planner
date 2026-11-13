@@ -9,7 +9,7 @@ import {
   selectAppState,
 } from './blockStore'
 import { findSubPlan } from '../data/subPlanTree'
-import type { AppState, BeaconConfig, Block, GameData, GameRecipeNode, RecipeNode, SubPlan, SubPlanNode } from '../data/types'
+import type { AppState, BeaconConfig, Block, GameData, GameRecipeNode, RecipeNode, ServedEntry, SubPlan, SubPlanNode } from '../data/types'
 import { BLOCK_PALETTE } from '../data/blockColors'
 import { useGameDataStore } from './gameDataStore'
 import { areaRecipeIds, blockAreas } from '../solver/areas'
@@ -1651,6 +1651,306 @@ describe('default machine overrides', () => {
     })
     expect(useBlockStore.getState().defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
     expect(selectAppState(useBlockStore.getState()).defaultMachineOverrides).toEqual({ crafting: 'asm-2' })
+  })
+})
+
+describe('served order', () => {
+  const blk = (id: string): ServedEntry => ({ kind: 'block', blockId: id })
+  const extra: ServedEntry = { kind: 'extra' }
+  const store = () => useBlockStore.getState()
+  const get = (id: string) => store().blocks.find(b => b.id === id)!
+  const listOf = (id: string, itemId = 'plate') => get(id).servedOrder?.[itemId]
+  const link = (id: string, from: string, itemId = 'plate') => ({ id: `c-${id}`, itemId, fromBlockId: from })
+  let shown: ServedEntry[]
+
+  function seed(consumers = ['A', 'B', 'C'], active = 'S') {
+    const source = { ...makeEmptyBlock('S'), id: 'S', products: [{ id: 'p', itemId: 'plate', extraRate: 10 }] }
+    const others = consumers.map(id => ({ ...makeEmptyBlock(id), id, inputConnections: [link(id, 'S')] }))
+    useBlockStore.setState({ blocks: [source, ...others], activeBlockId: active, history: {} })
+    shown = [...consumers.map(blk), extra]
+  }
+  const depth = (id: string) => store().history[id]?.undoStack.length ?? 0
+
+  beforeEach(() => seed())
+
+  describe('moveServed with no list', () => {
+    it('writes the shown order with the entry moved into the source only', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), blk('B'), extra])
+      expect(depth('S')).toBe(1)
+      for (const id of ['A', 'B', 'C']) expect(depth(id)).toBe(0)
+      expect('servedOrder' in get('A')).toBe(false)
+    })
+
+    it('does nothing when the entry is dropped in place', () => {
+      for (const toIndex of [1, 2]) {
+        const before = store().blocks
+        store().moveServed('S', 'plate', blk('B'), toIndex, shown)
+        expect(store().blocks).toBe(before)
+      }
+      expect(depth('S')).toBe(0)
+      expect('servedOrder' in get('S')).toBe(false)
+    })
+
+    it('does nothing for an entry that is not shown', () => {
+      const before = store().blocks
+      store().moveServed('S', 'plate', extra, 0, [blk('A'), blk('B')])
+      expect(store().blocks).toBe(before)
+      expect(depth('S')).toBe(0)
+    })
+
+    it('drops shown entries that are not consumers', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, [blk('A'), blk('B'), blk('ghost'), blk('A'), extra])
+      expect(listOf('S')).toEqual([blk('B'), blk('A'), extra])
+    })
+
+    it('undoes the first drag to no list and redoes it', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      store().undo()
+      expect('servedOrder' in get('S')).toBe(false)
+      store().redo()
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), blk('B'), extra])
+    })
+  })
+
+  describe('moveServed with a list', () => {
+    beforeEach(() => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown) // [C, A, B, extra]
+    })
+
+    it('clamps the insertion index', () => {
+      store().moveServed('S', 'plate', blk('B'), -5, shown)
+      expect(listOf('S')).toEqual([blk('B'), blk('C'), blk('A'), extra])
+      store().moveServed('S', 'plate', blk('B'), 99, shown)
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), extra, blk('B')])
+    })
+
+    it('treats index + 2 as one place down', () => {
+      store().moveServed('S', 'plate', blk('C'), 2, shown)
+      expect(listOf('S')).toEqual([blk('A'), blk('C'), blk('B'), extra])
+    })
+
+    it('ignores shown', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, [extra])
+      expect(listOf('S')).toEqual([blk('B'), blk('C'), blk('A'), extra])
+    })
+
+    it('moves the extra up', () => {
+      store().moveServed('S', 'plate', extra, 0, shown)
+      expect(listOf('S')).toEqual([extra, blk('C'), blk('A'), blk('B')])
+    })
+
+    it('inserts an unranked consumer at the index', () => {
+      store().resetServedOrder('S', 'plate')
+      seed(['A', 'B', 'C', 'D'])
+      store().moveServed('S', 'plate', blk('C'), 0, shown) // [C, A, B, D, extra]
+      store().removeInputConnection('c-D', 'D')
+      store().addInputConnection('plate', 'S', 'D') // D is a consumer again, not in the list
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), blk('B'), extra])
+      store().moveServed('S', 'plate', blk('D'), 1, shown)
+      expect(listOf('S')).toEqual([blk('C'), blk('D'), blk('A'), blk('B'), extra])
+    })
+
+    it.each([
+      ['a non-finite index', () => ['S', blk('B'), NaN] as const],
+      ['an unknown source', () => ['ghost', blk('B'), 0] as const],
+      ['an unknown block entry', () => ['S', blk('ghost'), 0] as const],
+      ['the source itself', () => ['S', blk('S'), 0] as const],
+    ])('is a no-op for %s', (_name, args) => {
+      const before = store().blocks
+      const [source, entry, toIndex] = args()
+      store().moveServed(source, 'plate', entry, toIndex, shown)
+      expect(store().blocks).toBe(before)
+      expect(depth('S')).toBe(1)
+    })
+
+    it('is a no-op for a block that takes another item', () => {
+      const before = store().blocks
+      store().moveServed('S', 'gear', blk('B'), 0, shown)
+      expect(store().blocks).toBe(before)
+    })
+
+    it('undoes through the moves back to no list', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      store().undo()
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), blk('B'), extra])
+      store().undo()
+      expect('servedOrder' in get('S')).toBe(false)
+    })
+
+    it('keeps changes made to the list in between when it undoes', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown) // [B, C, A, extra]
+      store().removeInputConnection('c-A', 'A') // [B, C, extra]
+      store().undo()
+      expect(listOf('S')).toEqual([blk('C'), blk('B'), extra])
+    })
+  })
+
+  describe('resetServedOrder', () => {
+    it('removes the item key, keeping the other items', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { ...b.servedOrder, gear: [blk('A')] } } : b)) }))
+      store().resetServedOrder('S', 'plate')
+      expect(get('S').servedOrder).toEqual({ gear: [blk('A')] })
+    })
+
+    it('removes servedOrder when it was the only item', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      store().resetServedOrder('S', 'plate')
+      expect('servedOrder' in get('S')).toBe(false)
+    })
+
+    it('is a no-op with no history when there is no list', () => {
+      const before = store().blocks
+      store().resetServedOrder('S', 'plate')
+      store().resetServedOrder('ghost', 'plate')
+      expect(store().blocks).toBe(before)
+      expect(depth('S')).toBe(0)
+    })
+
+    it('undoes and redoes', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      store().resetServedOrder('S', 'plate')
+      store().undo()
+      expect(listOf('S')).toEqual([blk('C'), blk('A'), blk('B'), extra])
+      store().redo()
+      expect('servedOrder' in get('S')).toBe(false)
+    })
+
+    it('does not put back a consumer that has left', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      store().resetServedOrder('S', 'plate')
+      store().removeInputConnection('c-A', 'A')
+      store().undo()
+      expect(listOf('S')).toEqual([blk('C'), blk('B'), extra])
+    })
+  })
+
+  describe('connection cleanup', () => {
+    beforeEach(() => {
+      store().moveServed('S', 'plate', blk('A'), 0, shown)
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { plate: [blk('A'), blk('B'), blk('C')] } } : b)), history: {} }))
+    })
+
+    it('removes the entry with the last connection, in the consumer history only, and undo restores it', () => {
+      store().setActiveBlock('B')
+      store().removeInputConnection('c-B')
+      expect(listOf('S')).toEqual([blk('A'), blk('C')])
+      expect(depth('B')).toBe(1)
+      expect(depth('S')).toBe(0)
+      store().undo()
+      expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+      store().redo()
+      expect(listOf('S')).toEqual([blk('A'), blk('C')])
+    })
+
+    it('restores an entry at the front and at the end', () => {
+      store().removeInputConnection('c-A', 'A')
+      store().removeInputConnection('c-C', 'C')
+      expect(listOf('S')).toEqual([blk('B')])
+      store().setActiveBlock('C'); store().undo()
+      expect(listOf('S')).toEqual([blk('B'), blk('C')])
+      store().setActiveBlock('A'); store().undo()
+      expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+    })
+
+    it('drops the key and servedOrder with the last entry and undo recreates it', () => {
+      seed(['B'])
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { plate: [blk('B')] } } : b)) }))
+      store().removeInputConnection('c-B', 'B')
+      expect('servedOrder' in get('S')).toBe(false)
+      store().setActiveBlock('B'); store().undo()
+      expect(listOf('S')).toEqual([blk('B')])
+    })
+
+    it('leaves the list absent when it was reset between removal and undo', () => {
+      store().removeInputConnection('c-B', 'B')
+      store().resetServedOrder('S', 'plate')
+      store().setActiveBlock('B'); store().undo()
+      expect(get('B').inputConnections).toHaveLength(1)
+      expect('servedOrder' in get('S')).toBe(false)
+    })
+
+    it('keeps the entry while a duplicate connection remains', () => {
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'B' ? { ...b, inputConnections: [link('B', 'S'), { ...link('B2', 'S') }] } : b)) }))
+      store().removeInputConnection('c-B', 'B')
+      expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+    })
+
+    it("does not touch the list for a connection of another item or source", () => {
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'B' ? { ...b, inputConnections: [...b.inputConnections, link('Bg', 'S', 'gear'), link('Bx', 'A')] } : b)) }))
+      store().removeInputConnection('c-Bg', 'B')
+      store().removeInputConnection('c-Bx', 'B')
+      expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+    })
+
+    it('cleans on undo of an add and restores on redo', () => {
+      store().addInputConnection('gear', 'S', 'B')
+      useBlockStore.setState(s => ({ blocks: s.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { ...b.servedOrder, gear: [blk('B')] } } : b)) }))
+      store().setActiveBlock('B')
+      store().undo()
+      expect(listOf('S', 'gear')).toBeUndefined()
+      store().redo()
+      expect(listOf('S', 'gear')).toEqual([blk('B')])
+    })
+
+    it('does not add a new connection to the list', () => {
+      useBlockStore.setState(s => ({ blocks: [...s.blocks, { ...makeEmptyBlock('D'), id: 'D' }] }))
+      store().addInputConnection('plate', 'S', 'D')
+      expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+      expect('servedOrder' in get('D')).toBe(false)
+    })
+  })
+
+  describe('removeBlock', () => {
+    it('removes a consumer from every list, dropping emptied lists', () => {
+      useBlockStore.setState(s => ({
+        blocks: s.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { plate: [blk('A'), blk('B')], gear: [blk('A')] } } : b)),
+      }))
+      store().removeBlock('A')
+      expect(get('S').servedOrder).toEqual({ plate: [blk('B')] })
+    })
+
+    it('removes the list of a deleted source and drops the undo of an older command', () => {
+      store().removeInputConnection('c-B', 'B')
+      store().removeBlock('S')
+      expect(store().blocks.some(b => b.id === 'S')).toBe(false)
+      store().setActiveBlock('B')
+      expect(() => store().undo()).not.toThrow()
+      expect(get('B').inputConnections).toEqual([])
+    })
+  })
+
+  describe('copies', () => {
+    it('cloneBlock drops the list', () => {
+      store().moveServed('S', 'plate', blk('C'), 0, shown)
+      expect('servedOrder' in cloneBlock(get('S'), '#112233')).toBe(false)
+    })
+
+    it('makeEmptyBlock has no servedOrder key', () => {
+      expect('servedOrder' in makeEmptyBlock('X')).toBe(false)
+    })
+
+    it('clonePlan remaps the block ids, drops unmapped entries and leaves its input alone', () => {
+      const [s, a, b] = store().blocks.slice(0, 3)
+      const plan: AppState = {
+        blocks: [{ ...s, servedOrder: { plate: [blk(a.id), blk('ghost'), extra, blk(b.id)] } }, a, b],
+        activeBlockId: s.id, horizonTechnologyIds: [], defaultMachineOverrides: {},
+      }
+      const before = structuredClone(plan)
+      const copy = clonePlan(plan)
+      expect(copy.blocks[0].servedOrder).toEqual({ plate: [blk(copy.blocks[1].id), extra, blk(copy.blocks[2].id)] })
+      expect('servedOrder' in copy.blocks[1]).toBe(false)
+      expect(plan).toEqual(before)
+    })
+
+    it('clonePlan writes no key when the source had none or nothing maps', () => {
+      const [s, a] = store().blocks.slice(0, 2)
+      const plain = clonePlan({ blocks: [s, a], activeBlockId: s.id, horizonTechnologyIds: [], defaultMachineOverrides: {} })
+      expect('servedOrder' in plain.blocks[0]).toBe(false)
+      const dangling = clonePlan({ blocks: [{ ...s, servedOrder: { plate: [blk('ghost')] } }, a], activeBlockId: s.id, horizonTechnologyIds: [], defaultMachineOverrides: {} })
+      expect('servedOrder' in dangling.blocks[0]).toBe(false)
+    })
   })
 })
 

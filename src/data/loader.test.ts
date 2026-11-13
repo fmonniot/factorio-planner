@@ -692,6 +692,53 @@ describe('parseAppState — inputConnections', () => {
     expect(state.blocks[0].inputConnections).toEqual([])
   })
 
+  describe('servedOrder', () => {
+    const load = (extra: Record<string, unknown> = {}) =>
+      parseAppState({ blocks: [blockJson(extra)], activeBlockId: 'b1' }).blocks[0]
+    const blockEntry = (blockId: string) => ({ kind: 'block', blockId })
+
+    it('loads a block without the key as having none', () => {
+      expect('servedOrder' in load()).toBe(false)
+    })
+
+    it('round-trips a list', () => {
+      const servedOrder = { plate: [blockEntry('b2'), { kind: 'extra' }] }
+      expect(load({ servedOrder }).servedOrder).toEqual(servedOrder)
+    })
+
+    it('loads an empty record, and an item with an empty list, as absent', () => {
+      expect('servedOrder' in load({ servedOrder: {} })).toBe(false)
+      expect(load({ servedOrder: { plate: [], gear: [blockEntry('b2')] } }).servedOrder).toEqual({ gear: [blockEntry('b2')] })
+      expect('servedOrder' in load({ servedOrder: { plate: [] } })).toBe(false)
+    })
+
+    it('collapses duplicates, keeping the first', () => {
+      const list = [blockEntry('b2'), { kind: 'extra' }, blockEntry('b3'), blockEntry('b2'), { kind: 'extra' }]
+      expect(load({ servedOrder: { plate: list } }).servedOrder).toEqual({ plate: [blockEntry('b2'), { kind: 'extra' }, blockEntry('b3')] })
+    })
+
+    it('keeps an entry for an unknown block', () => {
+      expect(load({ servedOrder: { plate: [blockEntry('ghost')] } }).servedOrder).toEqual({ plate: [blockEntry('ghost')] })
+    })
+
+    it.each([
+      ['an unknown kind', { plate: [{ kind: 'sideways' }] }],
+      ['a block entry without a blockId', { plate: [{ kind: 'block' }] }],
+      ['a list that is not an array', { plate: 'b2' }],
+      ['an entry that is not an object', { plate: ['b2'] }],
+    ])('rejects %s', (_name, servedOrder) => {
+      expect(() => load({ servedOrder })).toThrow()
+    })
+
+    it('loads an extra entry with a stray blockId as a plain extra', () => {
+      expect(load({ servedOrder: { plate: [{ kind: 'extra', blockId: 'b2' }] } }).servedOrder).toEqual({ plate: [{ kind: 'extra' }] })
+    })
+
+    it('handles an item id that is an Object.prototype name', () => {
+      expect(load({ servedOrder: { constructor: [blockEntry('b2')] } }).servedOrder).toEqual({ constructor: [blockEntry('b2')] })
+    })
+  })
+
   describe('sourceRules', () => {
     const load = (extra: Record<string, unknown> = {}) =>
       parseAppState({ blocks: [blockJson(extra)], activeBlockId: 'b1' }).blocks[0]

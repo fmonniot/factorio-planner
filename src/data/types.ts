@@ -28,6 +28,7 @@ export type {
   BlockConnection,
   Block,
   SourceRule,
+  ServedEntry,
   AppState,
   PlanDataSetStamp,
   PlanEntry,
