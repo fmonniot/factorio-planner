@@ -1718,6 +1718,112 @@ describe('solveAll — requests', () => {
     expect(rate(all.results.B.unsatisfied, 'plate')).toBe(0)
   })
 
+  describe('served order', () => {
+    const twinSource = () => block('T', [prod('slag', 20)], [planNode('t', 'twin')])
+    const ids = (list: { blockId: string }[]) => list.map(c => c.blockId)
+
+    it('lists two requests and the extra in solve order', () => {
+      const all = solveAll([
+        smelter('A', [prod('plate', 10)]),
+        gearmaker('B', 25, [link('cb', 'A')]),
+        gearmaker('C', 10, [link('cc', 'A')]),
+      ], requestGameData())
+      const list = all.served.A.plate
+      expect(ids(list.consumers)).toEqual(['B', 'C'])
+      expect(list.consumers[0]).toMatchObject({ connectionId: 'cb', kind: 'request' })
+      expect(list.consumers[0].share).toBeCloseTo(50, 4)
+      expect(list.consumers[0].got).toBeCloseTo(50, 4)
+      expect(list.consumers[1].share).toBeCloseTo(20, 4)
+      expect(list.consumers[1].got).toBeCloseTo(20, 4)
+      expect(list.extra?.place).toBe(2)
+      expect(list.extra?.asked).toBeCloseTo(10, 4)
+      expect(list.extra?.got).toBeCloseTo(10, 4)
+      for (const c of list.consumers) expect(c.got).toBeCloseTo(flowOf(all, c.connectionId).rate, 6)
+    })
+
+    it('follows the order of the blocks in the tab', () => {
+      const all = solveAll([
+        smelter('A', [prod('plate', 10)]),
+        gearmaker('C', 10, [link('cc', 'A')]),
+        gearmaker('B', 25, [link('cb', 'A')]),
+      ], requestGameData())
+      expect(ids(all.served.A.plate.consumers)).toEqual(['C', 'B'])
+      for (const c of all.served.A.plate.consumers) expect(c.got).toBeCloseTo(flowOf(all, c.connectionId).rate, 6)
+    })
+
+    it('lists a take with the leftover it was credited', () => {
+      const all = solveAll([twinSource(), smelter(), gearmaker('B', 25, [link('ct', 'T'), link('cr', 'A')])], requestGameData())
+      const t = all.served.T.plate
+      expect(t.consumers).toHaveLength(1)
+      expect(t.consumers[0]).toMatchObject({ blockId: 'B', kind: 'take' })
+      expect(t.consumers[0].share).toBeCloseTo(20, 4)
+      expect(t.consumers[0].got).toBeCloseTo(20, 4)
+      expect(t.extra).toBeUndefined()
+      const a = all.served.A.plate
+      expect(a.consumers).toHaveLength(1)
+      expect(a.consumers[0].kind).toBe('request')
+      expect(a.consumers[0].share).toBeCloseTo(30, 4)
+      expect(a.consumers[0].got).toBeCloseTo(30, 4)
+      expect(a.extra).toBeUndefined()
+    })
+
+    it('lists two takes of one byproduct, the second getting nothing', () => {
+      const all = solveAll([
+        twinSource(),
+        smelter(),
+        gearmaker('B', 25, [link('ct', 'T'), link('cr', 'A')]),
+        gearmaker('C', 10, [link('ct2', 'T'), link('cr2', 'A')]),
+      ], requestGameData())
+      const list = all.served.T.plate
+      expect(ids(list.consumers)).toEqual(['B', 'C'])
+      expect(list.consumers.map(c => c.kind)).toEqual(['take', 'take'])
+      expect(list.consumers[0].share).toBeCloseTo(20, 4)
+      expect(list.consumers[0].got).toBeCloseTo(20, 4)
+      expect(list.consumers[1].share).toBeCloseTo(0, 4)
+      expect(list.consumers[1].got).toBeCloseTo(0, 4)
+    })
+
+    it('clamps a request to the connection limit, so the limit is not a shortfall of the source', () => {
+      const all = solveAll([
+        smelter('A', [prod('plate', 10)]),
+        gearmaker('B', 25, [{ ...link('cb', 'A'), maxRate: 30 }]),
+      ], requestGameData())
+      const [b] = all.served.A.plate.consumers
+      expect(b.share).toBeCloseTo(30, 4)
+      expect(b.got).toBeCloseTo(30, 4)
+    })
+
+    it('is empty with no consumers or only a missing source', () => {
+      expect(solveAll([smelter()], requestGameData()).served).toEqual({})
+      expect(solveAll([gearmaker('B', 25, [link('c1', 'ghost')])], requestGameData()).served).toEqual({})
+    })
+
+    it('lists a loop in the order of its members', () => {
+      const all = solveAll([
+        block('A', [prod('plate')], [planNode('p', 'plate')], [link('cg', 'B', 'gear')]),
+        block('B', [prod('machine', 25)], [planNode('g', 'gear'), planNode('m', 'machine')], [link('c1', 'A')]),
+      ], requestGameData())
+      expect(ids(all.served.A.plate.consumers)).toEqual(['B'])
+      expect(ids(all.served.B.gear.consumers)).toEqual(['A'])
+      expect(all.served.B.gear.consumers[0].kind).toBe('take')
+      expect(all.served.A.plate.consumers[0].got).toBeCloseTo(flowOf(all, 'c1').rate, 6)
+      expect(all.served.B.gear.consumers[0].got).toBeCloseTo(flowOf(all, 'cg').rate, 6)
+      expect(all.served.A.plate.extra).toBeUndefined()
+    })
+
+    it('lists every counted flow exactly once', () => {
+      const all = solveAll([
+        twinSource(),
+        smelter('A', [prod('plate', 10)]),
+        gearmaker('B', 25, [link('ct', 'T'), link('cr', 'A'), link('cr-dup', 'A'), link('ghost', 'nowhere')]),
+        gearmaker('C', 10, [link('cc', 'A')]),
+      ], requestGameData())
+      const listed = Object.values(all.served).flatMap(items => Object.values(items)).flatMap(l => l.consumers.map(c => c.connectionId))
+      const counted = all.flows.filter(f => f.status !== 'self' && f.status !== 'missing-source').map(f => f.connectionId)
+      expect(listed.sort()).toEqual(counted.filter(id => id !== 'cr-dup').sort())
+    })
+  })
+
   it('reuses cached results and re-solves the source when the consumer product changes', () => {
     const gd = requestGameData()
     const cache = createSolveCache()

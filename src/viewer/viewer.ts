@@ -61,7 +61,7 @@ export async function publishLatestPlan(isCurrent: () => boolean): Promise<void>
     const stamp = makeDataSetStamp(gameDataStatus.sourceId, dataSetName(gameDataStatus.sourceId), gameData.factorioVersion)
     const snapshot = projectSnapshot(
       selectAppState(useBlockStore.getState()),
-      { results: solver.lastResults, errors: solver.lastErrors, flows: solver.flows, loops: solver.loops, requestLoops: solver.requestLoops },
+      { results: solver.lastResults, errors: solver.lastErrors, flows: solver.flows, loops: solver.loops, requestLoops: solver.requestLoops, served: solver.served },
       gameData,
       stamp,
     )

@@ -24,6 +24,7 @@ import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopS
 import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
+import { buildServed } from './served'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
@@ -429,7 +430,7 @@ function solveStep(
       const info = ctx.requests.get(c.id)
       const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
       const left = remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      const share = info && 'requested' in info ? info.requested : (ctx.credits.get(c.id) ?? 0)
+      const share = connectionShare(info, ctx.credits.get(c.id))
       const sourceOffer = duplicate ? 0 : connectionOffer(left, reserved, share)
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
       const limitBinds =
@@ -594,6 +595,11 @@ function cloneRemaining(remaining: Map<string, Offers>): Map<string, Offers> {
 
 /** What the request pass decided for one connection to a product of its source. */
 type RequestInfo = { requested: number } | { ignored: RequestIgnoredReason }
+
+/** The amount reserved for a connection while others are served: a request's amount, else the take's credit (0 when none). */
+function connectionShare(info: RequestInfo | undefined, credit: number | undefined): number {
+  return info && 'requested' in info ? info.requested : (credit ?? 0)
+}
 
 interface RequestPlan {
   /** blockId → the block's goals plus what its consumers request of it; only for blocks that gained some. */
@@ -1046,7 +1052,8 @@ function computeRequests(
  * is reserved for the consumer while others are served; when the source is short, the
  * extra gives way first, then the shares served last. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
- * (same object) instead of solving again.
+ * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
+ * order they were served and the source's own extra output (see `buildServed`).
  */
 export function solveAll(
   blocks: Block[],
@@ -1062,7 +1069,7 @@ export function solveAll(
   for (const b of blocks) {
     for (const c of b.inputConnections) {
       const info = requestPlan.info.get(c.id)
-      const share = info && 'requested' in info ? info.requested : (requestPlan.credits.get(c.id) ?? 0)
+      const share = connectionShare(info, requestPlan.credits.get(c.id))
       if (share <= 0) continue
       const items = pending.get(c.fromBlockId) ?? new Map<string, number>()
       items.set(c.itemId, (items.get(c.itemId) ?? 0) + share)
@@ -1194,6 +1201,8 @@ export function solveAll(
     }
   }
 
+  const served = buildServed(flows, blocks, id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)), remaining)
+
   cache?.retain(blockIds)
-  return { results, flows, errors, loops, requestLoops: requestPlan.loops }
+  return { results, flows, errors, loops, requestLoops: requestPlan.loops, served }
 }

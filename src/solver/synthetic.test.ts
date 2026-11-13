@@ -652,5 +652,37 @@ describe('solver synthetic cases', () => {
       // The extra gives way first: nothing of A's 45 is left for it.
       expect(all.results.A.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case13-make-plate'] })
     })
+
+    it('e: reports the order it served in', () => {
+      const source: Block = { ...plateBlock(false, 45, 10), id: 'A', name: 'A' }
+      const consumer = (id: string, gears: number): Block => ({
+        id,
+        name: id,
+        color: '#60a5fa',
+        products: [{ id: `p-${id}`, itemId: 'case13-gear', extraRate: gears }],
+        sourceRules: {},
+        inputConnections: [{ id: `c-${id}`, itemId: 'case13-plate', fromBlockId: 'A' }],
+        rootPlan: subPlan(`root-${id}`, [planNode('case13-use-plate')]),
+      })
+      const all = solveAll([source, consumer('B', 30), consumer('C', 20)], makeGameData())
+      const list = all.served.A['case13-plate']
+      expect(list.consumers).toHaveLength(2)
+      expect(list.consumers[0]).toMatchObject({ blockId: 'B', kind: 'request' })
+      expect(list.consumers[0].share).toBeCloseTo(30, 6)
+      expect(list.consumers[0].got).toBeCloseTo(30, 6)
+      expect(list.consumers[1]).toMatchObject({ blockId: 'C', kind: 'request' })
+      expect(list.consumers[1].share).toBeCloseTo(20, 6)
+      expect(list.consumers[1].got).toBeCloseTo(15, 6)
+      expect(list.extra?.place).toBe(2)
+      expect(list.extra?.asked).toBeCloseTo(10, 6)
+      expect(list.extra?.got).toBeCloseTo(0, 6)
+    })
+
+    it.each([false, true])('e: names the pin that holds the plate short, without conflict (areas: %s)', withAreas => {
+      const { result } = solveBlock(flattenBlock(plateBlock(withAreas, 10, 30)), makeGameData())
+      expect(result.warnings.filter(w => w.type === 'infeasible-pins')).toEqual([
+        { type: 'infeasible-pins', recipeIds: ['case13-make-plate'] },
+      ])
+    })
   })
 })

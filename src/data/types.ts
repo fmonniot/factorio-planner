@@ -62,7 +62,12 @@ export interface UnsatisfiedItem {
 export type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }
-  | { type: 'infeasible-pins'; recipeIds: string[] }
+  | {
+      type: 'infeasible-pins'
+      recipeIds: string[]
+      /** true when the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins): values are arbitrary. Absent: the pins hold and products fall short; recipeIds are the pins that bind where the solver could tell, else all */
+      conflict?: true
+    }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
   /**
    * Recipes the solver runs mostly to make a co-product the block consumes. `throughput` and
@@ -155,6 +160,31 @@ export interface ConnectionFlow {
   requestIgnored?: RequestIgnoredReason
 }
 
+/** One consumer block in the order a source's item was served. */
+export interface ServedConsumer {
+  blockId: string
+  /** its counting connection from the source (the first, if hand-edited JSON repeats the pair) */
+  connectionId: string
+  kind: ConnectionKind
+  /** items/min reserved for it while others were served: a request's amount, a take's credit; 0 when none */
+  share: number
+  /** items/min delivered */
+  got: number
+}
+
+/** The source block's own extra output of the item, and where it was served. */
+export interface ServedExtra {
+  /** consumers served before it (consumers.length while the extra gives way first) */
+  place: number
+  asked: number
+  got: number
+}
+
+export interface ServedList {
+  consumers: ServedConsumer[]
+  extra?: ServedExtra
+}
+
 /** A group of blocks that supply each other, directly or through other blocks. */
 export interface BlockLoop {
   /** Member order: the entry block first, then breadth-first along in-loop connections. */
@@ -179,6 +209,8 @@ export interface MultiBlockSolve {
    * demand is read from the previous round, `rounds` the demand rounds solved.
    */
   requestLoops: BlockLoop[]
+  /** sourceBlockId → itemId → who was served, in order; only items with at least one consumer; {} with none */
+  served: Record<string, Record<string, ServedList>>
   /** Per-block solver failures; the failing block also gets an empty result. */
   errors: Record<string, string>
 }

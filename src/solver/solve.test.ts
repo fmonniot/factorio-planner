@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { solve } from './index'
 import { buildClassifiedSystem } from './build'
-import { BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, solveLP } from './solve'
+import { BIG_M, BYPRODUCTS_FIRST_SLACK_COST, buildLPModel, PIN_PROBE_LIMIT, solveLP } from './solve'
 import type { GameData, GameRecipeNode } from '../data/types'
 
 // ---------------------------------------------------------------------------
@@ -212,7 +212,45 @@ describe('v2 solver — pinned rates', () => {
       const lp = solveLP(system(), new Map([['plate', 30], ['gear', 25]]), new Set(), locked)
       expect(lp.feasible).toBe(false)
       expect(lp.shortfall.size).toBe(0)
-      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plate', 'gear'] }])
+      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plate', 'gear'], conflict: true }])
+    })
+
+    it('names only the pin that binds', () => {
+      const withBolt = makeGameData({
+        recipes: {
+          plate: recipe('plate', 1, [], [product('plate', 1)]),
+          gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+          bolt: recipe('bolt', 1, [], [product('bolt', 1)]),
+        },
+      })
+      const sys = buildClassifiedSystem(withBolt, ['plate', 'gear', 'bolt'], new Map([['gear', 25], ['bolt', 5]]))
+      const lp = solveLP(sys, new Map([['plate', 30], ['bolt', 5]]), new Set(), locked)
+      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plate'] }])
+      expect(lp.shortfall.get('gear')).toBeCloseTo(10, 6)
+    })
+
+    it('names both pins when each binds', () => {
+      const twoRows = makeGameData({
+        recipes: {
+          plateA: recipe('plateA', 1, [], [product('plate', 1)]),
+          plateB: recipe('plateB', 1, [], [product('plate', 1)]),
+          gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+        },
+      })
+      const sys = buildClassifiedSystem(twoRows, ['plateA', 'plateB', 'gear'], new Map([['gear', 25]]))
+      const lp = solveLP(sys, new Map([['plateA', 10], ['plateB', 10]]), new Set(), locked)
+      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plateA', 'plateB'] }])
+    })
+
+    it('names every pin above the probe limit', () => {
+      const n = PIN_PROBE_LIMIT + 1
+      const recipes = Object.fromEntries(Array.from({ length: n }, (_, i) => [`r${i}`, recipe(`r${i}`, 1, [], [product(`i${i}`, 1)])]))
+      const sys = buildClassifiedSystem(makeGameData({ recipes }), Object.keys(recipes), new Map(Array.from({ length: n }, (_, i) => [`i${i}`, 3])))
+      const pins = new Map(Array.from({ length: n }, (_, i) => [`r${i}`, 1]))
+      const lp = solveLP(sys, pins)
+      const w = lp.warnings.find(x => x.type === 'infeasible-pins')
+      expect(w && 'recipeIds' in w ? w.recipeIds : []).toHaveLength(n)
+      expect(w).not.toHaveProperty('conflict')
     })
   })
 

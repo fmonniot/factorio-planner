@@ -62,6 +62,7 @@ function setupStore(goals: Product[] = [ironGoal], withSolver = true) {
     lastResult: withSolver ? mockSolverResult : undefined,
     lastResults: {},
     flows: [],
+    served: {},
     _setStatus: () => {},
   })
 }
@@ -2665,5 +2666,63 @@ describe('FactorySummary — source rule marker', () => {
     const marker = within(popup).getByTestId('source-rule-marker')
     expect(marker.tagName).toBe('SPAN')
     expect(marker.closest('li')).toHaveAttribute('data-item-id', 'iron-ore')
+  })
+})
+
+describe('FactorySummary — Served order', () => {
+  const result: SolverResult = {
+    nodes: [{
+      recipeNodeId: 'n1', inputRates: {}, outputRates: { 'iron-plate': 58, 'slag': 10 },
+      throughput: 1, machineCountExact: 1, machineCountCeil: 1, powerKw: 0,
+    }],
+    unsatisfied: [], warnings: [],
+  }
+  const consumer = (id: string, name: string): Block => ({ ...makeEmptyBlock(name), id, products: [] })
+  const entry = (blockId: string, kind: 'request' | 'take', share: number, got: number) =>
+    ({ blockId, connectionId: `c-${blockId}`, kind, share, got })
+
+  function setupServed(served: ReturnType<typeof useSolverStore.getState>['served']) {
+    const miner: Block = { ...makeEmptyBlock('Miner'), id: 'miner', products: [ironGoal] }
+    useBlockStore.setState({ blocks: [miner, consumer('b', 'Gears'), consumer('c', 'Belts')], activeBlockId: 'miner', history: {} })
+    useSolverStore.setState({ lastResult: result, lastResults: { miner: result }, flows: [], served, _setStatus: () => {} })
+  }
+  const served = (name: string) => within(strip(name))
+  const openButton = (name: string) => served(name).queryByRole('button', { name: 'Served order…' })
+
+  it('opens the order of a product with two consumers and an extra', () => {
+    setupServed({ miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)], extra: { place: 2, asked: 60, got: 58 } } } })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.click(openButton('Products')!)
+    const popover = screen.getByTestId('served-order-popover')
+    const lines = within(popover).getAllByTestId('served-line')
+    expect(lines.map(l => l.dataset.kind)).toEqual(['request', 'request', 'extra'])
+    expect(lines[0].textContent).toContain('Gears')
+    expect(within(lines[2]).getByTestId('served-short')).toBeInTheDocument()
+  })
+
+  it('has no action for a single consumer without an extra', () => {
+    setupServed({ miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30)] } } })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    expect(openButton('Products')).toBeNull()
+  })
+
+  it('offers the order of a byproduct with two takes', () => {
+    setupServed({ miner: { slag: { consumers: [entry('b', 'take', 10, 10), entry('c', 'take', 0, 0)] } } })
+    render(<FactorySummary />)
+    select('Byproducts', 'Slag')
+    fireEvent.click(openButton('Byproducts')!)
+    expect(within(screen.getByTestId('served-order-popover')).getAllByText('takes what is left')).toHaveLength(2)
+  })
+
+  it('closes when another block becomes active', () => {
+    setupServed({ miner: { 'iron-plate': { consumers: [entry('b', 'request', 30, 30), entry('c', 'request', 20, 20)] } } })
+    render(<FactorySummary />)
+    select('Products', 'Iron Plate')
+    fireEvent.click(openButton('Products')!)
+    expect(screen.getByTestId('served-order-popover')).toBeInTheDocument()
+    act(() => useBlockStore.setState({ activeBlockId: 'b' }))
+    expect(screen.queryByTestId('served-order-popover')).toBeNull()
   })
 })

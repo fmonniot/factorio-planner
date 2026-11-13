@@ -94,7 +94,7 @@ function flow(over: Partial<ConnectionFlow> = {}): ConnectionFlow {
 }
 
 function solveOf(over: Partial<MultiBlockSolve> = {}): MultiBlockSolve {
-  return { results: {}, flows: [], loops: [], requestLoops: [], errors: {}, ...over }
+  return { results: {}, flows: [], loops: [], requestLoops: [], served: {}, errors: {}, ...over }
 }
 
 function project(blocks: Block[], solve: MultiBlockSolve) {

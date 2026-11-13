@@ -48,7 +48,7 @@ beforeEach(() => {
     history: {},
   })
   useGameDataStore.setState({ status: { type: 'empty' } })
-  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [], loops: [], requestLoops: [] })
+  useSolverStore.setState({ status: { type: 'idle' }, lastResult: undefined, lastResults: {}, lastErrors: {}, flows: [], loops: [], requestLoops: [], served: {} })
   unwire = wireSolver()
 })
 
@@ -303,9 +303,9 @@ describe('loops', () => {
     const loop: BlockLoop = {
       blockIds: ['a', 'b'], connectionIds: ['x', 'y'], backConnectionIds: ['x'], rounds: 2, converged: true,
     }
-    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [loop], requestLoops: [] }, 'a')
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [loop], requestLoops: [], served: {} }, 'a')
     expect(selectLoops(useSolverStore.getState())).toEqual([loop])
-    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [] }, 'a')
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [], served: {} }, 'a')
     expect(selectLoops(useSolverStore.getState())).toEqual([])
   })
 
@@ -314,7 +314,7 @@ describe('loops', () => {
     const loop: BlockLoop = {
       blockIds: ['a', 'b'], connectionIds: ['x', 'y'], backConnectionIds: ['x'], rounds: 3, converged: false,
     }
-    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [loop] }, 'a')
+    useSolverStore.getState()._setSolved({ results: {}, flows: [], errors: {}, loops: [], requestLoops: [loop], served: {} }, 'a')
     expect(selectRequestLoops(useSolverStore.getState())).toEqual([loop])
   })
 })
