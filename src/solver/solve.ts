@@ -50,10 +50,12 @@ export const BC_BONUS = -0.01
 export const BYPRODUCTS_FIRST_SLACK_COST = 1e-5
 /**
  * The elastic solve's bound on the total shortfall: the minimum `D` found by the first stage, relaxed by
- * `D·SHORTFALL_REL + SHORTFALL_ABS` (the solver rounds returned values to 1e-8, see areas.ts).
+ * `D·SHORTFALL_REL + SHORTFALL_ABS` per goal row. The solver rounds each returned value to 1e-8 and
+ * pivots at 1e-8 (see areas.ts), so `D` can be off by about 1e-8 per term; 1e-6 per goal stays well above
+ * that. A looser bound costs no accuracy: the second solve still charges `BIG_M` per unit short.
  */
 export const SHORTFALL_REL = 1e-7
-export const SHORTFALL_ABS = 1e-7
+export const SHORTFALL_ABS = 1e-6
 
 /** The LP rows and columns of a classified system, before any objective is chosen beyond `__obj__`. */
 export interface LPModel {
@@ -170,6 +172,7 @@ export function buildLPModel(
   for (const [itemId, rate] of classification.goals) {
     const rowS = S.get(itemId)
     if (!rowS) continue
+    const goalIdx = constraintIdx
     const cName = `c${constraintIdx++}`
     constraints[cName] = { min: rate }
     for (const [recipeId, coeff] of rowS) {
@@ -177,7 +180,8 @@ export function buildLPModel(
       if (varName) variables[varName][cName] = (variables[varName][cName] ?? 0) + coeff
     }
     if (elasticGoals) {
-      const shortName = `short_${lpName(itemId)}`
+      // Named after the goal's row, not its item: `lpName` can map a recipe or another goal to the same name.
+      const shortName = `__short${goalIdx}`
       goalToShort.set(itemId, shortName)
       variables[shortName] = { __obj__: BIG_M, __short: 1, [cName]: 1 }
     }
@@ -251,25 +255,26 @@ export function buildLPModel(
 type LPConstraints = LPModel['constraints']
 type LPVariables = LPModel['variables']
 
-/** Solve `constraints` / `variables` for `optimize` (minimised); the inputs are not modified. */
-export type LPRun = (optimize: string, constraints: LPConstraints, variables: LPVariables) => SolveResult
-
-export const runLP: LPRun = (optimize, constraints, variables) =>
-  solver.Solve({ optimize, opType: 'min', constraints, variables }) as SolveResult
+/** Solve `constraints` / `variables` for `optimize` (minimised); javascript-lp-solver does not modify them. */
+export function runLP(optimize: string, constraints: LPConstraints, variables: LPVariables): SolveResult {
+  return solver.Solve({ optimize, opType: 'min', constraints, variables }) as SolveResult
+}
 
 /**
  * Lexicographic shortfall of an elastic model (`buildLPModel(…, elasticGoals = true)`): first the least
  * total shortfall `D` over all goals, every other cost ignored, so a goal falls short only of what no
- * import, run or supply can make; then `Σ h_i ≤ D·(1 + SHORTFALL_REL) + SHORTFALL_ABS` is added to the
- * model's constraints in place and `undefined` is returned, or the first stage's infeasible result when
- * even the elastic model is infeasible (pins or locks that conflict whatever the goals).
+ * import, run or supply can make; then `Σ h_i ≤ D·(1 + SHORTFALL_REL) + SHORTFALL_ABS·n` (n goal rows) is
+ * added to the model's constraints in place and `undefined` is returned, or the first stage's infeasible
+ * result when even the elastic model is infeasible (pins or locks that conflict whatever the goals).
+ * The sum is unweighted: when goals share a capped input, the least total goes to the goals that need
+ * the least of it per unit, not in proportion to their rates.
  */
-export function boundShortfall(lp: LPModel, run: LPRun = runLP): SolveResult | undefined {
-  const first = run('__short', lp.constraints, lp.variables)
+export function boundShortfall(lp: LPModel): SolveResult | undefined {
+  const first = runLP('__short', lp.constraints, lp.variables)
   if (first.feasible !== true) return first
   let d = 0
   for (const name of lp.goalToShort.values()) d += Math.max(0, (first[name] as number | undefined) ?? 0)
-  lp.constraints.__shortsum = { max: d * (1 + SHORTFALL_REL) + SHORTFALL_ABS }
+  lp.constraints.__shortsum = { max: d * (1 + SHORTFALL_REL) + SHORTFALL_ABS * lp.goalToShort.size }
   for (const name of lp.goalToShort.values()) lp.variables[name].__shortsum = 1
   return undefined
 }
@@ -334,6 +339,12 @@ export function readLPResult(
   return { throughput, slack, supply, warnings, feasible, shortfall }
 }
 
+/** Does any goal have a row in `S`? Without one, an elastic model is the plain one. */
+export function hasGoalRow(system: ClassifiedSystem): boolean {
+  for (const itemId of system.classification.goals.keys()) if (system.S.has(itemId)) return true
+  return false
+}
+
 /**
  * Build and solve the elastic LP of `buildLPModel`. When it is infeasible (pins or locks that keep a goal
  * from being met), it is solved again with elastic goal rows (`boundShortfall`): pins and locks hold and
@@ -350,7 +361,7 @@ export function solveLP(
 ): LPResult {
   const lp = buildLPModel(system, pinnedRates, bcRecipeIds, noImportItems, supplyCaps, connectionsFirst, byproductsFirst)
   const result = runLP('__obj__', lp.constraints, lp.variables)
-  if (result.feasible === true || system.classification.goals.size === 0) {
+  if (result.feasible === true || !hasGoalRow(system)) {
     return readLPResult(result, lp, system.recipes, pinnedRates, result.feasible === true)
   }
   const elastic = buildLPModel(

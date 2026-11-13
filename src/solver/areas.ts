@@ -1,4 +1,4 @@
-import solver, { type SolveResult } from 'javascript-lp-solver'
+import type { SolveResult } from 'javascript-lp-solver'
 import type {
   GameData,
   GameRecipeNode,
@@ -13,7 +13,7 @@ import type {
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
 import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
 import { FluidTemperatureCollector } from './temperatureRows'
-import { BIG_M, boundShortfall, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
+import { BIG_M, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
   FLOW_TOLERANCE,
@@ -256,7 +256,7 @@ function solveAreaLP(
 ): AreaLPResult {
   const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst] as const
   const plain = solveAreaLPOnce(...args, false)
-  if (plain.feasible || system.classification.goals.size === 0) return plain
+  if (plain.feasible || !hasGoalRow(system)) return plain
   // As in `solveLP`: an infeasible plan is solved again with elastic goal rows, kept only if that is feasible.
   const elastic = solveAreaLPOnce(...args, true)
   return elastic.feasible ? elastic : plain
@@ -357,7 +357,7 @@ function solveAreaLPOnce(
       cs.local = { max: local }
       for (const p of penalised) vs[p.name].local = 1
     }
-    return solver.Solve({ optimize, opType: 'min', constraints: cs, variables: vs }) as SolveResult
+    return runLP(optimize, cs, vs)
   }
   const finish = (result: SolveResult, model: LPModel): AreaLPResult => {
     const lp = readLPResult(result, model, system.recipes, pinnedRates, result.feasible === true)
