@@ -826,7 +826,7 @@ interface UnsatisfiedItem {
 type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
-  | { type: 'infeasible-pins'; recipeIds: string[] }
+  | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the pins conflict (the elastic solve failed too); absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }
@@ -845,6 +845,26 @@ interface MultiBlockSolve {
   errors: Record<string, string>         // blockId -> message for a block whose solve threw
   loops: BlockLoop[]                     // one per loop of blocks that supply each other; [] when there is none
   requestLoops: BlockLoop[]              // one per cycle of requests (blocks that request from each other); [] when there is none
+  served: Record<string, Record<string, ServedList>>  // sourceBlockId -> itemId -> who was served, in order; only items with a consumer; {} with none
+}
+
+interface ServedList {
+  consumers: ServedConsumer[]   // one per consumer block, in the order served
+  extra?: ServedExtra           // the source's own extra output of the item, when it has one
+}
+
+interface ServedConsumer {
+  blockId: string
+  connectionId: string          // its counting connection from the source
+  kind: ConnectionKind
+  share: number                 // items/min reserved for it while others were served (a request's amount, a take's credit; 0 when none)
+  got: number                   // items/min delivered
+}
+
+interface ServedExtra {
+  place: number                 // consumers served before it (all of them today)
+  asked: number                 // Σ extraRate of the source's products of the item
+  got: number                   // min(asked, what the source has left)
 }
 
 interface BlockLoop {

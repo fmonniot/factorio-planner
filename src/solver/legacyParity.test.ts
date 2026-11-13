@@ -34,7 +34,8 @@ describe('legacy parity (blocks without areas)', () => {
     for (const file of planFixtures()) {
       const state = parseAppState(JSON.parse(readFileSync(resolve(FIXTURES, file), 'utf-8')))
       const gameData = file.includes('seablock') ? seablock : nullius
-      lines.push(`${file}\t${exactKey(solveAll(state.blocks, gameData))}`)
+      // `served` adds no numbers (it has its own tests in served.test.ts); dropping it keeps the golden unchanged.
+      lines.push(`${file}\t${exactKey({ ...solveAll(state.blocks, gameData), served: undefined })}`)
     }
     expect(lines.length).toBeGreaterThan(10)
     await expect(lines.join('\n') + '\n').toMatchFileSnapshot('__snapshots__/legacyParity.json')

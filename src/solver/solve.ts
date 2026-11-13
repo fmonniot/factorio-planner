@@ -69,6 +69,16 @@ export interface LPModel {
   itemToSupply: Map<string, string>
   /** goal itemId → shortfall variable name (elastic models only) */
   goalToShort: Map<string, string>
+  /** the least total shortfall `D` `boundShortfall` found (elastic models, once bounded) */
+  leastShortfall?: number
+}
+
+/** At most this many pins are probed one by one to tell which bind (see `bindingPins`). */
+export const PIN_PROBE_LIMIT = 8
+
+/** Name of the LP row that pins the recipe column `varName`. */
+export function pinRowName(varName: string): string {
+  return `pin_${varName}`
 }
 
 /**
@@ -244,7 +254,7 @@ export function buildLPModel(
   for (const [recipeId, rate] of pinnedRates) {
     const varName = recipeToVar.get(recipeId)
     if (!varName) continue
-    const cName = `pin_${varName}`
+    const cName = pinRowName(varName)
     constraints[cName] = { equal: rate }
     variables[varName][cName] = 1
   }
@@ -276,12 +286,42 @@ export function boundShortfall(lp: LPModel): SolveResult | undefined {
   for (const name of lp.goalToShort.values()) d += Math.max(0, (first[name] as number | undefined) ?? 0)
   lp.constraints.__shortsum = { max: d * (1 + SHORTFALL_REL) + SHORTFALL_ABS * lp.goalToShort.size }
   for (const name of lp.goalToShort.values()) lp.variables[name].__shortsum = 1
+  lp.leastShortfall = d
   return undefined
 }
 
 /**
+ * Which of `pinned` (recipe ids) keep the products short: those whose removal lowers the least total
+ * shortfall `D` of the bounded elastic model `lp`. Each pin is probed by re-running the first-stage LP
+ * with its row deleted; it binds when `D` falls by more than the bound's own tolerance. Diagnostic only:
+ * nothing it returns feeds a result. With more than `PIN_PROBE_LIMIT` pins, or when no single pin
+ * lowers `D` (several constraints jointly, or a lock, cap it), every pin is named.
+ */
+export function bindingPins(lp: LPModel, pinned: string[]): string[] {
+  const d = lp.leastShortfall
+  if (d === undefined || pinned.length > PIN_PROBE_LIMIT) return pinned
+  const binding: string[] = []
+  for (const id of pinned) {
+    const v = lp.recipeToVar.get(id)
+    if (v === undefined) continue
+    const row = pinRowName(v)
+    const constraints = { ...lp.constraints }
+    delete constraints[row]
+    const column = { ...lp.variables[v] }
+    delete column[row]
+    const result = runLP('__short', constraints, { ...lp.variables, [v]: column })
+    if (result.feasible !== true) continue
+    let dp = 0
+    for (const name of lp.goalToShort.values()) dp += Math.max(0, (result[name] as number | undefined) ?? 0)
+    if (d - dp > SHORTFALL_REL * d + SHORTFALL_ABS * lp.goalToShort.size) binding.push(id)
+  }
+  return binding.length > 0 ? binding : pinned
+}
+
+/**
  * Read the throughput, slack and supply of a solved `lp`; infeasible pins are reported here. `lp` is the
- * elastic model when the plain one was infeasible: the pins then hold, and `infeasible-pins` still names them.
+ * elastic model when the plain one was infeasible: the pins then hold, and `infeasible-pins` names the ones
+ * that bind (`bindingPins`). When the elastic solve failed too, it names all pins and sets `conflict`.
  */
 export function readLPResult(
   result: SolveResult,
@@ -295,7 +335,10 @@ export function readLPResult(
 
   // With hard goal constraints, LP can still be infeasible (no producer, or conflicting pins).
   if ((!feasible || goalToShort.size > 0) && pinnedRates.size > 0) {
-    warnings.push({ type: 'infeasible-pins', recipeIds: [...pinnedRates.keys()] })
+    const pins = [...pinnedRates.keys()]
+    warnings.push(feasible
+      ? { type: 'infeasible-pins', recipeIds: bindingPins(lp, pins) }
+      : { type: 'infeasible-pins', recipeIds: pins, conflict: true })
   }
 
   const throughput = new Map<string, number>()

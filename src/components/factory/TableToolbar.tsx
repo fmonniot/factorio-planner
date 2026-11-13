@@ -142,7 +142,7 @@ function warningTitle(w: SolverWarning): string {
   switch (w.type) {
     case 'no-recipe': return 'No recipe in plan'
     case 'duplicate-recipe': return 'Duplicate recipe'
-    case 'infeasible-pins': return 'Pinned rate is impossible'
+    case 'infeasible-pins': return w.conflict ? 'Pinned rate is impossible' : 'Pins cap a product'
     case 'overconstrained': return "Recipe network can't fully balance"
     case 'coproduct-driven': return 'Recipe runs for its co-product'
     case 'area-shortfall': return "Area can't cover its own need"
@@ -173,6 +173,11 @@ function warningBody(
     }
     case 'infeasible-pins': {
       const names = w.recipeIds.map(id => gameData.recipes[id]?.name ?? id)
+      if (!w.conflict) {
+        return names.length === 1
+          ? `The pinned rate on ${names[0]} holds, so the block falls short of what its products need.`
+          : `The pinned rates on ${names.join(', ')} hold, so the block falls short of what its products need.`
+      }
       return `The pinned rate on ${names.join(', ')} can't be reached given the other recipes. Goals will not be met.`
     }
     case 'overconstrained': {
@@ -216,7 +221,7 @@ function warningHint(w: SolverWarning): string {
       return w.areaId !== undefined
         ? 'Remove the duplicate rows from that area, or make one of their sub-factories a separate area.'
         : 'Remove the duplicate nodes from the production table.'
-    case 'infeasible-pins': return 'Unpin it, or change which recipes are active.'
+    case 'infeasible-pins': return w.conflict ? 'Unpin it, or change which recipes are active.' : 'Raise the pin, unpin it, or change which recipes are active.'
     case 'area-shortfall': return 'Unpin that row, or turn Import on for its inputs.'
     case 'overconstrained': return 'Two recipes likely share a material loop with incompatible ratios.'
     case 'coproduct-driven': return "Add an extraction or other row that supplies the co-product, set it to Don't make more here (right-click its ingredient chip, then Comes from…), or pin the recipe's rate."

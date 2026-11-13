@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { importOffItems } from '../../data/sourceRules'
 import { useBlockStore, selectActiveBlock, makeRecipeNode } from '../../store/blockStore'
-import { useSolverStore, selectBlockResult, selectFlows } from '../../store/solverStore'
+import { useSolverStore, selectBlockResult, selectFlows, selectServed } from '../../store/solverStore'
 import { useGameDataStore, selectGameData } from '../../store/gameDataStore'
 import { useUiStore } from '../../store/uiStore'
 import { fmtRate, fmtItemRate, fmtItemRateText, inputRateUnit } from './ItemTile'
@@ -22,6 +22,8 @@ import { RowActionsMenu } from './RowActionsMenu'
 import type { RowAction } from './RowActionsMenu'
 import { ConnectionMenu } from './ConnectionMenu'
 import { ConnectionLimitEditor } from './ConnectionLimitEditor'
+import { ServedOrderPopover } from './ServedOrderPopover'
+import { hasServedOrder } from './servedOrder'
 import { SummaryPane } from './SummaryPane'
 import { SummaryLine } from './SummaryLine'
 import type { StripAction } from './SummaryDetailStrip'
@@ -213,6 +215,7 @@ export function FactorySummary() {
   const [connectionChipMenu, setConnectionChipMenu] = useState<{ connectionId: string; x: number; y: number } | null>(null)
   // The limit editor outlives the menu, which closes itself after a selection.
   const [limitEditor, setLimitEditor] = useState<{ connectionId: string; toBlockId: string; x: number; y: number } | null>(null)
+  const [servedPopover, setServedPopover] = useState<{ blockId: string; itemId: string; x: number; y: number } | null>(null)
   const connectionMenu = useUiStore(s => s.connectionMenu)
   const openConnectionMenu = useUiStore(s => s.openConnectionMenu)
   const closeConnectionMenu = useUiStore(s => s.closeConnectionMenu)
@@ -266,6 +269,19 @@ export function FactorySummary() {
       : undefined
   // The editor is tied to one connection of one block: close it when either goes away.
   if (limitEditor && !limitConnection) setLimitEditor(null)
+  const served = useSolverStore(selectServed)
+  const servedOf = (itemId: string) => (activeBlockId ? served[activeBlockId]?.[itemId] : undefined)
+  // The popover is tied to one item of one block: close it when either goes away or the order stops being worth showing.
+  if (servedPopover && (servedPopover.blockId !== activeBlockId || !hasServedOrder(servedOf(servedPopover.itemId)))) setServedPopover(null)
+  const servedAction = (itemId: string): StripAction[] => hasServedOrder(servedOf(itemId))
+    ? [{
+        label: 'Served order…',
+        onSelect: e => {
+          const r = e.currentTarget.getBoundingClientRect()
+          setServedPopover({ blockId: activeBlockId!, itemId, x: r.left, y: r.bottom })
+        },
+      }]
+    : []
   // Slots: one per item, each split into allocation segments.
   const exportsOf = (itemId: string) => outputFlows.filter(f => f.itemId === itemId)
   const blockIds = new Set(blocks.map(b => b.id))
@@ -427,6 +443,7 @@ export function FactorySummary() {
             }
             actions.push(...productMoveActions(slot.product!.id))
             actions.push({ label: 'Remove product', danger: true, onSelect: () => requestRemoveProduct(slot.product!.id) })
+            actions.push(...servedAction(slot.itemId))
             return actions
           }}
           onOpenBlock={setActiveBlock}
@@ -453,6 +470,7 @@ export function FactorySummary() {
             </span>
           )}
           actionsFor={slot => [
+            ...servedAction(slot.itemId),
             { label: 'Add consumer recipe…', onSelect: () => setConsumerPickerItemId(slot.itemId) },
             { label: 'Make it a product', onSelect: () => requestAddProduct(slot.itemId) },
           ]}
@@ -591,6 +609,20 @@ export function FactorySummary() {
           rateUnit={inputRateUnit(limitConnection.itemId, rateUnit)}
           onCommit={perMin => setConnectionMaxRate(limitEditor.connectionId, perMin, limitEditor.toBlockId)}
           onClose={() => setLimitEditor(null)}
+        />
+      )}
+
+      {servedPopover && gameData && (
+        <ServedOrderPopover
+          key={`${servedPopover.blockId}-${servedPopover.itemId}`}
+          itemId={servedPopover.itemId}
+          list={servedOf(servedPopover.itemId)!}
+          items={gameData.items}
+          blocks={blocks}
+          rateUnit={rateUnit}
+          x={servedPopover.x}
+          y={servedPopover.y}
+          onClose={() => setServedPopover(null)}
         />
       )}
 

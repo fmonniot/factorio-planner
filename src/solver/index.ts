@@ -24,6 +24,7 @@ import { consumersOf, hasProduct, orderBlocks, reaches, receivesItem, type LoopS
 import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
+import { buildServed } from './served'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
@@ -1046,7 +1047,8 @@ function computeRequests(
  * is reserved for the consumer while others are served; when the source is short, the
  * extra gives way first, then the shares served last. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
- * (same object) instead of solving again.
+ * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
+ * order they were served and the source's own extra output (see `buildServed`).
  */
 export function solveAll(
   blocks: Block[],
@@ -1194,6 +1196,12 @@ export function solveAll(
     }
   }
 
+  const shareOf = (id: string): number => {
+    const info = requestPlan.info.get(id)
+    return info && 'requested' in info ? info.requested : (requestPlan.credits.get(id) ?? 0)
+  }
+  const served = buildServed(flows, blocks, shareOf, remaining)
+
   cache?.retain(blockIds)
-  return { results, flows, errors, loops, requestLoops: requestPlan.loops }
+  return { results, flows, errors, loops, requestLoops: requestPlan.loops, served }
 }

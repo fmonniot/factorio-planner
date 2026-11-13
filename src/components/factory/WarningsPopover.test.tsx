@@ -242,9 +242,9 @@ describe('WarningsPopover — coproduct-driven', () => {
 // infeasible-pins
 // ---------------------------------------------------------------------------
 
-describe('WarningsPopover — infeasible-pins', () => {
+describe('WarningsPopover — infeasible-pins (conflict)', () => {
   beforeEach(() => {
-    setupWithWarnings({ warnings: [{ type: 'infeasible-pins', recipeIds: ['boiler'] }] })
+    setupWithWarnings({ warnings: [{ type: 'infeasible-pins', recipeIds: ['boiler'], conflict: true }] })
     render(<WarningsPopover />)
     openPopover()
   })
@@ -258,6 +258,17 @@ describe('WarningsPopover — infeasible-pins', () => {
   })
 
   it('hint mentions unpinning', () => {
+    expect(screen.getByText(/unpin/i)).toBeInTheDocument()
+  })
+})
+
+describe('WarningsPopover — infeasible-pins (held)', () => {
+  it('says the pin holds and the block falls short', () => {
+    setupWithWarnings({ warnings: [{ type: 'infeasible-pins', recipeIds: ['boiler'] }] })
+    render(<WarningsPopover />)
+    openPopover()
+    expect(screen.getByText(/Pins cap a product/)).toBeInTheDocument()
+    expect(screen.getByText(/The pinned rate on Boiler Recipe holds/)).toBeInTheDocument()
     expect(screen.getByText(/unpin/i)).toBeInTheDocument()
   })
 })
