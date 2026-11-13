@@ -570,6 +570,39 @@ export const SourceRuleSchema = z
     return out
   })
 
+/**
+ * One place in an item's served list: a consumer block, or the block's own extra output. An object so entries can
+ * carry other kinds. A malformed entry rejects the plan load.
+ */
+export const ServedEntrySchema = z.discriminatedUnion('kind', [
+  z.object({ kind: z.literal('block'), blockId: z.string().min(1) }),
+  z.object({ kind: z.literal('extra') }),
+])
+
+/** itemId → the entries in the order the item is served. Absent key = today's order; a list is never stored empty. */
+export const ServedOrderSchema = z.record(z.string(), z.array(ServedEntrySchema))
+
+/** `servedOrder` with duplicate entries dropped (first kept) and emptied lists removed; undefined when nothing is left. Entries for unknown blocks stay (the solver ignores them). */
+function normalizeServedOrder(order: z.output<typeof ServedOrderSchema> | undefined): z.output<typeof ServedOrderSchema> | undefined {
+  if (order === undefined) return undefined
+  const out: z.output<typeof ServedOrderSchema> = {}
+  let changed = Object.keys(order).length === 0
+  for (const [itemId, list] of Object.entries(order)) {
+    const seen = new Set<string>()
+    const kept = list.filter(e => {
+      const key = e.kind === 'block' ? `block:${e.blockId}` : 'extra'
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+    if (kept.length !== list.length || kept.length === 0) changed = true
+    if (kept.length > 0) Object.defineProperty(out, itemId, { value: kept, enumerable: true, writable: true, configurable: true })
+  }
+  // The same object when nothing needed normalising.
+  if (!changed) return order
+  return Object.keys(out).length > 0 ? out : undefined
+}
+
 export const BlockSchema = z.preprocess(
   migrateBlock,
   z.object({
@@ -587,12 +620,18 @@ export const BlockSchema = z.preprocess(
       .default({}),
     /** Inbound connections: items this block receives from other blocks' output. */
     inputConnections: z.array(BlockConnectionSchema).default([]),
+    /** itemId → the consumers (and the extra output) in the order they are served; absent = today's order. */
+    servedOrder: ServedOrderSchema.optional(),
     rootPlan: SubPlanSchema,
   }),
 ).transform(block => {
   // Sub-plans stored under a plan other than the one holding their handle (see reparentSubPlans).
   const rootPlan = reparentSubPlans(block.rootPlan)
-  return rootPlan === block.rootPlan ? block : { ...block, rootPlan }
+  // The served list is normalised here; the key stays truly absent when there is none.
+  const { servedOrder, ...rest } = block
+  const served = normalizeServedOrder(servedOrder)
+  if (rootPlan === block.rootPlan && served === servedOrder) return block
+  return { ...rest, rootPlan, ...(served === undefined ? {} : { servedOrder: served }) }
 })
 
 export const AppStateSchema = z.preprocess(
@@ -660,6 +699,7 @@ export type SubPlanNode = z.output<typeof SubPlanNodeSchema>
 export type SubPlan = SubPlanType
 export type BlockConnection = z.output<typeof BlockConnectionSchema>
 export type SourceRule = z.output<typeof SourceRuleSchema>
+export type ServedEntry = z.output<typeof ServedEntrySchema>
 export type Block = z.output<typeof BlockSchema>
 export type AppState = z.output<typeof AppStateSchema>
 export type PlanDataSetStamp = z.output<typeof PlanDataSetStampSchema>

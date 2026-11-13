@@ -223,6 +223,21 @@ describe('switching data sets', () => {
     expect(saved.blocks[0], 'saved block has no legacy goals').not.toHaveProperty('goals')
   })
 
+  it('saves a served list, loads it back, and saves a plan without one with no key', () => {
+    const source = { ...makeEmptyBlock('S'), id: 's' }
+    const consumer = { ...makeEmptyBlock('C'), id: 'c', inputConnections: [{ id: 'c1', itemId: 'plate', fromBlockId: 's' }] }
+    const other = { ...makeEmptyBlock('D'), id: 'd', inputConnections: [{ id: 'c2', itemId: 'plate', fromBlockId: 's' }] }
+    useGameDataStore.setState({ status: loadedStatus('nullius') })
+    useBlockStore.setState({ blocks: [source, consumer, other], activeBlockId: 's', history: {} })
+    useBlockStore.getState().moveServed('s', 'plate', { kind: 'block', blockId: 'd' }, 0, [{ kind: 'block', blockId: 'c' }, { kind: 'block', blockId: 'd' }])
+    const saved = JSON.parse(store[KEY()])
+    expect(saved.blocks[0].servedOrder).toEqual({ plate: [{ kind: 'block', blockId: 'd' }, { kind: 'block', blockId: 'c' }] })
+    expect(saved.blocks[1]).not.toHaveProperty('servedOrder')
+    expect(parseAppState(saved).blocks[0].servedOrder).toEqual(saved.blocks[0].servedOrder)
+    useBlockStore.getState().resetServedOrder('s', 'plate')
+    expect(JSON.parse(store[KEY()]).blocks[0]).not.toHaveProperty('servedOrder')
+  })
+
   it('loads a stored plan with the old sourcing keys as rules and saves it with sourceRules only', () => {
     const { sourceRules: _rules, ...rest } = makeEmptyBlock('Old')
     void _rules
@@ -631,6 +646,18 @@ describe('plan actions', () => {
     expect(blocks[1].inputConnections[0].fromBlockId).toBe(blocks[0].id)
     expect(activeBlockId).toBe(blocks[1].id)
     expect(horizonTechnologyIds).toEqual(['x'])
+  })
+
+  it('duplicatePlan remaps the served lists to the copies', () => {
+    const source = makeEmptyBlock('Source')
+    const consumer = { ...makeEmptyBlock('Consumer'), inputConnections: [{ id: 'c1', itemId: 'iron-plate', fromBlockId: source.id }] }
+    useBlockStore.setState({
+      blocks: [{ ...source, servedOrder: { 'iron-plate': [{ kind: 'block', blockId: consumer.id }] } }, consumer],
+      activeBlockId: consumer.id,
+    })
+    expect(duplicatePlan()).toEqual({ type: 'ok' })
+    const { blocks } = useBlockStore.getState()
+    expect(blocks[0].servedOrder?.['iron-plate'][0]).toEqual({ kind: 'block', blockId: blocks[1].id })
   })
 
   it('renamePlan trims, cuts to 60 characters and refuses a blank name', () => {
@@ -1132,6 +1159,17 @@ describe('plan import', () => {
       expect(useBlockStore.getState().blocks).toBe(before)
     })
 
+    it('accepts a plan with a served list and rejects a bad entry', () => {
+      const input = makeState()
+      input.blocks[0] = { ...input.blocks[0], servedOrder: { plate: [{ kind: 'block', blockId: 'b2' }, { kind: 'extra' }] } }
+      const ok = checkPlanImport(JSON.stringify(input), knownData(), 'nullius')
+      expect(ok.type).toBe('ok')
+      if (ok.type === 'ok') expect(ok.appState.blocks[0].servedOrder).toEqual(input.blocks[0].servedOrder)
+      const bad = JSON.parse(JSON.stringify(input))
+      bad.blocks[0].servedOrder.plate[0] = { kind: 'sideways' }
+      expect(checkPlanImport(JSON.stringify(bad), knownData(), 'nullius').type).toBe('error')
+    })
+
     it('rejects malformed JSON without touching the store', () => {
       const before = useBlockStore.getState().blocks
       const result = checkPlanImport('{', knownData(), 'nullius')
@@ -1278,6 +1316,15 @@ describe('plan import', () => {
         .toEqual({ type: 'error', message: 'The loaded game data changed; pick the file again.' })
       expect(useBlockStore.getState().blocks).toBe(before)
       expect(usePlansStore.getState().index!.plans).toHaveLength(1)
+    })
+
+    it('remaps the served lists to the new block ids', () => {
+      useGameDataStore.setState({ status: loadedStatus('nullius') })
+      const imported = makeState('b2')
+      imported.blocks[0] = { ...imported.blocks[0], servedOrder: { plate: [{ kind: 'block', blockId: 'b2' }] } }
+      expect(importPlanAsNew(imported, 'nullius', 'served.json')).toEqual({ type: 'ok' })
+      const { blocks } = useBlockStore.getState()
+      expect(blocks[0].servedOrder?.plate[0]).toEqual({ kind: 'block', blockId: blocks[1].id })
     })
 
     it('adds a plan named after the file, makes it active and leaves the previous plan alone', () => {

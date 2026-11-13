@@ -5,16 +5,25 @@ import { canAddGroupIn, canCopyGroupInto, canMoveNodeInto } from '../data/nestin
 import { areaRecipeIds, subPlanAreaIds, subPlanCopyBlocker } from '../solver/areas'
 import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockColors'
 import { useGameDataStore, selectGameData } from './gameDataStore'
-import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule } from '../data/types'
+import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
+import { isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedList } from '../data/servedEntries'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
 // ---------------------------------------------------------------------------
 
 interface Command {
-  apply: (block: Block) => Block
-  undo: (block: Block) => Block
+  /** `blocks` is every block of the plan before this change. */
+  apply: (block: Block, blocks: readonly Block[]) => Block
+  undo: (block: Block, blocks: readonly Block[]) => Block
+  /**
+   * Optional change to other blocks, run right after apply/undo; `blocks` already holds the changed `block`.
+   * Used when the command lives in one block's history but must also keep another block's data in step
+   * (a consumer's connection and the source's served list).
+   */
+  applyOthers?: (blocks: Block[], block: Block) => Block[]
+  undoOthers?: (blocks: Block[], block: Block) => Block[]
   /**
    * Optional guards, given every block of the plan: false means running that
    * direction would break a plan-wide rule, so undo/redo drops the command
@@ -197,7 +206,7 @@ export function cloneSubPlanTree(plan: SubPlan): SubPlan {
  * other blocks reading this one are not part of the block, so they are not copied.
  */
 export function cloneBlock(block: Block, color: string): Block {
-  return {
+  const copy: Block = {
     ...structuredClone(block),
     id: crypto.randomUUID(),
     name: `${block.name} (copy)`,
@@ -208,6 +217,9 @@ export function cloneBlock(block: Block, color: string): Block {
     inputConnections: block.inputConnections.map(c => ({ ...c, id: crypto.randomUUID() })),
     rootPlan: cloneSubPlanTree(block.rootPlan),
   }
+  // The consumers a served list ranks are not copied, so the copy starts without one.
+  delete copy.servedOrder
+  return copy
 }
 
 /**
@@ -220,10 +232,17 @@ export function clonePlan(appState: AppState): AppState {
   const copies = appState.blocks.map(b => ({ ...cloneBlock(b, b.color), name: b.name }))
   const ids = new Map(appState.blocks.map((b, i) => [b.id, copies[i].id]))
   return {
-    blocks: copies.map(b => ({
-      ...b,
-      inputConnections: b.inputConnections.map(c => ({ ...c, fromBlockId: ids.get(c.fromBlockId) ?? c.fromBlockId })),
-    })),
+    blocks: copies.map((b, i) => {
+      const out: Block = {
+        ...b,
+        inputConnections: b.inputConnections.map(c => ({ ...c, fromBlockId: ids.get(c.fromBlockId) ?? c.fromBlockId })),
+      }
+      // The served lists name blocks: point them at the copies (never write an undefined key).
+      const served = appState.blocks[i].servedOrder
+      const remapped = served === undefined ? undefined : remapServedOrder(served, ids)
+      if (remapped !== undefined) out.servedOrder = remapped
+      return out
+    }),
     activeBlockId: ids.get(appState.activeBlockId) ?? appState.activeBlockId,
     horizonTechnologyIds: [...appState.horizonTechnologyIds],
     defaultMachineOverrides: { ...appState.defaultMachineOverrides },
@@ -258,13 +277,66 @@ function sourceRuleCommand(block: Block, itemId: string, before: SourceRule, aft
   }
 }
 
+/**
+ * The two halves of keeping the source's served list in step with a consumer's connection. `leave` runs once the
+ * consumer has lost its last connection for the item: it removes the consumer's entry from the source's list and
+ * remembers what it removed. `restore` puts that entry back at its old place (a list emptied by `leave` is
+ * recreated), unless the source is gone, the entry is already there, or the list was reset in between (bringing
+ * back a one-entry list would change the order served).
+ */
+function servedCleanup(connection: BlockConnection): {
+  leave: (blocks: Block[], consumer: Block) => Block[]
+  restore: (blocks: Block[], consumer: Block) => Block[]
+} {
+  const { itemId, fromBlockId } = connection
+  let removed: { entry: ServedEntry; index: number; keyGone: boolean } | undefined
+  const setSource = (blocks: Block[], source: Block, list: ServedEntry[] | undefined): Block[] => {
+    const next = withServedList(source, itemId, list)
+    return blocks.map(b => (b === source ? next : b))
+  }
+  return {
+    leave: (blocks, consumer) => {
+      removed = undefined
+      // A hand-edited duplicate connection keeps the entry.
+      if (consumer.inputConnections.some(c => c.itemId === itemId && c.fromBlockId === fromBlockId)) return blocks
+      const source = blocks.find(b => b.id === fromBlockId)
+      const list = source && servedListOf(source, itemId)
+      if (!source || !list) return blocks
+      const index = list.findIndex(e => e.kind === 'block' && e.blockId === consumer.id)
+      if (index < 0) return blocks
+      const next = list.filter((_, i) => i !== index)
+      removed = { entry: list[index], index, keyGone: next.length === 0 }
+      return setSource(blocks, source, next)
+    },
+    restore: (blocks) => {
+      // What `leave` removed is put back at most once.
+      const gone = removed
+      removed = undefined
+      if (!gone) return blocks
+      const source = blocks.find(b => b.id === fromBlockId)
+      if (!source) return blocks
+      const list = servedListOf(source, itemId)
+      if (list) {
+        if (list.some(e => sameServedEntry(e, gone.entry))) return blocks
+        return setSource(blocks, source, [...list.slice(0, gone.index), gone.entry, ...list.slice(gone.index)])
+      }
+      return gone.keyGone ? setSource(blocks, source, [gone.entry]) : blocks
+    },
+  }
+}
+
 /** Command adding a connection for `itemId` from `fromBlockId`; undo removes it, redo is checked against the then-current blocks. */
 function addConnectionCommand(itemId: string, fromBlockId: string): Command {
   // The id is fixed here so redo restores the same connection.
   const connection: BlockConnection = { id: crypto.randomUUID(), itemId, fromBlockId }
+  const cleanup = servedCleanup(connection)
   return {
     apply: b => ({ ...b, inputConnections: [...b.inputConnections, connection] }),
     undo: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connection.id) }),
+    // Undoing the add can remove the consumer's last connection for the item: its served entry goes too, and redo
+    // puts it back. A first apply restores nothing (a new connection never joins a list).
+    applyOthers: cleanup.restore,
+    undoOthers: cleanup.leave,
     // Redo after other blocks changed may no longer be legal.
     canApply: (blocks, b) => canConnect(blocks, b, itemId, fromBlockId),
   }
@@ -434,6 +506,19 @@ export interface BlockStoreState {
   /** Move a connection one place among the connections of its item (others are skipped over); a no-op at either end. */
   moveConnectionBy: (connectionId: string, delta: -1 | 1, toBlockId?: string) => void
 
+  // Served order (the source block's list of who is served first)
+  /**
+   * Rank `entry` in the served list of `itemId` on block `sourceBlockId`: put it at the insertion index `toIndex` of the
+   * current list (counted before the entry is removed, clamped to [0, length]; `index + 2` moves it down one place).
+   * `shown` is the order the UI displays; it becomes the list only when none is stored (a stored list is the truth and
+   * `shown` is then ignored). A no-op with no history entry when the source is unknown, `entry` is a block that does not
+   * take the item from the source, `toIndex` is not finite, or nothing would move (a first drag dropped in place stores no
+   * list). The history entry goes to the source block, so it is undone from there.
+   */
+  moveServed: (sourceBlockId: string, itemId: string, entry: ServedEntry, toIndex: number, shown: ServedEntry[]) => void
+  /** Remove the stored list; the item is served in today's order again. No-op with no history entry when there is none. */
+  resetServedOrder: (sourceBlockId: string, itemId: string) => void
+
   // Node actions (resolved against whichever subplan contains the node)
   addNode: (node: RecipeNode, targetSubPlanId?: string) => void
   /** Copy row `nodeId` into area `areaId` (a separate area's sub-plan id, or the root plan id), appended to that sub-plan's own rows: recipe, machine, fuel, modules, beacon, neighbour count, byproduct policy, primary product; not the pin nor the byproduct-consumer flag. Undoable. Returns the new row id, or undefined (no change) when the row is missing, `areaId` is not an area, or that area already has a row of the recipe. */
@@ -518,6 +603,14 @@ function colorCommand(
   }
 }
 
+/** `blocks` after running `cmd` in one direction on `block`, then its changes to other blocks. */
+function runCommand(blocks: Block[], block: Block, cmd: Command, dir: 'apply' | 'undo'): Block[] {
+  const changed = followFirstProduct(block, cmd[dir](block, blocks), blocks)
+  const next = blocks.map(b => (b.id === block.id ? changed : b))
+  const others = dir === 'apply' ? cmd.applyOthers : cmd.undoOthers
+  return others ? others(next, changed) : next
+}
+
 function applyCommand(
   state: BlockStoreState,
   cmd: Command,
@@ -526,11 +619,10 @@ function applyCommand(
   const block = state.blocks.find(b => b.id === blockId)
   if (!block) return {}
 
-  const newBlock = followFirstProduct(block, cmd.apply(block), state.blocks)
   const hist = state.history[block.id] ?? { undoStack: [], redoStack: [] }
 
   return {
-    blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
+    blocks: runCommand(state.blocks, block, cmd, 'apply'),
     history: {
       ...state.history,
       [block.id]: {
@@ -669,9 +761,13 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       // Drop connections that read from the deleted block (not undoable, like the delete itself).
       const remaining = state.blocks
         .filter(b => b.id !== blockId)
-        .map(b => b.inputConnections.some(c => c.fromBlockId === blockId)
-          ? { ...b, inputConnections: b.inputConnections.filter(c => c.fromBlockId !== blockId) }
-          : b)
+        // ... and the deleted block's entries from every served list (its own list goes with it).
+        .map(b => withoutServedConsumer(
+          b.inputConnections.some(c => c.fromBlockId === blockId)
+            ? { ...b, inputConnections: b.inputConnections.filter(c => c.fromBlockId !== blockId) }
+            : b,
+          blockId,
+        ))
       const newHistory = { ...state.history }
       delete newHistory[blockId]
       if (state.activeBlockId !== blockId) {
@@ -1054,6 +1150,7 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const index = block?.inputConnections.findIndex(c => c.id === connectionId) ?? -1
       if (!block || index < 0) return state
       const target = block.inputConnections[index]
+      const cleanup = servedCleanup(target)
       const cmd: Command = {
         apply: b => ({ ...b, inputConnections: b.inputConnections.filter(c => c.id !== connectionId) }),
         undo: b => {
@@ -1063,8 +1160,86 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         },
         // Undoing a removal re-adds the edge, which may no longer be legal (source deleted, duplicate).
         canUndo: (blocks, b) => canConnect(blocks, b, target.itemId, target.fromBlockId),
+        // The consumer's entry in the source's served list goes with its last connection; undo restores it.
+        applyOthers: cleanup.leave,
+        undoOthers: cleanup.restore,
       }
       return applyCommand(state, cmd, targetId)
+    }),
+
+  moveServed: (sourceBlockId, itemId, entry, toIndex, shown) =>
+    set(state => {
+      const source = state.blocks.find(b => b.id === sourceBlockId)
+      if (!source || itemId === '' || !Number.isFinite(toIndex)) return state
+      const consumer = (e: ServedEntry) => e.kind === 'extra' || isServedConsumer(state.blocks, source.id, itemId, e.blockId)
+      if (!consumer(entry)) return state
+      const list = servedListOf(source, itemId)
+      // Without a stored list the shown order is the base (a stale one never writes an invalid entry).
+      const base = list ?? shown.filter((e, i) => consumer(e) && shown.findIndex(o => sameServedEntry(o, e)) === i)
+      const from = base.findIndex(e => sameServedEntry(e, entry))
+      const wasPresent = from >= 0
+      let next: ServedEntry[]
+      if (wasPresent) {
+        const to = insertionTarget(from, Math.trunc(toIndex), base.length)
+        if (to === null) return state
+        next = base.filter((_, i) => i !== from)
+        next.splice(to, 0, entry)
+      } else {
+        // An entry with no place yet joins an existing list; with no list it must already be shown.
+        if (!list) return state
+        next = [...base]
+        next.splice(Math.max(0, Math.min(Math.trunc(toIndex), base.length)), 0, entry)
+      }
+      // Anchors, as in moveConnectionState: later changes to the list (cleanups from other blocks) are kept.
+      const created = list === undefined
+      const oldBefore = wasPresent ? (base[from + 1] ?? null) : undefined
+      const newBefore = next[next.findIndex(e => sameServedEntry(e, entry)) + 1] ?? null
+      // What the first write stored: the undo drops the list only while it is still exactly that.
+      let written: ServedEntry[] | undefined
+      const cmd: Command = {
+        apply: (b, blocks) => {
+          let current = servedListOf(b, itemId)
+          if (current === undefined) {
+            // The list was reset meanwhile: only the first write may start one again.
+            if (!created) return b
+            current = base.filter(e => e.kind === 'extra' || isServedConsumer(blocks, b.id, itemId, e.blockId))
+          }
+          if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
+          const placed = withServedEntryPlaced(current, entry, newBefore)
+          if (placed !== undefined && created && servedListOf(b, itemId) === undefined) written = placed
+          return placed === undefined ? b : withServedList(b, itemId, placed)
+        },
+        undo: (b, blocks) => {
+          const current = servedListOf(b, itemId)
+          if (created && (current === undefined || (written !== undefined && sameServedList(current, written)))) {
+            return withServedList(b, itemId, undefined)
+          }
+          if (!current) return b
+          if (oldBefore === undefined) return withServedList(b, itemId, current.filter(e => !sameServedEntry(e, entry)))
+          // A consumer that has left since is not put back.
+          if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
+          const placed = withServedEntryPlaced(current, entry, oldBefore)
+          return placed === undefined ? b : withServedList(b, itemId, placed)
+        },
+      }
+      return applyCommand(state, cmd, sourceBlockId)
+    }),
+
+  resetServedOrder: (sourceBlockId, itemId) =>
+    set(state => {
+      const source = state.blocks.find(b => b.id === sourceBlockId)
+      const list = source && servedListOf(source, itemId)
+      if (!source || !list) return state
+      const before = [...list]
+      const cmd: Command = {
+        apply: b => withServedList(b, itemId, undefined),
+        undo: (b, blocks) => {
+          if (servedListOf(b, itemId)) return b
+          // Consumers that have left since are not put back.
+          return withServedList(b, itemId, before.filter(e => e.kind === 'extra' || isServedConsumer(blocks, b.id, itemId, e.blockId)))
+        },
+      }
+      return applyCommand(state, cmd, sourceBlockId)
     }),
 
   setConnectionMaxRate: (connectionId, maxRate, toBlockId) =>
@@ -1593,9 +1768,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
         // The command can no longer be reverted: drop it and leave the block as is.
         return { history: { ...state.history, [block.id]: { undoStack: stack, redoStack: hist.redoStack } } }
       }
-      const newBlock = followFirstProduct(block, cmd.undo(block), state.blocks)
       return {
-        blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
+        blocks: runCommand(state.blocks, block, cmd, 'undo'),
         history: {
           ...state.history,
           [block.id]: {
@@ -1618,9 +1792,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       if (cmd.canApply && !cmd.canApply(state.blocks, block)) {
         return { history: { ...state.history, [block.id]: { undoStack: hist.undoStack, redoStack: stack } } }
       }
-      const newBlock = followFirstProduct(block, cmd.apply(block), state.blocks)
       return {
-        blocks: state.blocks.map(b => (b.id === block.id ? newBlock : b)),
+        blocks: runCommand(state.blocks, block, cmd, 'apply'),
         history: {
           ...state.history,
           [block.id]: {
