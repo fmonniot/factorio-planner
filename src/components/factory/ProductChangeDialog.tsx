@@ -1,6 +1,7 @@
 import type { ProductChangeEffect } from '../../store/connections'
 import type { RateUnit } from '../../store/uiStore'
 import { Modal } from '../Modal'
+import { useEscapeLayer } from './sidePanel/useDismiss'
 import {
   productChangeLine,
   productChangeRateText,
@@ -32,6 +33,8 @@ export function ProductChangeDialog({
   onCancel,
   onConfirm,
 }: ProductChangeDialogProps) {
+  // Escape closes the dialog only, not the popover it was opened from.
+  useEscapeLayer(true, onCancel)
   const add = change === 'add'
   return (
     <Modal onClose={onCancel} className="p-4 w-[28rem] text-sm">

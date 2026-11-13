@@ -23,6 +23,13 @@ export function cappedTitle(shown: string): string {
   return `Limited by this connection's limit of ${shown}`
 }
 
+/** Why a request is not applied, in the words of the block graph's connection chips and the Sources list's tag. */
+export const REQUEST_IGNORED_TITLE = {
+  'request-loop': 'the requests around this loop do not settle, so this takes what is left over',
+  'source-receives': 'the source receives this item itself, so this takes what is left over',
+  duplicate: 'an earlier connection already takes this item from the same source',
+} as const
+
 // Pure model for the summary panes: each item becomes a slot whose rate is
 // split into allocation segments (who takes it, what stays, what is missing).
 // The micro-bar, the detail bar and the overview strip all draw from this.

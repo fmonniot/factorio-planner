@@ -29,6 +29,12 @@ describe('sourcingText — Make it here', () => {
     expect(sourcingText(input())).toBe('No row here makes Plastic bar; it is imported.')
   })
 
+  it('names the connected sources when no row makes the item, and imports only the rest', () => {
+    const connections = [{ blockName: 'Cheap', offered: 30, taken: 30 }, { blockName: 'Dear', offered: 0, taken: 0 }]
+    expect(sourcingText(input({ connections }))).toBe('No row here makes Plastic bar; it is taken from Cheap and Dear, and the rest is imported.')
+    expect(sourcingText(input({ connections, rule: OFF }))).toBe('No row here makes Plastic bar; it is taken from Cheap and Dear, and the rest is imported. Import is off.')
+  })
+
   it('appends that Import is off', () => {
     expect(sourcingText(input({ rule: OFF }))).toBe('No row here makes Plastic bar; it is imported. Import is off.')
     expect(sourcingText(input({ rule: OFF, makers: [maker()] }))).toBe(

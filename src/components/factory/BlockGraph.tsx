@@ -17,7 +17,7 @@ import { GraphIcon } from '../icons'
 import { fmtItemRateText, fmtRate, inputRateUnit } from './ItemTile'
 import { Popover } from './Popover'
 import { RateInput } from './RateInput'
-import { cappedTitle, cappingLimit } from './summarySegments'
+import { cappedTitle, cappingLimit, REQUEST_IGNORED_TITLE } from './summarySegments'
 import type { Block, BlockLoop, ConnectionFlow, GameData, Item } from '../../data/types'
 import { BlockSourceRuleMarker } from './SourceRuleMarker'
 import { useSourceRuleItems } from './useSourceRuleItems'
@@ -219,12 +219,6 @@ interface EdgeLabelsProps {
   onRemove: (connectionId: string, toBlockId: string) => void
   onSetLimit: (connectionId: string, toBlockId: string, maxRate: number | undefined) => void
 }
-
-const REQUEST_IGNORED_TITLE = {
-  'request-loop': 'the requests around this loop do not settle, so this takes what is left over',
-  'source-receives': 'the source receives this item itself, so this takes what is left over',
-  duplicate: 'an earlier connection already takes this item from the same source',
-} as const
 
 interface ConnectionChipProps {
   connectionId: string

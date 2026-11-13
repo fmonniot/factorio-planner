@@ -3,14 +3,14 @@ import { useEffect, useRef, type RefObject } from 'react'
 type Inside = RefObject<HTMLElement | null>
 
 /** Dismissible things currently open, oldest first: an Esc only reaches the last one. */
-const open: object[] = []
+const open: { escapeOnly?: true }[] = []
 
 /** Overlays that close themselves on an outside press but are not Esc-stacked dismissibles (menus, popovers). */
 const guards: object[] = []
 
 /** Whether a dismissible or a registered overlay is open right now. */
 export function isDismissibleOpen(): boolean {
-  return open.length > 0 || guards.length > 0
+  return open.some(t => !t.escapeOnly) || guards.length > 0
 }
 
 /** Registers an open overlay that handles its own dismissal, so a press that closes it is known (see `pressStartedOverCloseableOverlay`). */
@@ -70,6 +70,34 @@ export function useDismiss(inside: Inside | readonly Inside[], active: boolean, 
     document.addEventListener('keydown', onKeyDown, true)
     return () => {
       document.removeEventListener('mousedown', onMouseDown)
+      document.removeEventListener('keydown', onKeyDown, true)
+      open.splice(open.indexOf(token), 1)
+    }
+  }, [active])
+}
+
+/**
+ * While `active`, Esc calls `onEscape` when this is the most recently opened dismissible, and nothing else reacts to that key
+ * press: a field or dialog inside a popover takes the first Esc, the popover the next. Unlike `useDismiss` it never reacts to a
+ * mouse press and does not count as an open overlay (`isDismissibleOpen`).
+ */
+export function useEscapeLayer(active: boolean, onEscape: () => void): void {
+  const latest = useRef(onEscape)
+  useEffect(() => {
+    latest.current = onEscape
+  })
+  useEffect(() => {
+    if (!active) return
+    const token: { escapeOnly: true } = { escapeOnly: true }
+    open.push(token)
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== 'Escape' || open[open.length - 1] !== token) return
+      e.preventDefault()
+      e.stopPropagation()
+      latest.current()
+    }
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => {
       document.removeEventListener('keydown', onKeyDown, true)
       open.splice(open.indexOf(token), 1)
     }
