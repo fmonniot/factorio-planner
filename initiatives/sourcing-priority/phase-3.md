@@ -2,7 +2,7 @@
 
 Phase 3 of [plan.md](plan.md). It does not depend on phase 2 and can ship before it.
 
-The questions of the first draft were answered from the code on 2026-11-11 ([What the code says](#what-the-code-says)). One answer changes the phase: a source is never short by a definite amount today, so a rank among requests has almost nothing to act on. The author confirmed the [decisions](#decisions-for-the-author) the same day, D1 first: the phase starts with the spike of T1. The [tickets](#tickets-draft) stay a draft until that spike reports, because it can still change them.
+The questions of the first draft were answered from the code on 2026-11-11 ([What the code says](#what-the-code-says)). One answer changes the phase: a source is never short by a definite amount today, so a rank among requests has almost nothing to act on. The author confirmed the [decisions](#decisions-for-the-author) the same day, D1 first: the phase starts with the spike of T1. The spike reported on 2026-11-13 ([Spike report](#spike-report-t1)): a source now holds its capacity, so the [tickets](#tickets) keep their scope.
 
 ## Scope
 
@@ -35,7 +35,7 @@ Measured with a throwaway `solveBlock` run (not kept): a block whose only row is
 | 10 | 10 | 10 | none |
 | 40 | 30 | 40 | none |
 
-Goal rows are hard, so a source makes all that is asked or the LP is infeasible; an infeasible LP returns what the solver library happened to hold, here the goal met and the pin ignored. [spec/solver.md](../../spec/solver.md#requests) says the same: "No `solveAll` scenario reaches a partial shortfall".
+Goal rows are hard, so a source makes all that is asked or the LP is infeasible; an infeasible LP returns what the solver library happened to hold, here the goal met and the pin ignored. (Measured before T1. Since T1 the first row runs at 10 and the plate is short by 20: see [Spike report](#spike-report-t1).) [spec/solver.md](../../spec/solver.md#requests) says the same: "No `solveAll` scenario reaches a partial shortfall".
 
 What follows:
 
@@ -64,7 +64,7 @@ Taken with the author on 2026-11-11.
 
 | # | Question | Decision | Why |
 | --- | --- | --- | --- |
-| D1 | Should a source be able to hold at a capacity and be short by a definite amount? | **Confirmed on 2026-11-11.** Yes, as the first ticket of this phase, a spike with its own synthetic case: when a block's LP is infeasible, solve it again with elastic goal rows (a shortfall variable per goal, costed above an import), so pins and locks hold and each product reports what it lacks. | Without it, ranking requests and moving the extra output up have nothing to act on, and phase 4's shares neither. The Products pane already draws a short product and says where the shortage comes from. It changes numbers only for blocks that are infeasible today, whose numbers are arbitrary. If the spike fails, this phase ranks takes only and says so. |
+| D1 | Should a source be able to hold at a capacity and be short by a definite amount? | **Confirmed on 2026-11-11; the spike succeeded on 2026-11-13 ([report](#spike-report-t1)).** Yes, as the first ticket of this phase, a spike with its own synthetic case: when a block's LP is infeasible, solve it again with elastic goal rows (a shortfall variable per goal, costed above an import), so pins and locks hold and each product reports what it lacks. | Without it, ranking requests and moving the extra output up have nothing to act on, and phase 4's shares neither. The Products pane already draws a short product and says where the shortage comes from. It changes numbers only for blocks that are infeasible today, whose numbers are arbitrary. If the spike fails, this phase ranks takes only and says so. |
 | D2 | Does one list rank requests and takes? | **Confirmed on 2026-11-11.** Yes. | A product is requested; a spare output is taken; the two meet in one list only for an ignored request. For a request the rank means: whose share is honoured first when the source is short. |
 | D3 | Does the list change loop member order? | **Confirmed on 2026-11-11.** No: only who is served. | Member order decides the back connections and the rounds; changing it changes what a loop converges to. |
 | D4 | What does the stored list hold? | **Confirmed on 2026-11-11.** `Block.servedOrder?: Record<itemId, ServedEntry[]>` on the source, an entry being a consumer block id or the extra output. Absent means today's order. The list is written on the first drag, from the order shown, and **Reset order** removes it. Consumers not in the list are served after it, in today's order, and the player is told: the list draws them under a divider, **Not ranked: served after the list**, where each can be dragged into the list, and the **Served order…** action carries their count ("Served order… · 2 not ranked") so a consumer added after the order was set is noticed without opening the list. An entry whose consumer no longer takes the item is ignored by the solver and removed by the store with the consumer's last connection for it (undo restores it). | Block ids, not connection ids: a consumer has one counting connection per source item, and reconnecting must not lose its rank. A new connection never takes from a consumer the player ranked, and connecting from one block does not write into another block's history. Once a list exists, reordering tabs no longer changes who is served among its entries. Phase 4 adds groups, shares and areas to the entry, so the entry is an object from the start. |
@@ -83,12 +83,33 @@ Not ranked: served after the list
    Mall             needs 8    got  0   short 8
 ```
 
-## Tickets (draft)
+## Spike report (T1)
 
-Not final until the spike of T1 reports: if a source cannot be made to hold its capacity, T4 to T6 shrink to takes. T1 and T2 are safe to start now.
+Done on 2026-11-13. The prototype is kept: it is T1's change, and T4 builds on it.
 
-- [ ] **T1. Spike: a source that holds its capacity.** Prototype the second solve of D1 in `solveBlock` and `solveAreaBlock` on a branch, with the three rows of the table above as a synthetic case and one `solveAll` case: a pinned source, an extra of 10 and requests of 30 and 20, 45 made (the example of spec/solver.md's "Shortfall", which no scenario reaches today). Report: which e2e fixtures change (`legacyParity.test.ts`), what a locked item that cannot be covered does, the cost of the second solve, and whether `infeasible-pins` still has a job. The outcome decides D1 and the rest of this list.
-- [ ] **T2. The solver says in what order it served.** No change of behaviour. `MultiBlockSolve` gains, per source item with at least one consumer, the consumers in the order they were served, each with its share and what it got, and the extra output's place. The list ships read-only in the Products and Byproducts panes: the hidden order becomes visible before it becomes editable.
+**What was built.** When a block's LP is infeasible, `solveLP` solves it again with an elastic goal row per goal (`Σ S x + h ≥ d`, `h ≥ 0` the shortfall). The shortfall is lexicographic rather than a cost above an import: one LP minimises `Σ h` alone, then `Σ h` is bounded at that minimum (plus 1e-7) and the plain objective is solved, with `h` at `BIG_M` so it does not drift to the bound. A single weighted objective was not used: a goal can need many imported units per unit made, so a fixed cost "above an import" would have to sit near `BIG_M²`, far past the solver's 1e-8 precision. `solveAreaLP` does the same, with the shortfall bound computed on the model with its pools, before its two stages. The plain LP runs first and is kept whenever it is feasible, so nothing changes for a feasible plan. Spec: [solver.md, Infeasibility](../../spec/solver.md#infeasibility); synthetic case 13 holds the three rows of the table above (with and without areas) and the `solveAll` example: A makes 45, the first request gets 30, the second 15 (`limited`, 5 imported), the extra nothing.
+
+**Which e2e fixtures change.** None: `legacyParity.test.ts` and the `contract/` fixtures are unchanged, because no block of any e2e fixture is infeasible. Three unit tests changed numbers, each from "the pin is ignored" to "the pin holds and the goal is short": a pinned mine of a locked ore (it ran at 60 against its pin of 30; it now runs at 30 and the plate is short by 30), and the two "keeps the hard row" cases, whose values were not asserted before.
+
+**A locked item that cannot be covered.** The lock holds and the goals that need the item come up short by what it cannot cover, whether a pin or the network is the cap; nothing is imported. Example: plate locked, its rows pinned at 20 + 10, a gear goal of 25 at 2 plate per gear: the gear row runs at 15 and the gear is short by 10. The elastic solve still fails when pins conflict whatever the goals: a pinned row that needs more of a locked item than pinned rows make. The plain result is then returned as before (arbitrary values, `infeasible-pins`). A partly covered locked *connected* item is not affected: pass 2 already drops its lock.
+
+**The cost of the second solve.** Only infeasible blocks pay it: two more LPs (areas: one more before the stages). Measured on the e2e fixtures with every running row in turn pinned at half its rate (115 solves, 22 of them with areas): 72 became infeasible, and all 72 were feasible with the elastic goals, each holding its pin and reporting a goal shortfall. The two extra LPs took about as long as the plain one, so an infeasible block costs about twice what it did. The solve cache key does not change: the result still depends only on the plan and the caps.
+
+**Does `infeasible-pins` still have a job.** Yes, two. It still marks the case the elastic solve cannot fix (pins in conflict). After an elastic solve that succeeded it names the pins that the goal shortfall comes from, so the spike keeps it whenever the plain LP was infeasible and pins are present. Its text no longer fits that second case: "Pinned rate is impossible … can't be reached … Goals will not be met" is now wrong about the pin, which holds. The copy should change before phase 3 ships (for example "Pins cap a product" / "The pinned rates on X hold, but the products they feed fall short."); folded into T2, which makes the shortfall visible anyway.
+
+**Other effects found.**
+
+- A request now follows the consumer's own pins: the request probe of a consumer that its pins keep from its goal solves elastically, so it asks only for what its pinned rows can use, where it used to ask as if the pin were ignored.
+- `coproduct-driven` stays skipped whenever `infeasible-pins` is present, so it is skipped after an elastic solve too.
+
+**What it decides.** D1 holds. T4 to T6 keep their scope: ranking requests and moving the extra output up now act on a short source.
+
+## Tickets
+
+T1 reported on 2026-11-13 ([Spike report](#spike-report-t1)); the list below keeps its scope.
+
+- [x] **T1. Spike: a source that holds its capacity.** Prototype the second solve of D1 in `solveBlock` and `solveAreaBlock` on a branch, with the three rows of the table above as a synthetic case and one `solveAll` case: a pinned source, an extra of 10 and requests of 30 and 20, 45 made (the example of spec/solver.md's "Shortfall", which no scenario reaches today). Report: which e2e fixtures change (`legacyParity.test.ts`), what a locked item that cannot be covered does, the cost of the second solve, and whether `infeasible-pins` still has a job. The outcome decides D1 and the rest of this list.
+- [ ] **T2. The solver says in what order it served.** No change of behaviour. `MultiBlockSolve` gains, per source item with at least one consumer, the consumers in the order they were served, each with its share and what it got, and the extra output's place. The list ships read-only in the Products and Byproducts panes: the hidden order becomes visible before it becomes editable. Also the new text of `infeasible-pins` ([Spike report](#spike-report-t1)): the pins now hold and the products fall short.
 - [ ] **T3. The stored list and its commands.** `Block.servedOrder` (D4), `moveServed`, `resetServedOrder`, the cleanup with a consumer's last connection. Nothing reads it yet.
 - [ ] **T4. Solver: grants by rank, outside loops.** The two steps of [How a rank can be honoured](#how-a-rank-can-be-honoured). Synthetic cases first: two takes of one byproduct, served by rank and unchanged by a reorder of the tabs; a consumer that is solved first and ranked last; a plan with no list, unchanged (`legacyParity.test.ts`).
 - [ ] **T5. Solver: loops.** Grants inside the supply rounds, credits inside the demand rounds, the memo key. A synthetic loop in which the second member in member order is ranked first.
@@ -103,7 +124,7 @@ From [Items taken from the backlog](plan.md#items-taken-from-the-backlog).
 
 ## Risks
 
-- **Without D1 the phase is smaller than it reads.** It would order takes and the consumers of a source that makes nothing, and nothing else.
+- ~~Without D1 the phase is smaller than it reads.~~ Settled by T1: a source now holds its capacity.
 - The request-loop memo has to take the list into its key ([Cache keys](#cache-keys)); the block cache may need a fourth entry per block for a probed take consumer.
 - Credits by rank need each higher-ranked consumer's need before a lower-ranked one is credited. Where that order would close a cycle in the request pass, the lower-ranked take gets no credit, as a take whose source is not processed yet gets none today; the list then holds only as far as solve order allows, and the UI has to say so on that line.
 - Each change needs its synthetic case in `spec/test-synthetic.md` first.

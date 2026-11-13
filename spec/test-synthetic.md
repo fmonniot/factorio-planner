@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Twelve recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Thirteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 and 12 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 13 use plain made-up item ids.
 
-Cases 11 and 12 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 13 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -501,4 +501,50 @@ X is in the byproducts-first set and out of the no-import set: its slack costs 1
 a: no supply, so the 20 X/min stay in the slack. R at 2 X per run would cost 10 > 20 × 1e-5, so it stays idle: 20 missing.
 b, c: supply (cost 0) covers the 20: received 20, nothing missing.
 d: supply is 5; the other 15 X/min stay in the slack (15 × 1e-5 < 7.5): 15 missing.
+```
+
+---
+
+## Case 13 — A source that holds its capacity
+
+**Exercises:** the elastic goals of [solver.md](solver.md#infeasibility). A pinned row is the only producer of a goal item; when the pin cannot meet the goal, the plain LP is infeasible and the elastic solve keeps the pin, so the goal reports what it lacks. Then the same source in `solveAll`, short of its extra plus two requests (the example of [solver.md, Shortfall](solver.md#requests)).
+
+**Recipes** (crafting time 1, speed-1 machine):
+
+| Recipe | Ingredients | Products |
+|---|---|---|
+| `case13-make-plate` | 1 `case13-ore` | 1 `case13-plate` |
+| `case13-use-plate` | 1 `case13-plate` | 1 `case13-gear` |
+
+### Expected solver output
+
+a to c: one block, its only row `case13-make-plate` pinned, a goal of `case13-plate`. Each runs with no areas, and with the row in an area of its own; the numbers are the same.
+
+| Case | Pin | Goal | Row runs at | Plate short (`unsatisfied`) | `infeasible-pins` |
+|---|---|---|---|---|---|
+| a | 10 | 30 | 10 | 20 | yes |
+| b | 10 | 10 | 10 | 0 | no |
+| c | 40 | 30 | 40 | 0 | no |
+
+d: `solveAll` with three blocks. A has an extra of 10 `case13-plate` / min and the row pinned at 45. B (30 gear / min) and C (20 gear / min) each run `case13-use-plate` and request plate from A; B is solved first.
+
+| Block | Asked of A | Gets | Status | Plate short or imported |
+|---|---|---|---|---|
+| A | | makes 45 of 60 | | 15 short, `infeasible-pins` |
+| B | 30 | 30 | `ok` | 0 |
+| C | 20 | 15 | `limited` | 5 imported |
+| A's extra | 10 | 0 | | |
+
+### Derivation
+
+```
+a: goal row x ≥ 30 and pin x = 10 conflict: the plain LP is infeasible.
+   Elastic: x + h ≥ 30, x = 10. Step 1 minimises h: h = 20. Step 2 keeps h ≤ 20 (+1e-7) at BIG_M per unit: h = 20.
+   The row runs at its pin, 10; the plate is short by 30 − 10 = 20.
+b: x = 10 meets x ≥ 10: feasible, no second solve.
+c: x = 40 meets x ≥ 30: feasible; a goal may be overshot, so no warning.
+d: requests: B asks 30, C asks 20; A's goal is 10 + 30 + 20 = 60, the pin makes 45, A is short by 15.
+   B (solved first, share 30): min(30, 45) = 30. Left 15.
+   C (share 20): min(20, 15) = 15; C imports the other 5 and its flow is limited.
+   The extra is never reserved, so it gives way first: nothing is left for it.
 ```

@@ -618,6 +618,12 @@ describe('solveBlock — byproducts first', () => {
     ])('keeps the hard row for %s: the same pin makes the LP infeasible', (_name, rule) => {
       const { result } = solveBlock({ ...pinnedPlan(), sourceRules: { plate: rule } }, connectionGameData())
       expect(infeasiblePins(result)).toBe(true)
+      // The elastic solve keeps the pins and the lock: 30 plate are made (20 + 10), so the gear row runs
+      // at 15 of 25 and the gear is short by 10. The pinned row's ingot is imported.
+      expect(result.nodes.find(n => n.recipeNodeId === 'g')?.throughput).toBeCloseTo(15, 6)
+      expect(rate(result.unsatisfied, 'gear')).toBeCloseTo(10, 6)
+      expect(rate(result.unsatisfied, 'plate')).toBe(0)
+      expect(rate(result.unsatisfied, 'ingot')).toBeCloseTo(10, 6)
     })
   })
 
@@ -2034,11 +2040,12 @@ describe('solve — extraction recipes', () => {
       sourceRules: { 'iron-ore': { importOff: true as const } },
     }
     const result = solve(plan, extractionData())
-    // The pin cannot meet the goal without importing ore, so the solver reports it
-    // as infeasible and mines the ore itself instead of importing it.
+    // The pin cannot meet the goal without importing ore. The elastic solve keeps both the pin and
+    // the lock: the mine runs at its pin, no ore is imported and the plate comes up short.
     expect(result.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['mining:iron-ore'] })
-    expect(node(result, 'mine').throughput).toBeCloseTo(60, 4)
+    expect(node(result, 'mine').throughput).toBeCloseTo(30, 4)
     expect(rate(result.unsatisfied, 'iron-ore')).toBe(0)
+    expect(rate(result.unsatisfied, 'iron-plate')).toBeCloseTo(30, 4)
   })
 })
 
@@ -2241,6 +2248,8 @@ describe('solve — burner fuel', () => {
     // A fuel the user picked locks coal for the whole block, like any other ingredient of the consumer.
     expect(rate(chosen.result.unsatisfied, 'coal')).toBe(0)
     expect(chosen.result.warnings.some(w => w.type === 'infeasible-pins')).toBe(true)
+    // The pin and the lock hold: the char row runs on the 2 coal made, so the charcoal is short by 8.
+    expect(rate(chosen.result.unsatisfied, 'charcoal')).toBeCloseTo(8, 6)
   })
 
   it('balances the fuel between areas', () => {

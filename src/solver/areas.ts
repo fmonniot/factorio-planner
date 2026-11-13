@@ -13,7 +13,7 @@ import type {
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
 import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
 import { FluidTemperatureCollector } from './temperatureRows'
-import { BIG_M, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
+import { BIG_M, boundShortfall, buildLPModel, readLPResult, type LPModel, type LPResult } from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
   FLOW_TOLERANCE,
@@ -254,8 +254,29 @@ function solveAreaLP(
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
 ): AreaLPResult {
+  const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst] as const
+  const plain = solveAreaLPOnce(...args, false)
+  if (plain.feasible || system.classification.goals.size === 0) return plain
+  // As in `solveLP`: an infeasible plan is solved again with elastic goal rows, kept only if that is feasible.
+  const elastic = solveAreaLPOnce(...args, true)
+  return elastic.feasible ? elastic : plain
+}
+
+function solveAreaLPOnce(
+  system: ClassifiedSystem,
+  columns: Column[],
+  pinnedRates: Map<string, number>,
+  bcColumns: Set<string>,
+  noImportItems: Set<string>,
+  supplyCaps: Map<string, number>,
+  connectionsFirst: Set<string>,
+  byproductsFirst: Set<string>,
+  elasticGoals: boolean,
+): AreaLPResult {
   const { S, classification } = system
-  const base = buildLPModel(system, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst)
+  const base = buildLPModel(
+    system, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, elasticGoals,
+  )
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
 
@@ -269,6 +290,8 @@ function solveAreaLP(
   // areas' non-dedicated rows flow through the unpenalised `o…` pools at SHIP_COST, below epsilon,
   // so they are shipped before importing.
   for (const name of base.itemToSlack.values()) variables[name].__s1 = BIG_M
+  // The elastic solve's shortfalls cost like an import in both stages (see `buildLPModel`).
+  for (const name of base.goalToShort.values()) variables[name].__s1 = BIG_M
 
   const penalised: { name: string; area: number; itemId: string }[] = []
   const rankOf = (area: number) => SHIP_COST * (1 + RANK_STEP * area)
@@ -352,6 +375,13 @@ function solveAreaLP(
       rate: typeof result[p.name] === 'number' ? Math.max(0, result[p.name] as number) : 0,
     }))
     return { ...lp, warnings, dedicatedIn }
+  }
+
+  // Elastic: the least total shortfall comes first, before stage 1 (pools included, so a goal another
+  // area could cover is not left short).
+  if (elasticGoals) {
+    const failed = boundShortfall(base)
+    if (failed) return finish(failed, base)
   }
 
   let stage1: SolveResult | undefined
