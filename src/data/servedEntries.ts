@@ -13,9 +13,12 @@ export function servedListOf(block: Block, itemId: string): ServedEntry[] | unde
   return block.servedOrder !== undefined && Object.hasOwn(block.servedOrder, itemId) ? block.servedOrder[itemId] : undefined
 }
 
-function sameList(a: readonly ServedEntry[], b: readonly ServedEntry[]): boolean {
+/** The two lists hold the same entries in the same order. */
+export function sameServedList(a: readonly ServedEntry[], b: readonly ServedEntry[]): boolean {
   return a.length === b.length && a.every((e, i) => sameServedEntry(e, b[i]))
 }
+
+const sameList = sameServedList
 
 /**
  * The block with `itemId`'s list set, or removed when `list` is undefined or empty. The key is deleted, never
@@ -34,13 +37,13 @@ export function withServedList(block: Block, itemId: string, list: readonly Serv
 }
 
 /**
- * `list` with `entry` placed just before `before` (at the end when null), or undefined when `before` is not in the
- * list or nothing would move.
+ * `list` with `entry` placed just before `before`; at the end when `before` is null or no longer in the list. Undefined
+ * when nothing would move.
  */
 export function withServedEntryPlaced(list: readonly ServedEntry[], entry: ServedEntry, before: ServedEntry | null): ServedEntry[] | undefined {
   const rest = list.filter(e => !sameServedEntry(e, entry))
-  const at = before === null ? rest.length : rest.findIndex(e => sameServedEntry(e, before))
-  if (at < 0) return undefined
+  const found = before === null ? -1 : rest.findIndex(e => sameServedEntry(e, before))
+  const at = found < 0 ? rest.length : found
   const next = [...rest.slice(0, at), entry, ...rest.slice(at)]
   return sameList(next, list) ? undefined : next
 }
@@ -77,7 +80,8 @@ export function remapServedOrder(order: Record<string, ServedEntry[]>, ids: Read
       const id = ids.get(e.blockId)
       return id === undefined ? [] : [{ kind: 'block', blockId: id }]
     })
-    if (mapped.length > 0) out[itemId] = mapped
+    // defineProperty: a plain assignment of `__proto__` would set the prototype instead of an own key.
+    if (mapped.length > 0) Object.defineProperty(out, itemId, { value: mapped, enumerable: true, writable: true, configurable: true })
   }
   return Object.keys(out).length > 0 ? out : undefined
 }

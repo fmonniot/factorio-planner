@@ -46,8 +46,10 @@ describe('withServedEntryPlaced', () => {
   it('inserts an entry that is not in the list', () => {
     expect(withServedEntryPlaced([blk('a')], blk('b'), blk('a'))).toEqual([blk('b'), blk('a')])
   })
-  it('gives undefined for a missing anchor and for no change', () => {
-    expect(withServedEntryPlaced(list, blk('a'), blk('ghost'))).toBeUndefined()
+  it('falls back to the end when the anchor is gone', () => {
+    expect(withServedEntryPlaced(list, blk('a'), blk('ghost'))).toEqual([blk('b'), blk('c'), extra, blk('a')])
+  })
+  it('gives undefined for no change', () => {
     expect(withServedEntryPlaced(list, blk('b'), blk('c'))).toBeUndefined()
     expect(withServedEntryPlaced(list, extra, null)).toBeUndefined()
   })
@@ -107,5 +109,14 @@ describe('takesFrom and isServedConsumer', () => {
     expect(isServedConsumer(blocks, 's', 'plate', 'g')).toBe(false)
     expect(isServedConsumer(blocks, 's', 'plate', 's')).toBe(false)
     expect(isServedConsumer(blocks, 's', 'plate', 'ghost')).toBe(false)
+  })
+})
+
+describe('remapServedOrder with a prototype-named item', () => {
+  it('keeps the list as an own key', () => {
+    const order = JSON.parse('{"__proto__":[{"kind":"block","blockId":"a"}]}') as Record<string, ServedEntry[]>
+    const out = remapServedOrder(order, new Map([['a', 'z']]))!
+    expect(Object.hasOwn(out, '__proto__')).toBe(true)
+    expect(Object.getOwnPropertyDescriptor(out, '__proto__')!.value).toEqual([blk('z')])
   })
 })

@@ -7,7 +7,7 @@ import { pickBlockColor, defaultBlockColor, HEX_COLOR_RE } from '../data/blockCo
 import { useGameDataStore, selectGameData } from './gameDataStore'
 import type { AppState, Block, BlockConnection, SubPlan, SubPlanNode, Product, RecipeNode, GameRecipeNode, ModuleConfig, BeaconConfig, SourceRule, ServedEntry } from '../data/types'
 import { insertionTarget } from '../utils/insertionTarget'
-import { isServedConsumer, remapServedOrder, sameServedEntry, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedList } from '../data/servedEntries'
+import { isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedListOf, withoutServedConsumer, withServedEntryPlaced, withServedList } from '../data/servedEntries'
 
 // ---------------------------------------------------------------------------
 // Command pattern — operates on the active Block, with full apply/undo.
@@ -309,15 +309,18 @@ function servedCleanup(connection: BlockConnection): {
       return setSource(blocks, source, next)
     },
     restore: (blocks) => {
-      if (!removed) return blocks
+      // What `leave` removed is put back at most once.
+      const gone = removed
+      removed = undefined
+      if (!gone) return blocks
       const source = blocks.find(b => b.id === fromBlockId)
       if (!source) return blocks
       const list = servedListOf(source, itemId)
       if (list) {
-        if (list.some(e => sameServedEntry(e, removed!.entry))) return blocks
-        return setSource(blocks, source, [...list.slice(0, removed.index), removed.entry, ...list.slice(removed.index)])
+        if (list.some(e => sameServedEntry(e, gone.entry))) return blocks
+        return setSource(blocks, source, [...list.slice(0, gone.index), gone.entry, ...list.slice(gone.index)])
       }
-      return removed.keyGone ? setSource(blocks, source, [removed.entry]) : blocks
+      return gone.keyGone ? setSource(blocks, source, [gone.entry]) : blocks
     },
   }
 }
@@ -758,11 +761,13 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       // Drop connections that read from the deleted block (not undoable, like the delete itself).
       const remaining = state.blocks
         .filter(b => b.id !== blockId)
-        .map(b => b.inputConnections.some(c => c.fromBlockId === blockId)
-          ? { ...b, inputConnections: b.inputConnections.filter(c => c.fromBlockId !== blockId) }
-          : b)
         // ... and the deleted block's entries from every served list (its own list goes with it).
-        .map(b => withoutServedConsumer(b, blockId))
+        .map(b => withoutServedConsumer(
+          b.inputConnections.some(c => c.fromBlockId === blockId)
+            ? { ...b, inputConnections: b.inputConnections.filter(c => c.fromBlockId !== blockId) }
+            : b,
+          blockId,
+        ))
       const newHistory = { ...state.history }
       delete newHistory[blockId]
       if (state.activeBlockId !== blockId) {
@@ -1189,6 +1194,8 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
       const created = list === undefined
       const oldBefore = wasPresent ? (base[from + 1] ?? null) : undefined
       const newBefore = next[next.findIndex(e => sameServedEntry(e, entry)) + 1] ?? null
+      // What the first write stored: the undo drops the list only while it is still exactly that.
+      let written: ServedEntry[] | undefined
       const cmd: Command = {
         apply: (b, blocks) => {
           let current = servedListOf(b, itemId)
@@ -1199,13 +1206,18 @@ export const useBlockStore = create<BlockStoreState>((set, get) => ({
           }
           if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
           const placed = withServedEntryPlaced(current, entry, newBefore)
+          if (placed !== undefined && created && servedListOf(b, itemId) === undefined) written = placed
           return placed === undefined ? b : withServedList(b, itemId, placed)
         },
-        undo: b => {
-          if (created) return withServedList(b, itemId, undefined)
+        undo: (b, blocks) => {
           const current = servedListOf(b, itemId)
+          if (created && (current === undefined || (written !== undefined && sameServedList(current, written)))) {
+            return withServedList(b, itemId, undefined)
+          }
           if (!current) return b
           if (oldBefore === undefined) return withServedList(b, itemId, current.filter(e => !sameServedEntry(e, entry)))
+          // A consumer that has left since is not put back.
+          if (entry.kind === 'block' && !isServedConsumer(blocks, b.id, itemId, entry.blockId)) return b
           const placed = withServedEntryPlaced(current, entry, oldBefore)
           return placed === undefined ? b : withServedList(b, itemId, placed)
         },

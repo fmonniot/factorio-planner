@@ -1921,6 +1921,71 @@ describe('served order', () => {
     })
   })
 
+  describe('moveServed against cleanups from other blocks', () => {
+    const stored = (order: ServedEntry[]) =>
+      useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { plate: order } } : b)) }))
+    const undoOn = (id: string) => { store().setActiveBlock(id); store().undo() }
+    const redoOn = (id: string) => { store().setActiveBlock(id); store().redo() }
+
+    it('undo does not put back a consumer that has left (list created by the move)', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      store().removeInputConnection('c-B', 'B')
+      expect(listOf('S')).toEqual([blk('A'), blk('C'), extra])
+      undoOn('S')
+      expect(listOf('S')).toEqual([blk('A'), blk('C'), extra])
+    })
+
+    it('undo does not put back a consumer that has left (existing list)', () => {
+      stored([blk('A'), blk('B'), blk('C'), extra])
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      store().removeInputConnection('c-B', 'B')
+      undoOn('S')
+      expect(listOf('S')).toEqual([blk('A'), blk('C'), extra])
+    })
+
+    it('redo falls back to the end of the list when the anchor has left', () => {
+      seed(['A', 'B', 'C', 'D'])
+      stored([blk('A'), blk('B'), blk('C'), blk('D'), extra])
+      store().moveServed('S', 'plate', blk('C'), 1, shown)
+      expect(listOf('S')).toEqual([blk('A'), blk('C'), blk('B'), blk('D'), extra])
+      store().removeInputConnection('c-B', 'B')
+      undoOn('S')
+      redoOn('S')
+      expect(listOf('S')).toEqual([blk('A'), blk('D'), extra, blk('C')])
+    })
+
+    it('undo of a first move keeps a cleanup made in between instead of wiping the list', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      expect(listOf('S')).toEqual([blk('B'), blk('A'), blk('C'), extra])
+      store().removeInputConnection('c-A', 'A')
+      undoOn('S')
+      expect(listOf('S')).toEqual([blk('B'), blk('C'), extra])
+      undoOn('A')
+      expect(listOf('S')).toEqual([blk('B'), blk('A'), blk('C'), extra])
+    })
+
+    it('undo of a first move with no other change still drops the list', () => {
+      store().moveServed('S', 'plate', blk('B'), 0, shown)
+      undoOn('S')
+      expect('servedOrder' in get('S')).toBe(false)
+      redoOn('S')
+      expect(listOf('S')).toEqual([blk('B'), blk('A'), blk('C'), extra])
+    })
+  })
+
+  describe('connection cleanup repeated undo and redo', () => {
+    it('restores and removes the entry on every round', () => {
+      useBlockStore.setState(st => ({ blocks: st.blocks.map(b => (b.id === 'S' ? { ...b, servedOrder: { plate: [blk('A'), blk('B'), blk('C')] } } : b)) }))
+      store().removeInputConnection('c-B', 'B')
+      for (let i = 0; i < 3; i++) {
+        store().setActiveBlock('B'); store().undo()
+        expect(listOf('S')).toEqual([blk('A'), blk('B'), blk('C')])
+        store().redo()
+        expect(listOf('S')).toEqual([blk('A'), blk('C')])
+      }
+    })
+  })
+
   describe('copies', () => {
     it('cloneBlock drops the list', () => {
       store().moveServed('S', 'plate', blk('C'), 0, shown)

@@ -571,8 +571,8 @@ export const SourceRuleSchema = z
   })
 
 /**
- * One place in an item's served list: a consumer block, or the block's own extra output. An object so a later
- * phase can add kinds. A malformed entry rejects the plan load.
+ * One place in an item's served list: a consumer block, or the block's own extra output. An object so entries can
+ * carry other kinds. A malformed entry rejects the plan load.
  */
 export const ServedEntrySchema = z.discriminatedUnion('kind', [
   z.object({ kind: z.literal('block'), blockId: z.string().min(1) }),
@@ -586,6 +586,7 @@ export const ServedOrderSchema = z.record(z.string(), z.array(ServedEntrySchema)
 function normalizeServedOrder(order: z.output<typeof ServedOrderSchema> | undefined): z.output<typeof ServedOrderSchema> | undefined {
   if (order === undefined) return undefined
   const out: z.output<typeof ServedOrderSchema> = {}
+  let changed = Object.keys(order).length === 0
   for (const [itemId, list] of Object.entries(order)) {
     const seen = new Set<string>()
     const kept = list.filter(e => {
@@ -594,8 +595,11 @@ function normalizeServedOrder(order: z.output<typeof ServedOrderSchema> | undefi
       seen.add(key)
       return true
     })
+    if (kept.length !== list.length || kept.length === 0) changed = true
     if (kept.length > 0) Object.defineProperty(out, itemId, { value: kept, enumerable: true, writable: true, configurable: true })
   }
+  // The same object when nothing needed normalising.
+  if (!changed) return order
   return Object.keys(out).length > 0 ? out : undefined
 }
 
@@ -626,6 +630,7 @@ export const BlockSchema = z.preprocess(
   // The served list is normalised here; the key stays truly absent when there is none.
   const { servedOrder, ...rest } = block
   const served = normalizeServedOrder(servedOrder)
+  if (rootPlan === block.rootPlan && served === servedOrder) return block
   return { ...rest, rootPlan, ...(served === undefined ? {} : { servedOrder: served }) }
 })
 
