@@ -826,7 +826,7 @@ interface UnsatisfiedItem {
 type SolverWarning =
   | { type: 'no-recipe'; itemId: string }
   | { type: 'duplicate-recipe'; recipeId: string; count: number; areaId?: string }  // areaId only with areas
-  | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the pins conflict (the elastic solve failed too); absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
+  | { type: 'infeasible-pins'; recipeIds: string[]; conflict?: true }  // conflict: the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins), values arbitrary; absent: the pins hold and products fall short, recipeIds are the pins that bind where the solver can tell, else all
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
   | { type: 'coproduct-driven'; drivers: { recipeId: string; itemIds: string[]; throughput: number; needed: number }[] }  // executions/min summed over the recipe's rows: its rate, and what its other outputs need
   | { type: 'area-shortfall'; shortfalls: { areaId: string; itemId: string; rate: number }[] }

@@ -1783,6 +1783,16 @@ describe('solveAll — requests', () => {
       expect(list.consumers[1].got).toBeCloseTo(0, 4)
     })
 
+    it('clamps a request to the connection limit, so the limit is not a shortfall of the source', () => {
+      const all = solveAll([
+        smelter('A', [prod('plate', 10)]),
+        gearmaker('B', 25, [{ ...link('cb', 'A'), maxRate: 30 }]),
+      ], requestGameData())
+      const [b] = all.served.A.plate.consumers
+      expect(b.share).toBeCloseTo(30, 4)
+      expect(b.got).toBeCloseTo(30, 4)
+    })
+
     it('is empty with no consumers or only a missing source', () => {
       expect(solveAll([smelter()], requestGameData()).served).toEqual({})
       expect(solveAll([gearmaker('B', 25, [link('c1', 'ghost')])], requestGameData()).served).toEqual({})

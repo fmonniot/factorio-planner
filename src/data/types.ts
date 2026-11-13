@@ -65,7 +65,7 @@ export type SolverWarning =
   | {
       type: 'infeasible-pins'
       recipeIds: string[]
-      /** true when the pins conflict (the elastic solve failed too): values are arbitrary. Absent: the pins hold and products fall short; recipeIds are the pins that bind where the solver could tell, else all */
+      /** true when the elastic solve failed too (the pins conflict, or a locked item cannot be made whatever the pins): values are arbitrary. Absent: the pins hold and products fall short; recipeIds are the pins that bind where the solver could tell, else all */
       conflict?: true
     }
   | { type: 'overconstrained'; surplusItems: { itemId: string; rate: number }[] }
