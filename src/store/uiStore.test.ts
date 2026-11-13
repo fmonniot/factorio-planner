@@ -273,7 +273,7 @@ describe('Comes from popover and connection menu', () => {
 
   it('opens the popover for an item at an anchor, replaces it for another item, and closes', () => {
     useUiStore.getState().openComesFrom('iron-ore', anchor)
-    expect(useUiStore.getState().comesFromPopover).toEqual({ itemId: 'iron-ore', anchor })
+    expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'iron-ore', anchor })
     useUiStore.getState().openComesFrom('slag', anchor)
     expect(useUiStore.getState().comesFromPopover).toMatchObject({ itemId: 'slag' })
     useUiStore.getState().closeComesFrom()

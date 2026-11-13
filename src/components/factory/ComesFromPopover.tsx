@@ -132,7 +132,7 @@ export function ComesFromPopover({ hasSlot }: {
           </svg>
         </button>
       </div>
-      <ComesFrom itemId={popover.itemId} />
+      <ComesFrom key={`${popover.itemId}:${popover.seq ?? 0}`} itemId={popover.itemId} initialListOpen={popover.list} />
       {hasSlot(popover.itemId) && (
         <button
           type="button"

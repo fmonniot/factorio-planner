@@ -71,9 +71,12 @@ export interface UiStoreState {
    * At most one is open; opening another replaces it. It holds for any item of the active block, whether or not the item
    * has an Ingredients slot, and it closes with a block change.
    */
-  comesFromPopover: { itemId: string; anchor: PopoverAnchor } | null
-  openComesFrom: (itemId: string, anchor: PopoverAnchor) => void
+  comesFromPopover: { itemId: string; anchor: PopoverAnchor; /** The Sources list is open in it. */ list?: boolean; /** Changes with every request, so a second one for the same item is told from the first. */ seq?: number } | null
+  openComesFrom: (itemId: string, anchor: PopoverAnchor, opts?: { list?: boolean }) => void
   closeComesFrom: () => void
+  /** Where the Sources list last drew *Make more here* against the block lines, by `blockId:itemId`. Session only, not persisted and not part of the rule: every surface that shows the list agrees. */
+  sourcesSides: Record<string, 'above' | 'below'>
+  setSourcesSide: (blockId: string, itemId: string, side: 'above' | 'below') => void
   /**
    * The connection menu (`ConnectionMenu`) for an item of the active block, at viewport coordinates. It is a store
    * request because two places open it: the Ingredients slot (strip and right-click) and the Comes from control (the
@@ -109,6 +112,7 @@ export type PanelHighlightSection = 'machine' | 'beacons'
 export const HIGHLIGHT_MS = 1600
 let highlightSeq = 0
 let ingredientSlotSeq = 0
+let comesFromSeq = 0
 
 export const useUiStore = create<UiStoreState>()((set) => ({
   rateUnit: 'min',
@@ -146,7 +150,9 @@ export const useUiStore = create<UiStoreState>()((set) => ({
   openIngredientSlot: (itemId) => set({ ingredientSlotRequest: { seq: (ingredientSlotSeq += 1), itemId } }),
   clearIngredientSlotRequest: (seq) => set(state => (state.ingredientSlotRequest?.seq === seq ? { ingredientSlotRequest: null } : state)),
   comesFromPopover: null,
-  openComesFrom: (itemId, anchor) => set({ comesFromPopover: { itemId, anchor } }),
+  openComesFrom: (itemId, anchor, opts) => set({ comesFromPopover: { itemId, anchor, seq: ++comesFromSeq, ...(opts?.list ? { list: true } : {}) } }),
+  sourcesSides: {},
+  setSourcesSide: (blockId, itemId, side) => set(state => state.sourcesSides[`${blockId}:${itemId}`] === side ? state : { sourcesSides: { ...state.sourcesSides, [`${blockId}:${itemId}`]: side } }),
   closeComesFrom: () => set(state => (state.comesFromPopover === null ? state : { comesFromPopover: null })),
   connectionMenu: null,
   openConnectionMenu: (itemId, x, y) => set({ connectionMenu: { itemId, x, y } }),
