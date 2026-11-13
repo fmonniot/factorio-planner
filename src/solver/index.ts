@@ -818,7 +818,19 @@ function computeRequests(
         rankedTake.set(e.connection.id, { pair, position })
         if (takeOf.get(e.blockId)?.has(pair.itemId)) return
         const byItem = rankedTakeOf.get(e.blockId) ?? new Map<string, BlockConnection[]>()
-        byItem.set(pair.itemId, [...(byItem.get(pair.itemId) ?? []), e.connection])
+        if (byItem.has(pair.itemId)) return
+        // All the consumer's takes of the item, in connection order: its other sources come out of its need in
+        // that order, as they do at supply, so a ranked take does not hide what an earlier one still covers.
+        const consumer = byId.get(e.blockId)!
+        const seen = new Set<string>()
+        const takes: BlockConnection[] = []
+        for (const c of consumer.inputConnections) {
+          if (c.itemId !== pair.itemId || !byId.has(c.fromBlockId) || selfConnectionIds.has(c.id)) continue
+          if (seen.has(c.fromBlockId)) continue
+          seen.add(c.fromBlockId)
+          if (!applicableIds.has(c.id)) takes.push(c)
+        }
+        byItem.set(pair.itemId, takes)
         rankedTakeOf.set(e.blockId, byItem)
       })
       for (const u of pair.unlisted) {
@@ -853,9 +865,20 @@ function computeRequests(
       }
     }
   }
+  const depById = new Map(depBlocks.map(b => [b.id, b]))
+  // A take-only consumer's other sources of a ranked item (see `rankedTakeOf`) are processed before it too.
+  for (const [consumerId, items] of rankedTakeOf) {
+    for (const [itemId, takes] of items) {
+      for (const t of takes) {
+        if (rankedTake.has(t.id) || reaches(depConsumers, consumerId, t.fromBlockId)) continue
+        depById.get(consumerId)!.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
+        depConsumers.set(t.fromBlockId, [...(depConsumers.get(t.fromBlockId) ?? []), consumerId])
+        takeSources.add(t.fromBlockId)
+      }
+    }
+  }
   // Ranked pairs: the source before its listed takes, the listed takes in rank order, the listed takes before the
   // takes-first consumers the list does not name. An edge that would close a cycle is left out.
-  const depById = new Map(depBlocks.map(b => [b.id, b]))
   const orderEdge = (from: string, to: string, itemId: string, id: string): void => {
     if (reaches(depConsumers, from, to) || reaches(depConsumers, to, from)) return
     depById.get(to)!.inputConnections.push({ id, itemId, fromBlockId: from })

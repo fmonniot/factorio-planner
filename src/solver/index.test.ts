@@ -2877,4 +2877,92 @@ describe('solveAll — served lists', () => {
       expect(served.extra?.got).toBeCloseTo(Math.min(10, 45 - total), 6)
     })
   })
+
+  describe('what a list leaves undone (review of T4)', () => {
+    const mixRecipe = recipe('mix', 1, [{ itemId: 'slag', type: 'item', amount: 1 }, { itemId: 'plate', type: 'item', amount: 1 }], [product('mixed', 1)])
+    const gpRecipe = recipe('gp', 1, [{ itemId: 'gear', type: 'item', amount: 1 }, { itemId: 'plate', type: 'item', amount: 1 }], [product('widget', 1)])
+    const dataWith = (): GameData => {
+      const data = listData()
+      data.recipes.mix = mixRecipe
+      data.recipes.gp = gpRecipe
+      return data
+    }
+
+    // Limitation of the request pass (the Risks rule of phase 3): H requests slag from T, so H is processed before T,
+    // and the credit of H's take of the plate needs T processed. The take of the first-listed H gets no credit.
+    // T runs twin 10 times (H asks 10 slag) and leaves 10 plate. H needs 10 plate, H2 (gear 5) needs 10. The list
+    // [H, H2] would give all 10 to H. The result: H share 0 and 0 received, H2 share 10 and 10 received.
+    it('limitation: a listed take whose consumer requests from the same source is credited nothing', () => {
+      const t = withList(block('T', [prod('slag')], [planNode('t', 'twin')]), 'plate', listOf('H', 'H2'))
+      const h = block('H', [prod('mixed', 10)], [planNode('m', 'mix')], [link('cs', 'T', 'slag'), link('cp', 'T', 'plate')])
+      const h2 = block('H2', [prod('gear', 5)], [planNode('g', 'gear')], [link('c2', 'T', 'plate')])
+      const all = solveAll([t, h, h2], dataWith())
+      expect(flowOf(all, 'cp')).toMatchObject({ status: 'limited' })
+      expect(flowOf(all, 'cp').rate).toBeCloseTo(0, 4)
+      expect(flowOf(all, 'c2').rate).toBeCloseTo(10, 4)
+      const plate = all.served.T.plate
+      expect(plate.consumers.map(c => c.blockId)).toEqual(['H', 'H2'])
+      expect(plate.consumers[0].share).toBeCloseTo(0, 4)
+      expect(plate.consumers[1].share).toBeCloseTo(10, 4)
+    })
+
+    // Same limitation, seen from a takes-first consumer the list does not name. T leaves 25 plate (twin 25). H takes
+    // plate (listed) and makes the gear U requests: 10 gear need 20 plate. U makes 10 widgets (10 gear + 10 plate),
+    // takes plate from T and requests plate from V. U requests from H, so U is processed before H, and H (listed)
+    // has no credit yet: U is credited 0 and asks V for all 10 plate, although 25 - 20 = 5 of T's would do.
+    it('limitation: an unlisted takes-first consumer reached before a listed take is credited nothing', () => {
+      const t = withList(block('T', [prod('slag', 25)], [planNode('t', 'twin')]), 'plate', listOf('H'))
+      const h = block('H', [prod('gear')], [planNode('g', 'gear')], [link('ch', 'T')])
+      const u = block('U', [prod('widget', 10)], [planNode('w', 'gp')], [link('cg', 'H', 'gear'), link('cut', 'T'), link('cv', 'V')])
+      const v = block('V', [prod('plate')], [planNode('v', 'plate')])
+      const all = solveAll([t, h, u, v], dataWith())
+      expect(flowOf(all, 'ch').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cv').requested).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'cut').rate).toBeCloseTo(0, 4)
+      expect(all.served.T.plate.consumers.find(c => c.blockId === 'U')?.share).toBeCloseTo(0, 4)
+    })
+
+    // A take-only consumer takes the item from two sources: U (not ranked, 20 plate left) first, then T (listed).
+    // The credit of the ranked take counts what U still covers, as the supply does: H drains U, and H2 gets T's 20.
+    it("a ranked take counts the consumer's earlier takes of the item", () => {
+      const mk = (list?: ServedEntry[]) => {
+        const t = block('T', [prod('slag', 20)], [planNode('t', 'twin')])
+        return [
+          list ? withList(t, 'plate', list) : t,
+          block('U', [prod('slag', 20)], [planNode('u', 'twin')]),
+          block('H', [prod('gear', 10)], [planNode('g', 'gear')], [link('cu', 'U'), link('ct', 'T')]),
+          block('H2', [prod('gear', 10)], [planNode('g', 'gear')], [link('c2', 'T')]),
+        ]
+      }
+      for (const list of [undefined, listOf('H', 'H2')]) {
+        const all = solveAll(mk(list), listData())
+        expect(flowOf(all, 'cu').rate).toBeCloseTo(20, 4)
+        expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
+        expect(flowOf(all, 'c2').rate).toBeCloseTo(20, 4)
+      }
+    })
+
+    // A list moves the request-pass order of blocks it ranks, and so the credits they get from other sources.
+    // S leaves 5 plate; K1 and K2 each need 5 plate and 5 slag (mixed 5), take plate from S and request it from V.
+    // T leaves 10 slag. No list: K1 is first in plan order and is credited S's 5, K2 asks V for 5. A list on T's slag
+    // [K2, K1] puts K2 first in the request pass: K2 is credited S's 5 and K1 asks V for 5.
+    it("a list on one source can move the credits of another source's takes-first consumers", () => {
+      const mk = (list?: ServedEntry[]) => {
+        const t = block('T', [prod('plate', 10)], [planNode('t', 'twin')])
+        const k = (id: string) => block(id, [prod('mixed', 5)], [planNode('m', 'mix')], [link(`s${id}`, 'S'), link(`t${id}`, 'T', 'slag'), link(`v${id}`, 'V')])
+        return [
+          list ? withList(t, 'slag', list) : t,
+          block('S', [prod('slag', 5)], [planNode('s', 'twin')]),
+          k('K1'), k('K2'),
+          block('V', [prod('plate')], [planNode('v', 'plate')]),
+        ]
+      }
+      const plain = solveAll(mk(), dataWith())
+      expect(flowOf(plain, 'vK1').requested ?? 0).toBeCloseTo(0, 4)
+      expect(flowOf(plain, 'vK2').requested).toBeCloseTo(5, 4)
+      const ranked = solveAll(mk(listOf('K2', 'K1')), dataWith())
+      expect(flowOf(ranked, 'vK2').requested ?? 0).toBeCloseTo(0, 4)
+      expect(flowOf(ranked, 'vK1').requested).toBeCloseTo(5, 4)
+    })
+  })
 })
