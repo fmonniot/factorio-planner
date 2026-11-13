@@ -145,6 +145,75 @@ describe('v2 solver — pinned rates', () => {
     if (pinWarnings[0]?.type === 'infeasible-pins') {
       expect(pinWarnings[0].recipeIds).toContain('iron-plate')
     }
+    // The elastic solve keeps the pin: the goal is short by what the pin cannot make.
+    expect(result.nodes[0].throughput).toBeCloseTo(40, 6)
+    expect(result.unsatisfied).toEqual([{ itemId: 'iron-plate', rate: 20 }])
+  })
+
+  describe('elastic goals', () => {
+    // gear ← 2 plate; plate is locked (no import) and its only row is pinned.
+    const data = makeGameData({
+      recipes: {
+        plate: recipe('plate', 1, [], [product('plate', 1)]),
+        gear: recipe('gear', 1, [item('plate', 2)], [product('gear', 1)]),
+      },
+    })
+    const system = () => buildClassifiedSystem(data, ['plate', 'gear'], new Map([['gear', 25]]))
+    const locked = new Set(['plate'])
+
+    it('reports the shortfall of each goal and keeps a lock', () => {
+      const lp = solveLP(system(), new Map([['plate', 30]]), new Set(), locked)
+      expect(lp.feasible).toBe(true)
+      expect(lp.throughput.get('plate')).toBe(30)
+      expect(lp.throughput.get('gear')).toBeCloseTo(15, 6)
+      expect(lp.shortfall.get('gear')).toBeCloseTo(10, 6)
+      expect(lp.slack.size).toBe(0)
+      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plate'] }])
+    })
+
+    it('reports no shortfall when the plain LP is feasible', () => {
+      const lp = solveLP(system(), new Map([['plate', 60]]), new Set(), locked)
+      expect(lp.feasible).toBe(true)
+      expect(lp.shortfall.size).toBe(0)
+      expect(lp.warnings).toEqual([])
+    })
+
+    it('keeps goals and recipes apart whose names sanitise alike', () => {
+      // `iron-plate` and `iron_plate` share an LP name, as does the recipe `short-iron-plate` with an
+      // item-based shortfall name; each goal still gets its own shortfall.
+      const twins = makeGameData({
+        recipes: {
+          'short-iron-plate': recipe('short-iron-plate', 1, [], [product('iron-plate', 1)]),
+          other: recipe('other', 1, [], [product('iron_plate', 1)]),
+        },
+      })
+      const sys = buildClassifiedSystem(twins, ['short-iron-plate', 'other'], new Map([['iron-plate', 30], ['iron_plate', 20]]))
+      const lp = solveLP(sys, new Map([['short-iron-plate', 10], ['other', 5]]))
+      expect(lp.feasible).toBe(true)
+      expect(lp.throughput.get('short-iron-plate')).toBe(10)
+      expect(lp.shortfall.get('iron-plate')).toBeCloseTo(20, 6)
+      expect(lp.shortfall.get('iron_plate')).toBeCloseTo(15, 6)
+    })
+
+    it('stays feasible with many short goals', () => {
+      // 40 goals, each from its own pinned row at a third of its rate: the bound on the total shortfall
+      // must leave room for the solver's rounding of every term.
+      const n = 40
+      const recipes = Object.fromEntries(Array.from({ length: n }, (_, i) => [`r${i}`, recipe(`r${i}`, 1, [], [product(`i${i}`, 1)])]))
+      const sys = buildClassifiedSystem(makeGameData({ recipes }), Object.keys(recipes), new Map(Array.from({ length: n }, (_, i) => [`i${i}`, 1 + i / 7])))
+      const lp = solveLP(sys, new Map(Array.from({ length: n }, (_, i) => [`r${i}`, (1 + i / 7) / 3])))
+      expect(lp.feasible).toBe(true)
+      for (let i = 0; i < n; i++) expect(lp.shortfall.get(`i${i}`)).toBeCloseTo((2 * (1 + i / 7)) / 3, 6)
+    })
+
+    it('keeps the plain infeasible result when pins conflict whatever the goals', () => {
+      // The gear row is pinned at 25 too: it needs 50 locked plate and only 30 are made, so no shortfall
+      // of the gear goal can help.
+      const lp = solveLP(system(), new Map([['plate', 30], ['gear', 25]]), new Set(), locked)
+      expect(lp.feasible).toBe(false)
+      expect(lp.shortfall.size).toBe(0)
+      expect(lp.warnings).toEqual([{ type: 'infeasible-pins', recipeIds: ['plate', 'gear'] }])
+    })
   })
 
   it('removing the pin resolves the plan cleanly', () => {

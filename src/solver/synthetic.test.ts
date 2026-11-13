@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
-import { solve, solveBlock, flattenBlock } from './index'
+import { solve, solveAll, solveBlock, flattenBlock } from './index'
 import type { Block, GameData, GameRecipeNode, Machine, SolverGoal, RecipeNode, SolvedArea, SolverResult, SourceRule, SubPlan } from '../data/types'
 
 // Synthetic fixtures mirroring the recipes of spec/test-synthetic.md (Nullius item ids and coefficients).
@@ -113,6 +113,8 @@ function recipes(): GameRecipe[] {
     recipe('case11-make-goal', 'smelting', 1, [item('case11-ore', 1)], [item('case11-goal', 1), item('case11-x', 1)]),
     recipe('case11-use-x', 'smelting', 1, [item('case11-x', 1)], [item('case11-other', 1)]),
     recipe('case11-make-x', 'smelting', 1, [item('case11-feed', 1)], [item('case11-x', 2)]),
+    recipe('case13-make-plate', 'smelting', 1, [item('case13-ore', 1)], [item('case13-plate', 1)]),
+    recipe('case13-use-plate', 'smelting', 1, [item('case13-plate', 1)], [item('case13-gear', 1)]),
   ]
 }
 
@@ -588,5 +590,67 @@ describe('solver synthetic cases', () => {
         }
       })
     }
+  })
+  describe('case 13: a source that holds its capacity', () => {
+    // A pinned row is the only producer of the goal item. When the pin cannot meet the goal, the plain LP
+    // is infeasible and the elastic solve keeps the pin: the goal reports what it lacks.
+    const plateBlock = (withAreas: boolean, pin: number, goal: number): Block => {
+      const row = { ...rowIn('case13-make-plate', withAreas ? 'S' : 'root'), pinnedRate: pin }
+      return {
+        id: 'source',
+        name: 'Source',
+        color: '#60a5fa',
+        products: [{ id: 'p0', itemId: 'case13-plate', extraRate: goal }],
+        sourceRules: {},
+        inputConnections: [],
+        rootPlan: withAreas ? subPlan('root', [], [subPlan('S', [row], [], true)]) : subPlan('root', [row]),
+      }
+    }
+    const cases: Array<[string, number, number, number, number, boolean]> = [
+      // pin, goal, row runs at, plate short, infeasible-pins
+      ['a: pin below the goal', 10, 30, 10, 20, true],
+      ['b: pin at the goal', 10, 10, 10, 0, false],
+      ['c: pin above the goal', 40, 30, 40, 0, false],
+    ]
+    for (const withAreas of [false, true]) {
+      describe(withAreas ? 'with areas' : 'without areas', () => {
+        for (const [name, pin, goal, runs, short, warns] of cases) {
+          it(name, () => {
+            const { result } = solveBlock(flattenBlock(plateBlock(withAreas, pin, goal)), makeGameData())
+            const id = `case13-make-plate@${withAreas ? 'S' : 'root'}`
+            expect(nodeOf(result, id).throughput, 'the pin holds').toBeCloseTo(runs, 6)
+            expect(unsatisfiedRate(result, 'case13-plate') ?? 0, 'plate short').toBeCloseTo(short, 6)
+            expect(result.warnings.some(w => w.type === 'infeasible-pins'), 'infeasible-pins').toBe(warns)
+          })
+        }
+      })
+    }
+
+    it('d: serves the requests in solve order and the extra last when the source is short (solveAll)', () => {
+      // Source: extra 10 and requests of 30 (B, solved first) and 20 (C); the pin makes 45 of the 60 asked.
+      const source: Block = { ...plateBlock(false, 45, 10), id: 'A', name: 'A' }
+      const consumer = (id: string, gears: number): Block => ({
+        id,
+        name: id,
+        color: '#60a5fa',
+        products: [{ id: `p-${id}`, itemId: 'case13-gear', extraRate: gears }],
+        sourceRules: {},
+        inputConnections: [{ id: `c-${id}`, itemId: 'case13-plate', fromBlockId: 'A' }],
+        rootPlan: subPlan(`root-${id}`, [planNode('case13-use-plate')]),
+      })
+      const all = solveAll([source, consumer('B', 30), consumer('C', 20)], makeGameData())
+      const flow = (id: string) => all.flows.find(f => f.connectionId === id)!
+      expect(nodeOf(all.results.A, 'case13-make-plate@root').throughput, 'A makes 45').toBeCloseTo(45, 6)
+      expect(unsatisfiedRate(all.results.A, 'case13-plate'), 'A is short by 15').toBeCloseTo(15, 6)
+      expect(flow('c-B').requested).toBeCloseTo(30, 6)
+      expect(flow('c-B').rate, 'B gets its 30').toBeCloseTo(30, 6)
+      expect(flow('c-B').status).toBe('ok')
+      expect(flow('c-C').requested).toBeCloseTo(20, 6)
+      expect(flow('c-C').rate, 'C gets 15 of 20').toBeCloseTo(15, 6)
+      expect(flow('c-C').status).toBe('limited')
+      expect(unsatisfiedRate(all.results.C, 'case13-plate'), 'C imports the other 5').toBeCloseTo(5, 6)
+      // The extra gives way first: nothing of A's 45 is left for it.
+      expect(all.results.A.warnings).toContainEqual({ type: 'infeasible-pins', recipeIds: ['case13-make-plate'] })
+    })
   })
 })

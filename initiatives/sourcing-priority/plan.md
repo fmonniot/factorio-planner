@@ -14,7 +14,7 @@ Replace the three sourcing modes, the import lock and the implicit ordering rule
 - **Rules can attach to an area.** An area rule overrides its block's rule. That gives per-consumer control and settles how connections interact with local-first, with no new concept.
 - **Sharing is explicit too.** A source lists who it serves, in order, and how consumers of the same rank share a shortage. That replaces three hidden rules: block order, loop member order and extra output giving way first. Connection order, the fourth, becomes the visible order of the *Other blocks* lines.
 
-This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md) and those of the second in [phase-2.md](phase-2.md). [phase-3.md](phase-3.md) has what the code says, its decisions and a draft of its tickets, which waits on a spike. Each later phase has a short doc with its scope and what to settle before it is ticketed: [4](phase-4.md), [5](phase-5.md), [6](phase-6.md). What planning phases 2 and 3 found is under [Findings of 2026-11-11](#findings-of-2026-11-11); two of the findings correct this document.
+This plan is a design from the specs and the code. Nothing was prototyped beyond the one measurement recorded under Decisions, so the solver cost in the last sections is an estimate. The decisions that shaped it are listed under [Decisions](#decisions); the tickets of the first phase are in [phase-1.md](phase-1.md) and those of the second in [phase-2.md](phase-2.md). [phase-3.md](phase-3.md) has what the code says, its decisions, the report of its spike (T1) and its tickets. Each later phase has a short doc with its scope and what to settle before it is ticketed: [4](phase-4.md), [5](phase-5.md), [6](phase-6.md). What planning phases 2 and 3 found is under [Findings of 2026-11-11](#findings-of-2026-11-11); two of the findings correct this document.
 
 ## How sourcing works today
 
@@ -142,7 +142,7 @@ Iron plate: served in this order
 3  Extra output
 ```
 
-Shortages are rare on requests, which make the source produce what is asked. The list matters most for takes of a finite byproduct and inside loops. A connection limit still caps one consumer whatever its rank. Rarer than this paragraph assumed: today a source is never partly short, so the example above needs a solver change first ([phase 3](phase-3.md#a-source-is-never-partly-short)).
+Shortages are rare on requests, which make the source produce what is asked. The list matters most for takes of a finite byproduct and inside loops. A connection limit still caps one consumer whatever its rank. Rarer than this paragraph assumed: a source was never partly short until phase 3's T1 let a pinned or locked source hold its capacity ([phase 3](phase-3.md#spike-report-t1)).
 
 ## Keeping the power
 
@@ -255,6 +255,6 @@ From planning phases 2 and 3: a reading of the solver and two throwaway `solveBl
 | At block scope a rule is two parts: where *Make more here* sits (three positions) and whether Import is on. The presets are the three positions. | [phase 2](phase-2.md#what-the-measurement-changed) | In phase 2 **Sources…** shows the list and the connections; it cannot make a rule the presets cannot. The first such rules come with phase 5. |
 | *Don't make more here* with Import off cannot be a hard constraint: the LP then runs a row for the item, or is infeasible. | [phase 2](phase-2.md#what-each-rule-does-in-the-solver) | The pair keeps its slack and shows what is missing. |
 | Under *Don't make more here*, two sentences of phase 1 say a row makes the rest. It does not; the rest is imported. | [phase 2](phase-2.md#sentences) | Fixed in phase 2. |
-| A source is never short by a definite amount: with a row pinned below its goal the LP is infeasible and the row runs at the goal. | [phase 3](phase-3.md#a-source-is-never-partly-short) | Ranks among requests, the extra output line and phase 4's shares have nothing to act on until a source can hold at a capacity. Phase 3 starts with a spike on that. |
+| A source is never short by a definite amount: with a row pinned below its goal the LP is infeasible and the row runs at the goal. | [phase 3](phase-3.md#a-source-is-never-partly-short) | Ranks among requests, the extra output line and phase 4's shares have nothing to act on until a source can hold at a capacity. Phase 3 starts with a spike on that; it succeeded ([T1](phase-3.md#spike-report-t1)). |
 | Take credits are handed out in request-pass order: a fourth hidden order on the source side. | [phase 3](phase-3.md#where-the-order-is-read) | The served list has to replace it too. |
 | With a share for every listed consumer, a group's split is arithmetic, not a second solve. Not prototyped. | [phase 4](phase-4.md#what-phase-3s-reading-of-the-code-adds) | Phase 4 may cost less than its "Large". |
