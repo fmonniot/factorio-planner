@@ -3,7 +3,7 @@ import { solve, solveBlock, solveAll, backOffersSettled, flattenBlock, blockMake
 import { coproductDrivenWarning, itemGrossFlow, pass2Plan } from './blockResult'
 import type { LoopShape } from './blockGraph'
 import { createSolveCache } from './solveCache'
-import type { GameData, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
+import type { GameData, ServedEntry, GameRecipeNode, Product, SolverGoal, RecipeNode, Block, SubPlan } from '../data/types'
 
 // Delegates to the real function; lets a test read the set of items the warning is told cannot be imported.
 vi.mock('./blockResult', async importOriginal => {
@@ -728,20 +728,27 @@ describe('solveAll', () => {
   const link = (id: string, from: string, itemId = 'plate') => ({ id, itemId, fromBlockId: from })
   const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
 
-  it('does not read servedOrder yet', () => {
-    const plain = () => [
-      block('A', plateGoal(60), [planNode('p', 'twin')]),
+  it('serves takes by rank: C, ranked first, gets the leftover B used to take', () => {
+    const plan = (list?: ServedEntry[]) => [
+      { ...block('A', plateGoal(60), [planNode('p', 'twin')]), ...(list ? { servedOrder: { plate: list } } : {}) },
       block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
       block('C', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
     ]
-    const ranked = plain()
-    ranked[0] = { ...ranked[0], servedOrder: { plate: [{ kind: 'extra' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'B' }] } }
-    expect(flattenBlock(ranked[0])).toEqual(flattenBlock(plain()[0]))
-    const a = solveAll(plain(), connectionGameData())
-    const b = solveAll(ranked, connectionGameData())
-    expect(b.results).toEqual(a.results)
-    expect(b.flows).toEqual(a.flows)
-    expect(b.served).toEqual(a.served)
+    const plain = solveAll(plan(), connectionGameData())
+    expect(flowOf(plain, 'c1')).toMatchObject({ status: 'ok' })
+    expect(flowOf(plain, 'c1').rate).toBeCloseTo(60, 4)
+    expect(flowOf(plain, 'c2')).toMatchObject({ rate: 0, status: 'limited' })
+    // The extra is ignored: A has no plate product.
+    const ranked = solveAll(plan([{ kind: 'extra' }, { kind: 'block', blockId: 'C' }, { kind: 'block', blockId: 'B' }]), connectionGameData())
+    expect(flowOf(ranked, 'c1')).toMatchObject({ rate: 0, status: 'limited' })
+    expect(flowOf(ranked, 'c2')).toMatchObject({ status: 'ok' })
+    expect(flowOf(ranked, 'c2').rate).toBeCloseTo(60, 4)
+    const list = ranked.served.A.plate
+    expect(list.consumers.map(c => [c.blockId, c.kind])).toEqual([['C', 'take'], ['B', 'take']])
+    expect(list.consumers[0].share).toBeCloseTo(60, 4)
+    expect(list.consumers[0].got).toBeCloseTo(60, 4)
+    expect(list.consumers[1].share).toBeCloseTo(0, 4)
+    expect(list.extra).toBeUndefined()
   })
 
   it('feeds the consumer from the source and reports an ok flow', () => {
@@ -2660,5 +2667,302 @@ describe('solve — coproduct-driven warning', () => {
     expect(w.drivers).toHaveLength(2)
     const total = w.drivers.reduce((sum, d) => sum + d.needed, 0)
     expect(total).toBeCloseTo(1.2, 3)
+  })
+})
+
+describe('solveAll — served lists', () => {
+  const kitRecipe = recipe('kit', 1, [{ itemId: 'plate', type: 'item', amount: 1 }, { itemId: 'gear', type: 'item', amount: 1 }], [product('kit', 1)])
+  const listData = (): GameData => {
+    const data = connectionGameData()
+    data.recipes.kit = kitRecipe
+    return data
+  }
+  const block = (id: string, products: Product[], nodes: RecipeNode[], connections: Block['inputConnections'] = [], extra: Partial<Block> = {}): Block =>
+    ({ ...makeBlock(makeSubPlan(`root-${id}`, nodes), products), id, name: id, inputConnections: connections, ...extra })
+  const prod = (itemId: string, extra?: number): Product => ({ id: `p-${itemId}`, itemId, ...(extra !== undefined ? { extraRate: extra } : {}) })
+  const link = (id: string, from: string, itemId = 'plate', extra: object = {}) => ({ id, itemId, fromBlockId: from, ...extra })
+  const flowOf = (all: ReturnType<typeof solveAll>, id: string) => all.flows.find(f => f.connectionId === id)!
+  const listOf = (...names: string[]): ServedEntry[] =>
+    names.map((n): ServedEntry => (n === 'extra' ? { kind: 'extra' } : { kind: 'block', blockId: n }))
+  const withList = (b: Block, itemId: string, list: ServedEntry[]): Block => ({ ...b, servedOrder: { [itemId]: list } })
+  const sameAs = (a: ReturnType<typeof solveAll>, b: ReturnType<typeof solveAll>) => {
+    expect(a.results).toEqual(b.results)
+    expect(a.flows).toEqual(b.flows)
+    expect(a.served).toEqual(b.served)
+    expect(a.loops).toEqual(b.loops)
+    expect(a.requestLoops).toEqual(b.requestLoops)
+  }
+
+  describe('a take the request pass reaches before the take it is ranked under', () => {
+    // T leaves 25 plate over. Hi makes gear (no extra); Hj makes 10 kits from plate (T) and gear (a request to Hi).
+    const plan = (list?: ServedEntry[]): Block[] => [
+      list ? withList(block('T', [prod('slag', 25)], [planNode('t', 'twin')]), 'plate', list) : block('T', [prod('slag', 25)], [planNode('t', 'twin')]),
+      block('Hi', [prod('gear')], [planNode('g', 'gear')], [link('ci', 'T')]),
+      block('Hj', [prod('kit', 10)], [planNode('k', 'kit')], [link('cj', 'T'), link('cg', 'Hi', 'gear')]),
+    ]
+    it('a lower-ranked take that the request pass reaches first gets no credit', () => {
+      const all = solveAll(plan(listOf('Hi', 'Hj')), listData())
+      const t = all.served.T.plate
+      expect(t.consumers.map(c => c.blockId)).toEqual(['Hi', 'Hj'])
+      expect(t.consumers[0].share).toBeCloseTo(20, 4)
+      expect(t.consumers[0].got).toBeCloseTo(20, 4)
+      expect(t.consumers[1].share).toBeCloseTo(0, 4)
+      expect(t.consumers[1].got).toBeCloseTo(5, 4)
+      expect(flowOf(all, 'cj').status).toBe('limited')
+      expect(rate(all.results.Hj.unsatisfied, 'plate')).toBeCloseTo(5, 4)
+      expect(flowOf(all, 'cg').rate).toBeCloseTo(10, 4)
+    })
+    it('ranks a take above another against the request-pass order', () => {
+      const all = solveAll(plan(listOf('Hj', 'Hi')), listData())
+      expect(flowOf(all, 'cj')).toMatchObject({ status: 'ok' })
+      expect(flowOf(all, 'cj').rate).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'ci')).toMatchObject({ status: 'limited' })
+      expect(flowOf(all, 'ci').rate).toBeCloseTo(15, 4)
+      expect(rate(all.results.Hi.unsatisfied, 'plate')).toBeCloseTo(5, 4)
+      const t = all.served.T.plate
+      expect(t.consumers.map(c => c.blockId)).toEqual(['Hj', 'Hi'])
+      expect(t.consumers[0].share).toBeCloseTo(10, 4)
+      expect(t.consumers[1].share).toBeCloseTo(15, 4)
+      const plain = solveAll(plan(), listData())
+      expect(flowOf(plain, 'ci').rate).toBeCloseTo(20, 4)
+      expect(flowOf(plain, 'cj').rate).toBeCloseTo(5, 4)
+    })
+  })
+
+  describe("a ranked request's limit", () => {
+    const plan = (list?: ServedEntry[]): Block[] => {
+      const a = block('A', [prod('plate', 10)], [pinned('p', 'plate', 35)])
+      return [
+        list ? withList(a, 'plate', list) : a,
+        block('B', [prod('gear', 15)], [planNode('g', 'gear')], [link('cb', 'A', 'plate', { maxRate: 20 })]),
+        block('C', [prod('gear', 10)], [planNode('g', 'gear')], [link('cc', 'A')]),
+      ]
+    }
+    it('no list: B 20 capped, C 15', () => {
+      const all = solveAll(plan(), listData())
+      expect(flowOf(all, 'cb')).toMatchObject({ status: 'limited', capped: true })
+      expect(flowOf(all, 'cb').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cc')).toMatchObject({ status: 'limited' })
+      expect(flowOf(all, 'cc').rate).toBeCloseTo(15, 4)
+    })
+    it('list C, B: C 20 ok, B 15 not capped', () => {
+      const all = solveAll(plan(listOf('C', 'B')), listData())
+      expect(flowOf(all, 'cc')).toMatchObject({ status: 'ok' })
+      expect(flowOf(all, 'cc').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cb')).toMatchObject({ status: 'limited', capped: false })
+      expect(flowOf(all, 'cb').rate).toBeCloseTo(15, 4)
+    })
+  })
+
+  it('a source that makes nothing serves nobody, whatever the list', () => {
+    const plan = (list?: ServedEntry[]): Block[] => {
+      const a = block('A', [prod('plate', 10)], [planNode('i', 'ingot')])
+      const g = (id: string, rate: number) => block(id, [prod('gear', rate)], [planNode('g', 'gear')], [link(`c${id}`, 'A')])
+      return [list ? withList(a, 'plate', list) : a, g('B', 25), g('C', 10)]
+    }
+    const plain = solveAll(plan(), listData())
+    const ranked = solveAll(plan(listOf('C', 'extra', 'B')), listData())
+    expect(ranked.flows).toEqual(plain.flows)
+    expect(ranked.results).toEqual(plain.results)
+    for (const f of ranked.flows) expect(f.rate).toBe(0)
+  })
+
+  describe('a list whose entries do not apply is today\'s result', () => {
+    const plan = (list?: ServedEntry[]): Block[] => {
+      const a = block('A', plateGoal(60), [planNode('p', 'twin')])
+      return [
+        list ? withList(a, 'plate', list) : a,
+        block('B', gearGoal(30), [planNode('g', 'gear')], [link('c1', 'A')]),
+        block('C', gearGoal(30), [planNode('g', 'gear')], [link('c2', 'A')]),
+      ]
+    }
+    const plateGoal = (rate: number): Product[] => [{ id: 'gp', itemId: 'slag', extraRate: rate }]
+    const gearGoal = (rate: number): Product[] => [{ id: 'gg', itemId: 'gear', extraRate: rate }]
+    it.each([['an unknown block', listOf('ghost')], ['an empty list', [] as ServedEntry[]], ['the extra of a source without one', listOf('extra')]])('%s', (_name, list) => {
+      sameAs(solveAll(plan(list), listData()), solveAll(plan(), listData()))
+    })
+  })
+
+  describe('a list on a loop member is not honoured', () => {
+    const gearOf = (id: string, links: Block['inputConnections']) => block(id, [prod('gear', 30)], [planNode('g', 'gear')], links)
+    it('a source that is in a loop', () => {
+      const plan = (list?: ServedEntry[]): Block[] => {
+        const a = block('A', [prod('slag', 60)], [planNode('p', 'twin')], [link('ca', 'B', 'gear')])
+        return [list ? withList(a, 'plate', list) : a, gearOf('B', [link('c1', 'A')]), gearOf('C', [link('c2', 'A')])]
+      }
+      const plain = solveAll(plan(), listData())
+      const ranked = solveAll(plan(listOf('C', 'B')), listData())
+      sameAs(ranked, plain)
+      expect(plain.loops.length).toBeGreaterThan(0)
+      expect(flowOf(ranked, 'c2').rate).toBe(0)
+    })
+    it('a consumer that is in a loop', () => {
+      // B and D form a cycle: B takes plate from D, D requests gear from B. A's consumers are B and C.
+      const plan = (list?: ServedEntry[]): Block[] => {
+        const a = block('A', [prod('slag', 60)], [planNode('p', 'twin')])
+        return [
+          list ? withList(a, 'plate', list) : a,
+          gearOf('B', [link('c1', 'A'), link('cd', 'D')]),
+          gearOf('C', [link('c2', 'A')]),
+          block('D', [prod('slag', 10)], [planNode('t', 'twin')], [link('cg', 'B', 'gear')]),
+        ]
+      }
+      const plain = solveAll(plan(), listData())
+      expect(plain.loops.length + plain.requestLoops.length).toBeGreaterThan(0)
+      sameAs(solveAll(plan(listOf('C', 'B')), listData()), plain)
+    })
+  })
+
+  describe('the solve cache', () => {
+    const plan = (list: ServedEntry[]): Block[] => [
+      withList(block('T', [prod('slag', 30)], [planNode('t', 'twin')]), 'plate', list),
+      block('B', [prod('gear', 10)], [planNode('g', 'gear')], [link('cb', 'T')]),
+      block('C', [prod('gear', 15)], [planNode('g', 'gear')], [link('cc', 'T')]),
+    ]
+    it('reuses every result for the same list, and only the source after a reorder', () => {
+      const cache = createSolveCache()
+      const gd = listData()
+      const first = solveAll(plan(listOf('B', 'C')), gd, cache)
+      const again = solveAll(plan(listOf('B', 'C')), gd, cache)
+      for (const id of ['T', 'B', 'C']) expect(again.results[id], id).toBe(first.results[id])
+      const reordered = solveAll(plan(listOf('C', 'B')), gd, cache)
+      expect(reordered.results.T).toBe(first.results.T)
+      expect(reordered.results.B).not.toBe(first.results.B)
+      expect(reordered.results.C).not.toBe(first.results.C)
+    })
+  })
+
+  describe('every list over a short product (invariant)', () => {
+    const names = ['B', 'C', 'D', 'extra']
+    const asks: Record<string, number> = { B: 30, C: 20, D: 10 }
+    const lists: string[][] = [[]]
+    const grow = (prefix: string[]): void => {
+      for (const n of names) {
+        if (prefix.includes(n)) continue
+        const next = [...prefix, n]
+        lists.push(next)
+        grow(next)
+      }
+    }
+    grow([])
+    it('has 65 lists', () => expect(lists).toHaveLength(65))
+    const cache = createSolveCache()
+    const gd = listData()
+    it.each(lists.map(l => [l.join(',') || '(none)', l] as const))('serves %s as the walk down the list does', (_name, list) => {
+      const a = block('A', [prod('plate', 10)], [pinned('p', 'plate', 45)])
+      const gear = (id: string, rate: number) => block(id, [prod('gear', rate)], [planNode('g', 'gear')], [link(`c${id}`, 'A')])
+      const blocks = [list.length ? withList(a, 'plate', listOf(...list)) : a, gear('B', 15), gear('C', 10), gear('D', 5)]
+      const all = solveAll(blocks, gd, cache)
+      const order = [...list.filter(n => n !== 'extra'), ...['B', 'C', 'D'].filter(n => !list.includes(n))]
+      let rest = 45
+      const got: Record<string, number> = {}
+      // The extra holds its place only when it is listed; when it is not, it gives way first.
+      for (const n of list) {
+        if (n === 'extra') rest -= Math.min(10, rest)
+        else { got[n] = Math.min(asks[n], rest); rest -= got[n] }
+      }
+      for (const n of order) if (got[n] === undefined) { got[n] = Math.min(asks[n], rest); rest -= got[n] }
+      let total = 0
+      for (const n of ['B', 'C', 'D']) {
+        const f = flowOf(all, `c${n}`)
+        total += f.rate
+        expect(f.rate, `${n} rate`).toBeCloseTo(got[n], 6)
+        expect(f.status === 'limited', `${n} limited`).toBe(got[n] < asks[n] - 1e-9)
+      }
+      expect(total).toBeLessThanOrEqual(45 + 1e-6)
+      const served = all.served.A.plate
+      expect(served.consumers.map(c => c.blockId)).toEqual(order)
+      const before = list.includes('extra') ? list.slice(0, list.indexOf('extra')).filter(n => n !== 'extra').length : 3
+      expect(served.extra?.place).toBe(Math.min(before, 3))
+      expect(served.extra?.got).toBeCloseTo(Math.min(10, 45 - total), 6)
+    })
+  })
+
+  describe('what a list leaves undone (review of T4)', () => {
+    const mixRecipe = recipe('mix', 1, [{ itemId: 'slag', type: 'item', amount: 1 }, { itemId: 'plate', type: 'item', amount: 1 }], [product('mixed', 1)])
+    const gpRecipe = recipe('gp', 1, [{ itemId: 'gear', type: 'item', amount: 1 }, { itemId: 'plate', type: 'item', amount: 1 }], [product('widget', 1)])
+    const dataWith = (): GameData => {
+      const data = listData()
+      data.recipes.mix = mixRecipe
+      data.recipes.gp = gpRecipe
+      return data
+    }
+
+    // Limitation of the request pass (the Risks rule of phase 3): H requests slag from T, so H is processed before T,
+    // and the credit of H's take of the plate needs T processed. The take of the first-listed H gets no credit.
+    // T runs twin 10 times (H asks 10 slag) and leaves 10 plate. H needs 10 plate, H2 (gear 5) needs 10. The list
+    // [H, H2] would give all 10 to H. The result: H share 0 and 0 received, H2 share 10 and 10 received.
+    it('limitation: a listed take whose consumer requests from the same source is credited nothing', () => {
+      const t = withList(block('T', [prod('slag')], [planNode('t', 'twin')]), 'plate', listOf('H', 'H2'))
+      const h = block('H', [prod('mixed', 10)], [planNode('m', 'mix')], [link('cs', 'T', 'slag'), link('cp', 'T', 'plate')])
+      const h2 = block('H2', [prod('gear', 5)], [planNode('g', 'gear')], [link('c2', 'T', 'plate')])
+      const all = solveAll([t, h, h2], dataWith())
+      expect(flowOf(all, 'cp')).toMatchObject({ status: 'limited' })
+      expect(flowOf(all, 'cp').rate).toBeCloseTo(0, 4)
+      expect(flowOf(all, 'c2').rate).toBeCloseTo(10, 4)
+      const plate = all.served.T.plate
+      expect(plate.consumers.map(c => c.blockId)).toEqual(['H', 'H2'])
+      expect(plate.consumers[0].share).toBeCloseTo(0, 4)
+      expect(plate.consumers[1].share).toBeCloseTo(10, 4)
+    })
+
+    // Same limitation, seen from a takes-first consumer the list does not name. T leaves 25 plate (twin 25). H takes
+    // plate (listed) and makes the gear U requests: 10 gear need 20 plate. U makes 10 widgets (10 gear + 10 plate),
+    // takes plate from T and requests plate from V. U requests from H, so U is processed before H, and H (listed)
+    // has no credit yet: U is credited 0 and asks V for all 10 plate, although 25 - 20 = 5 of T's would do.
+    it('limitation: an unlisted takes-first consumer reached before a listed take is credited nothing', () => {
+      const t = withList(block('T', [prod('slag', 25)], [planNode('t', 'twin')]), 'plate', listOf('H'))
+      const h = block('H', [prod('gear')], [planNode('g', 'gear')], [link('ch', 'T')])
+      const u = block('U', [prod('widget', 10)], [planNode('w', 'gp')], [link('cg', 'H', 'gear'), link('cut', 'T'), link('cv', 'V')])
+      const v = block('V', [prod('plate')], [planNode('v', 'plate')])
+      const all = solveAll([t, h, u, v], dataWith())
+      expect(flowOf(all, 'ch').rate).toBeCloseTo(20, 4)
+      expect(flowOf(all, 'cv').requested).toBeCloseTo(10, 4)
+      expect(flowOf(all, 'cut').rate).toBeCloseTo(0, 4)
+      expect(all.served.T.plate.consumers.find(c => c.blockId === 'U')?.share).toBeCloseTo(0, 4)
+    })
+
+    // A take-only consumer takes the item from two sources: U (not ranked, 20 plate left) first, then T (listed).
+    // The credit of the ranked take counts what U still covers, as the supply does: H drains U, and H2 gets T's 20.
+    it("a ranked take counts the consumer's earlier takes of the item", () => {
+      const mk = (list?: ServedEntry[]) => {
+        const t = block('T', [prod('slag', 20)], [planNode('t', 'twin')])
+        return [
+          list ? withList(t, 'plate', list) : t,
+          block('U', [prod('slag', 20)], [planNode('u', 'twin')]),
+          block('H', [prod('gear', 10)], [planNode('g', 'gear')], [link('cu', 'U'), link('ct', 'T')]),
+          block('H2', [prod('gear', 10)], [planNode('g', 'gear')], [link('c2', 'T')]),
+        ]
+      }
+      for (const list of [undefined, listOf('H', 'H2')]) {
+        const all = solveAll(mk(list), listData())
+        expect(flowOf(all, 'cu').rate).toBeCloseTo(20, 4)
+        expect(flowOf(all, 'ct').rate).toBeCloseTo(0, 4)
+        expect(flowOf(all, 'c2').rate).toBeCloseTo(20, 4)
+      }
+    })
+
+    // A list moves the request-pass order of blocks it ranks, and so the credits they get from other sources.
+    // S leaves 5 plate; K1 and K2 each need 5 plate and 5 slag (mixed 5), take plate from S and request it from V.
+    // T leaves 10 slag. No list: K1 is first in plan order and is credited S's 5, K2 asks V for 5. A list on T's slag
+    // [K2, K1] puts K2 first in the request pass: K2 is credited S's 5 and K1 asks V for 5.
+    it("a list on one source can move the credits of another source's takes-first consumers", () => {
+      const mk = (list?: ServedEntry[]) => {
+        const t = block('T', [prod('plate', 10)], [planNode('t', 'twin')])
+        const k = (id: string) => block(id, [prod('mixed', 5)], [planNode('m', 'mix')], [link(`s${id}`, 'S'), link(`t${id}`, 'T', 'slag'), link(`v${id}`, 'V')])
+        return [
+          list ? withList(t, 'slag', list) : t,
+          block('S', [prod('slag', 5)], [planNode('s', 'twin')]),
+          k('K1'), k('K2'),
+          block('V', [prod('plate')], [planNode('v', 'plate')]),
+        ]
+      }
+      const plain = solveAll(mk(), dataWith())
+      expect(flowOf(plain, 'vK1').requested ?? 0).toBeCloseTo(0, 4)
+      expect(flowOf(plain, 'vK2').requested).toBeCloseTo(5, 4)
+      const ranked = solveAll(mk(listOf('K2', 'K1')), dataWith())
+      expect(flowOf(ranked, 'vK2').requested ?? 0).toBeCloseTo(0, 4)
+      expect(flowOf(ranked, 'vK1').requested).toBeCloseTo(5, 4)
+    })
   })
 })

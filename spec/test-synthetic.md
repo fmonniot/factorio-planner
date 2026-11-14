@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Thirteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Fifteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 13 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 15 use plain made-up item ids.
 
-Cases 11 to 13 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 15 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -547,4 +547,115 @@ d: requests: B asks 30, C asks 20; A's goal is 10 + 30 + 20 = 60, the pin makes 
    B (solved first, share 30): min(30, 45) = 30. Left 15.
    C (share 20): min(20, 15) = 15; C imports the other 5 and its flow is limited.
    The extra is never reserved, so it gives way first: nothing is left for it.
+```
+
+---
+
+## Case 14 — Served order of a byproduct
+
+**Exercises:** a source's served list on an item it has left over (takes). Credits by rank, grants by rank, the result not depending on tab order, and a takes-first consumer that asks its other source for what a higher-ranked take leaves it.
+
+**Recipes:** case 11's (time 1, speed 1).
+
+- `case11-make-goal`: 1 ore → 1 goal + 1 `case11-x`
+- `case11-use-x`: 1 X → 1 `case11-other`
+- `case11-make-x`: 1 feed → 2 X
+
+### Blocks
+
+- **T**: goal 30, row make-goal.
+- **H1**: other 20, row use-x, takes X from T (`c-H1`).
+- **H2**: other 25, row use-x, takes X from T (`c-H2`).
+- X is raw in H1 and H2.
+
+### Expected solver output
+
+| Case | Tabs | List on T's X | H1 gets | H2 gets |
+|---|---|---|---|---|
+| a | T, H1, H2 | none | 20 `ok` | 10 `limited`, 15 imported |
+| a | T, H2, H1 | none | 5 `limited`, 15 imported | 25 `ok` |
+| b | both | H2, H1 | 5 `limited`, 15 imported | 25 `ok` |
+| b | both | H1, H2 | 20 `ok` | 10 `limited`, 15 imported |
+
+T runs make-goal at 30. No warnings in any block. For b with list (H2, H1), `served.T['case11-x']` is H2 {take, share 25, got 25}, then H1 {take, share 5, got 5}, no extra.
+
+**c (takes first):** tabs T, A, H, B.
+
+- **A**: product `case11-x` with no extra output, row make-x.
+- **H**: other 20, takes X from T (`c-H`).
+- **B**: other 25. Its connections are, in this order, `c-BT` (takes X from T) and `c-BA` (requests X from A).
+
+| List on T's X | H | B from T | B from A (`requested`) | A runs make-x |
+|---|---|---|---|---|
+| none | 5 `limited`, 15 imported | 25 `ok` (share 25) | 0, `unused` (0) | empty result |
+| H, B | 20 `ok` (share 20) | 10 `ok` (share 10) | 15 `ok` (15) | 7.5 (7.5 feed) |
+
+B imports nothing in either row.
+
+### Derivation
+
+```
+T: 30 goal/min ÷ 1 = 30 runs → 30 X/min on the side; nothing in T uses X, so T offers 30.
+H1 uses 20 X/min, H2 25: 45 in all, 15 more than T offers.
+a: nothing is requested or credited. The consumer solved first takes what it needs (offer 30);
+   the second gets what is left (10 or 5) and imports the rest (15).
+b (H2, H1): request pass: T is probed (leftover 30). H2, rank 1, needs 25: credit min(30, 25) = 25.
+   H1 is processed after H2 (rank edge): needs 20, credit min(30 − 25, 20) = 5.
+   Supply: T offers 30; grants down the list: H2 min(25, 30) = 25, H1 min(5, 5) = 5; all 30 are held.
+   Each consumer is offered its grant whichever is solved first: H2 25, H1 5.
+   (H1, H2): credits 20, then min(10, 25) = 10; grants 20 and 10.
+c, no list: H requests nothing, so only B is credited: min(30, 25) = 25. B asks A for 0, so A has no goal.
+   25 of T's 30 are reserved for B, so H (solved before B) is offered 30 − 25 = 5.
+c, list H, B: H is credited first: min(30, 20) = 20. B: min(30 − 20, 25) = 10, so B asks A for 15:
+   A runs make-x at 15 ÷ 2 = 7.5. Grants: H 20, B 10. B's 25 = 10 from T + 15 from A.
+```
+
+---
+
+## Case 15 — Served order of a short product
+
+**Exercises:** grants by rank of requests and of the extra, on a source that holds its pin (case 13). The tabs no longer decide who is short. Entries that do not apply are ignored. Consumers not in the list are served after it, in solve order.
+
+**Recipes:** case 13's.
+
+### Blocks
+
+- **A**: plate, extra 10; row make-plate pinned at 45.
+- **B, C** (and **D** in g): gear 30, 20 (10). Each runs use-plate and requests plate from A (`c-B`, `c-C`, `c-D`).
+- **E**: gear 5, use-plate, no connection.
+
+### Expected solver output
+
+`requested`: B 30, C 20, D 10. A runs at 45 in every case and carries `infeasible-pins ['case13-make-plate']`. A's plate shortfall is 15 (25 in g).
+
+| Case | Tabs | List on A's plate | B | C | D | A's extra got (`place`) |
+|---|---|---|---|---|---|---|
+| a | A, B, C | none | 30 `ok` | 15 `limited`, 5 imported | | 0 (2) |
+| b | A, C, B | none | 25 `limited`, 5 imported | 20 `ok` | | 0 (2) |
+| c | both | B, C | 30 `ok` | 15 `limited`, 5 imported | | 0 (2) |
+| d | both | C, B | 25 `limited`, 5 imported | 20 `ok` | | 0 (2) |
+| e | both | B, extra, C | 30 `ok` | 5 `limited`, 15 imported | | 10 (1) |
+| f | A, B, C, E | E, ghost, C, B | as d | as d | | 0 (2) |
+| g | A, B, C, D | none | 30 `ok` | 15 `limited`, 5 imported | 0 `limited`, 10 imported | 0 (3) |
+| g | A, B, C, D | D | 30 `ok` | 5 `limited`, 15 imported | 10 `ok` | 0 (3) |
+
+`served.A.plate.consumers` order: a: B, C. b: C, B. c: B, C. d: C, B. e: B, C. f: C, B (no E). g with no list: B, C, D. g with list D: D, B, C. `share` is always the request (30, 20, 10). `got` is the rate. Case d with tabs A, C, B is the mock of the sourcing-priority initiative: Science (B) 30 got 30, Hub (C) 20 got 15, short 5, extra 0.
+
+Note: d with tabs A, B, C is "solved first, ranked last". c is a list in today's order and changes nothing.
+
+### Derivation
+
+```
+A's goal is 10 + 30 + 20 = 60 (70 in g). The pin makes 45, so A is short by 15 (25 in g).
+No list: requests are served in solve order and the extra gives way first:
+  a: B min(30, 45) = 30, C min(20, 15) = 15.   b: C min(20, 45) = 20, B min(30, 25) = 25.
+List: A's 45 is granted down the order when A is solved. Each consumer is offered its grant plus what
+no grant holds (nothing here: the grants hold all 45), whichever is solved first.
+  c (B, C): B 30, C min(20, 15) = 15.
+  d (C, B): C 20, B min(30, 25) = 25.
+  e (B, extra, C): B 30; the extra holds min(10, 15) = 10; C min(20, 5) = 5.
+     The 10 held stays on A: extra got 10, place 1.
+  f: E takes no plate from A and ghost is no block, so both are ignored; the list is C, B (d).
+  g, list D: D min(10, 45) = 10, then B and C (not listed) in solve order: B min(30, 35) = 30, C min(20, 5) = 5.
+  g, no list: B 30, C min(20, 15) = 15, D min(10, 0) = 0.
 ```

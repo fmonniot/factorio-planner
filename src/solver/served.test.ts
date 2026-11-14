@@ -61,6 +61,31 @@ describe('buildServed', () => {
     expect(served.A.plate.extra).toBeUndefined()
   })
 
+  it('orders a ranked pair by its list and puts the extra at its place', () => {
+    const consumers = [flow(), flow({ connectionId: 'c2', toBlockId: 'C' })]
+    const a = block('A', [['plate', 5]])
+    const left = new Map([['A', new Map([['plate', 4]])]])
+    const rankOf = (source: string, item: string) => (source === 'A' && item === 'plate' ? { blockIds: ['C', 'B'], extraPlace: 1 } : undefined)
+    const served = buildServed(consumers, [a], shareOf, left, rankOf)
+    expect(served.A.plate.consumers.map(c => c.blockId)).toEqual(['C', 'B'])
+    expect(served.A.plate.extra).toEqual({ place: 1, asked: 5, got: 4 })
+  })
+
+  it('puts a consumer the rank does not name after the ranked ones, and caps the place', () => {
+    const consumers = [flow({ toBlockId: 'X' }), flow({ connectionId: 'c2', toBlockId: 'C' }), flow({ connectionId: 'c3', toBlockId: 'B' })]
+    const a = block('A', [['plate', 5]])
+    const served = buildServed(consumers, [a], shareOf, none, () => ({ blockIds: ['B', 'C'], extraPlace: 7 }))
+    expect(served.A.plate.consumers.map(c => c.blockId)).toEqual(['B', 'C', 'X'])
+    expect(served.A.plate.extra?.place).toBe(3)
+  })
+
+  it('an unranked pair keeps the flow order and the extra last', () => {
+    const consumers = [flow({ toBlockId: 'C' }), flow({ connectionId: 'c2', toBlockId: 'B' })]
+    const served = buildServed(consumers, [block('A', [['plate', 5]])], shareOf, none, () => undefined)
+    expect(served.A.plate.consumers.map(c => c.blockId)).toEqual(['C', 'B'])
+    expect(served.A.plate.extra?.place).toBe(2)
+  })
+
   it('gives {} for no flows and is safe for odd item ids', () => {
     expect(buildServed([], [block('A')], shareOf, none)).toEqual({})
     const served = buildServed([flow({ itemId: 'constructor' })], [block('A')], shareOf, none)

@@ -167,7 +167,7 @@ export interface ServedConsumer {
   /** its counting connection from the source (the first, if hand-edited JSON repeats the pair) */
   connectionId: string
   kind: ConnectionKind
-  /** items/min reserved for it while others were served: a request's amount, a take's credit; 0 when none */
+  /** items/min asked or credited: a request's amount, a take's credit; 0 when none. For a pair a served list ranks this is not the grant the solve reserved. */
   share: number
   /** items/min delivered */
   got: number
@@ -175,7 +175,7 @@ export interface ServedConsumer {
 
 /** The source block's own extra output of the item, and where it was served. */
 export interface ServedExtra {
-  /** consumers served before it (consumers.length while the extra gives way first) */
+  /** consumers served before it (consumers.length unless a served list puts the extra higher) */
   place: number
   asked: number
   got: number

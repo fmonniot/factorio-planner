@@ -25,6 +25,7 @@ import {
   FLOW_TOLERANCE, blockDiagnostics, coproductDrivenWarning, sourcingSets, itemsWithSourcing, outsideResidual, pass2Plan, solvedNodeOf, surplusTolerance, zeroNode, type SolverPlan,
 } from './blockResult'
 import { buildServed } from './served'
+import { grantByRank, rankedPairs, servedRankOf, type RankedEntry, type RankedPair, type RankedPairs, type ServedRank } from './servedRank'
 import { exactKey, planKey, sourcingKey, type RequestLoopSolve, type SolveCache } from './solveCache'
 
 /**
@@ -88,9 +89,11 @@ export { FLOW_TOLERANCE, surplusTolerance, outsideResidual }
 
 /**
  * What a source's remaining output `left` of an item offers one connection. `pending` is what
- * unserved requests still hold (including this connection's own `share`; 0 for a take).
- * A request is served its own share first: requests are served in solve order, so later ones
- * give way. Beyond its share it sees, like a take, only what no unserved request holds.
+ * unserved shares still hold (including this connection's own `share`; 0 for a take with no credit).
+ * A connection is served its own share first; beyond it, like a take, it sees only what no unserved
+ * share holds. `share` is the request or the take's credit, or, for a pair the source's served list
+ * ranks, the grant the list gives the connection: the list decides who is short, so the solve order
+ * of the consumers no longer does.
  */
 export function connectionOffer(left: number, pending: number, share: number): number {
   return Math.max(0, Math.min(share, left), left - (pending - share))
@@ -366,6 +369,8 @@ interface StepContext {
   requests: Map<string, RequestInfo>
   /** take connection id → what the request pass credited it (reserved for it like a request share). */
   credits: Map<string, number>
+  /** connection id → what the source's served list grants it of the source's offer; absent for a pair that is not ranked. */
+  grants: ReadonlyMap<string, number>
   /** blockId → goals with requested amounts added; absent = the block's own. */
   goals: Map<string, SolverGoal[]>
 }
@@ -400,7 +405,8 @@ function ignoredFlow(block: Block, c: BlockConnection, status: ConnectionFlowSta
  * served (source → item → items/min; requested amounts and take credits): other consumers
  * of the same (source, item) and requesters drawing on a later source beyond their own share
  * see the offer without it. A reserved share is served before later consumers: when the source
- * is short, the extra gives way first, then the shares served last (see `connectionOffer`).
+ * is short, the extra gives way first, then the shares served last (see `connectionOffer`). For a
+ * pair the source's served list ranks, `ctx.grants` replaces the share: the list, not the solve order, decides who is short.
  */
 function solveStep(
   block: Block,
@@ -430,7 +436,8 @@ function solveStep(
       const info = ctx.requests.get(c.id)
       const reserved = pending.get(c.fromBlockId)?.get(c.itemId) ?? 0
       const left = remaining.get(c.fromBlockId)?.get(c.itemId) ?? 0
-      const share = connectionShare(info, ctx.credits.get(c.id))
+      // `??`: a grant of 0 stays 0.
+      const share = ctx.grants.get(c.id) ?? connectionShare(info, ctx.credits.get(c.id))
       const sourceOffer = duplicate ? 0 : connectionOffer(left, reserved, share)
       const offer = c.maxRate === undefined ? sourceOffer : Math.min(sourceOffer, c.maxRate)
       const limitBinds =
@@ -667,22 +674,26 @@ interface Probe {
 /**
  * Let a consumer's takes cover part of what it needs (`needed`, reduced in place). Each take in
  * connection order covers min(what its source has left, its limit, the need left), reduces
- * the source's estimate (`estimates`, in place) and is recorded in `credits`.
+ * the source's estimate (`estimates`, in place) and is recorded in `credits`. A take of a pair the
+ * source's served list ranks gets what `rankedRest` says is left for it instead, and leaves the estimate alone
+ * (the ledger of a ranked pair is `credits`, read by `rankedRest`).
  */
 function applyTakeCredits(
   takes: Map<string, BlockConnection[]> | undefined,
   needed: Map<string, number>,
   estimates: Map<string, Offers>,
   credits: Map<string, number>,
+  rankedRest?: (take: BlockConnection, itemId: string) => number | undefined,
 ): void {
   for (const [itemId, list] of takes ?? []) {
     let need = needed.get(itemId) ?? 0
     for (const t of list) {
       if (need <= 0) break
-      const left = estimates.get(t.fromBlockId)?.get(itemId) ?? 0
+      const r = rankedRest?.(t, itemId)
+      const left = r ?? estimates.get(t.fromBlockId)?.get(itemId) ?? 0
       const cover = Math.min(left, t.maxRate ?? Infinity, need)
       if (cover <= 0) continue
-      estimates.get(t.fromBlockId)!.set(itemId, left - cover)
+      if (r === undefined) estimates.get(t.fromBlockId)!.set(itemId, left - cover)
       credits.set(t.id, cover)
       need -= cover
     }
@@ -716,6 +727,13 @@ function leftoverEstimate(nodes: SolvedNode[], requestedOfSource: Map<string, nu
  * requested of it; sources are processed before their take consumers where the request order
  * allows it, and a take whose source is not processed yet gets no credit.
  *
+ * A pair the source's served list ranks (`ranked`; see `rankedPairs`) is credited by rank: a listed
+ * take is credited what is left of the source's estimate after the extra (when listed above it) and
+ * the credits of the takes above it, so a take that requests nothing is probed too, and the listed
+ * consumers are ordered by extra edges (never one that would close a cycle). A listed take whose higher-ranked
+ * takes are not credited yet (the request order reached it first) gets no credit, and takes-first consumers the
+ * list does not name are credited after the listed ones. Cycles of requests never touch a ranked pair.
+ *
  * Cycles of requests are solved in demand rounds: members in order (consumers first), each probed
  * with its products plus what the other members requested of it, a request that closes the cycle
  * reading the previous round's amount (0 in round 1). A geometric extrapolation step on those
@@ -730,6 +748,7 @@ function computeRequests(
   selfConnectionIds: Set<string>,
   cache: SolveCache | undefined,
   roundLimit: number,
+  ranked: RankedPairs,
 ): RequestPlan {
   const byId = new Map(blocks.map(b => [b.id, b]))
   const blockIds = new Set(byId.keys())
@@ -757,7 +776,7 @@ function computeRequests(
       else applicable.push({ consumer, connection: c })
     }
   }
-  if (applicable.length === 0) return { goals, info, credits, loops }
+  if (applicable.length === 0 && ranked.size === 0) return { goals, info, credits, loops }
 
   const requestsOf = new Map<string, BlockConnection[]>() // consumer id → applied requests, in connection order
   for (const { consumer, connection } of applicable) {
@@ -786,6 +805,45 @@ function computeRequests(
     }
   }
 
+  // Takes of ranked pairs. A listed block entry whose connection is not a request is a ranked take, at its
+  // position in the list; a consumer the list does not name that takes the item first (it also requests it) is
+  // credited after the listed ones, at position -1. `rankedTakeOf` holds the listed takes of consumers that
+  // request nothing of the item (probed for them).
+  const rankedTake = new Map<string, { pair: RankedPair; position: number }>() // connection id →
+  const rankedTakeOf = new Map<string, Map<string, BlockConnection[]>>()      // consumer id → item id → takes, in list order
+  for (const items of ranked.values()) {
+    for (const pair of items.values()) {
+      pair.listed.forEach((e, position) => {
+        if (e.kind !== 'block' || applicableIds.has(e.connection.id)) return
+        rankedTake.set(e.connection.id, { pair, position })
+        if (takeOf.get(e.blockId)?.has(pair.itemId)) return
+        const byItem = rankedTakeOf.get(e.blockId) ?? new Map<string, BlockConnection[]>()
+        if (byItem.has(pair.itemId)) return
+        // All the consumer's takes of the item, in connection order: its other sources come out of its need in
+        // that order, as they do at supply, so a ranked take does not hide what an earlier one still covers.
+        const consumer = byId.get(e.blockId)!
+        const seen = new Set<string>()
+        const takes: BlockConnection[] = []
+        for (const c of consumer.inputConnections) {
+          if (c.itemId !== pair.itemId || !byId.has(c.fromBlockId) || selfConnectionIds.has(c.id)) continue
+          if (seen.has(c.fromBlockId)) continue
+          seen.add(c.fromBlockId)
+          if (!applicableIds.has(c.id)) takes.push(c)
+        }
+        byItem.set(pair.itemId, takes)
+        rankedTakeOf.set(e.blockId, byItem)
+      })
+      for (const u of pair.unlisted) {
+        if (applicableIds.has(u.connection.id) || !takeOf.get(u.blockId)?.has(pair.itemId)) continue
+        rankedTake.set(u.connection.id, { pair, position: -1 })
+      }
+    }
+  }
+  const takesOf = (id: string): Map<string, BlockConnection[]> | undefined => {
+    const own = rankedTakeOf.get(id)
+    return own ? new Map([...(takeOf.get(id) ?? []), ...own]) : takeOf.get(id)
+  }
+
   // Order consumers before sources: orderBlocks puts sources first, so feed it the reversed requests.
   // A take source goes before its take consumer unless the consumer already reaches it.
   const reversed = new Map<string, BlockConnection[]>()
@@ -807,6 +865,37 @@ function computeRequests(
       }
     }
   }
+  const depById = new Map(depBlocks.map(b => [b.id, b]))
+  // A take-only consumer's other sources of a ranked item (see `rankedTakeOf`) are processed before it too.
+  for (const [consumerId, items] of rankedTakeOf) {
+    for (const [itemId, takes] of items) {
+      for (const t of takes) {
+        if (rankedTake.has(t.id) || reaches(depConsumers, consumerId, t.fromBlockId)) continue
+        depById.get(consumerId)!.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
+        depConsumers.set(t.fromBlockId, [...(depConsumers.get(t.fromBlockId) ?? []), consumerId])
+        takeSources.add(t.fromBlockId)
+      }
+    }
+  }
+  // Ranked pairs: the source before its listed takes, the listed takes in rank order, the listed takes before the
+  // takes-first consumers the list does not name. An edge that would close a cycle is left out.
+  const orderEdge = (from: string, to: string, itemId: string, id: string): void => {
+    if (reaches(depConsumers, from, to) || reaches(depConsumers, to, from)) return
+    depById.get(to)!.inputConnections.push({ id, itemId, fromBlockId: from })
+    depConsumers.set(from, [...(depConsumers.get(from) ?? []), to])
+  }
+  for (const [sourceId, items] of ranked) {
+    for (const pair of items.values()) {
+      const listedTakes = pair.listed.flatMap(e => (e.kind === 'block' && rankedTake.has(e.connection.id) ? [e] : []))
+      const unlistedTakes = pair.unlisted.filter(u => rankedTake.has(u.connection.id))
+      if (listedTakes.length + unlistedTakes.length > 0) takeSources.add(sourceId)
+      listedTakes.forEach((h, i) => {
+        orderEdge(sourceId, h.blockId, pair.itemId, `rank\0source\0${h.connection.id}`)
+        for (const later of listedTakes.slice(i + 1)) orderEdge(h.blockId, later.blockId, pair.itemId, `rank\0${h.connection.id}\0${later.connection.id}`)
+        for (const u of unlistedTakes) orderEdge(h.blockId, u.blockId, pair.itemId, `rank\0${h.connection.id}\0${u.connection.id}`)
+      })
+    }
+  }
   const { components } = orderBlocks(depBlocks)
 
   const requested = new Map<string, Map<string, number>>() // source id → item id → items/min
@@ -826,6 +915,34 @@ function computeRequests(
       share(c, amount)
     }
   }
+  // Blocks whose takes have been credited so far, and what is left of a ranked take's source for it:
+  // the source's leftover estimate less the extra (when listed above it) and the credits of the takes above it.
+  const processed = new Set<string>()
+  const rankedRest = (t: BlockConnection, itemId: string): number | undefined => {
+    const at = rankedTake.get(t.id)
+    if (!at) return undefined
+    const left = estimates.get(at.pair.sourceId)?.get(itemId)
+    if (left === undefined) return 0 // the source is not processed yet, or has nothing left
+    const { listed, extraRate, unlisted } = at.pair
+    let rest = left
+    const end = at.position < 0 ? listed.length : at.position
+    for (let i = 0; i < end; i++) {
+      const e = listed[i]
+      if (e.kind === 'extra') {
+        rest -= Math.min(extraRate, Math.max(0, rest))
+        continue
+      }
+      if (!rankedTake.has(e.connection.id)) continue // a request: its share is not in the leftover
+      if (!processed.has(e.blockId)) return 0 // a higher-ranked take is not credited yet
+      rest -= credits.get(e.connection.id) ?? 0
+    }
+    if (at.position < 0) {
+      for (const u of unlisted) {
+        if (u.connection.id !== t.id && rankedTake.has(u.connection.id) && processed.has(u.blockId)) rest -= credits.get(u.connection.id) ?? 0
+      }
+    }
+    return Math.max(0, rest)
+  }
   const estimateTakeSource = (block: Block, probe?: { nodes: SolvedNode[] }): void => {
     if (!takeSources.has(block.id)) return
     const nodes = probe?.nodes ?? probeBlock(
@@ -843,16 +960,20 @@ function computeRequests(
       if (requested.has(block.id)) goals.set(block.id, effectiveGoals)
 
       const requests = requestsOf.get(block.id)
-      if (!requests && !takeSources.has(block.id)) continue
+      const rankedTakes = rankedTakeOf.get(block.id)
+      if (!requests && !rankedTakes && !takeSources.has(block.id)) continue
       const probe = probeBlock(block, effectiveGoals, gameData, connectedCaps(block, byId, selfConnectionIds), cache)
-      if (requests) {
+      if (requests || rankedTakes) {
         const needed = new Map(probe.received) // item id → what the block would import
-        applyTakeCredits(takeOf.get(block.id), needed, estimates, credits)
-        shareOut(requests, needed, (c, amount) => {
-          info.set(c.id, { requested: amount })
-          addRequest(c, amount)
-        })
+        applyTakeCredits(takesOf(block.id), needed, estimates, credits, rankedRest)
+        if (requests) {
+          shareOut(requests, needed, (c, amount) => {
+            info.set(c.id, { requested: amount })
+            addRequest(c, amount)
+          })
+        }
       }
+      processed.add(block.id)
       estimateTakeSource(block, probe)
       continue
     }
@@ -1050,10 +1171,12 @@ function computeRequests(
  * are credited) to the source's goals, cycles of requests being solved in demand rounds of
  * their own (see `computeRequests`); that amount, like a take's credit,
  * is reserved for the consumer while others are served; when the source is short, the
- * extra gives way first, then the shares served last. With a `cache`, a block whose
+ * extra gives way first, then the shares served last. A source with a stored served list for an item
+ * (outside loops of blocks, see `rankedPairs`) hands its offer down the list when it is solved: the
+ * list's order, not the solve order, then decides who is short, and a listed extra holds its place. With a `cache`, a block whose
  * flattened plan, game data and caps are unchanged reuses its previous result
  * (same object) instead of solving again. `served` lists, per source and item, the consumers in the
- * order they were served and the source's own extra output (see `buildServed`).
+ * order they were served (the list's order for a ranked pair) and the source's own extra output (see `buildServed`).
  */
 export function solveAll(
   blocks: Block[],
@@ -1061,9 +1184,15 @@ export function solveAll(
   cache?: SolveCache,
   options: SolveAllOptions = {},
 ): MultiBlockSolve {
-  const { components, selfConnectionIds } = orderBlocks(blocks)
+  const { order, components, selfConnectionIds } = orderBlocks(blocks)
   const requestRoundLimit = Math.max(1, options.requestRoundLimit ?? REQUEST_ROUND_LIMIT)
-  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit)
+  // Served lists are honoured outside loops of blocks only.
+  const loopMembers = new Set(components.flatMap(c => c.loop?.blockIds ?? []))
+  const ranked = rankedPairs(blocks, loopMembers)
+  const requestPlan = computeRequests(blocks, gameData, selfConnectionIds, cache, requestRoundLimit, ranked)
+  const solvePos = new Map(order.map((b, i) => [b.id, i]))
+  const grants = new Map<string, number>()               // connection id → what a ranked source's list grants it
+  const servedRanks = new Map<string, Map<string, ServedRank>>() // source id → item id → rank, for the report
   // blockId → itemId → items/min reserved (requested, or credited to a take) and not yet served
   let pending = new Map<string, Offers>()
   for (const b of blocks) {
@@ -1103,11 +1232,33 @@ export function solveAll(
         cache,
         requests: requestPlan.info,
         credits: requestPlan.credits,
+        grants,
         goals: requestPlan.goals,
       }
       const step = solveStep(block, ctx, remaining, pending)
       commit(block, step)
       remaining.set(block.id, step.offers)
+      // A source with a served list hands its offer down the list now, before any consumer is solved: each
+      // consumer is offered its grant, and what the grants (and a listed extra) hold is not on offer to the others.
+      for (const pair of ranked.get(block.id)?.values() ?? []) {
+        const entries: RankedEntry[] = [
+          ...pair.listed,
+          ...pair.unlisted
+            .map(u => ({ kind: 'block' as const, blockId: u.blockId, connection: u.connection }))
+            .sort((a, b) => solvePos.get(a.blockId)! - solvePos.get(b.blockId)!),
+        ]
+        const given = grantByRank(
+          step.offers.get(pair.itemId) ?? 0, entries, pair.extraRate,
+          id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)),
+        )
+        for (const [id, amount] of given.grants) grants.set(id, amount)
+        const items = pending.get(block.id) ?? new Map<string, number>()
+        items.set(pair.itemId, given.held) // set, not added: the grants replace the shares
+        pending.set(block.id, items)
+        const byItem = servedRanks.get(block.id) ?? new Map<string, ServedRank>()
+        byItem.set(pair.itemId, servedRankOf(entries))
+        servedRanks.set(block.id, byItem)
+      }
       continue
     }
 
@@ -1119,6 +1270,7 @@ export function solveAll(
       cache,
       requests: requestPlan.info,
       credits: requestPlan.credits,
+      grants,
       goals: requestPlan.goals,
     }
     // One round: members in loop order against the snapshot plus last round's offers of the members.
@@ -1201,7 +1353,10 @@ export function solveAll(
     }
   }
 
-  const served = buildServed(flows, blocks, id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)), remaining)
+  const served = buildServed(
+    flows, blocks, id => connectionShare(requestPlan.info.get(id), requestPlan.credits.get(id)), remaining,
+    (sourceId, itemId) => servedRanks.get(sourceId)?.get(itemId),
+  )
 
   cache?.retain(blockIds)
   return { results, flows, errors, loops, requestLoops: requestPlan.loops, served }
