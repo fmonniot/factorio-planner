@@ -473,13 +473,14 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
 
   // Bytes.
   {
-    const t = transferOf(bytesOf('unicode'), 43)
+    const t = transferOf(bytesOf('unicode'), 27)
     const first = range(0, 23)
-    const rest = range(24, t.count - 1)
+    const second = range(24, 47)
+    const rest = range(48, t.count - 1)
     cases.push({
       case: 'multibyte-straddle',
       summary: 'At this chunk size, chunk boundaries fall inside a 2-byte, a 3-byte and a 4-byte character. Chunks are joined byte for byte, so the names survive.',
-      snapshot: snapshotRef('unicode', t, 43),
+      snapshot: snapshotRef('unicode', t, 27),
       start: none,
       idCheck: noUnknown,
       polls: [
@@ -489,7 +490,12 @@ function buildCases(snapshots: Record<string, Snapshot>): Case[] {
           answer: missing(t.id, 0, '-'),
           after: state({ assembling: t.id, have: first }),
         },
-        { arrive: [...rest.map(i => chunk(t, i)), endOfWindow(t.id, 1, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
+        {
+          arrive: [...second.map(i => chunk(t, i)), endOfWindow(t.id, 1, 48)],
+          answer: missing(t.id, 1, '-'),
+          after: state({ assembling: t.id, have: [...first, ...second] }),
+        },
+        { arrive: [...rest.map(i => chunk(t, i)), endOfWindow(t.id, 2, t.count)], answer: ack(t.id, 0), after: state({ stored: t.id }) },
       ],
     })
   }

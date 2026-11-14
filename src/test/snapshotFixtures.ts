@@ -136,18 +136,25 @@ function groupsPlan(gameData: GameData): Snapshot {
     ],
     [power],
   )
+  // A recipe whose byproduct (hydrogen, 10) outranks its product (calcium chloride, 1) by rate.
+  const chemistry = plan('g-chem', 'Chemistry', [row('g-r6', 'bob-calcium-chloride')])
   const root = plan(
     'g-root',
     'Main',
-    [row('g-r0', 'iron-gear-wheel'), { kind: 'subplan', id: 'g-h0', subPlanId: 'g-plates' }, row('g-r5', 'pipe')],
-    [plates],
+    [
+      row('g-r0', 'iron-gear-wheel'),
+      { kind: 'subplan', id: 'g-h0', subPlanId: 'g-plates' },
+      row('g-r5', 'pipe'),
+      { kind: 'subplan', id: 'g-h2', subPlanId: 'g-chem' },
+    ],
+    [plates, chemistry],
   )
   return snapshotOf(gameData, [
     block({
       id: 'b-groups',
       name: 'Nested sub-factories',
       color: '#f43f5e',
-      products: [['iron-gear-wheel', 60], ['copper-cable', 120], ['pipe', 30], ['power:electricity', 600]],
+      products: [['iron-gear-wheel', 60], ['copper-cable', 120], ['pipe', 30], ['power:electricity', 600], ['angels-solid-calcium-chloride', 6]],
       rootPlan: root,
     }),
   ])

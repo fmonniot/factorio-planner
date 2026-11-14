@@ -44,7 +44,8 @@
             {
               "id": "iron-plate",
               "type": "item",
-              "rate": 261
+              "rate": 261,
+              "primary": true
             }
           ]
         },
@@ -65,7 +66,8 @@
             {
               "id": "copper-plate",
               "type": "item",
-              "rate": 80
+              "rate": 80,
+              "primary": true
             }
           ]
         },
@@ -96,7 +98,8 @@
             {
               "id": "gun-turret",
               "type": "item",
-              "rate": 2
+              "rate": 2,
+              "primary": true
             }
           ]
         }
@@ -147,7 +150,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 28
+              "rate": 28,
+              "primary": true
             }
           ]
         },
@@ -168,7 +172,8 @@
             {
               "id": "pipe",
               "type": "item",
-              "rate": 35
+              "rate": 35,
+              "primary": true
             }
           ]
         }
@@ -218,7 +223,8 @@
             {
               "id": "steam-engine",
               "type": "item",
-              "rate": 1
+              "rate": 1,
+              "primary": true
             }
           ]
         }

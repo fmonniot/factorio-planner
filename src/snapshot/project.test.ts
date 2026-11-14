@@ -37,6 +37,12 @@ function makeGameData(): GameData {
       'offshore:steam': { ...recipe('offshore:steam', 'offshore:steam'), products: [{ itemId: 'steam', type: 'fluid', amount: 60 }] },
       'power:solar': { ...recipe('power:solar', 'power:solar'), products: [{ itemId: 'power:electricity', type: 'fluid', amount: 0.06 }] },
       'power:r:fuel': { ...recipe('power:r:fuel', 'power:r'), products: [{ itemId: 'power:heat', type: 'fluid', amount: 10.8 }], mainProduct: 'power:heat' },
+      // Two products and no main one: the first (steam) is the dedicated product.
+      multi: { ...recipe('multi', 'crafting'), products: [{ itemId: 'steam', type: 'fluid', amount: 60 }, { itemId: 'plate', type: 'item', amount: 1 }] },
+      'multi-main': {
+        ...recipe('multi-main', 'crafting'), mainProduct: 'plate',
+        products: [{ itemId: 'steam', type: 'fluid', amount: 60 }, { itemId: 'plate', type: 'item', amount: 1 }],
+      },
       'mining:ore': { ...recipe('mining:ore', 'mining:basic'), products: [{ itemId: 'plate', type: 'item', amount: 1 }] },
     },
     machines: { furnace: machine('furnace', 'smelting'), furnace2: machine('furnace2', 'smelting'), asm: machine('asm', 'crafting') },
@@ -325,7 +331,7 @@ describe('projectSnapshot', () => {
     it('sends inputs and outputs from the solve, typed and rounded to three decimals, in the solver\'s order', () => {
       const row = rowsOf(solved('n1', { inputRates: { steam: 12.34567, ore: 3 }, outputRates: { plate: 60.0004 } }))
       expect(row.inputs).toEqual([{ id: 'steam', type: 'fluid', rate: 12.346 }, { id: 'ore', type: 'item', rate: 3 }])
-      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 60 }])
+      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 60, primary: true }])
     })
 
     it('omits the keys when there is no rate, when the row is unsolved, and drops zero or unusable rates', () => {
@@ -338,7 +344,62 @@ describe('projectSnapshot', () => {
         outputRates: { plate: 1, zero: 0 },
       }))
       expect('inputs' in row, 'every input rate is unusable or rounds to 0').toBe(false)
-      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 1 }])
+      expect(row.outputs).toEqual([{ id: 'plate', type: 'item', rate: 1, primary: true }])
+    })
+
+    describe('primary output', () => {
+      const out = { steam: 60, plate: 1 }
+      const rowOf = (recipeId: string, node: Partial<GameRecipeNode>, rates: Record<string, number> = out, inputRates: Record<string, number> = {}) => {
+        const root = plan('root', 'Main', [richNode('n1', recipeId, node)])
+        return project([makeBlock('a', { rootPlan: root })], solveOf({ results: { a: result({ nodes: [solved('n1', { outputRates: rates, inputRates })] }) } })).blocks[0].rows[0]
+      }
+
+      it('flags only the dedicated output of a multi-product recipe: the first product when there is no main one', () => {
+        expect(rowOf('multi', {}).outputs).toEqual([
+          { id: 'steam', type: 'fluid', rate: 60, primary: true },
+          { id: 'plate', type: 'item', rate: 1 },
+        ])
+      })
+
+      it('flags the recipe\'s main product, and the row\'s primaryProduct over it', () => {
+        expect(rowOf('multi-main', {}).outputs?.map(o => o.primary)).toEqual([undefined, true])
+        expect(rowOf('multi-main', { primaryProduct: 'steam' }).outputs?.map(o => o.primary)).toEqual([true, undefined])
+      })
+
+      it('never flags an input, and leaves the key out rather than false', () => {
+        const row = rowOf('multi', {}, out, { plate: 2 })
+        expect(row.inputs).toEqual([{ id: 'plate', type: 'item', rate: 2 }])
+        expect(JSON.stringify(row.outputs)).not.toContain('false')
+        expect(rowOf('multi', {}).outputs?.[1]).not.toHaveProperty('primary')
+      })
+
+      it('flags nothing when the recipe is missing, the dedicated product has no rate, or the row makes electricity', () => {
+        expect(rowOf('gone', {}).outputs?.some(o => o.primary)).toBe(false)
+        expect(rowOf('multi', {}, { steam: 0, plate: 1 }).outputs).toEqual([{ id: 'plate', type: 'item', rate: 1 }])
+        expect('outputs' in rowOf('power:solar', {}, { 'power:electricity': 3600 })).toBe(false)
+      })
+
+      it('flags the output of a synthetic row, the one its product names', () => {
+        const row = rowOf('power:r:fuel', {}, { 'power:heat': 600, steam: 2 })
+        expect(row).toMatchObject({ kind: 'power', product: { id: 'heat', type: 'virtual' } })
+        expect(row.outputs).toEqual([{ id: 'steam', type: 'fluid', rate: 2 }])
+        const mining = rowOf('mining:ore', {}, { plate: 3 })
+        expect(mining).toMatchObject({ kind: 'mining', product: { id: 'plate' }, outputs: [{ id: 'plate', rate: 3, primary: true }] })
+      })
+
+      it('is rejected by the schema unless it is the literal true', () => {
+        const base = project([makeBlock('a', { rootPlan: plan('root', 'Main', [rowNode('n1', 'smelt')]) })], solveOf({
+          results: { a: result({ nodes: [solved('n1', { outputRates: { plate: 1 } })] }) },
+        }))
+        const withPrimary = (primary: unknown, extra: Record<string, unknown> = {}) => {
+          const copy = structuredClone(base)
+          copy.blocks[0].rows[0].outputs = [{ id: 'plate', type: 'item', rate: 1, primary, ...extra }] as never
+          return SnapshotSchema.safeParse(copy).success
+        }
+        expect(withPrimary(true)).toBe(true)
+        expect(withPrimary(false)).toBe(false)
+        expect(withPrimary(undefined, { other: 1 })).toBe(false)
+      })
     })
 
     it('leaves electricity out, and omits the key when nothing else is left', () => {

@@ -49,7 +49,8 @@
             {
               "id": "iron-plate",
               "type": "item",
-              "rate": 195
+              "rate": 195,
+              "primary": true
             }
           ]
         },
@@ -71,7 +72,8 @@
             {
               "id": "copper-plate",
               "type": "item",
-              "rate": 30
+              "rate": 30,
+              "primary": true
             }
           ]
         },
@@ -125,7 +127,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 45
+              "rate": 45,
+              "primary": true
             }
           ]
         }
@@ -160,7 +163,8 @@
             {
               "id": "pipe",
               "type": "item",
-              "rate": 15
+              "rate": 15,
+              "primary": true
             }
           ]
         }

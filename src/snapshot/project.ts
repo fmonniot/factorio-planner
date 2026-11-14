@@ -1,6 +1,7 @@
 import { ELECTRICITY_ITEM_ID, HEAT_ITEM_ID, isEnergyItem } from '../data/electricity'
 import { applyDefaultMachineOverrides, computeHorizon, resolveRowMachine } from '../data/horizon'
 import { syntheticRecipeKind } from '../data/syntheticRecipes'
+import { dedicatedProduct } from '../solver/areas'
 import type {
   AppState,
   Block,
@@ -24,6 +25,7 @@ import {
   type SnapshotItemRef,
   type SnapshotGameRow,
   type SnapshotModule,
+  type SnapshotOutputRate,
   type SnapshotRow,
 } from './schema'
 
@@ -53,6 +55,11 @@ function itemRates(rates: Record<string, number>, ref: (id: string) => SnapshotI
     const rounded = isEnergyItem(id) ? undefined : round3(r)
     return rounded ? [{ ...ref(id), rate: rounded }] : []
   })
+}
+
+/** A row's solved output rates (as `itemRates`), the one of the row's dedicated product marked `primary`. */
+function outputRates(rates: Record<string, number>, ref: (id: string) => SnapshotItemRef, dedicated: string | undefined): SnapshotOutputRate[] {
+  return itemRates(rates, ref).map(r => (r.id === dedicated ? { ...r, primary: true as const } : r))
 }
 
 /** The keys of a row that come from the plan's node: its machine modules and its first sendable beacon, each left out when there is nothing to place. */
@@ -165,13 +172,15 @@ export function projectSnapshot(
           if (sp) enter(sp, group)
           continue
         }
-        const category = gameData.recipes[node.recipeId]?.category
+        const recipe = gameData.recipes[node.recipeId]
+        const category = recipe?.category
         const machine = category === undefined
           ? node.machineId
           : resolveRowMachine(gameData, { ...horizon, defaultMachines }, category, node.machineId).machineId
         const s = solved.get(node.id)
         const inputs = s ? itemRates(s.inputRates, ref) : []
-        const outputs = s ? itemRates(s.outputRates, ref) : []
+        const dedicated = recipe ? dedicatedProduct(node, recipe) : undefined
+        const outputs = s ? outputRates(s.outputRates, ref, dedicated) : []
         const common = {
           ...(machine !== undefined ? { machine } : {}),
           ...(group !== undefined ? { group } : {}),
@@ -185,7 +194,6 @@ export function projectSnapshot(
           rows.push({ recipe: node.recipeId, ...common })
           continue
         }
-        const recipe = gameData.recipes[node.recipeId]
         const main = recipe ? (recipe.mainProduct ?? recipe.products[0]?.itemId) : undefined
         rows.push({ kind, ...(main ? { product: ref(main) } : {}), ...common })
       }

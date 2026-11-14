@@ -34,7 +34,8 @@
             {
               "id": "iron-gear-wheel",
               "type": "item",
-              "rate": 60
+              "rate": 60,
+              "primary": true
             }
           ]
         },
@@ -55,7 +56,8 @@
             {
               "id": "iron-plate",
               "type": "item",
-              "rate": 120
+              "rate": 120,
+              "primary": true
             }
           ]
         }
