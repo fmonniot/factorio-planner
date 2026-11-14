@@ -136,7 +136,7 @@ function groupsPlan(gameData: GameData): Snapshot {
     ],
     [power],
   )
-  // A recipe whose byproduct (hydrogen, 10) outranks its product (calcium chloride, 1) by rate.
+  // A recipe whose byproduct (hydrogen, 60) outranks its product (calcium chloride, 6) by rate.
   const chemistry = plan('g-chem', 'Chemistry', [row('g-r6', 'bob-calcium-chloride')])
   const root = plan(
     'g-root',

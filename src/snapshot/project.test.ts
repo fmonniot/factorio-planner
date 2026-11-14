@@ -43,6 +43,8 @@ function makeGameData(): GameData {
         ...recipe('multi-main', 'crafting'), mainProduct: 'plate',
         products: [{ itemId: 'steam', type: 'fluid', amount: 60 }, { itemId: 'plate', type: 'item', amount: 1 }],
       },
+      'mining:multi': { ...recipe('mining:multi', 'mining:basic'), mainProduct: 'plate', products: [{ itemId: 'steam', type: 'fluid', amount: 60 }, { itemId: 'plate', type: 'item', amount: 1 }] },
+      'multi-none': { ...recipe('multi-none', 'crafting'), mainProduct: null, products: [{ itemId: 'steam', type: 'fluid', amount: 60 }, { itemId: 'plate', type: 'item', amount: 1 }] },
       'mining:ore': { ...recipe('mining:ore', 'mining:basic'), products: [{ itemId: 'plate', type: 'item', amount: 1 }] },
     },
     machines: { furnace: machine('furnace', 'smelting'), furnace2: machine('furnace2', 'smelting'), asm: machine('asm', 'crafting') },
@@ -385,6 +387,20 @@ describe('projectSnapshot', () => {
         expect(row.outputs).toEqual([{ id: 'steam', type: 'fluid', rate: 2 }])
         const mining = rowOf('mining:ore', {}, { plate: 3 })
         expect(mining).toMatchObject({ kind: 'mining', product: { id: 'plate' }, outputs: [{ id: 'plate', rate: 3, primary: true }] })
+      })
+
+      it('flags nothing for an explicitly multi-output recipe, unless the row names a primaryProduct', () => {
+        expect(rowOf('multi-none', {}).outputs?.some(o => o.primary)).toBe(false)
+        expect(rowOf('multi-none', { primaryProduct: 'plate' }).outputs?.map(o => o.primary)).toEqual([undefined, true])
+      })
+
+      it('gives a synthetic row the same product as the flagged output, including a primaryProduct override', () => {
+        const plain = rowOf('mining:multi', {})
+        expect(plain).toMatchObject({ product: { id: 'plate' } })
+        expect(plain.outputs?.map(o => o.primary)).toEqual([undefined, true])
+        const over = rowOf('mining:multi', { primaryProduct: 'steam' })
+        expect(over).toMatchObject({ product: { id: 'steam' } })
+        expect(over.outputs?.map(o => o.primary)).toEqual([true, undefined])
       })
 
       it('is rejected by the schema unless it is the literal true', () => {

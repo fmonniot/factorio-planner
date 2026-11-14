@@ -591,9 +591,10 @@ local function group_text(entry)
   return entry.name ~= "" and entry.name or { key("unnamed-group") }
 end
 
--- A sub-factory is one line: its icon is the first of its net products (products before byproducts), in the
--- blue of the reference's floors, and a click on it opens the sub-factory. Its
--- name, which has no room in the line, is in the icon's tooltip.
+-- A sub-factory is one line: its icon is the first of its net products
+-- (products before byproducts), in the blue of the reference's floors, and a
+-- click on it opens the sub-factory. Its name, which has no room in the line,
+-- is in the icon's tooltip.
 local function add_group(t, block, entry, done, columns, unit)
   local checked = progress.all_done(done, block.key, entry.keys)
   local cell = first_cell(t)

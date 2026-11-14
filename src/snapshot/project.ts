@@ -179,8 +179,11 @@ export function projectSnapshot(
           : resolveRowMachine(gameData, { ...horizon, defaultMachines }, category, node.machineId).machineId
         const s = solved.get(node.id)
         const inputs = s ? itemRates(s.inputRates, ref) : []
+        // The row's product: what the node or the recipe names, else the first product. A recipe that is explicitly
+        // multi-output (`mainProduct: null`) with no node override has no primary output to flag.
         const dedicated = recipe ? dedicatedProduct(node, recipe) : undefined
-        const outputs = s ? outputRates(s.outputRates, ref, dedicated) : []
+        const flagged = recipe && node.primaryProduct === undefined && recipe.mainProduct === null ? undefined : dedicated
+        const outputs = s ? outputRates(s.outputRates, ref, flagged) : []
         const common = {
           ...(machine !== undefined ? { machine } : {}),
           ...(group !== undefined ? { group } : {}),
@@ -194,8 +197,7 @@ export function projectSnapshot(
           rows.push({ recipe: node.recipeId, ...common })
           continue
         }
-        const main = recipe ? (recipe.mainProduct ?? recipe.products[0]?.itemId) : undefined
-        rows.push({ kind, ...(main ? { product: ref(main) } : {}), ...common })
+        rows.push({ kind, ...(dedicated ? { product: ref(dedicated) } : {}), ...common })
       }
       for (const sp of plan.subPlans) enter(sp, group)
     }
