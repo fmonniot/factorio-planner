@@ -2783,7 +2783,7 @@ describe('solveAll — served lists', () => {
     })
   })
 
-  describe('a list on a loop member is not honoured', () => {
+  describe('a list on a loop member is honoured', () => {
     const gearOf = (id: string, links: Block['inputConnections']) => block(id, [prod('gear', 30)], [planNode('g', 'gear')], links)
     it('a source that is in a loop', () => {
       const plan = (list?: ServedEntry[]): Block[] => {
@@ -2791,10 +2791,19 @@ describe('solveAll — served lists', () => {
         return [list ? withList(a, 'plate', list) : a, gearOf('B', [link('c1', 'A')]), gearOf('C', [link('c2', 'A')])]
       }
       const plain = solveAll(plan(), listData())
-      const ranked = solveAll(plan(listOf('C', 'B')), listData())
-      sameAs(ranked, plain)
       expect(plain.loops.length).toBeGreaterThan(0)
-      expect(flowOf(ranked, 'c2').rate).toBe(0)
+      expect(flowOf(plain, 'c2').rate).toBe(0)
+      // `ca` is a request of 0: request order A, C, B. A's estimate is plate 60: C is credited 60, B 0.
+      const ranked = solveAll(plan(listOf('C', 'B')), listData())
+      expect(flowOf(ranked, 'c2')).toMatchObject({ status: 'ok' })
+      expect(flowOf(ranked, 'c2').rate).toBeCloseTo(60, 6)
+      expect(flowOf(ranked, 'c1')).toMatchObject({ status: 'limited' })
+      expect(flowOf(ranked, 'c1').rate).toBeCloseTo(0, 6)
+      expect((ranked.results.B.unsatisfied.find(u => u.itemId === 'plate')?.rate ?? 0)).toBeCloseTo(60, 6)
+      const [c, b] = ranked.served.A.plate.consumers
+      expect([c.blockId, c.share, c.got]).toEqual(['C', expect.closeTo(60, 6), expect.closeTo(60, 6)])
+      expect([b.blockId, b.share, b.got]).toEqual(['B', expect.closeTo(0, 6), expect.closeTo(0, 6)])
+      expect(ranked.loops[0].rounds).toBe(2)
     })
     it('a consumer that is in a loop', () => {
       // B and D form a cycle: B takes plate from D, D requests gear from B. A's consumers are B and C.
@@ -2809,7 +2818,15 @@ describe('solveAll — served lists', () => {
       }
       const plain = solveAll(plan(), listData())
       expect(plain.loops.length + plain.requestLoops.length).toBeGreaterThan(0)
-      sameAs(solveAll(plan(listOf('C', 'B')), listData()), plain)
+      // Request order A, C, D, B: C is credited 60, B's c1 0, and cd min(10, 60) = 10.
+      const ranked = solveAll(plan(listOf('C', 'B')), listData())
+      expect(flowOf(ranked, 'c2')).toMatchObject({ status: 'ok' })
+      expect(flowOf(ranked, 'c2').rate).toBeCloseTo(60, 6)
+      expect(flowOf(ranked, 'c1')).toMatchObject({ status: 'limited' })
+      expect(flowOf(ranked, 'c1').rate).toBeCloseTo(0, 6)
+      expect(flowOf(ranked, 'cd')).toMatchObject({ status: 'limited' })
+      expect(flowOf(ranked, 'cd').rate).toBeCloseTo(10, 6)
+      expect((ranked.results.B.unsatisfied.find(u => u.itemId === 'plate')?.rate ?? 0)).toBeCloseTo(50, 6)
     })
   })
 

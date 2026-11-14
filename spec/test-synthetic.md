@@ -1,11 +1,11 @@
 # Solver Synthetic Test Cases
 
-Fifteen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
+Seventeen recipe chains of increasing complexity. Cases 1–8 use recipes from the committed
 Nullius export (`public/data/nullius/game-data.json`; see the README section
 "Exporting game data" for how to regenerate it); case 9 uses the vanilla power
-recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 15 use plain made-up item ids.
+recipes the exporter generates (`scripts/power.js`); case 10 uses vanilla smelting and fuel figures; cases 11 to 17 use plain made-up item ids.
 
-Cases 11 to 15 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
+Cases 11 to 17 (made-up ids) are the exception to the Nullius ids: their recipes are only in the fixtures.
 
 These cases are the ground truth for the solver's expected output. They are
 automated in `src/solver/synthetic.test.ts`, which uses synthetic fixtures mirroring
@@ -658,4 +658,111 @@ no grant holds (nothing here: the grants hold all 45), whichever is solved first
   f: E takes no plate from A and ghost is no block, so both are ignored; the list is C, B (d).
   g, list D: D min(10, 45) = 10, then B and C (not listed) in solve order: B min(30, 35) = 30, C min(20, 5) = 5.
   g, no list: B 30, C min(20, 15) = 15, D min(10, 0) = 0.
+```
+
+---
+
+## Case 16 — Served order inside a loop of blocks
+
+**Exercises:** a served list on a source that is a member of a loop of blocks (the supply rounds). Grants once per round, from the offer that round reads; the member order never changes; the result not depending on tab order.
+
+**Recipes:** time 1, category smelting, X = `case16-x`, Y = `case16-y`.
+
+- `case16-make`: 1 Y → 1 `case16-goal` + 1 X
+- `case16-use`: 1 X → 1 `case16-other` + 1 Y
+
+### Blocks
+
+- **S**: goal 30, row make. Connections, in this order: `c-S1` takes Y from C1, `c-S2` takes Y from C2. Its list is on X.
+- **C1**: other 20, row use, `c-1` takes X from S.
+- **C2**: other 25, row use, `c-2` takes X from S.
+
+### Expected solver output
+
+| Tabs | `loops[0].blockIds` | List on S's X | C1 gets | C2 gets |
+|---|---|---|---|---|
+| S, C1, C2 | S, C1, C2 | none | 20 `ok` | 10 `limited`, 15 imported |
+| C1, C2, S | C1, S, C2 | none | 20 `ok` | 10 `limited`, 15 imported |
+| C2, C1, S | C2, S, C1 | none | 5 `limited`, 15 imported | 25 `ok` |
+| each of the three | as above | C2, C1 | 5 `limited`, 15 imported | 25 `ok` |
+| each of the three | as above | C1, C2 | 20 `ok` | 10 `limited`, 15 imported |
+
+In every row S runs make at 30 and imports nothing, `c-S1` is 20 `ok` and `c-S2` is 10 `ok`, `loops[0]` has `rounds: 2` and `converged: true`, and no block has a warning. With list (C2, C1), `served.S['case16-x']` is C2 {take, share 25, got 25}, then C1 {take, share 5, got 5}, no extra; with (C1, C2) it is C1 {20, 20}, then C2 {10, 10}. A warm solve (one `SolveCache`, tabs C1, C2, S, list C2, C1) reuses every result object: a probed loop member does not need a fourth cache slot.
+
+### Derivation
+
+```
+S: 30 runs → 30 X/min on the side (S uses none), 30 Y/min used (Y is raw in S). C1: 20 X used (raw), 20 Y made; C2: 25 X, 25 Y.
+X: 30 on offer, 45 wanted. Y: 45 on offer, 30 wanted, taken in S's connection order: c-S1 20, c-S2 10. No block's rows depend on
+what it receives, so offers are the same every round; round 1 reads 0 on the back connections, so the loop settles in round 2.
+Member order: tabs S, C1, C2 → S, C1, C2 (c-S1, c-S2 back). C1, C2, S → C1, S, C2 (c-1, c-S2 back).
+C2, C1, S → C2, S, C1 (c-2, c-S1 back).
+a (no list): the consumer of X solved first takes what it needs. S, C1, C2 and C1, S, C2: C1 20; C2 gets 10, imports 15.
+   (C1, S, C2: in round 2, C1 reads S's round-1 offer 30 and takes 20; C2 gets 30 − 20 = 10.) C2, S, C1: C2 25; C1 5, imports 15.
+b (C2, C1): request pass (no requests; rank edges S→C2, S→C1, C2→C1): S probed, leftover X 30. C2 needs 25: credit
+   min(30, 25) = 25. C1 needs 20: credit min(30 − 25, 20) = 5. Grants from 30: C2 25, C1 5; all 30 held.
+   S, C1, C2: no consumer of X before S, so grants when S is solved: C1 is offered max(0, min(5, 30), 30 − (30 − 5)) = 5, C2 25.
+   C1, S, C2 (C1 reads S over a back connection): grants at round start from S's previous-round offer. Round 1: 0 → no grants,
+   pending 0: C1 gets 0, C2 takes 25. Round 2: from 30: C2 25, C1 5. C1 is offered 5 of 30; C2 25 of the 25 left.
+   C2, S, C1: round 2 grants C2 25, C1 5; C2 takes 25, C1 is offered 5 of the 5 left.
+   Every order: C1 5 (imports 15, limited), C2 25 ok.
+c (C1, C2): credits C1 min(30, 20) = 20, C2 min(10, 25) = 10; grants 20, 10, whatever the order: C1 20 ok, C2 10 limited, 15 imported.
+```
+
+---
+
+## Case 17 — Served order inside a cycle of requests
+
+**Exercises:** a served list on a take source whose consumers are the members of a cycle of requests (the demand rounds). Credits by rank in each round, back credits, the member order never changing, an unsettled cycle, and the cycle memo.
+
+**Recipes:** case 11's (X = `case11-x`), time 1, category smelting, plus:
+
+- `case17-make-p`: 1 X → 1 `case17-p`
+- `case17-use-q`: 1 `case17-q` → 1 `case17-r`
+- `case17-make-q`: 1 X → 1 `case17-q`
+- `case17-use-p`: 1 `case17-p` → 1 `case17-s`
+
+### Blocks
+
+- **T**: goal 15, row make-goal. Its list is on X.
+- **V**: product X (extra 0), row make-x.
+- **K1**: products r 10 and p 0; rows make-p, use-q. Connections, in this order: `c-K1T` takes X from T, `c-K1V` requests X from V, `c-K1q` requests q from K2.
+- **K2**: products s 10 and q 0; rows make-q, use-p. Connections, in this order: `c-K2T` takes X from T, `c-K2V` requests X from V, `c-K2p` requests p from K1.
+
+### Expected solver output
+
+| Tabs | `requestLoops[0].blockIds` | List on T's X | `c-K1T` | `c-K1V` requested / rate | `c-K2T` | `c-K2V` requested / rate |
+|---|---|---|---|---|---|---|
+| T, V, K1, K2 | K1, K2 | none | 10 | 0 / 0 `unused` | 5 | 5 / 5 |
+| T, V, K2, K1 | K2, K1 | none | 5 | 5 / 5 | 10 | 0 / 0 `unused` |
+| both | as above | K2, K1 | 5 | 5 / 5 | 10 | 0 / 0 `unused` |
+| both | as above | K1, K2 | 10 | 0 / 0 `unused` | 5 | 5 / 5 |
+
+In every row the T flows and the non-zero V flows are `ok`, `c-K1q` and `c-K2p` are requested 10 at rate 10, V runs make-x at 2.5, `requestLoops[0]` has `rounds: 2` and `converged: true`, and K1 and K2 import no X and have no warnings. `served.T['case11-x']` shares equal the T rates above, consumers in list order; with no list they are in member order.
+
+**d (an unsettled cycle):** add **K3**: s 5, row use-p, `c-K3p` requests p from K1. Tabs T, V, K1, K2, K3, `requestRoundLimit: 1`, no list on T; K1's list on p is absent, (K2, K3) or (K3, K2). `requestLoops[0]` is `{ converged: false, rounds: 1 }`. `c-K2p` is a take with `requestIgnored: 'request-loop'`, rate 0, `limited`; `c-K3p` is requested 5, rate 5, `ok`. The flows are equal in the three runs and `served.K1['case17-p']` follows the list (K2, K3 when absent).
+
+**e (a list never changes member order):** as the main case, except that K1 has no `c-K1V` and takes X from **W** (`c-K1W`), W being goal 5, row make-goal, with a list on its X: (K1). Tabs T, V, W, K1, K2. Without the list the cycle is K2, K1 (only K2 has an outside input); with it `requestLoops[0].blockIds` and `backConnectionIds` are the same.
+
+### Derivation
+
+```
+T leaves 15 X. Settled demand: K1 makes p 10 for K2 (10 X), K2 makes q 10 for K1 (10 X): 20 X wanted. Each covers X first
+by its take of T (takes first), then by its request to V. Request pass: T, the cycle {K1, K2}, then V. The cycle starts at
+the first member in tab order with an outside input (both take from T): K1, K2 for tabs T, V, K1, K2 (back c-K2p);
+K2, K1 for T, V, K2, K1 (back c-K1q). Round 1 reads 0 on the back request, so the first member's product is not a goal yet
+(0 X needed); the second needs 10. Round 2: both need 10; the back share stays 10, so it settles in round 2.
+a (no list): T's 15 is credited in member order: first member 10, second min(5, 10) = 5, which asks V for 5.
+b (K2, K1), tabs T, V, K1, K2 (K2, the second member, ranked first): K1 reads K2's previous-round credit (a back credit).
+   R1: K1 0 X → no credit; K2 min(15, 10) = 10. R2: K1 min(15 − 10, 10) = 5, asks V 5; K2 10. Back share 10 and back credit 10
+   unchanged: settled in 2. Tabs T, V, K2, K1: R1: K2 0 X; K1 min(15 − 0, 10) = 10 (K2 credited 0 this round).
+   R2: K2 10; K1 min(5, 10) = 5, asks V 5. Settled in 2 (no back credit here).
+c (K1, K2): the mirror image: K1 10, K2 5 (asks V 5), whatever the tabs.
+Supply: V makes 5 X (2.5 runs). T grants 15 down the list (b: K2 10, K1 5; c: K1 10, K2 5) or, with no list, serves the
+credits (same numbers). Each consumer gets its credit from T and its request from V; K1 gets q 10 from K2, K2 gets p 10
+from K1; nothing is imported.
+d: K3 asks 5. Round 1 does not settle (out 10, in 0), so it is kept with c-K2p taking existing output. K1 makes only 5 p, all
+   of K3's share. K2's grant is 0, and connectionOffer(5, 5, 0) = 0.
+e: a list never changes member order: the list's edge W → K1 would make K1 an entry (tab order puts it first), giving K1, K2.
+   The shape is taken before the list's edges.
 ```

@@ -20,16 +20,15 @@ export interface RankedPair {
 export type RankedPairs = Map<string, Map<string, RankedPair>>
 
 /**
- * The (source, item) pairs whose served list the solver honours: the source has a list for the item,
- * neither the source nor any consumer of the item is a member of a loop of blocks (`loopMembers`), and
- * at least one entry applies. Entries that do not apply (repeats, the source itself, unknown blocks,
+ * The (source, item) pairs whose served list the solver honours: the source has a list for the item and
+ * at least one entry applies, whatever loops (of blocks or of requests) the blocks are in. Entries that do not apply (repeats, the source itself, unknown blocks,
  * blocks with no connection for the item, the extra when the source has none) are dropped.
  * A consumer is counted under its first connection for the (source, item) pair.
  */
-export function rankedPairs(blocks: readonly Block[], loopMembers: ReadonlySet<string>): RankedPairs {
+export function rankedPairs(blocks: readonly Block[]): RankedPairs {
   const pairs: RankedPairs = new Map()
   for (const source of blocks) {
-    if (!source.servedOrder || loopMembers.has(source.id)) continue
+    if (!source.servedOrder) continue
     for (const [itemId, list] of Object.entries(source.servedOrder)) {
       const counting = new Map<string, { blockId: string; connection: BlockConnection }>() // blocks order
       for (const b of blocks) {
@@ -37,7 +36,6 @@ export function rankedPairs(blocks: readonly Block[], loopMembers: ReadonlySet<s
         const connection = b.inputConnections.find(c => c.fromBlockId === source.id && c.itemId === itemId)
         if (connection) counting.set(b.id, { blockId: b.id, connection })
       }
-      if ([...counting.keys()].some(id => loopMembers.has(id))) continue
       let extraRate = 0
       for (const p of source.products) if (p.itemId === itemId) extraRate += p.extraRate ?? 0
       const listed: RankedEntry[] = []
