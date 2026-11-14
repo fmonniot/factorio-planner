@@ -689,6 +689,8 @@ no grant holds (nothing here: the grants hold all 45), whichever is solved first
 
 In every row S runs make at 30 and imports nothing, `c-S1` is 20 `ok` and `c-S2` is 10 `ok`, `loops[0]` has `rounds: 2` and `converged: true`, and no block has a warning. With list (C2, C1), `served.S['case16-x']` is C2 {take, share 25, got 25}, then C1 {take, share 5, got 5}, no extra; with (C1, C2) it is C1 {20, 20}, then C2 {10, 10}. A warm solve (one `SolveCache`, tabs C1, C2, S, list C2, C1) reuses every result object: a probed loop member does not need a fourth cache slot.
 
+**d (a round limit of 1):** add **C3** (other 25, `c-3` takes X from S; `c-S3` takes Y from C3), tabs C1, C2, C3, S, list (C3, C2, C1), `loopRoundLimit: 1`. The loop is C1, S, C2, C3 (not converged, 1 round). C1 reads S over a back connection, so round 1 has no previous offer and the credits stay reserved: C3 min(30, 25) = 25, C2 min(30 − 25, 25) = 5, C1 0. C2 is solved before C3 and is offered its reserve 5 plus what nobody reserves (30 − 25 − 5 = 0): `c-2` 5, then `c-3` 25. (With no reservation in round 1, C2 would take 25 and C3 get 5.)
+
 ### Derivation
 
 ```
@@ -741,6 +743,8 @@ c (C1, C2): credits C1 min(30, 20) = 20, C2 min(10, 25) = 10; grants 20, 10, wha
 In every row the T flows and the non-zero V flows are `ok`, `c-K1q` and `c-K2p` are requested 10 at rate 10, V runs make-x at 2.5, `requestLoops[0]` has `rounds: 2` and `converged: true`, and K1 and K2 import no X and have no warnings. `served.T['case11-x']` shares equal the T rates above, consumers in list order; with no list they are in member order.
 
 **d (an unsettled cycle):** add **K3**: s 5, row use-p, `c-K3p` requests p from K1. Tabs T, V, K1, K2, K3, `requestRoundLimit: 1`, no list on T; K1's list on p is absent, (K2, K3) or (K3, K2). `requestLoops[0]` is `{ converged: false, rounds: 1 }`. `c-K2p` is a take with `requestIgnored: 'request-loop'`, rate 0, `limited`; `c-K3p` is requested 5, rate 5, `ok`. The flows are equal in the three runs and `served.K1['case17-p']` follows the list (K2, K3 when absent).
+
+**f (back credits in an unsettled cycle):** add **K3**: s 10, row use-p, `c-K3p` requests p from K1 (10 X). Tabs T, V, K1, K2, K3, list (K2, K1) on T, `requestRoundLimit: 1`. Round 1 reads K2's back credit as 0, so K1 is credited min(15, 10) = 10 and K2 10, 20 of T's 15. The fallback round reads K2's credit (10, from the last round) as K1's back credit: K1 min(15 − 10, 10) = 5 and asks V for the other 5, K2 10 and asks V nothing. `c-K1T` 5, `c-K1V` requested 5 at rate 5, `c-K2T` 10, `c-K2V` requested 0; neither imports X.
 
 **e (a list never changes member order):** as the main case, except that K1 has no `c-K1V` and takes X from **W** (`c-K1W`), W being goal 5, row make-goal, with a list on its X: (K1). Tabs T, V, W, K1, K2. Without the list the cycle is K2, K1 (only K2 has an outside input); with it `requestLoops[0].blockIds` and `backConnectionIds` are the same.
 

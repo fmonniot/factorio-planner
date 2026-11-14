@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
 import { sourceRulesOf } from '../test/sourceRulesOf'
 import { solve, solveAll, solveBlock, flattenBlock } from './index'
 import { createSolveCache } from './solveCache'
@@ -914,6 +914,19 @@ describe('solver synthetic cases', () => {
       })
     }
 
+    it('d: a round limit of 1 keeps the reserved shares of a list read over a back connection', () => {
+      // Tabs C1, C2, C3, S, list (C3, C2, C1), loopRoundLimit 1. C1 reads S over a back connection, so the loop is
+      // C1, S, C2, C3 and round 1 has no previous offer to grant from: the list's credits stay reserved.
+      // Credits: C3 min(30, 25) = 25, C2 min(30 - 25, 25) = 5, C1 min(0, 20) = 0. S offers 30. C2 is solved before C3
+      // and is offered its reserve 5 plus what nobody reserves (30 - 25 - 5 = 0): 5. C3 then gets its 25.
+      const S3 = S(listOf('C3', 'C2', 'C1'))
+      const blocks = [C('C1', 20), C('C2', 25), C('C3', 25), { ...S3, inputConnections: [...S3.inputConnections, { id: 'c-S3', itemId: Y, fromBlockId: 'C3' }] }]
+      const all = solveAll(blocks, makeGameData(), undefined, { loopRoundLimit: 1 })
+      expect(all.loops[0]).toMatchObject({ blockIds: ['C1', 'S', 'C2', 'C3'], rounds: 1, converged: false })
+      expect(flowIn(all, 'c-2').rate).toBeCloseTo(5, 6)
+      expect(flowIn(all, 'c-3').rate).toBeCloseTo(25, 6)
+    })
+
     it('a warm solve reuses every result (no fourth cache slot)', () => {
       const cache = createSolveCache()
       const gd = makeGameData()
@@ -1005,6 +1018,23 @@ describe('solver synthetic cases', () => {
       })
     })
 
+    it('f: back credits in a cycle that does not settle', () => {
+      // K3 asks K1 for 10 p (10 X). List (K2, K1) on T, requestRoundLimit 1, cycle K1, K2. Round 1 reads K2's back credit as 0,
+      // so K1 is credited min(15, 10) = 10 and K2 10: 20 of T's 15. The fallback round must read K2's credit (10) as K1's
+      // back credit: K1 min(15 - 10, 10) = 5 and asks V for the other 5; K2 10 and asks V nothing.
+      const K3 = (): Block =>
+        mk('K3', [['case17-s', 10]], [planNode('case17-use-p')], [{ id: 'c-K3p', itemId: 'case17-p', fromBlockId: 'K1' }])
+      const all = solveAll([T(listOf('K2', 'K1')), V(), K1(), K2(), K3()], makeGameData(), undefined, { requestRoundLimit: 1 })
+      expect(all.requestLoops[0]).toMatchObject({ blockIds: ['K1', 'K2'], converged: false, rounds: 1 })
+      expect(flowIn(all, 'c-K1V').requested).toBeCloseTo(5, 6)
+      expect(flowIn(all, 'c-K1V').rate).toBeCloseTo(5, 6)
+      expect(flowIn(all, 'c-K2V').requested ?? 0).toBeCloseTo(0, 6)
+      expect(flowIn(all, 'c-K1T').rate).toBeCloseTo(5, 6)
+      expect(flowIn(all, 'c-K2T').rate).toBeCloseTo(10, 6)
+      expect(unsatisfiedRate(all.results.K1, X) ?? 0, 'K1 imports X').toBeCloseTo(0, 6)
+      expect(unsatisfiedRate(all.results.K2, X) ?? 0, 'K2 imports X').toBeCloseTo(0, 6)
+    })
+
     it('e: a list never changes member order', () => {
       const W = (list?: ServedEntry[]): Block => mk('W', [['case11-goal', 5]], [planNode('case11-make-goal')], [], list, X)
       // K1 only takes X from W (no request of X): without the list nothing but K2 reaches the cycle from outside.
@@ -1031,6 +1061,17 @@ describe('solver synthetic cases', () => {
         expect(warm.results).toEqual(cold.results)
         expect(warm.requestLoops).toEqual(cold.requestLoops)
         expect(flowIn(warm, 'c-K1V').requested).toBeCloseTo(5, 6)
+      })
+      it('a take listed below the cycle is not part of the key', () => {
+        const H = (n: number): Block => mk('H', [['case11-other', n]], [planNode('case11-use-x')], [{ id: 'c-H', itemId: X, fromBlockId: 'T' }])
+        const blocks = (n: number): Block[] => [T(listOf('K2', 'K1', 'H')), V(), K1(), K2(), H(n)]
+        const cache = createSolveCache()
+        const gd = makeGameData()
+        solveAll(blocks(5), gd, cache)
+        const lookup = vi.spyOn(cache, 'getRequestLoop')
+        const warm = solveAll(blocks(10), gd, cache)
+        expect(lookup.mock.results[0].value, 'the cycle is not solved again').toBeDefined()
+        expect(warm.flows).toEqual(solveAll(blocks(10), gd).flows)
       })
       it('the credit of a take outside the cycle is part of the key', () => {
         const H = (n: number): Block => mk('H', [['case11-other', n]], [planNode('case11-use-x')], [{ id: 'c-H', itemId: X, fromBlockId: 'T' }])

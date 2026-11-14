@@ -846,9 +846,13 @@ function computeRequests(
       }
     }
   }
+  const takesCache = new Map<string, Map<string, BlockConnection[]> | undefined>()
   const takesOf = (id: string): Map<string, BlockConnection[]> | undefined => {
+    if (takesCache.has(id)) return takesCache.get(id)
     const own = rankedTakeOf.get(id)
-    return own ? new Map([...(takeOf.get(id) ?? []), ...own]) : takeOf.get(id)
+    const takes = own ? new Map([...(takeOf.get(id) ?? []), ...own]) : takeOf.get(id)
+    takesCache.set(id, takes)
+    return takes
   }
 
   // Order consumers before sources: orderBlocks puts sources first, so feed it the reversed requests.
@@ -872,20 +876,16 @@ function computeRequests(
       }
     }
   }
-  // Cycle shapes before a served list adds edges: those edges could make another member the entry, and a list never
-  // changes member order.
-  const memberKey = (ids: string[]) => [...ids].sort().join('\0')
-  const unrankedShapes = ranked.size > 0
-    ? new Map(orderBlocks(depBlocks.map(b => ({ ...b, inputConnections: [...b.inputConnections] }))).components
-        .flatMap(c => (c.loop ? [[memberKey(c.loop.blockIds), c.loop] as const] : [])))
-    : undefined
+  const listEdges = new Set<BlockConnection>() // the edges a served list adds below
   const depById = new Map(depBlocks.map(b => [b.id, b]))
   // A take-only consumer's other sources of a ranked item (see `rankedTakeOf`) are processed before it too.
   for (const [consumerId, items] of rankedTakeOf) {
     for (const [itemId, takes] of items) {
       for (const t of takes) {
         if (rankedTake.has(t.id) || reaches(depConsumers, consumerId, t.fromBlockId)) continue
-        depById.get(consumerId)!.inputConnections.push({ id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId })
+        const edge = { id: `take\0${t.id}`, itemId, fromBlockId: t.fromBlockId }
+        listEdges.add(edge)
+        depById.get(consumerId)!.inputConnections.push(edge)
         depConsumers.set(t.fromBlockId, [...(depConsumers.get(t.fromBlockId) ?? []), consumerId])
         takeSources.add(t.fromBlockId)
       }
@@ -895,7 +895,9 @@ function computeRequests(
   // takes-first consumers the list does not name. An edge that would close a cycle is left out.
   const orderEdge = (from: string, to: string, itemId: string, id: string): void => {
     if (reaches(depConsumers, from, to) || reaches(depConsumers, to, from)) return
-    depById.get(to)!.inputConnections.push({ id, itemId, fromBlockId: from })
+    const edge = { id, itemId, fromBlockId: from }
+    listEdges.add(edge)
+    depById.get(to)!.inputConnections.push(edge)
     depConsumers.set(from, [...(depConsumers.get(from) ?? []), to])
   }
   for (const [sourceId, items] of ranked) {
@@ -911,6 +913,18 @@ function computeRequests(
     }
   }
   const { components } = orderBlocks(depBlocks)
+  // Cycle shapes before a served list adds edges: those edges could make another member the entry, and a list never
+  // changes member order. Those edges never close or merge a cycle, so with no cycle (or no edge) there is nothing to redo.
+  // Keyed by the first member: a block is in one cycle at most.
+  let unrankedShapes: Map<string, LoopShape> | undefined
+  const shapeOf = (loop: LoopShape): LoopShape => {
+    if (listEdges.size === 0) return loop
+    unrankedShapes ??= new Map(
+      orderBlocks(depBlocks.map(b => ({ ...b, inputConnections: b.inputConnections.filter(c => !listEdges.has(c)) }))).components
+        .flatMap(c => (c.loop ? c.loop.blockIds.map(id => [id, c.loop!] as const) : [])),
+    )
+    return unrankedShapes.get(loop.blockIds[0]) ?? loop
+  }
 
   const requested = new Map<string, Map<string, number>>() // source id → item id → items/min
   const estimates = new Map<string, Offers>() // processed take source id → item id → leftover items/min
@@ -974,7 +988,7 @@ function computeRequests(
   }
 
   for (const component of components) {
-    const loop = component.loop && (unrankedShapes?.get(memberKey(component.loop.blockIds)) ?? component.loop)
+    const loop = component.loop && shapeOf(component.loop)
     if (!loop) {
       const block = byId.get(component.blocks[0].id)!
       const effectiveGoals = productGoals(block.products, requested.get(block.id))
@@ -1008,32 +1022,31 @@ function computeRequests(
     // Back credits: a member's ranked take ranked above a take of an earlier member. The lower one reads its credit
     // from the previous round (0 in round 1), as a back connection reads the previous round's request.
     const backCredits = new Map<string, BlockConnection>()
+    // The ranked pairs the members take from, with how far down each list a member's take reads (listed entries before
+    // `listedEnd`, and the unlisted ones when `unlisted`): only the takes up there are credited before the cycle's reads.
+    const rankedRead = new Map<RankedPair, { listedEnd: number; unlisted: boolean }>()
     for (const m of members) {
-      for (const [, takes] of takesOf(m.id) ?? []) {
+      const mPos = memberPos.get(m.id)!
+      for (const takes of takesOf(m.id)?.values() ?? []) {
         for (const t of takes) {
           const at = rankedTake.get(t.id)
           if (!at) continue
           const end = at.position < 0 ? at.pair.listed.length : at.position
+          const read = rankedRead.get(at.pair) ?? { listedEnd: 0, unlisted: false }
+          read.listedEnd = Math.max(read.listedEnd, end)
+          read.unlisted ||= at.position < 0
+          rankedRead.set(at.pair, read)
           for (let i = 0; i < end; i++) {
             const e = at.pair.listed[i]
             if (e.kind !== 'block' || !rankedTake.has(e.connection.id)) continue
             const p = memberPos.get(e.blockId)
-            if (p !== undefined && p > memberPos.get(m.id)!) backCredits.set(e.connection.id, e.connection)
+            if (p !== undefined && p > mPos) backCredits.set(e.connection.id, e.connection)
           }
         }
       }
     }
     const inputIds = [...loop.backConnectionIds, ...backCredits.keys()]
     const maxRateOf = (id: string) => (requestById.get(id) ?? backCredits.get(id))?.maxRate ?? Infinity
-    const rankedRead: RankedPair[] = []
-    for (const m of members) {
-      for (const [, takes] of takesOf(m.id) ?? []) {
-        for (const t of takes) {
-          const at = rankedTake.get(t.id)
-          if (at && !rankedRead.includes(at.pair)) rankedRead.push(at.pair)
-        }
-      }
-    }
 
     // Everything the rounds read, as an exact string.
     const key = cache
@@ -1063,11 +1076,12 @@ function computeRequests(
             ),
           ),
           // The lists of the ranked pairs the members take from, and what their outside takes are credited.
-          rankedRead.map(pair => [
+          [...rankedRead].map(([pair, read]) => [
             pair.sourceId, pair.itemId, pair.extraRate,
             pair.listed.map(e => (e.kind === 'extra' ? 'extra' : [e.blockId, e.connection.id, rankedTake.has(e.connection.id)])),
             pair.unlisted.map(u => [u.blockId, u.connection.id, rankedTake.has(u.connection.id)]),
-            [...pair.listed.flatMap(e => (e.kind === 'block' ? [e] : [])), ...pair.unlisted]
+            // Only the credits a member's take reads: the listed takes above it, and the unlisted ones for a takes-first take.
+            [...pair.listed.slice(0, read.listedEnd).flatMap(e => (e.kind === 'block' ? [e] : [])), ...(read.unlisted ? pair.unlisted : [])]
               .filter(e => rankedTake.has(e.connection.id) && !memberSet.has(e.blockId))
               .map(e => [e.connection.id, processed.has(e.blockId), credits.get(e.connection.id) ?? null]),
           ]),
@@ -1195,7 +1209,10 @@ function computeRequests(
         )
       }
       // Not settled: round 1 again, the back connections taking existing output instead of a share.
-      const kept = converged ? last : runRound(zero, true)
+      // A back credit keeps the last round's value: reading 0 would credit members more than the source has left.
+      const kept = converged
+        ? last
+        : runRound(new Map(inputIds.map(id => [id, backCredits.has(id) ? (last.credits.get(id) ?? 0) : 0])), true)
       solved = { shares: kept.shares, credits: kept.credits, credited: kept.credited, rounds, converged }
       if (!failed) cache?.setRequestLoop(loop.blockIds, gameData, key, solved)
     }
@@ -1361,7 +1378,8 @@ export function solveAll(
       const rem = cloneRemaining(remaining)
       const pend = cloneRemaining(pending)
       for (const m of component.blocks) rem.set(m.id, new Map(prev.get(m.id)))
-      for (const pair of readsPrev) grantPair(pair, prev.get(pair.sourceId)?.get(pair.itemId) ?? 0, pend)
+      // Round 1 has no previous offer to grant from: the credits stay reserved (so a round limit of 1 still honours them).
+      if (prev.size > 0) for (const pair of readsPrev) grantPair(pair, prev.get(pair.sourceId)?.get(pair.itemId) ?? 0, pend)
       const steps = new Map<string, BlockStep>()
       const next = new Map<string, Offers>()
       const nets = new Map<string, BlockStep['netOffers']>()
