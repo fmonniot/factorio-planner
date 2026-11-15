@@ -8,17 +8,22 @@ import type {
   SolvedNode,
   SolverResult,
   SolverWarning,
+  SourceRule,
   SubPlan,
 } from '../data/types'
 import { buildClassifiedSystem, discardProduct, lockedIngredients, rowIngredients, rowProductAmount, type ClassifiedSystem, type RowEffects } from './build'
-import { itemRoutes, type RouteReceiver, type RouteSender } from './areaRoutes'
+import { itemRoutes, type ItemRoute, type RouteReceiver, type RouteSender } from './areaRoutes'
 import { FluidTemperatureCollector } from './temperatureRows'
-import { BIG_M, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP, type LPModel, type LPResult } from './solve'
+import {
+  BIG_M, BYPRODUCTS_FIRST_SLACK_COST, SLACK_TOLERANCE, boundShortfall, buildLPModel, hasGoalRow, readLPResult, runLP,
+  type LPModel, type LPResult,
+} from './solve'
 import { computeNodeEffects, type NodeEffects } from './effects'
 import {
   FLOW_TOLERANCE,
   blockDiagnostics,
   coproductDrivenWarning,
+  itemGrossFlow,
   sourcingSets,
   itemsWithSourcing,
   pass2Plan,
@@ -34,10 +39,37 @@ import {
 // own need goes to them. See spec/solver.md ("Areas").
 // ---------------------------------------------------------------------------
 
+/**
+ * SPIKE (phase 5, T2): an area's rule for an item, `SourceRule` plus the ids of the areas it takes
+ * nothing of the item from. It replaces the block's rule for that area, whole.
+ */
+export type AreaSourceRule = SourceRule & { areasOff?: string[] }
+
 /** The rows of one area, in the order `flattenBlock` visits them (id: root plan id or sub-plan id). */
 export interface SolverArea {
   id: string
   nodeIds: string[]
+  /** SPIKE (phase 5, T2): itemId → this area's rule; nothing stores it yet, tests pass it on the plan. */
+  rules?: Record<string, AreaSourceRule>
+}
+
+/**
+ * SPIKE (phase 5, T2) switches. `split`: which items get a slack and a supply per area. `'rules'` (the
+ * default) only those D11 names (areas that touch the item disagree on its rule, or one has a supplier
+ * switched off); `'split'` every intermediate two areas touch; `'pairs'` every item two areas touch, with
+ * flows per pair of areas in place of the pools. `VITE_AREA_SPLIT` sets it for a whole run.
+ * `supplyRank`: a tie-break cost by area rank on each area's supply variable. `pairTie`: a Monge tie-break on
+ * the pair flows, so that among equal pairings the LP pairs senders and receivers in table order.
+ */
+export const areaSpike: { split: 'rules' | 'split' | 'pairs'; supplyRank: boolean; pairTie: boolean } = {
+  split: readSplitMode(),
+  supplyRank: true,
+  pairTie: true,
+}
+
+function readSplitMode(): 'rules' | 'split' | 'pairs' {
+  const v: unknown = import.meta.env?.VITE_AREA_SPLIT
+  return v === 'split' || v === 'pairs' ? v : 'rules'
 }
 
 /**
@@ -227,9 +259,44 @@ function buildColumnSystem(
   return { S, recipes: columns.map(c => c.id), classification, fluidTemperatures: temperatures.finish() }
 }
 
+/** SPIKE (phase 5, T2): the size and the unit of the receiver-rank tie-break of a split item's flows. */
+const pairTieN = (areas: number[]) => Math.max(2, ...areas.map(a => a + 1))
+const pairTieMu = (n: number) => SHIP_COST * RANK_STEP / (2 * n * n)
+
+/** SPIKE (phase 5, T2): one area of a split item, for one pass. */
+export interface SplitArea {
+  area: number
+  /** stage-2 cost of the area's slack `s_a`; undefined: no slack (locked) */
+  slackCost?: number
+  /** cap of the area's supply `u_a` (Infinity: only the shared offer); undefined: no supply variable */
+  supplyCap?: number
+  /** `u_a` covers at most what the area's own non-byproduct-consumer columns use (connections first) */
+  supUse: boolean
+  /** areas (indices) this area takes nothing of the item from; read only for a pair item */
+  off: Set<number>
+}
+
+/** SPIKE (phase 5, T2): an item solved with a slack and a supply per area, and with flows per pair when `pairs`. */
+export interface SplitItem {
+  itemId: string
+  pairs: boolean
+  /** the item's offer, shared by the areas' supplies (Infinity: unlimited, 0: none) */
+  offer: number
+  areas: SplitArea[]
+}
+
+/** What the LP gives per area for the split items. */
+export interface SplitValues {
+  /** per item and area: the slack (import or missing) and the supply */
+  outside: { itemId: string; area: number; slack: number; supply: number }[]
+  /** per pair item: the flows between areas, and what each area sends out of the block (its sink) */
+  pairs: { itemId: string; from: number; to?: number; rate: number }[]
+}
+
 export type AreaLPResult = LPResult & {
   /** what areas with their own row for an item still take from other areas' dedicated rows */
   dedicatedIn: { area: number; itemId: string; rate: number }[]
+  split: SplitValues
 }
 
 /**
@@ -253,8 +320,9 @@ function solveAreaLP(
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
+  split: SplitItem[] = [],
 ): AreaLPResult {
-  const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst] as const
+  const args = [system, columns, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, split] as const
   const plain = solveAreaLPOnce(...args, false)
   if (plain.feasible || !hasGoalRow(system)) return plain
   // As in `solveLP`: an infeasible plan is solved again with elastic goal rows, kept only if that is feasible.
@@ -271,11 +339,17 @@ function solveAreaLPOnce(
   supplyCaps: Map<string, number>,
   connectionsFirst: Set<string>,
   byproductsFirst: Set<string>,
+  split: SplitItem[],
   elasticGoals: boolean,
 ): AreaLPResult {
   const { S, classification } = system
+  const splitOf = new Map(split.map(s => [s.itemId, s]))
+  // A split item's block row keeps one slack as the template of the per-area ones: no lock, no supply here.
   const base = buildLPModel(
-    system, pinnedRates, bcColumns, noImportItems, supplyCaps, connectionsFirst, byproductsFirst, elasticGoals,
+    system, pinnedRates, bcColumns,
+    splitOf.size === 0 ? noImportItems : new Set([...noImportItems].filter(id => !splitOf.has(id))),
+    splitOf.size === 0 ? supplyCaps : new Map([...supplyCaps].filter(([id]) => !splitOf.has(id))),
+    connectionsFirst, byproductsFirst, elasticGoals,
   )
   const { constraints, variables } = base
   const colVar = new Map(columns.map(c => [c.id, base.recipeToVar.get(c.id)!]))
@@ -297,6 +371,142 @@ function solveAreaLPOnce(
   const rankOf = (area: number) => SHIP_COST * (1 + RANK_STEP * area)
   let k = 0
   let j = 0
+
+  // SPIKE (phase 5, T2): a split item. Each area gets its own slack `s_a` and supply `u_a` in its balance row
+  // (in place of the item's one slack and supply in the other pool); a pair item also trades through one
+  // dedicated and one other flow per ordered pair of areas (in place of the pools), a switched-off pair
+  // having none, and sends what leaves the block through a sink per area.
+  const splitNames: { itemId: string; area: number; slack?: string; supply?: string }[] = []
+  const pairNames: { itemId: string; from: number; to?: number; names: string[] }[] = []
+  function addSplitItem(spec: SplitItem, byArea: Map<number, { col: Column; coeff: number }[]>): void {
+    const { itemId } = spec
+    const tmplName = base.itemToSlack.get(itemId)
+    // The rows the item's slack sits in (its block row and its fluid temperature rows): every s_a and u_a joins them.
+    const rows: Record<string, number> = {}
+    if (tmplName) {
+      for (const [key, v] of Object.entries(variables[tmplName])) if (!key.startsWith('__')) rows[key] = v
+      delete variables[tmplName]
+      base.itemToSlack.delete(itemId)
+    }
+    const offerRow = `aucap${j}`
+    if (Number.isFinite(spec.offer) && spec.offer > 0) constraints[offerRow] = { max: spec.offer }
+    const specOf = new Map(spec.areas.map(a => [a.area, a]))
+
+    const info: { area: number; row: string; i: number; hasDedicated: boolean; hasOther: boolean }[] = []
+    for (const area of [...byArea.keys()].sort((a, b) => a - b)) {
+      const cols = byArea.get(area)!
+      const i = k++
+      const row = `area${i}`
+      constraints[row] = { equal: 0 }
+      for (const { col, coeff } of cols) variables[colVar.get(col.id)!][row] = coeff
+      const hasDedicated = cols.some(({ col, coeff }) => col.dedicated === itemId && coeff > 0)
+      const hasOther = cols.some(({ col, coeff }) => col.dedicated !== itemId && coeff > 0)
+      info.push({ area, row, i, hasDedicated, hasOther })
+
+      const sa = specOf.get(area)
+      const names: { itemId: string; area: number; slack?: string; supply?: string } = { itemId, area }
+      if (sa?.slackCost !== undefined && tmplName) {
+        names.slack = `as${i}`
+        variables[names.slack] = { ...rows, __obj__: sa.slackCost, __s2: sa.slackCost, __s1: BIG_M, [row]: 1 }
+      }
+      if (sa?.supplyCap !== undefined && tmplName && spec.offer > 0) {
+        names.supply = `au${i}`
+        const tie = areaSpike.supplyRank ? SHIP_COST * RANK_STEP * area : 0
+        const u: Record<string, number> = { ...rows, __obj__: 0, __s2: tie, [row]: 1 }
+        if (constraints[offerRow]) u[offerRow] = 1
+        if (Number.isFinite(sa.supplyCap)) {
+          constraints[`aucapa${i}`] = { max: sa.supplyCap }
+          u[`aucapa${i}`] = 1
+        }
+        if (sa.supUse) {
+          // As `supuse` in `buildLPModel`, over this area's columns.
+          constraints[`auuse${i}`] = { max: 0 }
+          u[`auuse${i}`] = 1
+          for (const { col, coeff } of cols) {
+            if (coeff < 0 && !bcColumns.has(col.id)) variables[colVar.get(col.id)!][`auuse${i}`] = coeff
+          }
+        }
+        variables[names.supply] = u
+      }
+      splitNames.push(names)
+    }
+
+    const capRows = (x: (typeof info)[number]) => {
+      const cols = byArea.get(x.area)!
+      if (x.hasDedicated) {
+        constraints[`dcap${x.i}`] = { max: 0 }
+        for (const { col, coeff } of cols) {
+          if (col.dedicated === itemId && coeff > 0) variables[colVar.get(col.id)!][`dcap${x.i}`] = -coeff
+        }
+      }
+      if (x.hasOther) {
+        constraints[`ocap${x.i}`] = { max: 0 }
+        for (const { col, coeff } of cols) {
+          if (col.dedicated !== itemId && coeff > 0) variables[colVar.get(col.id)!][`ocap${x.i}`] = -coeff
+        }
+      }
+    }
+
+    if (!spec.pairs) {
+      // The pools of today, without slack and supply in the other pool.
+      const dpool = `dpool${j}`
+      const opool = `opool${j++}`
+      constraints[dpool] = { max: 0 }
+      constraints[opool] = { max: 0 }
+      // What is taken from other areas goes to the receivers higher in the table first (as `itemRoutes` pairs),
+      // so the imports, now per area, go to the last ones.
+      const n = pairTieN(info.map(x => x.area))
+      for (const x of info) {
+        const tie = areaSpike.pairTie ? pairTieMu(n) * x.area * n : 0
+        variables[`din${x.i}`] = { __s2: tie, [x.row]: 1, [dpool]: 1 }
+        variables[`oin${x.i}`] = { __s2: tie, [x.row]: 1, [opool]: 1 }
+        capRows(x)
+        if (x.hasDedicated) {
+          variables[`dout${x.i}`] = { __s2: rankOf(x.area), [x.row]: -1, [dpool]: -1, [`dcap${x.i}`]: 1 }
+          variables[`din${x.i}`].__s1 = 1
+          penalised.push({ name: `din${x.i}`, area: x.area, itemId })
+        }
+        if (x.hasOther) variables[`oout${x.i}`] = { __s2: rankOf(x.area), [x.row]: -1, [opool]: -1, [`ocap${x.i}`]: 1 }
+      }
+      return
+    }
+
+    j++
+    for (const x of info) capRows(x)
+    // μ·b·(n − a) is a Monge cost increasing with the receiver's rank: the cheapest transport is the north-west
+    // corner (senders in table order fill receivers in table order), and what is imported goes to the last
+    // receivers. μ·n stays below half a rank step of the sender, so the sender's rank still decides first.
+    const n = pairTieN(info.map(x => x.area))
+    const tie = (a: number, b: number) => (areaSpike.pairTie ? pairTieMu(n) * b * (n - a) : 0)
+    for (const from of info) {
+      // What leaves the block from this area (a goal, a surplus): costed like a unit sent today.
+      if (from.hasDedicated || from.hasOther) {
+        const sink = `sk${from.i}`
+        variables[sink] = { __s2: rankOf(from.area), [from.row]: -1 }
+        pairNames.push({ itemId, from: from.area, names: [sink] })
+      }
+      for (const to of info) {
+        if (to === from || specOf.get(to.area)?.off.has(from.area)) continue
+        const names: string[] = []
+        if (from.hasDedicated) {
+          const name = `dp${from.i}_${to.i}`
+          variables[name] = { __s2: rankOf(from.area) + tie(from.area, to.area), [from.row]: -1, [to.row]: 1, [`dcap${from.i}`]: 1 }
+          if (to.hasDedicated) {
+            variables[name].__s1 = 1
+            penalised.push({ name, area: to.area, itemId })
+          }
+          names.push(name)
+        }
+        if (from.hasOther) {
+          const name = `op${from.i}_${to.i}`
+          variables[name] = { __s2: rankOf(from.area) + tie(from.area, to.area), [from.row]: -1, [to.row]: 1, [`ocap${from.i}`]: 1 }
+          names.push(name)
+        }
+        if (names.length > 0) pairNames.push({ itemId, from: from.area, to: to.area, names })
+      }
+    }
+  }
+
   for (const itemId of [...classification.goals.keys(), ...classification.intermediates]) {
     const rowS = S.get(itemId)
     if (!rowS) continue
@@ -309,6 +519,12 @@ function solveAreaLPOnce(
       byArea.set(col.area, list)
     }
     if (byArea.size < 2) continue
+
+    const spec = splitOf.get(itemId)
+    if (spec) {
+      addSplitItem(spec, byArea)
+      continue
+    }
 
     const dpool = `dpool${j}`
     const opool = `opool${j++}`
@@ -368,13 +584,40 @@ function solveAreaLPOnce(
         ? { ...w, recipeIds: [...new Set(w.recipeIds.map(id => recipeOf.get(id) ?? id))] }
         : w,
     )
+    const value = (name: string | undefined) =>
+      name !== undefined && typeof result[name] === 'number' ? Math.max(0, result[name] as number) : 0
     // A failed solve still reports variable values; they say nothing about imports.
-    const dedicatedIn = result.feasible !== true ? [] : penalised.map(p => ({
-      area: p.area,
-      itemId: p.itemId,
-      rate: typeof result[p.name] === 'number' ? Math.max(0, result[p.name] as number) : 0,
+    // A pair item has one penalised flow per sender: summed per receiving area.
+    const dedicatedInOf = new Map<string, { area: number; itemId: string; rate: number }>()
+    if (result.feasible === true) {
+      for (const p of penalised) {
+        const key = `${p.area}\u0000${p.itemId}`
+        const d = dedicatedInOf.get(key) ?? { area: p.area, itemId: p.itemId, rate: 0 }
+        d.rate += value(p.name)
+        dedicatedInOf.set(key, d)
+      }
+    }
+    const dedicatedIn = [...dedicatedInOf.values()]
+
+    // Split items: the block's slack and supply are the sums over the areas.
+    const outside = splitNames.map(n => ({ itemId: n.itemId, area: n.area, slack: value(n.slack), supply: value(n.supply) }))
+    const slack = new Map(lp.slack)
+    const supply = new Map(lp.supply)
+    for (const itemId of splitOf.keys()) {
+      let s = 0
+      let u = 0
+      for (const o of outside) {
+        if (o.itemId !== itemId) continue
+        s += o.slack
+        u += o.supply
+      }
+      if (s > SLACK_TOLERANCE) slack.set(itemId, s)
+      if (u > SLACK_TOLERANCE) supply.set(itemId, u)
+    }
+    const pairs = pairNames.map(p => ({
+      itemId: p.itemId, from: p.from, ...(p.to !== undefined ? { to: p.to } : {}), rate: p.names.reduce((t, n) => t + value(n), 0),
     }))
-    return { ...lp, warnings, dedicatedIn }
+    return { ...lp, slack, supply, warnings, dedicatedIn, split: { outside, pairs } }
   }
 
   // Elastic: the least total shortfall comes first, before stage 1 (pools included, so a goal another
@@ -405,6 +648,112 @@ function solveAreaLPOnce(
   return finish(stage2, base)
 }
 
+function withoutOff(rule: AreaSourceRule): SourceRule {
+  const copy = { ...rule }
+  delete copy.areasOff
+  return copy
+}
+
+/**
+ * SPIKE (phase 5, T2): the items solved with a slack and a supply per area (D11, or every area item under
+ * `areaSpike.split`), those among them with flows per pair, and the rule the block-wide sets read for
+ * every other item: the areas' common rule (an area's own, else the block's), so an item one area
+ * touches follows that area's rule. With no area rule `effective` is `plan.sourceRules` itself.
+ */
+function splitPlan(plan: SolverPlan, areas: SolverArea[], columns: Column[], system: ClassifiedSystem): {
+  splitItems: Set<string>
+  pairItems: Set<string>
+  effective: SolverPlan['sourceRules']
+  ruleOf: (area: number, itemId: string) => AreaSourceRule
+  touching: Map<string, number[]>
+} {
+  const ruleOf = (a: number, itemId: string): AreaSourceRule => areas[a].rules?.[itemId] ?? plan.sourceRules?.[itemId] ?? {}
+  const touching = new Map<string, number[]>()
+  const { goals, intermediates } = system.classification
+  for (const itemId of [...goals.keys(), ...intermediates]) {
+    const set = new Set<number>()
+    for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) !== 0) set.add(col.area)
+    touching.set(itemId, [...set].sort((a, b) => a - b))
+  }
+  const splitItems = new Set<string>()
+  const pairItems = new Set<string>()
+  const anyRule = areas.some(a => a.rules !== undefined && Object.keys(a.rules).length > 0)
+  if (!anyRule && areaSpike.split === 'rules') {
+    return { splitItems, pairItems, effective: plan.sourceRules, ruleOf, touching }
+  }
+  const same = (x: SourceRule, y: SourceRule) => (x.makeHere ?? '') === (y.makeHere ?? '') && (x.importOff === true) === (y.importOff === true)
+  const effective: Record<string, SourceRule> = { ...plan.sourceRules }
+  for (const [itemId, as] of touching) {
+    if (as.length === 0) continue
+    const first = ruleOf(as[0], itemId)
+    if (as.length === 1) {
+      effective[itemId] = withoutOff(first)
+      continue
+    }
+    const off = as.some(a => (areas[a].rules?.[itemId]?.areasOff ?? []).length > 0)
+    const differ = as.some(a => !same(ruleOf(a, itemId), first))
+    if (off || areaSpike.split === 'pairs') {
+      splitItems.add(itemId)
+      pairItems.add(itemId)
+    } else if (intermediates.has(itemId) && (differ || areaSpike.split === 'split')) {
+      splitItems.add(itemId)
+    } else {
+      effective[itemId] = withoutOff(first)
+    }
+  }
+  return { splitItems, pairItems, effective: anyRule ? effective : plan.sourceRules, ruleOf, touching }
+}
+
+/**
+ * SPIKE (phase 5, T2): the routes of a split item, read from the LP. Outside legs into an area are its
+ * slack plus its supply (at most what it receives; `supplied` the supply's part). A pair item's other legs
+ * are its pair flows and sinks; any other split item's area-to-area legs are paired by `itemRoutes`, on
+ * what each receiver still takes once its outside leg is counted.
+ */
+function splitRoutes(
+  itemId: string,
+  areas: SolverArea[],
+  split: SplitValues,
+  pairs: boolean,
+  senders: RouteSender[],
+  receivers: RouteReceiver[],
+): AreaRoute[] {
+  const tol = Math.min(...senders.map(x => x.tol), ...receivers.map(x => x.tol))
+  const legs: ItemRoute[] = []
+  const supplied = new Map<number, number>()
+  const outsideIn = new Map<number, number>()
+  for (const o of split.outside) {
+    if (o.itemId !== itemId) continue
+    const into = receivers.find(r => r.area === o.area)?.rate ?? 0
+    const rate = Math.min(o.slack + o.supply, into)
+    if (rate <= tol) continue
+    outsideIn.set(o.area, rate)
+    supplied.set(o.area, Math.min(o.supply, rate))
+    legs.push({ to: o.area, rate })
+  }
+  if (pairs) {
+    for (const p of split.pairs) if (p.itemId === itemId && p.rate > tol) legs.push({ from: p.from, to: p.to, rate: p.rate })
+  } else {
+    const rest = receivers
+      .map(r => ({ ...r, rate: r.rate - (outsideIn.get(r.area) ?? 0) }))
+      .filter(r => r.rate > r.tol)
+    legs.push(...itemRoutes(senders, rest).filter(l => l.from !== undefined))
+  }
+  const rank = (a: number | undefined) => (a === undefined ? Infinity : a)
+  return legs
+    .sort((a, b) => rank(a.from) - rank(b.from) || rank(a.to) - rank(b.to))
+    .map(l => {
+      const s = l.from === undefined && l.to !== undefined ? supplied.get(l.to) ?? 0 : 0
+      return {
+        itemId,
+        ...(l.from !== undefined ? { from: areas[l.from].id } : {}),
+        ...(l.to !== undefined ? { to: areas[l.to].id } : {}),
+        rate: l.rate,
+        ...(s > FLOW_TOLERANCE ? { supplied: s } : {}),
+      }
+    })
+}
+
 /**
  * Items/min each area receives and sends, from the net production of its rows, and the routes
  * between areas (`itemRoutes`; `dedicatedIn` is the final pass's allowed shortfall per restricted area).
@@ -415,6 +764,9 @@ function areaFlows(
   throughput: Map<string, number>,
   areas: SolverArea[],
   dedicatedIn: { area: number; itemId: string; rate: number }[],
+  split: SplitValues = { outside: [], pairs: [] },
+  splitItems: Set<string> = new Set(),
+  pairItems: Set<string> = new Set(),
 ): { areas: SolvedArea[]; routes: AreaRoute[] } {
   const colById = new Map(columns.map(c => [c.id, c]))
   const dedicatedInOf = new Map(dedicatedIn.map(d => [`${d.area}\u0000${d.itemId}`, d.rate]))
@@ -463,6 +815,10 @@ function areaFlows(
           tol,
         })
       }
+    }
+    if (splitItems.has(itemId)) {
+      routes.push(...splitRoutes(itemId, areas, split, pairItems.has(itemId), senders, receivers))
+      continue
     }
     for (const r of itemRoutes(senders, receivers)) {
       routes.push({
@@ -565,31 +921,93 @@ export function solveAreaBlock(
     }
   }
 
+  // SPIKE (phase 5, T2): which items are split, and the rule the block-wide sets read for the others.
+  const { splitItems, pairItems, effective, ruleOf, touching } = splitPlan(plan, areas, columns, system)
+  const effPlan: SolverPlan = effective === plan.sourceRules ? plan : { ...plan, sourceRules: effective }
+
   // The LP's locked set, its byproducts-first set and the set `coproductDrivenWarning` reads (see `sourcingSets`).
-  const { locked, cannotImport, byproductsFirst } = sourcingSets(plan, consumerIngredients)
+  const sets = sourcingSets(effPlan, consumerIngredients)
+  const { cannotImport } = sets
+  const unsplit = (s: Set<string>) => (splitItems.size === 0 ? s : new Set([...s].filter(id => !splitItems.has(id))))
+  const locked = unsplit(sets.locked)
+  const byproductsFirst = unsplit(sets.byproductsFirst)
 
   const totalCaps = new Map([...supplyCaps].filter(([, cap]) => cap > FLOW_TOLERANCE))
+  const plainCaps = splitItems.size === 0 ? totalCaps : new Map([...totalCaps].filter(([id]) => !splitItems.has(id)))
 
   // The passes are those of solveBlock.
-  const pass1NoImport = totalCaps.size === 0
+  const pass1NoImport = plainCaps.size === 0
     ? locked
-    : new Set([...locked].filter(itemId => !totalCaps.has(itemId)))
+    : new Set([...locked].filter(itemId => !plainCaps.has(itemId)))
   const firstItems = new Set(
-    itemsWithSourcing(plan, 'after-blocks').filter(
-      itemId => totalCaps.has(itemId) && system.classification.intermediates.has(itemId),
+    itemsWithSourcing(effPlan, 'after-blocks').filter(
+      itemId => plainCaps.has(itemId) && system.classification.intermediates.has(itemId),
     ),
   )
-  const firstCaps = new Map([...firstItems].map(itemId => [itemId, totalCaps.get(itemId)!]))
-  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst)
+  const firstCaps = new Map([...firstItems].map(itemId => [itemId, plainCaps.get(itemId)!]))
+
+  // Per split item and area, for one pass (`residual` undefined: pass 1). As `pass2Plan`, area by area:
+  // an area whose rule is Receive it first has its supply in every pass, bounded by its own use; any other
+  // area has it in pass 2 only, capped at its pass-1 residual. A locked area gets a slack in pass 1 when the
+  // item is connected, and keeps it in pass 2 when the offer is below the item's residual over the areas
+  // (connections first: when its own residual is left).
+  const isFirst = (a: number, itemId: string) =>
+    totalCaps.has(itemId) && ruleOf(a, itemId).makeHere === 'after-blocks' && system.classification.intermediates.has(itemId)
+  const splitSpecs = (residual?: Map<string, Map<number, number>>): SplitItem[] => [...splitItems].map(itemId => {
+    const cap = totalCaps.get(itemId)
+    const res = residual?.get(itemId) ?? new Map<number, number>()
+    let resTotal = 0
+    for (const [a, r] of res) if (!isFirst(a, itemId)) resTotal += r
+    const idOf = new Map(areas.map((a, i) => [a.id, i]))
+    return {
+      itemId,
+      pairs: pairItems.has(itemId),
+      offer: cap ?? 0,
+      areas: touching.get(itemId)!.map((a): SplitArea => {
+        const rule = ruleOf(a, itemId)
+        const bcIngredient = consumerIngredients.has(itemId)
+        const lockedA = bcIngredient || (rule.importOff === true && rule.makeHere !== 'off')
+        const first = isFirst(a, itemId)
+        const r = res.get(a) ?? 0
+        let slack: boolean
+        if (!lockedA) slack = true
+        else if (cap === undefined) slack = false
+        else if (residual === undefined) slack = true
+        else slack = first ? r > FLOW_TOLERANCE : cap < resTotal - FLOW_TOLERANCE
+        const supplyCap = first ? Infinity
+          : residual !== undefined && cap !== undefined && r > FLOW_TOLERANCE ? Math.min(cap, r) : undefined
+        return {
+          area: a,
+          ...(slack ? { slackCost: rule.makeHere === 'off' && !bcIngredient ? BYPRODUCTS_FIRST_SLACK_COST : BIG_M } : {}),
+          ...(supplyCap !== undefined ? { supplyCap } : {}),
+          supUse: first,
+          off: new Set((rule.areasOff ?? []).flatMap(id => (idOf.has(id) && idOf.get(id) !== a ? [idOf.get(id)!] : []))),
+        }
+      }),
+    }
+  })
+
+  let lp = solveAreaLP(system, columns, pinnedRates, bcColumns, pass1NoImport, firstCaps, firstItems, byproductsFirst, splitSpecs())
 
   const pass2 = pass2Plan({
-    totalCaps, intermediates: system.classification.intermediates, firstItems, locked,
+    totalCaps: plainCaps, intermediates: system.classification.intermediates, firstItems, locked,
     slack: lp.slack, S: system.S, throughput: lp.throughput,
   })
-  if (pass2.run) {
+  // A split item runs pass 2 when an area that is not connections-first has a residual above the item's noise.
+  const residual = new Map<string, Map<number, number>>()
+  let splitRun = false
+  for (const o of lp.split.outside) {
+    if (o.slack <= FLOW_TOLERANCE) continue
+    const m = residual.get(o.itemId) ?? new Map<number, number>()
+    m.set(o.area, o.slack)
+    residual.set(o.itemId, m)
+    if (totalCaps.has(o.itemId) && !isFirst(o.area, o.itemId)
+      && o.slack > surplusTolerance(itemGrossFlow(system.S.get(o.itemId), lp.throughput))) splitRun = true
+  }
+  if (pass2.run || splitRun) {
     lp = solveAreaLP(
       system, columns, pinnedRates, bcColumns, pass2.noImport,
-      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst,
+      new Map([...firstCaps, ...pass2.caps]), firstItems, byproductsFirst, splitSpecs(residual),
     )
   }
 
@@ -631,7 +1049,7 @@ export function solveAreaBlock(
     .map(d => ({ areaId: areas[d.area].id, itemId: d.itemId, rate: d.rate }))
   if (shortfalls.length > 0) warnings.push({ type: 'area-shortfall', shortfalls })
 
-  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn)
+  const flows = areaFlows(system, columns, throughput, areas, lp.dedicatedIn, lp.split, splitItems, pairItems)
   return {
     result: {
       nodes,

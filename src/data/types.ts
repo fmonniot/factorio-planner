@@ -107,6 +107,8 @@ export interface AreaRoute {
   from?: string
   to?: string
   rate: number
+  /** SPIKE (phase 5, T2): on an outside leg of a split item, the part of it that is connected supply */
+  supplied?: number
 }
 
 export interface SolverResult {
