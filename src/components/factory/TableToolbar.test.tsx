@@ -22,8 +22,8 @@ function planWithRecipes(count: number): SubPlan {
   return { ...plan, nodes: Array.from({ length: count }, () => makeRecipeNode('iron-plate')) }
 }
 
-function filterProps(over: Partial<{ query: string; onQueryChange: (q: string) => void; hidden: number; total: number }> = {}) {
-  return { query: '', onQueryChange: vi.fn(), hidden: 0, total: 0, ...over }
+function filterProps(over: Partial<{ query: string; onQueryChange: (q: string) => void }> = {}) {
+  return { query: '', onQueryChange: vi.fn(), ...over }
 }
 
 describe('TableToolbar', () => {
@@ -90,16 +90,16 @@ describe('TableToolbar', () => {
       expect(field()).toHaveValue('iron')
     })
 
-    it('reports the hidden rows while a query is set, and nothing without one', () => {
-      const { unmount } = renderWith(filterProps({ query: 'x', hidden: 3, total: 10 }))
-      expect(screen.getByTestId('table-filter-status')).toHaveTextContent('3 of 10 rows hidden')
+    it('shows the Clear button only while a query is set', () => {
+      const { unmount } = renderWith(filterProps({ query: 'x' }))
+      expect(screen.getByRole('button', { name: 'Clear filter' })).toBeInTheDocument()
       unmount()
-      renderWith(filterProps({ query: '', hidden: 3, total: 10 }))
-      expect(screen.queryByTestId('table-filter-status')).toBeNull()
+      renderWith(filterProps({ query: '' }))
+      expect(screen.queryByRole('button', { name: 'Clear filter' })).toBeNull()
     })
 
     it('clears the query from the Clear button', () => {
-      const filter = filterProps({ query: 'x', hidden: 1, total: 2 })
+      const filter = filterProps({ query: 'x' })
       renderWith(filter)
       fireEvent.click(screen.getByRole('button', { name: 'Clear filter' }))
       expect(filter.onQueryChange).toHaveBeenCalledWith('')

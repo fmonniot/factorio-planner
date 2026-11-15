@@ -146,7 +146,7 @@ export function ProductionTable() {
     <div className="flex flex-1 min-h-0 min-w-0 bg-gray-900">
       <div className="flex flex-col flex-1 min-h-0 min-w-0 bg-gray-900">
         <TableToolbar rootPlan={rootPlan} solvedNodes={solverResult?.nodes ?? []} onAddRecipe={() => setPicker({})}
-          filter={{ query, onQueryChange: setQuery, hidden: filter?.hidden ?? 0, total: filter?.total ?? 0 }}
+          filter={{ query, onQueryChange: setQuery }}
         />
         {/* Scrollable table body */}
         {/* container-type also applies layout containment: a position:fixed descendant would be placed against (and clipped by)
