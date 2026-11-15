@@ -50,6 +50,18 @@ describe('buildServed', () => {
     expect(d.notCredited).toBeUndefined()
   })
 
+  it('reports groupInListOrder on takes from takeInfo, never on requests', () => {
+    const served = buildServed(
+      [flow({ connectionId: 'c1', toBlockId: 'B', kind: 'take', rate: 0 }), flow({ connectionId: 'c2', toBlockId: 'C' }), flow({ connectionId: 'c3', toBlockId: 'D', kind: 'take' })],
+      [block('A')], shareOf, none, undefined,
+      { needs: new Map(), uncredited: new Set(['c1']), inListOrder: new Set(['c1', 'c2']) },
+    )
+    const [b, c, d] = served.A.plate.consumers
+    expect(b).toMatchObject({ notCredited: true, groupInListOrder: true })
+    expect(c, 'a request never carries it').not.toHaveProperty('groupInListOrder')
+    expect(d, 'a take outside the set does not').not.toHaveProperty('groupInListOrder')
+  })
+
   it('leaves need and notCredited absent without takeInfo', () => {
     const served = buildServed([flow({ kind: 'take' })], [block('A')], shareOf, none)
     expect(served.A.plate.consumers[0]).not.toHaveProperty('need')

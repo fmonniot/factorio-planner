@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Block, ServedEntry } from '../data/types'
-import { grantByRank, rankedPairs, servedRankOf, type RankedEntry } from './servedRank'
+import { grantByRank, rankedPairs, servedRankOf, waterFill, type RankedEntry } from './servedRank'
 
 const blk = (blockId: string): ServedEntry => ({ kind: 'block', blockId })
 const extra: ServedEntry = { kind: 'extra' }
@@ -399,5 +399,22 @@ describe('servedRankOf', () => {
     expect(servedRankOf([b('B'), { kind: 'extra' }, b('C')])).toEqual({ blockIds: ['B', 'C'], extraPlace: 1 })
     expect(servedRankOf([b('B'), b('C')])).toEqual({ blockIds: ['B', 'C'], extraPlace: 2 })
     expect(servedRankOf([{ kind: 'extra' }, b('B')])).toEqual({ blockIds: ['B'], extraPlace: 0 })
+  })
+})
+
+describe('waterFill', () => {
+  it.each([
+    ['W1', 30, [10, 25], undefined, [10, 20]],
+    ['W2', 30, [20, 25], [20, 80], [6, 24]],
+    ['W3', 30, [20, 12], undefined, [18, 12]],
+    ['W4', 25, [30, 10], undefined, [15, 10]],
+    ['W5', 100, [10, 20], undefined, [10, 20]],
+    ['W6', 0, [5, 5], undefined, [0, 0]],
+    ['W7', 30, [0, 25], undefined, [0, 25]],
+    ['W8', 30, [25, 20], [1, 2], [10, 20]],
+  ] as Array<[string, number, number[], number[] | undefined, number[]]>)('%s: waterFill(%d, %j, %j) = %j', (_name, room, shares, weights, want) => {
+    const got = waterFill(room, shares, weights)
+    expect(got).toHaveLength(want.length)
+    want.forEach((w, i) => expect(got[i], `member ${i}`).toBeCloseTo(w, 9))
   })
 })

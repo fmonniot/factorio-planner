@@ -43,14 +43,19 @@ function withFlags(e: ServedEntry, tied: boolean, share: number | undefined): Se
 /** A share the model reads: finite and positive. */
 export const validShare = (share: number | undefined): share is number => share !== undefined && Number.isFinite(share) && share > 0
 
-/** The groups of a list: a line plus the `tied` lines under it. The first line never counts as tied. */
-export function servedGroups(list: readonly ServedEntry[]): ServedEntry[][] {
-  const groups: ServedEntry[][] = []
+/** [start, end) of each group of a list: a line plus the `tied` lines under it. The first line is a head whatever it says. */
+export function servedGroupSpans(list: readonly { tied?: boolean }[]): [number, number][] {
+  const spans: [number, number][] = []
   list.forEach((e, i) => {
-    if (i === 0 || e.tied !== true) groups.push([e])
-    else groups[groups.length - 1].push(e)
+    if (i === 0 || e.tied !== true) spans.push([i, i + 1])
+    else spans[spans.length - 1][1] = i + 1
   })
-  return groups
+  return spans
+}
+
+/** The groups of a list: a line plus the `tied` lines under it. The first line never counts as tied. */
+export function servedGroups<E extends { tied?: boolean }>(list: readonly E[]): E[][] {
+  return servedGroupSpans(list).map(([start, end]) => list.slice(start, end))
 }
 
 /** Index of the group each entry of `list` belongs to. */

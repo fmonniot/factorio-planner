@@ -873,6 +873,7 @@ interface ServedConsumer {
   areaId?: string               // set when this line is one area of the consumer block (the block's areas that need the item, ≥ 2, or an area entry of the list); then share, got and need are this area's part. Absent: the line is the whole block
   need?: number                 // items/min of the consumer's need still uncovered when the request pass reached this take; only for a take the pass reached
   notCredited?: true            // a listed or takes-first take the request pass reached before it could credit it: `share` is 0 whatever the list says
+  groupInListOrder?: true       // a member of a group of takes the request pass could not share by need (a need, the source or the ranks above not known in time, a member whose group take is not its first of the item, or a consumer of the pair in a cycle of requests): credited and served in list order, not by weights
 }
 
 interface ServedExtra {

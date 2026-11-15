@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   canonicalServedList, dropServedEntries, equalServedEntry, groupPercents, isCanonicalServedList,
-  isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedGroups, servedListOf, takesFrom,
+  isServedConsumer, remapServedOrder, sameServedEntry, sameServedList, servedEntryKey, servedGroups, servedGroupSpans, servedListOf, takesFrom,
   withoutServedConsumer, withServedEntryInserted, withServedEntryPlaced, withServedList, withServedShare, withServedTied,
 } from './servedEntries'
 import type { Block, ServedEntry } from './types'
@@ -158,6 +158,18 @@ describe('servedGroups', () => {
   })
   it('groups the extra', () => {
     expect(servedGroups([e('A'), xt(T)])).toEqual([[e('A'), xt(T)]])
+  })
+})
+
+describe('servedGroupSpans', () => {
+  it('gives [start, end) of each group', () => {
+    expect(servedGroupSpans([e('A'), e('B', T), e('C'), e('D', T), e('E', T)])).toEqual([[0, 2], [2, 5]])
+  })
+  it('reads a tied first line as a head', () => {
+    expect(servedGroupSpans([e('A', T), e('B')])).toEqual([[0, 1], [1, 2]])
+  })
+  it('gives nothing for an empty list', () => {
+    expect(servedGroupSpans([])).toEqual([])
   })
 })
 

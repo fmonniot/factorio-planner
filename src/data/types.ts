@@ -177,6 +177,8 @@ export interface ServedConsumer {
   need?: number
   /** A listed or takes-first take the request pass reached before it could credit it (its source or a higher-ranked take not processed yet, or the source in the same cycle of requests): `share` is 0 whatever the list says. */
   notCredited?: true
+  /** A member of a group of takes the request pass could not share by need (a member's need, its source or the ranks above were not known when the group was reached, a member's group take is not its first take of the item, or the source's item also feeds a member of a cycle of requests): the group was credited and served in list order, not by its weights. */
+  groupInListOrder?: true
 }
 
 /** The source block's own extra output of the item, and where it was served. */
