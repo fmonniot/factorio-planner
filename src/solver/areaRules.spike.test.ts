@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { resolve } from 'node:path'
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, vi } from 'vitest'
+import solver from 'javascript-lp-solver'
 import { flattenBlock, solveAll, solveBlock } from './index'
 import { areaSpike, type AreaSourceRule } from './areas'
 import { exactKey } from './solveCache'
@@ -305,10 +306,34 @@ describe('a short offer in pass 2 (two areas with residuals, offer 5 below 12 + 
     ['L: Import off (split by D11)', { L: { [PLATE]: { importOff: true } } }, 'rules'],
     ['L and B Receive it first, B Import off (both in pass 1)', { L: { [PLATE]: { makeHere: 'after-blocks' } }, B: { [PLATE]: { makeHere: 'after-blocks', importOff: true } } }, 'rules'],
   ]
+  // L ruled alone, B with a residual of 8 above the offer 5: L's hard row is dropped in pass 2 (as `pass2Plan` does
+  // for a block), so table order decides. Characterisation of the design, not a case-21 row.
+  for (const order of [['L', 'B'], ['B', 'L']]) {
+    it(`L Receive it first alone, ${order.join(' above ')}: the offer is below B's residual, table order decides`, () => {
+      const { result } = solveTies(order, { L: { [PLATE]: { makeHere: 'after-blocks' } } }, 'rules', true)
+      const supplied = (result.areaRoutes ?? []).filter(r => r.itemId === PLATE && (r.supplied ?? 0) > 0)
+      expect(supplied.map(r => r.to)).toEqual([order[0]])
+    })
+  }
+  // Row e as case 21 has it (B makes its own plate: no residual), with L above and below B.
+  for (const order of [['L', 'B'], ['B', 'L']]) {
+    it(`row e, ${order.join(' above ')}: L Receive it first gets the offer 5, whatever the table order`, () => {
+      const mk = (id: string, pin: number) => subPlan(id, [row('case13-use-plate', id, { pinnedRate: pin }), row('case13-make-plate', id)], [], true)
+      const areas: Record<string, SubPlan> = { L: mk('L', 12), B: mk('B', 8) }
+      const b = block(subPlan('root', [], order.map(id => areas[id])), [['case13-gear', 20]], {}, [PLATE])
+      const { result, received } = solveBlock(withRules(b, { L: { [PLATE]: { makeHere: 'after-blocks' } } }), makeGameData(), new Map([[PLATE, 5]]))
+      expect(received.get(PLATE)).toBeCloseTo(5, 6)
+      expect(rate(result, 'case13-make-plate@L')).toBeCloseTo(7, 6)
+      expect(rate(result, 'case13-make-plate@B')).toBeCloseTo(8, 6)
+      const supplied = (result.areaRoutes ?? []).filter(r => r.itemId === PLATE && (r.supplied ?? 0) > 0)
+      expect(supplied.map(r => r.to)).toEqual(['L'])
+    })
+  }
   for (const [name, rules, split] of variants) {
     for (const order of [['L', 'B'], ['B', 'L']]) {
       for (const supplyRank of [true, false]) {
-        it(`${name}, ${order.join(' above ')}, rank cost ${supplyRank ? 'on' : 'off'}: the area higher in the table gets it`, () => {
+        // Rank cost off is characterisation only: the result then follows the simplex's variable order, not a rule.
+        it(`${name}, ${order.join(' above ')}, rank cost ${supplyRank ? 'on' : 'off (characterisation of the simplex order)'}: the area higher in the table gets it`, () => {
           const { result, received } = solveTies(order, rules, split, supplyRank)
           expect(received.get(PLATE)).toBeCloseTo(5, 6)
           const supplied = (result.areaRoutes ?? []).filter(r => r.itemId === PLATE && (r.supplied ?? 0) > 0)
@@ -376,4 +401,123 @@ describe('an area that switched off every supplier and Import, with no row of it
     expect(rate(result, 'case13-use-plate@L')).toBeCloseTo(0, 6)
     expect(rate(result, 'case13-make-plate@M1') + rate(result, 'case13-make-plate@M2')).toBeCloseTo(0, 6)
   })
+})
+
+// ---------------------------------------------------------------------------
+// Pairing of senders and receivers when part of an item leaves the block (review finding).
+// ---------------------------------------------------------------------------
+
+describe('routes of an item when a surplus leaves the block', () => {
+  // Senders make plate (pinned), receivers use it (pinned); the senders' sum exceeds the receivers'.
+  function blockSurplus(senders: number[], receivers: number[], perSender: number, perReceiver: number): Block {
+    const ss = senders.map(i => subPlan(`S${i}`, [row('case13-make-plate', `S${i}`, { pinnedRate: perSender })], [], true))
+    const rs = receivers.map(i => subPlan(`R${i}`, [row('case13-use-plate', `R${i}`, { pinnedRate: perReceiver })], [], true))
+    return block(subPlan('root', [], [...ss, ...rs]), [['case13-gear', perReceiver * receivers.length]], {}, [])
+  }
+  const run = (mode: typeof areaSpike.split, b: Block) => {
+    const before = { ...areaSpike }
+    areaSpike.split = mode
+    try {
+      return routesOf(solveBlock(flattenBlock(b), makeGameData()).result, PLATE).map(r => ({ ...r, rate: Math.round(r.rate * 1e6) / 1e6 }))
+    } finally {
+      Object.assign(areaSpike, before)
+    }
+  }
+  const scenarios: Array<[string, number[], number[], number, number]> = [
+    ['2 senders, 2 receivers', [0, 1], [0, 1], 10, 7],
+    ['3 senders, 3 receivers', [0, 1, 2], [0, 1, 2], 10, 7],
+    ['5 senders, 5 receivers', [0, 1, 2, 3, 4], [0, 1, 2, 3, 4], 10, 7],
+    ['3 senders, 2 receivers', [0, 1, 2], [0, 1], 10, 7],
+  ]
+  for (const [name, s, r, ps, pr] of scenarios) {
+    it(`${name}: forced split pairs as today`, () => {
+      expect(run('split', blockSurplus(s, r, ps, pr))).toEqual(run('rules', blockSurplus(s, r, ps, pr)))
+    })
+    it(`${name}: forced pairs pairs as today`, () => {
+      expect(run('pairs', blockSurplus(s, r, ps, pr))).toEqual(run('rules', blockSurplus(s, r, ps, pr)))
+    })
+  }
+  it('2 senders, 2 receivers: today pairs S0>R0 7, S0>R1 3, S1>R1 4, S1>outside 6', () => {
+    expect(run('rules', blockSurplus([0, 1], [0, 1], 10, 7))).toEqual([
+      { from: 'S0', to: 'R0', rate: 7 }, { from: 'S0', to: 'R1', rate: 3 }, { from: 'S1', to: 'R1', rate: 4 }, { from: 'S1', to: undefined, rate: 6 },
+    ])
+  })
+})
+
+describe('the supply rank tie-break with many areas', () => {
+  // Z (index 1) makes 12 plate that nothing uses; L, 12 areas further down, uses 12 and Receives it first.
+  // The offer must be taken whatever L's rank: the tie-break stays below taking Z's surplus.
+  it('a late area (index 12) is supplied rather than taking another area\'s surplus', () => {
+    const fillers = Array.from({ length: 11 }, (_, i) => subPlan(`F${i}`, [row('case13-use-plate', `F${i}`, { pinnedRate: 0 })], [], true))
+    const z = subPlan('Z', [row('case13-make-plate', 'Z', { pinnedRate: 12 })], [], true)
+    const l = subPlan('L', [row('case13-use-plate', 'L', { pinnedRate: 12 }), row('case13-make-plate', 'L')], [], true)
+    const b = block(subPlan('root', [], [z, ...fillers, l]), [['case13-gear', 12]], {}, [PLATE])
+    const rules = { L: { [PLATE]: { makeHere: 'after-blocks' } as AreaSourceRule } }
+    const { result } = solveBlock(withRules(b, rules), makeGameData(), new Map([[PLATE, 100]]))
+    const into = (result.areaRoutes ?? []).filter(r => r.itemId === PLATE && r.to === 'L')
+    expect(into.map(r => r.from), 'L takes the offer, not Z').toEqual([undefined])
+    expect(into[0].supplied).toBeCloseTo(12, 6)
+  })
+})
+
+describe('an area that is a net sender and has a rule (review finding)', () => {
+  // L makes 10 plate (pinned) and uses 4, Receive it first with an offer: L's net is a send of 6, and the
+  // outside leg into L must not exist or must be balanced by what leaves it.
+  it('Receive it first on a net sender: no unbalanced outside leg', () => {
+    const l = subPlan('L', [row('case13-use-plate', 'L', { pinnedRate: 4 }), row('case13-make-plate', 'L', { pinnedRate: 10 })], [], true)
+    const m = subPlan('M', [row('case13-use-plate', 'M', { pinnedRate: 3 })], [], true)
+    const b = block(subPlan('root', [], [l, m]), [['case13-gear', 7]], {}, [PLATE])
+    const rules = { L: { [PLATE]: { makeHere: 'after-blocks' } as AreaSourceRule } }
+    const { result } = solveBlock(withRules(b, rules), makeGameData(), new Map([[PLATE, 100]]))
+    const legs = routesOf(result, PLATE)
+    const into = (to: string | undefined) => legs.filter(r => r.to === to).reduce((x, r) => x + r.rate, 0)
+    const out = (from: string | undefined) => legs.filter(r => r.from === from).reduce((x, r) => x + r.rate, 0)
+    // every area's legs balance against its rows' net: L +6, M -3, the surplus 3 leaves
+    expect(out('L') - into('L')).toBeCloseTo(6, 6)
+    expect(into('M') - out('M')).toBeCloseTo(3, 6)
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Question 5: LP calls and time. Opt-in: `AREA_BENCH=1 npx vitest run src/solver/areaRules.spike.test.ts -t bench`
+// prints the table of the T2 report (medians of 15 solves; times depend on the machine). The calls are asserted always.
+// ---------------------------------------------------------------------------
+
+describe('bench: LP calls and time of the split shapes', () => {
+  // `n` areas, each making 3 of the `n` items, an assembler row in the root using all of them (every item touched by every area).
+  function benchData(n: number): GameData {
+    const data = makeGameData()
+    for (let i = 0; i < n; i++) data.recipes[`b-make${i}`] = recipe(`b-make${i}`, [['b-ore', 1]], [[`b-i${i}`, 1]])
+    data.recipes['b-asm'] = recipe('b-asm', Array.from({ length: n }, (_, i): [string, number] => [`b-i${i}`, 1]), [['b-goal', 1]])
+    return data
+  }
+  function benchBlock(n: number): Block {
+    const areas = Array.from({ length: n }, (_, a) =>
+      subPlan(`A${a}`, [0, 1, 2].map(k => row(`b-make${(a + k) % n}`, `A${a}`)), [], true))
+    return block(subPlan('root', [row('b-asm', 'root')], areas), [['b-goal', 10]], {}, [])
+  }
+  const calls = (mode: typeof areaSpike.split, n: number) => {
+    const before = { ...areaSpike }
+    areaSpike.split = mode
+    const spy = vi.spyOn(solver, 'Solve')
+    try {
+      const t: number[] = []
+      for (let i = 0; i < 15; i++) {
+        const t0 = performance.now()
+        solveBlock(flattenBlock(benchBlock(n)), benchData(n))
+        t.push(performance.now() - t0)
+      }
+      return { calls: spy.mock.calls.length / 15, ms: t.sort((x, y) => x - y)[7] }
+    } finally {
+      spy.mockRestore()
+      Object.assign(areaSpike, before)
+    }
+  }
+  for (const n of [10, 20]) {
+    it(`${n} areas: the same number of LP calls in every mode`, () => {
+      const rows = (['rules', 'split', 'pairs'] as const).map(m => ({ m, ...calls(m, n) }))
+      if (process.env.AREA_BENCH) process.stdout.write(`bench ${n} areas: ${rows.map(r => `${r.m} ${r.calls} calls ${r.ms.toFixed(1)} ms`).join(" | ")}\n`)
+      expect(new Set(rows.map(r => r.calls)).size, 'LP calls per solve').toBe(1)
+    })
+  }
 })

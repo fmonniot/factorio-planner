@@ -68,6 +68,8 @@ export const areaSpike: { split: 'rules' | 'split' | 'pairs'; supplyRank: boolea
 }
 
 function readSplitMode(): 'rules' | 'split' | 'pairs' {
+  // Never in a production build: the variable only forces the shape in a dev server or a test run.
+  if (import.meta.env?.MODE === 'production') return 'rules'
   const v: unknown = import.meta.env?.VITE_AREA_SPLIT
   return v === 'split' || v === 'pairs' ? v : 'rules'
 }
@@ -393,6 +395,7 @@ function solveAreaLPOnce(
     const specOf = new Map(spec.areas.map(a => [a.area, a]))
 
     const info: { area: number; row: string; i: number; hasDedicated: boolean; hasOther: boolean }[] = []
+    const supplyN = pairTieN([...byArea.keys()])
     for (const area of [...byArea.keys()].sort((a, b) => a - b)) {
       const cols = byArea.get(area)!
       const i = k++
@@ -411,7 +414,8 @@ function solveAreaLPOnce(
       }
       if (sa?.supplyCap !== undefined && tmplName && spec.offer > 0) {
         names.supply = `au${i}`
-        const tie = areaSpike.supplyRank ? SHIP_COST * RANK_STEP * area : 0
+        // Below half a shipped unit whatever the number of areas, so it never outweighs taking another area's surplus.
+        const tie = areaSpike.supplyRank ? SHIP_COST * area / (2 * supplyN) : 0
         const u: Record<string, number> = { ...rows, __obj__: 0, __s2: tie, [row]: 1 }
         if (constraints[offerRow]) u[offerRow] = 1
         if (Number.isFinite(sa.supplyCap)) {
@@ -482,7 +486,7 @@ function solveAreaLPOnce(
       // What leaves the block from this area (a goal, a surplus): costed like a unit sent today.
       if (from.hasDedicated || from.hasOther) {
         const sink = `sk${from.i}`
-        variables[sink] = { __s2: rankOf(from.area), [from.row]: -1 }
+        variables[sink] = { __s2: 0, [from.row]: -1 }
         pairNames.push({ itemId, from: from.area, names: [sink] })
       }
       for (const to of info) {
@@ -669,17 +673,17 @@ function splitPlan(plan: SolverPlan, areas: SolverArea[], columns: Column[], sys
 } {
   const ruleOf = (a: number, itemId: string): AreaSourceRule => areas[a].rules?.[itemId] ?? plan.sourceRules?.[itemId] ?? {}
   const touching = new Map<string, number[]>()
-  const { goals, intermediates } = system.classification
-  for (const itemId of [...goals.keys(), ...intermediates]) {
-    const set = new Set<number>()
-    for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) !== 0) set.add(col.area)
-    touching.set(itemId, [...set].sort((a, b) => a - b))
-  }
   const splitItems = new Set<string>()
   const pairItems = new Set<string>()
   const anyRule = areas.some(a => a.rules !== undefined && Object.keys(a.rules).length > 0)
   if (!anyRule && areaSpike.split === 'rules') {
     return { splitItems, pairItems, effective: plan.sourceRules, ruleOf, touching }
+  }
+  const { goals, intermediates } = system.classification
+  for (const itemId of [...goals.keys(), ...intermediates]) {
+    const set = new Set<number>()
+    for (const col of columns) if ((system.S.get(itemId)?.get(col.id) ?? 0) !== 0) set.add(col.area)
+    touching.set(itemId, [...set].sort((a, b) => a - b))
   }
   const same = (x: SourceRule, y: SourceRule) => (x.makeHere ?? '') === (y.makeHere ?? '') && (x.importOff === true) === (y.importOff === true)
   const effective: Record<string, SourceRule> = { ...plan.sourceRules }
